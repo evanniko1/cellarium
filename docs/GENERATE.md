@@ -9,21 +9,24 @@ summary channels) is the shareable, mergeable corpus.
 > bundles no model code; any Docker image below is built from *your* checkout and **never published**.
 
 ## One-time setup
-1. Obtain the model (`git clone https://github.com/CovertLab/wcEcoli`) under its Stanford academic license.
-   It needs a Cython/aesara env, so **Docker is easiest** — build a LOCAL image from the model's own
-   `docker/local` Dockerfile (do not push it).
-2. Point Cellarium at your checkout:
+1. Obtain the model (`git clone https://github.com/CovertLab/wcEcoli`) under its Stanford academic license,
+   and build a **LOCAL** image from its own Dockerfile (model + compiled Cython baked in; **never push it**):
    ```bash
-   export WCECOLI_DIR=/path/to/wcEcoli
-   export WCECOLI_DOCKER=wcecoli-local   # optional: your locally-built model image (recommended)
-   export WCECOLI_PY=python              # used only when WCECOLI_DOCKER is unset (native run)
-   export CELLARIUM_OUT=runs
+   cd /path/to/wcEcoli && docker build -t wcecoli-sim -f docker/local/Dockerfile .
+   docker images | grep wcecoli-sim        # confirm the tag
    ```
-   With `WCECOLI_DOCKER` set, the runner bind-mounts your checkout into the image
-   (`docker run -v $WCECOLI_DIR:/wcEcoli …`) — the model stays in your checkout, never inside a shipped image.
-3. Build parameters once (cached by the model):
+2. Point Cellarium at the image + a host output dir:
    ```bash
-   python -m cellarium.runner   # runs ParCa via your native env or your local Docker image
+   export WCECOLI_DOCKER=wcecoli-sim       # the local model image (recommended path)
+   export CELLARIUM_OUT=$(pwd)/runs        # host dir where simOut + sim_data land
+   # native fallback instead of Docker: unset WCECOLI_DOCKER and set WCECOLI_DIR + WCECOLI_PY
+   ```
+   The runner mounts **only the output** (`docker run -v $CELLARIUM_OUT:/wcEcoli/out -e PYTHONPATH=/wcEcoli
+   -w /wcEcoli wcecoli-sim python …`). It does **not** mount the checkout over `/wcEcoli` — that would shadow
+   the compiled model. The model stays inside your local image; nothing is redistributed.
+3. Build parameters once (cached under `$CELLARIUM_OUT/cellarium/kb`):
+   ```bash
+   python -m cellarium.runner
    ```
 
 ## Run a campaign

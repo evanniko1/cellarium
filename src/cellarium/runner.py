@@ -31,26 +31,34 @@ def _variant_args(design: Design) -> list[str]:
     return ["--variant", design.perturbation, idx, idx]
 
 
+def _out_root(sim_path: str) -> Path:
+    """Where the model's out/<sim_path> lands on the host (a mounted dir in Docker; the checkout natively)."""
+    return (OUT_ROOT if WCECOLI_DOCKER else Path(WCECOLI_DIR) / "out") / sim_path
+
+
 def _exec(script_args: list[str]) -> None:
     """Run a model script (e.g. ['runscripts/manual/runSim.py', ...]).
 
-    Native mode runs it in-place in WCECOLI_DIR. Docker mode bind-mounts the (licensed) checkout into a
-    LOCAL image and runs there — the model is never baked into or shipped inside any image, so nothing is
-    redistributed. `out/` is written back to the host through the same bind mount.
+    Docker mode (WCECOLI_DOCKER set) uses the LOCAL model image — the model + compiled Cython are baked in
+    at /wcEcoli. Mount ONLY the host output dir to /wcEcoli/out; do NOT mount the checkout over /wcEcoli
+    (that shadows the compiled model). The image is built from your checkout and never published, so nothing
+    is redistributed. Native mode runs in WCECOLI_DIR with your interpreter. Pattern mirrors the model's
+    standard invocation (bind output, PYTHONPATH=/wcEcoli, -w /wcEcoli).
     """
-    if not WCECOLI_DIR:
-        raise RuntimeError("Set WCECOLI_DIR to your separately-obtained, Stanford-licensed wcEcoli checkout "
-                           "(see docs/GENERATE.md).")
     if WCECOLI_DOCKER:
-        cmd = ["docker", "run", "--rm", "-v", f"{WCECOLI_DIR}:/wcEcoli", "-w", "/wcEcoli",
-               WCECOLI_DOCKER, "python", *script_args]
+        OUT_ROOT.mkdir(parents=True, exist_ok=True)
+        cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
+               "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
         subprocess.run(cmd, check=True)
-    else:
-        subprocess.run([PY, *script_args], cwd=WCECOLI_DIR, check=True)
+        return
+    if not WCECOLI_DIR:
+        raise RuntimeError("Set WCECOLI_DOCKER (local model image) or WCECOLI_DIR (native checkout). "
+                           "See docs/GENERATE.md.")
+    subprocess.run([PY, *script_args], cwd=WCECOLI_DIR, check=True)
 
 
 def ensure_parca(sim_path: str = "cellarium") -> None:
-    """Run ParCa once to build sim_data (cached by the model under out/<sim_path>/)."""
+    """Run ParCa once; sim_data is cached under out/<sim_path>/kb (persisted to the host output dir)."""
     _exec(["runscripts/manual/runParca.py", sim_path])
 
 
@@ -61,10 +69,9 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         raise ValueError(f"Refusing out-of-envelope design: {v.reason}")
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
-    # The model writes under WCECOLI_DIR/out/<sim_path>/... ; the manifest step locates the simOut dirs.
-    return Path(WCECOLI_DIR) / "out" / sim_path
+    return _out_root(sim_path)
 
 
 if __name__ == "__main__":  # `python -m cellarium.runner` -> run ParCa once (cached)
     ensure_parca()
-    print("ParCa complete (sim_data cached under $WCECOLI_DIR/out/cellarium/).")
+    print(f"ParCa complete (sim_data cached under {_out_root('cellarium')}/kb).")
