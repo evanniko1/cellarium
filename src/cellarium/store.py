@@ -35,7 +35,9 @@ def _duck(sql: str, params: list | None = None) -> list[dict]:
 
 def list_results() -> list[dict]:
     if has_manifest():
-        return _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable FROM {_FROM}")
+        # dedup: one row per run (latest ts wins) so re-indexed/duplicate shards don't double-count
+        return _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable FROM {_FROM} "
+                     f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1")
     return [{"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
              "condition": r.design.condition, "timeline": r.design.timeline,
              "seed": r.design.seeds, "qc": "ok", "reportable": True} for r in _json.list()]

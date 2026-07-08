@@ -48,12 +48,15 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
     return row
 
 
-def append_shard(rows: list[dict]) -> Path:
+def append_shard(rows: list[dict], name: str | None = None) -> Path:
     import pyarrow as pa
     import pyarrow.parquet as pq
 
+    if not rows:
+        raise RuntimeError("nothing to write (no rows)")
     MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
-    shard = MANIFEST_DIR / f"{getpass.getuser()}-{int(time.time())}-{uuid.uuid4().hex[:6]}.parquet"
+    fname = f"{name}.parquet" if name else f"{getpass.getuser()}-{int(time.time())}-{uuid.uuid4().hex[:6]}.parquet"
+    shard = MANIFEST_DIR / fname
     pq.write_table(pa.Table.from_pylist(rows), shard)
     return shard
 
@@ -120,13 +123,18 @@ def _design_from_dir(run_root: Path) -> tuple[Design, int]:
 
 
 def record_existing(sim_path: str = "cellarium") -> Path:
-    """Index runs ALREADY on disk into a manifest shard — no re-simulation (one container read each)."""
+    """Index runs ALREADY on disk into a manifest shard — no re-simulation (one container read each).
+
+    Idempotent: writes to a fixed per-contributor shard (overwritten each call), so repeated re-indexing
+    doesn't pile up files; read-time dedup handles any remaining overlap with campaign shards.
+    """
     rows: list[dict] = []
     for run_root in _discover_runs(sim_path):
         design, seed = _design_from_dir(run_root)
-        rec = build_record(run_root, design, seed)
-        rows.append(_flat_row(rec, seed, run_root))
-    return append_shard(rows)
+        rows.append(_flat_row(build_record(run_root, design, seed), seed, run_root))
+    if not rows:
+        raise RuntimeError(f"no existing runs found under {runner._out_root(sim_path)}")
+    return append_shard(rows, name=f"{getpass.getuser()}-index")
 
 
 if __name__ == "__main__":  # `python -m cellarium.manifest` -> index existing runs without re-simulating
