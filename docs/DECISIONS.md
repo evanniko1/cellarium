@@ -17,6 +17,19 @@ either contributor can deep-query the other's runs. Decide: which subset, tensor
 that **"The Well, for the Cell"** needs — so whatever we choose here should slot into that dataset work
 (reproducible shards, checksummed manifests, leakage-free splits). Treat this as the seed of that pipeline.
 
+## D3 — Model licensing & data distribution (constraint, not deferred)
+The whole-cell *E. coli* model is under the **Stanford Academic Software License (Docket S18-475)** —
+**not** open source: non-commercial academic use only; the Software and its derivatives may not be
+redistributed without Stanford's written permission (§§5, 6, 8, 11). Consequences for Cellarium:
+- **Do** use it for non-commercial academic research (running sims locally) and **do** publish results
+  (papers/figures + the data behind them) *with acknowledgment* (§12 anticipates this) — low risk.
+- **Do NOT** bundle/vendor/redistribute the model. Cellarium points at a user-obtained checkout; any Docker
+  image is built locally from that checkout and **never published**.
+- **Distributing a large standalone simulation dataset publicly** (e.g. "The Well, for the Cell") is the one
+  action that **requires Stanford's written permission** — the license's own mechanism. This is a
+  grant/dataset-level action, **not a hackathon blocker** (the hackathon submits code + a local demo; the
+  corpus stays local). Track alongside D1. (Not legal advice.)
+
 ## D2 — Curated species panel for the manifest (deferred)
 The manifest stores summary stats for a curated panel of high-interest species (TFs, key enzymes,
 ribosomes, ppGpp, stress/AMR set). **Contents deferred until we have real simulation results** to see which

@@ -15,8 +15,11 @@ number tied to real simulation output, never fabricated — with two guardrails 
   of laundering it into a clean-looking number.
 
 Built for *Built with Claude: Life Sciences* (Builder track). This is a fresh, from-scratch implementation.
-It depends on the **public, open-source** [Covert-lab whole-cell *E. coli* model](https://github.com/CovertLab/WholeCellEcoliRelease)
-as an external model backend — Cellarium is the new agent + guardrail + interface layer around it.
+It runs on the [Covert-lab whole-cell *E. coli* model](https://github.com/CovertLab/wcEcoli) as an external
+backend, which **you obtain separately** under its **Stanford Academic Software License** (non-commercial;
+redistribution requires Stanford's written permission). **Cellarium bundles none of that model** — it is the
+new agent + guardrail + interface layer, and points at your own licensed checkout. See
+[docs/DECISIONS.md](docs/DECISIONS.md) D3 for the licensing/data-distribution constraints.
 
 ## Why it's interesting
 
@@ -60,4 +63,6 @@ and the tool prioritizes and explains experiments rather than certifying outcome
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not**
+MIT: it is under Stanford's academic (non-commercial) license and is obtained/run separately by the user.
+Cellarium redistributes no model code or model-derived data. See [docs/DECISIONS.md](docs/DECISIONS.md) D3.

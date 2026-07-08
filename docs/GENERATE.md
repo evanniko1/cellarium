@@ -4,18 +4,26 @@ Cellarium's *reasoning* is fresh code; the *simulation* is the public Covert mod
 model's own scripts and records a manifest shard. Full `simOut` stays local; the manifest (provenance + QC +
 summary channels) is the shareable, mergeable corpus.
 
+> **License note (docs/DECISIONS.md D3):** the model is under Stanford's **academic, non-commercial**
+> license and is **not** open source. Obtain it yourself, accept that license, and run it locally. Cellarium
+> bundles no model code; any Docker image below is built from *your* checkout and **never published**.
+
 ## One-time setup
-1. Get the **public** model: `git clone https://github.com/CovertLab/WholeCellEcoliRelease` (or use its Docker
-   image — the model needs its Cython/aesara env; Docker is easiest on Windows/Mac).
-2. Point Cellarium at it:
+1. Obtain the model (`git clone https://github.com/CovertLab/wcEcoli`) under its Stanford academic license.
+   It needs a Cython/aesara env, so **Docker is easiest** — build a LOCAL image from the model's own
+   `docker/local` Dockerfile (do not push it).
+2. Point Cellarium at your checkout:
    ```bash
-   export WCECOLI_DIR=/path/to/WholeCellEcoliRelease
-   export WCECOLI_PY=python            # or the interpreter inside the model's Docker
+   export WCECOLI_DIR=/path/to/wcEcoli
+   export WCECOLI_DOCKER=wcecoli-local   # optional: your locally-built model image (recommended)
+   export WCECOLI_PY=python              # used only when WCECOLI_DOCKER is unset (native run)
    export CELLARIUM_OUT=runs
    ```
+   With `WCECOLI_DOCKER` set, the runner bind-mounts your checkout into the image
+   (`docker run -v $WCECOLI_DIR:/wcEcoli …`) — the model stays in your checkout, never inside a shipped image.
 3. Build parameters once (cached by the model):
    ```bash
-   python -m cellarium.runner  # or, inside the model env: python runscripts/manual/runParca.py cellarium
+   python -m cellarium.runner   # runs ParCa via your native env or your local Docker image
    ```
 
 ## Run a campaign
