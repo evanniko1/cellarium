@@ -82,9 +82,15 @@ def _exec(script_args: list[str]) -> None:
     subprocess.run([PY, *script_args], cwd=WCECOLI_DIR, check=True)
 
 
-def ensure_parca(sim_path: str = "cellarium") -> None:
-    """Run ParCa once; sim_data is cached under out/<sim_path>/kb (persisted to the host output dir)."""
-    _exec(["runscripts/manual/runParca.py", sim_path])
+def ensure_parca(sim_path: str = "cellarium", cpus: int | None = None) -> None:
+    """Run ParCa once; sim_data is cached under out/<sim_path>/kb (persisted to the host output dir).
+
+    ParCa's dominant stages (per-TF and per-condition fitting) are multiprocessing-parallel but default to
+    serial (--cpus 1). Pass cpus (default: all host cores) to parallelize — the main lever when re-fitting,
+    e.g. retargeting to a new strain. The container clamps to its available CPUs, so over-requesting is safe.
+    """
+    n = cpus or os.cpu_count() or 1
+    _exec(["runscripts/manual/runParca.py", sim_path, "--cpus", str(n)])
 
 
 def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
@@ -104,6 +110,10 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     return run_root
 
 
-if __name__ == "__main__":  # `python -m cellarium.runner` -> run ParCa once (cached)
-    ensure_parca()
+if __name__ == "__main__":  # `python -m cellarium.runner [--cpus N]` -> run ParCa once (cached)
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Run ParCa once (compile reconstruction -> sim_data, cached).")
+    ap.add_argument("--cpus", type=int, default=None, help="parallel fitting processes (default: all cores)")
+    ensure_parca(cpus=ap.parse_args().cpus)
     print(f"ParCa complete (sim_data cached under {_out_root('cellarium')}/kb).")
