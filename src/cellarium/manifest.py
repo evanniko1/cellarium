@@ -55,13 +55,24 @@ def append_shard(rows: list[dict]) -> Path:
 
 
 def campaign(designs: list[Design], seeds: list[int], generations: int = 1) -> Path:
-    """Run an in-envelope design x seed matrix on the public model and append a manifest shard."""
+    """Run an in-envelope design x seed matrix on the public model and append a manifest shard.
+
+    Sequential, but crash-isolated: a failed sim is logged and skipped (never kills the batch), and the
+    shard is written for whatever completed — so a long unattended run always leaves a usable corpus.
+    """
+    jobs = [(d, s) for d in designs for s in seeds]
     rows: list[dict] = []
-    for design in designs:
-        for seed in seeds:
+    for i, (design, seed) in enumerate(jobs, 1):
+        label = f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
+        print(f"[{i}/{len(jobs)}] {label} ...", flush=True)
+        try:
             run_root = runner.run_one(design, seed, generations)
-            rec = build_record(run_root, design, seed)
-            rows.append(_flat_row(rec, seed, run_root))
+            rows.append(_flat_row(build_record(run_root, design, seed), seed, run_root))
+            print(f"[{i}/{len(jobs)}] {label} -> qc={rows[-1]['qc']}", flush=True)
+        except Exception as exc:  # one bad sim must not lose the whole batch
+            print(f"[{i}/{len(jobs)}] {label} FAILED: {exc}", flush=True)
+    if not rows:
+        raise RuntimeError("campaign produced no completed runs")
     return append_shard(rows)
 
 
