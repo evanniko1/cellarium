@@ -48,6 +48,7 @@ After one campaign, check the manifest:
 ```bash
 python -c "import duckdb; print(duckdb.sql(\"select perturbation,condition,seed,qc,growth_rate,ppgpp_conc from read_parquet('data/manifest/*.parquet')\").df())"
 ```
-> First-run note: confirm the listener table/column names in `simout.py` (`SUMMARY_CHANNELS`,
-> `SPECIES_SOURCES`) against your model version's `columnNames()` — they are the public schema but can drift
-> across model releases.
+> First-run note: simOut is read **inside the model image** (`_reader_worker.py`, where `wholecell` lives);
+> the host only consumes its JSON. After your first sim, dump the real listener schema with
+> `python -m cellarium.reader` and confirm the table/column names in `_reader_worker.py`
+> (`SUMMARY_CHANNELS`, `SPECIES_SOURCES`) — they are the public schema but can drift across model releases.

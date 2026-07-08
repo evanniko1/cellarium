@@ -1,8 +1,9 @@
-"""Build shardable Parquet manifest records from simOut, via the public reader + the QC guardrail.
+"""Build shardable Parquet manifest records from simOut, via the container reader + the QC guardrail.
 
 Each contributor writes their own shard (data/manifest/<contributor>-<stamp>.parquet); the corpus is the
 union of shards (concatenation), queried with DuckDB. Full simOut stays local; the manifest carries
 provenance + QC + summary channels (+ a curated species panel, once decided — see docs/DECISIONS.md D2).
+Reading of simOut happens inside the model image (see reader.py / _reader_worker.py).
 """
 
 from __future__ import annotations
@@ -14,55 +15,20 @@ import time
 import uuid
 from pathlib import Path
 
-import numpy as np
-
-from . import qc, runner, simout
+from . import qc, reader, runner
 from .model import Design, GenerationResult, SimResult
 
 MANIFEST_DIR = Path("data/manifest")
-CURATED_PANEL: list[tuple[str, str]] = []  # (kind, species_id) — deferred (DECISIONS.md D2)
-
-
-def _generation(simout_dir: Path, index: int) -> GenerationResult:
-    t = simout.read_time(simout_dir)
-    n = int(t.size)
-    try:
-        fc = simout.full_chromosome_end(simout_dir)
-    except Exception:
-        fc = -1
-    try:
-        fo = simout.read_column(simout_dir, "FBAResults", "objectiveValue").ravel()
-        fba_ok = bool(np.isfinite(fo[-1]) and fo[-1] > 0)
-    except Exception:
-        fba_ok = True
-    divided = fc == 2 and n > qc.DEGENERATE_MAX_STEPS
-    return GenerationResult(index=index, full_chromosome_end=fc, divided=divided,
-                            division_time_sec=float(t[-1]) if divided else None,
-                            n_steps=n, fba_ok=fba_ok, is_dead=False)
-
-
-def _summary(simout_dir: Path) -> dict[str, float]:
-    ch: dict[str, float] = {}
-    for name in simout.SUMMARY_CHANNELS:
-        try:
-            ch[name] = float(np.nanmean(simout.read_channel(simout_dir, name)))
-        except Exception:
-            continue
-    for kind, sid in CURATED_PANEL:
-        try:
-            ch[f"{kind}:{sid}"] = simout.read_species(simout_dir, kind, sid)["mean"]
-        except Exception:
-            continue
-    return ch
 
 
 def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
-    gens_dirs = simout.find_generations(run_root)
-    gens = [_generation(d, i) for i, d in enumerate(gens_dirs)]
-    channels = _summary(gens_dirs[0]) if gens_dirs else {}
+    data = reader.read_run(run_root)
+    note = "" if "error" not in data else f"reader error: {data['error']}"
+    gens = [GenerationResult(**g) for g in data.get("generations", [])]
+    channels = data.get("channels", {})
     label = f"{design.perturbation}·{design.condition or design.timeline or 'basal'}·s{seed}"
     return SimResult(id=f"{design.perturbation}_{seed}_{uuid.uuid4().hex[:8]}", label=label,
-                     design=design, channels=channels, generations=gens)
+                     design=design, channels=channels, generations=gens, note=note)
 
 
 def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
@@ -72,7 +38,7 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
            "perturbation": rec.design.perturbation, "condition": rec.design.condition,
            "timeline": rec.design.timeline, "seed": seed, "generations": len(rec.generations),
            "qc": overall.value, "generation_qc": json.dumps([s.value for s in per]),
-           "reportable": qc.is_reportable(rec),
+           "reportable": qc.is_reportable(rec), "note": rec.note,
            "simout_path": str(run_root)}  # LOCAL path for read_species; full simOut stays on this machine
     row.update(rec.channels)  # flatten summary channels into columns for DuckDB
     return row
@@ -97,3 +63,30 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1) -> P
             rec = build_record(run_root, design, seed)
             rows.append(_flat_row(rec, seed, run_root))
     return append_shard(rows)
+
+
+def _discover_runs(sim_path: str = "cellarium") -> list[Path]:
+    """Existing <variant>/<seed> run roots already on disk (a run root is a simOut's 3rd parent)."""
+    base = runner._out_root(sim_path)
+    return sorted({so.parents[2] for so in base.glob("**/simOut")}) if base.exists() else []
+
+
+def _design_from_dir(run_root: Path) -> tuple[Design, int]:
+    variant_dir, seed = run_root.parent.name, int(run_root.name)     # e.g. "wildtype_000000", 0
+    perturbation, _, idx = variant_dir.rpartition("_")
+    return Design(perturbation=perturbation, params={"variant_index": int(idx)}), seed
+
+
+def record_existing(sim_path: str = "cellarium") -> Path:
+    """Index runs ALREADY on disk into a manifest shard — no re-simulation (one container read each)."""
+    rows: list[dict] = []
+    for run_root in _discover_runs(sim_path):
+        design, seed = _design_from_dir(run_root)
+        rec = build_record(run_root, design, seed)
+        rows.append(_flat_row(rec, seed, run_root))
+    return append_shard(rows)
+
+
+if __name__ == "__main__":  # `python -m cellarium.manifest` -> index existing runs without re-simulating
+    shard = record_existing()
+    print(f"Indexed existing runs -> {shard}")

@@ -16,4 +16,9 @@ dist/
 .idea/
 .vscode/
 
+# Model output — full simOut + ParCa cache stay LOCAL (huge; license-restricted). Never commit.
+runs/
+out/
+
 # Do NOT ignore data/cache — the cached demo results are committed for reproducibility.
+# Manifest shards (data/manifest/*.parquet) ARE committed — they are the shareable corpus.

@@ -49,33 +49,29 @@ def run_experiment(perturbation: str = "wildtype", condition: str | None = None,
             "note": "Valid, but not yet in the corpus. Generation happens offline via a campaign, not per query."}
 
 
-def _first_simout(result_id: str) -> Path | None:
-    from . import simout
+def _run_root(result_id: str) -> Path | None:
     root = store.simout_path(result_id)
-    if not root or not Path(root).exists():
-        return None
-    gens = simout.find_generations(Path(root))
-    return gens[0] if gens else None
+    return Path(root) if root and Path(root).exists() else None
 
 
 def list_species(result_id: str, kind: str = "protein", search: str = "") -> dict:
-    from . import simout
+    from . import reader
     if kind not in _SPECIES_KINDS:
         return {"error": f"kind must be one of {_SPECIES_KINDS}"}
-    d = _first_simout(result_id)
-    if d is None:
+    root = _run_root(result_id)
+    if root is None:
         return {"error": "full simOut not available locally for this trajectory (see DECISIONS D1 — HF sharing)."}
-    return {"result_id": result_id, "kind": kind, "matches": simout.species_ids(d, kind, search)}
+    return {"result_id": result_id, **reader.list_species(root, kind, search)}
 
 
 def read_species(result_id: str, species_id: str, kind: str = "protein") -> dict:
-    from . import simout
+    from . import reader
     if kind not in _SPECIES_KINDS:
         return {"error": f"kind must be one of {_SPECIES_KINDS}"}
-    d = _first_simout(result_id)
-    if d is None:
+    root = _run_root(result_id)
+    if root is None:
         return {"error": "full simOut not available locally for this trajectory (see DECISIONS D1)."}
-    return simout.read_species(d, kind, species_id)
+    return reader.read_species(root, kind, species_id)
 
 
 _DESIGN_PROPS = {

@@ -62,14 +62,21 @@ def ensure_parca(sim_path: str = "cellarium") -> None:
     _exec(["runscripts/manual/runParca.py", sim_path])
 
 
+def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
+    """The specific <variant>_<idx>/<seed> dir the model writes for this lineage (per-generation dirs beneath)."""
+    variant = "wildtype" if design.timeline else design.perturbation
+    idx = int(design.params.get("variant_index", 0))
+    return _out_root(sim_path) / f"{variant}_{idx:06d}" / f"{seed:06d}"
+
+
 def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> Path:
-    """Run one (design, seed) lineage. Returns the run's simOut root (per-generation dirs beneath it)."""
+    """Run one (design, seed) lineage. Returns THIS lineage's run root (per-generation dirs beneath it)."""
     v = envelope.check(design)
     if not v.in_envelope:
         raise ValueError(f"Refusing out-of-envelope design: {v.reason}")
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
-    return _out_root(sim_path)
+    return _run_subpath(design, seed, sim_path)
 
 
 if __name__ == "__main__":  # `python -m cellarium.runner` -> run ParCa once (cached)
