@@ -1,84 +1,82 @@
 """Grounded tools exposed to the Claude agent.
 
-Every tool returns real data from the result cache (or a guardrail verdict). No tool invents numbers; the
-agent is instructed to ground every claim through these, and to run `check_feasibility` before any experiment.
+Reads go through the unified `store` (DuckDB manifest, or the JSON demo cache). `list_species`/`read_species`
+give the agent depth to ANY of the model's ~12,000 state variables via the public reader — as long as the
+trajectory's full simOut is local (else deferred to HF sharing, DECISIONS D1). No tool invents numbers.
 """
 
 from __future__ import annotations
 
-from . import envelope, qc
-from .model import Design, ResultStore, run_live
+from pathlib import Path
 
-_store = ResultStore()
+from . import envelope, store
+from .model import Design
+
+_SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux"]
 
 
 def list_results() -> dict:
-    return {
-        "results": [
-            {"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
-             "condition": r.design.condition, "timeline": r.design.timeline}
-            for r in _store.list()
-        ]
-    }
+    return {"results": store.list_results()}
 
 
 def read_series(result_id: str, channel: str) -> dict:
-    r = _store.get(result_id)
-    if not r:
-        return {"error": f"No result '{result_id}'. Call list_results first."}
-    if channel not in r.channels:
-        return {"error": f"Channel '{channel}' not available for {result_id}.",
-                "available": sorted(r.channels)}
-    overall, _ = qc.check_result(r)
-    return {
-        "result_id": result_id, "channel": channel,
-        "value": r.channels[channel], "unit": r.units.get(channel, ""),
-        "qc": overall.value, "grounded_from": f"simOut::{result_id}",
-    }
+    return store.read_channel(result_id, channel)
 
 
 def check_feasibility(perturbation: str = "wildtype", condition: str | None = None,
                       timeline: str | None = None, seeds: int = 1, generations: int = 1,
                       params: dict | None = None) -> dict:
-    d = Design(perturbation=perturbation, condition=condition, timeline=timeline,
-               seeds=seeds, generations=generations, params=params or {})
-    v = envelope.check(d)
+    v = envelope.check(Design(perturbation=perturbation, condition=condition, timeline=timeline,
+                              seeds=seeds, generations=generations, params=params or {}))
     return {"in_envelope": v.in_envelope, "reason": v.reason, "suggestion": v.suggestion}
 
 
 def run_experiment(perturbation: str = "wildtype", condition: str | None = None,
                    timeline: str | None = None, seeds: int = 1, generations: int = 1,
                    params: dict | None = None) -> dict:
-    d = Design(perturbation=perturbation, condition=condition, timeline=timeline,
-               seeds=seeds, generations=generations, params=params or {})
-    v = envelope.check(d)
+    v = envelope.check(Design(perturbation=perturbation, condition=condition, timeline=timeline,
+                              seeds=seeds, generations=generations, params=params or {}))
     if not v.in_envelope:
         return {"status": "refused", "reason": v.reason, "suggestion": v.suggestion,
-                "note": "Out of the model's validated envelope — not run. No metric reported."}
-
-    match = next((r for r in _store.list()
-                  if r.design.perturbation == d.perturbation
-                  and r.design.condition == d.condition
-                  and r.design.timeline == d.timeline), None)
-    if match is None:
-        try:
-            match = run_live(d)
-        except NotImplementedError as exc:
-            return {"status": "not_cached", "note": str(exc)}
-
-    overall, per = qc.check_result(match)
-    out = {"status": "ran", "result_id": match.id, "qc": overall.value,
-           "generation_qc": [s.value for s in per]}
-    if qc.is_reportable(match):
-        out["channels"] = match.channels
-        out["units"] = match.units
-    else:
-        out["note"] = (f"QC = {overall.value}; metric withheld. A non-ok run is treated as evidence-absent, "
-                       f"not reported as a doubling time.")
-    return out
+                "note": "Out of the validated envelope — not run, no metric reported."}
+    matches = [r for r in store.list_results()
+               if r.get("perturbation") == perturbation and r.get("condition") == condition
+               and r.get("timeline") == timeline]
+    if matches:
+        return {"status": "in_corpus", "results": matches[:8],
+                "note": "Already generated. Ground via read_series / read_species."}
+    return {"status": "in_envelope_uncached",
+            "note": "Valid, but not yet in the corpus. Generation happens offline via a campaign, not per query."}
 
 
-# ---- Anthropic tool schemas -------------------------------------------------
+def _first_simout(result_id: str) -> Path | None:
+    from . import simout
+    root = store.simout_path(result_id)
+    if not root or not Path(root).exists():
+        return None
+    gens = simout.find_generations(Path(root))
+    return gens[0] if gens else None
+
+
+def list_species(result_id: str, kind: str = "protein", search: str = "") -> dict:
+    from . import simout
+    if kind not in _SPECIES_KINDS:
+        return {"error": f"kind must be one of {_SPECIES_KINDS}"}
+    d = _first_simout(result_id)
+    if d is None:
+        return {"error": "full simOut not available locally for this trajectory (see DECISIONS D1 — HF sharing)."}
+    return {"result_id": result_id, "kind": kind, "matches": simout.species_ids(d, kind, search)}
+
+
+def read_species(result_id: str, species_id: str, kind: str = "protein") -> dict:
+    from . import simout
+    if kind not in _SPECIES_KINDS:
+        return {"error": f"kind must be one of {_SPECIES_KINDS}"}
+    d = _first_simout(result_id)
+    if d is None:
+        return {"error": "full simOut not available locally for this trajectory (see DECISIONS D1)."}
+    return simout.read_species(d, kind, species_id)
+
 
 _DESIGN_PROPS = {
     "perturbation": {"type": "string", "description": "variant type (wildtype, gene_knockout, ppgpp_conc, timeline, ...)"},
@@ -88,19 +86,27 @@ _DESIGN_PROPS = {
 }
 
 TOOLS = [
-    {"name": "list_results", "description": "List available completed simulation results (id, perturbation, condition).",
+    {"name": "list_results", "description": "List simulation results in the corpus (id, perturbation, condition, QC).",
      "input_schema": {"type": "object", "properties": {}}},
-    {"name": "read_series", "description": "Read one grounded output channel (e.g. growth_rate, ppgpp_conc, ribosome_elongation_rate) for a result.",
-     "input_schema": {"type": "object", "properties": {
-         "result_id": {"type": "string"}, "channel": {"type": "string"}}, "required": ["result_id", "channel"]}},
+    {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result.",
+     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "channel": {"type": "string"}},
+                      "required": ["result_id", "channel"]}},
+    {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
+     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
+                      "kind": {"type": "string", "enum": _SPECIES_KINDS}, "search": {"type": "string"}},
+                      "required": ["result_id", "kind"]}},
+    {"name": "read_species", "description": "Read the time-series of ONE state variable (any protein/mRNA/metabolite/flux) from a result's full simOut.",
+     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
+                      "species_id": {"type": "string"}, "kind": {"type": "string", "enum": _SPECIES_KINDS}},
+                      "required": ["result_id", "species_id"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
-    {"name": "run_experiment", "description": "Run (or look up) an experiment. Enforces the envelope + output QC; withholds metrics from non-ok runs.",
+    {"name": "run_experiment", "description": "Envelope-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
 ]
 
-_DISPATCH = {"list_results": list_results, "read_series": read_series,
-             "check_feasibility": check_feasibility, "run_experiment": run_experiment}
+_DISPATCH = {"list_results": list_results, "read_series": read_series, "list_species": list_species,
+             "read_species": read_species, "check_feasibility": check_feasibility, "run_experiment": run_experiment}
 
 
 def dispatch(name: str, args: dict) -> dict:
