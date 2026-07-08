@@ -15,6 +15,7 @@ Usage (invoked by cellarium.reader):
 
 import glob
 import json
+import math
 import os
 import sys
 
@@ -39,6 +40,12 @@ SPECIES_SOURCES = {
 }
 SCHEMA_TABLES = ["Main", "Mass", "GrowthLimits", "FBAResults", "RNACounts",
                  "MonomerCounts", "UniqueMoleculeCounts", "BulkMolecules", "RnaSynthProb"]
+
+
+def _finite(x):
+    """JSON-safe float: None for nan/inf (e.g. growth_rate[0] is nan) so downstream JSON stays valid."""
+    x = float(x)
+    return x if math.isfinite(x) else None
 
 
 def _col(simout, table, column):
@@ -84,20 +91,54 @@ def _generation(so, i):
             "divided": divided, "division_time_sec": (float(t[-1]) if divided else None)}
 
 
-def _summary(so):
-    ch = {}
+def _downsample(t, s, k=16):
+    n = int(s.size)
+    idx = range(n) if n <= k else (int(round(i * (n - 1) / (k - 1))) for i in range(k))
+    return [[round(float(t[i]), 1), _finite(s[i])] for i in idx]
+
+
+def _media_segments(t, media, cols):
+    """Contiguous media windows (from FBAResults/media_id) with per-channel means — captures the transient a
+    whole-trajectory mean washes out (e.g. ppGpp pre- vs post-downshift)."""
+    if not media or len(media) != int(t.size):
+        return []
+    segs, start = [], 0
+    for i in range(1, len(media) + 1):
+        if i == len(media) or media[i] != media[start]:
+            sl = slice(start, i)
+            segs.append({"media": media[start], "t0": _finite(t[start]), "t1": _finite(t[i - 1]),
+                         "n": i - start, "means": {n: _finite(np.nanmean(v[sl])) for n, v in cols.items()}})
+            start = i
+    return segs
+
+
+def _dynamics(so):
+    """Per summary channel: stats + a downsampled trajectory; plus media-segment means for the whole run."""
+    t = _col(so, "Main", "time").ravel()
+    try:
+        media = [str(x) for x in np.asarray(_col(so, "FBAResults", "media_id")).ravel()]
+    except Exception:
+        media = []
+    cols = {}
     for name, (table, column) in SUMMARY_CHANNELS.items():
         try:
-            ch[name] = float(np.nanmean(_col(so, table, column)))
+            cols[name] = _col(so, table, column).ravel()
         except Exception:
             continue
-    return ch
+    stats = {n: {"mean": _finite(np.nanmean(v)), "min": _finite(np.nanmin(v)), "max": _finite(np.nanmax(v)),
+                 "first": _finite(v[0]), "last": _finite(v[-1])} for n, v in cols.items()}
+    series = {n: _downsample(t, v) for n, v in cols.items()}
+    return stats, series, _media_segments(t, media, cols)
 
 
 def mode_run(run_root):
     gs = _gens(run_root)
+    if not gs:
+        return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": []}
+    stats, series, segments = _dynamics(gs[0])
     return {"generations": [_generation(so, i) for i, so in enumerate(gs)],
-            "channels": _summary(gs[0]) if gs else {}}
+            "channels": {n: s["mean"] for n, s in stats.items()},  # flat means (compat + easy SQL)
+            "channel_stats": stats, "series": series, "media_segments": segments}
 
 
 def mode_schema(run_root):
@@ -123,12 +164,6 @@ def _resolve(ids, species_id):
     return cand[0] if cand else None
 
 
-def _downsample(t, s, k=16):
-    n = int(s.size)
-    idx = range(n) if n <= k else (int(round(i * (n - 1) / (k - 1))) for i in range(k))
-    return [[round(float(t[i]), 1), float(s[i])] for i in idx]
-
-
 def mode_species(run_root, kind, species_id):
     gs = _gens(run_root)
     if not gs:
@@ -141,8 +176,8 @@ def mode_species(run_root, kind, species_id):
     s = _col(gs[0], table, column)[:, ids.index(sid)]
     t = _col(gs[0], "Main", "time").ravel()
     return {"species_id": sid, "kind": kind, "n_points": int(s.size),
-            "mean": float(s.mean()), "min": float(s.min()), "max": float(s.max()),
-            "first": float(s[0]), "last": float(s[-1]),
+            "mean": _finite(np.nanmean(s)), "min": _finite(np.nanmin(s)), "max": _finite(np.nanmax(s)),
+            "first": _finite(s[0]), "last": _finite(s[-1]),
             "series": _downsample(t, s)}  # [t_sec, value] pairs (~16) for dynamics
 
 

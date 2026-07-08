@@ -25,10 +25,11 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
     data = reader.read_run(run_root)
     note = "" if "error" not in data else f"reader error: {data['error']}"
     gens = [GenerationResult(**g) for g in data.get("generations", [])]
-    channels = data.get("channels", {})
     label = f"{design.perturbation}·{design.condition or design.timeline or 'basal'}·s{seed}"
     return SimResult(id=f"{design.perturbation}_{seed}_{uuid.uuid4().hex[:8]}", label=label,
-                     design=design, channels=channels, generations=gens, note=note)
+                     design=design, channels=data.get("channels", {}), generations=gens, note=note,
+                     channel_stats=data.get("channel_stats", {}), series=data.get("series", {}),
+                     media_segments=data.get("media_segments", []))
 
 
 def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
@@ -39,8 +40,11 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
            "timeline": rec.design.timeline, "seed": seed, "generations": len(rec.generations),
            "qc": overall.value, "generation_qc": json.dumps([s.value for s in per]),
            "reportable": qc.is_reportable(rec), "note": rec.note,
-           "simout_path": str(run_root)}  # LOCAL path for read_species; full simOut stays on this machine
-    row.update(rec.channels)  # flatten summary channels into columns for DuckDB
+           "simout_path": str(run_root),  # LOCAL path for read_species; full simOut stays on this machine
+           "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
+           "series": json.dumps(rec.series),
+           "media_segments": json.dumps(rec.media_segments)}
+    row.update(rec.channels)  # flatten summary channel means into columns for easy DuckDB SQL
     return row
 
 

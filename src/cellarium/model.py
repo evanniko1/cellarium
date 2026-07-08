@@ -47,6 +47,10 @@ class SimResult(BaseModel):
     units: dict[str, str] = Field(default_factory=dict)
     generations: list[GenerationResult] = Field(default_factory=list)
     note: str = ""
+    # dynamics — so the corpus carries the transient a whole-run mean washes out (e.g. the stringent spike)
+    channel_stats: dict = Field(default_factory=dict)   # {channel: {mean,min,max,first,last}}
+    series: dict = Field(default_factory=dict)           # {channel: [[t_sec, value], ...] downsampled}
+    media_segments: list = Field(default_factory=list)   # [{media, t0, t1, means:{channel: mean}}] per media window
 
 
 class ResultStore:

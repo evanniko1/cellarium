@@ -84,7 +84,7 @@ _DESIGN_PROPS = {
 TOOLS = [
     {"name": "list_results", "description": "List simulation results in the corpus (id, perturbation, condition, QC).",
      "input_schema": {"type": "object", "properties": {}}},
-    {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result.",
+    {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "channel": {"type": "string"}},
                       "required": ["result_id", "channel"]}},
     {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
