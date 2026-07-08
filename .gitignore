@@ -21,4 +21,6 @@ runs/
 out/
 
 # Do NOT ignore data/cache — the cached demo results are committed for reproducibility.
+# EXCEPT the variant map: it is model-derived (sim_data gene/condition indices), regenerable, local only.
+data/cache/variant_map.json
 # Manifest shards (data/manifest/*.parquet) ARE committed — they are the shareable corpus.

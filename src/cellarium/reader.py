@@ -60,5 +60,26 @@ def list_species(host_run_root: Path, kind: str, search: str = "") -> dict:
     return _invoke("list_species", host_run_root, [kind, search])
 
 
-if __name__ == "__main__":  # `python -m cellarium.reader` -> dump the listener schema from your latest sim
-    print(json.dumps(dump_schema(OUT_ROOT), indent=2))
+VARIANT_MAP_CACHE = Path("data/cache/variant_map.json")
+
+
+def variant_map(sim_path: str = "cellarium") -> dict:
+    """Gene-KO + condition index maps from sim_data (indices match the model's ordering). Heavy; cache it."""
+    return _invoke("variant_map", OUT_ROOT / sim_path)
+
+
+if __name__ == "__main__":  # schema dump (default) or `--variant-map` to derive + cache the KO/condition map
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Inspect the model via the container reader.")
+    ap.add_argument("--variant-map", action="store_true", help="dump + cache gene-KO/condition index maps")
+    args = ap.parse_args()
+    if args.variant_map:
+        m = variant_map()
+        if "error" not in m:
+            VARIANT_MAP_CACHE.parent.mkdir(parents=True, exist_ok=True)
+            VARIANT_MAP_CACHE.write_text(json.dumps(m), encoding="utf-8")
+        preview = {k: (f"[{len(v)} genes -> cached]" if k == "genes" else v) for k, v in m.items()}
+        print(json.dumps(preview, indent=2))
+    else:
+        print(json.dumps(dump_schema(OUT_ROOT), indent=2))

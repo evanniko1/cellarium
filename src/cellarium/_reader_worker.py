@@ -181,6 +181,22 @@ def mode_species(run_root, kind, species_id):
             "series": _downsample(t, s)}  # [t_sec, value] pairs (~16) for dynamics
 
 
+def mode_variant_map(root):
+    """Load sim_data (kb) and dump the variant index maps the model uses, so KO/condition design panels can
+    be built with indices that match the model's own ordering (gene_knockout: idx = gene position + 1, 0 =
+    control; condition: idx -> ordered_conditions). Opt-in: unpickling sim_data is heavy."""
+    import pickle
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": f"no sim_data at {kb} (run ParCa first)"}
+    with open(kb, "rb") as f:
+        sim_data = pickle.load(f)
+    conditions = {i: str(c) for i, c in enumerate(sim_data.ordered_conditions)}
+    rna_ids = [str(x) for x in sim_data.process.transcription.rna_data["id"]]
+    genes = [{"ko_index": i + 1, "rna_id": rid} for i, rid in enumerate(rna_ids)]  # idx 0 is control
+    return {"conditions": conditions, "n_genes": len(rna_ids), "genes": genes}
+
+
 def mode_list_species(run_root, kind, search=""):
     gs = _gens(run_root)
     if not gs:
@@ -202,6 +218,8 @@ if __name__ == "__main__":
         out = mode_species(run_root, sys.argv[3], sys.argv[4])
     elif mode == "list_species":
         out = mode_list_species(run_root, sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "")
+    elif mode == "variant_map":
+        out = mode_variant_map(run_root)
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

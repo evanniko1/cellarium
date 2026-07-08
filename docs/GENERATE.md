@@ -52,6 +52,20 @@ a *system* BLAS to compile its ops against. Rebuilding the model image with `lib
 `blas__ldflags` set *may* speed aesara's ops, but the payoff is uncertain and it's a model-image change that
 can affect determinism. Prefer `--parallel` first.
 
+## Design space
+The default campaign is a small in-envelope trio: minimal-glucose steady state (`wildtype`), rich minimal+AA
+steady state (`condition` idx 4 = `with_aa`), and the AA-downshift transient (`timeline`). To go wider:
+
+```bash
+python -m cellarium.reader --variant-map          # derive gene-KO + condition indices from sim_data (once)
+python -m cellarium.generate --knockout tRNA --seeds 2      # a gene-KO panel matching an rna_id query
+```
+`--variant-map` unpickles `sim_data` and caches `data/cache/variant_map.json` (local only, regenerable):
+`conditions` (index -> media, e.g. `4: with_aa`, `5: acetate`) and `genes` (rna_id -> KO index). **Always take
+indices from this map, not from a variant's docstring** — the orderings drift across model builds (the
+`condition` docstring says +AA is index 1, but this build has it at 4). Lethal KOs are fine to run: the QC
+guardrail records them non-`ok` (no division) instead of inventing a doubling time.
+
 ## Merge two contributors' shards
 Both people commit their `data/manifest/*.parquet` shards (small). The corpus is their **union** — DuckDB
 reads them as one table automatically. No database to host, no merge step.
