@@ -31,11 +31,26 @@ summary channels) is the shareable, mergeable corpus.
 
 ## Run a campaign
 ```bash
-python -m cellarium.generate --seeds 4 --generations 1      # writes data/manifest/<user>-<stamp>.parquet
+python -m cellarium.generate --seeds 4 --generations 1                 # sequential
+python -m cellarium.generate --seeds 4 --generations 1 --parallel 3    # 3 sims at once
 ```
 Every design is envelope-checked before running; each generation is QC'd; degenerate runs are recorded as
-non-`ok` and never turned into a doubling time. Run continuously (and on Filippo's machine too) to build a
-few-thousand-trajectory corpus over the week.
+non-`ok` and never turned into a doubling time. The batch is crash-isolated — a failed sim is logged and
+skipped, and the shard is written for whatever completed. Run continuously (and on Filippo's machine too) to
+build a few-thousand-trajectory corpus over the week.
+
+## Performance
+A single-generation sim is ~10–20 min wall-clock on a laptop. The reliable throughput lever is
+**`--parallel N`**: sims are independent and each design now writes a distinct output dir, so N run
+concurrently for a near-linear speedup — bounded by cores and RAM (each sim loads ~1 GB of `sim_data`; start
+at `--parallel 2–3`).
+
+On BLAS: the `numpy.distutils ... netlib Blas` and `aesara.tensor.blas` warnings are **not** numpy/scipy
+running unoptimized — their PyPI wheels bundle OpenBLAS and the image sets `OPENBLAS_NUM_THREADS=1`. The
+warnings are a cosmetic build-time probe plus **aesara** falling back to the numpy C-API because it can't find
+a *system* BLAS to compile its ops against. Rebuilding the model image with `libopenblas-dev` + aesara
+`blas__ldflags` set *may* speed aesara's ops, but the payoff is uncertain and it's a model-image change that
+can affect determinism. Prefer `--parallel` first.
 
 ## Merge two contributors' shards
 Both people commit their `data/manifest/*.parquet` shards (small). The corpus is their **union** — DuckDB

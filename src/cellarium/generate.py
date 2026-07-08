@@ -25,9 +25,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Seed the Cellarium corpus with an in-envelope campaign.")
     ap.add_argument("--seeds", type=int, default=4, help="number of stochastic replicate seeds")
     ap.add_argument("--generations", type=int, default=1)
+    ap.add_argument("--parallel", type=int, default=1,
+                    help="run this many sims concurrently (each loads ~1GB sim_data — size to host RAM)")
     args = ap.parse_args()
 
-    shard = manifest.campaign(default_designs(), list(range(args.seeds)), args.generations)
+    shard = manifest.campaign(default_designs(), list(range(args.seeds)), args.generations, args.parallel)
     print(f"Wrote manifest shard: {shard}")
 
 

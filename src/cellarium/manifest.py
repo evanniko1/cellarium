@@ -58,23 +58,47 @@ def append_shard(rows: list[dict]) -> Path:
     return shard
 
 
-def campaign(designs: list[Design], seeds: list[int], generations: int = 1) -> Path:
+def _label(design: Design, seed: int) -> str:
+    return f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
+
+
+def _run_job(design: Design, seed: int, generations: int) -> dict:
+    run_root = runner.run_one(design, seed, generations)
+    return _flat_row(build_record(run_root, design, seed), seed, run_root)
+
+
+def campaign(designs: list[Design], seeds: list[int], generations: int = 1, parallel: int = 1) -> Path:
     """Run an in-envelope design x seed matrix on the public model and append a manifest shard.
 
-    Sequential, but crash-isolated: a failed sim is logged and skipped (never kills the batch), and the
-    shard is written for whatever completed — so a long unattended run always leaves a usable corpus.
+    Crash-isolated: a failed sim is logged and skipped (never kills the batch), and the shard is written for
+    whatever completed — so a long unattended run always leaves a usable corpus. `parallel>1` runs that many
+    sims concurrently (each writes a distinct dir since Fix #1, and loads ~1GB sim_data — size to host RAM).
     """
     jobs = [(d, s) for d in designs for s in seeds]
+    n = len(jobs)
     rows: list[dict] = []
-    for i, (design, seed) in enumerate(jobs, 1):
-        label = f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
-        print(f"[{i}/{len(jobs)}] {label} ...", flush=True)
-        try:
-            run_root = runner.run_one(design, seed, generations)
-            rows.append(_flat_row(build_record(run_root, design, seed), seed, run_root))
-            print(f"[{i}/{len(jobs)}] {label} -> qc={rows[-1]['qc']}", flush=True)
-        except Exception as exc:  # one bad sim must not lose the whole batch
-            print(f"[{i}/{len(jobs)}] {label} FAILED: {exc}", flush=True)
+
+    if parallel <= 1:
+        for i, (d, s) in enumerate(jobs, 1):
+            print(f"[{i}/{n}] {_label(d, s)} ...", flush=True)
+            try:
+                rows.append(_run_job(d, s, generations))
+                print(f"[{i}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
+            except Exception as exc:  # one bad sim must not lose the whole batch
+                print(f"[{i}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
+    else:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        print(f"Running {n} sims, {parallel} at a time (each loads ~1GB sim_data — mind host RAM).", flush=True)
+        with ThreadPoolExecutor(max_workers=parallel) as ex:
+            fut = {ex.submit(_run_job, d, s, generations): (d, s) for d, s in jobs}
+            for k, f in enumerate(as_completed(fut), 1):
+                d, s = fut[f]
+                try:
+                    rows.append(f.result())
+                    print(f"[{k}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
+                except Exception as exc:
+                    print(f"[{k}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
+
     if not rows:
         raise RuntimeError("campaign produced no completed runs")
     return append_shard(rows)
