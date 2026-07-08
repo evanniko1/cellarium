@@ -1,0 +1,15 @@
+[
+  {
+    "id": "wt_glc_to_acetate_shift",
+    "label": "WT · glucose->acetate shift (OUT OF ENVELOPE)",
+    "design": {"perturbation": "timeline", "condition": "minimal", "timeline": "0 minimal, 1200 minimal_acetate", "seeds": 1, "generations": 3},
+    "channels": {},
+    "units": {},
+    "generations": [
+      {"index": 0, "full_chromosome_end": 2, "divided": true, "division_time_sec": 2529, "n_steps": 2530, "fba_ok": true, "is_dead": false},
+      {"index": 1, "full_chromosome_end": 4, "divided": false, "division_time_sec": null, "n_steps": 2277, "fba_ok": true, "is_dead": false},
+      {"index": 2, "full_chromosome_end": 2, "divided": false, "division_time_sec": null, "n_steps": 2, "fba_ok": true, "is_dead": false}
+    ],
+    "note": "Real run kept as a QC fixture. The envelope check refuses this design before running; if forced, output QC catches it (gen1 over_replicated -> full_chromosome=4; gen2 degenerate -> 2 steps). FBA stayed healthy; the failure is cell-cycle desync, not death. No doubling time is reportable."
+  }
+]

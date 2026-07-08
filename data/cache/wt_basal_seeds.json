@@ -1,0 +1,24 @@
+[
+  {
+    "id": "wt_basal_s0",
+    "label": "WT · basal · seed 0",
+    "design": {"perturbation": "wildtype", "condition": "basal", "seeds": 1, "generations": 1},
+    "channels": {"growth_rate": 0.000268, "ppgpp_conc": 51.27, "ribosome_elongation_rate": 17.87, "doubling_time_min": 41.9},
+    "units": {"growth_rate": "1/s", "ppgpp_conc": "uM", "ribosome_elongation_rate": "aa/s", "doubling_time_min": "min"},
+    "generations": [
+      {"index": 0, "full_chromosome_end": 2, "divided": true, "division_time_sec": 2529, "n_steps": 2530, "fba_ok": true, "is_dead": false}
+    ],
+    "note": "Real wcEcoli run (means over the cell cycle)."
+  },
+  {
+    "id": "wt_basal_s1",
+    "label": "WT · basal · seed 1",
+    "design": {"perturbation": "wildtype", "condition": "basal", "seeds": 1, "generations": 1},
+    "channels": {"growth_rate": 0.000252, "ppgpp_conc": 58.59, "ribosome_elongation_rate": 16.84, "doubling_time_min": 45.2},
+    "units": {"growth_rate": "1/s", "ppgpp_conc": "uM", "ribosome_elongation_rate": "aa/s", "doubling_time_min": "min"},
+    "generations": [
+      {"index": 0, "full_chromosome_end": 2, "divided": true, "division_time_sec": 2712, "n_steps": 2713, "fba_ok": true, "is_dead": false}
+    ],
+    "note": "Same genotype/medium as seed 0; the difference is stochastic single-cell heterogeneity."
+  }
+]
