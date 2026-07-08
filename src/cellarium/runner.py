@@ -10,6 +10,7 @@ image). See docs/GENERATE.md.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from pathlib import Path
@@ -23,12 +24,36 @@ PY = os.environ.get("WCECOLI_PY", "python")               # native interpreter w
 OUT_ROOT = Path(os.environ.get("CELLARIUM_OUT", "runs")).resolve()
 
 
+def _variant_type(design: Design) -> str:
+    # timeline designs execute on the wildtype variant with a --timeline env override
+    return "wildtype" if design.timeline else design.perturbation
+
+
+def _variant_index(design: Design) -> int:
+    """Directory-discriminating variant index. Uses a semantic index when given (e.g. a KO gene index);
+    otherwise a stable content hash so two *different* designs never share an output dir (the collision bug
+    that let a downshift run overwrite the wildtype simOut), while re-running the *same* design is idempotent.
+    The wildtype variant ignores its index (see variants/wildtype.py), so this is purely a dir discriminator.
+    """
+    if "variant_index" in design.params:
+        return int(design.params["variant_index"])
+    key = f"{design.perturbation}|{design.condition}|{design.timeline}".encode()
+    return int(hashlib.sha1(key).hexdigest(), 16) % 900000 + 100000  # 6-digit, never collides with idx 0
+
+
 def _variant_args(design: Design) -> list[str]:
-    """Map a Design to runSim --variant args. Timeline runs execute as wildtype with an env timeline."""
+    """Map a Design to runSim --variant args (+ a --timeline override for timeline designs)."""
+    idx = str(_variant_index(design))
+    args = ["--variant", _variant_type(design), idx, idx]
     if design.timeline:
-        return ["--variant", "wildtype", "0", "0", "--timeline", design.timeline]
-    idx = str(int(design.params.get("variant_index", 0)))
-    return ["--variant", design.perturbation, idx, idx]
+        args += ["--timeline", design.timeline]
+    return args
+
+
+def _write_provenance(run_root: Path, design: Design) -> None:
+    """Persist the true Design next to its simOut so reads recover it regardless of the opaque variant dir."""
+    if run_root.exists():
+        (run_root / "design.json").write_text(design.model_dump_json(indent=2), encoding="utf-8")
 
 
 def _out_root(sim_path: str) -> Path:
@@ -64,9 +89,7 @@ def ensure_parca(sim_path: str = "cellarium") -> None:
 
 def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
     """The specific <variant>_<idx>/<seed> dir the model writes for this lineage (per-generation dirs beneath)."""
-    variant = "wildtype" if design.timeline else design.perturbation
-    idx = int(design.params.get("variant_index", 0))
-    return _out_root(sim_path) / f"{variant}_{idx:06d}" / f"{seed:06d}"
+    return _out_root(sim_path) / f"{_variant_type(design)}_{_variant_index(design):06d}" / f"{seed:06d}"
 
 
 def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> Path:
@@ -76,7 +99,9 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         raise ValueError(f"Refusing out-of-envelope design: {v.reason}")
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
-    return _run_subpath(design, seed, sim_path)
+    run_root = _run_subpath(design, seed, sim_path)
+    _write_provenance(run_root, design)
+    return run_root
 
 
 if __name__ == "__main__":  # `python -m cellarium.runner` -> run ParCa once (cached)

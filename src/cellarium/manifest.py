@@ -83,8 +83,11 @@ def _discover_runs(sim_path: str = "cellarium") -> list[Path]:
 
 
 def _design_from_dir(run_root: Path) -> tuple[Design, int]:
-    variant_dir, seed = run_root.parent.name, int(run_root.name)     # e.g. "wildtype_000000", 0
-    perturbation, _, idx = variant_dir.rpartition("_")
+    seed = int(run_root.name)
+    prov = run_root / "design.json"
+    if prov.exists():  # true design written at run time (survives the opaque variant-dir naming)
+        return Design.model_validate_json(prov.read_text(encoding="utf-8")), seed
+    perturbation, _, idx = run_root.parent.name.rpartition("_")  # fallback for pre-provenance runs
     return Design(perturbation=perturbation, params={"variant_index": int(idx)}), seed
 
 
