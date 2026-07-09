@@ -112,6 +112,28 @@ reallocates to central carbon** (glycolysis/TCA ≈ 2× — gluconeogenesis/glyo
 down-regulates respiration/PPP/stringent ≈ 50%**. `amr_efflux` baseline ≈ 0.05–0.09% (the reference for a
 phenotype-grounded biosecurity screen, P2.3).
 
+## F. Powered, literature-first hypothesis tests (2026-07-09, n=8 seeds)
+Formulated from literature *first*, then tested — the correct direction. Statistics across 8 replicate seeds.
+
+- **H1 — FNR/ArcA anaerobic regulon → CONFIRMED (in-sample consistency).** no_oxygen reproducibly up-regulates
+  the FNR anaerobic-activation program: cytochrome bd (`cydABCD`), `grcA` (pfl), `dcuC`, `ansB`, `moaABC` — all
+  reproducible across 8 seeds — and represses aerobic respiration at the sector level (`pw:respiration_atp`
+  log2FC −1.01, halved) [Spiro 1990; Unden 1991]. **Caveat: largely in-sample** (ParCa fits condition-specific
+  expression), so this confirms model+pipeline self-consistency, not novel prediction. (Our hand-curated FNR
+  gene set missed `cydCD`/`moaABC`/`ansB` — a panel-curation limitation, not a model error.)
+- **H2 — Mg limitation → reduced ribosome/growth → FAILED (out-of-sample; a model boundary).** minus_magnesium
+  is statistically indistinguishable from basal: ribosomal fraction 35.07±0.16% vs 35.12±0.25% (Welch t=−0.31),
+  growth identical (t=0.07). Literature [Pontes 2016] predicts Mg limitation *reduces* ribosome content; the
+  model does **not** couple media-Mg to ribosome regulation. A documented mechanistic boundary — the more
+  valuable result, because it is a genuine prediction the model gets wrong.
+- **Growth law (ribosomal sector) → CONFIRMED, quantitative.** 5 conditions × 8 seeds:
+  `ribosome_frac = 527·growth + 0.191`, **R²=0.83** — the linear ribosomal sector with a ~19% offset
+  [Hui 2015; Scott law]. Tight CIs (with_aa 46.08±0.08%, basal 35.12±0.25%, no_oxygen 20.61±0.52%).
+
+**The in/out-of-sample control, demonstrated cleanly:** the model reproduces what it was fitted to
+(H1 anaerobic regulon) and fails to predict what it was not (H2 Mg–ribosome coupling). That is the honest
+boundary of its predictive power — and the reason validation must be anchored on out-of-sample tests.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)
