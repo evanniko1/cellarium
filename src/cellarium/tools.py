@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import biosecurity, differential as _diff, envelope, store, survey
+from . import biosecurity, differential as _diff, envelope, rigor, store, survey
 from .model import Design
 
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux"]
@@ -26,6 +26,8 @@ def survey_corpus() -> dict:
 
 def differential(target: str, reference: str = "wildtype/basal") -> dict:
     """Rank channels + pathways by fold-change of one design vs a reference — what moved most."""
+    rigor.note_design(target)
+    rigor.note_design(reference)
     return _diff.summary(target, reference)
 
 
@@ -33,6 +35,8 @@ def top_movers(result_id: str, reference_id: str, kind: str = "protein", top: in
     """Individual species (proteins/mRNAs/...) that moved most between two runs' simOut (protein = symbol-annotated)."""
     if kind not in _SPECIES_KINDS:
         return {"error": f"kind must be one of {_SPECIES_KINDS}"}
+    rigor.note_result(result_id)
+    rigor.note_result(reference_id)
     return _diff.top_movers(result_id, reference_id, kind, top)
 
 
@@ -52,7 +56,20 @@ def screen_phenotype(target: str, reference: str = "wildtype/basal") -> dict:
 
 
 def read_series(result_id: str, channel: str) -> dict:
+    rigor.note_result(result_id)
     return store.read_channel(result_id, channel)
+
+
+def coverage_check() -> dict:
+    """How much of the corpus you have deep-read this session — call before generalising a conclusion."""
+    return rigor.coverage()
+
+
+def disconfirm(target: str, reference: str, channel: str) -> dict:
+    """Challenge a claimed target-vs-reference effect on a channel (per-seed spread, noise, corpus z)."""
+    rigor.note_design(target)
+    rigor.note_design(reference)
+    return rigor.disconfirm(target, reference, channel)
 
 
 def check_feasibility(perturbation: str = "wildtype", condition: str | None = None,
@@ -107,6 +124,7 @@ def read_species(result_id: str, species_id: str, kind: str = "protein") -> dict
     from . import reader
     if kind not in _SPECIES_KINDS:
         return {"error": f"kind must be one of {_SPECIES_KINDS}"}
+    rigor.note_result(result_id)
     root = _run_root(result_id)
     if root is None:
         return {"error": "full simOut not available locally for this trajectory (see DECISIONS D1)."}
@@ -143,6 +161,11 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
                       "species_id": {"type": "string"}, "kind": {"type": "string", "enum": _SPECIES_KINDS}},
                       "required": ["result_id", "species_id"]}},
+    {"name": "disconfirm", "description": "Before committing to a causal claim, challenge it: given a claimed effect (target vs reference on a channel), returns the per-seed spread (is the effect bigger than replicate noise?), the corpus z-score, and a falsification checklist. Call this on your main claim before concluding.",
+     "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
+                      "channel": {"type": "string"}}, "required": ["target", "reference", "channel"]}},
+    {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
@@ -156,6 +179,7 @@ TOOLS = [
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
+             "disconfirm": disconfirm, "coverage_check": coverage_check,
              "list_results": list_results, "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,

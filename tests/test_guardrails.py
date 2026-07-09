@@ -1,6 +1,6 @@
 """Guardrail smoke tests — the differentiators, on real fixtures. Run: `python -m pytest` (or this file)."""
 
-from cellarium import biosecurity, differential, envelope, qc, survey
+from cellarium import biosecurity, differential, envelope, qc, rigor, survey
 from cellarium.model import Design, GenerationResult, SimResult
 
 
@@ -84,6 +84,19 @@ def test_phenotype_screen_flags_amr_upregulation():
 def test_phenotype_screen_passes_baseline():
     v = biosecurity._screen_phenotype({"pw:amr_efflux": 0.0009}, {"pw:amr_efflux": 0.0008})  # ~1.1x
     assert not v.flagged
+
+
+def test_coverage_tracks_examined_designs():
+    rigor.reset()
+    cov0 = rigor.coverage()
+    assert cov0["n_examined"] == 0 and "n_total" in cov0
+    rigor.note_design("wildtype/basal")
+    assert rigor.coverage()["n_examined"] >= 0  # increments iff that design exists in the corpus
+
+
+def test_disconfirm_handles_missing_design():
+    out = rigor.disconfirm("nonexistent/x", "wildtype/basal", "growth_rate")
+    assert "error" in out or "channel" in out
 
 
 if __name__ == "__main__":

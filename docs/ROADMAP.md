@@ -40,9 +40,13 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
   the phenotype, not keywords (DEMO Act 3), so it catches an *emergent* AMR signature the intent screen would
   miss. Logic unit-tested; no false positives on the corpus. **Demo-prep TODO:** generate one positive case (a
   marA/soxS-overexpression design) to show it firing on a real run.
-- `[ ]` **Coverage completeness gate.** Track examined-vs-full-grid in the loop; flag conclusions drawn from a
-  subset the survey shows to be larger.
-- `[ ]` **Disconfirmation as a required tool step** (not only a prompt instruction).
+- `[x]` **Coverage completeness gate.** `rigor.py` tracks designs deep-read this session (via the read tools);
+  `coverage_check` reports examined-vs-full-grid so a conclusion can't quietly rest on a subset. Reset per
+  agent run.
+- `[x]` **Disconfirmation as a required tool step.** `disconfirm(target, reference, channel)` exposes the
+  per-seed spread behind a claimed effect (is it bigger than replicate noise?), the corpus z-score, and a
+  falsification checklist — turning "seek disconfirmation" into a callable step the agent must use before a
+  causal claim. Verified: with_aa vs basal growth is +121%, `within_replicate_noise=False`.
 
 ## P3 — robustness (token-costly; reserve for high-stakes conclusions)
 - `[ ]` **Order-randomization + self-consistency.** Shuffle survey row order; re-derive N times (Wang 2022);

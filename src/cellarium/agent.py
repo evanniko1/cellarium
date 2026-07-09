@@ -27,7 +27,10 @@ SYSTEM = (
     "- READ COLD. Derive conclusions from tool results only. Do not assume anything from earlier conversation, "
     "external notes, or 'what we expected' — if a prior claim conflicts with the tools, the tools win. State "
     "how many runs/designs support each claim; don't generalise from a subset the survey shows is larger.\n"
-    "- SEEK DISCONFIRMATION. After forming a hypothesis, name what would falsify it and read exactly those "
+    "- SEEK DISCONFIRMATION. Before committing to a causal claim, call disconfirm on it (is the effect bigger "
+    "than replicate noise? does another design contradict it?), and call coverage_check before generalising — "
+    "do not claim beyond the designs you actually deep-read. After forming a hypothesis, name what would "
+    "falsify it and read exactly those "
     "channels/designs before concluding (e.g. to test 'ppGpp causes the slowdown', check ribosome_conc AND a "
     "design where ppGpp is decoupled).\n"
     "- Ground every quantitative claim in a tool result. Never state a number you did not read from a tool.\n"
@@ -45,6 +48,9 @@ SYSTEM = (
 
 
 def run(question: str, *, max_turns: int = 8, verbose: bool = True) -> str:
+    from . import rigor
+
+    rigor.reset()  # fresh coverage tracking per question
     client = anthropic.Anthropic()
     messages: list[dict] = [{"role": "user", "content": question}]
 
