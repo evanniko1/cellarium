@@ -63,7 +63,10 @@ class ResultStore:
 
     def _load(self) -> None:
         for path in sorted(self.cache_dir.glob("*.json")):
-            for row in json.loads(path.read_text(encoding="utf-8")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, list):  # skip non-result JSON in data/cache (e.g. the variant map)
+                continue
+            for row in data:
                 r = SimResult.model_validate(row)
                 self._by_id[r.id] = r
 
