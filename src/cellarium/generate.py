@@ -53,6 +53,17 @@ def panel_designs() -> list[Design]:
     return designs
 
 
+def stress_designs() -> list[Design]:
+    """Nutrient / ion / electron-acceptor stress — hypotheses distinct from the ppGpp + carbon/O2 panels.
+    Each engages a different pathway: phosphate starvation (pho regulon), Mg limitation (translation/ribosome),
+    nitrate respiration (electron-transport rewiring), arabinose (alt sugar), indole (signalling/persistence).
+    Indices verified against variant_map; all are static, in-envelope conditions."""
+    conditions = {12: "minus_phosphate", 11: "minus_magnesium", 17: "plus_nitrate",
+                  14: "plus_arabinose", 16: "plus_indole"}
+    return [Design(perturbation="condition", condition=lbl, params={"variant_index": i})
+            for i, lbl in conditions.items()]
+
+
 def confounded_designs() -> list[Design]:
     """The three panel arms that were confounded at 1 generation — they are steady-state effects the inherited
     parent state masks in gen 0. Re-run these with --generations 4 to let them reach steady state: the ppGpp
@@ -96,10 +107,14 @@ def main() -> None:
     ap.add_argument("--confounded", action="store_true",
                     help="re-run the arms that need multiple generations (ppGpp clamp, rRNA KO, up-shift); "
                          "pair with --generations 4")
+    ap.add_argument("--stress", action="store_true",
+                    help="run the nutrient/ion/electron-acceptor stress panel (distinct from ppGpp/carbon)")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.stress:
+        designs = stress_designs()
     elif args.confounded:
         designs = confounded_designs()
     elif args.knockout:
