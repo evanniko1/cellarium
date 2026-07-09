@@ -44,6 +44,13 @@ def screen_design(perturbation: str = "wildtype", condition: str | None = None,
             "severity": v.severity, "reason": v.reason}
 
 
+def screen_phenotype(target: str, reference: str = "wildtype/basal") -> dict:
+    """Phenotype-grounded biosecurity: does a design's simulated proteome up-regulate a misuse signature?"""
+    v = biosecurity.screen_result(target, reference)
+    return {"flagged": v.flagged, "signature": v.signature, "log2fc": v.log2fc,
+            "severity": v.severity, "reason": v.reason}
+
+
 def read_series(result_id: str, channel: str) -> dict:
     return store.read_channel(result_id, channel)
 
@@ -138,9 +145,12 @@ TOOLS = [
                       "required": ["result_id", "species_id"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
-    {"name": "screen_design", "description": "Biosecurity screen for a proposed design: flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
+    {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"},
                       "timeline": {"type": "string"}, "params": {"type": "object"}}}},
+    {"name": "screen_phenotype", "description": "Phenotype-grounded biosecurity screen of a design's RESULTS (label 'perturbation/condition'): flags when the simulated proteome up-regulates a misuse signature (AMR efflux) vs a reference — catches an emergent AMR phenotype even if the design never named an efflux gene.",
+     "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"}},
+                      "required": ["target"]}},
     {"name": "run_experiment", "description": "Envelope- AND biosecurity-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
 ]
@@ -148,6 +158,7 @@ TOOLS = [
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
              "list_results": list_results, "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
+             "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment}
 
 

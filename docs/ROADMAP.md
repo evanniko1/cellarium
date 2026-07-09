@@ -35,8 +35,11 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
   channels + pathways by |log2 fold-change| from the manifest (instant); `top_movers(result_id, ref_id, kind)`
   ranks individual species from simOut (3,938 proteins compared), gene-symbol-annotated. The "interchangeable
   panel" solved data-drivenly — discover what moved instead of pre-declaring it.
-- `[ ]` **Phenotype-grounded biosecurity.** Screen *results* (survey detects AMR-efflux up-regulation, etc.),
-  per DEMO Act 3 "grounded in the predicted phenotype, not keywords." Needs the panel + survey.
+- `[x]` **Phenotype-grounded biosecurity.** `biosecurity.screen_result` / `screen_phenotype` tool: flags a
+  design whose simulated proteome up-regulates a concerning pathway (AMR efflux, ≥2× vs control) — grounded in
+  the phenotype, not keywords (DEMO Act 3), so it catches an *emergent* AMR signature the intent screen would
+  miss. Logic unit-tested; no false positives on the corpus. **Demo-prep TODO:** generate one positive case (a
+  marA/soxS-overexpression design) to show it firing on a real run.
 - `[ ]` **Coverage completeness gate.** Track examined-vs-full-grid in the loop; flag conclusions drawn from a
   subset the survey shows to be larger.
 - `[ ]` **Disconfirmation as a required tool step** (not only a prompt instruction).

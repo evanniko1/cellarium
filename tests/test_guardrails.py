@@ -75,6 +75,17 @@ def test_differential_summary_handles_missing_target():
     assert "error" in out  # clean error (+ 'available' when a corpus exists), never a crash
 
 
+def test_phenotype_screen_flags_amr_upregulation():
+    # simulated proteome allocates ~5x more to efflux than the reference -> flagged (grounded in phenotype)
+    v = biosecurity._screen_phenotype({"pw:amr_efflux": 0.004}, {"pw:amr_efflux": 0.0008})
+    assert v.flagged and v.signature == "amr_efflux" and v.severity == "review" and v.log2fc >= 1.0
+
+
+def test_phenotype_screen_passes_baseline():
+    v = biosecurity._screen_phenotype({"pw:amr_efflux": 0.0009}, {"pw:amr_efflux": 0.0008})  # ~1.1x
+    assert not v.flagged
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

@@ -10,6 +10,7 @@ flags for review, and only overt virulence engineering is blocked.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -93,3 +94,56 @@ def screen(design: Design) -> BiosecurityVerdict:
             return BiosecurityVerdict(True, sig.name, matched, sig.severity,
                                       f"Design targets the {sig.name} signature ({', '.join(matched)}): {sig.note}.")
     return BiosecurityVerdict(False)
+
+
+# --- phenotype-grounded screen (P2.3): flag the RESULT, not the intent ------------------------------------
+# Concerning pathway signatures + the fold-change over a control at which they warrant review. This catches an
+# *emergent* misuse phenotype (a design whose simulated proteome up-regulates efflux) even when the design never
+# named an efflux gene — "grounded in the predicted phenotype, not keywords" (DEMO Act 3).
+CONCERNING_PATHWAYS = {
+    "amr_efflux": {"threshold_log2fc": 1.0, "severity": "review",
+                   "note": "multidrug-efflux proteome up-regulation raises antibiotic resistance"},
+}
+
+
+@dataclass
+class PhenotypeVerdict:
+    flagged: bool
+    signature: str | None = None
+    log2fc: float | None = None
+    severity: str | None = None
+    reason: str = "No concerning phenotype elevated vs reference."
+
+
+def _screen_phenotype(target_vals: dict, ref_vals: dict) -> PhenotypeVerdict:
+    """Pure core: compare a design's pathway proteome fractions to a reference's; flag a concerning pathway
+    elevated past its threshold. `*_vals` map 'pw:<pathway>' -> proteome fraction."""
+    hits = []
+    for pathway, cfg in CONCERNING_PATHWAYS.items():
+        tv, rv = target_vals.get(f"pw:{pathway}"), ref_vals.get(f"pw:{pathway}")
+        if tv is None or rv in (None, 0) or tv <= 0:
+            continue
+        log2fc = math.log2(tv / rv)
+        if log2fc >= cfg["threshold_log2fc"]:
+            hits.append((pathway, round(log2fc, 2), cfg))
+    if not hits:
+        return PhenotypeVerdict(False)
+    pathway, log2fc, cfg = max(hits, key=lambda h: h[1])
+    return PhenotypeVerdict(True, pathway, log2fc, cfg["severity"],
+                            f"Simulated phenotype up-regulates {pathway} by {log2fc} log2FC "
+                            f"(~{round((2 ** log2fc - 1) * 100)}%) vs reference — {cfg['note']}.")
+
+
+def screen_result(target: str, reference: str = "wildtype/basal") -> PhenotypeVerdict:
+    """Phenotype-grounded screen of a design's simulated results (by label), vs a reference design."""
+    from . import differential
+
+    means, _ = differential._design_means()
+    if not means:
+        return PhenotypeVerdict(False, reason="corpus empty or unreadable.")
+    t, r = means.get(target), means.get(reference)
+    if t is None:
+        return PhenotypeVerdict(False, reason=f"no design '{target}'.")
+    if r is None:
+        return PhenotypeVerdict(False, reason=f"no reference '{reference}'.")
+    return _screen_phenotype(t, r)
