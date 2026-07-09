@@ -154,6 +154,24 @@ case, **not** on this KO experiment. A clean KO-contrast proof needs (i) an *ess
 mechanistic gene (multi-generation, for a real growth defect) vs a non-mechanistic KO, and (ii) FDR-hardened
 top_movers. The experiment disciplined the claim — as intended.
 
+## H. Essential-KO experiment — the vetting OVERPREDICTED; the model is robust to single KOs (2026-07-10, 4 gen, n=4)
+Redesigned mechanistic-scope proof: three vetted essential + sole-catalyst KOs (fabI, glmS, gltA) vs a basal
+control, multi-generation. The vetting's confident "PASS (strong KO-essentiality)" was **wrong 0/3**, and the
+reason is mechanistically decisive:
+- All 16 lineages `qc=ok` — **no arrest, no lethality**, through 4 generations.
+- **No significant growth defect**: fabI −3.7% (t=−0.82), glmS −7.7% (t=−1.22), gltA −1.8% (t=−0.73) — all ns.
+- **The KOs fully applied**: the knocked-out enzyme is **0 copies at gen3** (basal: fabI 10016, glmS 883,
+  gltA 10190). The enzyme is *completely gone*, yet growth is normal — so this is NOT a generation-depth artifact.
+- **Mechanistic insight:** in wcEcoli's *kinetics-constrained* FBA, removing an enzyme's expression reduces
+  growth only if that enzyme's count sets a **binding kinetic constraint** on a biomass-required flux. For these
+  three, count=0 did not bind the flux (the reaction is not enzyme-count-limited, and/or the biomass demand is met
+  by an alternative flux distribution) → no phenotype.
+- **Calibration verdict:** `is_sole_catalyst` captures **catalyst-annotation topology, not FBA flux constraints** —
+  different things. Do NOT ship the vetting as a gate; back it with the model's *actual* KO behaviour (or its
+  kinetic-constraint structure), and treat proxy outputs as hypotheses. The model's **KO-growth-predictive scope
+  is narrow** — largely robust to single-gene KOs at reachable depth. This bounds which KO hypotheses it can address.
+- Third empirical disproof of a confident claim (after nitrate `nrdG`, pfkA-"mechanistic") — the harness caught all three.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)
