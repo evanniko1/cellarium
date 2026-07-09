@@ -35,16 +35,34 @@ def classify_gene(symbol: str) -> dict:
             else "transcription_factor" if g["is_tf"] else "no_modeled_function")
     mechanistic = role != "no_modeled_function"
     sole = bool(g.get("is_sole_catalyst"))
+    kinetic = bool(g.get("is_kinetically_constraining"))
+    # KO-growth-effect prediction. The DECISIVE signal (calibrated on the fabI/glmS/gltA nulls) is whether the
+    # enzyme's count actually bounds a reaction flux in the kinetics-constrained FBA. If not, a KO cannot affect
+    # growth via metabolism, however 'metabolic' or 'sole-catalyst' it looks.
+    # CALIBRATED against the KO experiments (all outputs below are priors, not verdicts):
+    #   - non-mechanistic KO -> no phenotype by construction (flgB/ymgD).
+    #   - metabolic KO (kinetic OR not) -> the model REROUTES. fabI (not kinetic) AND glmS/gltA/pfkA/tpiA
+    #     (kinetic + sole) ALL showed no growth effect, because the kinetic layer is a SOFT FBA target, not a
+    #     hard bound. So NO structural metabolic flag reliably predicts a KO growth effect in this model.
     if not mechanistic:
-        note = ("This gene is EXPRESSED but its function is NOT mechanistically simulated. A KO will show "
-                "little/no phenotype BY CONSTRUCTION; a null reflects MODEL SCOPE, not biological dispensability.")
-    elif g["is_metabolic"] and not sole:
-        note = ("Metabolic, but NOT the sole catalyst of any reaction — the model has an alternate route, so a KO "
-                "is likely rerouted (viable) even if the gene is essential in reality. Weak KO-essentiality test.")
-    elif sole:
-        note = ("Metabolic AND the sole catalyst of >=1 reaction — a KO removes the only route, so if that "
-                "reaction is biomass-required the model should predict lethality/arrest. Strong KO-essentiality test.")
+        ko_effect = "none_inert"
+        note = ("EXPRESSED but function NOT simulated. A KO shows no phenotype BY CONSTRUCTION — model scope, "
+                "not biological dispensability.")
+    elif g["is_metabolic"] and not kinetic:
+        ko_effect = "none_flux_unconstrained"
+        note = ("Metabolic but NOT a kinetic-constraint enzyme — its count never enters a flux bound. A KO cannot "
+                "affect growth via metabolism (the fabI-type null).")
+    elif g["is_metabolic"]:
+        ko_effect = "unreliable_model_reroutes"
+        note = ("Metabolic AND a kinetic-constraint enzyme, but the kinetic constraints are SOFT FBA targets, not "
+                "hard bounds. EMPIRICALLY the model reroutes metabolic single-KOs: glmS/gltA/pfkA/tpiA are all "
+                "kinetic+sole-catalyst yet their KOs showed NO growth effect. Do NOT expect a phenotype; the only "
+                "reliable test is running the KO or an FBA single-deletion feasibility check (structural flags "
+                "have a 0/5 hit-rate here).")
     else:
+        ko_effect = "mechanistic_other"
         note = "Mechanistically simulated (" + role + ") — a KO is a genuine, interpretable prediction."
     return {"symbol": symbol, "known": True, "mechanistic": mechanistic, "role": role,
-            "is_sole_catalyst": sole, "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note}
+            "is_sole_catalyst": sole, "is_kinetically_constraining": kinetic, "ko_effect_prior": ko_effect,
+            "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note,
+            "calibration": "structural flags 0/5 at predicting KO growth effect so far — treat as prior, not verdict"}

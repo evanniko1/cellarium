@@ -298,6 +298,12 @@ def mode_gene_scope(root):
         metabolic_roots |= rxn_roots
         if len(cats) == 1:
             sole_roots |= rxn_roots
+    # kinetic-constraint enzymes: the ONLY enzymes whose count actually bounds a reaction flux in the
+    # kinetics-constrained FBA. A KO of one of these forces its reaction toward 0; a KO of any OTHER metabolic
+    # enzyme leaves the flux unconstrained (why fabI/glmS/gltA KOs had no growth effect).
+    kin_roots = set()
+    for e in sd.process.metabolism.kinetic_constraint_enzymes:
+        kin_roots |= cat_roots(str(e))
     tf_syms = {str(v) for v in sd.process.transcription_regulation.tf_to_gene_id.values()}
     genes = {}
     for k in range(len(gd)):
@@ -310,10 +316,12 @@ def mode_gene_scope(root):
             idx = []
         genes[sym] = {"monomer_id": mono, "ko_index": (idx[0] + 1 if idx else None), "n_tu": len(idx),
                       "is_metabolic": bool(root and root in metabolic_roots),
-                      "is_sole_catalyst": bool(root and root in sole_roots),   # model-essentiality proxy
+                      "is_sole_catalyst": bool(root and root in sole_roots),
+                      "is_kinetically_constraining": bool(root and root in kin_roots),  # KO can bind a flux
                       "is_tf": sym in tf_syms}
     return {"n": len(genes), "n_metabolic": sum(1 for v in genes.values() if v["is_metabolic"]),
             "n_sole_catalyst": sum(1 for v in genes.values() if v["is_sole_catalyst"]),
+            "n_kinetically_constraining": sum(1 for v in genes.values() if v["is_kinetically_constraining"]),
             "n_tf": len(tf_syms), "genes": genes}
 
 
