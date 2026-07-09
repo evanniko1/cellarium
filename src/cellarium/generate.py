@@ -28,6 +28,31 @@ def default_designs() -> list[Design]:
     ]
 
 
+def panel_designs() -> list[Design]:
+    """A literature-grounded in-envelope panel extending the default trio with genuinely new science:
+
+    - Carbon/oxygen condition sweep (static, fitted): a glucose-limitation gradient + poor carbon sources +
+      anaerobic — the nutrient-growth law across substrate quality (Monod; Schaechter growth law).
+    - ppGpp causal titration on minimal media (ppgpp_conc variant clamps [ppGpp] and disables its dynamics):
+      turns the ppGpp<->growth *correlation* we saw into a *causal* dose-response (stringent-response biology).
+    - AA up-shift (relaxation): the complement of the downshift already in the corpus.
+    - rRNA-operon knockout series (1..6 of 7 operons): ribosome-synthesis-capacity limitation of growth.
+
+    All indices verified against the model's own variant_map. basal(0)/with_aa(4)/downshift already in corpus.
+    """
+    conditions = {1: "glc_20mM", 2: "glc_5mM", 3: "glc_2mM", 5: "acetate", 6: "succinate", 7: "no_oxygen"}
+    ppgpp = {0: "0.2x", 2: "0.6x", 7: "1.6x", 9: "2.0x"}   # ppgpp_conc on basal (idx//10==0); 4=control skipped
+    rrna = {2: "2op", 4: "4op", 6: "6op"}                   # rrna_operon_knockout: KO n operons in minimal
+    designs = [Design(perturbation="condition", condition=lbl, params={"variant_index": i})
+               for i, lbl in conditions.items()]
+    designs += [Design(perturbation="ppgpp_conc", condition=f"basal|ppGpp:{lbl}", params={"variant_index": i})
+                for i, lbl in ppgpp.items()]
+    designs.append(Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_plus_amino_acids"))  # up-shift
+    designs += [Design(perturbation="rrna_operon_knockout", condition=f"minimal|rRNA_KO:{lbl}",
+                       params={"variant_index": i}) for i, lbl in rrna.items()]
+    return designs
+
+
 def knockout_designs(query: str, limit: int = 8) -> list[Design]:
     """Gene-knockout designs whose rna_id matches `query`, using the cached variant map
     (run `python -m cellarium.reader --variant-map` first). Each -> --variant gene_knockout <idx>."""
@@ -50,9 +75,17 @@ def main() -> None:
     ap.add_argument("--knockout", default=None,
                     help="run a gene-KO panel matching this rna_id query instead of the default trio "
                          "(needs the cached variant map)")
+    ap.add_argument("--panel", action="store_true",
+                    help="run the extended literature-grounded panel (carbon/O2 sweep, ppGpp titration, "
+                         "AA up-shift, rRNA-operon KO) instead of the default trio")
     args = ap.parse_args()
 
-    designs = knockout_designs(args.knockout) if args.knockout else default_designs()
+    if args.panel:
+        designs = panel_designs()
+    elif args.knockout:
+        designs = knockout_designs(args.knockout)
+    else:
+        designs = default_designs()
     shard = manifest.campaign(designs, list(range(args.seeds)), args.generations, args.parallel)
     print(f"Wrote manifest shard: {shard}")
 
