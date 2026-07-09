@@ -63,6 +63,34 @@ values above, and (c) respects the caveats (segments for transients; FBA objecti
 refusal for a carbon-source *switch*). A, being measured, is a hard faithfulness gate; B is the scientific
 expectation the completed panel will confirm or complicate.
 
+## E. Panel results — predictions checked (measured 2026-07-09; 42 runs, re-read with mechanistic channels)
+Verdicts: **✓ confirmed · ✗ discrepant · ~ confounded (needs multi-gen)**.
+
+- **ppGpp clamp (B.1) — ~ / ✗ partial, mechanism now verified molecularly.** The clamp works (ppGpp 9.8→98.3
+  across 0.2–2.0×). Growth is **monotonic decreasing** (0.2×=0.000323 fastest → 2.0×=0.000181 slowest) — **not**
+  Zhu's non-monotonic hump. High-ppGpp arm **✓** (ribosome-repression: `ribosome_conc` 21.6→19.1 as ppGpp
+  rises). Low-ppGpp arm **✗ vs Zhu**: 0.2× is fastest with ribosomes plateaued (~23.8) — no metabolic-cost
+  downturn at 1 gen. The ppGpp→`ribosome_conc`→growth chain is now **verified, not inferred**. Hypothesis: the
+  low-side downturn is a steady-state effect → testing at `--generations 4`.
+- **Carbon/O₂ sweep (B.3) — ✓ with a key refinement.** Poor carbon (acetate 0.000177, succinate 0.000193) +
+  anaerobic (0.000151) → slow + small cells ✓. Glucose 2/5/20 mM identical (~0.000255) — **uptake-saturated**
+  (K_m ≪ mM); this arm doesn't probe glucose *limitation* (needs µM). **Refinement: ppGpp does NOT
+  anti-correlate with growth on the carbon/energy axis** (anaerobic is slow but low ppGpp 27.9) — ppGpp tracks
+  **AA/translation limitation specifically**. Signature #2 holds on the AA axis only. Supports "ppGpp is
+  emergent, not a fitted growth-lookup."
+- **rRNA-operon KO (B.2) — ~ confounded.** Non-monotonic at 1 gen (2op 0.000251 → 4op 0.000234 → 6op 0.000274;
+  6op *fastest*) — contradicts the predicted decline. The KO defect is steady-state; inherited ribosomes mask
+  it in gen 0. Re-running at `--generations 4`.
+- **AA up-shift — ~ confounded.** The cell divided before the t=1200 shift (only the pre-shift `minimal`
+  segment exists). Needs multi-gen (later generations sit post-shift) or an earlier shift (~600 s). Downshift
+  re-confirmed (rich 22.6/0.000522 → minimal 40.9/0.000150).
+
+**Meta-finding:** three arms (low-ppGpp downturn, rRNA KO, up-shift) are **steady-state phenomena a single
+generation cannot resolve** — the panel's most valuable output. The in/out-of-sample framing (§6.1 of
+HACKATHON_CONCEPT) is validated: the out-of-sample arms produced genuine behavior — some matching, one honestly
+disagreeing with Zhu, several needing more generations. The harness now carries `ribosome_conc`,
+`fraction_trna_charged`, `rela_conc` so the mechanism is checkable cross-run in SQL, not inferred from growth.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)
