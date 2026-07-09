@@ -71,6 +71,13 @@ def provenance(perturbation: str, condition: str | None = None) -> dict:
     return _prov.classify(perturbation, condition)
 
 
+def mechanistic_scope(symbol: str) -> dict:
+    """Is a gene's function actually SIMULATED (metabolic enzyme / modeled TF) or expressed-but-inert? A KO of a
+    non-mechanistic gene shows no phenotype BY CONSTRUCTION — a null there is model scope, not biology."""
+    from . import scope
+    return scope.classify_gene(symbol)
+
+
 def disconfirm(target: str, reference: str, channel: str) -> dict:
     """Challenge a claimed target-vs-reference effect on a channel (per-seed spread, noise, corpus z)."""
     rigor.note_design(target)
@@ -175,6 +182,8 @@ TOOLS = [
     {"name": "provenance", "description": "Is a design's result IN-SAMPLE (a ParCa-fitted condition — model was calibrated to match it, so agreement is consistency NOT prediction) or OUT-OF-SAMPLE (a perturbation the fit didn't target — a genuine prediction)? Check before claiming the model 'predicts' or 'validates' something.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}},
                       "required": ["perturbation"]}},
+    {"name": "mechanistic_scope", "description": "Is a gene's FUNCTION mechanistically simulated (metabolic enzyme or one of the ~23 modeled TFs) or expressed-but-inert? A knockout of a non-mechanistic gene shows no phenotype BY CONSTRUCTION — a null there is model scope, NOT biological dispensability. Check before interpreting a KO.",
+     "input_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "required": ["symbol"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
@@ -189,6 +198,7 @@ TOOLS = [
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
              "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
+             "mechanistic_scope": mechanistic_scope,
              "list_results": list_results, "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,

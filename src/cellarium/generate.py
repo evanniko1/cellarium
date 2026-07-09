@@ -53,6 +53,16 @@ def panel_designs() -> list[Design]:
     return designs
 
 
+def mechanistic_ko_designs() -> list[Design]:
+    """KO experiment testing the mechanistic-scope guardrail: MECHANISTIC single-gene knockouts (metabolic
+    enzymes pfkA, tpiA — central glycolysis, active on glucose) vs NON-MECHANISTIC ones (flgB flagellar,
+    ymgD y-gene — expressed but inert). Prediction: the metabolic KOs perturb growth/proteome (or fail to
+    divide); the inert KOs do not. A clean contrast proves the guardrail. Indices from gene_scope.json."""
+    kos = {"pfkA": 1594, "tpiA": 1542, "flgB": 2791, "ymgD": 397}
+    return [Design(perturbation="gene_knockout", condition=f"KO:{sym}", params={"variant_index": idx})
+            for sym, idx in kos.items()]
+
+
 def power_designs() -> list[Design]:
     """High-replicate set to test two literature-first hypotheses and power the existing results.
     H1 (expect PASS): O2 limitation reproduces the FNR/ArcA anaerobic regulon (no_oxygen).
@@ -127,10 +137,14 @@ def main() -> None:
     ap.add_argument("--power", action="store_true",
                     help="high-replicate set (basal, with_aa, acetate, no_oxygen, minus_magnesium) to test H1/H2 "
                          "and power the growth law; run with --seeds 8")
+    ap.add_argument("--mechanistic-ko", action="store_true", dest="mechanistic_ko",
+                    help="single-gene KO experiment: mechanistic (pfkA, tpiA) vs non-mechanistic (flgB, ymgD)")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.mechanistic_ko:
+        designs = mechanistic_ko_designs()
     elif args.power:
         designs = power_designs()
     elif args.stress:

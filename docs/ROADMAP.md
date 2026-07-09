@@ -54,12 +54,15 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
 - `[ ]` **Heterogeneous adversarial pass.** Role-diverse debate — analyst vs verifier vs skeptic — to catch
   over-focus and overlooked data (Du 2023; role diversity, Zhou 2025).
 
-## Guardrail summary (the "Rigor rail")
-- **Feasibility** (`envelope.py`, exists): out-of-envelope designs (mid-run carbon-source switch) refused
-  pre-run with an in-envelope alternative.
-- **Biosecurity** (`biosecurity.py`): design-time signature screen (P1) → phenotype-grounded result screen
-  (P2). Flag for review / block; never auto-run a flagged design. v1 is intent/signature-based and says so.
-- **Output QC** (`qc.py`, exists): degenerate generations are evidence-absent, never a doubling time.
+## Guardrail summary (the "Rigor rail") — three distinct axes
+- **Feasibility** (`envelope.py`): is the perturbation in the *validated* regime? (a carbon-source switch is not).
+- **Provenance** (`provenance.py`): is the quantity *fitted* (in-sample = consistency) or *predicted*
+  (out-of-sample = genuine test)? Tagged on every result; the H1/H2 pair proved this is the deepest axis.
+- **Mechanistic scope** (`scope.py`): is the target's function actually *simulated* (metabolic enzyme / one of
+  the ~23 modeled TFs) or expressed-but-inert? A non-mechanistic KO null is model scope, NOT biology.
+- **Biosecurity** (`biosecurity.py`): design-time intent screen + phenotype-grounded result screen.
+- **Output QC** (`qc.py`): degenerate generations are evidence-absent, never a doubling time.
+- **Statistics** (`rigor.disconfirm`, `survey`): 95% CIs + Welch t; solver diagnostics excluded from ranking.
 
 ## Feasibility notes
 P1 uses existing manifest data (no new sims) — cheap + deterministic. P2.1/2.2 need the species panel in the

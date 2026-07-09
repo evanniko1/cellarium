@@ -24,6 +24,8 @@ SYSTEM = (
     "matters. Only after the survey, drill in with read_series / read_species.\n"
     "- To interpret a KO/perturbation, use differential (what channels/pathways moved most vs control) and "
     "top_movers (which individual proteins) — do NOT pre-decide which molecules matter; let the data rank them.\n"
+    "- Before interpreting a gene KO, call mechanistic_scope: if the gene is expressed-but-inert (no modeled "
+    "function), a null phenotype is model scope, NOT biological dispensability — say so, don't over-read it.\n"
     "- READ COLD. Derive conclusions from tool results only. Do not assume anything from earlier conversation, "
     "external notes, or 'what we expected' — if a prior claim conflicts with the tools, the tools win. State "
     "how many runs/designs support each claim; don't generalise from a subset the survey shows is larger.\n"

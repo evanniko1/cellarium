@@ -258,6 +258,52 @@ def mode_gene_map(root):
     return {"symbols": symbols, "n": len(symbols)}
 
 
+def _cplx_monomers(comp, cat):
+    try:
+        r = comp.get_monomers(cat)
+    except Exception:
+        return [cat]
+    if isinstance(r, dict):
+        return [str(x) for x in r.get("subunitIds", [])] or [cat]
+    try:
+        return [str(x) for x in r]
+    except Exception:
+        return [cat]
+
+
+def mode_gene_scope(root):
+    """Classify each gene's MECHANISTIC role in the model — the basis of the mechanistic-scope guardrail.
+    is_metabolic: its monomer catalyses an FBA reaction (directly or as a complex subunit). is_tf: it is one
+    of the (few) mechanistically-modeled transcription factors. Also returns the gene-KO variant index."""
+    import pickle
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": f"no sim_data at {kb}"}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
+    tr, comp = sd.process.transcription, sd.process.complexation
+    cis2mono = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
+    metabolic_roots = set()
+    for cat in (str(x) for x in sd.process.metabolism.catalyst_ids):
+        metabolic_roots.add(cat.split("[")[0])
+        for m in _cplx_monomers(comp, cat):               # expand catalyst complexes to their subunit monomers
+            metabolic_roots.add(str(m).split("[")[0])
+    tf_syms = {str(v) for v in sd.process.transcription_regulation.tf_to_gene_id.values()}
+    genes = {}
+    for k in range(len(gd)):
+        sym, cis = str(gd["symbol"][k]), str(gd["cistron_id"][k])
+        mono = cis2mono.get(cis)
+        try:
+            idx = [int(i) for i in tr.cistron_id_to_rna_indexes(cis)]
+        except Exception:
+            idx = []
+        genes[sym] = {"monomer_id": mono, "ko_index": (idx[0] + 1 if idx else None), "n_tu": len(idx),
+                      "is_metabolic": bool(mono and mono.split("[")[0] in metabolic_roots),
+                      "is_tf": sym in tf_syms}
+    return {"n": len(genes), "n_tf": len(tf_syms), "genes": genes}
+
+
 def mode_variant_map(root):
     """Load sim_data (kb) and dump the variant index maps the model uses, so KO/condition design panels can
     be built with indices that match the model's own ordering (gene_knockout: idx = gene position + 1, 0 =
@@ -343,6 +389,8 @@ if __name__ == "__main__":
         out = mode_variant_map(run_root)
     elif mode == "gene_map":
         out = mode_gene_map(run_root)
+    elif mode == "gene_scope":
+        out = mode_gene_scope(run_root)
     elif mode == "differential":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     else:

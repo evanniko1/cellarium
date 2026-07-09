@@ -77,6 +77,11 @@ def gene_map(sim_path: str = "cellarium") -> dict:
     return _invoke("gene_map", OUT_ROOT / sim_path)
 
 
+def gene_scope(sim_path: str = "cellarium") -> dict:
+    """Per-gene mechanistic classification (is_metabolic / is_tf) + KO index from sim_data. Heavy; cache it."""
+    return _invoke("gene_scope", OUT_ROOT / sim_path)
+
+
 def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "protein",
                  top: int = 12, floor: float = 20.0) -> dict:
     """Seed-aware per-species fold-change: ALL target runs vs ALL reference runs (count-floored, reproducibility
