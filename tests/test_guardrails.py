@@ -1,6 +1,6 @@
 """Guardrail smoke tests — the differentiators, on real fixtures. Run: `python -m pytest` (or this file)."""
 
-from cellarium import biosecurity, envelope, qc, survey
+from cellarium import biosecurity, differential, envelope, qc, survey
 from cellarium.model import Design, GenerationResult, SimResult
 
 
@@ -68,6 +68,11 @@ def test_survey_handles_empty_corpus_gracefully():
     # no manifest present in the test env -> a clean error, not a crash
     out = survey.survey_corpus()
     assert "error" in out or "coverage" in out
+
+
+def test_differential_summary_handles_missing_target():
+    out = differential.summary("nonexistent/design")
+    assert "error" in out  # clean error (+ 'available' when a corpus exists), never a crash
 
 
 if __name__ == "__main__":

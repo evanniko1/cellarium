@@ -73,6 +73,11 @@ def gene_map(sim_path: str = "cellarium") -> dict:
     return _invoke("gene_map", OUT_ROOT / sim_path)
 
 
+def differential(design_root: Path, ref_root: Path, kind: str = "protein", top: int = 12) -> dict:
+    """Per-species fold-change between two runs (design vs reference), computed in the container."""
+    return _invoke("differential", design_root, [_container_path(ref_root), kind, str(top)])
+
+
 if __name__ == "__main__":  # schema dump (default) or `--variant-map` to derive + cache the KO/condition map
     import argparse
 

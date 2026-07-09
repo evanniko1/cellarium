@@ -22,6 +22,8 @@ SYSTEM = (
     "reason from that whole ranked view. Do NOT anchor on the first run you look at or on the biggest single "
     "number — the survey ranks every design by computed effect size so your attention isn't what decides what "
     "matters. Only after the survey, drill in with read_series / read_species.\n"
+    "- To interpret a KO/perturbation, use differential (what channels/pathways moved most vs control) and "
+    "top_movers (which individual proteins) — do NOT pre-decide which molecules matter; let the data rank them.\n"
     "- READ COLD. Derive conclusions from tool results only. Do not assume anything from earlier conversation, "
     "external notes, or 'what we expected' — if a prior claim conflicts with the tools, the tools win. State "
     "how many runs/designs support each claim; don't generalise from a subset the survey shows is larger.\n"

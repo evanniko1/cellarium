@@ -31,8 +31,10 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
   records per-pathway **proteome fractions** (size-independent — ribosomal ≈ 35%, textbook) into the manifest;
   `survey_corpus` ranks them as `pw:<pathway>` channels. Panel is a committed config list, **interchangeable**:
   edit it and `python -m cellarium.pathway_panel` re-resolves. (Resolves 199/199; generated maps gitignored.)
-- `[ ]` **Differential top-movers.** For KOs/perturbations, compute which molecules/pathways moved most vs
-  control — the "interchangeable panel" solved data-drivenly rather than by a fixed list.
+- `[x]` **Differential top-movers.** `differential.py` + tools: `differential(target, reference)` ranks
+  channels + pathways by |log2 fold-change| from the manifest (instant); `top_movers(result_id, ref_id, kind)`
+  ranks individual species from simOut (3,938 proteins compared), gene-symbol-annotated. The "interchangeable
+  panel" solved data-drivenly — discover what moved instead of pre-declaring it.
 - `[ ]` **Phenotype-grounded biosecurity.** Screen *results* (survey detects AMR-efflux up-regulation, etc.),
   per DEMO Act 3 "grounded in the predicted phenotype, not keywords." Needs the panel + survey.
 - `[ ]` **Coverage completeness gate.** Track examined-vs-full-grid in the loop; flag conclusions drawn from a

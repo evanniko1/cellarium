@@ -274,6 +274,32 @@ def mode_variant_map(root):
     return {"conditions": conditions, "n_genes": len(rna_ids), "genes": genes}
 
 
+DIFF_MIN_COUNT = 5  # ignore near-zero species (fold-change of noise is meaningless)
+
+
+def mode_differential(design_root, ref_root, kind, top):
+    """Per-species fold-change (design vs reference), last generation of each. Returns top up/down movers."""
+    dg, rg = _gens(design_root), _gens(ref_root)
+    if not dg or not rg:
+        return {"error": "missing simOut (design or reference)"}
+    table, column, idattr = SPECIES_SOURCES[kind]
+    d_ids, r_ids = _attr(dg[-1], table, idattr), _attr(rg[-1], table, idattr)
+    d_mean = np.asarray(_col(dg[-1], table, column), dtype=float).mean(axis=0)
+    r_mean = np.asarray(_col(rg[-1], table, column), dtype=float).mean(axis=0)
+    r_map = dict(zip(r_ids, r_mean))
+    movers = []
+    for i, dv in zip(d_ids, d_mean):
+        rv = r_map.get(i)
+        if rv is None or max(dv, rv) < DIFF_MIN_COUNT:
+            continue
+        movers.append({"id": i, "target": round(float(dv), 2), "reference": round(float(rv), 2),
+                       "log2fc": round(float(math.log2((dv + 1.0) / (rv + 1.0))), 2)})
+    movers.sort(key=lambda m: abs(m["log2fc"]), reverse=True)
+    return {"kind": kind, "n_compared": len(movers),
+            "up": [m for m in movers if m["log2fc"] > 0][:top],
+            "down": [m for m in movers if m["log2fc"] < 0][:top]}
+
+
 def mode_list_species(run_root, kind, search=""):
     gs = _gens(run_root)
     if not gs:
@@ -299,6 +325,8 @@ if __name__ == "__main__":
         out = mode_variant_map(run_root)
     elif mode == "gene_map":
         out = mode_gene_map(run_root)
+    elif mode == "differential":
+        out = mode_differential(run_root, sys.argv[3], sys.argv[4], int(sys.argv[5]))
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))
