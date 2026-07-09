@@ -29,7 +29,7 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
     return SimResult(id=f"{design.perturbation}_{seed}_{uuid.uuid4().hex[:8]}", label=label,
                      design=design, channels=data.get("channels", {}), generations=gens, note=note,
                      channel_stats=data.get("channel_stats", {}), series=data.get("series", {}),
-                     media_segments=data.get("media_segments", []))
+                     media_segments=data.get("media_segments", []), pathways=data.get("pathways", {}))
 
 
 def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
@@ -42,6 +42,7 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
            "reportable": qc.is_reportable(rec), "note": rec.note,
            "per_generation": json.dumps([{"i": g.index, "growth": g.growth_mean, "ppgpp": g.ppgpp_mean,
                                            "divided": g.divided} for g in rec.generations]),
+           "pathways": json.dumps(rec.pathways),   # {pathway: proteome_fraction} — surveyed as channels
            "simout_path": str(run_root),  # LOCAL path for read_species; full simOut stays on this machine
            "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
            "series": json.dumps(rec.series),

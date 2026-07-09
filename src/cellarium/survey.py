@@ -22,42 +22,60 @@ REFERENCE = ("wildtype", "basal")   # the control designs are compared against
 def _deduped_rows(channels: list[str]) -> list[dict]:
     import duckdb
 
-    cols = ["perturbation", "condition", "seed", "qc", "reportable", *channels]
-    sel = ", ".join(f'"{c}"' for c in cols)
-    q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
-         f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path,id) ORDER BY ts DESC)=1) "
-         f"SELECT {sel} FROM d")
     con = duckdb.connect()
-    try:
-        return con.execute(q).fetch_arrow_table().to_pylist()
-    except Exception as exc:
-        return [{"__error__": str(exc)}]
-    finally:
-        con.close()
+    last = ""
+    # try with the pathways column (P2.1); fall back without it for pre-P2.1 corpora that lack it
+    for cols in (["perturbation", "condition", "seed", "qc", "reportable", "pathways", *channels],
+                 ["perturbation", "condition", "seed", "qc", "reportable", *channels]):
+        sel = ", ".join(f'"{c}"' for c in cols)
+        q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
+             f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path,id) ORDER BY ts DESC)=1) "
+             f"SELECT {sel} FROM d")
+        try:
+            return con.execute(q).fetch_arrow_table().to_pylist()
+        except Exception as exc:
+            last = str(exc)
+    con.close()
+    return [{"__error__": last}]
 
 
 def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
-    channels = channels or CHANNELS
-    rows = _deduped_rows(channels)
+    import json
+
+    base = channels or CHANNELS
+    rows = _deduped_rows(base)
     if rows and "__error__" in rows[0]:
         return {"error": f"corpus query failed: {rows[0]['__error__']}"}
     if not rows:
         return {"error": "corpus is empty — generate a campaign first (see docs/GENERATE.md)."}
+
+    # expand the per-pathway proteome fractions into first-class channels (pw:<pathway>)
+    pw_keys: set[str] = set()
+    for r in rows:
+        try:
+            r["_pw"] = json.loads(r.get("pathways") or "{}")
+        except Exception:
+            r["_pw"] = {}
+        pw_keys |= set(r["_pw"])
+    all_channels = base + [f"pw:{k}" for k in sorted(pw_keys)]
+
+    def val(r: dict, ch: str):
+        return r["_pw"].get(ch[3:]) if ch.startswith("pw:") else r.get(ch)
 
     by_design: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
         by_design[(r["perturbation"], r["condition"])].append(r)
 
     def dmean(rs: list[dict], ch: str):
-        vals = [r[ch] for r in rs if r.get(ch) is not None]
+        vals = [v for v in (val(r, ch) for r in rs) if v is not None]
         return sum(vals) / len(vals) if vals else None
 
-    means = {d: {ch: dmean(rs, ch) for ch in channels} for d, rs in by_design.items()}
+    means = {d: {ch: dmean(rs, ch) for ch in all_channels} for d, rs in by_design.items()}
     ref = means.get(REFERENCE)
 
     by_channel: dict[str, dict] = {}
     notable: list[dict] = []
-    for ch in channels:
+    for ch in all_channels:
         ref_v = (ref or {}).get(ch)
         entries = []
         for d, m in means.items():

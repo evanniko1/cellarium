@@ -164,7 +164,8 @@ def mode_run(run_root):
     stats, series, segments = _dynamics(gs[-1])
     return {"generations": [_generation(so, i) for i, so in enumerate(gs)],
             "channels": {n: s["mean"] for n, s in stats.items()},  # flat means (compat + easy SQL)
-            "channel_stats": stats, "series": series, "media_segments": segments}
+            "channel_stats": stats, "series": series, "media_segments": segments,
+            "pathways": _pathways(gs[-1], _load_panel())}  # per-pathway proteome fractions (P2.1 depth)
 
 
 def mode_schema(run_root):
@@ -208,6 +209,55 @@ def mode_species(run_root, kind, species_id):
             "series": _downsample(t, s)}  # [t_sec, value] pairs (~16) for dynamics
 
 
+def _load_panel():
+    """The resolved pathway panel {pathway: [monomer_id]}, mounted alongside this worker. Absent -> no pathways."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_pathway_resolved.json")
+    try:
+        with open(p) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _pathways(so, panel):
+    """Per-pathway PROTEOME FRACTION (pathway monomer count / total monomer count) — size-independent, so it
+    reflects allocation, not just a bigger cell. Mean over the generation."""
+    if not panel:
+        return {}
+    try:
+        counts = np.asarray(_col(so, "MonomerCounts", "monomerCounts"), dtype=float)  # (T, nMonomers)
+        ids = _attr(so, "MonomerCounts", "monomerIds")
+    except Exception:
+        return {}
+    idx = {m: i for i, m in enumerate(ids)}
+    total = counts.sum(axis=1)
+    total[total == 0] = np.nan
+    out = {}
+    for pathway, monomers in panel.items():
+        cols = [idx[m] for m in monomers if m in idx]
+        if cols:
+            out[pathway] = _finite(np.nanmean(counts[:, cols].sum(axis=1) / total))
+    return out
+
+
+def mode_gene_map(root):
+    """Dump {symbol: monomer_id} from sim_data (symbol -> cistron_id -> monomer_id). Opt-in; unpickles kb."""
+    import pickle
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": f"no sim_data at {kb} (run ParCa first)"}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
+    c2m = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
+    symbols = {}
+    for k in range(len(gd)):
+        m = c2m.get(str(gd["cistron_id"][k]))
+        if m:
+            symbols[str(gd["symbol"][k])] = m
+    return {"symbols": symbols, "n": len(symbols)}
+
+
 def mode_variant_map(root):
     """Load sim_data (kb) and dump the variant index maps the model uses, so KO/condition design panels can
     be built with indices that match the model's own ordering (gene_knockout: idx = gene position + 1, 0 =
@@ -247,6 +297,8 @@ if __name__ == "__main__":
         out = mode_list_species(run_root, sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "")
     elif mode == "variant_map":
         out = mode_variant_map(run_root)
+    elif mode == "gene_map":
+        out = mode_gene_map(run_root)
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

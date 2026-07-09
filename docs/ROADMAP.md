@@ -26,9 +26,11 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
   state coverage per claim.
 
 ## P2 — depth
-- `[ ]` **Curated species panel (D2, now unblocked) + pathway aggregation.** Persist ~50–200 mechanistic
-  molecules + gene→pathway groups into the manifest; `survey_corpus` aggregates to pathway level (fewer,
-  higher-level units ⇒ less lost-in-the-middle). Panel is a config list, **interchangeable per experiment**.
+- `[x]` **Curated species panel (D2) + pathway aggregation.** `pathway_panel.py`: 13 pathways / 199 K-12 gene
+  symbols, resolved to monomer IDs via the gene map (symbol→cistron→monomer, dumped from sim_data). The reader
+  records per-pathway **proteome fractions** (size-independent — ribosomal ≈ 35%, textbook) into the manifest;
+  `survey_corpus` ranks them as `pw:<pathway>` channels. Panel is a committed config list, **interchangeable**:
+  edit it and `python -m cellarium.pathway_panel` re-resolves. (Resolves 199/199; generated maps gitignored.)
 - `[ ]` **Differential top-movers.** For KOs/perturbations, compute which molecules/pathways moved most vs
   control — the "interchangeable panel" solved data-drivenly rather than by a fixed list.
 - `[ ]` **Phenotype-grounded biosecurity.** Screen *results* (survey detects AMR-efflux up-regulation, etc.),

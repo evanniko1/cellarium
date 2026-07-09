@@ -68,6 +68,11 @@ def variant_map(sim_path: str = "cellarium") -> dict:
     return _invoke("variant_map", OUT_ROOT / sim_path)
 
 
+def gene_map(sim_path: str = "cellarium") -> dict:
+    """{symbol: monomer_id} from sim_data — for resolving the curated pathway panel. Heavy; cache it."""
+    return _invoke("gene_map", OUT_ROOT / sim_path)
+
+
 if __name__ == "__main__":  # schema dump (default) or `--variant-map` to derive + cache the KO/condition map
     import argparse
 
