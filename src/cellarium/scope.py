@@ -34,11 +34,17 @@ def classify_gene(symbol: str) -> dict:
     role = ("metabolic_enzyme" if g["is_metabolic"]
             else "transcription_factor" if g["is_tf"] else "no_modeled_function")
     mechanistic = role != "no_modeled_function"
-    note = ("This gene's function IS mechanistically simulated (" + role + ") — a KO/perturbation of it is a "
-            "genuine, interpretable model prediction."
-            if mechanistic else
-            "This gene is EXPRESSED but its function is NOT mechanistically simulated. A KO will show little/no "
-            "phenotype BY CONSTRUCTION; a null result reflects MODEL SCOPE, not biological dispensability — do "
-            "not interpret it as biology.")
+    sole = bool(g.get("is_sole_catalyst"))
+    if not mechanistic:
+        note = ("This gene is EXPRESSED but its function is NOT mechanistically simulated. A KO will show "
+                "little/no phenotype BY CONSTRUCTION; a null reflects MODEL SCOPE, not biological dispensability.")
+    elif g["is_metabolic"] and not sole:
+        note = ("Metabolic, but NOT the sole catalyst of any reaction — the model has an alternate route, so a KO "
+                "is likely rerouted (viable) even if the gene is essential in reality. Weak KO-essentiality test.")
+    elif sole:
+        note = ("Metabolic AND the sole catalyst of >=1 reaction — a KO removes the only route, so if that "
+                "reaction is biomass-required the model should predict lethality/arrest. Strong KO-essentiality test.")
+    else:
+        note = "Mechanistically simulated (" + role + ") — a KO is a genuine, interpretable prediction."
     return {"symbol": symbol, "known": True, "mechanistic": mechanistic, "role": role,
-            "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note}
+            "is_sole_catalyst": sole, "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note}

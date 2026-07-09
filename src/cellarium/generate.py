@@ -53,6 +53,22 @@ def panel_designs() -> list[Design]:
     return designs
 
 
+def essential_ko_designs() -> list[Design]:
+    """Redesigned mechanistic-scope test: three ESSENTIAL, sole-catalyst, mechanistic KOs on minimal glucose
+    vs a basal control, MULTI-GENERATION so the defect develops as the inherited enzyme/precursors deplete
+    (the generation-depth lesson). All vetted: metabolic + is_sole_catalyst + monocistronic + Keio/conditionally
+    essential + in-envelope + biosecurity-clean.
+      H_KO_A fabI (425)  — enoyl-ACP reductase, fatty-acid synthesis; essential, unique.
+      H_KO_B glmS (2795) — glucosamine-6-P synthase, cell-wall/LPS precursor; essential, unique.
+      H_KO_C gltA (2657) — citrate synthase (TCA -> glutamate); conditionally essential on minimal.
+    Prediction: each KO shows a progressive per-generation growth decline -> arrest/no-division, matching the
+    ~91% FBA-essentiality benchmark (Joyce 2006). Run with --generations 4."""
+    kos = {"fabI": 425, "glmS": 2795, "gltA": 2657}
+    return [Design(perturbation="wildtype", condition="basal")] + \
+           [Design(perturbation="gene_knockout", condition=f"KO:{s}", params={"variant_index": i})
+            for s, i in kos.items()]
+
+
 def mechanistic_ko_designs() -> list[Design]:
     """KO experiment testing the mechanistic-scope guardrail: MECHANISTIC single-gene knockouts (metabolic
     enzymes pfkA, tpiA — central glycolysis, active on glucose) vs NON-MECHANISTIC ones (flgB flagellar,
@@ -139,10 +155,14 @@ def main() -> None:
                          "and power the growth law; run with --seeds 8")
     ap.add_argument("--mechanistic-ko", action="store_true", dest="mechanistic_ko",
                     help="single-gene KO experiment: mechanistic (pfkA, tpiA) vs non-mechanistic (flgB, ymgD)")
+    ap.add_argument("--essential-ko", action="store_true", dest="essential_ko",
+                    help="essential sole-catalyst KOs (fabI, glmS, gltA) + basal control; run with --generations 4")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.essential_ko:
+        designs = essential_ko_designs()
     elif args.mechanistic_ko:
         designs = mechanistic_ko_designs()
     elif args.power:

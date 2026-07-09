@@ -284,24 +284,37 @@ def mode_gene_scope(root):
     md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
     tr, comp = sd.process.transcription, sd.process.complexation
     cis2mono = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
-    metabolic_roots = set()
-    for cat in (str(x) for x in sd.process.metabolism.catalyst_ids):
-        metabolic_roots.add(cat.split("[")[0])
-        for m in _cplx_monomers(comp, cat):               # expand catalyst complexes to their subunit monomers
-            metabolic_roots.add(str(m).split("[")[0])
+
+    def cat_roots(cat):  # a catalyst (monomer or complex) -> its constituent monomer roots
+        roots = {str(cat).split("[")[0]}
+        for m in _cplx_monomers(comp, str(cat)):
+            roots.add(str(m).split("[")[0])
+        return roots
+
+    metabolic_roots, sole_roots = set(), set()   # sole = subunit of the ONLY catalyst of some reaction
+    for _rxn, cats in sd.process.metabolism.reaction_catalysts.items():
+        cats = [str(c) for c in cats]
+        rxn_roots = set().union(*[cat_roots(c) for c in cats]) if cats else set()
+        metabolic_roots |= rxn_roots
+        if len(cats) == 1:
+            sole_roots |= rxn_roots
     tf_syms = {str(v) for v in sd.process.transcription_regulation.tf_to_gene_id.values()}
     genes = {}
     for k in range(len(gd)):
         sym, cis = str(gd["symbol"][k]), str(gd["cistron_id"][k])
         mono = cis2mono.get(cis)
+        root = mono.split("[")[0] if mono else None
         try:
             idx = [int(i) for i in tr.cistron_id_to_rna_indexes(cis)]
         except Exception:
             idx = []
         genes[sym] = {"monomer_id": mono, "ko_index": (idx[0] + 1 if idx else None), "n_tu": len(idx),
-                      "is_metabolic": bool(mono and mono.split("[")[0] in metabolic_roots),
+                      "is_metabolic": bool(root and root in metabolic_roots),
+                      "is_sole_catalyst": bool(root and root in sole_roots),   # model-essentiality proxy
                       "is_tf": sym in tf_syms}
-    return {"n": len(genes), "n_tf": len(tf_syms), "genes": genes}
+    return {"n": len(genes), "n_metabolic": sum(1 for v in genes.values() if v["is_metabolic"]),
+            "n_sole_catalyst": sum(1 for v in genes.values() if v["is_sole_catalyst"]),
+            "n_tf": len(tf_syms), "genes": genes}
 
 
 def mode_variant_map(root):
