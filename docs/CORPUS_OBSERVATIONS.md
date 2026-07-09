@@ -91,6 +91,27 @@ HACKATHON_CONCEPT) is validated: the out-of-sample arms produced genuine behavio
 disagreeing with Zhu, several needing more generations. The harness now carries `ribosome_conc`,
 `fraction_trna_charged`, `rela_conc` so the mechanism is checkable cross-run in SQL, not inferred from growth.
 
+### Multi-generation resolution — all three confounded arms confirmed (2026-07-09, `--generations 4`)
+Re-running the confounded arms to steady state (reading the per-generation growth/ppGpp trajectory) **flips
+every 1-gen artifact into the literature-predicted result** — a clean demonstration that single-generation
+snapshots mislead for steady-state effects:
+- **ppGpp clamp → ✓ Zhu non-monotonic emerges.** Low-ppGpp clamps start fast (gen0 0.2× = 0.00033) but
+  **decline over generations** (→ 0.00018 by gen4); the ribosome over-investment is not sustained. Growth no
+  longer peaks at the lowest ppGpp — the downturn appears, as Zhu 2019 predicts. The 1-gen "monotonic, low=fast"
+  was the artifact. (Proteome view: the 0.2× clamp has the *highest* ribosomal fraction, 0.48 — over-allocated.)
+- **rRNA-operon KO → ✓ monotonic dosage decline.** At gen4, growth is monotone in operon count
+  (2op 0.000227 > 4op 0.000187 > 6op 0.000157; 6op −42% over 4 gens). The 1-gen "6op fastest" was masked by
+  inherited ribosomes. Confirms Stevenson 2004.
+- **AA up-shift → ✓ mirror of the downshift.** Post-shift generations relax: ppGpp **36 → 22** and growth
+  **rises** to the +AA-adapted state (ppGpp ~22 = static `with_aa`). The 1-gen run divided before the shift.
+
+### Pathway proteome allocation (P2.1 — surveyed, not inferred)
+The curated pathway panel makes proteome *allocation* a first-class, surveyed signal: **ribosomal fraction
+tracks growth** (with_aa 46% > basal 35% > no_oxygen 20% — the Scott–Hwa growth law, emergent), **acetate
+reallocates to central carbon** (glycolysis/TCA ≈ 2× — gluconeogenesis/glyoxylate signature), and **anaerobic
+down-regulates respiration/PPP/stringent ≈ 50%**. `amr_efflux` baseline ≈ 0.05–0.09% (the reference for a
+phenotype-grounded biosecurity screen, P2.3).
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)
