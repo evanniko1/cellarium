@@ -134,6 +134,26 @@ Formulated from literature *first*, then tested — the correct direction. Stati
 (H1 anaerobic regulon) and fails to predict what it was not (H2 Mg–ribosome coupling). That is the honest
 boundary of its predictive power — and the reason validation must be anchored on out-of-sample tests.
 
+## G. Gene-KO experiment — mechanistic-scope guardrail (2026-07-09, n=6) — INCONCLUSIVE, instructive
+The project's first single-gene KOs: mechanistic (`pfkA`, `tpiA` — glycolysis) vs non-mechanistic (`flgB`,
+`ymgD` — flagellar / y-gene). It did **not** cleanly prove the guardrail, and the failure is the lesson:
+- All 24 KOs divided (qc=ok). **No significant growth change for ANY KO** (Welch |t|<1 vs basal).
+- **Non-mechanistic KOs behaved as predicted** — flgB/ymgD had no significant growth or proteome effect (inert).
+- **Mechanistic KOs also showed no growth effect** — because `pfkA`/`tpiA` single-KOs are **non-essential**
+  (metabolic redundancy: pfkA↔pfkB; FBA reroutes). Biologically defensible (E. coli pfkA single-KO is viable).
+  **Lesson: "mechanistic" ≠ "essential"** — a mechanistic gene can be dispensable; I mis-designed by picking
+  redundant genes.
+- Proteome: each KO'd gene's own count drops (trivial); tpiA's glycolysis-sector drop is largely its **own
+  removal from the panel**, not rerouting. **No coherent compensatory network response** above noise.
+- **top_movers noise floor persists at n=6**: both the mechanistic and the inert KO show ~6 spurious
+  "reproducible" (repro=0.83) low-count movers — different genes each, no pattern. Confirms the audit:
+  reproducibility+count-floor is insufficient; a **per-gene statistical test with FDR** is required.
+
+**Verdict:** the guardrail's *justification* rests on the conceptual argument + the clean H2 (Mg→ribosome)
+case, **not** on this KO experiment. A clean KO-contrast proof needs (i) an *essential, non-redundant*
+mechanistic gene (multi-generation, for a real growth defect) vs a non-mechanistic KO, and (ii) FDR-hardened
+top_movers. The experiment disciplined the claim — as intended.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)
