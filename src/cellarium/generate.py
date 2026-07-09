@@ -53,6 +53,21 @@ def panel_designs() -> list[Design]:
     return designs
 
 
+def power_designs() -> list[Design]:
+    """High-replicate set to test two literature-first hypotheses and power the existing results.
+    H1 (expect PASS): O2 limitation reproduces the FNR/ArcA anaerobic regulon (no_oxygen).
+    H2 (expect FAIL): Mg limitation reduces ribosomal proteome fraction + growth (Pontes 2016) — likely absent.
+    Plus basal/with_aa/acetate to power the growth law (ribosomal fraction vs growth) and top_movers reproducibility.
+    Run with --seeds 8."""
+    return [
+        Design(perturbation="wildtype", condition="basal"),
+        Design(perturbation="condition", condition="with_aa", params={"variant_index": 4}),
+        Design(perturbation="condition", condition="acetate", params={"variant_index": 5}),
+        Design(perturbation="condition", condition="no_oxygen", params={"variant_index": 7}),
+        Design(perturbation="condition", condition="minus_magnesium", params={"variant_index": 11}),
+    ]
+
+
 def stress_designs() -> list[Design]:
     """Nutrient / ion / electron-acceptor stress — hypotheses distinct from the ppGpp + carbon/O2 panels.
     Each engages a different pathway: phosphate starvation (pho regulon), Mg limitation (translation/ribosome),
@@ -109,10 +124,15 @@ def main() -> None:
                          "pair with --generations 4")
     ap.add_argument("--stress", action="store_true",
                     help="run the nutrient/ion/electron-acceptor stress panel (distinct from ppGpp/carbon)")
+    ap.add_argument("--power", action="store_true",
+                    help="high-replicate set (basal, with_aa, acetate, no_oxygen, minus_magnesium) to test H1/H2 "
+                         "and power the growth law; run with --seeds 8")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.power:
+        designs = power_designs()
     elif args.stress:
         designs = stress_designs()
     elif args.confounded:

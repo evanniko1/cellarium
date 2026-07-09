@@ -31,13 +31,13 @@ def differential(target: str, reference: str = "wildtype/basal") -> dict:
     return _diff.summary(target, reference)
 
 
-def top_movers(result_id: str, reference_id: str, kind: str = "protein", top: int = 12) -> dict:
-    """Individual species (proteins/mRNAs/...) that moved most between two runs' simOut (protein = symbol-annotated)."""
+def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "protein", top: int = 12) -> dict:
+    """Species that moved most between two DESIGNS (seed-averaged, count-floored, reproducibility-flagged)."""
     if kind not in _SPECIES_KINDS:
         return {"error": f"kind must be one of {_SPECIES_KINDS}"}
-    rigor.note_result(result_id)
-    rigor.note_result(reference_id)
-    return _diff.top_movers(result_id, reference_id, kind, top)
+    rigor.note_design(target)
+    rigor.note_design(reference)
+    return _diff.top_movers(target, reference, kind, top)
 
 
 def screen_design(perturbation: str = "wildtype", condition: str | None = None,
@@ -144,10 +144,10 @@ TOOLS = [
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string", "description": "design label 'perturbation/condition' (from survey_corpus/list_results)"},
                       "reference": {"type": "string"}}, "required": ["target"]}},
-    {"name": "top_movers", "description": "Individual species (proteins by default) that moved most between two specific runs' simOut, ranked by fold-change; proteins are gene-symbol-annotated. The drill-down after differential.",
-     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "reference_id": {"type": "string"},
+    {"name": "top_movers", "description": "Individual species (proteins by default) that moved most between two DESIGNS ('perturbation/condition' labels), SEED-AVERAGED across replicates with a count floor; each mover reports `reproducible` (fraction of replicates agreeing). Gene-symbol-annotated. The drill-down after differential; trust movers with high `reproducible`, not single big fold-changes.",
+     "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "top": {"type": "integer"}},
-                      "required": ["result_id", "reference_id"]}},
+                      "required": ["target"]}},
     {"name": "list_results", "description": "List simulation results in the corpus (id, perturbation, condition, QC).",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",

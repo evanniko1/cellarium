@@ -24,24 +24,28 @@ def _container_path(host_run_root: Path) -> str:
     return "/wcEcoli/out/" + ("" if str(rel) == "." else str(rel).replace("\\", "/"))
 
 
-def _invoke(mode: str, host_run_root: Path, extra: list[str] | None = None) -> dict:
-    extra = extra or []
-    if WCECOLI_DOCKER:
-        # mount the worker's dir (single-file binds are unreliable on Docker Desktop Windows) read-only
-        cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
-               "-v", f"{_WORKER.parent}:/cellarium_reader:ro",
-               "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER,
-               "python", f"/cellarium_reader/{_WORKER.name}", mode, _container_path(host_run_root), *extra]
-        cwd = None
-    else:
-        cmd = [PY, str(_WORKER), mode, str(Path(host_run_root).resolve()), *extra]
-        cwd = WCECOLI_DIR or None
+def _worker_cmd(mode: str, args: list[str]) -> list[str]:
+    # mount the worker's dir (single-file binds are unreliable on Docker Desktop Windows) read-only
+    return ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
+            "-v", f"{_WORKER.parent}:/cellarium_reader:ro",
+            "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER,
+            "python", f"/cellarium_reader/{_WORKER.name}", mode, *args]
+
+
+def _run_cmd(cmd: list[str], cwd: str | None) -> dict:
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     for line in reversed(proc.stdout.splitlines()):
         if line.startswith("CELLARIUM_JSON:"):
             return json.loads(line[len("CELLARIUM_JSON:"):])
     return {"error": "reader worker produced no JSON", "returncode": proc.returncode,
             "stderr": (proc.stderr or "")[-600:]}
+
+
+def _invoke(mode: str, host_run_root: Path, extra: list[str] | None = None) -> dict:
+    extra = extra or []
+    if WCECOLI_DOCKER:
+        return _run_cmd(_worker_cmd(mode, [_container_path(host_run_root), *extra]), None)
+    return _run_cmd([PY, str(_WORKER), mode, str(Path(host_run_root).resolve()), *extra], WCECOLI_DIR or None)
 
 
 def read_run(host_run_root: Path) -> dict:
@@ -73,9 +77,17 @@ def gene_map(sim_path: str = "cellarium") -> dict:
     return _invoke("gene_map", OUT_ROOT / sim_path)
 
 
-def differential(design_root: Path, ref_root: Path, kind: str = "protein", top: int = 12) -> dict:
-    """Per-species fold-change between two runs (design vs reference), computed in the container."""
-    return _invoke("differential", design_root, [_container_path(ref_root), kind, str(top)])
+def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "protein",
+                 top: int = 12, floor: float = 20.0) -> dict:
+    """Seed-aware per-species fold-change: ALL target runs vs ALL reference runs (count-floored, reproducibility
+    reported), computed in the container."""
+    if WCECOLI_DOCKER:
+        t = ",".join(_container_path(Path(r)) for r in target_roots)
+        r = ",".join(_container_path(Path(r)) for r in ref_roots)
+        return _run_cmd(_worker_cmd("differential", [t, r, kind, str(top), str(floor)]), None)
+    t = ",".join(str(Path(r).resolve()) for r in target_roots)
+    r = ",".join(str(Path(r).resolve()) for r in ref_roots)
+    return _run_cmd([PY, str(_WORKER), "differential", t, r, kind, str(top), str(floor)], WCECOLI_DIR or None)
 
 
 if __name__ == "__main__":  # schema dump (default) or `--variant-map` to derive + cache the KO/condition map

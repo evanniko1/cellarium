@@ -78,16 +78,30 @@ def _reverse_gene_map() -> dict[str, str]:
     return {v: k for k, v in json.loads(p.read_text(encoding="utf-8")).items()}
 
 
-def top_movers(result_id: str, reference_id: str, kind: str = "protein", top: int = 12) -> dict:
-    """Individual species (default proteins) ranked by fold-change between two runs' simOut."""
-    from . import reader, store
+def _design_run_roots(label: str) -> list[Path]:
+    """All local run roots for a design label 'perturbation/condition' (one per seed)."""
+    from . import store
 
-    d, r = store.simout_path(result_id), store.simout_path(reference_id)
-    if not d or not Path(d).exists():
-        return {"error": f"simOut not local for '{result_id}'."}
-    if not r or not Path(r).exists():
-        return {"error": f"simOut not local for reference '{reference_id}'."}
-    out = reader.differential(Path(d), Path(r), kind, top)
+    roots = []
+    for r in store.list_results():
+        if f'{r.get("perturbation")}/{r.get("condition")}' == label:
+            p = store.simout_path(r["id"])
+            if p and Path(p).exists():
+                roots.append(Path(p))
+    return roots
+
+
+def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", top: int = 12) -> dict:
+    """Individual species (default proteins) ranked by SEED-AVERAGED fold-change of a target design vs a
+    reference design — count-floored and reproducibility-flagged (hardened against single-run stochastic noise)."""
+    from . import reader
+
+    t_roots, r_roots = _design_run_roots(target), _design_run_roots(reference)
+    if not t_roots:
+        return {"error": f"no local runs for design '{target}'."}
+    if not r_roots:
+        return {"error": f"no local runs for reference '{reference}'."}
+    out = reader.differential(t_roots, r_roots, kind, top)
     if kind == "protein" and "up" in out:  # annotate monomer IDs with gene symbols
         rev = _reverse_gene_map()
         for m in out.get("up", []) + out.get("down", []):

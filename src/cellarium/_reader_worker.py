@@ -274,30 +274,48 @@ def mode_variant_map(root):
     return {"conditions": conditions, "n_genes": len(rna_ids), "genes": genes}
 
 
-DIFF_MIN_COUNT = 5  # ignore near-zero species (fold-change of noise is meaningless)
-
-
-def mode_differential(design_root, ref_root, kind, top):
-    """Per-species fold-change (design vs reference), last generation of each. Returns top up/down movers."""
-    dg, rg = _gens(design_root), _gens(ref_root)
-    if not dg or not rg:
-        return {"error": "missing simOut (design or reference)"}
-    table, column, idattr = SPECIES_SOURCES[kind]
-    d_ids, r_ids = _attr(dg[-1], table, idattr), _attr(rg[-1], table, idattr)
-    d_mean = np.asarray(_col(dg[-1], table, column), dtype=float).mean(axis=0)
-    r_mean = np.asarray(_col(rg[-1], table, column), dtype=float).mean(axis=0)
-    r_map = dict(zip(r_ids, r_mean))
-    movers = []
-    for i, dv in zip(d_ids, d_mean):
-        rv = r_map.get(i)
-        if rv is None or max(dv, rv) < DIFF_MIN_COUNT:
+def _run_species_means(run_roots, table, column, idattr):
+    """Per-species mean count for each run (last generation) -> list of {id: mean_count}, one per replicate."""
+    per_run = []
+    for root in run_roots:
+        gs = _gens(root)
+        if not gs:
             continue
-        movers.append({"id": i, "target": round(float(dv), 2), "reference": round(float(rv), 2),
-                       "log2fc": round(float(math.log2((dv + 1.0) / (rv + 1.0))), 2)})
+        ids = _attr(gs[-1], table, idattr)
+        means = np.asarray(_col(gs[-1], table, column), dtype=float).mean(axis=0)
+        per_run.append(dict(zip(ids, means)))
+    return per_run
+
+
+def mode_differential(target_csv, ref_csv, kind, top, floor):
+    """Seed-aware per-species fold-change: aggregate ALL target runs vs ALL reference runs. Hardened against the
+    single-run stochastic noise that faked large fold-changes: fold-change is on seed-MEANS, a count floor drops
+    low-count species, and `reproducible` = fraction of target replicates that agree with the mean direction."""
+    table, column, idattr = SPECIES_SOURCES[kind]
+    t_runs = _run_species_means(target_csv.split(","), table, column, idattr)
+    r_runs = _run_species_means(ref_csv.split(","), table, column, idattr)
+    if not t_runs or not r_runs:
+        return {"error": "missing simOut (target or reference)"}
+    ids = set().union(*[set(d) for d in t_runs + r_runs])
+    movers = []
+    for i in ids:
+        tvals = [d[i] for d in t_runs if i in d]
+        rvals = [d[i] for d in r_runs if i in d]
+        if not tvals or not rvals:
+            continue
+        tm, rm = float(np.mean(tvals)), float(np.mean(rvals))
+        if max(tm, rm) < floor:                       # count floor — kills low-count Poisson-noise fold-changes
+            continue
+        log2fc = math.log2((tm + 1.0) / (rm + 1.0))
+        direction = 1.0 if log2fc > 0 else -1.0
+        reproducible = sum(1 for v in tvals if (v - rm) * direction > 0) / len(tvals)
+        movers.append({"id": i, "target": round(tm, 1), "reference": round(rm, 1), "log2fc": round(log2fc, 2),
+                       "n_target": len(tvals), "reproducible": round(reproducible, 2)})
     movers.sort(key=lambda m: abs(m["log2fc"]), reverse=True)
-    return {"kind": kind, "n_compared": len(movers),
-            "up": [m for m in movers if m["log2fc"] > 0][:top],
-            "down": [m for m in movers if m["log2fc"] < 0][:top]}
+    robust = [m for m in movers if m["reproducible"] >= 0.75]   # default output excludes non-reproducing movers
+    return {"kind": kind, "n_compared": len(movers), "count_floor": floor, "n_target_runs": len(t_runs),
+            "up": [m for m in robust if m["log2fc"] > 0][:top],
+            "down": [m for m in robust if m["log2fc"] < 0][:top]}
 
 
 def mode_list_species(run_root, kind, search=""):
@@ -326,7 +344,7 @@ if __name__ == "__main__":
     elif mode == "gene_map":
         out = mode_gene_map(run_root)
     elif mode == "differential":
-        out = mode_differential(run_root, sys.argv[3], sys.argv[4], int(sys.argv[5]))
+        out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))
