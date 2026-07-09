@@ -157,7 +157,7 @@ TOOLS = [
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string", "description": "design label 'perturbation/condition' (from survey_corpus/list_results)"},
                       "reference": {"type": "string"}}, "required": ["target"]}},
-    {"name": "top_movers", "description": "Individual species (proteins by default) that moved most between two DESIGNS ('perturbation/condition' labels), SEED-AVERAGED across replicates with a count floor; each mover reports `reproducible` (fraction of replicates agreeing). Gene-symbol-annotated. The drill-down after differential; trust movers with high `reproducible`, not single big fold-changes.",
+    {"name": "top_movers", "description": "Individual species (proteins by default) that changed between two DESIGNS ('perturbation/condition' labels), tested with a Welch t across replicates + Benjamini-Hochberg FDR; returns only FDR-significant movers (q<=0.10) with their q-value, plus n_significant_fdr10. Gene-symbol-annotated. Needs >=2 replicates per design. If n_significant is ~0, there is no real network response — do not read the fold-changes as signal.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "top": {"type": "integer"}},
                       "required": ["target"]}},

@@ -334,34 +334,51 @@ def _run_species_means(run_roots, table, column, idattr):
 
 
 def mode_differential(target_csv, ref_csv, kind, top, floor):
-    """Seed-aware per-species fold-change: aggregate ALL target runs vs ALL reference runs. Hardened against the
-    single-run stochastic noise that faked large fold-changes: fold-change is on seed-MEANS, a count floor drops
-    low-count species, and `reproducible` = fraction of target replicates that agree with the mean direction."""
+    """Seed-aware per-species differential with a PROPER test: Welch t across replicates per species + a
+    Benjamini-Hochberg FDR over the ~thousands of species tested; default output keeps only q<=0.10. This kills
+    the reproducibility/count-floor noise floor (the KO experiment showed both a mechanistic and an inert KO
+    produced identical spurious 'reproducible' movers). fold-change is on seed-means; count floor still drops
+    the lowest-count species (unstable t)."""
+    from scipy import stats  # available in the model image
+
     table, column, idattr = SPECIES_SOURCES[kind]
     t_runs = _run_species_means(target_csv.split(","), table, column, idattr)
     r_runs = _run_species_means(ref_csv.split(","), table, column, idattr)
     if not t_runs or not r_runs:
         return {"error": "missing simOut (target or reference)"}
+    if len(t_runs) < 2 or len(r_runs) < 2:
+        return {"error": f"need >=2 replicates each for FDR stats (target={len(t_runs)}, reference={len(r_runs)})"}
     ids = set().union(*[set(d) for d in t_runs + r_runs])
-    movers = []
+    recs = []
     for i in ids:
         tvals = [d[i] for d in t_runs if i in d]
         rvals = [d[i] for d in r_runs if i in d]
-        if not tvals or not rvals:
+        if len(tvals) < 2 or len(rvals) < 2:
             continue
         tm, rm = float(np.mean(tvals)), float(np.mean(rvals))
-        if max(tm, rm) < floor:                       # count floor — kills low-count Poisson-noise fold-changes
+        if max(tm, rm) < floor:                       # count floor — very low counts give unstable t
             continue
-        log2fc = math.log2((tm + 1.0) / (rm + 1.0))
-        direction = 1.0 if log2fc > 0 else -1.0
-        reproducible = sum(1 for v in tvals if (v - rm) * direction > 0) / len(tvals)
-        movers.append({"id": i, "target": round(tm, 1), "reference": round(rm, 1), "log2fc": round(log2fc, 2),
-                       "n_target": len(tvals), "reproducible": round(reproducible, 2)})
-    movers.sort(key=lambda m: abs(m["log2fc"]), reverse=True)
-    robust = [m for m in movers if m["reproducible"] >= 0.75]   # default output excludes non-reproducing movers
-    return {"kind": kind, "n_compared": len(movers), "count_floor": floor, "n_target_runs": len(t_runs),
-            "up": [m for m in robust if m["log2fc"] > 0][:top],
-            "down": [m for m in robust if m["log2fc"] < 0][:top]}
+        try:
+            p = float(stats.ttest_ind(tvals, rvals, equal_var=False).pvalue)
+        except Exception:
+            p = 1.0
+        if not math.isfinite(p):
+            p = 1.0
+        recs.append({"id": i, "target": round(tm, 1), "reference": round(rm, 1),
+                     "log2fc": round(math.log2((tm + 1.0) / (rm + 1.0)), 2), "p": p})
+    if recs:
+        qvals = stats.false_discovery_control([r["p"] for r in recs], method="bh")
+        for r, q in zip(recs, qvals):
+            r["q"] = round(float(q), 4)
+    sig = sorted((r for r in recs if r.get("q", 1.0) <= 0.10), key=lambda r: abs(r["log2fc"]), reverse=True)
+
+    def clean(r):
+        return {"id": r["id"], "target": r["target"], "reference": r["reference"], "log2fc": r["log2fc"], "q": r["q"]}
+
+    return {"kind": kind, "n_compared": len(recs), "n_significant_fdr10": len(sig), "count_floor": floor,
+            "n_target_runs": len(t_runs),
+            "up": [clean(r) for r in sig if r["log2fc"] > 0][:top],
+            "down": [clean(r) for r in sig if r["log2fc"] < 0][:top]}
 
 
 def mode_list_species(run_root, kind, search=""):
