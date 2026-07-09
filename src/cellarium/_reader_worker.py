@@ -30,6 +30,10 @@ SUMMARY_CHANNELS = {
     "rna_mass": ("Mass", "rnaMass"),
     "ppgpp_conc": ("GrowthLimits", "ppgpp_conc"),
     "fba_objective": ("FBAResults", "objectiveValue"),
+    # mechanistic channels — the ppGpp cause->effect chain, so it's testable cross-run without per-species reads
+    "ribosome_conc": ("GrowthLimits", "ribosome_conc"),               # the ppGpp target (down when ppGpp high)
+    "fraction_trna_charged": ("GrowthLimits", "fraction_trna_charged"),  # the stringent trigger (AA limitation)
+    "rela_conc": ("GrowthLimits", "rela_conc"),                       # the sensor
 }
 SPECIES_SOURCES = {
     "protein": ("MonomerCounts", "monomerCounts", "monomerIds"),
@@ -64,6 +68,15 @@ def _attr(simout, table, name):
         r.close()
 
 
+def _chan_1d(simout, table, column):
+    """A summary channel as one scalar per timestep. Some listener columns are 2-D (per-species, e.g.
+    fraction_trna_charged is per-tRNA) — collapse the non-time axes to a per-timestep mean."""
+    a = np.asarray(_col(simout, table, column))
+    if a.ndim > 1:
+        a = np.nanmean(a.reshape(a.shape[0], -1), axis=1)
+    return a.ravel()
+
+
 def _gens(run_root):
     return sorted(p for p in glob.glob(os.path.join(run_root, "**", "simOut"), recursive=True) if os.path.isdir(p))
 
@@ -77,6 +90,14 @@ def _full_chrom(so):
         return -1
 
 
+def _chan_mean(so, name):
+    table, column = SUMMARY_CHANNELS[name]
+    try:
+        return _finite(np.nanmean(_col(so, table, column)))
+    except Exception:
+        return None
+
+
 def _generation(so, i):
     t = _col(so, "Main", "time").ravel()
     n = int(t.size)
@@ -88,11 +109,15 @@ def _generation(so, i):
         fba_ok = True
     divided = fc == 2 and n > 10
     return {"index": i, "n_steps": n, "full_chromosome_end": fc, "fba_ok": fba_ok,
-            "divided": divided, "division_time_sec": (float(t[-1]) if divided else None)}
+            "divided": divided, "division_time_sec": (float(t[-1]) if divided else None),
+            "growth_mean": _chan_mean(so, "growth_rate"),   # per-gen trajectory -> see approach to steady state
+            "ppgpp_mean": _chan_mean(so, "ppgpp_conc")}
 
 
 def _downsample(t, s, k=16):
-    n = int(s.size)
+    n = min(int(t.size), int(s.size))  # guard against any length mismatch (t vs a reduced channel)
+    if n == 0:
+        return []
     idx = range(n) if n <= k else (int(round(i * (n - 1) / (k - 1))) for i in range(k))
     return [[round(float(t[i]), 1), _finite(s[i])] for i in idx]
 
@@ -122,7 +147,7 @@ def _dynamics(so):
     cols = {}
     for name, (table, column) in SUMMARY_CHANNELS.items():
         try:
-            cols[name] = _col(so, table, column).ravel()
+            cols[name] = _chan_1d(so, table, column)
         except Exception:
             continue
     stats = {n: {"mean": _finite(np.nanmean(v)), "min": _finite(np.nanmin(v)), "max": _finite(np.nanmax(v)),
@@ -135,7 +160,8 @@ def mode_run(run_root):
     gs = _gens(run_root)
     if not gs:
         return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": []}
-    stats, series, segments = _dynamics(gs[0])
+    # headline channels/dynamics from the LAST generation (most-adapted steady state); per-gen trajectory below
+    stats, series, segments = _dynamics(gs[-1])
     return {"generations": [_generation(so, i) for i, so in enumerate(gs)],
             "channels": {n: s["mean"] for n, s in stats.items()},  # flat means (compat + easy SQL)
             "channel_stats": stats, "series": series, "media_segments": segments}
@@ -168,13 +194,14 @@ def mode_species(run_root, kind, species_id):
     gs = _gens(run_root)
     if not gs:
         return {"error": "no simOut"}
+    so = gs[-1]  # last generation = most-adapted steady state (matches mode_run)
     table, column, idattr = SPECIES_SOURCES[kind]
-    ids = _attr(gs[0], table, idattr)
+    ids = _attr(so, table, idattr)
     sid = _resolve(ids, species_id)
     if sid is None:
         return {"error": f"'{species_id}' not found in {kind}", "n_ids": len(ids)}
-    s = _col(gs[0], table, column)[:, ids.index(sid)]
-    t = _col(gs[0], "Main", "time").ravel()
+    s = _col(so, table, column)[:, ids.index(sid)]
+    t = _col(so, "Main", "time").ravel()
     return {"species_id": sid, "kind": kind, "n_points": int(s.size),
             "mean": _finite(np.nanmean(s)), "min": _finite(np.nanmin(s)), "max": _finite(np.nanmax(s)),
             "first": _finite(s[0]), "last": _finite(s[-1]),
@@ -202,7 +229,7 @@ def mode_list_species(run_root, kind, search=""):
     if not gs:
         return {"error": "no simOut"}
     table, _column, idattr = SPECIES_SOURCES[kind]
-    ids = _attr(gs[0], table, idattr)
+    ids = _attr(gs[-1], table, idattr)
     s = search.lower()
     hits = [i for i in ids if s in i.lower()] if s else ids
     return {"kind": kind, "matches": hits[:40]}

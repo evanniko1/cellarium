@@ -36,6 +36,8 @@ class GenerationResult(BaseModel):
     n_steps: int = 2500
     fba_ok: bool = True
     is_dead: bool = False
+    growth_mean: float | None = None        # per-generation means -> approach to steady state in multi-gen runs
+    ppgpp_mean: float | None = None
 
 
 class SimResult(BaseModel):

@@ -40,6 +40,8 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
            "timeline": rec.design.timeline, "seed": seed, "generations": len(rec.generations),
            "qc": overall.value, "generation_qc": json.dumps([s.value for s in per]),
            "reportable": qc.is_reportable(rec), "note": rec.note,
+           "per_generation": json.dumps([{"i": g.index, "growth": g.growth_mean, "ppgpp": g.ppgpp_mean,
+                                           "divided": g.divided} for g in rec.generations]),
            "simout_path": str(run_root),  # LOCAL path for read_species; full simOut stays on this machine
            "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
            "series": json.dumps(rec.series),

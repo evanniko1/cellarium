@@ -53,6 +53,21 @@ def panel_designs() -> list[Design]:
     return designs
 
 
+def confounded_designs() -> list[Design]:
+    """The three panel arms that were confounded at 1 generation — they are steady-state effects the inherited
+    parent state masks in gen 0. Re-run these with --generations 4 to let them reach steady state: the ppGpp
+    clamp (does the low-side Zhu downturn emerge once metabolic proteins dilute?), the rRNA-operon KO series,
+    and the AA up-shift (later generations sit in the post-shift media)."""
+    ppgpp = {0: "0.2x", 2: "0.6x", 7: "1.6x", 9: "2.0x"}
+    rrna = {2: "2op", 4: "4op", 6: "6op"}
+    designs = [Design(perturbation="ppgpp_conc", condition=f"basal|ppGpp:{lbl}", params={"variant_index": i})
+               for i, lbl in ppgpp.items()]
+    designs += [Design(perturbation="rrna_operon_knockout", condition=f"minimal|rRNA_KO:{lbl}",
+                       params={"variant_index": i}) for i, lbl in rrna.items()]
+    designs.append(Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_plus_amino_acids"))
+    return designs
+
+
 def knockout_designs(query: str, limit: int = 8) -> list[Design]:
     """Gene-knockout designs whose rna_id matches `query`, using the cached variant map
     (run `python -m cellarium.reader --variant-map` first). Each -> --variant gene_knockout <idx>."""
@@ -78,10 +93,15 @@ def main() -> None:
     ap.add_argument("--panel", action="store_true",
                     help="run the extended literature-grounded panel (carbon/O2 sweep, ppGpp titration, "
                          "AA up-shift, rRNA-operon KO) instead of the default trio")
+    ap.add_argument("--confounded", action="store_true",
+                    help="re-run the arms that need multiple generations (ppGpp clamp, rRNA KO, up-shift); "
+                         "pair with --generations 4")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.confounded:
+        designs = confounded_designs()
     elif args.knockout:
         designs = knockout_designs(args.knockout)
     else:
