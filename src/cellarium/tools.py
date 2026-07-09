@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import envelope, store
+from . import biosecurity, envelope, store, survey
 from .model import Design
 
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux"]
@@ -17,6 +17,19 @@ _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_fl
 
 def list_results() -> dict:
     return {"results": store.list_results()}
+
+
+def survey_corpus() -> dict:
+    """Deterministic, ranked, whole-corpus survey — call FIRST, before forming any hypothesis."""
+    return survey.survey_corpus()
+
+
+def screen_design(perturbation: str = "wildtype", condition: str | None = None,
+                  timeline: str | None = None, params: dict | None = None) -> dict:
+    v = biosecurity.screen(Design(perturbation=perturbation, condition=condition, timeline=timeline,
+                                  params=params or {}))
+    return {"flagged": v.flagged, "signature": v.signature, "matched": v.matched,
+            "severity": v.severity, "reason": v.reason}
 
 
 def read_series(result_id: str, channel: str) -> dict:
@@ -34,11 +47,18 @@ def check_feasibility(perturbation: str = "wildtype", condition: str | None = No
 def run_experiment(perturbation: str = "wildtype", condition: str | None = None,
                    timeline: str | None = None, seeds: int = 1, generations: int = 1,
                    params: dict | None = None) -> dict:
-    v = envelope.check(Design(perturbation=perturbation, condition=condition, timeline=timeline,
-                              seeds=seeds, generations=generations, params=params or {}))
+    design = Design(perturbation=perturbation, condition=condition, timeline=timeline,
+                    seeds=seeds, generations=generations, params=params or {})
+    v = envelope.check(design)
     if not v.in_envelope:
         return {"status": "refused", "reason": v.reason, "suggestion": v.suggestion,
                 "note": "Out of the validated envelope — not run, no metric reported."}
+    b = biosecurity.screen(design)
+    if b.flagged:
+        return {"status": "biosecurity_hold", "signature": b.signature, "matched": b.matched,
+                "severity": b.severity, "reason": b.reason,
+                "note": "Flagged by the biosecurity screen — not run; "
+                        + ("refused." if b.severity == "block" else "requires review before running.")}
     matches = [r for r in store.list_results()
                if r.get("perturbation") == perturbation and r.get("condition") == condition
                and r.get("timeline") == timeline]
@@ -82,6 +102,8 @@ _DESIGN_PROPS = {
 }
 
 TOOLS = [
+    {"name": "survey_corpus", "description": "FIRST STEP for any results question. Deterministic, ranked, whole-corpus survey: every design vs a reference per channel, ranked by effect size (|z|), a cross-channel notable set, and coverage. Ground your reasoning in this WHOLE view before drilling in — do not anchor on individual runs or prior conversation.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "list_results", "description": "List simulation results in the corpus (id, perturbation, condition, QC).",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",
@@ -97,12 +119,16 @@ TOOLS = [
                       "required": ["result_id", "species_id"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
-    {"name": "run_experiment", "description": "Envelope-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
+    {"name": "screen_design", "description": "Biosecurity screen for a proposed design: flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
+     "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"},
+                      "timeline": {"type": "string"}, "params": {"type": "object"}}}},
+    {"name": "run_experiment", "description": "Envelope- AND biosecurity-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
 ]
 
-_DISPATCH = {"list_results": list_results, "read_series": read_series, "list_species": list_species,
-             "read_species": read_species, "check_feasibility": check_feasibility, "run_experiment": run_experiment}
+_DISPATCH = {"survey_corpus": survey_corpus, "list_results": list_results, "read_series": read_series,
+             "list_species": list_species, "read_species": read_species, "screen_design": screen_design,
+             "check_feasibility": check_feasibility, "run_experiment": run_experiment}
 
 
 def dispatch(name: str, args: dict) -> dict:

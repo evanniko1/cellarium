@@ -1,6 +1,6 @@
-"""Guardrail smoke tests — the two differentiators, on real fixtures. Run: `python -m pytest` (or this file)."""
+"""Guardrail smoke tests — the differentiators, on real fixtures. Run: `python -m pytest` (or this file)."""
 
-from cellarium import envelope, qc
+from cellarium import biosecurity, envelope, qc, survey
 from cellarium.model import Design, GenerationResult, SimResult
 
 
@@ -38,6 +38,36 @@ def test_qc_ok_generation_is_reportable():
     sim = SimResult(id="ok", generations=[
         GenerationResult(index=0, full_chromosome_end=2, divided=True, division_time_sec=2529, n_steps=2530)])
     assert qc.is_reportable(sim)
+
+
+def test_biosecurity_flags_amr_efflux_upregulation():
+    v = biosecurity.screen(Design(perturbation="tf_activity", condition="stress_robustness",
+                                  params={"target_tfs": ["marA", "soxS"], "direction": "up"}))
+    assert v.flagged and v.signature == "amr_efflux" and v.severity == "review"
+    assert set(v.matched) >= {"mara", "soxs"}
+
+
+def test_biosecurity_exempts_knockout_of_efflux_gene():
+    # knocking OUT an efflux pump lowers resistance — not a misuse signature
+    v = biosecurity.screen(Design(perturbation="gene_knockout", condition="acrB_KO",
+                                  params={"target_genes": ["acrB"]}))
+    assert not v.flagged
+
+
+def test_biosecurity_blocks_virulence_engineering():
+    v = biosecurity.screen(Design(perturbation="tf_activity", params={"target_genes": ["stxA"]}))
+    assert v.flagged and v.severity == "block"
+
+
+def test_biosecurity_passes_benign_designs():
+    assert not biosecurity.screen(Design(perturbation="wildtype", condition="basal")).flagged
+    assert not biosecurity.screen(Design(perturbation="ppgpp_conc", condition="basal|ppGpp:2.0x")).flagged
+
+
+def test_survey_handles_empty_corpus_gracefully():
+    # no manifest present in the test env -> a clean error, not a crash
+    out = survey.survey_corpus()
+    assert "error" in out or "coverage" in out
 
 
 if __name__ == "__main__":
