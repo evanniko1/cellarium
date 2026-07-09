@@ -16,6 +16,7 @@ MANIFEST_GLOB = "data/manifest/*.parquet"
 # host-safe channel names (the worker owns the table/column mapping; we only need the names here)
 CHANNELS = ["growth_rate", "ppgpp_conc", "ribosome_conc", "fraction_trna_charged", "rela_conc",
             "dry_mass", "protein_mass", "rna_mass", "cell_mass", "fba_objective"]
+DIAGNOSTIC = {"fba_objective"}       # solver diagnostics — queryable, but excluded from the biological ranking
 REFERENCE = ("wildtype", "basal")   # the control designs are compared against
 
 
@@ -66,11 +67,18 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     for r in rows:
         by_design[(r["perturbation"], r["condition"])].append(r)
 
-    def dmean(rs: list[dict], ch: str):
-        vals = [v for v in (val(r, ch) for r in rs) if v is not None]
-        return sum(vals) / len(vals) if vals else None
+    import math
 
-    means = {d: {ch: dmean(rs, ch) for ch in all_channels} for d, rs in by_design.items()}
+    def dmean_ci(rs: list[dict], ch: str):
+        vals = [v for v in (val(r, ch) for r in rs) if v is not None]
+        if not vals:
+            return None, None, 0
+        m = statistics.fmean(vals)
+        ci = (1.96 * statistics.stdev(vals) / math.sqrt(len(vals))) if len(vals) > 1 else None  # 95% CI
+        return m, ci, len(vals)
+
+    stats_by_design = {d: {ch: dmean_ci(rs, ch) for ch in all_channels} for d, rs in by_design.items()}
+    means = {d: {ch: v[0] for ch, v in chs.items()} for d, chs in stats_by_design.items()}
     ref = means.get(REFERENCE)
 
     by_channel: dict[str, dict] = {}
@@ -82,8 +90,10 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
             v = m.get(ch)
             if v is None:
                 continue
+            _mn, ci, n = stats_by_design[d][ch]
             pct = (100.0 * (v - ref_v) / ref_v) if (ref_v not in (None, 0)) else None
             entries.append({"design": f"{d[0]}/{d[1]}", "mean": round(v, 6),
+                            "ci95": (round(ci, 6) if ci is not None else None), "n": n,
                             "pct_vs_ref": (round(pct, 1) if pct is not None else None)})
         if len(entries) < 2:
             by_channel[ch] = {"reference": ref_v, "ranked": entries}
@@ -95,7 +105,8 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         entries.sort(key=lambda e: abs(e["z"]), reverse=True)
         by_channel[ch] = {"reference": (round(ref_v, 6) if ref_v is not None else None),
                           "ranked": entries[:top]}
-        notable += [{"channel": ch, **e} for e in entries if abs(e["z"]) >= 2.0]
+        if ch not in DIAGNOSTIC:  # keep solver diagnostics out of the biological notable ranking
+            notable += [{"channel": ch, **e} for e in entries if abs(e["z"]) >= 2.0]
 
     notable.sort(key=lambda e: abs(e.get("z", 0)), reverse=True)
     coverage = {

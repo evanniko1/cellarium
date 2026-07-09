@@ -34,13 +34,19 @@ def _duck(sql: str, params: list | None = None) -> list[dict]:
 
 
 def list_results() -> list[dict]:
+    from . import provenance
+
     if has_manifest():
         # dedup: one row per run (latest ts wins) so re-indexed/duplicate shards don't double-count
-        return _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable FROM {_FROM} "
+        rows = _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable FROM {_FROM} "
                      f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1")
-    return [{"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
-             "condition": r.design.condition, "timeline": r.design.timeline,
-             "seed": r.design.seeds, "qc": "ok", "reportable": True} for r in _json.list()]
+    else:
+        rows = [{"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
+                 "condition": r.design.condition, "timeline": r.design.timeline,
+                 "seed": r.design.seeds, "qc": "ok", "reportable": True} for r in _json.list()]
+    for r in rows:  # tag each result in-sample (fitted) vs out-of-sample (predicted)
+        r["provenance"] = provenance.tag(r.get("perturbation"), r.get("condition"))
+    return rows
 
 
 def _attach_dynamics(out: dict, channel: str, row: dict) -> None:

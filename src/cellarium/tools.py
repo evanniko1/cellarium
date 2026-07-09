@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import biosecurity, differential as _diff, envelope, rigor, store, survey
+from . import biosecurity, differential as _diff, envelope, provenance as _prov, rigor, store, survey
 from .model import Design
 
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux"]
@@ -63,6 +63,12 @@ def read_series(result_id: str, channel: str) -> dict:
 def coverage_check() -> dict:
     """How much of the corpus you have deep-read this session — call before generalising a conclusion."""
     return rigor.coverage()
+
+
+def provenance(perturbation: str, condition: str | None = None) -> dict:
+    """Is a design's result IN-SAMPLE (a ParCa-fitted condition — agreement is consistency) or OUT-OF-SAMPLE
+    (a perturbation the fit did not target — a genuine prediction)? Check before claiming the model 'predicts'."""
+    return _prov.classify(perturbation, condition)
 
 
 def disconfirm(target: str, reference: str, channel: str) -> dict:
@@ -166,6 +172,9 @@ TOOLS = [
                       "channel": {"type": "string"}}, "required": ["target", "reference", "channel"]}},
     {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "provenance", "description": "Is a design's result IN-SAMPLE (a ParCa-fitted condition — model was calibrated to match it, so agreement is consistency NOT prediction) or OUT-OF-SAMPLE (a perturbation the fit didn't target — a genuine prediction)? Check before claiming the model 'predicts' or 'validates' something.",
+     "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}},
+                      "required": ["perturbation"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
@@ -179,7 +188,7 @@ TOOLS = [
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
-             "disconfirm": disconfirm, "coverage_check": coverage_check,
+             "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
              "list_results": list_results, "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
