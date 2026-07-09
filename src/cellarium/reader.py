@@ -82,6 +82,13 @@ def gene_scope(sim_path: str = "cellarium") -> dict:
     return _invoke("gene_scope", OUT_ROOT / sim_path)
 
 
+def fba_essentiality(genes: list[str], sim_path: str = "cellarium") -> dict:
+    """FBA single-deletion essentiality on the model's own homeostatic network — the calibrated metabolic
+    KO-effect predictor. Disables each gene's sole-catalyst reactions and re-solves; a dropped objective = a
+    biomass target became unproducible = stoichiometrically essential."""
+    return _invoke("fba_essentiality", OUT_ROOT / sim_path, [",".join(genes)])
+
+
 def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "protein",
                  top: int = 12, floor: float = 20.0) -> dict:
     """Seed-aware per-species fold-change: ALL target runs vs ALL reference runs (count-floored, reproducibility

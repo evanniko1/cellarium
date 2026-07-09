@@ -325,6 +325,69 @@ def mode_gene_scope(root):
             "n_tf": len(tf_syms), "genes": genes}
 
 
+def mode_fba_essentiality(root, genes_csv):
+    """FBA single-deletion essentiality (Joyce 2006 style) on the model's OWN network. Instantiate the
+    homeostatic FBA, solve baseline (objective = # of biomass-metabolite concentration targets met), then for
+    each gene disable the reactions it SOLELY catalyses (upper bound -> 0) and re-solve; a dropped objective =
+    a biomass target became unproducible = stoichiometrically essential.
+
+    EMPIRICAL LIMITATION (measured): under-sensitive. With unconstrained enzyme bounds and a homeostatic
+    (target-matching, not biomass-maximising) objective, the 9,612-reaction network reroutes to satisfy all 173
+    targets for EVERY single sole-catalyst deletion tested (0/35 essential, including known-essential lpxC/coaA/
+    kdsB/dapA/murC). So this predicts nothing essential and is NOT a usable KO predictor as-is. A sensitive
+    version needs the enzyme-CONSTRAINED, dynamic bounds (i.e. the running sim). Kept as a foundation + finding."""
+    import pickle
+    from collections import defaultdict
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": f"no sim_data at {kb}"}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    from models.ecoli.processes.metabolism import FluxBalanceAnalysisModel
+    comp = sd.process.complexation
+    fba = FluxBalanceAnalysisModel(sd).fba
+    rxn_ids = set(fba.getReactionIDs())
+
+    def cat_roots(cat):
+        return {str(cat).split("[")[0]} | {str(m).split("[")[0] for m in _cplx_monomers(comp, str(cat))}
+
+    sole_rxns = defaultdict(list)   # monomer root -> reactions it is the SOLE catalyst of (present in the FBA)
+    for rxn, cats in sd.process.metabolism.reaction_catalysts.items():
+        cats = [str(c) for c in cats]
+        if len(cats) == 1 and rxn in rxn_ids:
+            for rt in cat_roots(cats[0]):
+                sole_rxns[rt].append(rxn)
+    md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
+    cis2mono = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
+    sym2root = {}
+    for k in range(len(gd)):
+        mono = cis2mono.get(str(gd["cistron_id"][k]))
+        if mono:
+            sym2root[str(gd["symbol"][k])] = mono.split("[")[0]
+
+    fba.solve(3)
+    obj0 = float(fba.getObjectiveValue())
+    out = {}
+    for sym in genes_csv.split(","):
+        root = sym2root.get(sym)
+        rxns = sole_rxns.get(root, []) if root else []
+        if not rxns:
+            out[sym] = {"n_rxn": 0, "essential": False, "reason": "no sole-catalyst reactions in the FBA network"}
+            continue
+        fba.setReactionFluxBounds(rxns, upperBounds=[0.0] * len(rxns), raiseForReversible=False)  # disable
+        try:
+            fba.solve(3)
+            obj = float(fba.getObjectiveValue())
+        except Exception as exc:
+            obj = None
+        fba.setReactionFluxBounds(rxns, upperBounds=[np.inf] * len(rxns), raiseForReversible=False)  # restore
+        out[sym] = {"n_rxn": len(rxns), "obj_baseline": round(obj0, 2),
+                    "obj_ko": (round(obj, 2) if obj is not None else None),
+                    "targets_lost": (round(obj0 - obj, 2) if obj is not None else None),
+                    "essential": (obj is None or obj < obj0 - 0.5)}
+    return {"obj_baseline": round(obj0, 2), "n_reactions": len(rxn_ids), "genes": out}
+
+
 def mode_variant_map(root):
     """Load sim_data (kb) and dump the variant index maps the model uses, so KO/condition design panels can
     be built with indices that match the model's own ordering (gene_knockout: idx = gene position + 1, 0 =
@@ -429,6 +492,8 @@ if __name__ == "__main__":
         out = mode_gene_map(run_root)
     elif mode == "gene_scope":
         out = mode_gene_scope(run_root)
+    elif mode == "fba_essentiality":
+        out = mode_fba_essentiality(run_root, sys.argv[3])
     elif mode == "differential":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     else:
