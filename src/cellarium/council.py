@@ -44,6 +44,13 @@ _PROPOSER_SYS = (
     "- ABDUCTION: infer the best candidate explanation worth testing.\n"
     "- OPERATIONALIZE every construct onto a REAL dial label (a channel name from the instrument, or a named "
     "species) — a construct means the operations that measure it (Bridgman). Never invent a channel.\n"
+    "- STABILITY: when previous_candidate already satisfies the rubric, make MINIMAL edits — change only what an "
+    "open objection strictly requires, and NEVER turn a feasible candidate_design into an infeasible one or drop "
+    "a working falsifier. Do not rewrite a sound hypothesis just to sound different.\n"
+    "- SCOPE: answer the question AT THE SCOPE IT ASKS. A population- or genome-wide question ('which genes', "
+    "'how many', 'do cells in general') requires a claim about the DISTRIBUTION or fraction and a design that "
+    "samples BROADLY (a screen across many genes / many seeds with an explicit classification threshold) — do "
+    "NOT retreat to one or two instances to make the test easy. State the predicted fraction/shape.\n"
     "- State H1 (alternative) and H0 (null); the null is normally the reference design.\n"
     "- Fill predicted_effect with an explicit DIRECTION and a rough MAGNITUDE (a number: a CV, a fold-change, a "
     "slope, a %, a copy-number). Never leave it empty.\n"
@@ -55,6 +62,18 @@ _PROPOSER_SYS = (
     "- candidate_designs MUST be STRUCTURED objects (perturbation/condition/timeline/seeds/generations/params) "
     "expressible in the validated envelope (only listed perturbations; a mid-run carbon-source switch is NOT "
     "allowed). Put the experiment HERE, not in prose inside the falsifier.\n"
+    "- RIGOR (required for a decisive test):\n"
+    "  (a) predicted_effect states the quantitative FORM — for a relationship, the functional form + a slope / "
+    "intercept or a target R^2; for a difference, the fold-change / CV / effect size as a number; for a "
+    "distribution, the shape (e.g. bimodal) + the fraction.\n"
+    "  (b) falsifier.decision_rule NAMES the statistical test AND the threshold (e.g. 'OLS regression of Y on X "
+    "across >=3 conditions; reject H0 if the slope 95% CI excludes 0 and R^2>=0.9'; or 'Welch t on Y "
+    "target-vs-reference; reject if |t|>=2'; or 'dip test for bimodality; reject unimodal if p<0.05').\n"
+    "  (c) include a DISCRIMINATING CONTROL: beyond target+reference, add the in-envelope candidate_design that "
+    "ISOLATES H1 from its leading rival — e.g. a ppgpp_conc clamp or rrna_operon_knockout to test causality of a "
+    "ribosome-allocation claim, a relA/spoT gene_knockout (the 'relaxed' control) to test a ppGpp-dependence "
+    "claim, or a matched-mean burst-size change for a noise claim. Say in the rival's distinguishing_result what "
+    "that control would show.\n"
     "- Enumerate at least TWO rival hypotheses (Chamberlin/Platt), each with the distinguishing_result the sim "
     "would show if THAT rival were true.\n"
     "- List auxiliary (ceteris paribus) assumptions the test rides on (Duhem-Quine). For a concern the "
@@ -82,8 +101,17 @@ _SKEPTIC_SYS = (
     "resolved_ambiguities. A concern the instrument genuinely cannot resolve is type outruns_instrument, raised "
     "AT MOST ONCE as 'minor' with the suggestion to state it as an auxiliary assumption — never re-raise it as "
     "substantive across rounds. If the candidate satisfies the rubric, return an EMPTY objections list: silence "
-    "is the correct output for an adequate hypothesis. Mark each objection severity 'substantive' (blocks "
-    "convergence) or 'minor'. Emit via the tool."
+    "is the correct output for an adequate hypothesis.\n"
+    "SCOPE CHECK: if the candidate answers a NARROWER question than the user asked — e.g. tests two genes when "
+    "the user asked which genes in general, or one observable when the user asked about behaviour broadly — that "
+    "is a substantive objection (the hypothesis must address the question's actual scope, via a distribution / "
+    "screen claim, not a convenient proxy instance).\n"
+    "SEVERITY: mark an objection 'substantive' ONLY if it identifies a concrete flaw that BREAKS a rubric item — "
+    "the hypothesis is not falsifiable, or a construct is not operationalized onto a real dial label, or the "
+    "predicted result does not discriminate the named rivals, or the design is infeasible. A request for an "
+    "ADDITIONAL nice-to-have control, more precision, or an ideal-but-unnecessary refinement is 'minor', not "
+    "'substantive'. Do not manufacture a fresh substantive objection every round to keep the debate alive — if "
+    "the rubric is met, say so. Emit via the tool."
 )
 
 _JUDGE_SYS = (
@@ -92,18 +120,23 @@ _JUDGE_SYS = (
     "- falsifiable: names an observable outcome it forbids, and the falsifier could actually fail.\n"
     "- specified: independent variable (perturbation), dependent variable (observable), predicted direction AND "
     "magnitude are all present.\n"
-    "- operationalized: every construct is bound to a real dial label and the falsifier is a usable "
-    "disconfirm(target, reference, channel) with a decision rule.\n"
-    "- discriminating: the predicted result separates the hypothesis from its named rivals (Platt).\n"
+    "- operationalized: every construct is bound to a real dial label AND the falsifier's decision_rule NAMES a "
+    "statistical test and a numeric threshold (a slope-CI + R^2, a Welch-t cutoff, a bimodality test, etc.) — a "
+    "decision rule with no named test or no threshold is NOT operationalized.\n"
+    "- discriminating: the predicted result separates the hypothesis from its named rivals (Platt), AND there is "
+    "a concrete DISCRIMINATING CONTROL design (an in-envelope perturbation that isolates H1 from the leading "
+    "rival) — a purely verbal rival with no isolating design does NOT count as discriminating.\n"
     "The 'feasible' fact is computed deterministically and given to you — do not re-derive it.\n"
-    "Convergence: an objection is RESOLVED if the proposer either FIXED it OR explicitly parked it as a stated "
-    "auxiliary_assumption / scope limitation. open_objections_resolved = true when EVERY open objection is "
-    "resolved in one of those two senses (an instrument-exceeding concern acknowledged as an auxiliary "
-    "assumption counts as resolved). new_substantive_objection_this_round = true only if the skeptic raised a "
-    "NEW substantive objection this round that is neither addressed nor parked. Be strict on the rubric but do "
-    "not demand the impossible: a hypothesis that is falsifiable, specified, operationalized, discriminating, "
-    "feasible, and whose remaining objections are all parked as stated assumptions SHOULD converge. Emit via "
-    "the tool."
+    "Convergence is tied to the RUBRIC, not to the skeptic's persistence. open_objections_resolved = true when "
+    "no currently-open objection identifies a genuine RUBRIC-BREAKING flaw (not falsifiable / not operationalized "
+    "onto a real dial label / not discriminating / infeasible) — an objection that is a mere refinement, a "
+    "nice-to-have extra control, or one already parked as a stated auxiliary_assumption does NOT keep it false. "
+    "new_substantive_objection_this_round = true only if the skeptic raised a NEW rubric-breaking objection this "
+    "round that is neither addressed nor parked. Do not demand the impossible: a hypothesis that is falsifiable, "
+    "specified, operationalized, discriminating, and feasible, whose remaining objections are refinements or "
+    "parked assumptions, MUST converge (open_objections_resolved=true, new_substantive_objection_this_round="
+    "false). A perpetual stream of ever-finer objections is not a reason to withhold convergence. Emit via the "
+    "tool."
 )
 
 
@@ -314,6 +347,9 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     previous_candidate: dict | None = None
     best: dict = {}
     best_score = -1
+    converged_cand: dict = {}   # first/best candidate that passed the full quality gate (judge + skeptic + structural)
+    converged_score = -1
+    consecutive_clean = 0
 
     for rnd in range(max_rounds):
         cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered)
@@ -325,7 +361,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
             print(f"  · round {rnd + 1}: proposer -> {cand.get('claim', '')[:90]}")
 
         objs = _skeptic(client, models, question, labels, cand, answered)
-        objections = objs.get("objections", []) or []
+        objections = [o for o in (objs.get("objections") or []) if isinstance(o, dict)]  # guard string emits
         substantive = [o for o in objections if o.get("severity") == "substantive"]
         total_substantive += len(substantive)
         if verbose:
@@ -360,11 +396,24 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         if score > best_score:
             best, best_score = cand, score
 
-        if adequate and converged_signal and structural and not parked and total_substantive >= quota:
+        # A candidate that clears the judge's rubric AND the convergence signal AND the structural floor, with
+        # nothing parked, is a CLEAN hypothesis. Lock in the best such candidate so later proposer drift or
+        # manufactured late-round objections can't lose it (an airtight hypothesis often goes quiet in round 1,
+        # before the quota of doubt has been reached — the quota must not discard it).
+        clean = adequate and converged_signal and structural and not parked
+        if clean and score > converged_score:
+            converged_cand, converged_score = cand, score
+        consecutive_clean = consecutive_clean + 1 if clean else 0
+        # Exit early once a clean candidate has ALSO survived the quota of doubt (>= quota substantive objections
+        # genuinely raised and resolved), OR has been stably clean for two rounds — an airtight hypothesis yields
+        # few substantive objections, so 'stable' is the honest convergence signal when the quota is unreachable.
+        if clean and (total_substantive >= quota or consecutive_clean >= 2):
             return _assemble(question, cand, residual=[], converged=True)
 
-    # Round cap — return the BEST complete candidate reached (not a possibly-degenerate last one), flagged as
-    # not-cleanly-converged with the residual substantive objections / parked ambiguities.
+    # Round cap. The full debate has run, so the quota's scrutiny has been applied; if any round produced a clean
+    # judge-certified candidate, accept it. Otherwise return the best complete candidate, flagged not-converged.
+    if converged_cand:
+        return _assemble(question, converged_cand, residual=[], converged=True)
     final = best if best else (previous_candidate or {})
     residual = _residual(open_objections, parked) or ["reached round cap without full convergence"]
     return _assemble(question, final, residual=residual, converged=False)
