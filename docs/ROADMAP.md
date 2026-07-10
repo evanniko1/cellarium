@@ -131,3 +131,23 @@ change the **readout** (viability, not graded growth) and the **design** (graded
   viability. *Source: Gherman et al. 2025.*
 - `[ ]` **ML surrogate for viability/division** trained on the corpus (95% compute reduction) — the
   "reason over the model at scale" primitive; artifact for "The Well for the Cell". *Source: Gherman et al. 2025.*
+
+## P5 — harness gaps from the audit round (2026-07-10)
+Stress-test (17 tools, edge cases) found no crashes and semantically-correct guardrails. These are the gaps the
+recorded roadmap did NOT cover — the "close the loop to new experiments" layer + methodology/code debt.
+- `[ ]` **F1 (HIGH) — design-space enumeration tool.** Coli cannot discover runnable conditions / variant types /
+  valid gene-KO indices; the `variant_map` exists in cache but isn't a tool. Blocks "generate hypotheses + run
+  sims" (it would guess indices). Expose `design_space()` (conditions, variant types, gene→ko_index).
+- `[ ]` **F2 (MED-HIGH) — hypothesis-vetting tool.** Encode vet-before-run (feasibility + provenance + scope +
+  viability-prior + biosecurity + power) as one `vet_hypothesis` go/no-go with reasons, instead of manual chaining.
+- `[ ]` **F3 (MED) — model-validation summary.** Corpus-level essentiality agreement vs the 402-gene ground truth
+  (a `model_UNDER_predicts` rate / confusion matrix) so Coli can calibrate trust in a KO verdict.
+- `[ ]` **F4 (MED) — statistical-power guidance.** "Is this comparison powered / how many seeds needed" — no tool.
+- `[ ]` **F5 (LOW) — integration polish:** add viability to `survey` CHANNELS; add `reroute_diagnosis` to the agent
+  KO-guidance prompt.
+- `[ ]` **M1 (MED) — calibrate the viability verdict thresholds** (0.9/0.6, set on n=1 machinery = gltX) against
+  more machinery + graded-KO data; the "impaired" band is a guess.
+- `[ ]` **M2 (LOW) — t-distribution CIs.** survey/rigor use normal-approx `1.96·SE`; for n=4–8 seeds this is
+  ~20–60% too narrow and `|t|≥2` is slightly liberal. Use scipy t (already a dep).
+- `[ ]` **C1 (LOW) — DRY the viability verdict** (duplicated, currently consistent, in `_reader_worker.py` +
+  `store.py`) and add a `gene_scope` cache version/staleness guard (C3).
