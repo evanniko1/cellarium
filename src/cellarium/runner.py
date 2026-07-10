@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -35,14 +36,19 @@ def _variant_index(design: Design) -> int:
     that let a downshift run overwrite the wildtype simOut), while re-running the *same* design is idempotent.
     The wildtype variant ignores its index (see variants/wildtype.py), so this is purely a dir discriminator.
     """
-    if "variant_index" in design.params:
+    # multi-gene KO: the variant is index-0-only, so hash the gene SET for a unique output dir (run_one moves the
+    # sim's _000000 output into it). Single-gene KO / conditions use their semantic index.
+    if "variant_index" in design.params and design.perturbation != "multi_gene_knockout":
         return int(design.params["variant_index"])
-    key = f"{design.perturbation}|{design.condition}|{design.timeline}".encode()
+    key = f"{design.perturbation}|{design.condition}|{design.timeline}|{design.params.get('ko_indices')}".encode()
     return int(hashlib.sha1(key).hexdigest(), 16) % 900000 + 100000  # 6-digit, never collides with idx 0
 
 
 def _variant_args(design: Design) -> list[str]:
     """Map a Design to runSim --variant args (+ a --timeline override for timeline designs)."""
+    if design.perturbation == "multi_gene_knockout":  # index-0 variant + the gene set via --multi-ko-indices
+        idxs = [str(i) for i in design.params.get("ko_indices", [])]
+        return ["--variant", "multi_gene_knockout", "0", "0", "--multi-ko-indices", *idxs]
     idx = str(_variant_index(design))
     args = ["--variant", _variant_type(design), idx, idx]
     if design.timeline:
@@ -108,6 +114,15 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     _write_provenance(run_root, design)
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
+    if design.perturbation == "multi_gene_knockout":
+        # the index-0 variant writes to multi_gene_knockout_000000/<seed>; move its generations into the hashed
+        # run_root so distinct gene sets don't overwrite each other. Run multi-gene batches with --parallel 1.
+        src = _out_root(sim_path) / "multi_gene_knockout_000000" / f"{seed:06d}"
+        if src.exists():
+            for child in list(src.iterdir()):
+                dest = run_root / child.name
+                if not dest.exists():
+                    shutil.move(str(child), str(dest))
     return run_root
 
 
