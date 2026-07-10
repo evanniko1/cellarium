@@ -224,6 +224,56 @@ KO as first-class but `knockout_available == (gene.ko_index > 0)` (a mechanical 
 variant crashes after the fact ("Handle variant failures" commit) — so it knows KOs crash but never predicts it.
 The `scope.py` three-way prior is exactly that missing predictive layer.
 
+## J. Viability re-score — the KO readout that does NOT reroute (2026-07-10)
+Prompted by Gherman et al. 2025 (Literature grounding, below), re-scored every KO run by **division success** —
+the canonical wcEcoli viability signal (a cell that replicated its chromosome, `full_chromosome == 2` over a real
+trajectory, reached DIVISION) — instead of graded growth rate. New `viability` worker mode + `reader.viability`
+aggregate the per-cell division signal (+ FBA-solver health) over seeds × generations into a run-level verdict.
+
+| run (variant idx) | class | cells | division_rate | gens reached | verdict |
+|---|---|---|---|---|---|
+| wildtype (control) | control | 20 | 1.00 | ≤4 | VIABLE |
+| ymgD (397) | inert | 6 | 1.00 | 1 | VIABLE |
+| flgB (2791) | inert | 6 | 1.00 | 1 | VIABLE |
+| pfkA (1594) | metabolic | 6 | 1.00 | 1 | VIABLE |
+| tpiA (1542) | metabolic | 6 | 1.00 | 1 | VIABLE |
+| fabI (425) | metabolic\* | 16 | 1.00 | 4 | VIABLE |
+| glmS (2795) | metabolic\* | 16 | 1.00 | 4 | VIABLE |
+| gltA (2657) | metabolic\* | 16 | 1.00 | 4 | VIABLE |
+| **gltX (2074)** | **machinery/aaRS** | 12 | **0.92** | **3 (of 4 requested)** | **IMPAIRED** |
+
+(\* = essential, sole-catalyst; run 4 generations.)
+
+- **Every metabolic KO is genuinely VIABLE** (divides every generation, rate 1.00) — including the three
+  "essential" sole-catalyst enzymes run to 4 generations. This is a *stronger, cleaner* statement than the earlier
+  "no growth-rate effect": the model doesn't merely fail to register the KO on our chosen channel — it produces a
+  fully dividing lineage. The reroute is real, and viability confirms it without the reroute masking anything.
+- **gltX (aaRS) is the lone outlier**, and viability refines §I's "crash" into a **progressive collapse**: all 4
+  seeds *divide* (slower — median division time 8541 s vs ~5400 s baseline) for exactly 3 generations, then the
+  lineage fails to continue (seed 1's gen-2 cell already fails to divide) while the same-batch essential KOs reach
+  4. This is precisely the lethality a graded growth channel hides and a viability channel exposes.
+- **Method value:** viability is the KO/design readout that does not reroute away — the primitive for future KO
+  and reduced-genome screens, and the natural target for an ML surrogate (Gherman et al.).
+
+## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
+Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
+characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):
+- **Choi & Covert 2023**, *Whole-cell modeling of E. coli confirms that in vitro tRNA aminoacylation measurements
+  are insufficient to support cell growth…*, Nucleic Acids Research 51(12):5911–5930,
+  doi:10.1093/nar/gkad435. aaRS kcats had to be fit **7.6× above** in vitro to sustain the proteome, and
+  perturbing aaRS activity is *"catastrophic"*. Published backing for the `lethal_crash` / machinery-collapse
+  regime — gltX is an aaRS.
+- **Gherman et al. 2025**, *Accelerated design of E. coli reduced genomes using a whole-cell model and machine
+  learning*, Cell Systems 16(10):101392, doi:10.1016/j.cels.2025.101392. Uses **cell division (viable/inviable)**
+  as the KO readout, an **ML surrogate** (95% less compute), and **multi-gene genome reduction** (40% removed).
+  Direct source of §J's viability re-score and the surrogate direction.
+- **EcoCyc 2025** (Karp et al., EcoSal Plus, doi:10.1128/ecosalplus.esp-0019-2024; wcEcoli team co-authors): ships
+  a steady-state flux model that **predicts KO growth rates** + curated **gene-essentiality** annotations →
+  benchmark/defer to it for metabolic essentiality rather than rebuild (D4 tier-2).
+- **Birch, Udell & Covert 2014**, *Incorporation of flexible objectives and time-linked simulation with FBA*, J
+  Theor Biol 345:12–21, doi:10.1016/j.jtbi.2013.11.028 — lineage of the homeostatic/dynamic `flexible`
+  objective in `modular_fba.py`; the "no biomass-max term" is a deliberate design choice, not a default.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)

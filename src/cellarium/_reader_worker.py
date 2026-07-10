@@ -168,6 +168,79 @@ def mode_run(run_root):
             "pathways": _pathways(gs[-1], _load_panel())}  # per-pathway proteome fractions (P2.1 depth)
 
 
+def _cell_viability(so):
+    """Per-cell viability from the canonical wcEcoli division signal: a cell that replicated its chromosome
+    (full_chromosome == 2) over a real trajectory (n_steps > 10) reached DIVISION. Also flag FBA-solver failure
+    (the numerical breakdown mode). This is the readout Gherman et al. 2025 use — viable == the cell divides —
+    which does NOT reroute away like a graded growth channel does."""
+    try:
+        n = int(_col(so, "Main", "time").ravel().size)
+    except Exception:
+        return {"n_steps": 0, "divided": False, "fba_ok": False, "division_time_sec": None,
+                "full_chromosome_end": -1, "readable": False}
+    fc = _full_chrom(so)
+    try:
+        fo = _col(so, "FBAResults", "objectiveValue").ravel()
+        fba_ok = bool(np.isfinite(fo[-1]) and fo[-1] > 0)
+    except Exception:
+        fba_ok = True
+    t = _col(so, "Main", "time").ravel()
+    divided = bool(fc == 2 and n > 10)
+    return {"n_steps": n, "divided": divided, "fba_ok": fba_ok,
+            "division_time_sec": (float(t[-1]) if divided else None),
+            "full_chromosome_end": int(fc), "readable": True}
+
+
+def _parse_lineage(so):
+    parts = so.replace("\\", "/").split("/")
+    for i, p in enumerate(parts):
+        if p.startswith("generation_"):
+            try:
+                return (parts[i - 1] if i > 0 else None), int(p.split("_")[-1])
+            except Exception:
+                return (parts[i - 1] if i > 0 else None), None
+    return None, None
+
+
+def mode_viability(run_root):
+    """Re-score a run by VIABILITY: does each cell in the lineage divide? Aggregates the per-cell division signal
+    over seeds x generations into a run-level verdict. A metabolic KO that 'reroutes' is VIABLE (divides normally);
+    a machinery KO (gltX) is INVIABLE (its terminal cell fails to divide / the FBA solver breaks)."""
+    gs = _gens(run_root)
+    if not gs:
+        return {"error": "no simOut under " + run_root}
+    seeds = {}
+    for so in gs:
+        seed, gen = _parse_lineage(so)
+        v = _cell_viability(so)
+        v["gen"] = gen
+        seeds.setdefault(seed, []).append(v)
+    per_seed, n_cells, n_div, n_fba_fail, div_times = {}, 0, 0, 0, []
+    for seed, cells in seeds.items():
+        cells.sort(key=lambda c: (c["gen"] if c["gen"] is not None else 0))
+        nd = sum(1 for c in cells if c["divided"])
+        n_cells += len(cells); n_div += nd
+        n_fba_fail += sum(1 for c in cells if not c["fba_ok"])
+        div_times += [c["division_time_sec"] for c in cells if c["division_time_sec"] is not None]
+        per_seed[seed] = {"gens_reached": len(cells),
+                          "max_gen": max((c["gen"] for c in cells if c["gen"] is not None), default=None),
+                          "n_divided": nd, "all_divided": nd == len(cells),
+                          "terminal_divided": bool(cells[-1]["divided"]),
+                          "terminal_fba_ok": bool(cells[-1]["fba_ok"])}
+    gens = [s["gens_reached"] for s in per_seed.values()] or [0]
+    rate = (n_div / n_cells) if n_cells else 0.0
+    all_terminal = bool(per_seed) and all(s["terminal_divided"] for s in per_seed.values())
+    any_terminal = any(s["terminal_divided"] for s in per_seed.values())
+    verdict = ("viable" if rate >= 0.9 and all_terminal
+               else "inviable" if (rate < 0.6 or not any_terminal or n_fba_fail > 0)
+               else "impaired")
+    return {"n_seeds": len(per_seed), "n_cells": n_cells, "n_divided": n_div,
+            "division_rate": round(rate, 3), "n_fba_failures": n_fba_fail,
+            "gens_reached": {"min": min(gens), "max": max(gens), "mean": round(sum(gens) / len(gens), 2)},
+            "median_division_time_sec": (round(float(np.median(div_times)), 1) if div_times else None),
+            "terminal_division_all_seeds": all_terminal, "verdict": verdict, "seeds": per_seed}
+
+
 def mode_schema(run_root):
     gs = _gens(run_root)
     if not gs:
@@ -510,6 +583,8 @@ if __name__ == "__main__":
         out = mode_gene_map(run_root)
     elif mode == "gene_scope":
         out = mode_gene_scope(run_root)
+    elif mode == "viability":
+        out = mode_viability(run_root)
     elif mode == "fba_essentiality":
         out = mode_fba_essentiality(run_root, sys.argv[3])
     elif mode == "differential":

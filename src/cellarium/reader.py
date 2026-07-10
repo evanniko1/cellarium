@@ -52,6 +52,13 @@ def read_run(host_run_root: Path) -> dict:
     return _invoke("run", host_run_root)
 
 
+def viability(host_run_root: Path) -> dict:
+    """Re-score a run by VIABILITY (does the lineage divide?) — the KO readout that doesn't reroute away like a
+    graded growth channel. Aggregates the per-cell division signal (full_chromosome==2 + FBA-solver health) over
+    seeds x generations into a run-level verdict (viable / impaired / inviable)."""
+    return _invoke("viability", host_run_root)
+
+
 def dump_schema(host_run_root: Path) -> dict:
     return _invoke("schema", host_run_root)
 
