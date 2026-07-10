@@ -436,35 +436,46 @@ several refinements, all in `council.py`:
 
 ### Results (literature evals, `evals/`)
 
-On the cases the base wcEcoli model can actually execute (in-scope readouts), the
-Council reaches the **stringent** bar and converges in ~2 rounds:
+The starting point was a floor-fail: the first live run had the Council returning
+degenerate, unfalsifiable hypotheses (0/2 on the minimum bar). After the fixes above
+it **converges on every case** and the minimum bar is reached broadly. Grading uses
+an independent Opus 4.8 judge that sees the answer key; both the generator and the
+judge are stochastic LLMs, so scores — especially at the stringent bar — carry
+**run-to-run variance**. A representative full run (`evals/results/full_run.json`,
+Sonnet 5 roles, 8 cases, `--rounds 4`):
 
-| Case | Question | Minimum | Stringent |
-|---|---|---|---|
-| 1.1 | do isogenic cells express a gene at the same level? (Elowitz noise) | ✅ | ✅ |
-| 4.1 | how many ribosomes to make in a medium? (Scott growth laws) | ✅ | ✅ |
-| 4.2 | what happens when amino acids run out? (ppGpp stringent response) | ✅ | ✅ |
-| 5.1 | which genes can *E. coli* live without? (Keio essentiality) | ✅ | ✗¹ |
+| Case | In-scope readout? | Minimum | Stringent | Note |
+|---|---|---|---|---|
+| 1.1 isogenic gene expression (Elowitz noise) | yes | ✅ | ✅ | stringent passes across runs |
+| 4.2 amino-acid runout (ppGpp stringent response) | yes | ✅ | ✅ | stringent passes across runs |
+| 4.1 ribosome allocation (Scott growth laws) | yes | ✅ | ~ | stringent varies run-to-run |
+| 1.2 what makes a gene noisier (burst kinetics) | yes | ✅ | ✗ | wants a matched-mean burst-size control |
+| 3.1 do isogenic cells *behave* differently | readout out-of-scope | ✅ | ✗ | maps to across-seed growth-rate CV; Spudich–Koshland low-copy-protein mechanism out of model scope |
+| 6.2 who switches at the diauxic shift | partial | ✅ | ✗ | bimodality needs a large ensemble |
+| 5.1 which genes are essential (Keio) | yes | ~ | ✗ | minimum varies; stringent asks the measured count — see below |
+| 6.1 two-sugar choice (diauxie) | out-of-scope | ✗ | ✗ | natural design is a mid-run carbon switch, which is out of envelope |
 
-¹ 5.1 passes the minimum bar; its remaining stringent miss is *by design* — the
-criterion asks for the literature's **measured** essential count (~300–620 / 4300),
-which the Council must not presuppose (that is exactly the answer-key reading the
-D2/D4 quarantine forbids). The Council instead proposes a *falsifiable* fraction to
-test (~10–20% with a viability threshold and a screen design). When a stringent
-criterion demands the known answer, a quarantine-respecting Council will miss it —
-correct behaviour, not a defect.
+**All 8 cases converged** (`converged=True`) — the termination machinery is the
+solid part; the misses are content/grading, not non-termination. Two structural
+reasons the stringent bar is not universal, both intended:
 
-Cases whose *readout* the base model cannot execute — persistence killing/MIC (2.1),
-motility run-tumble (3.1), full lactose diauxie (6.1/6.2) — are graded on
-operationalization; they reach the minimum bar, and some stringent criteria are
-unreachable because the model can't run that measurement (each case's `scope_note`
-in `evals/EVAL_SPEC.md` says which). The user's flagship question, "do genetically
-identical cells behave differently?" (3.1), operationalizes to across-seed
-growth-rate heterogeneity — a valid, testable minimum-bar hypothesis — with the
-Spudich–Koshland low-copy-protein mechanism flagged as out of the base model's scope.
+1. **The quarantine caps some stringent criteria.** Where a criterion demands a
+   literature *measured value* — e.g. 5.1's "~300–620 essential of ~4300" — a
+   quarantine-respecting Council **must** miss it: it may not presuppose the answer.
+   It instead proposes a *falsifiable* fraction to test (~10–20% with a viability
+   threshold and a screen design). That is correct behaviour, not a defect. The same
+   applies to case-specific canonical *controls*: the Council proposes a valid
+   discriminating control, but not necessarily the exact one the seminal paper used.
+2. **Instrument scope caps others.** Readouts the base wcEcoli model cannot execute —
+   antibiotic killing/MIC, motility run-tumble, full lactose diauxie — are graded on
+   operationalization; some stringent criteria are unreachable because the model
+   can't run that measurement (each case's `scope_note` in `evals/EVAL_SPEC.md`).
 
-Reproduce: `python evals/grade.py` (see `evals/README.md`). Latest scorecard:
-`evals/results/full_run.json`.
+The honest summary: the Council reliably converges and reaches the minimum bar on
+the in-scope, native-readout cases, and reaches the **stringent** bar on the
+strongest of them (1.1, 4.2 across runs; 4.1 intermittently). The residual stringent
+gaps are dominated by the two structural limits above plus LLM variance — not by the
+convergence logic. Reproduce: `python evals/grade.py` (see `evals/README.md`).
 
 ---
 
