@@ -336,6 +336,36 @@ screen's logic stays unit-tested, a valid safety net for a future model that sim
 overexpression forced via factor>1 would be a non-mechanistic count bump, not a real regulon activation — it would
 demonstrate nothing honest, so we did not build it.)
 
+## M. Machinery-KO calibration panel (M1) — the machinery→crash rule is subtype/generation-specific (2026-07-10)
+Ran 6 machinery KOs (4 subtypes) × 4 seeds × 4 gens + control to calibrate the viability verdict (was n=1: gltX).
+Result (re-scored by viability from on-disk data, incl. crashed partials):
+
+| KO | subtype | gens_reached | verdict | campaign | truth |
+|---|---|---|---|---|---|
+| rpoB | RNAP | 4/4 | VIABLE | completed | viable at 4 gens |
+| dnaN | replisome | 4/4 | VIABLE | completed | viable at 4 gens |
+| rplB | ribosomal | 1/1 | INVIABLE | crashed | crashed gen-0 |
+| gltX | aaRS | 3/3 | IMPAIRED | (crashed g4) | crashed gen-3 |
+| argS | aaRS | 3/3 | IMPAIRED | crashed | crashed gen-3 |
+| alaS | aaRS | 3/3 | **VIABLE ✗** | crashed | crashed gen-3 |
+| pheS | aaRS | 3/3 | **VIABLE ✗** | crashed | crashed gen-3 |
+
+**Two findings the n=1 (gltX) calibration hid:**
+1. **The machinery→lethal_crash rule is NOT uniform — it is subtype- and generation-dependent.** Crash TIMING
+   tracks the inherited-pool size: ribosomal (rplB) → gen-0; aaRS (gltX/argS/alaS/pheS) → gen-3 (on the inherited
+   charged-tRNA buffer, §K); RNAP (rpoB) + replisome (dnaN) → survive ≥4 gens (large RNAP/clamp reserve; predicted
+   to crash at MORE generations as the pool depletes). So all essential machinery still crashes *eventually*, but
+   `scope.py`'s blanket `lethal_crash` over-states the outcome AT 4 GENS for RNAP/replisome. Refine to a
+   pool-timing statement. (rpoB/dnaN "viable at 4 gens" = `model_UNDER_predicts` via slow depletion, not reroute.)
+2. **The viability verdict has a truncation blind spot.** alaS/pheS scored **VIABLE** despite crashing — all 3
+   completed generations divided (min_dr 1.0), and the metric can't see the lineage TERMINATED at 3 of 4 requested
+   gens. gltX/argS scored IMPAIRED only because a seed happened to fail a division — a stochastic accident, not a
+   real distinction. **The verdict must incorporate `gens_reached < requested_depth` as inviable**, independent of
+   the completed-gen division rate. The 0.9/0.6 thresholds are secondary; the missing truncation signal is the bug.
+
+New clean scale points: VIABLE = rpoB/dnaN (4 gens) + metabolic/graded; INVIABLE = rplB (gen-0 crash) +
+minus_phosphate (§L re-analysis: growth-starvation, div=0.0); crash-at-gen-3 = the aaRS (all four).
+
 ## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
 Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
 characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):
