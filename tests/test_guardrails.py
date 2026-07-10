@@ -144,6 +144,16 @@ def test_design_space_enumerates_and_resolves():
     assert ("ko_index" in g) or (g.get("known") is False)  # resolves if scope cached, else graceful
 
 
+def test_provenance_distinguishes_fitted_from_derived_conditions():
+    from cellarium import provenance
+    assert provenance.tag("condition", "no_oxygen") == "in_sample"       # measured/TF-fitted (H1)
+    assert provenance.tag("condition", "with_aa") == "in_sample"
+    assert provenance.tag("condition", "minus_magnesium") == "out_of_sample"  # derived, not fitted (H2 boundary)
+    assert provenance.tag("condition", "plus_indole") == "out_of_sample"
+    assert provenance.tag("gene_knockout", "KO:fabI") == "out_of_sample"
+    assert provenance.tag("wildtype", "basal") == "in_sample"
+
+
 def test_vet_hypothesis_gates_safety_only():
     # THE constraint: only safety blocks. Out-of-sample + out-of-envelope hypotheses stay runnable (H2 lesson).
     from cellarium import tools

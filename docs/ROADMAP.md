@@ -150,10 +150,12 @@ recorded roadmap did NOT cover — the "close the loop to new experiments" layer
 - `[x]` **F4 (MED) — statistical-power guidance.** `power_check` uses the corpus's observed per-design replicate
   CV: growth_rate CV ≈5.6%, so n=4 detects ~11% effects and needs 5 seeds for 10% — a KO null below the MDE is
   under-powered, not equivalent.
-- `[ ]` **M4 (MED, NEW from F2 test) — provenance is too coarse.** `provenance.classify` tags ALL `condition`
-  perturbations in-sample by perturbation type — but unfitted stress conditions (minus_magnesium, per the H2
-  docstring) are genuinely OUT-of-sample. Under-flags predictions on the deepest axis. Fix: classify a condition
-  by whether it is in the ParCa-fitted set, not by perturbation type.
+- `[x]` **M4 (MED, NEW from F2 test) — provenance is too coarse → FIXED.** Confirmed empirically: the measured-
+  data conditions are 5 media (M9 Glc ±AAs, N-/P-limited, glycerol); `minus_magnesium`'s expression is network-
+  DERIVED, not fitted (so H2 = out-of-sample is right, the blanket rule was wrong). Now classifies by a
+  conservative `IN_SAMPLE_CONDITIONS` set (basal/glc*/with_aa/no_oxygen); all other media + all perturbations →
+  out-of-sample (under-crediting is the safe error). Verified: minus_magnesium/plus_indole → out; no_oxygen/
+  with_aa → in.
 - `[x]` **F5 (LOW) — integration polish:** `division_rate` added to `survey` CHANNELS (a low value is a strong
   flag); `reroute_diagnosis` + `design_space` added to the agent KO-guidance prompt.
 - `[ ]` **M1 (MED) — calibrate the viability verdict thresholds** (0.9/0.6, set on n=1 machinery = gltX) against
