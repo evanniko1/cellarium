@@ -318,6 +318,24 @@ never hard-requires that flux. That is the mathematical artifact behind `model_U
 method that exposes it — enzyme → reactions → flux-diff (KO vs WT) — is a candidate "reroute-diagnosis" tool
 (needs proper seed normalization; a naive single-seed diff is dominated by reversible-transport noise).
 
+## L. The AMR-efflux phenotype is out of mechanistic scope (biosecurity, 2026-07-10)
+Trying to close the demo's "phenotype biosecurity screen fires on a real run" gap surfaced a scope limitation, not
+a build gap. The screen (`screen_phenotype`) flags a run whose simulated proteome up-regulates the `amr_efflux`
+pathway fraction ≥2× (log2fc ≥ 1). But:
+- **marA/soxS/rob are NOT among the 23 mechanistically-modeled TFs** (verified against
+  `sim_data.tf_to_active_inactive_conditions` — the modeled set is the metabolic/respiratory regulators: FNR,
+  ArcA, NarL, PhoB, …). So the mar-sox-rob regulon has no modeled activation mechanism.
+- **There is no gene-overexpression variant** (`gene_knockout` hardcodes factor 0; no factor>1 path), and we do
+  not modify the model repo.
+- **The efflux genes don't move under any modeled condition:** across indole/nitrate/phosphate/Mg/arabinose/
+  acetate/no-O2, acrA/acrB/tolC stay ~1× vs basal (only low-abundance acrD hits 3.45× under indole — too small to
+  move the aggregate `pw:amr_efflux` fraction). So no real run trips the screen.
+Conclusion: the model **cannot produce** the AMR phenotype the screen guards — the same wall as the KO work. The
+*intent* screen (`screen_design`, design-time, model-independent) does fire and carries the demo; the phenotype
+screen's logic stays unit-tested, a valid safety net for a future model that simulates the regulon. (A crude
+overexpression forced via factor>1 would be a non-mechanistic count bump, not a real regulon activation — it would
+demonstrate nothing honest, so we did not build it.)
+
 ## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
 Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
 characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):

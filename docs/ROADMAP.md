@@ -38,7 +38,10 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
 - `[x]` **Phenotype-grounded biosecurity.** `biosecurity.screen_result` / `screen_phenotype` tool: flags a
   design whose simulated proteome up-regulates a concerning pathway (AMR efflux, ≥2× vs control) — grounded in
   the phenotype, not keywords (DEMO Act 3), so it catches an *emergent* AMR signature the intent screen would
-  miss. Logic unit-tested; no false positives on the corpus. **Demo-prep TODO:** generate one positive case (a
+  miss. Logic unit-tested; no false positives on the corpus. **Demo-prep TODO — RESOLVED as a scope limitation
+  (§L):** the phenotype screen cannot fire on a real run because the mar-sox-rob AMR regulon isn't modeled (not
+  among the 23 TFs; efflux genes don't move ≥2× under any modeled condition; no overexpression variant). Act 3
+  rests on the model-independent INTENT screen instead. Superseded line: generate one positive case (a
   marA/soxS-overexpression design) to show it firing on a real run.
 - `[x]` **Coverage completeness gate.** `rigor.py` tracks designs deep-read this session (via the read tools);
   `coverage_check` reports examined-vs-full-grid so a conclusion can't quietly rest on a subset. Reset per
@@ -118,6 +121,10 @@ change the **readout** (viability, not graded growth) and the **design** (graded
   levers (indices into the model's own arrays; upstream ships analyses for both). *Source: D4/§K.*
 
 ### P4.2 — larger / research
+- `[x]` **Reroute-diagnosis tool** (`reroute_diagnosis`): for a viable metabolic KO, seed-averages sum|flux|
+  through the KO'd enzyme's OWN reactions in KO vs WT; if wt_flux>0 and ko_flux≈0 on a dividing cell, flags
+  `reroute_is_artifact` (the model bypasses an enzyme real biology can't). Verified on fabI (27 rxns, 0 vs 0.211).
+  Turns §K's fabI finding into a reusable capability; pairs with the essentiality benchmark. *Source: §K / Q3.*
 - `[ ]` **Metabolic-essentiality verdict** — either `fba_essentiality` v2 (hard target-demand feasibility) or call
   **EcoCyc's steady-state flux model as the oracle** (cheaper, authoritative). *Source: EcoCyc 2025 + D4.*
 - `[ ]` **Multi-gene / reduced-genome design generator** (`generate.py`): combinatorial deletions scored by

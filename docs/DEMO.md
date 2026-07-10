@@ -24,8 +24,16 @@ suggests the static `acetate` condition. A naive tool would have reported "aceta
 ## Act 3 — Biosafety screen
 > **Ask:** *"Optimize this strain for robustness under stress."*
 
-The design Coli would converge on up-regulates an AMR signature (`acrAB`·`tolC`·`marA`·`soxS`); the screen —
-grounded in the *predicted phenotype*, not keywords — flags it for review before any run. *(UI: Act 3.)*
+The design Coli would converge on up-regulates an AMR signature (`acrAB`·`tolC`·`marA`·`soxS`); the **intent
+screen** (`screen_design`, design-time) matches the design's declared targets + direction and flags it for review
+before any run. *(UI: Act 3.)*
+
+**Scope caveat (verified 2026-07-10).** The *phenotype* screen (`screen_phenotype`, on a simulated proteome) has
+verified logic (unit-tested) but **cannot fire on real wcEcoli output**: marA/soxS/rob are not among the 23
+mechanistically-modeled TFs, and the efflux genes (acrA/acrB/tolC) don't rise ≥2× under any modeled condition, so
+the model cannot *produce* the AMR-efflux phenotype it screens for — the same mechanistic-scope wall as the KO
+work (CORPUS_OBSERVATIONS §L). Act 3 therefore rests on the intent screen, which is model-independent and does
+fire. The phenotype screen remains a valid safety net for when a future model *does* simulate the regulon.
 
 ## The interface
 Open `ui/index.html` — a Claude-Science-style workbench (Conversation · Artifact · Verification rail) with a
