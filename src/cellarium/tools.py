@@ -140,6 +140,16 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     return out
 
 
+def propose_experiment(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
+                       params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None) -> dict:
+    """PROPOSE an experiment to run — Coli CANNOT launch sims itself. The design is vetted (safety is the only hard
+    gate) and QUEUED pending human approval; a human approves via the interface, then the result is indexed so you
+    can reason over it. Use design_space to pick a valid, correctly-indexed design first. Returns the request id +
+    the full vet result (pending_approval, or blocked if it hits a misuse signature)."""
+    from . import launch
+    return launch.propose(perturbation, condition, timeline, params, seeds, generations, gene)
+
+
 def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
                    params: dict | None = None, gene: str | None = None) -> dict:
     """Vet a proposed experiment before running it. SAFETY is the ONLY hard gate — out-of-sample / predicted-to-
@@ -362,6 +372,8 @@ TOOLS = [
                       "required": ["target"]}},
     {"name": "run_experiment", "description": "Envelope- AND biosecurity-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
+    {"name": "propose_experiment", "description": "PROPOSE an experiment to run when the corpus lacks the data you need. Coli CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to pick a valid, correctly-indexed design. Returns request id + vet result (pending_approval or blocked).",
+     "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "optional KO'd gene for the scope prior"}}}},
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
@@ -373,7 +385,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
-             "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check}
+             "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
+             "propose_experiment": propose_experiment}
 
 
 def dispatch(name: str, args: dict) -> dict:
