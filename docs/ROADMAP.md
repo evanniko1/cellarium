@@ -76,11 +76,14 @@ FBA objective has **no growth term** (KOs reroute) and the KO variant is an **ex
 change the **readout** (viability, not graded growth) and the **design** (graded / multi-gene), not the objective.
 
 ### P4.0 — cheap, no new sims
-- `[~]` **Viability as a first-class corpus channel.** `mode_run` emits a per-lineage division aggregate
+- `[x]` **Viability as a first-class corpus channel.** `mode_run` emits a per-lineage division aggregate
   (`division_rate`, `gens_reached`, `terminal_divided`, `n_fba_failures`, `median_division_time_sec`); flattened
   into manifest columns so viability is queryable in DuckDB (cross-seed `GROUP BY` recovers the §J verdict — a
   lineage can't see the requested depth, so 'died early' is a cross-seed signal). Standalone rollup =
-  `reader.viability` / `mode_viability`. *Source: Gherman et al. 2025.* **[in progress — backfilling]**
+  `reader.viability` / `mode_viability`. *Source: Gherman et al. 2025.* **Done** — corpus backfilled
+  (`record_existing`); a GROUP BY over the KO variants reproduces §J from SQL (gltX min_divrate 0.67 / max_gens 3
+  / terminal_divided False vs 1.00 / 4 / True for the metabolic KOs). Minor follow-up: the gltX run lacks a
+  `KO:` condition label (shows as `?`) — a provenance gap in that run's design.json, not the channel.
 - `[ ]` **Ground-truth essentiality reference in `gene_scope`.** Join Keio/EcoCyc essential-gene flags per gene so
   `classify_gene` reports `model prior: reroutes / EcoCyc: essential` side by side — upgrades calibration from
   self-reported to benchmarked. *Source: EcoCyc 2025.*
