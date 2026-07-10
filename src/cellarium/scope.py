@@ -73,11 +73,14 @@ def classify_gene(symbol: str) -> dict:
                 "affect growth via metabolism (the fabI-type null).")
     elif g["is_metabolic"]:
         ko_effect = "unreliable_model_reroutes"
-        note = ("Metabolic AND a kinetic-constraint enzyme, but the kinetic constraints are SOFT FBA targets, not "
-                "hard bounds. EMPIRICALLY the model reroutes metabolic single-KOs: glmS/gltA/pfkA/tpiA are all "
-                "kinetic+sole-catalyst yet their KOs showed NO growth effect. Do NOT expect a phenotype; the only "
-                "reliable test is running the KO or an FBA single-deletion feasibility check (structural flags "
-                "have a 0/5 hit-rate here).")
+        note = ("Metabolic AND a kinetic-constraint enzyme, but the metabolism FBA objective is deviation-"
+                "minimizing over concentration ranges + kinetic targets with NO growth/biomass term (objectiveType "
+                "'homeostatic_kinetics_mixed'), so a KO has nothing to degrade — the solver just reroutes to keep "
+                "pools in range. And the gene_knockout variant is an EXPRESSION knockout (zeroes transcription; the "
+                "enzyme dilutes over generations), not a stoichiometric deletion. EMPIRICALLY glmS/gltA/pfkA/tpiA "
+                "(all kinetic+sole-catalyst) showed NO growth effect. Do NOT expect a phenotype; the only reliable "
+                "gene-specific essentiality test is a SEPARATE biomass/feasibility FBA single-deletion on the "
+                "metabolic network (structural flags have a 0/5 hit-rate here).")
     else:
         ko_effect = "mechanistic_other"
         note = "Mechanistically simulated (" + role + ") — a KO is a genuine, interpretable prediction."
@@ -85,6 +88,8 @@ def classify_gene(symbol: str) -> dict:
             "is_machinery": machinery, "machinery_role": machinery_role,
             "is_sole_catalyst": sole, "is_kinetically_constraining": kinetic, "ko_effect_prior": ko_effect,
             "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note,
-            "calibration": ("metabolic structural flags 0/5 at predicting a KO growth effect (model reroutes); the "
-                            "machinery flag predicts a lethal crash, not a clean phenotype (gltX 4/4). Prior, not "
-                            "verdict — for a measurable KO-adjacent effect use a graded-capacity perturbation.")}
+            "calibration": ("metabolic structural flags 0/5 at predicting a KO growth effect — the FBA objective "
+                            "has no growth term, so KOs reroute; the machinery flag predicts a lethal crash, not a "
+                            "clean phenotype (gltX 4/4). Prior, not verdict — for a measurable KO-adjacent effect "
+                            "use a graded-capacity perturbation; for a gene-specific essentiality verdict use a "
+                            "separate biomass/feasibility FBA single-deletion.")}

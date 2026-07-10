@@ -193,7 +193,36 @@ Test of whether the translation-machinery axis responds (vs metabolism's reroute
 current misclassification of machinery as "inert", and (b) serve as a WARNING ("essential-machinery KO will
 likely CRASH the sim, not yield clean data"). Build it as a scope/crash-warning tool, not a clean-phenotype
 predictor. And it is now the *sixth* wrong specific prediction of mine the harness has caught — the general
-axis (machinery responds) held; the mechanism (stringent) did not.
+axis (machinery responds) held; the mechanism (stringent) did not. (Built 2026-07-10: `scope.py` now detects the
+89 machinery genes from `molecule_groups` + the synthetase set and returns the three-way KO prior.)
+
+### Root-cause refinements from the source (2026-07-10 repo pass of CovertLab + Mohammed's platform fork)
+Reading the model core (stock CovertLab; the platform branch does not touch it) sharpened the *mechanism* behind
+the reroute + under-sensitivity. Two refinements — neither reverses a conclusion, both make it airtight:
+
+1. **The metabolism objective has NO growth/biomass-maximization term.** `metabolism.py` runs
+   `objectiveType = "homeostatic_kinetics_mixed"`: minimize *deviation* from (a) metabolite concentration target
+   *ranges* (`range_homeostatic`) + (b) kinetic flux targets (weighted, soft). The biomass-objective reaction
+   exists in `wholecell/utils/modular_fba.py` but only for `objectiveType == "standard"`, which the whole-cell
+   metabolism never uses. So the deepest reason single-KOs reroute is not merely "kinetic constraints are soft" —
+   it is that **there is no growth term to degrade**: the solver only has to keep pools in range, and rerouting
+   does that. This is *also* why the FBA single-deletion screen was 0/35: it measured `obj0 − obj` on a
+   deviation-minimizing objective that stays ≈satisfiable by construction. The homeostatic objective is a
+   deliberate whole-cell design choice — metabolite demand is set dynamically by the other processes each
+   timestep, not by a fixed biomass vector — so it *cannot* be read as an essentiality signal.
+2. **The `gene_knockout` variant is an EXPRESSION knockout, not a stoichiometric deletion.** It calls
+   `sim_data.adjust_final_expression([geneIndex], [0])` — it zeroes transcription, and the enzyme then dilutes to
+   ~0 over generations. This is why the defect is generation-paced (the generation-depth lesson) and why even at
+   full depletion metabolism reroutes: the network re-satisfies the (soft, growthless) objective around the
+   missing catalyst.
+
+**External corroboration (not just my runs):** upstream ships a dedicated variant-analysis script for *every*
+graded-capacity knob (`ppgpp_conc`, `rrna_gene_copy_numbers`, `metabolism_kinetic_objective_weight`,
+`metabolism_secretion_penalty`, `cell_growth`, `growth_trajectory`) but **none for `gene_knockout`** — the Covert
+team built their instrument around graded perturbations, not single-gene essentiality. Mohammed's platform exposes
+KO as first-class but `knockout_available == (gene.ko_index > 0)` (a mechanical check), and separately *catches*
+variant crashes after the fact ("Handle variant failures" commit) — so it knows KOs crash but never predicts it.
+The `scope.py` three-way prior is exactly that missing predictive layer.
 
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
