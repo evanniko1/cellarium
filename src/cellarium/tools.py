@@ -140,6 +140,83 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     return out
 
 
+def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
+                   params: dict | None = None, gene: str | None = None) -> dict:
+    """Vet a proposed experiment before running it. SAFETY is the ONLY hard gate — out-of-sample / predicted-to-
+    reroute / likely-to-fail hypotheses are ENCOURAGED (they are the genuine model tests; a gate on 'likely to
+    fail' would have killed the most valuable experiments, e.g. the H2 model-boundary result). Feasibility +
+    provenance + scope are ADVISORY annotations that set expectations, never block. `runnable` reflects safety only."""
+    d = Design(perturbation=perturbation, condition=condition, timeline=timeline, params=params or {})
+    safety = biosecurity.screen(d)          # HARD GATE (safety only) — never auto-run a flagged misuse design
+    feas = envelope.check(d)                 # advisory: out-of-envelope => boundary test, still allowed
+    prov = _prov.classify(perturbation, condition)   # epistemic: out-of-sample is a STRENGTH
+    oos = prov.get("provenance") == "out_of_sample"
+    out = {
+        "runnable": not safety.flagged,      # ONLY safety gates; epistemics never set this False
+        "safety": {"flagged": safety.flagged, "severity": getattr(safety, "severity", None),
+                   "signature": getattr(safety, "signature", None), "reason": safety.reason,
+                   "action": "REQUIRES HUMAN REVIEW — do not auto-run" if safety.flagged else "clear"},
+        "feasibility": {"in_envelope": feas.in_envelope, "reason": feas.reason, "suggestion": feas.suggestion,
+                        "advisory": ("outside the VALIDATED regime — allowed; interpret as a boundary probe, not a "
+                                     "validated prediction" if not feas.in_envelope else "in the validated regime")},
+        "provenance": {**prov, "value": ("OUT-OF-SAMPLE — a genuine model test; high value even if it FAILS (that is "
+                                         "the point). Run it." if oos else
+                                         "in-sample — agreement is consistency, not prediction")},
+        "principle": ("SAFETY is the only hard gate. Epistemic flags (out-of-sample, reroute-likely, inert-scope) "
+                      "set expectations; they NEVER block. Out-of-sample and predicted-to-fail hypotheses are "
+                      "encouraged — they are where the model can be wrong, which is the experiment's value."),
+    }
+    if gene:
+        from . import scope
+        c = scope.classify_gene(gene)
+        out["scope"] = ({"role": c.get("role"), "ko_effect_prior": c.get("ko_effect_prior"),
+                         "benchmark": c.get("benchmark"),
+                         "expectation": "PRIOR only — judge the KO by VIABILITY + the benchmark, not growth rate"}
+                        if c.get("known") else {"symbol": gene, "known": False})
+    out["recommendation"] = ("BLOCK pending review: " + safety.reason if safety.flagged
+                             else "SAFE to run. " + ("Out-of-sample — run it (a genuine test). " if oos else "")
+                             + ("Out-of-envelope — interpret as a boundary probe. " if not feas.in_envelope else ""))
+    return out
+
+
+def model_validation() -> dict:
+    """How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level
+    agreement counts + the `model_UNDER_predicts` number, so you know when to trust a KO 'viable' verdict (you
+    mostly can't for essential-gene candidates). No sims."""
+    from . import scope
+    return scope.model_validation_summary()
+
+
+def power_check(channel: str = "growth_rate", effect_pct: float = 10.0, n_seeds: int = 4) -> dict:
+    """Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for `channel` to
+    estimate the minimum detectable effect at `n_seeds` and the seeds needed to detect `effect_pct` (two-sample,
+    alpha 0.05, power 0.8). Grounds 'how many seeds do I need' in real replicate noise rather than a guess."""
+    import math
+    import statistics as _st
+
+    rows = survey._deduped_rows([channel])
+    by_design: dict = {}
+    for r in rows:
+        v = r.get(channel)
+        if v is not None:
+            by_design.setdefault((r.get("perturbation"), r.get("condition")), []).append(float(v))
+    cvs = [(_st.pstdev(vs) / abs(_st.fmean(vs))) for vs in by_design.values() if len(vs) > 1 and _st.fmean(vs)]
+    if not cvs:
+        return {"error": f"no replicated design has >=2 seeds for channel '{channel}' — cannot estimate noise."}
+    cv = _st.median(cvs)
+    rel = effect_pct / 100.0
+    k = 2 * (1.96 + 0.84) ** 2            # two-sample n-per-group constant (alpha .05, power .8)
+    seeds_needed = math.ceil(k * (cv / rel) ** 2) if rel > 0 else None
+    mde_pct = round(cv * math.sqrt(k / n_seeds) * 100, 1)
+    return {"channel": channel, "observed_replicate_cv": round(cv, 4), "n_designs_used": len(cvs),
+            "n_seeds": n_seeds, "min_detectable_effect_pct_at_n": mde_pct,
+            "target_effect_pct": effect_pct, "seeds_needed_for_target": seeds_needed,
+            "adequately_powered": (seeds_needed is not None and n_seeds >= seeds_needed),
+            "note": ("Two-sample, alpha 0.05, power 0.8, using the median per-design replicate CV from the corpus. "
+                     "min_detectable_effect_pct_at_n = the smallest effect n_seeds can resolve; a KO with no "
+                     "growth effect below this is UNDER-powered, not proven equivalent.")}
+
+
 def reroute_diagnosis(gene: str, target: str, reference: str = "wildtype/basal") -> dict:
     """For a VIABLE metabolic KO, is the 'no phenotype' a genuine biological reroute or a MATHEMATICAL ARTIFACT?
     Checks whether the KO'd enzyme's FBA flux is 0 in the KO yet nonzero in WT on a dividing cell — the model
@@ -271,6 +348,12 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}, "target": {"type": "string"}, "reference": {"type": "string"}}, "required": ["gene", "target"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
+    {"name": "vet_hypothesis", "description": "Vet a proposed experiment in one step. SAFETY (biosecurity) is the ONLY hard gate — `runnable` reflects safety alone. Out-of-sample / predicted-to-reroute / likely-to-fail hypotheses are ENCOURAGED (they are the genuine model tests). Feasibility + provenance + scope are ADVISORY (set expectations, never block). Pass `gene` for a KO to also get its prior + essentiality benchmark. Use this instead of chaining the guardrails by hand.",
+     "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "optional: the KO'd gene, to add its scope prior + benchmark"}}}},
+    {"name": "model_validation", "description": "How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level agreement counts + the model_UNDER_predicts number, so you know when to trust a KO 'viable' verdict (mostly you can't, for essential-gene candidates). Call to calibrate trust before generalising a KO result.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
+     "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"},
                       "timeline": {"type": "string"}, "params": {"type": "object"}}}},
@@ -289,7 +372,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
-             "check_feasibility": check_feasibility, "run_experiment": run_experiment}
+             "check_feasibility": check_feasibility, "run_experiment": run_experiment,
+             "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check}
 
 
 def dispatch(name: str, args: dict) -> dict:

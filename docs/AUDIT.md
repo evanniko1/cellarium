@@ -23,6 +23,7 @@ No injection/crash surfaces; channel names are regex-guarded. The debt is DRY + 
 | M1 | **med** | Viability verdict thresholds (0.9 viable / 0.6 inviable) calibrated on **n=1 machinery** (gltX); the "impaired" band is a guess. | Re-calibrate against a machinery + graded-KO panel (**needs sims**). |
 | M2 | low | CIs use normal-approx `1.96·SE` (survey + rigor), not the t-distribution; for n=4–8 seeds ~20–60% too narrow, `\|t\|≥2` slightly liberal. | Use `scipy.stats.t` (already a dep). |
 | M3 | low | Survey z-score uses population stdev across few designs — `\|z\|≥2` weakly grounded in a small corpus. | Note the caveat; consider robust z / min design count. |
+| M4 | **med** | `provenance.classify` tags ALL `condition` perturbations in-sample by perturbation type — but unfitted stress conditions (minus_magnesium, per the H2 docstring) are genuinely OUT-of-sample. Under-flags predictions on the deepest axis. (Surfaced by the F2 test.) | Classify a condition by whether it's in the ParCa-fitted set, not by perturbation type. |
 
 Strengths: Benjamini-Hochberg FDR on `top_movers`, correct Welch SE, seed-averaging + count-floor + reproducibility
 on `differential`. Core statistics are sound; gaps are small-n refinements.

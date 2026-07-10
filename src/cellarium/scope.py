@@ -29,11 +29,13 @@ model-scope statement, and the benchmark, not the sim, is the essentiality autho
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 
 SCOPE_CACHE = Path("data/cache/gene_scope.json")
 
 
+@lru_cache(maxsize=1)
 def _scope() -> dict:
     return json.loads(SCOPE_CACHE.read_text(encoding="utf-8")) if SCOPE_CACHE.exists() else {}
 
@@ -132,3 +134,37 @@ def classify_gene(symbol: str) -> dict:
                             "a lethal crash (consistent). Prior, not verdict — when `benchmark.agreement` says "
                             "under-predicts, trust the benchmark; for a measurable in-silico effect use a graded-"
                             "capacity perturbation.")}
+
+
+def model_validation_summary() -> dict:
+    """Corpus-level essentiality agreement of the model's KO prior vs the 402-gene ground-truth benchmark — so a
+    KO 'viable' verdict can be trusted or not. Headline: how many benchmark-essential genes the model UNDER-predicts
+    (calls viable). No sims — reads gene_scope. See CORPUS_OBSERVATIONS §K / AUDIT F3."""
+    scope = _scope()
+    if not scope:
+        return {"error": "gene_scope cache missing — build it (gene_scope worker) first."}
+    from collections import Counter
+    counts: Counter = Counter()
+    under = []
+    for sym in scope:
+        b = classify_gene(sym).get("benchmark") or {}
+        ag = b.get("agreement", "unknown")
+        counts[ag] += 1
+        if ag == "model_UNDER_predicts" and len(under) < 25:
+            under.append(sym)
+    n_ref = sum(v for k, v in counts.items() if k != "not_in_reference")
+    n_essential = counts["model_UNDER_predicts"] + counts["consistent_lethal"]
+    return {
+        "n_genes": len(scope), "n_in_benchmark": n_ref, "n_benchmark_essential": n_essential,
+        "agreement_counts": dict(counts),
+        "model_UNDER_predicts": counts["model_UNDER_predicts"],   # essential in vivo, model calls viable
+        "consistent_lethal": counts["consistent_lethal"],          # essential in vivo, model predicts crash
+        "model_OVER_predicts": counts["model_OVER_predicts"],      # non-essential, model predicts crash
+        "essentiality_recall": (round(counts["consistent_lethal"] / n_essential, 3) if n_essential else None),
+        "example_under_predicted": sorted(under),
+        "interpretation": (
+            "The model correctly flags only the machinery-essential genes (consistent_lethal); it UNDER-predicts "
+            "the (mostly metabolic) essential genes as viable, because the homeostatic FBA has no growth term and "
+            "reroutes. So a 'viable' KO verdict is UNRELIABLE for essential-gene candidates — defer to the "
+            "benchmark. Recall = fraction of benchmark-essential genes the model calls lethal."),
+    }

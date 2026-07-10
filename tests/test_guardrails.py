@@ -144,6 +144,35 @@ def test_design_space_enumerates_and_resolves():
     assert ("ko_index" in g) or (g.get("known") is False)  # resolves if scope cached, else graceful
 
 
+def test_vet_hypothesis_gates_safety_only():
+    # THE constraint: only safety blocks. Out-of-sample + out-of-envelope hypotheses stay runnable (H2 lesson).
+    from cellarium import tools
+    oos = tools.vet_hypothesis(perturbation="gene_knockout", condition="KO:fabI")  # out-of-sample, benign
+    assert oos["runnable"] is True and oos["provenance"]["provenance"] == "out_of_sample"
+    boundary = tools.vet_hypothesis(perturbation="timeline", timeline="0 minimal, 1200 minimal_acetate")
+    assert boundary["runnable"] is True and boundary["feasibility"]["in_envelope"] is False  # advisory, not blocked
+    misuse = tools.vet_hypothesis(perturbation="gene_overexpression", condition="marA")
+    assert misuse["runnable"] is False and misuse["safety"]["flagged"] is True  # safety is the ONLY gate
+
+
+def test_model_validation_reports_under_prediction():
+    from cellarium import tools
+    mv = tools.model_validation()
+    if "error" in mv:
+        return  # gene_scope cache not built in this environment
+    assert mv["model_UNDER_predicts"] > mv["consistent_lethal"]   # the model under-predicts essentiality
+    assert 0.0 <= mv["essentiality_recall"] <= 1.0
+
+
+def test_power_check_needs_more_seeds_for_smaller_effect():
+    from cellarium import tools
+    big = tools.power_check(channel="growth_rate", effect_pct=20.0)
+    small = tools.power_check(channel="growth_rate", effect_pct=5.0)
+    if "error" in big or "error" in small:
+        return  # no replicated corpus in this environment
+    assert small["seeds_needed_for_target"] > big["seeds_needed_for_target"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

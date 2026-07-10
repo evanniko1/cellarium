@@ -139,11 +139,21 @@ recorded roadmap did NOT cover — the "close the loop to new experiments" layer
   types (flagging which give CLEAN graded phenotypes vs which reroute), and resolves a gene → ko_index + its KO
   prior + essentiality benchmark. Agent tool + dispatch + test. So a hypothesis proposes a real, correctly-indexed
   experiment instead of guessing.
-- `[ ]` **F2 (MED-HIGH) — hypothesis-vetting tool.** Encode vet-before-run (feasibility + provenance + scope +
-  viability-prior + biosecurity + power) as one `vet_hypothesis` go/no-go with reasons, instead of manual chaining.
-- `[ ]` **F3 (MED) — model-validation summary.** Corpus-level essentiality agreement vs the 402-gene ground truth
-  (a `model_UNDER_predicts` rate / confusion matrix) so Coli can calibrate trust in a KO verdict.
-- `[ ]` **F4 (MED) — statistical-power guidance.** "Is this comparison powered / how many seeds needed" — no tool.
+- `[x]` **F2 (MED-HIGH) — hypothesis-vetting tool.** `vet_hypothesis` composes the guardrails; **SAFETY is the
+  only hard gate** (`runnable` reflects biosecurity alone). Feasibility/provenance/scope are ADVISORY — out-of-
+  sample + out-of-envelope hypotheses stay runnable (the H2 lesson; verified by test). Carries an explicit
+  `principle` field so it can't be misread as a gate.
+- `[x]` **F3 (MED) — model-validation summary.** `model_validation` (scope.model_validation_summary): corpus
+  essentiality agreement vs the 402-gene benchmark. Headline: **essentiality recall 16.8%** (model correctly
+  flags 67/400 essential genes; UNDER-predicts 333) — so a 'viable' KO verdict is unreliable for essential-gene
+  candidates.
+- `[x]` **F4 (MED) — statistical-power guidance.** `power_check` uses the corpus's observed per-design replicate
+  CV: growth_rate CV ≈5.6%, so n=4 detects ~11% effects and needs 5 seeds for 10% — a KO null below the MDE is
+  under-powered, not equivalent.
+- `[ ]` **M4 (MED, NEW from F2 test) — provenance is too coarse.** `provenance.classify` tags ALL `condition`
+  perturbations in-sample by perturbation type — but unfitted stress conditions (minus_magnesium, per the H2
+  docstring) are genuinely OUT-of-sample. Under-flags predictions on the deepest axis. Fix: classify a condition
+  by whether it is in the ParCa-fitted set, not by perturbation type.
 - `[x]` **F5 (LOW) — integration polish:** `division_rate` added to `survey` CHANNELS (a low value is a strong
   flag); `reroute_diagnosis` + `design_space` added to the agent KO-guidance prompt.
 - `[ ]` **M1 (MED) — calibrate the viability verdict thresholds** (0.9/0.6, set on n=1 machinery = gltX) against
