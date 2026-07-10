@@ -6,12 +6,18 @@ A distinct guardrail axis from the other two:
   - **mechanistic scope (here): is the target's function actually *simulated*, so a result is interpretable?**
 
 The whole-cell model simulates genes at very different depths. A gene is MECHANISTIC if its product does
-something in a modeled process — catalyses an FBA reaction (metabolic enzyme) or is one of the ~23 modeled
-transcription factors (and, more broadly, translation/replication machinery). The *majority* of genes are
-expressed and counted but otherwise inert. Knocking out a non-mechanistic gene shows little/no phenotype BY
+something in a modeled process — catalyses an FBA reaction (metabolic enzyme), is one of the ~23 modeled
+transcription factors, or is a subunit of the central-dogma machinery (ribosome / RNAP / replisome / aminoacyl-
+tRNA synthetase; 89 genes, detected from sim_data's molecule_groups + synthetase set). The *majority* of genes
+are expressed and counted but otherwise inert. Knocking out a non-mechanistic gene shows little/no phenotype BY
 CONSTRUCTION — a null there is a statement about model scope, NOT about the gene's biological dispensability.
 This is why H2 (Mg->ribosome) failed and was *predictable*: Mg->ribosome coupling is not a modeled mechanism.
-Classification comes from gene_scope.json (dumped from sim_data via the gene_scope worker mode; gitignored).
+
+The three regimes matter for KO experiments (see classify_gene): metabolic single-KOs REROUTE (no phenotype),
+machinery single-KOs CRASH the sim (not a clean phenotype), and only GRADED capacity perturbations
+(rrna_operon_knockout, ppgpp_conc) yield measurable, interpretable dose-responses. Note: the 89 detected genes
+are the core structural machinery; soluble translation factors (EF-Tu/EF-G/IF/RF) have no dedicated molecule
+group and are not flagged. Classification comes from gene_scope.json (dumped via the gene_scope worker; gitignored).
 """
 
 from __future__ import annotations
@@ -31,20 +37,33 @@ def classify_gene(symbol: str) -> dict:
     if not g:
         return {"symbol": symbol, "known": False,
                 "note": "gene not in the scope map — run `gene_scope` (python-side) to build it."}
-    role = ("metabolic_enzyme" if g["is_metabolic"]
+    machinery = bool(g.get("is_machinery"))
+    machinery_role = g.get("machinery_role")
+    role = ("central_dogma_machinery" if machinery
+            else "metabolic_enzyme" if g["is_metabolic"]
             else "transcription_factor" if g["is_tf"] else "no_modeled_function")
     mechanistic = role != "no_modeled_function"
     sole = bool(g.get("is_sole_catalyst"))
     kinetic = bool(g.get("is_kinetically_constraining"))
-    # KO-growth-effect prediction. The DECISIVE signal (calibrated on the fabI/glmS/gltA nulls) is whether the
-    # enzyme's count actually bounds a reaction flux in the kinetics-constrained FBA. If not, a KO cannot affect
-    # growth via metabolism, however 'metabolic' or 'sole-catalyst' it looks.
-    # CALIBRATED against the KO experiments (all outputs below are priors, not verdicts):
-    #   - non-mechanistic KO -> no phenotype by construction (flgB/ymgD).
-    #   - metabolic KO (kinetic OR not) -> the model REROUTES. fabI (not kinetic) AND glmS/gltA/pfkA/tpiA
-    #     (kinetic + sole) ALL showed no growth effect, because the kinetic layer is a SOFT FBA target, not a
-    #     hard bound. So NO structural metabolic flag reliably predicts a KO growth effect in this model.
-    if not mechanistic:
+    # KO-growth-effect prediction, CALIBRATED against the KO experiments (all outputs are priors, not verdicts).
+    # The single-gene-KO characterization has THREE regimes; the branch order encodes their priority:
+    #   1. machinery (ribosome/RNAP/replisome/aaRS) -> a full KO removes an essential central-dogma subunit and
+    #      the sim CRASHES, not reroutes. gltX (aaRS, also metabolic) KO: ribosome_conc collapsed 21->2.15 and
+    #      NegativeCountsError in PolypeptideElongation, 4/4 seeds. So machinery is checked FIRST, before metabolic.
+    #   2. metabolic (kinetic OR not) -> the model REROUTES. fabI (not kinetic) AND glmS/gltA/pfkA/tpiA (kinetic +
+    #      sole) ALL showed no growth effect: the kinetic layer is a SOFT FBA target, not a hard bound. NO
+    #      structural metabolic flag reliably predicts a KO growth effect (0/5 hit-rate).
+    #   3. non-mechanistic -> no phenotype BY CONSTRUCTION (flgB/ymgD).
+    # The clean-phenotype path is NEITHER a metabolic nor a machinery single-KO but a GRADED capacity perturbation
+    # (rrna_operon_knockout, ppgpp_conc) — those gave the only measurable, interpretable dose-responses.
+    if machinery:
+        ko_effect = "lethal_crash"
+        note = ("Core central-dogma machinery (" + str(machinery_role) + "). A full single-gene KO removes an "
+                "essential subunit of translation/transcription/replication — EMPIRICALLY the sim CRASHES rather "
+                "than reaching a phenotype (gltX aaRS KO: ribosome_conc 21->2.15, NegativeCountsError in "
+                "PolypeptideElongation, 4/4 seeds). This is a model breakdown, NOT an interpretable result. For a "
+                "measurable capacity effect use a GRADED perturbation (rrna_operon_knockout, ppgpp_conc).")
+    elif not mechanistic:
         ko_effect = "none_inert"
         note = ("EXPRESSED but function NOT simulated. A KO shows no phenotype BY CONSTRUCTION — model scope, "
                 "not biological dispensability.")
@@ -63,6 +82,9 @@ def classify_gene(symbol: str) -> dict:
         ko_effect = "mechanistic_other"
         note = "Mechanistically simulated (" + role + ") — a KO is a genuine, interpretable prediction."
     return {"symbol": symbol, "known": True, "mechanistic": mechanistic, "role": role,
+            "is_machinery": machinery, "machinery_role": machinery_role,
             "is_sole_catalyst": sole, "is_kinetically_constraining": kinetic, "ko_effect_prior": ko_effect,
             "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note,
-            "calibration": "structural flags 0/5 at predicting KO growth effect so far — treat as prior, not verdict"}
+            "calibration": ("metabolic structural flags 0/5 at predicting a KO growth effect (model reroutes); the "
+                            "machinery flag predicts a lethal crash, not a clean phenotype (gltX 4/4). Prior, not "
+                            "verdict — for a measurable KO-adjacent effect use a graded-capacity perturbation.")}

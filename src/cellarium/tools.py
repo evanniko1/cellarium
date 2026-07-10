@@ -72,8 +72,10 @@ def provenance(perturbation: str, condition: str | None = None) -> dict:
 
 
 def mechanistic_scope(symbol: str) -> dict:
-    """Is a gene's function actually SIMULATED (metabolic enzyme / modeled TF) or expressed-but-inert? A KO of a
-    non-mechanistic gene shows no phenotype BY CONSTRUCTION — a null there is model scope, not biology."""
+    """Is a gene's function SIMULATED (metabolic enzyme / modeled TF / central-dogma machinery) or expressed-but-
+    inert? Returns a calibrated `ko_effect_prior` for the three single-KO regimes: non-mechanistic -> no phenotype
+    BY CONSTRUCTION; metabolic -> the model REROUTES (0/5 hit-rate); machinery (ribosome/RNAP/replisome/aaRS) ->
+    the sim CRASHES, not a clean phenotype. Prior, not verdict; for a measurable effect use a graded perturbation."""
     from . import scope
     return scope.classify_gene(symbol)
 

@@ -305,6 +305,21 @@ def mode_gene_scope(root):
     for e in sd.process.metabolism.kinetic_constraint_enzymes:
         kin_roots |= cat_roots(str(e))
     tf_syms = {str(v) for v in sd.process.transcription_regulation.tf_to_gene_id.values()}
+    # central-dogma machinery: ribosome / RNAP / replisome / aminoacyl-tRNA synthetases. Maximally mechanistic,
+    # currently mislabeled 'inert'. Calibration: a full KO of essential machinery CRASHES the sim (gltX 4/4).
+    machinery = {}  # monomer root -> role
+    mg = sd.molecule_groups
+
+    def add_machinery(ids, role):
+        for i in ids:
+            for rt in cat_roots(str(i)):
+                machinery.setdefault(rt, role)
+
+    add_machinery(getattr(mg, "ribosomal_proteins", []), "ribosomal")
+    add_machinery(getattr(mg, "RNAP_subunits", []), "rnap")
+    add_machinery(list(getattr(mg, "replisome_trimer_subunits", [])) +
+                  list(getattr(mg, "replisome_monomer_subunits", [])), "replisome")
+    add_machinery(getattr(sd.process.transcription, "synthetase_names", []), "aaRS")
     genes = {}
     for k in range(len(gd)):
         sym, cis = str(gd["symbol"][k]), str(gd["cistron_id"][k])
@@ -318,10 +333,13 @@ def mode_gene_scope(root):
                       "is_metabolic": bool(root and root in metabolic_roots),
                       "is_sole_catalyst": bool(root and root in sole_roots),
                       "is_kinetically_constraining": bool(root and root in kin_roots),  # KO can bind a flux
+                      "is_machinery": bool(root and root in machinery),  # central-dogma machinery subunit
+                      "machinery_role": (machinery.get(root) if root else None),
                       "is_tf": sym in tf_syms}
     return {"n": len(genes), "n_metabolic": sum(1 for v in genes.values() if v["is_metabolic"]),
             "n_sole_catalyst": sum(1 for v in genes.values() if v["is_sole_catalyst"]),
             "n_kinetically_constraining": sum(1 for v in genes.values() if v["is_kinetically_constraining"]),
+            "n_machinery": sum(1 for v in genes.values() if v["is_machinery"]),
             "n_tf": len(tf_syms), "genes": genes}
 
 
