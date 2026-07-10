@@ -366,6 +366,29 @@ Result (re-scored by viability from on-disk data, incl. crashed partials):
 New clean scale points: VIABLE = rpoB/dnaN (4 gens) + metabolic/graded; INVIABLE = rplB (gen-0 crash) +
 minus_phosphate (§L re-analysis: growth-starvation, div=0.0); crash-at-gen-3 = the aaRS (all four).
 
+## N. Oracle & deep-dive tools — scope and scenarios (2026-07-11, tested)
+The whole-cell model is **metabolism + transcription + translation + replication + regulation**, so essentiality/
+phenotype questions split three ways and the tools are scoped to match.
+
+**`metabolic_essentiality(gene)` — METABOLISM ONLY.** FBA knows only reactions + metabolites, so this oracle
+answers metabolic-gene essentiality and refuses the rest. It returns the authoritative Baba/Joyce benchmark
+verdict (the authority — the whole-cell homeostatic FBA UNDER-predicts by rerouting, §K) + the FBA single-deletion
+structural check (transparently under-sensitive) + the KO prior. *Scenario:* "Is fabI essential?" — the sim says
+viable (reroutes); the oracle returns ESSENTIAL (benchmark), agreement `model_UNDER_predicts`, FBA structural
+`flags_essential=False`. *Tested 2026-07-11: exactly this; rpoB/flgB correctly routed away ("machinery→viability,
+TF→mechanistic_scope").*
+
+**Deep-dive (`read_species`/`list_species`/`top_movers`) — ANY component of the whole cell.** Bulk layer:
+proteins, mRNAs, metabolites, reaction/exchange fluxes. Plus the `unique` layer (added 2026-07-11): the machinery
+beyond bulk — `active_ribosome`, `active_RNAP`, `active_replisome`, `full_chromosome`, `oriC`, `DnaA_box`,
+`promoter` (translation/transcription/replication, NOT metabolism). *Scenarios:* which reactions carried the
+compensating flux for a KO (flux); how charged-Glu-tRNA depleted across gltX's generations (a translation
+component); is AcrB elevated under every stress (cross-design protein). *Tested 2026-07-11:*
+`read_species(active_ribosome, unique)` → 2,516 points, mean ~17,792.
+
+**The split, one line:** metabolic gene → oracle (FBA + benchmark); machinery → viability (crash timing);
+regulator → TF scope. The oracle is metabolism-only; the deep-dive is whole-cell.
+
 ## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
 Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
 characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):
