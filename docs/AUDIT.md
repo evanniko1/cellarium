@@ -70,3 +70,18 @@ No new sims are needed for any priority item — only M1 (and the two deprioriti
 10. **P4.2 EcoCyc oracle** (optional; lower value; needs EcoCyc data access, no sim).
 
 **Deprioritized (may not ship in the hackathon):** multi-gene reduced-genome generator, ML surrogate.
+
+## Re-analysis findings (2026-07-10, dogfooding the rail on 128 runs / 29 designs)
+Running `survey_corpus` + the guardrails over the whole corpus surfaced three concrete gaps and a data-hygiene
+issue — exactly what the rail is for:
+| # | Sev | Finding |
+|---|---|---|
+| G1 | **med** | **Survey ranks crash-garbage.** The #2 notable is `gene_knockout/None` (gltX) growth_rate z=+5.05 — but gltX's growth (0.0013–0.0021/s vs basal ~0.00023) is post-crash garbage (ribosome collapsed to 0.6–3.2 vs 21). `survey` reports `non_reportable_designs` but does NOT exclude them from the notable ranking. Fix: drop non-reportable rows from the ranking (keep them queryable). |
+| G2 | **med** | **QC passes numerically-collapsed runs.** 3/4 gltX seeds are `reportable=ok` because they "divided" (full_chromosome==2), despite ribosome collapse + implausible growth. QC checks division, not channel sanity. Fix: flag a run whose core channels are implausible (ribosome ≪ basal, growth ≫ plausible) as non-reportable. |
+| G3 | low | **Design-label hygiene.** gltX → `gene_knockout/None` and minus_phosphate → `condition/None` (design.json didn't capture the label), so they show as `None` in the survey. Fix the provenance write at run time + backfill. |
+
+Biology, guardrail-tagged: no_oxygen regulon shifts = **in-sample** (consistency, H1); acetate glycolysis + minus_
+phosphate div=0.0 = **out-of-sample** (genuine predictions, post-M4). Calibration: essentiality recall **16.8%**
+(67/400; 333 under-, 22 over-predicted); growth CV 5.6% (MDE 11% @ n=4) vs ribosome CV 1.4% (well-powered @ n=1)
+— so growth-law/ribosome findings are robust, small growth effects are not. New inviable point: **minus_phosphate
+div=0.0** is a NON-crash inviability (growth-starvation), a second inviability mode distinct from the gltX crash.
