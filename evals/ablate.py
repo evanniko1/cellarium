@@ -70,8 +70,9 @@ def grade_claude(case, h, client, model="claude-opus-4-8") -> dict:
             "input_schema": {"type": "object",
                              "properties": {**{k: {"type": "boolean"} for k in Q}, "rationale": {"type": "string"}},
                              "required": list(Q)}}
+    # NB: claude-opus-4-8 (reasoning model) rejects an explicit temperature; omit it (grader defaults suffice).
     resp = client.messages.create(model=model, max_tokens=1024, system=_SYS, tools=[tool],
-                                  tool_choice={"type": "tool", "name": "grade"}, temperature=0,
+                                  tool_choice={"type": "tool", "name": "grade"},
                                   messages=[{"role": "user", "content": json.dumps(_payload(case, h))}])
     for b in resp.content:
         if getattr(b, "type", None) == "tool_use":
@@ -94,44 +95,59 @@ def _score(g: dict) -> int:
     return sum(1 for k in Q if bool(g.get(k)))
 
 
-def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader):
+def _one_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader) -> dict:
+    rec = {"id": case["id"], "config": cfg, "rep": rep, "temperature": temperature}
+    try:
+        h = council.deliberate(case["question"], temperature=temperature, client=client, verbose=False,
+                               **CONFIGS[cfg])
+        rec.update(converged=h.converged, rounds_used=h.rounds_used,
+                   substantive_objections=h.substantive_objections, feasible=_feasible(h))
+        gc = grade_claude(case, h, client, claude_grader)
+        rec["claude"] = {"score": _score(gc), **gc}
+        if oai is not None:
+            gg = grade_gpt(case, h, oai, gpt_model)
+            rec["gpt"] = {"score": _score(gg), **gg}
+        rec["hypothesis"] = h.model_dump(by_alias=True, mode="json")
+    except Exception as exc:
+        rec["error"] = f"{type(exc).__name__}: {exc}"
+    return rec
+
+
+def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader, workers=6):
     load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     import anthropic
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(max_retries=6)  # ride out 429s under concurrency
     oai = None
     if os.environ.get("OPENAI_API_KEY"):
         import openai
-        oai = openai.OpenAI()
+        oai = openai.OpenAI(max_retries=6)
 
-    selected = cases_mod.by_id(case_ids)
-    results = []
-    for case in selected:
-        for cfg in configs:
-            for rep in range(reps):
-                rec = {"id": case["id"], "config": cfg, "rep": rep, "temperature": temperature}
-                try:
-                    h = council.deliberate(case["question"], temperature=temperature, client=client,
-                                           verbose=False, **CONFIGS[cfg])
-                    rec.update(converged=h.converged, rounds_used=h.rounds_used,
-                               substantive_objections=h.substantive_objections, feasible=_feasible(h))
-                    gc = grade_claude(case, h, client, claude_grader)
-                    rec["claude"] = {"score": _score(gc), **gc}
-                    if oai is not None:
-                        gg = grade_gpt(case, h, oai, gpt_model)
-                        rec["gpt"] = {"score": _score(gg), **gg}
-                    rec["hypothesis"] = h.model_dump(by_alias=True, mode="json")
-                    print(f"  {case['id']:4s} {cfg:13s} rep{rep}: claude_q={rec['claude']['score']}/6"
-                          f" gpt_q={rec.get('gpt',{}).get('score','-')}/6 conv={rec['converged']}"
-                          f" rounds={rec['rounds_used']} feas={rec['feasible']}", flush=True)
-                except Exception as exc:
-                    rec["error"] = f"{type(exc).__name__}: {exc}"
-                    print(f"  {case['id']} {cfg} rep{rep}: ERROR {rec['error']}", flush=True)
+    tasks = [(c, cfg, rep) for c in cases_mod.by_id(case_ids) for cfg in configs for rep in range(reps)]
+    results, lock = [], threading.Lock()
+    meta = {"configs": configs, "reps": reps, "temperature": temperature, "claude_grader": claude_grader,
+            "gpt_grader": gpt_model}
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+
+    def _submit(ex, t):
+        return ex.submit(_one_cell, t[0], t[1], t[2], temperature, client, oai, gpt_model, claude_grader)
+
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futs = {_submit(ex, t): t for t in tasks}
+        done = 0
+        for fut in as_completed(futs):
+            rec = fut.result()
+            with lock:
                 results.append(rec)
-                Path(out_path).parent.mkdir(parents=True, exist_ok=True)
-                Path(out_path).write_text(json.dumps({"configs": configs, "reps": reps,
-                                                      "temperature": temperature, "claude_grader": claude_grader,
-                                                      "gpt_grader": gpt_model, "results": results}, indent=2),
-                                          encoding="utf-8")
+                Path(out_path).write_text(json.dumps({**meta, "results": results}, indent=2), encoding="utf-8")
+            done += 1
+            cq = rec.get("claude", {}).get("score", "-")
+            gq = rec.get("gpt", {}).get("score", "-")
+            print(f"[{done}/{len(tasks)}] {rec['id']:4s} {rec['config']:13s} rep{rec['rep']}: "
+                  f"claude_q={cq}/6 gpt_q={gq}/6 conv={rec.get('converged')} rounds={rec.get('rounds_used')}"
+                  f" {rec.get('error','')}", flush=True)
     print(f"\nwrote {len(results)} records -> {out_path}", flush=True)
 
 
@@ -144,8 +160,9 @@ def main():
     p.add_argument("--gpt-model", default="gpt-4o")
     p.add_argument("--claude-grader", default="claude-opus-4-8")
     p.add_argument("--out", default=str(Path(__file__).resolve().parent / "results" / "ablation.json"))
+    p.add_argument("--workers", type=int, default=6)
     a = p.parse_args()
-    run(a.ids, a.configs.split(","), a.reps, a.temperature, a.out, a.gpt_model, a.claude_grader)
+    run(a.ids, a.configs.split(","), a.reps, a.temperature, a.out, a.gpt_model, a.claude_grader, a.workers)
 
 
 if __name__ == "__main__":
