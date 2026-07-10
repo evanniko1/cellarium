@@ -309,6 +309,15 @@ yet the homeostatic network finds a feasible flux meeting the target without it 
 makes it a `model_UNDER_predicts` case. No X-zeroing or added generations fixes that; only the objective (biomass-
 max would block it) or the ground-truth benchmark does.
 
+**Flux-level confirmation it's an artifact, not biology.** fabI's monomer expands (via complexation) to 27 FBA
+reactions (the enoyl-ACP reductase steps of fatty-acid elongation). In WT they carry flux (sum|flux| ≈ 0.227); in
+the KO they are **exactly 0** — the enzyme is genuinely off — yet the cell divides steadily. Real E. coli with
+zero enoyl-ACP-reductase flux cannot make fatty acids and dies (FabI is the sole isozyme, no bypass). So the model
+is dividing cells **without the fatty-acid synthesis real division requires** — the soft homeostatic objective
+never hard-requires that flux. That is the mathematical artifact behind `model_UNDER_predicts`, made concrete. The
+method that exposes it — enzyme → reactions → flux-diff (KO vs WT) — is a candidate "reroute-diagnosis" tool
+(needs proper seed normalization; a naive single-seed diff is dominated by reversible-transport noise).
+
 ## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
 Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
 characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):
