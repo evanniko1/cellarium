@@ -185,6 +185,61 @@ CASES = [
         ],
         "scope_note": "needs a large ensemble across a shift; diauxie machinery limited",
     },
+    {
+        "id": "2.1", "theme": "persistence / antibiotic survival",
+        "question": "Why do some bacteria survive antibiotics without becoming resistant?",
+        "canonical": ("Balaban 2004: a clonal population contains a pre-existing slow/non-growing PERSISTER "
+                      "subpopulation that survives antibiotic; cells switch stochastically and reversibly between "
+                      "normal-growth and persister states; regrown survivors are as sensitive as the parent "
+                      "(phenotypic, not genetic)."),
+        "expected_observables": ["single-cell growth_rate / division-time distribution across seeds (bimodal / "
+                                 "heavy slow tail)", "switching rates", "growth_rate"],
+        "expected_rivals": ["acquired genetic resistance", "uniform tolerance (all cells equally survive)",
+                            "drug-induced damage only (no pre-existing subpopulation)"],
+        "min_criteria": [
+            "M1: names a subpopulation defined by single-cell growth rate / division time as the observable",
+            "M2: predicts a slow/arrested minority vs the null of a unimodal isogenic population",
+            "M3: states a falsifier (unimodal growth distribution, i.e. no slow subpopulation)",
+            "M4: design is an isogenic replicate ensemble (many seeds) measuring the growth-rate distribution, in-envelope",
+        ],
+        "stringent_criteria": [
+            "S1: states the persister frequency order (~1e-5 to 1e-6) and/or two switching rates (normal<->persister)",
+            "S2: specifies a bimodality/mixture test on the single-cell growth-rate distribution and a switching-rate estimator",
+            "S3: the prediction discriminates a phenotypic switch from genetic resistance and from uniform tolerance",
+            "S4: includes the resensitization logic (regrown survivors are sensitive) that distinguishes persistence from resistance",
+        ],
+        "scope_note": ("no antibiotic killing / MIC / toxin-antitoxin switch in the base model — map the claim to "
+                       "the growth-rate bimodality proxy across seeds; the killing and resensitization arms are "
+                       "out-of-scope and should be stated as auxiliary assumptions"),
+    },
+    {
+        "id": "2.2", "theme": "bet-hedging in fluctuating environments",
+        "question": "Can it ever help a population for some cells to grow slowly or stay 'prepared' for a change?",
+        "canonical": ("Kussell & Leibler 2005 (roots in Novick & Weiner 1957): in a fluctuating environment a "
+                      "clonal population can raise its long-term (time-averaged) growth rate by stochastic "
+                      "phenotype switching (bet-hedging) rather than sense-and-respond, when the environment "
+                      "changes infrequently relative to sensing cost; the optimal switching rate matches the "
+                      "environmental statistics."),
+        "expected_observables": ["long-term / time-averaged growth_rate across a media-shift schedule",
+                                 "subpopulation fractions in each phenotype", "growth_rate"],
+        "expected_rivals": ["always sense-and-respond", "always commit to the majority-optimal phenotype",
+                            "diversity is unavoidable noise, not adaptive"],
+        "min_criteria": [
+            "M1: names long-term / time-averaged population growth rate as the observable",
+            "M2: predicts a switching population outgrows a committed population under fluctuation, vs that null",
+            "M3: states a falsifier (a non-switching/committed population always matches or beats any switching one)",
+            "M4: design is repeated in-envelope media shifts across an isogenic ensemble (NOT a mid-run carbon-source switch)",
+        ],
+        "stringent_criteria": [
+            "S1: states the 'optimal switch rate ~ environmental rate' relation quantitatively",
+            "S2: computes long-term growth as a log-growth average with CIs over seeds and sweeps switch/environment rates",
+            "S3: the prediction discriminates bet-hedging from sense-and-respond and from committed strategies as a function of environmental timescale / sensing cost",
+            "S4: includes the fluctuation-rate (and/or sensing-cost) sweep as the isolating control",
+        ],
+        "scope_note": ("single-lineage model with a limited media-shift repertoire; realizing a 'fluctuating "
+                       "environment x switching-rate sweep' needs an external harness — grade the design and "
+                       "state the harness dependence as an auxiliary assumption"),
+    },
 ]
 
 

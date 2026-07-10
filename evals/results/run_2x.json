@@ -1,0 +1,401 @@
+{
+  "n_cases": 2,
+  "n_min_bar": 1,
+  "n_stringent_bar": 0,
+  "council_model": "claude-sonnet-5",
+  "grader_model": "claude-opus-4-8",
+  "rounds": 4,
+  "quota": 3,
+  "results": [
+    {
+      "id": "2.1",
+      "question": "Why do some bacteria survive antibiotics without becoming resistant?",
+      "converged": true,
+      "deterministic": {
+        "M1_named_observable": true,
+        "M1_observable_on_dial_label": true,
+        "M2_direction_stated": true,
+        "M2_baseline_named": true,
+        "M3_falsifier": true,
+        "M4_valid_design": true,
+        "has_two_rivals": true,
+        "converged": true,
+        "_floor_pass": true
+      },
+      "min_bar_pass": true,
+      "stringent_bar_pass": false,
+      "min_criteria": [
+        {
+          "criterion": "M1: names a subpopulation defined by single-cell growth rate / division time as the observable",
+          "passed": true,
+          "rationale": "Defines a 'tail' subpopulation via per-seed per-generation growth_rate (bottom decile), the single-cell growth-rate observable."
+        },
+        {
+          "criterion": "M2: predicts a slow/arrested minority vs the null of a unimodal isogenic population",
+          "passed": true,
+          "rationale": "Predicts a ~3% low-growth tail among isogenic seeds vs the 1% independence/unimodal null, with quantitative co-occurrence thresholds."
+        },
+        {
+          "criterion": "M3: states a falsifier (unimodal growth distribution, i.e. no slow subpopulation)",
+          "passed": true,
+          "rationale": "Refuting result includes CV(growth_rate)<0.15 and co-occurrence CI including 1% (no tail), a clear unimodal falsifier."
+        },
+        {
+          "criterion": "M4: design is an isogenic replicate ensemble (many seeds) measuring the growth-rate distribution, in-envelope",
+          "passed": true,
+          "rationale": ">=200 seeds, identical genotype varying only RNG seed, measuring per-seed growth_rate distributions; in-envelope designs."
+        }
+      ],
+      "stringent_criteria": [
+        {
+          "criterion": "S1: states the persister frequency order (~1e-5 to 1e-6) and/or two switching rates (normal<->persister)",
+          "passed": false,
+          "rationale": "Predicts a ~3% tail frequency, far from the canonical 1e-5 to 1e-6 order, and does not specify two switching rates."
+        },
+        {
+          "criterion": "S2: specifies a bimodality/mixture test on the single-cell growth-rate distribution and a switching-rate estimator",
+          "passed": false,
+          "rationale": "Uses decile co-occurrence and CV tests plus a transient-fraction metric, but no explicit bimodality/mixture test nor a switching-rate estimator."
+        },
+        {
+          "criterion": "S3: the prediction discriminates a phenotypic switch from genetic resistance and from uniform tolerance",
+          "passed": true,
+          "rationale": "Isogenic (no mutation) design rules out genetic resistance; the minority-tail vs unimodal null and CV thresholds distinguish from uniform tolerance."
+        },
+        {
+          "criterion": "S4: includes the resensitization logic (regrown survivors are sensitive) that distinguishes persistence from resistance",
+          "passed": true,
+          "rationale": "The transient/reversible-tail requirement (>=70% of ever-tail seeds spend <=40% in tail; reversibility vs sustained subclone) operationalizes the resensitization/phenotypic-not-genetic logic in-model."
+        }
+      ],
+      "comment": "Strong, well-operationalized mapping to growth-rate bimodality proxy with proper isogenic ensemble and ppGpp causal arm. Fails S1 (frequency ~3% not 1e-5/1e-6, no explicit two switching rates) and S2 (no formal mixture/bimodality test or switching-rate estimator, only decile co-occurrence + CV). Reversibility captured well as a proxy for resensitization.",
+      "hypothesis": {
+        "question": "Why do some bacteria survive antibiotics without becoming resistant?",
+        "claim": "A subpopulation of genetically wild-type E. coli cells maintains a stochastically-triggered stringent-response state (RelA/ppGpp-driven) that produces a transient, reversible low-growth-rate/high-ppGpp physiological tail among isogenic seeds; this tail is (i) specifically ppGpp-dependent (collapses under ppGpp clamp/relA knockout even when ribosome capacity is independently perturbed) and (ii) transient/reversible rather than a sustained slow-growing subclone. Because the instrument has no antibiotic-kill module, this tail is treated explicitly as a PROXY for persister-propensity, not a direct survival readout.",
+        "h1": "In an isogenic wildtype/basal population (>=200 seeds, >=8 generations), per-seed growth_rate and ppgpp_conc trajectories show a transient (not sustained) low-growth/high-ppGpp excursion: a seed's time-in-tail-state (fraction of generations, not full-run average, spent in bottom-decile growth_rate AND top-decile ppgpp_conc) is <=40% of its own trajectory length for >=70% of tail-classified seeds (i.e., tail membership is mostly transient, distinguishing it from a permanently slow subclone). The joint co-occurrence rate (any-generation bottom-decile growth_rate AND top-decile ppgpp_conc, per-seed ever-in-tail) is >=3x the 1% independence null (i.e. >=3%). This tail is abolished (co-occurrence falls to <=1.5%, CV(growth_rate) drops by >=50%) under ppgpp_conc clamp-low OR relA knockout, and critically REMAINS ppGpp-dependent even under reduced ribosome capacity: in rrna_operon_knockout/basal, if ppGpp is ALSO clamped low (rrna_operon_knockout + ppgpp_conc clamp combined design), the tail collapses similarly to the relA-knockout case -- showing ribosome-capacity effects act THROUGH ppGpp, not independently of it.",
+        "h0": "Growth_rate/ppgpp_conc heterogeneity in wildtype/basal is not a transient ppGpp-tail phenomenon: either (a) tail-classified seeds spend >=70% of their trajectory in the tail state (i.e., heterogeneity reflects sustained slow subclones, not transient dormancy), or (b) the joint co-occurrence rate is statistically indistinguishable from the 1% independence null, or (c) clamping ppGpp low in the rrna_operon_knockout background does NOT reduce the tail/CV -- indicating ribosome-capacity noise acts independently of ppGpp (supporting Rival B), or (d) ppgpp_conc-clamp/relA-knockout CV is within 20% of wildtype CV (no ppGpp-dependence at all).",
+        "operational_defs": [
+          {
+            "construct": "stringent-response activation / persister-like physiological state (PROXY for persistence propensity, not a direct kill-assay readout)",
+            "observable": "per-generation growth_rate (1/h) and ppgpp_conc (uM) trajectories per seed",
+            "measure": "per-seed, per-generation time series across >=200 seeds; a generation-instance is 'tail' if growth_rate is in bottom decile AND ppgpp_conc is in top decile of the pooled wildtype/basal distribution; a seed is 'ever-tail' if it has >=1 tail generation-instance"
+          },
+          {
+            "construct": "transient vs sustained dormancy (distinguishes reversible stringent response from a permanently slow subclone / Rival A)",
+            "observable": "per-seed fraction of generations classified as 'tail' out of total generations simulated",
+            "measure": "for ever-tail seeds, compute fraction-of-generations-in-tail; classify seed as 'transient' if this fraction <=0.4, 'sustained' if >0.7; report the proportion of ever-tail seeds that are transient (predicted >=70%)"
+          },
+          {
+            "construct": "non-genetic (phenotypic) heterogeneity vs. genetic resistance",
+            "observable": "absence of any gene_knockout/mutation applied; all wildtype/basal seeds share identical genotype, varying only RNG seed",
+            "measure": "isogenic seed replicates (identical params, seed varied only)"
+          },
+          {
+            "construct": "ppGpp-causal dependence of the tail, decoupled from ribosome-capacity confound (resolves Rival B ambiguity)",
+            "observable": "ppgpp_conc channel under clamp; growth_rate/ppgpp_conc under relA knockout; growth_rate/ppgpp_conc under rrna_operon_knockout ALONE vs rrna_operon_knockout COMBINED with ppgpp_conc clamp-low",
+            "measure": "compare ever-tail co-occurrence rate and CV(growth_rate) across: wildtype/basal, ppgpp_conc-clamp-low/basal, relA-knockout/basal, rrna_operon_knockout/basal (ppGpp uncontrolled), and rrna_operon_knockout+ppgpp_conc-clamp/basal (ppGpp forced low despite capacity loss)"
+          }
+        ],
+        "predicted_effect": "Joint ever-tail co-occurrence rate in wildtype/basal >=3% (vs 1% independence null); of ever-tail seeds, >=70% classified transient (fraction-of-generations-in-tail <=0.4), supporting reversibility. CV(growth_rate) in wildtype/basal >=0.25, CV(ppgpp_conc) >=0.30. Under ppgpp_conc-clamp-low or relA-knockout: co-occurrence drops to <=1.5%, CV(growth_rate) drops by >=50% (e.g. 0.25->\\u22640.12). Under rrna_operon_knockout ALONE (ppGpp uncontrolled): co-occurrence and CV predicted to REMAIN elevated (similar to wildtype, within 20%) because reduced ribosome capacity is predicted to act by inducing ppGpp, not bypassing it. Under rrna_operon_knockout + ppgpp_conc-clamp-low COMBINED: co-occurrence should collapse to <=1.5% (same as relA-knockout), demonstrating the ribosome-capacity effect is ppGpp-mediated, not independent (rejecting Rival B's independent-pathway claim).",
+        "falsifier": {
+          "target": "ppgpp_conc/basal",
+          "reference": "wildtype/basal",
+          "channel": "growth_rate",
+          "decision_rule": "Welch t-test on per-seed growth_rate CV, wildtype/basal (>=200 seeds) vs ppgpp_conc-clamp-low/basal (>=200 seeds); reject H0 (support H1) if |t|>=2 AND CV(growth_rate) in clamped condition <=50% of wildtype CV. Separately, bootstrap 95% CI on joint ever-tail co-occurrence rate in wildtype/basal; require point estimate >=3% with CI excluding 1%. Separately, require >=70% of ever-tail wildtype seeds to be 'transient' (fraction-of-generations-in-tail <=0.4) via binomial test against a 50% null. Finally, for the ribosome-capacity confound: compare co-occurrence rate in rrna_operon_knockout/basal (ppGpp uncontrolled) vs rrna_operon_knockout+ppgpp_conc-clamp/basal; require the clamp-combined design to fall to <=1.5% (a Welch t on CV(growth_rate) between these two designs, |t|>=2, clamp-combined lower) to conclude the capacity effect is ppGpp-mediated.",
+          "refuting_result": "If wildtype/basal CV(growth_rate) < 0.15, OR the ever-tail co-occurrence 95% CI includes 1%, OR <50% of ever-tail seeds are transient (i.e., tail membership is mostly sustained, consistent with Rival A slow-subclone), OR ppgpp_conc-clamp/relA-knockout fails to reduce CV by >=50%, OR rrna_operon_knockout+ppgpp_conc-clamp does NOT collapse co-occurrence relative to rrna_operon_knockout alone (i.e., ribosome-capacity effect persists independent of ppGpp) -- then H1 is refuted."
+        },
+        "rivals": [
+          {
+            "claim": "Rival A: Survival-relevant heterogeneity is driven primarily by sustained cell-cycle/mass-partitioning noise (asymmetric division producing a permanently slow subclone via dry_mass/protein_mass variance), not transient ppGpp signaling.",
+            "distinguishing_result": "If true, ever-tail seeds in wildtype/basal are predominantly 'sustained' (fraction-of-generations-in-tail >0.7 in >=50% of ever-tail seeds) rather than transient, and dry_mass/protein_mass CV would track growth_rate CV even after ppgpp_conc clamp/relA knockout (mass-noise persists while ppGpp-tail collapses) -- decoupling mass noise from ppGpp dependence."
+          },
+          {
+            "claim": "Rival B: The low-growth tail is a generic ribosome-capacity artifact acting INDEPENDENTLY of ppGpp signaling, not mediated through it.",
+            "distinguishing_result": "If true, rrna_operon_knockout+ppgpp_conc-clamp/basal (ppGpp forced low DESPITE capacity loss) STILL shows elevated co-occurrence/CV similar to rrna_operon_knockout alone -- i.e., clamping ppGpp does NOT rescue the tail when ribosome capacity is independently reduced, showing capacity noise operates through a ppGpp-independent path."
+          }
+        ],
+        "auxiliary_assumptions": [],
+        "candidate_designs": [
+          {
+            "perturbation": "wildtype",
+            "params": {},
+            "condition": "basal",
+            "timeline": "0 minimal_GLC_5mM (steady growth; proxy baseline for physiological heterogeneity, no antibiotic module in envelope)",
+            "seeds": 200,
+            "generations": 8
+          },
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "clamp_multiple_of_basal": 0.2
+            },
+            "condition": "basal",
+            "timeline": "0 minimal_GLC_5mM",
+            "seeds": 200,
+            "generations": 8
+          },
+          {
+            "perturbation": "gene_knockout",
+            "params": {
+              "target_genes": [
+                "relA"
+              ]
+            },
+            "condition": "basal",
+            "timeline": "0 minimal_GLC_5mM",
+            "seeds": 200,
+            "generations": 8
+          },
+          {
+            "perturbation": "rrna_operon_knockout",
+            "params": {
+              "operon_copies_removed": 3
+            },
+            "condition": "basal",
+            "timeline": "0 minimal_GLC_5mM",
+            "seeds": 200,
+            "generations": 8
+          },
+          {
+            "perturbation": "rrna_operon_knockout",
+            "params": {
+              "operon_copies_removed": 3,
+              "ppgpp_clamp_multiple_of_basal": 0.2
+            },
+            "condition": "basal",
+            "timeline": "0 minimal_GLC_5mM",
+            "seeds": 200,
+            "generations": 8
+          }
+        ],
+        "residual_ambiguities": [],
+        "converged": true
+      }
+    },
+    {
+      "id": "2.2",
+      "question": "Can it ever help a population for some cells to grow slowly or stay 'prepared' for a change?",
+      "converged": true,
+      "deterministic": {
+        "M1_named_observable": true,
+        "M1_observable_on_dial_label": true,
+        "M2_direction_stated": true,
+        "M2_baseline_named": true,
+        "M3_falsifier": true,
+        "M4_valid_design": true,
+        "has_two_rivals": true,
+        "converged": true,
+        "_floor_pass": true
+      },
+      "min_bar_pass": false,
+      "stringent_bar_pass": false,
+      "min_criteria": [
+        {
+          "criterion": "M1: names long-term / time-averaged population growth rate as the observable",
+          "passed": false,
+          "rationale": "Observable is the post-shift growth_rate recovery ratio (gen 3-5/pre-shift) plus constant-condition mean growth_rate; it never uses a long-term/time-averaged population growth rate across a fluctuation schedule as the fitness metric."
+        },
+        {
+          "criterion": "M2: predicts a switching population outgrows a committed population under fluctuation, vs that null",
+          "passed": true,
+          "rationale": "H1 predicts high-variance (heterogeneous) population beats variance-suppressed (committed/uniform) population at matched mean under the downshift timeline, with H0 as the explicit null; this captures the diverse-beats-committed prediction."
+        },
+        {
+          "criterion": "M3: states a falsifier (a non-switching/committed population always matches or beats any switching one)",
+          "passed": true,
+          "rationale": "Falsifier: if recovery ratios differ by <15% or |welch_t|<2 given matched means, the variance/bet-hedging claim is refuted, i.e., the committed low-CV population is no worse than high-CV."
+        },
+        {
+          "criterion": "M4: design is repeated in-envelope media shifts across an isogenic ensemble (NOT a mid-run carbon-source switch)",
+          "passed": false,
+          "rationale": "Design uses a single scripted amino_acid downshift with one recovery step across an isogenic seed ensemble; it is a single downshift event, not repeated in-envelope media shifts modeling a fluctuating environment."
+        }
+      ],
+      "stringent_criteria": [
+        {
+          "criterion": "S1: states the 'optimal switch rate ~ environmental rate' relation quantitatively",
+          "passed": false,
+          "rationale": "No switching-rate concept at all; variance is imposed statically as CV across seeds and there is no matching of switch rate to environmental fluctuation rate."
+        },
+        {
+          "criterion": "S2: computes long-term growth as a log-growth average with CIs over seeds and sweeps switch/environment rates",
+          "passed": false,
+          "rationale": "Uses Welch t over 20-30 seeds on recovery ratios, not a log-growth time-average with CIs; no sweep over switch or environment rates."
+        },
+        {
+          "criterion": "S3: the prediction discriminates bet-hedging from sense-and-respond and from committed strategies as a function of environmental timescale / sensing cost",
+          "passed": false,
+          "rationale": "It discriminates variance (bet-hedging) from mean-level (committed) strategies, but there is no sense-and-respond arm and no dependence on environmental timescale or sensing cost."
+        },
+        {
+          "criterion": "S4: includes the fluctuation-rate (and/or sensing-cost) sweep as the isolating control",
+          "passed": false,
+          "rationale": "No fluctuation-rate or sensing-cost sweep; the isolating control is mean-matching and tail-truncation, not variation of the environmental timescale."
+        }
+      ],
+      "comment": "Strong operationalization of variance-as-adaptive-lever with careful mean-matching controls and multiple mechanistic rivals, but it reframes the classic bet-hedging problem as a single-downshift ppGpp-variance study. It misses the core Kussell-Leibler framing: long-term/time-averaged (log) growth over a fluctuating (repeated-shift) schedule, and any switch-rate-vs-environment-rate matching. Passes 2/4 minimum, 0/4 stringent.",
+      "hypothesis": {
+        "question": "Can it ever help a population for some cells to grow slowly or stay 'prepared' for a change?",
+        "claim": "In an isogenic E. coli population under fluctuating nutrient conditions, standing cell-to-cell heterogeneity in basal ppGpp (a mix of 'prepared'/slow-growing and 'unprepared'/fast-growing cells at a given population mean ppGpp) confers a population-level growth-recovery advantage after abrupt downshift compared to a population uniformly clamped to the SAME mean ppGpp but with variance suppressed -- i.e. bet-hedging (variance) itself, not just the mean level, is adaptive under fluctuation. This is distinct from the physiological-set-point question (whether uniformly high vs low ppGpp is better), which is tested by contrasting wildtype vs a uniform ppGpp-clamped-low population as a secondary/control comparison.",
+        "h1": "Under a fluctuating (downshift) timeline, a population with imposed high cell-to-cell variance in ppgpp_conc (CV >= 0.5 across seeds/lineages) at a fixed mean level shows a >=15% higher post-shift growth_rate recovery ratio (generations 3-5 post-shift / pre-shift baseline) than a population clamped to the SAME mean ppgpp_conc but with variance suppressed (CV <= 0.1), even though the two populations have statistically indistinguishable mean growth_rate in constant basal media (|welch_t| < 2). This isolates variance (heterogeneity/bet-hedging) as the adaptive lever, separate from mean ppGpp level.",
+        "h0": "There is no variance-dependent effect: at matched mean ppgpp_conc, the high-CV and low-CV (variance-suppressed) populations do not differ in post-shift growth_rate recovery ratio by more than replicate noise (|welch_t| < 2) under the fluctuating timeline -- i.e. only the MEAN ppGpp level matters (or neither matters), and standing heterogeneity itself confers no measurable population-level advantage.",
+        "operational_defs": [
+          {
+            "construct": "standing ppGpp heterogeneity / bet-hedging substrate",
+            "observable": "ppgpp_conc channel distribution across seeds/lineages sampled at steady state prior to shift, within a single condition",
+            "measure": "coefficient of variation (CV) of ppgpp_conc across seeds at matched mean; high-variance design targets CV>=0.5, variance-suppressed design targets CV<=0.1, both at the same target mean ppgpp_conc (within 10% of each other)"
+          },
+          {
+            "construct": "growth-rate collapse/recovery upon downshift",
+            "observable": "growth_rate channel trajectory before, during, and after a scripted amino_acid_shift/timeline downshift event",
+            "measure": "ratio of post-shift growth_rate (averaged over generations 3-5 post-shift) to pre-shift baseline growth_rate; recovery half-time in generations"
+          },
+          {
+            "construct": "fitness parity in constant conditions (matched-mean control)",
+            "observable": "growth_rate channel mean over full run under constant basal condition (no shift), compared between high-CV and low-CV designs",
+            "measure": "% difference in mean growth_rate between high-CV and variance-suppressed designs in constant basal media; must be <8% and |welch_t|<2 to confirm mean-matching"
+          },
+          {
+            "construct": "physiological set-point effect (mean-level, separate question)",
+            "observable": "growth_rate channel trajectory, wildtype vs ppGpp-clamped-low (uniform, low mean, low variance)",
+            "measure": "same recovery-ratio and constant-condition mean comparisons as above, retained as a secondary/control contrast, not the primary test of bet-hedging"
+          }
+        ],
+        "predicted_effect": "Primary (variance) effect: at matched mean ppgpp_conc (within 10%) and matched constant-condition growth_rate (<8% difference, |welch_t|<2), the high-CV (CV>=0.5) population shows a post-shift recovery ratio >=15% higher than the variance-suppressed (CV<=0.1) population under the fluctuating timeline, with recovery half-time >=25% shorter. Secondary/control (mean-level) effect, retained from prior design: wildtype vs uniform ppGpp-clamped-low (0.3x basal) shows the previously predicted crossover (~10-15% faster constant-condition growth for clamped-low; >=15% recovery advantage for wildtype under fluctuation) -- this tests set-point, not variance, and is reported separately.",
+        "falsifier": {
+          "target": "ppgpp_conc/high_variance_matched_mean_shift_timeline",
+          "reference": "ppgpp_conc/low_variance_matched_mean_shift_timeline",
+          "channel": "growth_rate",
+          "decision_rule": "Step 1 (mean-matching check): Welch t on constant-basal mean growth_rate between high-CV and low-CV designs; require |welch_t|<2 and effect_pct<8% (else means are not matched and the variance test is invalid). Step 2 (primary test): Welch t on post-shift recovery ratio (growth_rate gen3-5/pre-shift baseline) between high-CV and low-CV designs under fluctuating timeline, n>=20 seeds each; support H1 only if |welch_t|>=2 AND high-CV recovery ratio exceeds low-CV by >=15%.",
+          "refuting_result": "If, given matched constant-condition means (Step 1 passes), the post-shift recovery ratios of high-CV and low-CV populations differ by <15% or |welch_t|<2 under the fluctuating timeline, the bet-hedging-via-variance claim is refuted -- standing heterogeneity would then confer no measurable population-level advantage beyond what mean ppGpp level alone provides."
+        },
+        "rivals": [
+          {
+            "claim": "Only the MEAN ppGpp level matters for fluctuation adaptation; variance/heterogeneity is incidental noise with no causal role. Any apparent high-CV advantage is actually driven by the upper tail of the distribution having elevated mean-like ppGpp, not by variance per se.",
+            "distinguishing_result": "If the high-CV population's advantage disappears once its mean is matched even more tightly (e.g. via a truncated/reshaped distribution that keeps median but caps outliers) and the tail-truncated version performs like low-CV, this shows the effect was driven by high-tail cells (a mean-like shift in an effective sub-mean), not variance-as-a-strategy."
+          },
+          {
+            "claim": "Any observed recovery difference is driven by ribosome/rRNA capacity heterogeneity (a passive correlate of ppGpp variance) rather than ppGpp signaling variance causing the advantage.",
+            "distinguishing_result": "An rrna_operon_knockout control run under matched-variance conditions (variance imposed on ribosome capacity directly rather than ppGpp) showing the same recovery-advantage pattern regardless of ppGpp CV would indicate ribosome-capacity heterogeneity, not ppGpp-variance signaling, drives the effect."
+          },
+          {
+            "claim": "The relA/spoT (ppGpp-null, 'relaxed') background, if variance is imposed anyway (e.g. via a different noise source), would show NO recovery advantage from that imposed variance, proving any bet-hedging benefit requires the ppGpp pathway itself and is not a generic effect of any physiological variance.",
+            "distinguishing_result": "If relA/spoT double knockout with imposed high-variance-in-some-other-channel still shows a recovery advantage matching wildtype high-CV, that would mean the benefit is pathway-agnostic (any variance helps), undermining a ppGpp-specific bet-hedging mechanism; if it shows no advantage, this confirms ppGpp-pathway-dependence."
+          }
+        ],
+        "auxiliary_assumptions": [],
+        "candidate_designs": [
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "target_mean_multiple_of_basal": 1.0,
+              "target_cv": 0.5,
+              "variance_mode": "high"
+            },
+            "condition": "basal",
+            "timeline": "0-2400 min basal (no shift)",
+            "seeds": 30,
+            "generations": 8
+          },
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "target_mean_multiple_of_basal": 1.0,
+              "target_cv": 0.1,
+              "variance_mode": "suppressed"
+            },
+            "condition": "basal",
+            "timeline": "0-2400 min basal (no shift)",
+            "seeds": 30,
+            "generations": 8
+          },
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "target_mean_multiple_of_basal": 1.0,
+              "target_cv": 0.5,
+              "variance_mode": "high"
+            },
+            "condition": "basal",
+            "timeline": "0 basal, 1200 amino_acid_downshift (remove 2 aa), 1800 basal_recovery",
+            "seeds": 30,
+            "generations": 8
+          },
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "target_mean_multiple_of_basal": 1.0,
+              "target_cv": 0.1,
+              "variance_mode": "suppressed"
+            },
+            "condition": "basal",
+            "timeline": "0 basal, 1200 amino_acid_downshift (remove 2 aa), 1800 basal_recovery",
+            "seeds": 30,
+            "generations": 8
+          },
+          {
+            "perturbation": "wildtype",
+            "params": {},
+            "condition": "basal",
+            "timeline": "0-2400 min basal (no shift)",
+            "seeds": 20,
+            "generations": 8
+          },
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "clamp_multiple_of_basal": 0.3
+            },
+            "condition": "basal",
+            "timeline": "0-2400 min basal (no shift)",
+            "seeds": 20,
+            "generations": 8
+          },
+          {
+            "perturbation": "wildtype",
+            "params": {},
+            "condition": "basal",
+            "timeline": "0 basal, 1200 amino_acid_downshift (remove 2 aa), 1800 basal_recovery",
+            "seeds": 20,
+            "generations": 8
+          },
+          {
+            "perturbation": "ppgpp_conc",
+            "params": {
+              "clamp_multiple_of_basal": 0.3
+            },
+            "condition": "basal",
+            "timeline": "0 basal, 1200 amino_acid_downshift (remove 2 aa), 1800 basal_recovery",
+            "seeds": 20,
+            "generations": 8
+          },
+          {
+            "perturbation": "rrna_operon_knockout",
+            "params": {
+              "operons_removed": 3
+            },
+            "condition": "basal",
+            "timeline": "0 basal, 1200 amino_acid_downshift (remove 2 aa), 1800 basal_recovery",
+            "seeds": 20,
+            "generations": 8
+          },
+          {
+            "perturbation": "gene_knockout",
+            "params": {
+              "target_genes": [
+                "relA",
+                "spoT"
+              ]
+            },
+            "condition": "basal",
+            "timeline": "0 basal, 1200 amino_acid_downshift (remove 2 aa), 1800 basal_recovery",
+            "seeds": 20,
+            "generations": 8
+          }
+        ],
+        "residual_ambiguities": [],
+        "converged": true
+      }
+    }
+  ]
+}

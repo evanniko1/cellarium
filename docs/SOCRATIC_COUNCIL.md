@@ -477,6 +477,9 @@ strongest of them (1.1, 4.2 across runs; 4.1 intermittently). The residual strin
 gaps are dominated by the two structural limits above plus LLM variance — not by the
 convergence logic. Reproduce: `python evals/grade.py` (see `evals/README.md`).
 
+A full case-by-case write-up of all ten questions (including the persistence 2.1
+and bet-hedging 2.2 cases) is in **`docs/SOCRATIC_COUNCIL_EVAL_REPORT.md`**.
+
 ---
 
 ## 10. References

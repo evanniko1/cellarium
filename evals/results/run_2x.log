@@ -1,0 +1,28 @@
+
+=== 2.1  Why do some bacteria survive antibiotics without becoming resistant?
+  · round 1: proposer -> A subpopulation of genetically wild-type E. coli cells entering antibiotic exposure surviv
+    skeptic -> 3 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  · round 2: proposer -> A subpopulation of genetically wild-type E. coli cells maintains a stochastically-triggere
+    skeptic -> 3 objections (1 substantive, 2 cumulative)
+    judge -> adequate=True converged=True quota=2/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=fail
+    stringent miss: S1: states the persister frequency order (~1e-5 to 1e-6) and/or two sw — Predicts a ~3% tail frequency, far from the canonical 1e-5 to 1e-6 order, and does not spe
+    stringent miss: S2: specifies a bimodality/mixture test on the single-cell growth-rate — Uses decile co-occurrence and CV tests plus a transient-fraction metric, but no explicit b
+
+=== 2.2  Can it ever help a population for some cells to grow slowly or stay 'prepared' for a change?
+  · round 1: proposer -> In an isogenic E. coli population under fluctuating nutrient conditions, a subpopulation t
+    skeptic -> 2 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  · round 2: proposer -> In an isogenic E. coli population under fluctuating nutrient conditions, standing cell-to-
+    skeptic -> 0 objections (0 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  floor=ok  min_bar=fail  stringent=fail
+    stringent miss: S1: states the 'optimal switch rate ~ environmental rate' relation qua — No switching-rate concept at all; variance is imposed statically as CV across seeds and th
+    stringent miss: S2: computes long-term growth as a log-growth average with CIs over se — Uses Welch t over 20-30 seeds on recovery ratios, not a log-growth time-average with CIs; 
+    stringent miss: S3: the prediction discriminates bet-hedging from sense-and-respond an — It discriminates variance (bet-hedging) from mean-level (committed) strategies, but there 
+    stringent miss: S4: includes the fluctuation-rate (and/or sensing-cost) sweep as the i — No fluctuation-rate or sensing-cost sweep; the isolating control is mean-matching and tail
+
+===== SUMMARY  min-bar 1/2   stringent-bar 0/2   -> evals/results/run_2x.json
+  2.1: min=Y stringent=n  Why do some bacteria survive antibiotics without becom
+  2.2: min=n stringent=n  Can it ever help a population for some cells to grow s
