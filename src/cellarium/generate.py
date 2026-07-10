@@ -54,15 +54,12 @@ def panel_designs() -> list[Design]:
 
 
 def essential_ko_designs() -> list[Design]:
-    """Redesigned mechanistic-scope test: three ESSENTIAL, sole-catalyst, mechanistic KOs on minimal glucose
-    vs a basal control, MULTI-GENERATION so the defect develops as the inherited enzyme/precursors deplete
-    (the generation-depth lesson). All vetted: metabolic + is_sole_catalyst + monocistronic + Keio/conditionally
-    essential + in-envelope + biosecurity-clean.
-      H_KO_A fabI (425)  — enoyl-ACP reductase, fatty-acid synthesis; essential, unique.
-      H_KO_B glmS (2795) — glucosamine-6-P synthase, cell-wall/LPS precursor; essential, unique.
-      H_KO_C gltA (2657) — citrate synthase (TCA -> glutamate); conditionally essential on minimal.
-    Prediction: each KO shows a progressive per-generation growth decline -> arrest/no-division, matching the
-    ~91% FBA-essentiality benchmark (Joyce 2006). Run with --generations 4."""
+    """KNOWN-TO-REROUTE control set (RESOLVED — §J/§K): three Keio/Joyce-ESSENTIAL sole-catalyst metabolic KOs
+    (fabI 425, glmS 2795, gltA 2657) + a basal control, run 4 generations. The original prediction (progressive
+    growth decline -> arrest) was DISPROVEN: all three are VIABLE at division_rate 1.00 — the metabolism FBA has
+    no growth term, so it reroutes, and the enzyme is 0 from gen-0 (no dilution confound). Kept as the canonical
+    `model_UNDER_predicts` demonstration (benchmark-essential yet viable in silico). For a real phenotype use a
+    GRADED perturbation (rrna_operon_knockout, ppgpp_conc, objective_weight_designs), NOT a single metabolic KO."""
     kos = {"fabI": 425, "glmS": 2795, "gltA": 2657}
     return [Design(perturbation="wildtype", condition="basal")] + \
            [Design(perturbation="gene_knockout", condition=f"KO:{s}", params={"variant_index": i})
@@ -70,10 +67,10 @@ def essential_ko_designs() -> list[Design]:
 
 
 def mechanistic_ko_designs() -> list[Design]:
-    """KO experiment testing the mechanistic-scope guardrail: MECHANISTIC single-gene knockouts (metabolic
-    enzymes pfkA, tpiA — central glycolysis, active on glucose) vs NON-MECHANISTIC ones (flgB flagellar,
-    ymgD y-gene — expressed but inert). Prediction: the metabolic KOs perturb growth/proteome (or fail to
-    divide); the inert KOs do not. A clean contrast proves the guardrail. Indices from gene_scope.json."""
+    """Mechanistic-scope contrast (RESOLVED — §J/§K): metabolic KOs (pfkA 1594, tpiA 1542) vs non-mechanistic
+    (flgB 2791, ymgD 397). Established result: BOTH classes are VIABLE — the metabolic KOs reroute (no growth
+    term to degrade), the inert ones do nothing by construction. So a single metabolic KO is not a phenotype
+    generator here; it's a known-to-reroute control. For a measurable effect use a graded-capacity perturbation."""
     kos = {"pfkA": 1594, "tpiA": 1542, "flgB": 2791, "ymgD": 397}
     return [Design(perturbation="gene_knockout", condition=f"KO:{sym}", params={"variant_index": idx})
             for sym, idx in kos.items()]
@@ -120,6 +117,22 @@ def confounded_designs() -> list[Design]:
     return designs
 
 
+def objective_weight_designs() -> list[Design]:
+    """The LEGITIMATE objective levers (§K): sweep the metabolism FBA's kinetic-objective weight and secretion
+    penalty — GRADED metabolic-behaviour perturbations the wcEcoli team ships analyses for, and the only sanctioned
+    way to touch the objective (changing its TYPE to biomass-max would break the whole-cell coupling; see D4).
+    weight=0 is pure homeostatic (no kinetic targets); larger binds the kinetic targets harder. Unlike a single
+    metabolic KO (reroutes -> viable), these tune the network's behaviour continuously. Indices index the model's
+    own arrays: KINETIC_OBJECTIVE_WEIGHT=[0,1e-8..1], SECRETION_PENALTY=[0,1e-5..0.05]."""
+    kw = {0: "0", 5: "1e-4", 8: "0.1", 9: "1"}
+    sp = {0: "0", 4: "1e-3", 7: "0.01", 9: "0.05"}
+    designs = [Design(perturbation="metabolism_kinetic_objective_weight", condition=f"minimal|kin_w:{lbl}",
+                      params={"variant_index": i}) for i, lbl in kw.items()]
+    designs += [Design(perturbation="metabolism_secretion_penalty", condition=f"minimal|sec_pen:{lbl}",
+                       params={"variant_index": i}) for i, lbl in sp.items()]
+    return designs
+
+
 def knockout_designs(query: str, limit: int = 8) -> list[Design]:
     """Gene-knockout designs whose rna_id matches `query`, using the cached variant map
     (run `python -m cellarium.reader --variant-map` first). Each -> --variant gene_knockout <idx>."""
@@ -156,11 +169,15 @@ def main() -> None:
     ap.add_argument("--mechanistic-ko", action="store_true", dest="mechanistic_ko",
                     help="single-gene KO experiment: mechanistic (pfkA, tpiA) vs non-mechanistic (flgB, ymgD)")
     ap.add_argument("--essential-ko", action="store_true", dest="essential_ko",
-                    help="essential sole-catalyst KOs (fabI, glmS, gltA) + basal control; run with --generations 4")
+                    help="essential sole-catalyst KOs (fabI, glmS, gltA) + basal control; KNOWN-TO-REROUTE control")
+    ap.add_argument("--objective-weight", action="store_true", dest="objective_weight",
+                    help="graded objective levers: kinetic-objective-weight + secretion-penalty sweeps (§K/D4)")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.objective_weight:
+        designs = objective_weight_designs()
     elif args.essential_ko:
         designs = essential_ko_designs()
     elif args.mechanistic_ko:

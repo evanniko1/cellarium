@@ -103,13 +103,19 @@ change the **readout** (viability, not graded growth) and the **design** (graded
   the tool cross-links `mechanistic_scope` ('viable' is the model, not ground truth — check the benchmark). Agent
   SYSTEM prompt now tells Coli to judge KO lethality by viability, not growth. Verdict logic unit-tested (three
   regimes). (Also installed the declared `duckdb` dep — the full suite now passes 16/16.)
-- `[ ]` **Viability in `differential`/screen** — report a viability delta, not only growth deltas.
-- `[ ]` **Graded-first design generators** (`generate.py`): label single-metabolic-KO generators as
-  known-to-reroute controls; promote graded-capacity (rRNA operons, ppGpp) as the primary phenotype path.
-- `[ ]` **Translation-factor machinery detection** (`_reader_worker.py`): flag EF-Tu/`tufA`, EF-G/`fusA`, IF/RF
-  (currently unflagged — no molecule group). *Source: Choi & Covert 2023 elongation model.*
-- `[ ]` **Objective-weight design variants** (`generate.py`): `kinetic_objective_weight` / `secretion_penalty`
-  sweeps — the legitimate objective levers (upstream ships analyses for both). *Source: D4.*
+- `[x]` **Viability in `differential`** — `summary` now returns the target's cross-seed viability verdict, so a
+  differential is read with "did the cell even divide?" in view (flat channels on a VIABLE KO = reroute; on an
+  INVIABLE one the fold-changes are pre-crash garbage). *Source: §J.*
+- `[x]` **Graded-first design generators** (`generate.py`): `essential_ko_designs`/`mechanistic_ko_designs`
+  relabelled as KNOWN-TO-REROUTE controls (the old growth-decline predictions were disproven), pointing to graded
+  perturbations for real phenotypes. *Source: §K.*
+- `[x]` **Translation-factor machinery detection** — RESOLVED as a no-op: wcEcoli models elongation as rate-based,
+  not explicit factor cycling, so EF-Tu/EF-G/IF/RF are *correctly* inert; flagging them as machinery would predict
+  a crash that can't happen. The essentiality benchmark already surfaces the mismatch (fusA/infA/prfA/tsf ->
+  `model_UNDER_predicts`; tufA correctly non-essential via its tufB paralog). *Source: Choi & Covert 2023 / P4.0.*
+- `[x]` **Objective-weight design variants** (`generate.py` `objective_weight_designs`, `--objective-weight`):
+  `metabolism_kinetic_objective_weight` + `metabolism_secretion_penalty` sweeps — the legitimate graded objective
+  levers (indices into the model's own arrays; upstream ships analyses for both). *Source: D4/§K.*
 
 ### P4.2 — larger / research
 - `[ ]` **Metabolic-essentiality verdict** — either `fba_essentiality` v2 (hard target-demand feasibility) or call
