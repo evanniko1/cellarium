@@ -172,6 +172,29 @@ reason is mechanistically decisive:
   is narrow** — largely robust to single-gene KOs at reachable depth. This bounds which KO hypotheses it can address.
 - Third empirical disproof of a confident claim (after nitrate `nrdG`, pfkA-"mechanistic") — the harness caught all three.
 
+## I. gltX KO — the machinery axis RESPONDS, but via a crash, not a clean phenotype (2026-07-10, 4 gen)
+Test of whether the translation-machinery axis responds (vs metabolism's reroute). gltX = glutamyl-tRNA synthetase.
+- **All 4 gltX KO seeds CRASHED the sim** (vs 0/5 metabolic KOs and 0/4 basal controls) — a qualitatively
+  different, dramatic outcome. Metabolism reroutes; the translation machinery cannot.
+- Ran ~3 generations first. Reliable pre-crash signal: **ribosome_conc COLLAPSED (21 -> 2.15)**, gen-0 growth
+  ~1/3 of basal. Then the numerics destabilized (the gen-2 growth 0.0013 and ppGpp 6 are garbage from the
+  breakdown) and the sim crashed with **`NegativeCountsError: ATP[c] in PolypeptideElongation`** (+ FBA solver
+  failure) — the crash is INSIDE the translation process.
+- **Specific mechanism prediction wrong (again).** Predicted ppGpp UP (stringent); it went DOWN/erratic. The
+  observable is ribosome collapse + numerical breakdown, not a stringent-mediated graceful arrest.
+
+**The whole-cell model's single-gene-KO behaviour is now fully characterised:**
+- **Metabolism → reroutes** (no effect; 5/5: fabI/glmS/gltA/pfkA/tpiA).
+- **Essential machinery → crashes** (numerical breakdown; gltX 4/4).
+- **The only CLEAN, measurable phenotypes come from GRADED capacity perturbations** — rRNA-operon KO (monotone
+  decline) and the ppGpp clamp. No *full single-gene KO* yields a clean graceful phenotype.
+
+**Machinery-classifier implication:** the axis is confirmed responsive, so a classifier would (a) fix the
+current misclassification of machinery as "inert", and (b) serve as a WARNING ("essential-machinery KO will
+likely CRASH the sim, not yield clean data"). Build it as a scope/crash-warning tool, not a clean-phenotype
+predictor. And it is now the *sixth* wrong specific prediction of mine the harness has caught — the general
+axis (machinery responds) held; the mechanism (stringent) did not.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)
