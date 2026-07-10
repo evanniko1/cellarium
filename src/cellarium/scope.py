@@ -29,6 +29,7 @@ model-scope statement, and the benchmark, not the sim, is the essentiality autho
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -38,6 +39,19 @@ SCOPE_CACHE = Path("data/cache/gene_scope.json")
 @lru_cache(maxsize=1)
 def _scope() -> dict:
     return json.loads(SCOPE_CACHE.read_text(encoding="utf-8")) if SCOPE_CACHE.exists() else {}
+
+
+def cache_status() -> dict:
+    """C3 staleness guard: gene_scope.json is gitignored and built from sim_data — if the model was recompiled
+    (kb newer than the cache) the classification is STALE and must be rebuilt (gene_scope worker). Cheap mtime check."""
+    if not SCOPE_CACHE.exists():
+        return {"cached": False, "stale": True, "note": "no gene_scope cache — build it via the gene_scope worker."}
+    out_root = Path(os.environ.get("CELLARIUM_OUT", "runs"))
+    kb = out_root / "cellarium" / "kb" / "simData.cPickle"
+    stale = kb.exists() and kb.stat().st_mtime > SCOPE_CACHE.stat().st_mtime
+    return {"cached": True, "n_genes": len(_scope()), "stale": bool(stale),
+            "note": ("sim_data is NEWER than the cache — rebuild gene_scope (classifications may be stale)."
+                     if stale else "cache is fresh (built after the current sim_data).")}
 
 
 def classify_gene(symbol: str) -> dict:
@@ -167,6 +181,7 @@ def model_validation_summary() -> dict:
     n_essential = counts["model_UNDER_predicts"] + counts["consistent_lethal"]
     return {
         "n_genes": len(scope), "n_in_benchmark": n_ref, "n_benchmark_essential": n_essential,
+        "cache_status": cache_status(),   # C3: flag if the classification is stale vs the current sim_data
         "agreement_counts": dict(counts),
         "model_UNDER_predicts": counts["model_UNDER_predicts"],   # essential in vivo, model calls viable
         "consistent_lethal": counts["consistent_lethal"],          # essential in vivo, model predicts crash

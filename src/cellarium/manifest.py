@@ -47,7 +47,8 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            "per_generation": json.dumps([{"i": g.index, "growth": g.growth_mean, "ppgpp": g.ppgpp_mean,
                                            "divided": g.divided} for g in rec.generations]),
            "pathways": json.dumps(rec.pathways),   # {pathway: proteome_fraction} — surveyed as channels
-           "simout_path": str(run_root),  # LOCAL path for read_species; full simOut stays on this machine
+           "simout_path": str(Path(run_root).resolve()),  # RESOLVED so the read-time dedup key is consistent
+           # (absolute vs relative path strings were treated as distinct runs — a dedup-fragility bug)
            "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
            "series": json.dumps(rec.series),
            "media_segments": json.dumps(rec.media_segments)}
