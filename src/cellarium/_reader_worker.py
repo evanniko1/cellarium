@@ -463,16 +463,20 @@ def mode_gene_scope(root):
 
 
 def mode_fba_essentiality(root, genes_csv):
-    """FBA single-deletion essentiality (Joyce 2006 style) on the model's OWN network. Instantiate the
-    homeostatic FBA, solve baseline (objective = # of biomass-metabolite concentration targets met), then for
-    each gene disable the reactions it SOLELY catalyses (upper bound -> 0) and re-solve; a dropped objective =
-    a biomass target became unproducible = stoichiometrically essential.
+    """DEPRECATED — under-sensitive; NOT an essentiality oracle. Do not use this to decide essentiality. Use the
+    ground-truth `essential_reference` flag in gene_scope (Baba/Joyce) for the verdict, a GRADED-capacity
+    perturbation for a measurable in-silico effect, or the D4 tier-2 hard-demand/feasibility FBA once built.
 
-    EMPIRICAL LIMITATION (measured): under-sensitive. With unconstrained enzyme bounds and a homeostatic
-    (target-matching, not biomass-maximising) objective, the 9,612-reaction network reroutes to satisfy all 173
-    targets for EVERY single sole-catalyst deletion tested (0/35 essential, including known-essential lpxC/coaA/
-    kdsB/dapA/murC). So this predicts nothing essential and is NOT a usable KO predictor as-is. A sensitive
-    version needs the enzyme-CONSTRAINED, dynamic bounds (i.e. the running sim). Kept as a foundation + finding."""
+    (Mechanism, kept as a finding.) FBA single-deletion (Joyce 2006 style) on the model's OWN network: instantiate
+    the homeostatic FBA, solve baseline (objective = # of biomass-metabolite concentration targets met), then for
+    each gene disable the reactions it SOLELY catalyses (upper bound -> 0) and re-solve; a dropped objective would
+    mean a biomass target became unproducible.
+
+    WHY IT'S UNDER-SENSITIVE (the D4 root cause): the objective is deviation-minimizing over concentration targets
+    with NO growth term, so with unconstrained enzyme bounds the 9,612-reaction network reroutes to satisfy all 173
+    targets for EVERY single sole-catalyst deletion tested (0/35 essential, incl. known-essential lpxC/coaA/kdsB/
+    dapA/murC). A sensitive version needs enzyme-CONSTRAINED dynamic bounds (the running sim) or hard target demands
+    + a feasibility test (D4 tier-2)."""
     import pickle
     from collections import defaultdict
     kb = os.path.join(root, "kb", "simData.cPickle")
@@ -522,7 +526,11 @@ def mode_fba_essentiality(root, genes_csv):
                     "obj_ko": (round(obj, 2) if obj is not None else None),
                     "targets_lost": (round(obj0 - obj, 2) if obj is not None else None),
                     "essential": (obj is None or obj < obj0 - 0.5)}
-    return {"obj_baseline": round(obj0, 2), "n_reactions": len(rxn_ids), "genes": out}
+    return {"deprecated": True,
+            "warning": ("under-sensitive (0/35 essential incl. known-essential genes) — the homeostatic objective "
+                        "has no growth term, so the network reroutes around every single deletion. Use the "
+                        "gene_scope `essential_reference` (Baba/Joyce) benchmark for the verdict."),
+            "obj_baseline": round(obj0, 2), "n_reactions": len(rxn_ids), "genes": out}
 
 
 def mode_variant_map(root):

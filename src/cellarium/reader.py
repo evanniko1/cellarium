@@ -90,9 +90,10 @@ def gene_scope(sim_path: str = "cellarium") -> dict:
 
 
 def fba_essentiality(genes: list[str], sim_path: str = "cellarium") -> dict:
-    """FBA single-deletion essentiality on the model's own homeostatic network — the calibrated metabolic
-    KO-effect predictor. Disables each gene's sole-catalyst reactions and re-solves; a dropped objective = a
-    biomass target became unproducible = stoichiometrically essential."""
+    """DEPRECATED — under-sensitive (0/35 essential); NOT an essentiality oracle. The homeostatic FBA objective has
+    no growth term, so it reroutes around every single-deletion. For an essentiality verdict use the ground-truth
+    `essential_reference` flag in gene_scope (Baba/Joyce); for a measurable in-silico effect use a graded-capacity
+    perturbation. Kept for the D4 finding; returns {"deprecated": True, "warning": ...}."""
     return _invoke("fba_essentiality", OUT_ROOT / sim_path, [",".join(genes)])
 
 

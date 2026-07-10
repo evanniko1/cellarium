@@ -90,10 +90,12 @@ change the **readout** (viability, not graded growth) and the **design** (graded
   KO prior to it. Turns the self-reported 0/5 into a benchmarked call: fabI/glmS/gltA -> `model_UNDER_predicts`
   (essential yet the model KO is viable), gltX/rpoB -> `consistent_lethal`, pfkA/tpiA/flgB -> `consistent_viable`.
   *Source: EcoCyc 2025 (via the wcEcoli validation set).*
-- `[ ]` **Cite the aaRS mechanism in the scope crash note** (`scope.py`): aaRS kcats fit 7.6× above in vitro;
-  perturbation "catastrophic". *Source: Choi & Covert 2023.*
-- `[ ]` **Relabel `mode_fba_essentiality` as under-sensitive/deprecated** — it reads the soft growthless objective
-  (0/35). Not an essentiality oracle until fixed/replaced (P4.2). *Source: D4 root-cause.*
+- `[x]` **Cite the aaRS mechanism in the scope crash note** (`scope.py`): the `lethal_crash` note now appends, for
+  `machinery_role == "aaRS"`, that aaRS kcats are fit ~7.6× above in vitro and perturbing aaRS activity is
+  "catastrophic" — a full KO is the extreme. *Source: Choi & Covert 2023 (doi:10.1093/nar/gkad435).*
+- `[x]` **Relabel `mode_fba_essentiality` as under-sensitive/deprecated** — docstrings (worker + `reader`) now lead
+  with DEPRECATED and point to the `essential_reference` benchmark / graded perturbations / D4 tier-2; the result
+  carries `deprecated: True` + a `warning`. *Source: D4 root-cause.*
 
 ### P4.1 — design + coverage
 - `[ ]` **Expose `viability` as an agent tool** (`tools.py`), numbers-first + calibration note — *after* the P4.0

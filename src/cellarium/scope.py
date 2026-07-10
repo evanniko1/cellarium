@@ -64,11 +64,15 @@ def classify_gene(symbol: str) -> dict:
     # (rrna_operon_knockout, ppgpp_conc) — those gave the only measurable, interpretable dose-responses.
     if machinery:
         ko_effect = "lethal_crash"
+        aaRS_lit = (" This is documented, expected behavior for aaRS: Choi & Covert 2023 (NAR, doi:10.1093/nar/"
+                    "gkad435) found aaRS kcats must be fit ~7.6x above in vitro just to sustain the proteome, and "
+                    "perturbing aaRS activity is 'catastrophic' — a full KO is the extreme of that."
+                    if machinery_role == "aaRS" else "")
         note = ("Core central-dogma machinery (" + str(machinery_role) + "). A full single-gene KO removes an "
                 "essential subunit of translation/transcription/replication — EMPIRICALLY the sim CRASHES rather "
                 "than reaching a phenotype (gltX aaRS KO: ribosome_conc 21->2.15, NegativeCountsError in "
-                "PolypeptideElongation, 4/4 seeds). This is a model breakdown, NOT an interpretable result. For a "
-                "measurable capacity effect use a GRADED perturbation (rrna_operon_knockout, ppgpp_conc).")
+                "PolypeptideElongation, 4/4 seeds). This is a model breakdown, NOT an interpretable result." + aaRS_lit +
+                " For a measurable capacity effect use a GRADED perturbation (rrna_operon_knockout, ppgpp_conc).")
     elif not mechanistic:
         ko_effect = "none_inert"
         note = ("EXPRESSED but function NOT simulated. A KO shows no phenotype BY CONSTRUCTION — model scope, "
