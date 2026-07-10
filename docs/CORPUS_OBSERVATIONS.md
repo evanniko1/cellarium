@@ -300,6 +300,15 @@ protein 0 from t=0) still runs ~3 generations before crashing: it limps on an in
 the absent synthetase can't regenerate, which depletes across generations until elongation stalls. The dilution
 that matters is of the *inherited substrate pools*, not the knocked-out protein.
 
+**Metabolic KOs are NOT buffer-limited — the reroute is genuine steady-state (verified).** Per-generation growth
+for fabI/glmS/gltA is FLAT across all 4 generations (~0.00022–0.00025 /s, ≈ WT) with no gen-over-gen decline. Were
+the cell running down an inherited product pool, growth would trend downward each division (the gltX signature);
+it doesn't. So the FBA re-supplies the demand every generation — you would NOT see an effect at 10 generations (or
+ever). Biologically this is the *unrealistic* part: fabI is the sole enoyl-ACP reductase (no bypass in reality),
+yet the homeostatic network finds a feasible flux meeting the target without it — exactly the flexibility that
+makes it a `model_UNDER_predicts` case. No X-zeroing or added generations fixes that; only the objective (biomass-
+max would block it) or the ground-truth benchmark does.
+
 ## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
 Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
 characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):
