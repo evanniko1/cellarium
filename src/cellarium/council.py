@@ -12,6 +12,10 @@ the grounded Cellarium agent runs. Three roles debate:
 
 The Council sees only instrument.dial_labels() (capabilities, never readings — the D2/D4 quarantine). On an
 irreducible construct ambiguity it asks the user (D3). Loop constants default to max_rounds=4, quota=3 (D5).
+
+Each role receives only a COMPACT view (the previous candidate + the open objections), not the whole growing
+transcript — this keeps structured outputs from truncating and makes the debate cheap. The Council returns the
+BEST complete candidate it reached, not merely the last (a late round can degenerate).
 """
 
 from __future__ import annotations
@@ -33,29 +37,37 @@ OBJECTION_TYPES = ["undefined_term", "hidden_auxiliary", "unfalsifiable", "confl
 _PROPOSER_SYS = (
     "You are the PROPOSER in a Socratic Council that turns a vague research question into ONE falsifiable, "
     "operationalized hypothesis testable on a whole-cell E. coli simulation. Your stance is maieutic (Socratic "
-    "midwifery): construct the sharpest CURRENT candidate.\n"
-    "Requirements for every candidate:\n"
+    "midwifery): construct the sharpest CURRENT candidate. You are usually REVISING a previous_candidate to "
+    "address open_objections — preserve everything that already works and return a COMPLETE hypothesis EVERY "
+    "time (never omit a required field, even mid-revision).\n"
+    "Every candidate must:\n"
     "- ABDUCTION: infer the best candidate explanation worth testing.\n"
-    "- OPERATIONALIZE every construct onto a REAL dial label from the instrument (a channel name or species) — "
-    "a construct means the operations that measure it (Bridgman). Never invent a channel.\n"
+    "- OPERATIONALIZE every construct onto a REAL dial label (a channel name from the instrument, or a named "
+    "species) — a construct means the operations that measure it (Bridgman). Never invent a channel.\n"
     "- State H1 (alternative) and H0 (null); the null is normally the reference design.\n"
-    "- State the predicted effect with DIRECTION and rough MAGNITUDE.\n"
-    "- Give a FALSIFIER as a disconfirm(target, reference, channel) spec plus a decision_rule and the concrete "
-    "refuting_result — a risky prohibition that COULD fail (Popper). If no result could refute it, it is not a "
-    "hypothesis.\n"
+    "- Fill predicted_effect with an explicit DIRECTION and a rough MAGNITUDE (a number: a CV, a fold-change, a "
+    "slope, a %, a copy-number). Never leave it empty.\n"
+    "- Give a FALSIFIER that is a risky prohibition able to FAIL (Popper). falsifier.target and "
+    "falsifier.reference MUST be design LABELS of the form 'perturbation/condition' that correspond to entries "
+    "in candidate_designs — NOT prose. falsifier.channel MUST be one of the instrument's summary channels. "
+    "decision_rule names the statistic + threshold; refuting_result is the concrete outcome that would refute "
+    "H1.\n"
+    "- candidate_designs MUST be STRUCTURED objects (perturbation/condition/timeline/seeds/generations/params) "
+    "expressible in the validated envelope (only listed perturbations; a mid-run carbon-source switch is NOT "
+    "allowed). Put the experiment HERE, not in prose inside the falsifier.\n"
     "- Enumerate at least TWO rival hypotheses (Chamberlin/Platt), each with the distinguishing_result the sim "
     "would show if THAT rival were true.\n"
-    "- List auxiliary (ceteris paribus) assumptions the test rides on (Duhem-Quine).\n"
-    "- Propose at least ONE candidate Design expressible in the validated envelope (use only listed "
-    "perturbations; a mid-run carbon-source switch is NOT allowed).\n"
-    "You have NOT run anything: never assume an experimental result or a corpus value. Address each open "
-    "objection from the skeptic explicitly (list them in addressed_objections) and revise. Emit via the tool."
+    "- List auxiliary (ceteris paribus) assumptions the test rides on (Duhem-Quine). For a concern the "
+    "SIMULATOR cannot resolve (deterministic chaos vs stochastic noise; a mutant's confounded basal physiology; "
+    "a readout the model does not compute), do NOT chase it forever — record it as an explicit "
+    "auxiliary_assumption / scope caveat and move on.\n"
+    "You have NOT run anything: never assume an experimental result or a corpus value. Emit via the tool."
 )
 
 _SKEPTIC_SYS = (
     "You are the SKEPTIC in a Socratic Council. Your stance is Socratic ignorance (docta ignorantia): assume "
-    "NOTHING. You do not propose hypotheses — you produce objections (aporiai) that expose why the current "
-    "candidate is not yet a rigorous, testable hypothesis. Objection types:\n"
+    "NOTHING. You do not propose hypotheses — you produce objections (aporiai) that expose why the candidate is "
+    "not yet a rigorous, testable hypothesis. Objection types:\n"
     "- undefined_term: an equivocal word ('identical', 'behave', 'different', 'better').\n"
     "- hidden_auxiliary: an unstated ceteris paribus / Duhem-Quine assumption.\n"
     "- unfalsifiable: no risky prohibition, or a falsifier that cannot actually fail.\n"
@@ -65,9 +77,13 @@ _SKEPTIC_SYS = (
     "run.\n"
     "- construct_ambiguity: a genuine choice about WHICH observable/reading the user meant that you cannot "
     "resolve from the question alone — set irreducible=true and give a crisp user_question.\n"
-    "Mark each objection severity 'substantive' (blocks convergence) or 'minor'. Be adversarial but fair — only "
-    "objections a rigorous reviewer would raise. If the candidate is genuinely airtight, say so with no "
-    "substantive objections. Emit via the tool."
+    "DISCIPLINE (critical): raise AT MOST 3 objections — the most decisive. Do NOT re-raise anything already "
+    "addressed in previous_candidate, already parked as a stated auxiliary_assumption, or already answered in "
+    "resolved_ambiguities. A concern the instrument genuinely cannot resolve is type outruns_instrument, raised "
+    "AT MOST ONCE as 'minor' with the suggestion to state it as an auxiliary assumption — never re-raise it as "
+    "substantive across rounds. If the candidate satisfies the rubric, return an EMPTY objections list: silence "
+    "is the correct output for an adequate hypothesis. Mark each objection severity 'substantive' (blocks "
+    "convergence) or 'minor'. Emit via the tool."
 )
 
 _JUDGE_SYS = (
@@ -78,13 +94,16 @@ _JUDGE_SYS = (
     "magnitude are all present.\n"
     "- operationalized: every construct is bound to a real dial label and the falsifier is a usable "
     "disconfirm(target, reference, channel) with a decision rule.\n"
-    "- discriminating: the predicted result separates the hypothesis from its named rivals (Platt strong "
-    "inference).\n"
+    "- discriminating: the predicted result separates the hypothesis from its named rivals (Platt).\n"
     "The 'feasible' fact is computed deterministically and given to you — do not re-derive it.\n"
-    "Convergence: new_substantive_objection_this_round = did the skeptic raise a NEW substantive objection not "
-    "already resolved? open_objections_resolved = are all open objections resolved or explicitly parked as "
-    "stated auxiliary assumptions? Be strict: if a construct is still equivocal or the falsifier cannot fail, "
-    "falsifiable/operationalized must be false. Emit via the tool."
+    "Convergence: an objection is RESOLVED if the proposer either FIXED it OR explicitly parked it as a stated "
+    "auxiliary_assumption / scope limitation. open_objections_resolved = true when EVERY open objection is "
+    "resolved in one of those two senses (an instrument-exceeding concern acknowledged as an auxiliary "
+    "assumption counts as resolved). new_substantive_objection_this_round = true only if the skeptic raised a "
+    "NEW substantive objection this round that is neither addressed nor parked. Be strict on the rubric but do "
+    "not demand the impossible: a hypothesis that is falsifiable, specified, operationalized, discriminating, "
+    "feasible, and whose remaining objections are all parked as stated assumptions SHOULD converge. Emit via "
+    "the tool."
 )
 
 
@@ -97,7 +116,9 @@ _RIVAL = {"type": "object", "properties": {
     "claim": {"type": "string"}, "distinguishing_result": {"type": "string"}},
     "required": ["claim", "distinguishing_result"]}
 _FALSIFIER = {"type": "object", "properties": {
-    "target": {"type": "string"}, "reference": {"type": "string"}, "channel": {"type": "string"},
+    "target": {"type": "string", "description": "a design label 'perturbation/condition' in candidate_designs"},
+    "reference": {"type": "string", "description": "the null/baseline design label"},
+    "channel": {"type": "string", "description": "one instrument summary channel"},
     "decision_rule": {"type": "string"}, "refuting_result": {"type": "string"}},
     "required": ["target", "reference", "channel", "decision_rule", "refuting_result"]}
 _DESIGN = {"type": "object", "properties": {
@@ -107,12 +128,12 @@ _DESIGN = {"type": "object", "properties": {
 
 _PROPOSE_TOOL = {
     "name": "propose_hypothesis",
-    "description": "Emit the sharpest current candidate hypothesis.",
+    "description": "Emit the sharpest current candidate hypothesis — always complete.",
     "input_schema": {"type": "object", "properties": {
         "claim": {"type": "string", "description": "natural-language H1"},
         "h1": {"type": "string"}, "h0": {"type": "string"},
         "operational_defs": {"type": "array", "items": _OD},
-        "predicted_effect": {"type": "string", "description": "direction + rough magnitude"},
+        "predicted_effect": {"type": "string", "description": "explicit direction + rough magnitude (a number)"},
         "falsifier": _FALSIFIER,
         "rivals": {"type": "array", "items": _RIVAL},
         "auxiliary_assumptions": {"type": "array", "items": {"type": "string"}},
@@ -124,7 +145,7 @@ _PROPOSE_TOOL = {
 
 _SKEPTIC_TOOL = {
     "name": "raise_objections",
-    "description": "Emit typed objections to the candidate hypothesis.",
+    "description": "Emit at most 3 typed objections (or none if the candidate is adequate).",
     "input_schema": {"type": "object", "properties": {
         "objections": {"type": "array", "items": {"type": "object", "properties": {
             "type": {"type": "string", "enum": OBJECTION_TYPES},
@@ -160,40 +181,44 @@ def _default_models() -> dict:
             "judge": os.environ.get("CELLARIUM_JUDGE_MODEL") or base}
 
 
-def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 2048) -> dict:
-    """One forced-tool call -> the validated structured input dict."""
-    resp = client.messages.create(
-        model=model, max_tokens=max_tokens, system=system, tools=[tool],
-        tool_choice={"type": "tool", "name": tool["name"]},
-        messages=[{"role": "user", "content": json.dumps(payload)}],
-    )
-    for block in resp.content:
-        if getattr(block, "type", None) == "tool_use":
-            return dict(block.input)
+def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 3072) -> dict:
+    """One forced-tool call -> the validated structured input dict. Retries once if the tool input comes back
+    empty (a rare truncation/degenerate emit)."""
+    for _ in range(2):
+        resp = client.messages.create(
+            model=model, max_tokens=max_tokens, system=system, tools=[tool],
+            tool_choice={"type": "tool", "name": tool["name"]},
+            messages=[{"role": "user", "content": json.dumps(payload)}],
+        )
+        for block in resp.content:
+            if getattr(block, "type", None) == "tool_use" and block.input:
+                return dict(block.input)
     return {}
 
 
-# --- role calls --------------------------------------------------------------------------------------------
+# --- role calls (compact payloads — no growing transcript) --------------------------------------------------
 
-def _propose(client, models, question, labels, dialogue, answered, open_objections) -> dict:
+def _propose(client, models, question, labels, previous_candidate, open_objections, answered) -> dict:
     payload = {"question": question, "dial_labels": labels,
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
-               "open_objections": open_objections, "prior_rounds": dialogue}
-    return _emit(client, models["proposer"], _PROPOSER_SYS, _PROPOSE_TOOL, payload)
+               "previous_candidate": previous_candidate, "open_objections": open_objections,
+               "instruction": "Revise previous_candidate to resolve open_objections; keep what already works; "
+                              "return a COMPLETE hypothesis."}
+    return _emit(client, models["proposer"], _PROPOSER_SYS, _PROPOSE_TOOL, payload, max_tokens=4096)
 
 
-def _skeptic(client, models, question, labels, candidate, dialogue, answered) -> dict:
+def _skeptic(client, models, question, labels, candidate, answered) -> dict:
     payload = {"question": question, "channels": instrument.channel_names(),
                "perturbations": sorted(labels.get("perturbations", {})),
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
-               "candidate": candidate, "prior_rounds": dialogue}
-    return _emit(client, models["skeptic"], _SKEPTIC_SYS, _SKEPTIC_TOOL, payload)
+               "candidate": candidate}
+    return _emit(client, models["skeptic"], _SKEPTIC_SYS, _SKEPTIC_TOOL, payload, max_tokens=2048)
 
 
-def _judge(client, models, question, labels, candidate, objections, feasible_code, dialogue) -> dict:
+def _judge(client, models, question, candidate, objections, feasible_code) -> dict:
     payload = {"question": question, "candidate": candidate, "objections": objections,
-               "feasible": feasible_code, "channels": instrument.channel_names(), "prior_rounds": dialogue}
-    return _emit(client, models["judge"], _JUDGE_SYS, _JUDGE_TOOL, payload)
+               "feasible": feasible_code, "channels": instrument.channel_names()}
+    return _emit(client, models["judge"], _JUDGE_SYS, _JUDGE_TOOL, payload, max_tokens=1536)
 
 
 # --- assembly + gates --------------------------------------------------------------------------------------
@@ -202,7 +227,9 @@ _DESIGN_KEYS = {"perturbation", "condition", "timeline", "seeds", "generations",
 
 
 def _to_design(d: dict) -> Design | None:
-    clean = {k: v for k, v in (d or {}).items() if k in _DESIGN_KEYS and v is not None}
+    if not isinstance(d, dict):
+        return None  # a proposer sometimes emits a design as a bare string — not usable
+    clean = {k: v for k, v in d.items() if k in _DESIGN_KEYS and v is not None}
     if "params" in clean and not isinstance(clean["params"], dict):
         clean.pop("params")
     try:
@@ -211,8 +238,17 @@ def _to_design(d: dict) -> Design | None:
         return None
 
 
+def _complete(cand: dict) -> bool:
+    """A structurally usable candidate — used to guard against degenerate/truncated emits and to score 'best'."""
+    if not cand:
+        return False
+    f = cand.get("falsifier") or {}
+    return bool(cand.get("claim") and cand.get("h1") and cand.get("h0") and cand.get("predicted_effect")
+                and cand.get("operational_defs") and len(cand.get("rivals") or []) >= 2
+                and f.get("target") and f.get("reference") and f.get("channel") and f.get("refuting_result"))
+
+
 def _structural_ok(cand: dict) -> bool:
-    """Deterministic structural floor, independent of the judge's semantic call."""
     f = cand.get("falsifier") or {}
     return bool(cand.get("claim") and cand.get("h1") and cand.get("h0")
                 and cand.get("operational_defs") and cand.get("rivals")
@@ -253,6 +289,12 @@ def _residual(open_objections: list, parked: set) -> list[str]:
     return out
 
 
+def _score(cand: dict, feasible: bool, verdict: dict) -> int:
+    """Rank complete candidates so the round-cap fallback returns the best one, not the last."""
+    rubric = sum(bool(verdict.get(k)) for k in ("falsifiable", "specified", "operationalized", "discriminating"))
+    return (8 if _complete(cand) else 0) + (4 if feasible else 0) + rubric
+
+
 # --- the loop ----------------------------------------------------------------------------------------------
 
 def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
@@ -265,20 +307,24 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         client = anthropic.Anthropic()
     models = models or _default_models()
 
-    dialogue: list[dict] = []
     answered: list[tuple[str, str]] = []
     parked: set[str] = set()
     open_objections: list[dict] = []
     total_substantive = 0
-    last: dict = {}
+    previous_candidate: dict | None = None
+    best: dict = {}
+    best_score = -1
 
     for rnd in range(max_rounds):
-        cand = _propose(client, models, question, labels, dialogue, answered, open_objections)
+        cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered)
+        if not _complete(cand) and _complete(previous_candidate or {}):
+            cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
+        previous_candidate = cand
         feasible_code = _feasible(cand)
         if verbose:
             print(f"  · round {rnd + 1}: proposer -> {cand.get('claim', '')[:90]}")
 
-        objs = _skeptic(client, models, question, labels, cand, dialogue, answered)
+        objs = _skeptic(client, models, question, labels, cand, answered)
         objections = objs.get("objections", []) or []
         substantive = [o for o in objections if o.get("severity") == "substantive"]
         total_substantive += len(substantive)
@@ -295,12 +341,11 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
             if ask_user is not None:
                 ans = ask_user(q)
                 answered.append((q, ans))
-                dialogue.append({"round": rnd, "candidate": cand, "objections": objections, "asked": [q, ans]})
                 open_objections = objections
                 continue
             parked.add(f"[construct_ambiguity] {q}")  # non-interactive: cannot resolve, park it
 
-        verdict = _judge(client, models, question, labels, cand, objections, feasible_code, dialogue)
+        verdict = _judge(client, models, question, cand, objections, feasible_code)
         adequate = all([verdict.get("falsifiable"), verdict.get("specified"),
                         verdict.get("operationalized"), verdict.get("discriminating"), feasible_code])
         converged_signal = (not verdict.get("new_substantive_objection_this_round")
@@ -310,20 +355,16 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
             print(f"    judge -> adequate={adequate} converged={converged_signal} "
                   f"quota={total_substantive}/{quota} feasible={feasible_code}")
 
-        dialogue.append({"round": rnd, "candidate": cand, "objections": objections, "verdict": verdict})
         open_objections = objections
-        last = {"cand": cand, "adequate": adequate, "structural": structural,
-                "converged_signal": converged_signal}
+        score = _score(cand, feasible_code, verdict)
+        if score > best_score:
+            best, best_score = cand, score
 
         if adequate and converged_signal and structural and not parked and total_substantive >= quota:
             return _assemble(question, cand, residual=[], converged=True)
 
-    # Round cap — return best-effort. Treat it as clean only if the LAST round was itself adequate, structurally
-    # sound, and quiet (the convergence signal held) with nothing parked; the only thing unmet is then the quota
-    # of doubt — i.e. the skeptic simply could not surface N substantive objections against a hypothesis that
-    # withstood the full debate. If the skeptic was still objecting at the cap, it is NOT clean.
-    residual = _residual(open_objections, parked)
-    clean = bool(last.get("adequate") and last.get("structural") and last.get("converged_signal")) and not parked
-    return _assemble(question, last.get("cand", {}),
-                     residual=([] if clean else (residual or ["reached round cap without full convergence"])),
-                     converged=clean)
+    # Round cap — return the BEST complete candidate reached (not a possibly-degenerate last one), flagged as
+    # not-cleanly-converged with the residual substantive objections / parked ambiguities.
+    final = best if best else (previous_candidate or {})
+    residual = _residual(open_objections, parked) or ["reached round cap without full convergence"]
+    return _assemble(question, final, residual=residual, converged=False)

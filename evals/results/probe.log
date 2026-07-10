@@ -1,0 +1,34 @@
+
+=== 3.1  Do genetically identical cells behave differently?
+  · round 1: proposer -> Genetically identical E. coli cells running the same wildtype/basal program show substanti
+    skeptic -> 7 objections (5 substantive, 5 cumulative)
+  · round 2: proposer -> Within the whole-cell simulator, independent stochastic seeds of the identical wildtype/ba
+    skeptic -> 6 objections (4 substantive, 9 cumulative)
+    judge -> adequate=False converged=False quota=9/3 feasible=False
+  · round 3: proposer -> In the whole-cell simulator, independent stochastic seeds of the identical wildtype/basal 
+    skeptic -> 6 objections (4 substantive, 13 cumulative)
+  · round 4: proposer -> 
+    skeptic -> 5 objections (4 substantive, 17 cumulative)
+  floor=FAIL  min_bar=fail  stringent=fail
+    stringent miss: S2: names a variance-partition / autocorrelation test separating persi — Uses a numerical-noise-floor control and bootstrap CI, but no true variance-partition or a
+    stringent miss: S3: the predicted result discriminates non-genetic individuality from  — Discriminates against solver/measurement-noise artifact via the dial, but does not exclude
+    stringent miss: S4: ties the variance to a specific low-copy protein pool (the isolati — Ties variance to ribosome/rRNA operon dosage (an abundant, high-copy translation resource)
+
+=== 4.2  What does a cell do when it suddenly runs out of amino acids?
+  · round 1: proposer -> When extracellular amino acids are abruptly withdrawn, the cell triggers the stringent res
+    skeptic -> 8 objections (7 substantive, 7 cumulative)
+  · round 2: proposer -> When a single amino acid is abruptly removed from the medium (operationalized as a timelin
+    skeptic -> 6 objections (4 substantive, 11 cumulative)
+  · round 3: proposer -> 
+    skeptic -> 5 objections (4 substantive, 15 cumulative)
+  · round 4: proposer -> When a single amino acid is abruptly withdrawn from the medium, the cell mounts a RelA-dep
+    skeptic -> 6 objections (4 substantive, 19 cumulative)
+  floor=FAIL  min_bar=fail  stringent=fail
+    stringent miss: S1: gives the sign and rough magnitude/timescale of the ppGpp spike an — No sign, magnitude, or timescale is provided; predicted_effect is empty.
+    stringent miss: S2: specifies a pre/post (time-resolved) comparison statistic — No comparison statistic is defined; only vague references to a 'null model' appear in ambi
+    stringent miss: S3: the prediction discriminates the active-ppGpp-signal from the pass — The rivals field is empty and no prediction is stated, so no discrimination against passiv
+    stringent miss: S4: includes the ppGpp-null (relA/spoT knockout) relaxed-phenotype con — The relA/spoT double-knockout is mentioned only in an ambiguity note critiquing it, not as
+
+===== SUMMARY  min-bar 0/2   stringent-bar 0/2   -> evals/results/probe.json
+  3.1: min=n stringent=n  Do genetically identical cells behave differently?
+  4.2: min=n stringent=n  What does a cell do when it suddenly runs out of amino

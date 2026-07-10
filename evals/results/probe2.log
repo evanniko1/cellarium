@@ -1,0 +1,23 @@
+
+=== 3.1  Do genetically identical cells behave differently?
+  · round 1: proposer -> Genetically identical E. coli cells growing in the same static basal medium exhibit substa
+    skeptic -> 3 objections (2 substantive, 2 cumulative)
+    judge -> adequate=True converged=False quota=2/3 feasible=True
+  · round 2: proposer -> Genetically identical E. coli cells growing in the same static basal medium, simulated wit
+    skeptic -> 2 objections (1 substantive, 3 cumulative)
+  · round 3: proposer -> Genetically identical E. coli cells growing in the same static basal medium, simulated wit
+    skeptic -> 2 objections (1 substantive, 4 cumulative)
+  · round 4: proposer -> Genetically identical E. coli cells growing in the same static basal medium, simulated wit
+    skeptic -> 3 objections (1 substantive, 5 cumulative)
+    judge -> adequate=False converged=False quota=5/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=fail
+    stringent miss: S4: ties the variance to a specific low-copy protein pool (the isolati — Ties variance to ppGpp (a small-molecule alarmone) and generic gene-expression noise, not 
+
+=== 4.2  What does a cell do when it suddenly runs out of amino acids?
+  · round 1: proposer -> Sudden amino acid starvation triggers the stringent response: uncharged tRNA accumulation 
+    skeptic -> 3 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=False quota=1/3 feasible=True
+  !! deliberate failed: AttributeError: 'str' object has no attribute 'items'
+
+===== SUMMARY  min-bar 1/1   stringent-bar 0/1   -> evals/results/probe2.json
+  3.1: min=Y stringent=n  Do genetically identical cells behave differently?
