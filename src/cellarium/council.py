@@ -205,6 +205,26 @@ _JUDGE_TOOL = {
 }
 
 
+# --- ablation variants (used only when the corresponding knob is set) --------------------------------------
+
+_ADVERSARIAL_SUFFIX = (
+    "\nADVERSARIAL MODE: be maximally critical. Actively hunt for the strongest rubric-breaking objection you "
+    "can construct; do not accept a hypothesis as adequate unless you genuinely cannot find a falsifiability, "
+    "operationalization, discrimination, or feasibility flaw. Prefer surfacing a real defect over silence.")
+
+_JUDGE_GENERIC_SYS = (
+    "You are a judge assessing whether a proposed scientific hypothesis is good. Use your general judgment of "
+    "hypothesis quality — is it a sensible, well-formed, worthwhile hypothesis for the question? Do NOT apply "
+    "any specific falsifiability/operationalization checklist. Emit adequate=true if it is a good hypothesis.")
+
+_JUDGE_GENERIC_TOOL = {
+    "name": "rule_generic",
+    "description": "Judge whether this is a good hypothesis (general judgment, no rubric).",
+    "input_schema": {"type": "object", "properties": {
+        "adequate": {"type": "boolean"}, "rationale": {"type": "string"}}, "required": ["adequate"]},
+}
+
+
 # --- LLM plumbing ------------------------------------------------------------------------------------------
 
 def _default_models() -> dict:
@@ -214,14 +234,17 @@ def _default_models() -> dict:
             "judge": os.environ.get("CELLARIUM_JUDGE_MODEL") or base}
 
 
-def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 3072) -> dict:
+def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 3072,
+          temperature: float | None = None) -> dict:
     """One forced-tool call -> the validated structured input dict. Retries once if the tool input comes back
-    empty (a rare truncation/degenerate emit)."""
+    empty (a rare truncation/degenerate emit). `temperature` is passed only when set (None => API default),
+    so a run can pin it for reproducibility / name the sampling variance source."""
+    kw = {} if temperature is None else {"temperature": temperature}
     for _ in range(2):
         resp = client.messages.create(
             model=model, max_tokens=max_tokens, system=system, tools=[tool],
             tool_choice={"type": "tool", "name": tool["name"]},
-            messages=[{"role": "user", "content": json.dumps(payload)}],
+            messages=[{"role": "user", "content": json.dumps(payload)}], **kw,
         )
         for block in resp.content:
             if getattr(block, "type", None) == "tool_use" and block.input:
@@ -231,27 +254,44 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
 
 # --- role calls (compact payloads — no growing transcript) --------------------------------------------------
 
-def _propose(client, models, question, labels, previous_candidate, open_objections, answered) -> dict:
+def _propose(client, models, question, labels, previous_candidate, open_objections, answered,
+             *, temperature=None, leak=None) -> dict:
     payload = {"question": question, "dial_labels": labels,
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
                "previous_candidate": previous_candidate, "open_objections": open_objections,
                "instruction": "Revise previous_candidate to resolve open_objections; keep what already works; "
                               "return a COMPLETE hypothesis."}
-    return _emit(client, models["proposer"], _PROPOSER_SYS, _PROPOSE_TOOL, payload, max_tokens=4096)
+    if leak is not None:  # quarantine ABLATION only: hand the proposer the answer key it is normally denied
+        payload["leaked_reference_answer"] = leak
+        payload["instruction"] += (" A reference answer for this question is provided in "
+                                    "'leaked_reference_answer'; use it to inform your hypothesis.")
+    return _emit(client, models["proposer"], _PROPOSER_SYS, _PROPOSE_TOOL, payload, max_tokens=4096,
+                 temperature=temperature)
 
 
-def _skeptic(client, models, question, labels, candidate, answered) -> dict:
+def _skeptic(client, models, question, labels, candidate, answered, *, temperature=None, adversarial=False) -> dict:
     payload = {"question": question, "channels": instrument.channel_names(),
                "perturbations": sorted(labels.get("perturbations", {})),
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
                "candidate": candidate}
-    return _emit(client, models["skeptic"], _SKEPTIC_SYS, _SKEPTIC_TOOL, payload, max_tokens=2048)
+    system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
+    return _emit(client, models["skeptic"], system, _SKEPTIC_TOOL, payload, max_tokens=2048,
+                 temperature=temperature)
 
 
-def _judge(client, models, question, candidate, objections, feasible_code) -> dict:
+def _judge(client, models, question, candidate, objections, feasible_code, *, temperature=None,
+           judge_mode="rubric") -> dict:
     payload = {"question": question, "candidate": candidate, "objections": objections,
                "feasible": feasible_code, "channels": instrument.channel_names()}
-    return _emit(client, models["judge"], _JUDGE_SYS, _JUDGE_TOOL, payload, max_tokens=1536)
+    if judge_mode == "generic":  # ablation: a plain "is this a good hypothesis?" judge, no falsifiability rubric
+        out = _emit(client, models["judge"], _JUDGE_GENERIC_SYS, _JUDGE_GENERIC_TOOL, payload, max_tokens=1024,
+                    temperature=temperature)
+        good = bool(out.get("adequate"))
+        return {"falsifiable": good, "specified": good, "operationalized": good, "discriminating": good,
+                "new_substantive_objection_this_round": not good, "open_objections_resolved": good,
+                "rationale": out.get("rationale", "")}
+    return _emit(client, models["judge"], _JUDGE_SYS, _JUDGE_TOOL, payload, max_tokens=1536,
+                 temperature=temperature)
 
 
 # --- assembly + gates --------------------------------------------------------------------------------------
@@ -293,7 +333,8 @@ def _feasible(cand: dict) -> bool:
     return any(instrument.check_design(d)["usable"] for d in designs)
 
 
-def _assemble(question: str, cand: dict, residual: list[str], converged: bool) -> Hypothesis:
+def _assemble(question: str, cand: dict, residual: list[str], converged: bool,
+              rounds_used: int = 0, substantive_objections: int = 0) -> Hypothesis:
     cand = cand or {}
     ods = [OperationalDef(**o) for o in cand.get("operational_defs", []) if isinstance(o, dict)]
     rivals = [Rival(**r) for r in cand.get("rivals", []) if isinstance(r, dict)]
@@ -311,6 +352,7 @@ def _assemble(question: str, cand: dict, residual: list[str], converged: bool) -
         operational_defs=ods, predicted_effect=cand.get("predicted_effect", ""), falsifier=falsifier,
         rivals=rivals, auxiliary_assumptions=list(cand.get("auxiliary_assumptions", []) or []),
         candidate_designs=designs, residual_ambiguities=residual, converged=converged,
+        rounds_used=rounds_used, substantive_objections=substantive_objections,
     )
 
 
@@ -332,8 +374,16 @@ def _score(cand: dict, feasible: bool, verdict: dict) -> int:
 
 def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                ask_user: Callable[[str], str] | None = None, client=None, models: dict | None = None,
-               labels: dict | None = None, verbose: bool = True) -> Hypothesis:
-    """Run the elenchus and return a justification-ready Hypothesis (see module docstring)."""
+               labels: dict | None = None, verbose: bool = True,
+               use_skeptic: bool = True, use_judge: bool = True, leak: str | None = None,
+               judge_mode: str = "rubric", temperature: float | None = None,
+               adversarial_skeptic: bool = False) -> Hypothesis:
+    """Run the elenchus and return a justification-ready Hypothesis (see module docstring).
+
+    Ablation knobs (all default to the full system): `use_skeptic`/`use_judge` disable a role (proposer-only when
+    both False = a single-shot baseline); `leak` hands the proposer an answer key (quarantine ablation);
+    `judge_mode='generic'` swaps the falsifiability rubric for a plain quality judge; `temperature` pins sampling;
+    `adversarial_skeptic` strengthens the critic."""
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
         import anthropic
@@ -352,7 +402,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     consecutive_clean = 0
 
     for rnd in range(max_rounds):
-        cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered)
+        cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered,
+                        temperature=temperature, leak=leak)
         if not _complete(cand) and _complete(previous_candidate or {}):
             cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
         previous_candidate = cand
@@ -360,13 +411,22 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         if verbose:
             print(f"  · round {rnd + 1}: proposer -> {cand.get('claim', '')[:90]}")
 
-        objs = _skeptic(client, models, question, labels, cand, answered)
-        objections = [o for o in (objs.get("objections") or []) if isinstance(o, dict)]  # guard string emits
+        # Proposer-only ablation (no critique, no gate): a single-shot baseline.
+        if not use_skeptic and not use_judge:
+            return _assemble(question, cand, residual=[], converged=True, rounds_used=1,
+                             substantive_objections=0)
+
+        if use_skeptic:
+            objs = _skeptic(client, models, question, labels, cand, answered,
+                            temperature=temperature, adversarial=adversarial_skeptic)
+            objections = [o for o in (objs.get("objections") or []) if isinstance(o, dict)]  # guard string emits
+        else:
+            objections = []
         substantive = [o for o in objections if o.get("severity") == "substantive"]
         total_substantive += len(substantive)
         if verbose:
             print(f"    skeptic -> {len(objections)} objections ({len(substantive)} substantive, "
-                  f"{total_substantive} cumulative)")
+                  f"{total_substantive} cumulative)" + ("" if use_skeptic else " [skeptic OFF]"))
 
         # D3 escalation: an irreducible construct ambiguity we haven't already resolved
         asked_qs = {q for q, _ in answered}
@@ -381,7 +441,14 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                 continue
             parked.add(f"[construct_ambiguity] {q}")  # non-interactive: cannot resolve, park it
 
-        verdict = _judge(client, models, question, cand, objections, feasible_code)
+        if use_judge:
+            verdict = _judge(client, models, question, cand, objections, feasible_code,
+                             temperature=temperature, judge_mode=judge_mode)
+        else:  # no independent judge: derive adequacy structurally, converge when the skeptic goes quiet
+            ok = _structural_ok(cand)
+            verdict = {"falsifiable": ok, "specified": ok, "operationalized": ok, "discriminating": ok,
+                       "new_substantive_objection_this_round": bool(substantive),
+                       "open_objections_resolved": not substantive}
         adequate = all([verdict.get("falsifiable"), verdict.get("specified"),
                         verdict.get("operationalized"), verdict.get("discriminating"), feasible_code])
         converged_signal = (not verdict.get("new_substantive_objection_this_round")
@@ -408,12 +475,15 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         # genuinely raised and resolved), OR has been stably clean for two rounds — an airtight hypothesis yields
         # few substantive objections, so 'stable' is the honest convergence signal when the quota is unreachable.
         if clean and (total_substantive >= quota or consecutive_clean >= 2):
-            return _assemble(question, cand, residual=[], converged=True)
+            return _assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
+                             substantive_objections=total_substantive)
 
     # Round cap. The full debate has run, so the quota's scrutiny has been applied; if any round produced a clean
     # judge-certified candidate, accept it. Otherwise return the best complete candidate, flagged not-converged.
     if converged_cand:
-        return _assemble(question, converged_cand, residual=[], converged=True)
+        return _assemble(question, converged_cand, residual=[], converged=True, rounds_used=max_rounds,
+                         substantive_objections=total_substantive)
     final = best if best else (previous_candidate or {})
     residual = _residual(open_objections, parked) or ["reached round cap without full convergence"]
-    return _assemble(question, final, residual=residual, converged=False)
+    return _assemble(question, final, residual=residual, converged=False, rounds_used=max_rounds,
+                     substantive_objections=total_substantive)

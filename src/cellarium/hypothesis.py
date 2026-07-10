@@ -61,6 +61,8 @@ class Hypothesis(BaseModel):
     candidate_designs: list[Design] = Field(default_factory=list)   # already envelope/biosecurity-checked
     residual_ambiguities: list[str] = Field(default_factory=list)   # empty on clean convergence
     converged: bool = True                                          # False => returned at the round cap, best-effort
+    rounds_used: int = 0                                            # debate rounds actually run (for the ablations)
+    substantive_objections: int = 0                                # cumulative substantive objections the skeptic raised
 
     def brief(self) -> str:
         """Compact justification brief injected into the grounded agent's context (agent.run)."""
