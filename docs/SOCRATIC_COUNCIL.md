@@ -182,7 +182,10 @@ independent conditions, **both** required (terminate iff **A ∧ B**):
 4. *Discriminating* (Platt) — the predicted result separates this hypothesis from
    the enumerated rivals.
 5. *Feasible* — expressible as a valid `Design`, passing `envelope.check` and
-   `biosecurity.screen`, with the correct mechanistic scope.
+   `biosecurity.screen`. Mechanistic-scope adequacy (whether a knocked-out gene's
+   function is even simulated) is **not** checked here; per decision D4 it is
+   deferred to the downstream agent's own `mechanistic_scope` call in the context
+   of justification.
 
 **(B) Convergence signal** — has the dialectic stopped producing substance? The
 skeptic raised no *new* substantive objection in the last round (aporia
@@ -248,9 +251,11 @@ principle: **give the Council the instrument's dial labels, not its readings.**
 
   *Leak found while scoping this:* `mechanistic_scope` (`tools.py:187`) embeds a
   corpus *result* in its description ("metabolic → the model REROUTES, 0/5
-  hit-rate"). The dial-labels adapter therefore cannot re-export existing tools
-  verbatim; it must be a **filtered capability view** that strips calibrated
-  hit-rates and outcome values. See `instrument.py` in §8.
+  hit-rate"). This is a concrete example of why the dial-labels adapter cannot
+  re-export existing tools verbatim — it must be a **filtered capability view**,
+  not a passthrough. (Under decision D4 the Council sees no scope information at
+  all, so this particular leak never reaches it; the finding is retained as the
+  general caution against re-exporting tools blindly.) See `instrument.py` in §8.
 
 **D3 — On irreducible construct ambiguity, ask the user.**
 Rationale: when the residual disagreement is a genuine construct choice the models
@@ -260,17 +265,28 @@ silently commit to one reading. This makes the front stage interactive by design
 The escalation is implemented as an injected callback, not a bare `input()`, so it
 remains testable.
 
-### Open decisions (to confirm before implementation)
+**D4 — The Council sees zero scope information (resolves former O1).**
+The question was whether to expose a *structural* scope check (function modeled:
+metabolic / TF / machinery / inert, with calibrated hit-rates stripped) so the
+Council could avoid proposing structurally-untestable knockouts. Decision: give
+the Council **no scope information at all**. Rationale: this is the strictest,
+simplest reading of the D2 quarantine — the instrument adapter stays a clean
+capability view with no borderline capability/reading judgment call, and the
+adapter code is simpler. The cost, accepted knowingly: the Council can hand off a
+knockout hypothesis that is falsifiable in principle but inert *in this model*;
+that inertness is caught downstream, where the grounded agent is already required
+to call `mechanistic_scope` before interpreting any KO (`agent.py:27-28`). Scope
+adequacy thus moves entirely into the context of justification, consistent with
+the discovery/justification separation the whole design rests on. Rubric item 5
+(§5) is adjusted accordingly.
 
-**O1 — Structural scope as a dial label.** The plan treats "is this gene's function
-simulated at all?" as a *capability* (needed to know a KO can move an observable)
-while stripping the calibrated hit-rates as *readings*. Defensible, but a judgment
-call; the alternative is to give the Council zero scope information and let the
-downstream agent discover inertness.
-
-**O2 — Loop constants.** Proposed defaults: `max_rounds = 4`, quota of doubt
-`N = 3`. Small enough to stay cheap, large enough for a real elenchus. Tunable via
-env.
+**D5 — Loop constants default to `max_rounds = 4`, quota of doubt `N = 3`, and are
+exposed as CLI arguments (resolves former O2).**
+Small enough to stay cheap on well-posed questions, large enough for a real
+elenchus. Rather than hiding them behind env vars only, they are surfaced as
+optional CLI arguments (`--rounds` / `--quota`) so a user can dial the rigor of a
+specific run from the command line; the defaults apply when the flags are omitted.
+See the `cli.py` edit in §8.
 
 ---
 
@@ -293,11 +309,11 @@ the system the Council may see. The quarantine boundary, auditable in one place.
 Exposes **capabilities, never readings**: the channel namespace + units (names
 only — no `channel_stats`, no `survey_corpus` values); the species kinds
 (`_SPECIES_KINDS`) and perturbation vocabulary; the validated envelope
-(`envelope.VALIDATED_PERTURBATIONS`); a *structural* scope check with calibrated
-hit-rates stripped (fixes the D2 leak); and the falsification mechanism
-(`disconfirm(target, reference, channel)`) as the decision-rule vocabulary. It
-must **not** import `survey`, `differential`, `store` result-values, or read
-`CORPUS_OBSERVATIONS.md`. A test asserts this.
+(`envelope.VALIDATED_PERTURBATIONS`); and the falsification mechanism
+(`disconfirm(target, reference, channel)`) as the decision-rule vocabulary. Per
+decision D4 it exposes **no gene-scope information** — not even a hit-rate-stripped
+structural check. It must **not** import `survey`, `differential`, `scope`, `store`
+result-values, or read `CORPUS_OBSERVATIONS.md`. A test asserts this.
 
 **`src/cellarium/council.py`** — the orchestration:
 
@@ -334,15 +350,28 @@ must **not** import `survey`, `differential`, `store` result-values, or read
 
 ### Edits to existing files
 
-**`cli.py`** — insert the stage at the seam (between reading the question and
+**`cli.py`** — parse the question plus the two optional loop constants (D5), then
+insert the Council stage at the seam (between reading the question and
 `agent.run`):
 
 ```python
+import argparse
+p = argparse.ArgumentParser(prog="cellarium")
+p.add_argument("question", nargs="*", help="the research question")
+p.add_argument("--rounds", type=int, default=4, help="max Council debate rounds")
+p.add_argument("--quota", type=int, default=3, help="min substantive objections before convergence")
+a = p.parse_args()
+question = " ".join(a.question).strip() or DEFAULT_Q
+
 from .council import deliberate
-hyp = deliberate(question, ask_user=lambda q: input(f"\n? {q}\n> "))
+hyp = deliberate(question, max_rounds=a.rounds, quota=a.quota,
+                 ask_user=lambda q: input(f"\n? {q}\n> "))
 from .agent import run
 print(run(question, hypothesis=hyp))
 ```
+
+`deliberate(..., max_rounds=4, quota=3)` keeps the defaults in the signature, so
+the flags only override when supplied.
 
 **`agent.py`** — add an optional param `run(question, *, hypothesis=None, ...)`. When
 present, format the `Hypothesis` into a compact **justification brief** (h1/h0,
