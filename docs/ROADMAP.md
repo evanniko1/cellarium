@@ -98,8 +98,11 @@ change the **readout** (viability, not graded growth) and the **design** (graded
   carries `deprecated: True` + a `warning`. *Source: D4 root-cause.*
 
 ### P4.1 — design + coverage
-- `[ ]` **Expose `viability` as an agent tool** (`tools.py`), numbers-first + calibration note — *after* the P4.0
-  backfill validates the verdict beyond gltX.
+- `[x]` **Expose `viability` as an agent tool** (`tools.py`): cross-seed division verdict (viable/impaired/
+  inviable) per design from the manifest — instant, no container. `store.viability` does the MIN/BOOL_AND rollup;
+  the tool cross-links `mechanistic_scope` ('viable' is the model, not ground truth — check the benchmark). Agent
+  SYSTEM prompt now tells Coli to judge KO lethality by viability, not growth. Verdict logic unit-tested (three
+  regimes). (Also installed the declared `duckdb` dep — the full suite now passes 16/16.)
 - `[ ]` **Viability in `differential`/screen** — report a viability delta, not only growth deltas.
 - `[ ]` **Graded-first design generators** (`generate.py`): label single-metabolic-KO generators as
   known-to-reroute controls; promote graded-capacity (rRNA operons, ppGpp) as the primary phenotype path.

@@ -99,6 +99,23 @@ def test_disconfirm_handles_missing_design():
     assert "error" in out or "channel" in out
 
 
+def test_viability_verdict_three_regimes():
+    from cellarium import store
+
+    def rows(*specs):  # (division_rate, gens_reached, terminal_divided, n_fba_failures)
+        return [{"seed": i, "division_rate": dr, "gens_reached": g, "terminal_divided": td, "n_fba_failures": ff}
+                for i, (dr, g, td, ff) in enumerate(specs)]
+
+    # metabolic KO — every seed divides fully -> VIABLE
+    assert store._viability_verdict(rows((1.0, 4, True, 0), (1.0, 4, True, 0)))["verdict"] == "viable"
+    # gltX-like — one seed collapses (terminal not divided), no FBA failure -> IMPAIRED via the cross-seed rollup
+    assert store._viability_verdict(rows((1.0, 3, True, 0), (0.67, 3, False, 0)))["verdict"] == "impaired"
+    # hard failure — an FBA-solver break makes it INVIABLE regardless of rate
+    assert store._viability_verdict(rows((1.0, 2, True, 1)))["verdict"] == "inviable"
+    # pre-viability shards (no division_rate) -> UNKNOWN, not a false verdict
+    assert store._viability_verdict([{"seed": 0, "division_rate": None}])["verdict"] == "unknown"
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

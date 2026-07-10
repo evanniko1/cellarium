@@ -82,6 +82,24 @@ def mechanistic_scope(symbol: str) -> dict:
     return scope.classify_gene(symbol)
 
 
+def viability(perturbation: str, condition: str | None = None) -> dict:
+    """Does a KO/perturbation produce a VIABLE, dividing cell? Cross-seed division verdict per design from the
+    manifest — the KO readout that does NOT reroute away like a graded growth channel. Omit `condition` to get
+    every variant under a perturbation. NOTE: 'viable' is the MODEL's behavior, not ground truth — for a KO also
+    call mechanistic_scope; a viable verdict can be a `model_UNDER_predicts` case (essential in vivo, viable in
+    silico: fabI/glmS/gltA)."""
+    if condition is not None:
+        rigor.note_design(f"{perturbation}/{condition}")
+    out = store.viability(perturbation, condition)
+    if "error" not in out:
+        out["calibration"] = ("verdict is a cross-seed MIN/BOOL_AND rollup (one seed collapsing flags the design). "
+                              "A metabolic KO is VIABLE because the FBA objective has no growth term so it reroutes; "
+                              "a machinery KO (aaRS/ribosome/RNAP) collapses. 'viable' is the model, NOT reality — "
+                              "for a KO cross-check mechanistic_scope: if benchmark.agreement == 'model_UNDER_predicts' "
+                              "the gene is essential in vivo despite a viable in-silico KO. Trust the benchmark.")
+    return out
+
+
 def disconfirm(target: str, reference: str, channel: str) -> dict:
     """Challenge a claimed target-vs-reference effect on a channel (per-seed spread, noise, corpus z)."""
     rigor.note_design(target)
@@ -186,8 +204,10 @@ TOOLS = [
     {"name": "provenance", "description": "Is a design's result IN-SAMPLE (a ParCa-fitted condition — model was calibrated to match it, so agreement is consistency NOT prediction) or OUT-OF-SAMPLE (a perturbation the fit didn't target — a genuine prediction)? Check before claiming the model 'predicts' or 'validates' something.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}},
                       "required": ["perturbation"]}},
-    {"name": "mechanistic_scope", "description": "Is a gene's FUNCTION mechanistically simulated (metabolic enzyme or one of the ~23 modeled TFs) or expressed-but-inert? A knockout of a non-mechanistic gene shows no phenotype BY CONSTRUCTION — a null there is model scope, NOT biological dispensability. Check before interpreting a KO.",
+    {"name": "mechanistic_scope", "description": "Is a gene's FUNCTION mechanistically simulated (metabolic enzyme or one of the ~23 modeled TFs) or expressed-but-inert? A knockout of a non-mechanistic gene shows no phenotype BY CONSTRUCTION — a null there is model scope, NOT biological dispensability. Check before interpreting a KO. Also returns a ground-truth essentiality benchmark (`benchmark`): watch for agreement=='model_UNDER_predicts' (essential gene the model would call viable).",
      "input_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "required": ["symbol"]}},
+    {"name": "viability", "description": "Does a KO/perturbation produce a VIABLE, dividing cell? Cross-seed division verdict (viable/impaired/inviable) per design from the manifest — the KO readout that does NOT reroute away like a growth channel (a metabolic KO reroutes = viable; a machinery KO collapses). Omit condition to get every variant under a perturbation (e.g. all gene_knockouts). For a KO, pair with mechanistic_scope: a 'viable' verdict can be a model_UNDER_predicts case (essential in vivo, viable in silico).",
+     "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}}, "required": ["perturbation"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
@@ -202,7 +222,7 @@ TOOLS = [
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
              "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
-             "mechanistic_scope": mechanistic_scope,
+             "mechanistic_scope": mechanistic_scope, "viability": viability,
              "list_results": list_results, "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
