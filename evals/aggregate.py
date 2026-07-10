@@ -114,6 +114,56 @@ def main():
         summary["configs"][cfg] = entry
     summary["interrater_claude_vs_gpt"] = interrater(recs)
 
+    # --- residual-defect audit (the sensitive primary mechanism metric) ---
+    aud_path = Path(src).with_name("audited.json")
+    if aud_path.exists():
+        aud = {(a["id"], a["config"], a["rep"]): a for a in json.loads(aud_path.read_text())["results"]}
+        by_cfg_def = defaultdict(list)
+        for r in recs:
+            a = aud.get((r["id"], r["config"], r["rep"]))
+            if a:
+                r["_claude_defects"] = a.get("claude_defects")
+                r["_gpt_defects"] = a.get("gpt_defects")
+                by_cfg_def[r["config"]].append(r)
+        dsum, dfull_c, dfull_g = {}, None, None
+        for cfg in ["full", "no_skeptic", "proposer_only", "generic_judge"]:
+            rs = by_cfg_def.get(cfg)
+            if not rs:
+                continue
+            dc = case_clustered_mean(rs, "_claude_defects")
+            dg = case_clustered_mean(rs, "_gpt_defects")
+            e = {"n": len(rs), "defects_claude": dc, "defects_gpt": dg}
+            if cfg == "full":
+                dfull_c, dfull_g = dc, dg
+            else:
+                for lab, dcfg, dfl in (("claude", dc, dfull_c), ("gpt", dg, dfull_g)):
+                    if not (dcfg and dfl):
+                        continue
+                    cids = sorted(set(dcfg["per_case"]) & set(dfl["per_case"]))
+                    diffs = [dcfg["per_case"][c] - dfl["per_case"][c] for c in cids]  # config - full; >0 => full better
+                    cmp = {"n_paired_cases": len(cids),
+                           "mean_defects_reduced_by_full": round(float(np.mean(diffs)), 3) if diffs else None,
+                           "cases_full_fewer": sum(d > 0 for d in diffs), "cases_full_more": sum(d < 0 for d in diffs)}
+                    if wilcoxon is not None and any(d != 0 for d in diffs):
+                        try:  # one-sided: full has fewer defects
+                            cmp["wilcoxon_p_full_fewer"] = round(float(
+                                wilcoxon(diffs, alternative="greater").pvalue), 4)
+                        except Exception:
+                            cmp["wilcoxon_p_full_fewer"] = None
+                    e[f"vs_full_{lab}"] = cmp
+            dsum[cfg] = e
+        summary["residual_defects"] = dsum
+        print("\n=== residual defects (lower is better; sensitive mechanism metric) ===")
+        print(f"{'config':14s} {'defects_claude':>18s} {'defects_gpt':>18s}   full-reduces-by (claude p / gpt p)")
+        for cfg, e in dsum.items():
+            dc, dg = e["defects_claude"], e["defects_gpt"]
+            dcs = f"{dc['mean']} {dc['ci95']}" if dc else "-"
+            dgs = f"{dg['mean']} {dg['ci95']}" if dg else "-"
+            vc, vg = e.get("vs_full_claude", {}), e.get("vs_full_gpt", {})
+            red = (f"c:{vc.get('mean_defects_reduced_by_full')}(p={vc.get('wilcoxon_p_full_fewer')}) "
+                   f"g:{vg.get('mean_defects_reduced_by_full')}(p={vg.get('wilcoxon_p_full_fewer')})") if vc or vg else ""
+            print(f"{cfg:14s} {dcs:>18s} {dgs:>18s}   {red}")
+
     out = Path(src).with_name("ablation_summary.json")
     out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
