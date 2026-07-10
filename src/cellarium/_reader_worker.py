@@ -348,6 +348,28 @@ def mode_gene_map(root):
     return {"symbols": symbols, "n": len(symbols)}
 
 
+def _load_essential_genes():
+    """Ground-truth essential-gene SYMBOLS from wcEcoli's own validation set (Baba 2006 Keio + Joyce 2006,
+    glucose-minimal; 406 genes). Read from the checkout at dump time — NOT vendored into Cellarium (D3 license).
+    Columns: FrameID, rnaID, proteinID, proteinLoc, gene. Returns a set (empty if the file isn't present)."""
+    for p in ("validation/ecoli/flat/essential_genes.tsv",
+              os.path.join(os.environ.get("WCECOLI_DIR", ""), "validation/ecoli/flat/essential_genes.tsv")):
+        try:
+            syms = set()
+            with open(p) as f:
+                for line in f:
+                    if line.startswith("#") or line.startswith("FrameID"):
+                        continue
+                    parts = [x.strip().strip('"') for x in line.rstrip().split("\t")]
+                    if len(parts) >= 5 and parts[4]:
+                        syms.add(parts[4])
+            if syms:
+                return syms
+        except Exception:
+            continue
+    return set()
+
+
 def _cplx_monomers(comp, cat):
     try:
         r = comp.get_monomers(cat)
@@ -410,6 +432,7 @@ def mode_gene_scope(root):
     add_machinery(list(getattr(mg, "replisome_trimer_subunits", [])) +
                   list(getattr(mg, "replisome_monomer_subunits", [])), "replisome")
     add_machinery(getattr(sd.process.transcription, "synthetase_names", []), "aaRS")
+    essential_ref = _load_essential_genes()  # GROUND TRUTH: Baba 2006 (Keio) + Joyce 2006, glucose-minimal
     genes = {}
     for k in range(len(gd)):
         sym, cis = str(gd["symbol"][k]), str(gd["cistron_id"][k])
@@ -425,11 +448,17 @@ def mode_gene_scope(root):
                       "is_kinetically_constraining": bool(root and root in kin_roots),  # KO can bind a flux
                       "is_machinery": bool(root and root in machinery),  # central-dogma machinery subunit
                       "machinery_role": (machinery.get(root) if root else None),
+                      # ground-truth essentiality (external benchmark, NOT a model output) — lets classify_gene
+                      # compare the model's KO prior against reality. None = not in the reference list at all.
+                      "essential_ref": (sym in essential_ref) if essential_ref else None,
                       "is_tf": sym in tf_syms}
     return {"n": len(genes), "n_metabolic": sum(1 for v in genes.values() if v["is_metabolic"]),
             "n_sole_catalyst": sum(1 for v in genes.values() if v["is_sole_catalyst"]),
             "n_kinetically_constraining": sum(1 for v in genes.values() if v["is_kinetically_constraining"]),
             "n_machinery": sum(1 for v in genes.values() if v["is_machinery"]),
+            "n_essential_ref": (sum(1 for v in genes.values() if v["essential_ref"]) if essential_ref else 0),
+            "essential_ref_source": ("Baba 2006 (Keio) + Joyce 2006, glucose-minimal (wcEcoli validation set)"
+                                     if essential_ref else None),
             "n_tf": len(tf_syms), "genes": genes}
 
 

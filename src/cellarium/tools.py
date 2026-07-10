@@ -74,8 +74,10 @@ def provenance(perturbation: str, condition: str | None = None) -> dict:
 def mechanistic_scope(symbol: str) -> dict:
     """Is a gene's function SIMULATED (metabolic enzyme / modeled TF / central-dogma machinery) or expressed-but-
     inert? Returns a calibrated `ko_effect_prior` for the three single-KO regimes: non-mechanistic -> no phenotype
-    BY CONSTRUCTION; metabolic -> the model REROUTES (0/5 hit-rate); machinery (ribosome/RNAP/replisome/aaRS) ->
-    the sim CRASHES, not a clean phenotype. Prior, not verdict; for a measurable effect use a graded perturbation."""
+    BY CONSTRUCTION; metabolic -> the model REROUTES; machinery (ribosome/RNAP/replisome/aaRS) -> the sim CRASHES.
+    Also compares the prior against a GROUND-TRUTH essentiality benchmark (Baba/Joyce) in `benchmark`: watch for
+    `agreement == "model_UNDER_predicts"` (benchmark-essential gene the model would call viable — trust the
+    benchmark). Prior, not verdict; for a measurable in-silico effect use a graded perturbation."""
     from . import scope
     return scope.classify_gene(symbol)
 

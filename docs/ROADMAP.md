@@ -84,9 +84,12 @@ change the **readout** (viability, not graded growth) and the **design** (graded
   (`record_existing`); a GROUP BY over the KO variants reproduces §J from SQL (gltX min_divrate 0.67 / max_gens 3
   / terminal_divided False vs 1.00 / 4 / True for the metabolic KOs). Minor follow-up: the gltX run lacks a
   `KO:` condition label (shows as `?`) — a provenance gap in that run's design.json, not the channel.
-- `[ ]` **Ground-truth essentiality reference in `gene_scope`.** Join Keio/EcoCyc essential-gene flags per gene so
-  `classify_gene` reports `model prior: reroutes / EcoCyc: essential` side by side — upgrades calibration from
-  self-reported to benchmarked. *Source: EcoCyc 2025.*
+- `[x]` **Ground-truth essentiality reference in `gene_scope`.** `mode_gene_scope` reads wcEcoli's own validation
+  set (Baba 2006 Keio + Joyce 2006, glucose-minimal; 406 genes, 402 matched) at dump time — read from the checkout,
+  NOT vendored (D3). Each gene carries `essential_reference`; `classify_gene` returns a `benchmark` comparing the
+  KO prior to it. Turns the self-reported 0/5 into a benchmarked call: fabI/glmS/gltA -> `model_UNDER_predicts`
+  (essential yet the model KO is viable), gltX/rpoB -> `consistent_lethal`, pfkA/tpiA/flgB -> `consistent_viable`.
+  *Source: EcoCyc 2025 (via the wcEcoli validation set).*
 - `[ ]` **Cite the aaRS mechanism in the scope crash note** (`scope.py`): aaRS kcats fit 7.6× above in vitro;
   perturbation "catastrophic". *Source: Choi & Covert 2023.*
 - `[ ]` **Relabel `mode_fba_essentiality` as under-sensitive/deprecated** — it reads the soft growthless objective

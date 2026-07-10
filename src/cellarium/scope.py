@@ -18,6 +18,12 @@ machinery single-KOs CRASH the sim (not a clean phenotype), and only GRADED capa
 (rrna_operon_knockout, ppgpp_conc) yield measurable, interpretable dose-responses. Note: the 89 detected genes
 are the core structural machinery; soluble translation factors (EF-Tu/EF-G/IF/RF) have no dedicated molecule
 group and are not flagged. Classification comes from gene_scope.json (dumped via the gene_scope worker; gitignored).
+
+Each gene also carries a GROUND-TRUTH essentiality flag (`essential_reference`) from an external benchmark (Baba
+2006 Keio + Joyce 2006, glucose-minimal — wcEcoli's own validation set), and `classify_gene` reports a `benchmark`
+comparison of the model's KO prior against it. The decisive case: the metabolic 'reroute' prior UNDER-predicts for
+benchmark-essential enzymes (fabI/glmS/gltA are essential yet the model KO is viable) — so a 'no effect' KO is a
+model-scope statement, and the benchmark, not the sim, is the essentiality authority.
 """
 
 from __future__ import annotations
@@ -84,12 +90,40 @@ def classify_gene(symbol: str) -> dict:
     else:
         ko_effect = "mechanistic_other"
         note = "Mechanistically simulated (" + role + ") — a KO is a genuine, interpretable prediction."
+    # GROUND-TRUTH comparison: the model's KO prior vs an external essentiality benchmark (Baba 2006 Keio + Joyce
+    # 2006, glucose-minimal). This turns the self-reported "0/5 hit-rate" into a benchmarked statement, and flags
+    # the decisive failure mode: model expects a viable KO (reroute/inert) where the gene is actually ESSENTIAL.
+    ess = g.get("essential_ref")  # True / False / None(=not in the reference list)
+    predicts_viable = ko_effect in ("none_inert", "none_flux_unconstrained", "unreliable_model_reroutes")
+    predicts_lethal = ko_effect == "lethal_crash"
+    if ess is None:
+        benchmark = {"essential_reference": None, "agreement": "not_in_reference"}
+    elif ess and predicts_viable:
+        benchmark = {"essential_reference": True, "agreement": "model_UNDER_predicts",
+                     "note": ("Benchmark: ESSENTIAL, but the model prior expects a viable KO (reroute/inert). The "
+                              "model under-predicts essentiality here — the KO looks viable in silico yet is lethal "
+                              "in vivo (fabI/glmS/gltA are exactly this case). Trust the benchmark, not the sim.")}
+    elif ess and predicts_lethal:
+        benchmark = {"essential_reference": True, "agreement": "consistent_lethal",
+                     "note": "Benchmark: ESSENTIAL; the model prior expects a lethal crash — consistent."}
+    elif (not ess) and predicts_viable:
+        benchmark = {"essential_reference": False, "agreement": "consistent_viable",
+                     "note": "Benchmark: non-essential; the model prior expects a viable KO — consistent."}
+    elif (not ess) and predicts_lethal:
+        benchmark = {"essential_reference": False, "agreement": "model_OVER_predicts",
+                     "note": "Benchmark: non-essential, but the model prior expects a crash — over-predicts."}
+    else:
+        benchmark = {"essential_reference": bool(ess), "agreement": "unclear"}
+    if "note" in benchmark:
+        benchmark["source"] = "Baba 2006 (Keio) + Joyce 2006, glucose-minimal (wcEcoli validation set)"
     return {"symbol": symbol, "known": True, "mechanistic": mechanistic, "role": role,
             "is_machinery": machinery, "machinery_role": machinery_role,
             "is_sole_catalyst": sole, "is_kinetically_constraining": kinetic, "ko_effect_prior": ko_effect,
+            "essential_reference": ess, "benchmark": benchmark,
             "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note,
-            "calibration": ("metabolic structural flags 0/5 at predicting a KO growth effect — the FBA objective "
-                            "has no growth term, so KOs reroute; the machinery flag predicts a lethal crash, not a "
-                            "clean phenotype (gltX 4/4). Prior, not verdict — for a measurable KO-adjacent effect "
-                            "use a graded-capacity perturbation; for a gene-specific essentiality verdict use a "
-                            "separate biomass/feasibility FBA single-deletion.")}
+            "calibration": ("model KO priors vs the Baba/Joyce essentiality benchmark: the metabolic 'reroute' prior "
+                            "UNDER-predicts for benchmark-essential enzymes (fabI/glmS/gltA are essential yet the "
+                            "model KO is viable — the FBA objective has no growth term); the machinery prior expects "
+                            "a lethal crash (consistent). Prior, not verdict — when `benchmark.agreement` says "
+                            "under-predicts, trust the benchmark; for a measurable in-silico effect use a graded-"
+                            "capacity perturbation.")}
