@@ -19,6 +19,46 @@ def list_results() -> dict:
     return {"results": store.list_results()}
 
 
+_VARIANT_TYPES = {
+    "wildtype": "baseline / a named condition (--condition)",
+    "condition": "static media steady state; variant_index -> ordered_conditions (see `conditions`)",
+    "gene_knockout": "single-gene expression KO; variant_index = the gene's ko_index (resolve via design_space(gene=...))",
+    "multi_gene_knockout": "simultaneous KO of a gene SET (reduced-genome style)",
+    "ppgpp_conc": "clamp [ppGpp] — graded stringent-response lever (a CLEAN phenotype path, unlike a single KO)",
+    "rrna_operon_knockout": "KO n of 7 rRNA operons — graded ribosome-capacity lever (clean phenotype path)",
+    "timeline": "media-shift events over time (in-envelope shifts only — check_feasibility first)",
+    "metabolism_kinetic_objective_weight": "graded objective lever (kinetic vs homeostatic weight; §K/D4)",
+    "metabolism_secretion_penalty": "graded objective lever (secretion penalty)",
+    "tf_activity": "set a modeled TF active/inactive — ONLY the 23 mechanistically-modeled TFs (not marA/soxS)",
+}
+
+
+def design_space(gene: str | None = None) -> dict:
+    """Enumerate the RUNNABLE design space so a hypothesis can propose a REAL experiment: static conditions,
+    perturbation/variant types, and gene-KO resolution. Pass `gene` to resolve its symbol -> ko_index PLUS its
+    calibrated KO prior (so you propose the right index AND know what to expect). Call before proposing to run."""
+    import json
+    from pathlib import Path
+
+    from . import scope
+
+    out: dict = {"variant_types": _VARIANT_TYPES}
+    vm = Path("data/cache/variant_map.json")
+    if vm.exists():
+        m = json.loads(vm.read_text(encoding="utf-8"))
+        out["conditions"] = m.get("conditions", {})
+        out["n_ko_genes"] = m.get("n_genes")
+    else:
+        out["conditions"] = {}
+        out["note"] = "conditions/indices not cached — run `python -m cellarium.reader --variant-map`."
+    if gene:
+        c = scope.classify_gene(gene)
+        out["gene"] = ({"symbol": gene, "ko_index": c.get("ko_index"), "role": c.get("role"),
+                        "ko_effect_prior": c.get("ko_effect_prior"), "benchmark": c.get("benchmark")}
+                       if c.get("known") else {"symbol": gene, "known": False, "note": c.get("note")})
+    return out
+
+
 def survey_corpus() -> dict:
     """Deterministic, ranked, whole-corpus survey — call FIRST, before forming any hypothesis."""
     return survey.survey_corpus()
@@ -202,6 +242,8 @@ TOOLS = [
                       "required": ["target"]}},
     {"name": "list_results", "description": "List simulation results in the corpus (id, perturbation, condition, QC).",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "design_space", "description": "Enumerate the RUNNABLE design space before proposing an experiment: static conditions (index->label), perturbation/variant types (with which give CLEAN graded phenotypes vs which reroute), and gene-KO resolution. Pass `gene` to get its ko_index PLUS its calibrated KO prior + essentiality benchmark. Use this so a hypothesis proposes a real, correctly-indexed experiment instead of guessing.",
+     "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene symbol to resolve to its ko_index + KO prior"}}}},
     {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "channel": {"type": "string"}},
                       "required": ["result_id", "channel"]}},
@@ -243,7 +285,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,
-             "list_results": list_results, "read_series": read_series, "list_species": list_species,
+             "list_results": list_results, "design_space": design_space,
+             "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment}

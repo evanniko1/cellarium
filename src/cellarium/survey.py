@@ -12,11 +12,14 @@ from __future__ import annotations
 import statistics
 from collections import Counter, defaultdict
 
+from . import stats
+
 MANIFEST_GLOB = "data/manifest/*.parquet"
 # host-safe channel names (the worker owns the table/column mapping; we only need the names here)
 CHANNELS = ["growth_rate", "ppgpp_conc", "ribosome_conc", "fraction_trna_charged", "rela_conc",
-            "dry_mass", "protein_mass", "rna_mass", "cell_mass", "fba_objective"]
+            "dry_mass", "protein_mass", "rna_mass", "cell_mass", "division_rate", "fba_objective"]
 DIAGNOSTIC = {"fba_objective"}       # solver diagnostics — queryable, but excluded from the biological ranking
+# division_rate (§J viability): mostly 1.0, so a low value is a strong flag — a KO/perturbation that did NOT divide
 REFERENCE = ("wildtype", "basal")   # the control designs are compared against
 
 
@@ -74,7 +77,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         if not vals:
             return None, None, 0
         m = statistics.fmean(vals)
-        ci = (1.96 * statistics.stdev(vals) / math.sqrt(len(vals))) if len(vals) > 1 else None  # 95% CI
+        ci = stats.t95_halfwidth(vals)  # 95% CI, t-distribution (right for n=4-8 seeds; normal-approx was too narrow)
         return m, ci, len(vals)
 
     stats_by_design = {d: {ch: dmean_ci(rs, ch) for ch in all_channels} for d, rs in by_design.items()}

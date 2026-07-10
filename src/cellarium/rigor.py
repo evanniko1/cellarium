@@ -11,7 +11,10 @@ Two structural defences against the biases survey_corpus already fights:
 from __future__ import annotations
 
 import json
+import math
 import statistics
+
+from . import stats
 
 # session state — the designs deep-read via the reading tools (reset at the start of an agent run)
 _examined_results: set[str] = set()
@@ -80,7 +83,7 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     tm, rm = statistics.fmean(tv), statistics.fmean(rv)
 
     def ci95(x):
-        return (1.96 * statistics.stdev(x) / math.sqrt(len(x))) if len(x) > 1 else None
+        return stats.t95_halfwidth(x)  # t-distribution 95% CI (audit M2)
 
     # Welch's t (unequal variance) — the proper 2-sample test the audit demanded, replacing the noise heuristic
     welch_t, significant = None, None

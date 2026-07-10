@@ -116,6 +116,34 @@ def test_viability_verdict_three_regimes():
     assert store._viability_verdict([{"seed": 0, "division_rate": None}])["verdict"] == "unknown"
 
 
+def test_viability_verdict_fba_failure_is_inviable():
+    # regression: an FBA-solver crash is inviable even on a dividing lineage (the two former copies diverged here)
+    from cellarium import viability_rules
+    assert viability_rules.verdict(1.0, True, True, 1) == "inviable"
+    assert viability_rules.verdict(1.0, True, True, 0) == "viable"
+    assert viability_rules.verdict(0.67, False, True, 0) == "impaired"
+    assert viability_rules.verdict(None, True, True, 0) == "unknown"
+
+
+def test_t95_ci_wider_than_normal_at_small_n():
+    import statistics
+
+    from cellarium import stats as cstats
+    vals = [1.0, 1.1, 0.9, 1.05]
+    t_hw = cstats.t95_halfwidth(vals)
+    normal_hw = 1.96 * statistics.stdev(vals) / (len(vals) ** 0.5)
+    assert t_hw is not None and t_hw > normal_hw          # t-dist is wider than the normal approx at n=4
+    assert cstats.t95_halfwidth([1.0]) is None            # undefined for n<2
+
+
+def test_design_space_enumerates_and_resolves():
+    from cellarium import tools
+    ds = tools.design_space()
+    assert ds["variant_types"] and "gene_knockout" in ds["variant_types"]  # always available, no cache needed
+    g = tools.design_space(gene="fabI")["gene"]
+    assert ("ko_index" in g) or (g.get("known") is False)  # resolves if scope cached, else graceful
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

@@ -22,6 +22,19 @@ import sys
 import numpy as np
 from wholecell.io.tablereader import TableReader
 
+try:  # shared viability verdict (same rule store uses); this script's dir is on sys.path[0] in the container
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from viability_rules import verdict as _viability_verdict
+except Exception:  # fallback keeps the worker self-contained if the sibling module is unreachable
+    def _viability_verdict(min_dr, all_term, any_term, n_fba_fail):
+        if min_dr is None:
+            return "unknown"
+        if n_fba_fail and n_fba_fail > 0:
+            return "inviable"
+        if min_dr >= 0.9 and all_term:
+            return "viable"
+        return "inviable" if (min_dr < 0.6 or not any_term) else "impaired"
+
 SUMMARY_CHANNELS = {
     "growth_rate": ("Mass", "instantaneous_growth_rate"),
     "cell_mass": ("Mass", "cellMass"),
@@ -248,11 +261,12 @@ def mode_viability(run_root):
     rate = (n_div / n_cells) if n_cells else 0.0
     all_terminal = bool(per_seed) and all(s["terminal_divided"] for s in per_seed.values())
     any_terminal = any(s["terminal_divided"] for s in per_seed.values())
-    verdict = ("viable" if rate >= 0.9 and all_terminal
-               else "inviable" if (rate < 0.6 or not any_terminal or n_fba_fail > 0)
-               else "impaired")
+    # verdict on MIN per-seed rate (one collapsing seed flags the design), via the shared rule store also uses
+    min_dr = min((s["n_divided"] / s["gens_reached"] for s in per_seed.values() if s["gens_reached"]), default=None)
+    verdict = _viability_verdict(min_dr, all_terminal, any_terminal, n_fba_fail)
     return {"n_seeds": len(per_seed), "n_cells": n_cells, "n_divided": n_div,
-            "division_rate": round(rate, 3), "n_fba_failures": n_fba_fail,
+            "division_rate": round(rate, 3), "min_division_rate": (round(min_dr, 3) if min_dr is not None else None),
+            "n_fba_failures": n_fba_fail,
             "gens_reached": {"min": min(gens), "max": max(gens), "mean": round(sum(gens) / len(gens), 2)},
             "median_division_time_sec": (round(float(np.median(div_times)), 1) if div_times else None),
             "terminal_division_all_seeds": all_terminal, "verdict": verdict, "seeds": per_seed}

@@ -102,9 +102,8 @@ def _viability_verdict(rows: list[dict]) -> dict:
     term = [bool(r.get("terminal_divided")) for r in rows]
     fbf = sum(int(r.get("n_fba_failures") or 0) for r in rows)
     min_dr = min(drs)
-    verdict = ("viable" if min_dr >= 0.9 and all(term) and fbf == 0
-               else "inviable" if (min_dr < 0.6 or not any(term) or fbf > 0)
-               else "impaired")
+    from . import viability_rules
+    verdict = viability_rules.verdict(min_dr, all(term), any(term), fbf)
     return {"n_seeds": len(rows), "min_division_rate": round(min_dr, 3),
             "max_gens_reached": max(gens), "all_terminal_divided": all(term), "n_fba_failures": fbf,
             "verdict": verdict,
