@@ -156,15 +156,32 @@ def _dynamics(so):
     return stats, series, _media_segments(t, media, cols)
 
 
+def _lineage_viability(gens):
+    """Viability of ONE lineage (a per-seed run_root's generations): does each cell divide? Facts only — no
+    verdict label at this level (a lineage can't see the REQUESTED depth, so 'died early' is a cross-seed
+    signal; roll up with mode_viability or a manifest GROUP BY). See CORPUS_OBSERVATIONS.md §J."""
+    n = len(gens)
+    nd = sum(1 for g in gens if g.get("divided"))
+    nfail = sum(1 for g in gens if not g.get("fba_ok", True))
+    dts = [g.get("division_time_sec") for g in gens if g.get("division_time_sec") is not None]
+    return {"n_cells": n, "n_divided": nd, "division_rate": round(nd / n, 3) if n else 0.0,
+            "gens_reached": n, "terminal_divided": bool(gens[-1].get("divided")) if gens else False,
+            "n_fba_failures": nfail,
+            "median_division_time_sec": (round(float(np.median(dts)), 1) if dts else None)}
+
+
 def mode_run(run_root):
     gs = _gens(run_root)
     if not gs:
-        return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": []}
+        return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": [],
+                "viability": _lineage_viability([])}
     # headline channels/dynamics from the LAST generation (most-adapted steady state); per-gen trajectory below
     stats, series, segments = _dynamics(gs[-1])
-    return {"generations": [_generation(so, i) for i, so in enumerate(gs)],
+    generations = [_generation(so, i) for i, so in enumerate(gs)]
+    return {"generations": generations,
             "channels": {n: s["mean"] for n, s in stats.items()},  # flat means (compat + easy SQL)
             "channel_stats": stats, "series": series, "media_segments": segments,
+            "viability": _lineage_viability(generations),  # per-lineage division facts (first-class channel, §J)
             "pathways": _pathways(gs[-1], _load_panel())}  # per-pathway proteome fractions (P2.1 depth)
 
 

@@ -29,7 +29,8 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
     return SimResult(id=f"{design.perturbation}_{seed}_{uuid.uuid4().hex[:8]}", label=label,
                      design=design, channels=data.get("channels", {}), generations=gens, note=note,
                      channel_stats=data.get("channel_stats", {}), series=data.get("series", {}),
-                     media_segments=data.get("media_segments", []), pathways=data.get("pathways", {}))
+                     media_segments=data.get("media_segments", []), pathways=data.get("pathways", {}),
+                     viability=data.get("viability", {}))
 
 
 def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
@@ -47,6 +48,12 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
            "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
            "series": json.dumps(rec.series),
            "media_segments": json.dumps(rec.media_segments)}
+    # viability (§J) as first-class queryable columns: does this lineage divide? A metabolic KO reroutes (viable);
+    # a machinery KO collapses. gens_reached < requested (a cross-seed GROUP BY) is the 'died early' signal.
+    v = rec.viability or {}
+    row.update({"division_rate": v.get("division_rate"), "gens_reached": v.get("gens_reached"),
+                "terminal_divided": v.get("terminal_divided"), "n_fba_failures": v.get("n_fba_failures"),
+                "median_division_time_sec": v.get("median_division_time_sec")})
     row.update(rec.channels)  # flatten summary channel means into columns for easy DuckDB SQL
     return row
 

@@ -54,6 +54,7 @@ class SimResult(BaseModel):
     series: dict = Field(default_factory=dict)           # {channel: [[t_sec, value], ...] downsampled}
     media_segments: list = Field(default_factory=list)   # [{media, t0, t1, means:{channel: mean}}] per media window
     pathways: dict = Field(default_factory=dict)         # {pathway: proteome_fraction} — curated depth (P2.1)
+    viability: dict = Field(default_factory=dict)        # {division_rate, gens_reached, terminal_divided, ...} §J
 
 
 class ResultStore:

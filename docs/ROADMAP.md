@@ -68,3 +68,42 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
 P1 uses existing manifest data (no new sims) — cheap + deterministic. P2.1/2.2 need the species panel in the
 manifest (a generation-time change + a one-time backfill of local runs). P3 is multi-pass (token cost) — gate
 to final conclusions, not routine reads.
+
+## P4 — KO/objective instrument, from the literature review (2026-07-10)
+From the repo pass + Covert-lab literature scan (see `DECISIONS.md` D4/D4-lit, `CORPUS_OBSERVATIONS.md` §J +
+Literature grounding). Core lesson: the model doesn't yield clean single-gene-KO phenotypes because the metabolism
+FBA objective has **no growth term** (KOs reroute) and the KO variant is an **expression** knockout; the fix is to
+change the **readout** (viability, not graded growth) and the **design** (graded / multi-gene), not the objective.
+
+### P4.0 — cheap, no new sims
+- `[~]` **Viability as a first-class corpus channel.** `mode_run` emits a per-lineage division aggregate
+  (`division_rate`, `gens_reached`, `terminal_divided`, `n_fba_failures`, `median_division_time_sec`); flattened
+  into manifest columns so viability is queryable in DuckDB (cross-seed `GROUP BY` recovers the §J verdict — a
+  lineage can't see the requested depth, so 'died early' is a cross-seed signal). Standalone rollup =
+  `reader.viability` / `mode_viability`. *Source: Gherman et al. 2025.* **[in progress — backfilling]**
+- `[ ]` **Ground-truth essentiality reference in `gene_scope`.** Join Keio/EcoCyc essential-gene flags per gene so
+  `classify_gene` reports `model prior: reroutes / EcoCyc: essential` side by side — upgrades calibration from
+  self-reported to benchmarked. *Source: EcoCyc 2025.*
+- `[ ]` **Cite the aaRS mechanism in the scope crash note** (`scope.py`): aaRS kcats fit 7.6× above in vitro;
+  perturbation "catastrophic". *Source: Choi & Covert 2023.*
+- `[ ]` **Relabel `mode_fba_essentiality` as under-sensitive/deprecated** — it reads the soft growthless objective
+  (0/35). Not an essentiality oracle until fixed/replaced (P4.2). *Source: D4 root-cause.*
+
+### P4.1 — design + coverage
+- `[ ]` **Expose `viability` as an agent tool** (`tools.py`), numbers-first + calibration note — *after* the P4.0
+  backfill validates the verdict beyond gltX.
+- `[ ]` **Viability in `differential`/screen** — report a viability delta, not only growth deltas.
+- `[ ]` **Graded-first design generators** (`generate.py`): label single-metabolic-KO generators as
+  known-to-reroute controls; promote graded-capacity (rRNA operons, ppGpp) as the primary phenotype path.
+- `[ ]` **Translation-factor machinery detection** (`_reader_worker.py`): flag EF-Tu/`tufA`, EF-G/`fusA`, IF/RF
+  (currently unflagged — no molecule group). *Source: Choi & Covert 2023 elongation model.*
+- `[ ]` **Objective-weight design variants** (`generate.py`): `kinetic_objective_weight` / `secretion_penalty`
+  sweeps — the legitimate objective levers (upstream ships analyses for both). *Source: D4.*
+
+### P4.2 — larger / research
+- `[ ]` **Metabolic-essentiality verdict** — either `fba_essentiality` v2 (hard target-demand feasibility) or call
+  **EcoCyc's steady-state flux model as the oracle** (cheaper, authoritative). *Source: EcoCyc 2025 + D4.*
+- `[ ]` **Multi-gene / reduced-genome design generator** (`generate.py`): combinatorial deletions scored by
+  viability. *Source: Gherman et al. 2025.*
+- `[ ]` **ML surrogate for viability/division** trained on the corpus (95% compute reduction) — the
+  "reason over the model at scale" primitive; artifact for "The Well for the Cell". *Source: Gherman et al. 2025.*
