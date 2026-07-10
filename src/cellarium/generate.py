@@ -117,6 +117,23 @@ def confounded_designs() -> list[Design]:
     return designs
 
 
+def machinery_calibration_designs() -> list[Design]:
+    """M1 viability-threshold calibration (DRAFT — vet before launching). A machinery-KO battery spanning all four
+    central-dogma subtypes, to populate the INVIABLE/impaired end of the viability scale. Rationale: every existing
+    metabolic KO + graded run (rRNA-operon 2/4/6, ppGpp 0.2-2.0x) is VIABLE (min_divrate 1.0 — they slow growth,
+    not division), so we have ZERO clean inviable points besides gltX (impaired, 0.667). Only machinery reaches the
+    crash end. This validates scope.py's machinery->lethal_crash rule on n=7 (was n=1: gltX) and tests whether the
+    aaRS crash generalizes across synthetases (argS = the Choi & Covert 2023 ArgRS case).
+      rpoB 2095 (RNAP; = rpoBC operon)   rplB 2835 (ribosomal; = S10 r-protein operon)   dnaN 58 (replisome)
+      argS 644 / alaS 2078 / pheS 1340   (three aminoacyl-tRNA synthetases)
+    NOTE: ko_index is a TU index, so rpoB/rplB KOs remove the whole operon (documented, fine for a crash test).
+    Expect CRASHES (partial lineages) — the runner/batch must tolerate a failing variant. Run --generations 4."""
+    kos = {"rpoB": 2095, "rplB": 2835, "argS": 644, "alaS": 2078, "pheS": 1340, "dnaN": 58}
+    return [Design(perturbation="wildtype", condition="basal")] + \
+           [Design(perturbation="gene_knockout", condition=f"KO:{s}", params={"variant_index": i})
+            for s, i in kos.items()]
+
+
 def objective_weight_designs() -> list[Design]:
     """The LEGITIMATE objective levers (§K): sweep the metabolism FBA's kinetic-objective weight and secretion
     penalty — GRADED metabolic-behaviour perturbations the wcEcoli team ships analyses for, and the only sanctioned
@@ -172,10 +189,14 @@ def main() -> None:
                     help="essential sole-catalyst KOs (fabI, glmS, gltA) + basal control; KNOWN-TO-REROUTE control")
     ap.add_argument("--objective-weight", action="store_true", dest="objective_weight",
                     help="graded objective levers: kinetic-objective-weight + secretion-penalty sweeps (§K/D4)")
+    ap.add_argument("--machinery-calibration", action="store_true", dest="machinery_calibration",
+                    help="M1: machinery-KO battery (RNAP/ribosomal/aaRS/replisome) to calibrate viability thresholds")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.machinery_calibration:
+        designs = machinery_calibration_designs()
     elif args.objective_weight:
         designs = objective_weight_designs()
     elif args.essential_ko:
