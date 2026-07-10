@@ -255,6 +255,51 @@ aggregate the per-cell division signal (+ FBA-solver health) over seeds × gener
 - **Method value:** viability is the KO/design readout that does not reroute away — the primitive for future KO
   and reduced-genome screens, and the natural target for an ML surrogate (Gherman et al.).
 
+## K. The three KO modes and the homeostatic objective (synthesis, 2026-07-10)
+The one fact that explains everything: **the model's metabolism doesn't maximize growth.** Its FBA runs a
+*homeostatic* objective — keep ~173 metabolite concentrations inside target ranges (plus hit soft kinetic
+targets), minimizing deviation. Growth isn't optimized; it *emerges* downstream from all the processes making
+mass. Hold that lens and the three KO modes fall out:
+
+1. **Metabolic KO → reroutes → viable (no phenotype).** Disable an enzyme and the solver finds another flux path
+   that still keeps the pools in range. There's nothing to degrade — the objective only asks "are the pools
+   filled?", and rerouting fills them. Even genuinely essential enzymes (fabI, glmS, gltA) look viable.
+2. **Machinery KO → crashes → not a clean phenotype.** Ribosomes, RNAP, aaRS, the replisome live *outside*
+   metabolism — they turn metabolite pools into biomass, and there is no "reroute" for translation. Remove
+   glutamyl-tRNA synthetase and charging can't keep pace with elongation; a count goes negative and the sim throws
+   `NegativeCountsError`. Documented behavior: Choi & Covert 2023 fit aaRS kcats ~7.6× above in vitro just to grow
+   and call aaRS perturbation "catastrophic" — a full KO is the extreme.
+3. **Non-mechanistic KO → nothing → viable by construction.** Most genes are expressed and counted but do nothing
+   in a modeled process; a null there is model *scope*, not biology.
+
+**How the objective sets this — it decides where a perturbation can show up.** A biomass-maximizing objective
+(classic FBA) would drop the biomass flux when a KO blocks a precursor — you'd *see* essentiality. wcEcoli
+deliberately swapped that for the homeostatic objective (in a whole-cell model, demand is set dynamically by the
+rest of the cell, not a fixed biomass vector). The price of that correct choice: **metabolism can no longer
+register single-KO essentiality — it absorbs the KO by rerouting.** Machinery isn't in the objective at all, so
+its KO isn't absorbed — it breaks the metabolism↔rest-of-cell coupling and, with no graceful failure mode,
+crashes. The only clean, graded phenotypes come from **capacity** perturbations (rRNA-operon dosage, ppGpp clamp),
+which tune the *rate* of biomass production continuously — emergent growth tracks that smoothly. Consequence for
+measurement: "did growth change?" is the wrong KO question (it reroutes away); **"did the cell divide?"** is the
+right one (§J viability). The Baba/Joyce benchmark tells us when the model's "viable" is *wrong* — fabI/glmS/gltA
+are the `model_UNDER_predicts` cases.
+
+### KO mechanism — empirically nailed down (corrects an earlier imprecision)
+The `gene_knockout` variant calls `adjust_final_expression` (reconstruction/ecoli/simulation_data.py), which
+zeroes **only transcription** parameters (`rna_synth_prob`, `rna_expression`, `exp_free/ppgpp`, `basal_prob`,
+`delta_prob`) — it never touches counts directly. But the initial monomer count *derives from expression*, so
+**the KO'd protein is 0 from gen-0 start** — verified: fabI (ENOYL-ACP-REDUCT-NADH-MONOMER), glmS, and gltX
+(GLURS-MONOMER) all read `count = 0` at the first timestep of generation 0, vs ~7,900→15,600 for fabI in WT. So
+the earlier "the enzyme dilutes to ~0 over generations" framing was **imprecise**: the enzyme is absent from t=0;
+there is *no protein-dilution confound*. Metabolic KO viability is therefore the **pure reroute**, full stop.
+
+What *does* carry over is the **inherited downstream state**: `setDaughterInitialConditions` loads the parent
+snapshot (`loadSnapshot(inherited_state['bulk_molecules'])`) — daughters **inherit the partitioned pools, they do
+NOT re-initialize at full value.** So metabolite/charged-tRNA pools halve per division. This is why gltX (aaRS,
+protein 0 from t=0) still runs ~3 generations before crashing: it limps on an inherited charged-Glu-tRNA buffer
+the absent synthetase can't regenerate, which depletes across generations until elongation stalls. The dilution
+that matters is of the *inherited substrate pools*, not the knocked-out protein.
+
 ## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
 Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
 characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):

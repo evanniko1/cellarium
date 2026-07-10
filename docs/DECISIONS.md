@@ -40,8 +40,11 @@ is a config list, initially minimal.
 **The full problem we uncovered.** The whole-cell model does not yield a clean single-gene-KO phenotype, and
 we traced *why* to the objective, not to any bug. In order of depth:
 - The `gene_knockout` variant is an **expression** knockout (`sim_data.adjust_final_expression([i], [0])`) —
-  it zeroes transcription and the enzyme dilutes to ~0 over generations — **not a stoichiometric deletion**.
-  Hence the defect is generation-paced (the generation-depth lesson).
+  it zeroes transcription. Since initial counts derive from expression, the enzyme is **0 from gen-0** (verified
+  empirically: fabI/glmS/gltX monomers read 0 at the first timestep), so there is **no protein-dilution confound**
+  — metabolic KO viability is the pure reroute. What *does* carry over is inherited downstream state: daughters
+  `loadSnapshot` the parent's partitioned pools (they don't re-init at full value), so metabolite/charged-tRNA
+  buffers halve per division — which is what lets gltX limp ~3 generations before its charged-Glu-tRNA depletes.
 - The metabolism FBA runs `objectiveType = "homeostatic_kinetics_mixed"`: minimize *deviation* from metabolite
   concentration target *ranges* + kinetic flux targets (both soft). **There is no growth/biomass-maximization
   term** — the biomass reaction in `modular_fba.py` is only wired for `objectiveType == "standard"`, which the

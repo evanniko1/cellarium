@@ -86,8 +86,9 @@ def classify_gene(symbol: str) -> dict:
         note = ("Metabolic AND a kinetic-constraint enzyme, but the metabolism FBA objective is deviation-"
                 "minimizing over concentration ranges + kinetic targets with NO growth/biomass term (objectiveType "
                 "'homeostatic_kinetics_mixed'), so a KO has nothing to degrade — the solver just reroutes to keep "
-                "pools in range. And the gene_knockout variant is an EXPRESSION knockout (zeroes transcription; the "
-                "enzyme dilutes over generations), not a stoichiometric deletion. EMPIRICALLY glmS/gltA/pfkA/tpiA "
+                "pools in range. The gene_knockout variant zeroes transcription, and since initial counts derive "
+                "from expression the enzyme is 0 from gen-0 (verified fabI/glmS/gltX) — so this is the pure reroute, "
+                "NOT a dilution artifact. EMPIRICALLY glmS/gltA/pfkA/tpiA "
                 "(all kinetic+sole-catalyst) showed NO growth effect. Do NOT expect a phenotype; the only reliable "
                 "gene-specific essentiality test is a SEPARATE biomass/feasibility FBA single-deletion on the "
                 "metabolic network (structural flags have a 0/5 hit-rate here).")
