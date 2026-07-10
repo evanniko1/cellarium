@@ -100,6 +100,23 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     return out
 
 
+def reroute_diagnosis(gene: str, target: str, reference: str = "wildtype/basal") -> dict:
+    """For a VIABLE metabolic KO, is the 'no phenotype' a genuine biological reroute or a MATHEMATICAL ARTIFACT?
+    Checks whether the KO'd enzyme's FBA flux is 0 in the KO yet nonzero in WT on a dividing cell — the model
+    bypassing an enzyme real biology can't (the soft homeostatic objective never hard-requires that flux). Pair
+    with mechanistic_scope's essentiality benchmark: an artifact reroute on an essential gene = model_UNDER_predicts."""
+    from . import differential as _d, reader
+
+    ko = _d._design_run_roots(target)
+    wt = _d._design_run_roots(reference)
+    if not ko:
+        return {"error": f"no local runs for target '{target}'."}
+    if not wt:
+        return {"error": f"no local runs for reference '{reference}'."}
+    rigor.note_design(target)
+    return reader.reroute_diagnosis(gene, ko, wt)
+
+
 def disconfirm(target: str, reference: str, channel: str) -> dict:
     """Challenge a claimed target-vs-reference effect on a channel (per-seed spread, noise, corpus z)."""
     rigor.note_design(target)
@@ -208,6 +225,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "required": ["symbol"]}},
     {"name": "viability", "description": "Does a KO/perturbation produce a VIABLE, dividing cell? Cross-seed division verdict (viable/impaired/inviable) per design from the manifest — the KO readout that does NOT reroute away like a growth channel (a metabolic KO reroutes = viable; a machinery KO collapses). Omit condition to get every variant under a perturbation (e.g. all gene_knockouts). For a KO, pair with mechanistic_scope: a 'viable' verdict can be a model_UNDER_predicts case (essential in vivo, viable in silico).",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}}, "required": ["perturbation"]}},
+    {"name": "reroute_diagnosis", "description": "For a VIABLE metabolic KO, is the 'no phenotype' a genuine reroute or a MATHEMATICAL ARTIFACT? Checks whether the KO'd enzyme's FBA flux is 0 in the KO yet nonzero in WT on a dividing cell — the model bypassing an enzyme real biology can't. `gene` = the KO'd symbol; `target` = its design label; `reference` = WT (default). Explains WHY a viable KO is viable and flags model_UNDER_predicts at the flux level.",
+     "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}, "target": {"type": "string"}, "reference": {"type": "string"}}, "required": ["gene", "target"]}},
     {"name": "check_feasibility", "description": "Check whether a proposed experiment is inside the model's validated envelope. ALWAYS call before proposing to run anything.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
@@ -223,6 +242,7 @@ TOOLS = [
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
              "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
+             "reroute_diagnosis": reroute_diagnosis,
              "list_results": list_results, "read_series": read_series, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,

@@ -97,6 +97,18 @@ def fba_essentiality(genes: list[str], sim_path: str = "cellarium") -> dict:
     return _invoke("fba_essentiality", OUT_ROOT / sim_path, [",".join(genes)])
 
 
+def reroute_diagnosis(gene: str, ko_roots: list[Path], wt_roots: list[Path]) -> dict:
+    """Diagnose a viable metabolic KO: is its 'reroute' a mathematical artifact (enzyme FBA flux = 0 in the KO yet
+    nonzero in WT, on a viable cell)? Seed-averaged over the gene's own reactions, computed in the container."""
+    if WCECOLI_DOCKER:
+        k = ",".join(_container_path(Path(r)) for r in ko_roots)
+        w = ",".join(_container_path(Path(r)) for r in wt_roots)
+        return _run_cmd(_worker_cmd("reroute_diagnosis", [gene, k, w]), None)
+    k = ",".join(str(Path(r).resolve()) for r in ko_roots)
+    w = ",".join(str(Path(r).resolve()) for r in wt_roots)
+    return _run_cmd([PY, str(_WORKER), "reroute_diagnosis", gene, k, w], WCECOLI_DIR or None)
+
+
 def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "protein",
                  top: int = 12, floor: float = 20.0) -> dict:
     """Seed-aware per-species fold-change: ALL target runs vs ALL reference runs (count-floored, reproducibility

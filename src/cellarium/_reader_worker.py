@@ -533,6 +533,85 @@ def mode_fba_essentiality(root, genes_csv):
             "obj_baseline": round(obj0, 2), "n_reactions": len(rxn_ids), "genes": out}
 
 
+def mode_reroute_diagnosis(gene, ko_csv, wt_csv):
+    """Diagnose a VIABLE metabolic KO: did the KO actually zero the enzyme's FBA flux, yet the cell stayed viable?
+    If so the 'reroute' is a MATHEMATICAL ARTIFACT — the model bypasses an enzyme real biology can't (the soft
+    homeostatic objective never hard-requires that flux). Maps gene -> monomer -> complex -> reactions, then
+    seed+generation-averages sum|flux| through those reactions in the KO runs vs the WT runs (robust: the enzyme's
+    own reactions going to 0 is deterministic, unlike a whole-network compensating-flux diff which is seed-noisy)."""
+    import pickle
+    ko_roots = [r for r in ko_csv.split(",") if r]
+    wt_roots = [r for r in wt_csv.split(",") if r]
+    if not ko_roots or not wt_roots:
+        return {"error": "need at least one KO run root and one WT run root"}
+    def find_kb(start):  # kb lives at the sim_path root (cellarium/kb); run roots are <root>/<variant>/<seed>
+        d = start.rstrip("/\\")
+        for _ in range(6):
+            cand = os.path.join(d, "kb", "simData.cPickle")
+            if os.path.exists(cand):
+                return cand
+            d = os.path.dirname(d)
+        return None
+
+    kb = find_kb(ko_roots[0])
+    if not kb:
+        return {"error": f"no sim_data (kb) found above {ko_roots[0]}"}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    comp = sd.process.complexation
+    md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
+    cis2mono = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
+    sym2mono = {}
+    for k in range(len(gd)):
+        m = cis2mono.get(str(gd["cistron_id"][k]))
+        if m:
+            sym2mono[str(gd["symbol"][k])] = m.split("[")[0]
+    mono = sym2mono.get(gene)
+    if not mono:
+        return {"error": f"gene '{gene}' has no monomer in the model"}
+
+    def subunits(cid):
+        try:
+            return [str(m).split("[")[0] for m in comp.get_monomers(cid)["subunitIds"]]
+        except Exception:
+            return [str(cid).split("[")[0]]
+
+    rxns = sorted({r for r, cats in sd.process.metabolism.reaction_catalysts.items()
+                   for c in cats if mono in subunits(str(c)) or mono == str(c).split("[")[0]})
+    if not rxns:
+        return {"gene": gene, "monomer": mono, "n_reactions": 0,
+                "note": "gene catalyses no FBA reaction (non-metabolic or absent from the network) — not a reroute case."}
+
+    def mean_flux(roots):
+        vals = []
+        for root in roots:
+            for so in _gens(root):
+                try:
+                    r = TableReader(os.path.join(so, "FBAResults"))
+                    ids = list(r.readAttribute("reactionIDs"))
+                    f = np.nanmean(np.asarray(r.readColumn("reactionFluxes"), dtype=float), axis=0)
+                    r.close()
+                    d = {i: f[j] for j, i in enumerate(ids)}
+                    vals.append(sum(abs(d.get(x, 0.0)) for x in rxns))
+                except Exception:
+                    continue
+        return (float(np.mean(vals)), len(vals)) if vals else (None, 0)
+
+    kf, nk = mean_flux(ko_roots)
+    wf, nw = mean_flux(wt_roots)
+    disabled = kf is not None and kf < 1e-6
+    artifact = bool(disabled and wf and wf > 1e-6)
+    return {"gene": gene, "monomer": mono, "n_reactions": len(rxns),
+            "ko_flux": (round(kf, 5) if kf is not None else None), "ko_cells": nk,
+            "wt_flux": (round(wf, 5) if wf is not None else None), "wt_cells": nw,
+            "enzyme_flux_disabled_in_ko": disabled, "reroute_is_artifact": artifact,
+            "note": ("ARTIFACT: the enzyme carries flux in WT but 0 in the viable KO — the model bypasses it via a "
+                     "feasible-but-unreal flux. Real biology with 0 flux here would die if the enzyme is uniquely "
+                     "essential; cross-check mechanistic_scope's essentiality benchmark (`model_UNDER_predicts`)."
+                     if artifact else
+                     "No artifact signature: the enzyme carried no WT flux, or the KO did not zero it.")}
+
+
 def mode_variant_map(root):
     """Load sim_data (kb) and dump the variant index maps the model uses, so KO/condition design panels can
     be built with indices that match the model's own ordering (gene_knockout: idx = gene position + 1, 0 =
@@ -641,6 +720,8 @@ if __name__ == "__main__":
         out = mode_viability(run_root)
     elif mode == "fba_essentiality":
         out = mode_fba_essentiality(run_root, sys.argv[3])
+    elif mode == "reroute_diagnosis":
+        out = mode_reroute_diagnosis(sys.argv[2], sys.argv[3], sys.argv[4])
     elif mode == "differential":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     else:
