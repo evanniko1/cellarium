@@ -54,6 +54,9 @@ SPECIES_SOURCES = {
     "metabolite": ("BulkMolecules", "counts", "objectNames"),
     "reaction_flux": ("FBAResults", "reactionFluxes", "reactionIDs"),
     "exchange_flux": ("FBAResults", "externalExchangeFluxes", "externalMoleculeIDs"),
+    # deep-dive: the WHOLE-CELL components beyond the bulk layer — active ribosomes/RNAP, full chromosomes,
+    # replication forks, active DnaA boxes, etc. (translation/transcription/replication machinery, not metabolism).
+    "unique": ("UniqueMoleculeCounts", "uniqueMoleculeCounts", "uniqueMoleculeIds"),
 }
 SCHEMA_TABLES = ["Main", "Mass", "GrowthLimits", "FBAResults", "RNACounts",
                  "MonomerCounts", "UniqueMoleculeCounts", "BulkMolecules", "RnaSynthProb"]

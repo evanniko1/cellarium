@@ -12,7 +12,7 @@ from pathlib import Path
 from . import biosecurity, differential as _diff, envelope, provenance as _prov, rigor, store, survey
 from .model import Design
 
-_SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux"]
+_SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux", "unique"]
 
 
 def list_results() -> dict:
@@ -189,6 +189,32 @@ def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None,
     return out
 
 
+def metabolic_essentiality(gene: str) -> dict:
+    """Metabolic-essentiality ORACLE — METABOLISM ONLY (FBA cannot speak to machinery/regulation). For a metabolic
+    gene, combines the authoritative Baba/Joyce benchmark (the authority — the whole-cell homeostatic FBA
+    UNDER-predicts by rerouting) with the model's FBA single-deletion structural check + KO prior. For a
+    non-metabolic gene it says so and points to the right axis (machinery->viability, TF->mechanistic_scope)."""
+    from . import reader, scope
+    c = scope.classify_gene(gene)
+    if not c.get("known"):
+        return {"gene": gene, "known": False, "note": c.get("note")}
+    b = c.get("benchmark") or {}
+    if c.get("role") != "metabolic_enzyme":
+        return {"gene": gene, "role": c.get("role"), "benchmark": b,
+                "scope": ("NOT a metabolic gene — the FBA oracle does not apply. Machinery -> use viability (crash "
+                          "timing); TF -> mechanistic_scope; inert -> no modeled function.")}
+    fba = (reader.fba_essentiality([gene]).get("genes", {}) or {}).get(gene, {})
+    ess = b.get("essential_reference")
+    return {"gene": gene, "role": "metabolic_enzyme",
+            "verdict": ("ESSENTIAL (benchmark)" if ess else "non-essential (benchmark)" if ess is False
+                        else "unknown (not in the Baba/Joyce set)"),
+            "benchmark_essential": ess, "benchmark_agreement": b.get("agreement"),
+            "model_ko_prior": c.get("ko_effect_prior"),
+            "fba_structural": {"n_reactions": fba.get("n_rxn"), "flags_essential": fba.get("essential"),
+                               "caveat": "under-sensitive — the homeostatic FBA has no growth term and reroutes"},
+            "scope": "METABOLISM ONLY. The benchmark is the authority here; the whole-cell sim under-predicts."}
+
+
 def model_validation() -> dict:
     """How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level
     agreement counts + the `model_UNDER_predicts` number, so you know when to trust a KO 'viable' verdict (you
@@ -362,6 +388,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "optional: the KO'd gene, to add its scope prior + benchmark"}}}},
     {"name": "model_validation", "description": "How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level agreement counts + the model_UNDER_predicts number, so you know when to trust a KO 'viable' verdict (mostly you can't, for essential-gene candidates). Call to calibrate trust before generalising a KO result.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "metabolic_essentiality", "description": "Metabolic-essentiality ORACLE for a gene — METABOLISM ONLY. Returns the authoritative Baba/Joyce benchmark verdict (the authority; the whole-cell homeostatic FBA under-predicts by rerouting) + the model's FBA structural check + KO prior. For a non-metabolic gene it says the FBA doesn't apply and points to the right axis (machinery->viability, TF->mechanistic_scope). Use for 'is this METABOLIC gene essential?'.",
+     "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
     {"name": "screen_design", "description": "Biosecurity screen for a proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). ALWAYS call together with check_feasibility before proposing to run anything; do not run a flagged design.",
@@ -386,7 +414,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
              "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
-             "propose_experiment": propose_experiment}
+             "propose_experiment": propose_experiment, "metabolic_essentiality": metabolic_essentiality}
 
 
 def dispatch(name: str, args: dict) -> dict:
