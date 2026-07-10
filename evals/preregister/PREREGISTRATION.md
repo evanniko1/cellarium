@@ -17,6 +17,18 @@ the 10 cases). **Test:** Wilcoxon signed-rank on the 10 per-case differences (fu
 the elenctic critic) and full vs `generic_judge` (isolates the falsifiability rubric), same test. Reported with
 the GPT cross-family grader as a robustness replication and Claude↔GPT inter-rater agreement.
 
+## 1b. Amendment (transparency) — sensitive primary metric added after observing rubric saturation
+On the first cases the binary operationalization-quality rubric (§3) **saturated**: full, no_skeptic and
+proposer_only all scored 6/6 (both graders), so the pre-registered primary comparison returns a null — a single
+strong proposer already writes *formally* adequate hypotheses. We therefore add, BEFORE the full residual-defect
+audit was run/read (only an n≈11 preview existed), a more sensitive **primary mechanism endpoint**: the
+**residual-defect count** — the number of substantive methodological defects a fresh adversarial auditor, BLIND
+to config, finds in the final hypothesis (defect taxonomy in `evals/audit.py`), graded by an independent Claude
+auditor AND a cross-family GPT auditor. **Primary comparison unchanged in form:** full vs proposer_only on the
+case-clustered mean defect count, one-sided Wilcoxon (H_A: full < proposer_only). The binary-rubric null is
+reported alongside as an honest finding (the dialectic does not make hypotheses *look* more testable on a coarse
+rubric; it makes them *sounder* by removing residual defects). Both metrics are reported for all configs.
+
 ## 2. Secondary endpoints
 - Convergence rate and mean rounds-to-convergence per config (Wilson 95% intervals); the degenerate/round-cap
   rate; behaviour under an adversarial skeptic.
