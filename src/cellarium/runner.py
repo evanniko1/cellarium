@@ -103,10 +103,11 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     v = envelope.check(design)
     if not v.in_envelope:
         raise ValueError(f"Refusing out-of-envelope design: {v.reason}")
+    run_root = _run_subpath(design, seed, sim_path)
+    run_root.mkdir(parents=True, exist_ok=True)  # write provenance BEFORE the sim so a CRASH still leaves labels (G3)
+    _write_provenance(run_root, design)
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
-    run_root = _run_subpath(design, seed, sim_path)
-    _write_provenance(run_root, design)
     return run_root
 
 

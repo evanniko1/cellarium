@@ -16,6 +16,9 @@ from enum import Enum
 from .model import GenerationResult, SimResult
 
 DEGENERATE_MAX_STEPS = 10
+# per-second instantaneous growth faster than any real/model condition (~11.5-min doubling; with_aa peaks ~0.0005)
+# is numerical garbage — the signature of a crashed-but-"divided" run (gltX post-collapse read 0.0013-0.0021).
+IMPLAUSIBLE_GROWTH = 0.001
 
 
 class QCStatus(str, Enum):
@@ -24,6 +27,7 @@ class QCStatus(str, Enum):
     DEGENERATE = "degenerate"
     OVER_REPLICATED = "over_replicated"
     FBA_INFEASIBLE = "fba_infeasible"
+    IMPLAUSIBLE = "implausible_channel"   # divided, but a core channel is physically impossible (crash garbage)
     NO_DIVISION = "no_division"
 
 
@@ -36,6 +40,8 @@ def check_generation(gen: GenerationResult) -> QCStatus:
         return QCStatus.OVER_REPLICATED
     if not gen.fba_ok:
         return QCStatus.FBA_INFEASIBLE
+    if gen.growth_mean is not None and gen.growth_mean > IMPLAUSIBLE_GROWTH:
+        return QCStatus.IMPLAUSIBLE   # a run can "divide" yet be numerically collapsed — don't report its channels (G2)
     if not gen.divided or gen.division_time_sec is None:
         return QCStatus.NO_DIVISION
     return QCStatus.OK

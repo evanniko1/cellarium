@@ -33,9 +33,12 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
                      viability=data.get("viability", {}))
 
 
-def _flat_row(rec: SimResult, seed: int, run_root: Path) -> dict:
+def _flat_row(rec: SimResult, seed: int, run_root: Path,
+              requested_generations: int | None = None, crashed: bool = False) -> dict:
     overall, per = qc.check_result(rec)
     row = {"id": rec.id, "label": rec.label,
+           "requested_generations": requested_generations,   # for the viability truncation signal (§M)
+           "crashed": crashed,                                # the sim raised — inviable regardless of partial data
            "contributor": getpass.getuser(), "host": socket.gethostname(), "ts": time.time(),
            "perturbation": rec.design.perturbation, "condition": rec.design.condition,
            "timeline": rec.design.timeline, "seed": seed, "generations": len(rec.generations),
@@ -77,7 +80,27 @@ def _label(design: Design, seed: int) -> str:
 
 def _run_job(design: Design, seed: int, generations: int) -> dict:
     run_root = runner.run_one(design, seed, generations)
-    return _flat_row(build_record(run_root, design, seed), seed, run_root)
+    return _flat_row(build_record(run_root, design, seed), seed, run_root, requested_generations=generations)
+
+
+def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> dict:
+    """A row for a sim that CRASHED (run_one raised) — captures the partial on-disk lineage so the crash is a
+    first-class INVIABLE point (§M), not a silently-dropped job. crashed=True overrides any 'looks viable' partial."""
+    run_root = runner._run_subpath(design, seed, "cellarium")
+    try:
+        rec = build_record(run_root, design, seed) if run_root.exists() else None
+    except Exception:
+        rec = None
+    if rec is not None:
+        row = _flat_row(rec, seed, run_root, requested_generations=generations, crashed=True)
+        row["qc"], row["reportable"], row["note"] = "crashed", False, f"sim crashed: {str(exc)[:150]}"
+        return row
+    return {"id": f"{design.perturbation}_{seed}_crash", "label": _label(design, seed),
+            "perturbation": design.perturbation, "condition": design.condition, "timeline": design.timeline,
+            "seed": seed, "generations": 0, "requested_generations": generations, "crashed": True,
+            "qc": "crashed", "reportable": False, "gens_reached": 0, "division_rate": 0.0,
+            "terminal_divided": False, "n_fba_failures": 0, "note": f"sim crashed (no data): {str(exc)[:150]}",
+            "simout_path": str(run_root)}
 
 
 def campaign(designs: list[Design], seeds: list[int], generations: int = 1, parallel: int = 1) -> Path:
@@ -97,8 +120,12 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
             try:
                 rows.append(_run_job(d, s, generations))
                 print(f"[{i}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
-            except Exception as exc:  # one bad sim must not lose the whole batch
+            except Exception as exc:  # one bad sim must not lose the whole batch — but record it as a crash (§M)
                 print(f"[{i}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
+                try:
+                    rows.append(_crash_row(d, s, generations, exc))
+                except Exception:
+                    pass
     else:
         from concurrent.futures import ThreadPoolExecutor, as_completed
         print(f"Running {n} sims, {parallel} at a time (each loads ~1GB sim_data — mind host RAM).", flush=True)
@@ -111,6 +138,10 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
                     print(f"[{k}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
                 except Exception as exc:
                     print(f"[{k}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
+                    try:
+                        rows.append(_crash_row(d, s, generations, exc))
+                    except Exception:
+                        pass
 
     if not rows:
         raise RuntimeError("campaign produced no completed runs")

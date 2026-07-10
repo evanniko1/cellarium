@@ -144,6 +144,21 @@ def test_design_space_enumerates_and_resolves():
     assert ("ko_index" in g) or (g.get("known") is False)  # resolves if scope cached, else graceful
 
 
+def test_viability_truncation_and_crash_override():
+    # §M fix: a lineage that CRASHED or stopped short of the requested depth is inviable even if its completed
+    # generations all divided (the alaS/pheS blind spot).
+    from cellarium import store
+
+    def rows(*specs):  # (division_rate, gens_reached, terminal_divided, n_fba_failures, requested_generations, crashed)
+        return [{"seed": i, "division_rate": dr, "gens_reached": g, "terminal_divided": td, "n_fba_failures": ff,
+                 "requested_generations": req, "crashed": cr}
+                for i, (dr, g, td, ff, req, cr) in enumerate(specs)]
+
+    assert store._viability_verdict(rows((1.0, 3, True, 0, 4, True)))["verdict"] == "inviable"    # crashed at gen-4
+    assert store._viability_verdict(rows((1.0, 3, True, 0, 4, False)))["verdict"] == "inviable"   # truncated (3<4)
+    assert store._viability_verdict(rows((1.0, 4, True, 0, 4, False)))["verdict"] == "viable"     # full depth, ok
+
+
 def test_provenance_distinguishes_fitted_from_derived_conditions():
     from cellarium import provenance
     assert provenance.tag("condition", "no_oxygen") == "in_sample"       # measured/TF-fitted (H1)

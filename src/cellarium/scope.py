@@ -65,16 +65,24 @@ def classify_gene(symbol: str) -> dict:
     # The clean-phenotype path is NEITHER a metabolic nor a machinery single-KO but a GRADED capacity perturbation
     # (rrna_operon_knockout, ppgpp_conc) — those gave the only measurable, interpretable dose-responses.
     if machinery:
-        ko_effect = "lethal_crash"
-        aaRS_lit = (" This is documented, expected behavior for aaRS: Choi & Covert 2023 (NAR, doi:10.1093/nar/"
-                    "gkad435) found aaRS kcats must be fit ~7.6x above in vitro just to sustain the proteome, and "
-                    "perturbing aaRS activity is 'catastrophic' — a full KO is the extreme of that."
+        # CALIBRATED on the n=7 machinery panel (§M): the crash is real but its TIMING tracks the inherited-pool
+        # size, so the outcome at a given generation depth is subtype-specific — NOT a uniform gen-0 crash.
+        crash_timing = {"ribosomal": "immediate (gen-0 crash)",
+                        "aaRS": "~gen-3 (runs on the inherited charged-tRNA buffer, then NegativeCountsError)",
+                        "rnap": ">4 gens (large inherited RNAP reserve; VIABLE at <=4 gens, crashes later)",
+                        "replisome": ">4 gens (large inherited clamp/pol reserve; VIABLE at <=4 gens, crashes later)"}
+        timing = crash_timing.get(machinery_role, "generation-dependent (inherited-pool timing)")
+        ko_effect = "lethal_crash" if machinery_role in ("ribosomal", "aaRS") else "viable_then_crash"
+        aaRS_lit = (" Documented for aaRS: Choi & Covert 2023 (NAR, doi:10.1093/nar/gkad435) fit aaRS kcats ~7.6x "
+                    "above in vitro and call aaRS perturbation 'catastrophic' — a full KO is the extreme."
                     if machinery_role == "aaRS" else "")
-        note = ("Core central-dogma machinery (" + str(machinery_role) + "). A full single-gene KO removes an "
-                "essential subunit of translation/transcription/replication — EMPIRICALLY the sim CRASHES rather "
-                "than reaching a phenotype (gltX aaRS KO: ribosome_conc 21->2.15, NegativeCountsError in "
-                "PolypeptideElongation, 4/4 seeds). This is a model breakdown, NOT an interpretable result." + aaRS_lit +
-                " For a measurable capacity effect use a GRADED perturbation (rrna_operon_knockout, ppgpp_conc).")
+        note = ("Core central-dogma machinery (" + str(machinery_role) + "). Essential, but the KO outcome is "
+                "GENERATION-DEPENDENT — crash timing tracks the inherited pool: " + timing + " (§M panel: rplB "
+                "gen-0, aaRS gen-3, rpoB/dnaN survive >=4 gens). Translation machinery (ribosomal/aaRS) crashes "
+                "within a few generations (NegativeCountsError in PolypeptideElongation); RNAP/replisome look "
+                "VIABLE at <=4 gens (model_UNDER_predicts via slow depletion) and would crash at more generations."
+                + aaRS_lit + " Read VIABILITY at the requested depth, not growth; use a GRADED perturbation for a "
+                "clean measurable effect.")
     elif not mechanistic:
         ko_effect = "none_inert"
         note = ("EXPRESSED but function NOT simulated. A KO shows no phenotype BY CONSTRUCTION — model scope, "
@@ -101,7 +109,10 @@ def classify_gene(symbol: str) -> dict:
     # 2006, glucose-minimal). This turns the self-reported "0/5 hit-rate" into a benchmarked statement, and flags
     # the decisive failure mode: model expects a viable KO (reroute/inert) where the gene is actually ESSENTIAL.
     ess = g.get("essential_ref")  # True / False / None(=not in the reference list)
-    predicts_viable = ko_effect in ("none_inert", "none_flux_unconstrained", "unreliable_model_reroutes")
+    # 'viable_then_crash' (RNAP/replisome): the model shows VIABLE at the tested depth (<=4 gens) — so for the
+    # essentiality benchmark it counts as predicts-viable (under-predicts if the gene is essential).
+    predicts_viable = ko_effect in ("none_inert", "none_flux_unconstrained", "unreliable_model_reroutes",
+                                    "viable_then_crash")
     predicts_lethal = ko_effect == "lethal_crash"
     if ess is None:
         benchmark = {"essential_reference": None, "agreement": "not_in_reference"}

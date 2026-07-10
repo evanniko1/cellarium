@@ -104,8 +104,17 @@ def _viability_verdict(rows: list[dict]) -> dict:
     min_dr = min(drs)
     from . import viability_rules
     verdict = viability_rules.verdict(min_dr, all(term), any(term), fbf)
+    # §M truncation/crash override: a lineage that CRASHED (run raised) or stopped short of the requested depth is
+    # inviable even if its completed generations all divided (the alaS/pheS blind spot — crash on gen-4 startup).
+    crashed = any(bool(r.get("crashed")) for r in rows)
+    reqs = [r.get("requested_generations") for r in rows if r.get("requested_generations")]
+    truncated = bool(reqs) and max(gens) < max(reqs)
+    if crashed or truncated:
+        verdict = "inviable"
     return {"n_seeds": len(rows), "min_division_rate": round(min_dr, 3),
-            "max_gens_reached": max(gens), "all_terminal_divided": all(term), "n_fba_failures": fbf,
+            "max_gens_reached": max(gens), "requested_generations": (max(reqs) if reqs else None),
+            "crashed": crashed, "truncated": truncated,
+            "all_terminal_divided": all(term), "n_fba_failures": fbf,
             "verdict": verdict,
             "per_seed": [{"seed": r.get("seed"), "division_rate": r.get("division_rate"),
                           "gens_reached": r.get("gens_reached"), "terminal_divided": r.get("terminal_divided"),
@@ -118,16 +127,23 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     gene_knockout variants). The KO readout that does NOT reroute away like a graded growth channel (§J)."""
     if not has_manifest():
         return {"error": "viability needs the Parquet manifest (record a campaign first)."}
-    cols = "perturbation, condition, seed, division_rate, gens_reached, terminal_divided, n_fba_failures, median_division_time_sec"
+    base = "perturbation, condition, seed, division_rate, gens_reached, terminal_divided, n_fba_failures, median_division_time_sec"
     where, params = "WHERE perturbation = ?", [perturbation]
     if condition is not None:
         where += " AND condition = ?"
         params.append(condition)
-    try:
-        rows = _duck(f"SELECT {cols} FROM {_FROM} {where} "
+
+    def q(cols):
+        return _duck(f"SELECT {cols} FROM {_FROM} {where} "
                      f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path,id) ORDER BY ts DESC)=1", params)
+
+    try:  # prefer the crash/truncation columns; fall back if no shard has them yet
+        rows = q(base + ", requested_generations, crashed")
     except Exception:
-        return {"error": "manifest has no viability columns; run `manifest.record_existing()` to backfill (§J)."}
+        try:
+            rows = q(base)
+        except Exception:
+            return {"error": "manifest has no viability columns; run `manifest.record_existing()` to backfill (§J)."}
     if not rows:
         return {"error": f"no runs for perturbation='{perturbation}'" +
                 (f", condition='{condition}'" if condition is not None else "") + "."}

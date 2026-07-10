@@ -66,9 +66,12 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     def val(r: dict, ch: str):
         return r["_pw"].get(ch[3:]) if ch.startswith("pw:") else r.get(ch)
 
+    # G1 (audit re-analysis): rank only REPORTABLE runs — a crashed/degenerate run's channel values are garbage
+    # (e.g. gltX post-crash growth ranked z=+5.05). Non-reportable runs stay in `coverage` below, just not ranked.
     by_design: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
-        by_design[(r["perturbation"], r["condition"])].append(r)
+        if r.get("reportable"):
+            by_design[(r["perturbation"], r["condition"])].append(r)
 
     import math
 
