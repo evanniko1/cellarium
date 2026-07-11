@@ -1,0 +1,8 @@
+{
+  "wall_s": 540.5752120018005,
+  "peak_concurrent": 8,
+  "distinct_ids": 12,
+  "rows": 8,
+  "N": 8,
+  "shard": "data/manifest/fmenol-1783595764-8b4249.parquet"
+}
