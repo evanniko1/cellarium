@@ -105,6 +105,15 @@ def coverage_check() -> dict:
     return rigor.coverage()
 
 
+def corpus_audit() -> dict:
+    """Read-only inventory of the WHOLE corpus: coverage (designs, seeds, generation depth, QC), redundancy
+    (designs replicated beyond target -> GB prunable), supersession (older/crashed dead-weight rows), and gaps
+    (power-thin designs + the disk-feasibility budget for new runs). Deletes nothing; separates safe-to-prune from
+    irreplaceable. Use to plan pruning under storage pressure and to ground what-to-run-next proposals."""
+    from . import audit
+    return audit.audit_report()
+
+
 def provenance(perturbation: str, condition: str | None = None) -> dict:
     """Is a design's result IN-SAMPLE (a ParCa-fitted condition — agreement is consistency) or OUT-OF-SAMPLE
     (a perturbation the fit did not target — a genuine prediction)? Check before claiming the model 'predicts'."""
@@ -373,6 +382,8 @@ TOOLS = [
                       "channel": {"type": "string"}}, "required": ["target", "reference", "channel"]}},
     {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "corpus_audit", "description": "Read-only inventory of the WHOLE corpus: coverage (designs, seeds, generation depth, QC), redundancy (designs replicated beyond a target -> estimated GB prunable), supersession (older/crashed dead-weight rows), and gaps (power-thin designs + the disk-feasibility budget for new runs). Deletes nothing; separates safe-to-prune from irreplaceable. Use to plan pruning under storage pressure and to ground what-to-run-next proposals with the disk budget.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "provenance", "description": "Is a design's result IN-SAMPLE (a ParCa-fitted condition — model was calibrated to match it, so agreement is consistency NOT prediction) or OUT-OF-SAMPLE (a perturbation the fit didn't target — a genuine prediction)? Check before claiming the model 'predicts' or 'validates' something.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}},
                       "required": ["perturbation"]}},
@@ -405,7 +416,8 @@ TOOLS = [
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
-             "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
+             "disconfirm": disconfirm, "coverage_check": coverage_check, "corpus_audit": corpus_audit,
+             "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,
              "list_results": list_results, "design_space": design_space,
