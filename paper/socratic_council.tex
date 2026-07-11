@@ -168,9 +168,9 @@ The \texttt{Hypothesis} object's falsifier is executable. A verdict engine compi
 (the statistic, channel, target and reference designs, and threshold) and runs the actual statistic on per-seed
 whole-cell simulation output, returning a confirm/refute verdict with a severity assessment against a
 pre-registered smallest effect size of interest---not post-hoc power \citep{mayo2018severe}. On the flagship
-question, executed against real isogenic simulations, the across-seed coefficient of variation is $0.047$ for
-growth rate (H$_1$ refuted, below the $0.10$ threshold), $0.013$ for ribosome concentration (refuted), and
-$0.119$ for ppGpp concentration (supported, exceeding the effect-size floor). The loop closes: a vague question
+question, executed against $n=16$ real isogenic simulations, the across-seed coefficient of variation is $0.066$
+for growth rate (H$_1$ refuted, below the $0.10$ threshold), $0.013$ for ribosome concentration (refuted), and
+$0.112$ for ppGpp concentration (supported, exceeding the effect-size floor). The loop closes: a vague question
 becomes an operationalized hypothesis, whose falsifier fires on fresh simulation output and returns a verdict.
 
 We stress the epistemic scope (Sec.~4): a verdict against a whole-cell model is a claim about the \emph{model},
@@ -186,8 +186,21 @@ instrument's measurable capabilities (channel names, the runnable-perturbation v
 readings or the literature answer key, and is statically prevented from importing any result-bearing code. In
 scoping this control we found a real leak---a corpus statistic embedded in a tool's textual description---which
 the boundary now excludes; the quarantine is thus an auditable engineering control against evaluation
-contamination, of independent interest for closed-loop AI-science systems. [A leaked-vs-quarantined ablation
-quantifying the effect of contamination on downstream conclusions is reported in Extended Data.]
+contamination, of independent interest for closed-loop AI-science systems.
+
+A leaked-versus-quarantined ablation (the proposer additionally handed each case's canonical answer; $n=3$
+replicates $\times$ 10 cases, both auditors) shows what leakage actually changes. It does \emph{not} consistently
+improve methodological soundness: the residual-defect count moves in opposite directions under the two auditors
+(Claude $2.8$ leaked vs $4.7$ quarantined; GPT $4.1$ vs $3.3$). What it changes is \emph{recitation of measured
+values the model would otherwise not assert}. The clearest case is essentiality (5.1), whose canonical answer is a
+specific count ($\sim$300--620 essential genes): the leaked Council recites that count in $2/3$ runs, whereas the
+quarantined Council recites it in $0/3$, proposing instead a \emph{falsifiable fraction} to test. Where the value
+is derivable or textbook-familiar (the well-known five-fold ppGpp rise, 4.2), both recite it and the quarantine
+neither can nor should matter. A benchmark scoring ``matches the literature'' can thus be inflated by recitation,
+which the quarantine---by construction---prevents; our operationalization-quality metric is therefore an honest
+measure of derivation. Whether leakage additionally drives a \emph{wrong} downstream conclusion on fresh
+simulations, rather than mere recitation, requires executing the leaked hypotheses through the verdict engine and
+is left to future work.
 
 \section{Discussion}
 Our central finding is deflationary in a useful way: a philosophy-of-science dialectic does not make an LLM's
