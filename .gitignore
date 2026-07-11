@@ -27,3 +27,13 @@ data/cache/gene_map.json
 data/cache/gene_scope.json
 src/cellarium/_pathway_resolved.json
 # Manifest shards (data/manifest/*.parquet) ARE committed — they are the shareable corpus.
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/missfont.log
+# scratch campaign scripts
+scratchpad_campaign.py*
