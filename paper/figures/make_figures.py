@@ -34,7 +34,64 @@ def _mean_ci(entry, key):
     return e["mean"], e["mean"] - lo, hi - e["mean"]
 
 
+def fig1_architecture():
+    """Schematic: vague question -> Council (proposer<->skeptic->judge behind a quarantine wall) ->
+    operationalized Hypothesis -> instrument test. The Council is the hero."""
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    fig, ax = plt.subplots(figsize=(11, 4.3))
+    ax.set_xlim(0, 100); ax.set_ylim(0, 44); ax.axis("off")
+
+    def box(x, y, w, h, text, fc, ec="#333", fs=8.5, tc="black"):
+        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.4,rounding_size=1.2",
+                                    fc=fc, ec=ec, lw=1.2))
+        ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fs, color=tc, wrap=True)
+
+    def arrow(x1, y1, x2, y2, colour="#333", style="-|>", lw=1.4, rad=0.0):
+        ax.add_patch(FancyArrowPatch((x1, y1), (x2, y2), arrowstyle=style, mutation_scale=13,
+                                     color=colour, lw=lw, connectionstyle=f"arc3,rad={rad}"))
+
+    # input
+    box(1, 18, 15, 8, "Vague research\nquestion\n\"do identical cells\nbehave differently?\"", "#f0f0f0", fs=8)
+    arrow(16, 22, 22, 22)
+
+    # Council container
+    ax.add_patch(FancyBboxPatch((22, 6), 44, 32, boxstyle="round,pad=0.5,rounding_size=1.5",
+                                fc="#eef4fb", ec=CBLUE, lw=1.6))
+    ax.text(44, 40.2, "SOCRATIC COUNCIL", ha="center", fontsize=11, fontweight="bold", color=CBLUE)
+    box(25, 24, 17, 9, "PROPOSER\n(maieutic / abduction)\noperationalize + falsifier\n+ rival hypotheses", "#dbe7f5", fs=7.2)
+    box(46, 24, 17, 9, "SKEPTIC\n(Socratic ignorance)\ntyped objections;\nDuhem–Quine belt", "#f5dede", fs=7.2)
+    box(35.5, 9, 17, 9, "JUDGE\n(falsifiability gate)\nfalsifiable ∧ operationalized\n∧ discriminating ∧ feasible", "#e6e6e6", fs=7.2)
+    arrow(42, 28.5, 46, 28.5, CBLUE, rad=0.0); arrow(46, 26.5, 42, 26.5, CRED, rad=0.0)
+    ax.text(44, 30.2, "propose", ha="center", fontsize=6.3, color=CBLUE)
+    ax.text(44, 24.6, "object", ha="center", fontsize=6.3, color=CRED)
+    arrow(53, 24, 47, 18.5, "#555"); arrow(37, 24, 41, 18.5, "#555")
+    arrow(44, 9, 44, 5.2, "#555", rad=0.0)
+    ax.text(45.5, 6.6, "converge on falsifiability\n(not agreement / Elo)", ha="left", fontsize=6.3, color="#333")
+
+    # quarantine wall on the left edge of the Council
+    ax.plot([21.2, 21.2], [6, 38], color="#888", lw=2.2, ls=(0, (4, 2)))
+    ax.text(20.6, 34, "information quarantine", rotation=90, va="top", ha="center", fontsize=7, color="#555")
+    ax.text(20.6, 12, "capabilities in · readings/answer-key out", rotation=90, va="bottom", ha="center",
+            fontsize=6, color="#888")
+
+    # output Hypothesis + instrument
+    arrow(66, 22, 72, 22)
+    box(72, 15, 15, 14, "Operationalized\nHYPOTHESIS\nH1/H0 · observable\n· executable falsifier\n· designs",
+        "#e8f3e8", ec="#2e7d32", fs=7)
+    arrow(79.5, 15, 79.5, 10.5, "#2e7d32", rad=0.0)
+    box(72, 1.5, 15, 8, "Whole-cell\nsimulation\nfalsifier fires →\nconfirm / refute", "#f0f0f0", fs=7.2)
+
+    # philosophy ribbon
+    ax.text(44, 2.6, "discovery  →  operationalization  →  justification    (Reichenbach · Peirce · Bridgman · Popper · Platt)",
+            ha="center", fontsize=6.6, color="#777", style="italic")
+    fig.tight_layout()
+    for ext in ("pdf", "png"):
+        fig.savefig(ROOT / "paper" / "figures" / f"fig1_architecture.{ext}", bbox_inches="tight")
+    print("wrote paper/figures/fig1_architecture.pdf (+ .png)")
+
+
 def main():
+    fig1_architecture()
     rd = SUM.get("residual_defects", {})
     cfg = SUM.get("configs", {})
     fig, (axA, axB, axC) = plt.subplots(1, 3, figsize=(11, 3.4))
