@@ -77,6 +77,41 @@ def append_shard(rows: list[dict], name: str | None = None) -> Path:
     return shard
 
 
+def compact(dry_run: bool = False) -> dict:
+    """Housekeeping guardrail: consolidate ALL manifest shards into ONE deduped shard, dropping superseded rows
+    (older duplicates per run; latest ts wins, matching the read layer). Deterministic — NO judgment — so the
+    shard files don't blow up as re-indexes accumulate. Not an agent/user decision; runs automatically after a
+    re-index (see record_existing). Writes + verifies the new shard, THEN removes the olds; dry_run only reports."""
+    import glob
+    import os
+
+    import duckdb
+
+    glob_pat = "data/manifest/*.parquet"
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards to compact"}
+    con = duckdb.connect()
+    try:
+        latest = con.execute(
+            f"SELECT * FROM read_parquet('{glob_pat}', union_by_name=true) "
+            "QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+        ).fetch_arrow_table().to_pylist()
+        total = con.execute(f"SELECT count(*) FROM read_parquet('{glob_pat}', union_by_name=true)").fetchone()[0]
+    finally:
+        con.close()
+    res = {"files_before": len(files), "rows_before": total, "rows_after": len(latest),
+           "superseded_dropped": total - len(latest), "dry_run": dry_run}
+    if dry_run or not latest:
+        return res
+    new = append_shard(latest, name=f"{getpass.getuser()}-compact")  # write the consolidated shard FIRST
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():                 # ...then drop the olds
+            os.remove(f)
+    res.update({"files_after": 1, "shard": str(new)})
+    return res
+
+
 def _label(design: Design, seed: int) -> str:
     return f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
 
@@ -178,7 +213,9 @@ def record_existing(sim_path: str = "cellarium") -> Path:
         rows.append(_flat_row(build_record(run_root, design, seed), seed, run_root))
     if not rows:
         raise RuntimeError(f"no existing runs found under {runner._out_root(sim_path)}")
-    return append_shard(rows, name=f"{getpass.getuser()}-index")
+    append_shard(rows, name=f"{getpass.getuser()}-index")
+    res = compact()   # guardrail: auto-consolidate so re-indexes don't pile up superseded shards
+    return Path(res["shard"]) if "shard" in res else MANIFEST_DIR
 
 
 if __name__ == "__main__":  # `python -m cellarium.manifest` -> index existing runs without re-simulating

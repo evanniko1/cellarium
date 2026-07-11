@@ -1,6 +1,6 @@
-"""Corpus-audit smoke tests — the read-only inventory. Run: python -m pytest tests/test_audit.py"""
+"""Corpus-audit smoke tests — the read-only inventory + the compaction guardrail. Run: python -m pytest tests/test_audit.py"""
 
-from cellarium import audit, tools
+from cellarium import audit, manifest, tools
 
 
 def test_gb_estimate_scales_with_generations_and_seeds():
@@ -26,12 +26,24 @@ def test_audit_report_is_well_formed():
     r = audit.audit_report()
     if "error" in r:                        # empty/absent corpus is a graceful error, not a crash
         return
-    assert set(r) >= {"summary", "coverage", "redundancy", "supersession", "gaps", "disclaimer"}
+    assert set(r) >= {"summary", "coverage", "redundancy", "gaps", "housekeeping", "disclaimer"}
     s = r["summary"]
     assert s["n_designs"] >= 0 and s["n_runs"] >= 0
-    assert r["redundancy"]["est_gb_prunable"] >= 0
-    assert r["gaps"]["feasible_8gen_lineages"] >= 0
-    assert r["gaps"]["free_disk_gb"] >= 0
+    assert r["redundancy"]["est_gb_prunable_safe"] >= 0
+    assert r["gaps"]["feasible_8gen_lineages"] >= 0 and r["gaps"]["free_disk_gb"] >= 0
+
+
+def test_redundancy_verdict_is_power_grounded():
+    """Redundancy is a grounded TOOL decision, not the agent's opinion: prune-safe iff target-seed MDE clears the
+    reference effect, given the design's own replicate CV."""
+    red = audit.redundancy()
+    if "error" in red:
+        return
+    assert red["channel"] and "ref_effect_pct" in red
+    for info in red["designs"].values():
+        assert info["verdict"] in ("prune-safe", "keep-for-power")
+        assert info["mde_pct_at_target"] >= info["mde_pct_at_current"]     # fewer seeds -> larger MDE
+        assert (info["verdict"] == "prune-safe") == (info["mde_pct_at_target"] <= red["ref_effect_pct"])
 
 
 def test_crashed_runs_are_never_flagged_as_prunable():
@@ -40,8 +52,19 @@ def test_crashed_runs_are_never_flagged_as_prunable():
     if "error" in sup:
         return
     assert "n_inviable_by_crash" in sup                 # reported as a coverage fact...
-    assert "NOT prune targets" in sup["note"]           # ...explicitly not a prune target
+    assert "kept on purpose" in sup["note"]             # ...explicitly kept, not pruned
     assert not any("crash" in k.lower() and "prun" in k.lower() for k in sup)
+
+
+def test_compact_dry_run_is_read_only():
+    """Supersession is deterministic housekeeping, not a decision — compact() dedups without judgment or side effects."""
+    r = manifest.compact(dry_run=True)
+    if "error" in r:                                    # no shards -> graceful error
+        return
+    assert r["dry_run"] is True
+    assert r["rows_after"] <= r["rows_before"]          # dedup never adds rows
+    assert r["superseded_dropped"] == r["rows_before"] - r["rows_after"]
+    assert "files_after" not in r                       # dry run touches no files
 
 
 def test_dispatch_routes_corpus_audit():

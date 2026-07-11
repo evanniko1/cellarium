@@ -74,20 +74,47 @@ def coverage() -> dict:
             "n_perturbation_types": len({r["perturbation"] for r in live}), "designs": designs}
 
 
-def redundancy(target_seeds: int = TARGET_SEEDS) -> dict:
-    """Designs replicated beyond `target_seeds` — the excess seeds are safe-to-prune, with estimated GB freed."""
-    cov = coverage()
-    if "error" in cov:
-        return cov
-    over, total = {}, 0.0
-    for d, info in cov["designs"].items():
-        excess = info["n_seeds"] - target_seeds
-        if excess > 0:
-            gb = _gb(info["max_generations"], excess)
-            over[d] = {"n_seeds": info["n_seeds"], "excess_seeds": excess, "est_gb_prunable": gb}
-            total += gb
-    return {"target_seeds": target_seeds, "n_designs_over": len(over),
-            "est_gb_prunable": round(total, 2), "designs": over}
+def redundancy(target_seeds: int = TARGET_SEEDS, channel: str = "growth_rate", ref_effect_pct: float = 10.0) -> dict:
+    """Designs replicated beyond `target_seeds`, each with a POWER-GROUNDED verdict (not a heuristic): given the
+    design's OWN replicate CV on `channel`, does dropping to target_seeds still detect a `ref_effect_pct` change?
+    If yes the excess seeds are 'prune-safe'; if no they buy detection power -> 'keep-for-power'. The tool decides,
+    grounded in real noise; the agent only relays it. Same two-sample math as power_check (alpha .05, power .8)."""
+    import math
+    import statistics as st
+
+    from . import survey
+    rows = survey._deduped_rows([channel])
+    if rows and "__error__" in rows[0]:
+        return {"error": rows[0]["__error__"]}
+    by_design: dict[str, list[float]] = defaultdict(list)
+    for r in rows:
+        v = r.get(channel)
+        if v is not None:
+            by_design[_design(r)].append(float(v))
+    gens = {d: i["max_generations"] for d, i in coverage().get("designs", {}).items()}
+    K = 2 * (1.96 + 0.84) ** 2   # two-sample n-per-group constant — matches power_check
+    over, safe_gb = {}, 0.0
+    for d, vals in sorted(by_design.items()):
+        n, mean = len(vals), (st.fmean(vals) if vals else 0.0)
+        if n <= target_seeds or not mean:
+            continue
+        cv = st.pstdev(vals) / abs(mean)
+        mde_t = round(cv * math.sqrt(K / target_seeds) * 100, 1)
+        mde_n = round(cv * math.sqrt(K / n) * 100, 1)
+        prune_safe = mde_t <= ref_effect_pct
+        gb = _gb(gens.get(d, 0), n - target_seeds)
+        over[d] = {"n_seeds": n, "excess_seeds": n - target_seeds, "cv": round(cv, 4),
+                   "mde_pct_at_target": mde_t, "mde_pct_at_current": mde_n,
+                   "verdict": "prune-safe" if prune_safe else "keep-for-power", "est_gb_if_pruned": gb}
+        if prune_safe:
+            safe_gb += gb
+    n_safe = sum(1 for v in over.values() if v["verdict"] == "prune-safe")
+    return {"target_seeds": target_seeds, "channel": channel, "ref_effect_pct": ref_effect_pct,
+            "n_designs_over": len(over), "n_prune_safe": n_safe, "est_gb_prunable_safe": round(safe_gb, 2),
+            "designs": over,
+            "note": f"prune-safe = {target_seeds} seeds still detect a {ref_effect_pct}% change on {channel} (the "
+                    f"design's OWN CV); keep-for-power = the extra seeds buy detection. Two-sample a=.05 power=.8; "
+                    f"GB counts only prune-safe designs."}
 
 
 def supersession() -> dict:
@@ -106,8 +133,9 @@ def supersession() -> dict:
     inviable = sorted({_design(r) for r in _latest_per_run(rows) if r.get("crashed")})
     return {"superseded_manifest_rows": stale, "n_inviable_by_crash": len(inviable),
             "inviable_by_crash_designs": inviable,
-            "note": "superseded_manifest_rows = older duplicate rows safe to compact (re-index dups free ~0 raw "
-                    "GB). n_inviable_by_crash are VALID lethal-KO results kept on purpose — NOT prune targets."}
+            "note": "superseded_manifest_rows are older duplicate rows AUTO-consolidated by manifest.compact() "
+                    "(runs after each re-index) — housekeeping, NOT a user/agent decision. n_inviable_by_crash are "
+                    "VALID lethal-KO results kept on purpose."}
 
 
 def gaps(target_seeds: int = TARGET_SEEDS) -> dict:
@@ -135,13 +163,15 @@ def audit_report(target_seeds: int = TARGET_SEEDS) -> dict:
         return cov
     red, sup, gp = redundancy(target_seeds), supersession(), gaps(target_seeds)
     return {"summary": {"n_designs": cov["n_designs"], "n_runs": cov["n_runs"],
-                        "est_gb_prunable_redundancy": red.get("est_gb_prunable", 0.0),
-                        "superseded_manifest_rows": sup.get("superseded_manifest_rows", 0),
+                        "redundancy_prune_safe_designs": red.get("n_prune_safe", 0),
+                        "est_gb_prunable_safe": red.get("est_gb_prunable_safe", 0.0),
                         "n_inviable_by_crash": sup.get("n_inviable_by_crash", 0),
                         "n_thin_designs": gp.get("n_thin_designs", 0),
                         "feasible_8gen_lineages": gp.get("feasible_8gen_lineages", 0)},
-            "coverage": cov, "redundancy": red, "supersession": sup, "gaps": gp,
-            "disclaimer": "read-only inventory; nothing deleted. redundancy = CANDIDATE excess seeds (keep them if "
-                          "a design needs the statistical power); superseded_manifest_rows = older duplicate rows "
-                          "safe to compact. Crashed runs are valid inviable datapoints, never prune targets. "
-                          "GB figures are estimates (~0.65 GB/generation)."}
+            "coverage": cov, "redundancy": red, "gaps": gp,
+            "housekeeping": sup,   # supersession is auto-consolidated by manifest.compact(); NOT a user decision
+            "disclaimer": "read-only; nothing deleted. DECISIONS: redundancy carries a per-design power-grounded "
+                          "verdict (prune-safe vs keep-for-power); gaps = thin designs + the disk budget. Superseded "
+                          "rows are HOUSEKEEPING, auto-consolidated by manifest.compact() after a re-index — not a "
+                          "user decision. Crashed runs are valid inviable datapoints, never pruned. GB figures are "
+                          "estimates (~0.65 GB/generation)."}
