@@ -59,7 +59,7 @@ SYSTEM = (
 )
 
 
-def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True) -> str:
+def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True, on_tool=None) -> str:
     from . import rigor
 
     rigor.reset()  # fresh coverage tracking per question
@@ -91,6 +91,8 @@ def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = T
             out = tools.dispatch(tu.name, tu.input)
             if verbose:
                 print(f"  ⌥ {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
+            if on_tool is not None:
+                on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
             results.append({"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(out)})
         messages.append({"role": "user", "content": results})
 
