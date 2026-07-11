@@ -4,6 +4,13 @@ from cellarium import biosecurity, differential, envelope, qc, rigor, survey
 from cellarium.model import Design, GenerationResult, SimResult
 
 
+def test_empty_result_is_flagged_not_ok():
+    """A run with NO readable generations is EMPTY (never ok) — an empty read must not launder into viable."""
+    overall, _ = qc.check_result(SimResult(id="empty"))
+    assert overall is qc.QCStatus.EMPTY
+    assert not qc.is_reportable(SimResult(id="empty"))
+
+
 def test_carbon_source_switch_is_out_of_envelope():
     v = envelope.check(Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_acetate"))
     assert not v.in_envelope
