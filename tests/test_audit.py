@@ -67,6 +67,21 @@ def test_compact_dry_run_is_read_only():
     assert "files_after" not in r                       # dry run touches no files
 
 
+def test_prune_candidates_lists_only_prune_safe_excess_and_deletes_nothing():
+    """The resolver is deterministic and safe: it only lists excess seeds of PRUNE-SAFE designs, and deletes nothing."""
+    pc = audit.prune_candidates()
+    if "error" in pc:
+        return
+    red = audit.redundancy()
+    safe = {d for d, i in red.get("designs", {}).items() if i["verdict"] == "prune-safe"}
+    keep = {d for d, i in red.get("designs", {}).items() if i["verdict"] == "keep-for-power"}
+    for c in pc["candidates"]:
+        assert c["design"] in safe and c["design"] not in keep     # only prune-safe, never keep-for-power
+        assert "run_root" in c and isinstance(c["raw_on_disk"], bool)
+    assert pc["est_gb_on_disk"] >= 0
+    assert "DELETES NOTHING" in pc["note"]                         # read-only resolver
+
+
 def test_dispatch_routes_corpus_audit():
     out = tools.dispatch("corpus_audit", {})
     assert out.get("error") != "unknown tool 'corpus_audit'"   # registered in _DISPATCH

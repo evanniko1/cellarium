@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import shutil
 from collections import Counter, defaultdict
+from pathlib import Path
 
 MANIFEST_GLOB = "data/manifest/*.parquet"
 GB_PER_GENERATION = 0.65   # observed simOut footprint per generation
@@ -153,6 +154,41 @@ def gaps(target_seeds: int = TARGET_SEEDS) -> dict:
             "free_disk_gb": free_gb, "est_gb_per_8gen_lineage": per_lineage,
             "feasible_8gen_lineages": int(free_gb / per_lineage) if per_lineage else 0,
             "note": "thin_designs are power gaps; feasible_8gen_lineages is the disk ceiling for new runs."}
+
+
+def prune_candidates(target_seeds: int = TARGET_SEEDS, channel: str = "growth_rate",
+                     ref_effect_pct: float = 10.0) -> dict:
+    """Deterministically resolve the SPECIFIC run dirs safe to prune: the excess seeds (beyond target_seeds) of
+    designs the grounded redundancy verdict marks 'prune-safe'. Keeps the lowest seed indices, lists the higher
+    ones, with raw-on-disk + GB per candidate. DELETES NOTHING — the caller reviews and acts; the agent only
+    relays this grounded list, it NEVER decides deletions (keep-for-power designs are never listed)."""
+    red = redundancy(target_seeds, channel, ref_effect_pct)
+    if "error" in red:
+        return red
+    gens = {d: i["max_generations"] for d, i in coverage().get("designs", {}).items()}
+    safe = {d for d, i in red["designs"].items() if i["verdict"] == "prune-safe"}
+    by_design: dict[str, list[tuple]] = defaultdict(list)
+    for r in _latest_per_run(_rows()):
+        d = _design(r)
+        if d in safe:
+            seed = r.get("seed")
+            by_design[d].append((seed if seed is not None else 10 ** 9, r.get("run_key")))
+    cands, gb_disk = [], 0.0
+    for d in sorted(by_design):
+        excess = sorted(by_design[d])[target_seeds:]        # keep the lowest target_seeds seeds; list the rest
+        per_gb = _gb(gens.get(d, 0), 1)
+        for seed, run_root in excess:
+            on_disk = bool(run_root) and Path(run_root).exists()
+            cands.append({"design": d, "seed": (None if seed == 10 ** 9 else seed), "run_root": run_root,
+                          "raw_on_disk": on_disk, "est_gb": (per_gb if on_disk else 0.0)})
+            if on_disk:
+                gb_disk += per_gb
+    return {"target_seeds": target_seeds, "n_candidates": len(cands), "est_gb_on_disk": round(gb_disk, 2),
+            "candidates": cands,
+            "note": "EXCESS seeds of PRUNE-SAFE designs only (the lowest seed indices are KEPT). Deterministic — the "
+                    "agent relays this list, it never decides. DELETES NOTHING.",
+            "how_to_delete": "review each run_root; delete only the ones you confirm (IRREVERSIBLE: rm -rf <run_root>), "
+                             "then run manifest.compact() to drop their now-orphaned manifest rows."}
 
 
 def audit_report(target_seeds: int = TARGET_SEEDS) -> dict:
