@@ -30,6 +30,7 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
                      design=design, channels=data.get("channels", {}), generations=gens, note=note,
                      channel_stats=data.get("channel_stats", {}), series=data.get("series", {}),
                      media_segments=data.get("media_segments", []), pathways=data.get("pathways", {}),
+                     species_panel=data.get("species_panel", {}),
                      viability=data.get("viability", {}))
 
 
@@ -47,6 +48,7 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            "per_generation": json.dumps([{"i": g.index, "growth": g.growth_mean, "ppgpp": g.ppgpp_mean,
                                            "divided": g.divided} for g in rec.generations]),
            "pathways": json.dumps(rec.pathways),   # {pathway: proteome_fraction} — surveyed as channels
+           "species_panel": json.dumps(rec.species_panel),  # {monomer_id: {mean,last,series}} — per-species depth (scope A)
            "simout_path": str(Path(run_root).resolve()),  # RESOLVED so the read-time dedup key is consistent
            # (absolute vs relative path strings were treated as distinct runs — a dedup-fragility bug)
            "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
