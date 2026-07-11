@@ -1,0 +1,105 @@
+
+=== 1.1  Do genetically identical cells express the same gene at the same level?
+  · round 1: proposer -> Even in a single genetically identical (isogenic) population growing in constant condition
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  · round 2: proposer -> Even in a single genetically identical (isogenic) population growing in constant condition
+    skeptic -> 0 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=PASS
+
+=== 3.1  Do genetically identical cells behave differently?
+  · round 1: proposer -> In a genetically identical (isogenic) E. coli population growing in a single fixed conditi
+    skeptic -> 2 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  · round 2: proposer -> In a genetically identical (isogenic) E. coli population growing in a single fixed conditi
+    skeptic -> 2 objections (0 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=fail
+    stringent miss: S4: ties the variance to a specific low-copy protein pool (the isolati — Ties variance to ppGpp/ribosome pools (bulk metabolite/complex concentrations), not to a s
+
+=== 1.2  What makes one gene's expression noisier than another's?
+  · round 1: proposer -> Expression noise (cell-to-cell CV of protein abundance across isogenic replicates) is prim
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=False quota=0/3 feasible=True
+  · round 2: proposer -> Expression noise (seed-to-seed CV of a gene's protein-species copy number, used as the ins
+    skeptic -> 3 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  · round 3: proposer -> Expression noise (seed-to-seed CV of a gene's protein-species copy number, used as the ins
+    skeptic -> 2 objections (0 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=fail
+    stringent miss: S1: states the eta^2 = a/mean + b form with a numeric floor (~0.1 / CV — It writes CV^2 ~ a/mean + b and asserts b>0 (a floor exists), but gives no numeric value f
+    stringent miss: S2: specifies fitting the noise-mean curve with CIs and a test for a n — Fits log-log OLS with slope 95% CI and R^2, but performs the fit in log(CV^2)~log(mean) sp
+    stringent miss: S4: holds protein mean fixed while varying burst size (the isolating c — Matched-mean control varies promoter/TF architecture, not burst size at fixed mean; it doe
+
+=== 4.1  How does a cell decide how many ribosomes to make in a given medium?
+  · round 1: proposer -> E. coli sets ribosome concentration to match the growth rate demanded by the medium via th
+    skeptic -> 0 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  · round 2: proposer -> E. coli sets ribosome concentration to match the growth rate demanded by the medium via th
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+  · round 3: proposer -> E. coli sets ribosome concentration to match the growth rate demanded by the medium via th
+    skeptic -> 3 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=fail
+    stringent miss: S4: includes the translation-inhibition arm to establish bidirectional — No translation-inhibition arm (e.g., chloramphenicol/antibiotic reducing translation, givi
+
+=== 4.2  What does a cell do when it suddenly runs out of amino acids?
+  · round 1: proposer -> A sudden, complete removal of amino acids from the medium triggers the bacterial stringent
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  · round 2: proposer -> A sudden, complete removal of amino acids from the medium triggers the bacterial stringent
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=PASS
+
+=== 5.1  Which genes can E. coli live without?
+  · round 1: proposer -> Across the E. coli genome, a substantial minority of genes (roughly 10-20%) are individual
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  · round 2: proposer -> Across the E. coli genome, a substantial minority of genes (roughly 10-20%) are individual
+    skeptic -> 2 objections (1 substantive, 1 cumulative)
+    judge -> adequate=False converged=False quota=1/3 feasible=False
+  · round 3: proposer -> Across the E. coli genome, a substantial minority of genes (roughly 10-20%) are individual
+    skeptic -> 2 objections (0 substantive, 1 cumulative)
+    judge -> adequate=False converged=True quota=1/3 feasible=False
+  · round 4: proposer -> Across the E. coli genome, a substantial minority of genes (roughly 10-20%) are individual
+    skeptic -> 2 objections (1 substantive, 2 cumulative)
+    judge -> adequate=False converged=True quota=2/3 feasible=False
+  floor=ok  min_bar=fail  stringent=fail
+    stringent miss: S1: states an essential-fraction range (~300-620 of ~4300) and a viabi — Gives a viability cutoff (|effect_pct|<15%) but the essential fraction is stated as 80-90%
+
+=== 6.1  How do bacteria choose between two sugars in the same flask?
+  · round 1: proposer -> In a mixed-carbon environment, E. coli implements diauxic-like sequential prioritization v
+    skeptic -> 2 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  · round 2: proposer -> Framed at the correct scope (the simulator cannot instantiate two simultaneous carbon sour
+    skeptic -> 2 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  floor=ok  min_bar=fail  stringent=fail
+    stringent miss: S1: quantifies the lag duration and the repression fold-change of seco — Quantifies ppGpp fold-change (>=2x) and ribosome trough (>=20%), but never quantifies a la
+    stringent miss: S2: specifies detection of two exponential phases and induction timing — Detects a single switch-like transition (sigmoid vs linear fit) during depletion, not two 
+    stringent miss: S3: the prediction discriminates sequential+catabolite-repression from — Discriminates switch-like vs graded/kinetic/ribosome-capacity rivals, but explicitly conce
+    stringent miss: S4: names the second-sugar catabolic genes whose repression/induction  — No second-sugar catabolic genes named or tracked; only ppgpp_conc, ribosome_conc, growth_r
+
+=== 6.2  When the preferred sugar runs out, do all cells switch to the second sugar at the same time?
+  · round 1: proposer -> When glucose (preferred sugar) is exhausted in a mixed-substrate diauxic timeline, isogeni
+    skeptic -> 0 objections (0 substantive, 0 cumulative)
+    judge -> adequate=True converged=True quota=0/3 feasible=True
+  · round 2: proposer -> When glucose (preferred sugar) is exhausted in a mixed-substrate diauxic timeline, isogeni
+    skeptic -> 2 objections (1 substantive, 1 cumulative)
+    judge -> adequate=True converged=True quota=1/3 feasible=True
+  floor=ok  min_bar=PASS  stringent=fail
+    stringent miss: S2: specifies a bimodality/mixture test on the lag-time distribution — Specifies CV, skewness, and fraction-above-threshold, but no explicit bimodality/mixture-m
+    stringent miss: S3: the prediction discriminates a regulated bet-hedge from uniform ad — Discriminates regulated bet-hedge (via ppGpp gating/clamp) from uniform adaptation (Rival 
+
+===== SUMMARY  min-bar 6/8   stringent-bar 2/8   -> evals/results/full_run.json
+  1.1: min=Y stringent=Y  Do genetically identical cells express the same gene a
+  3.1: min=Y stringent=n  Do genetically identical cells behave differently?
+  1.2: min=Y stringent=n  What makes one gene's expression noisier than another'
+  4.1: min=Y stringent=n  How does a cell decide how many ribosomes to make in a
+  4.2: min=Y stringent=Y  What does a cell do when it suddenly runs out of amino
+  5.1: min=n stringent=n  Which genes can E. coli live without?
+  6.1: min=n stringent=n  How do bacteria choose between two sugars in the same 
+  6.2: min=Y stringent=n  When the preferred sugar runs out, do all cells switch
