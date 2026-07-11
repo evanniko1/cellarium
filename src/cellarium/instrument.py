@@ -29,6 +29,7 @@ CHANNELS: dict[str, dict] = {
     "protein_mass":         {"unit": "fg",    "note": "total protein mass"},
     "rna_mass":             {"unit": "fg",    "note": "total RNA mass"},
     "cell_mass":            {"unit": "fg",    "note": "total cell mass"},
+    "division_rate":        {"unit": "frac",  "note": "fraction of generations that divide — the §J viability readout for KO lethality; <1 flags a division defect the growth rate can hide"},
     "fba_objective":        {"unit": "diag",  "note": "FBA solver objective — diagnostic, not a biological readout"},
 }
 
