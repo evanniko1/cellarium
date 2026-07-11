@@ -1,0 +1,11 @@
+pair_id,case,A_config,B_config
+P01,1.1,proposer_only,full
+P02,1.2,proposer_only,full
+P03,2.1,full,proposer_only
+P04,2.2,proposer_only,full
+P05,3.1,full,proposer_only
+P06,4.1,proposer_only,full
+P07,4.2,full,proposer_only
+P08,5.1,full,proposer_only
+P09,6.1,proposer_only,full
+P10,6.2,proposer_only,full
