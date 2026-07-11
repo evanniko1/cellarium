@@ -105,6 +105,33 @@ def coverage_check() -> dict:
     return rigor.coverage()
 
 
+def corpus_audit() -> dict:
+    """Read-only inventory of the WHOLE corpus: coverage (designs, seeds, generation depth, QC), redundancy
+    (designs replicated beyond target -> GB prunable), supersession (older/crashed dead-weight rows), and gaps
+    (power-thin designs + the disk-feasibility budget for new runs). Deletes nothing; separates safe-to-prune from
+    irreplaceable. Use to plan pruning under storage pressure and to ground what-to-run-next proposals."""
+    from . import audit
+    return audit.audit_report()
+
+
+def data_availability(result_id: str) -> dict:
+    """For data BEYOND the distilled shard (an arbitrary non-panel species, a full-resolution trajectory, or FBA
+    fluxes), where to get it: (1) download the run's raw simOut from the HF dataset, or (2) regenerate it locally.
+    The shard already answers panel-species + summary questions with no download — only call this when a question
+    needs a species/resolution the shard doesn't carry, and surface BOTH alternatives to the user."""
+    from . import hf
+    return hf.data_availability(result_id)
+
+
+def prune_candidates() -> dict:
+    """The SPECIFIC run dirs safe to prune: the excess seeds of designs redundancy marks 'prune-safe' (lowest seed
+    indices KEPT), each with raw-on-disk + estimated GB. DELETES NOTHING — relay this grounded, deterministic list
+    to the user; the deletion is THEIR confirmed, irreversible action, never yours. Use after corpus_audit when the
+    user asks which files they can delete."""
+    from . import audit
+    return audit.prune_candidates()
+
+
 def provenance(perturbation: str, condition: str | None = None) -> dict:
     """Is a design's result IN-SAMPLE (a ParCa-fitted condition — agreement is consistency) or OUT-OF-SAMPLE
     (a perturbation the fit did not target — a genuine prediction)? Check before claiming the model 'predicts'."""
@@ -373,6 +400,12 @@ TOOLS = [
                       "channel": {"type": "string"}}, "required": ["target", "reference", "channel"]}},
     {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "corpus_audit", "description": "Read-only inventory of the WHOLE corpus: coverage (designs, seeds, generation depth, QC), redundancy (designs replicated beyond a target -> estimated GB prunable), supersession (older/crashed dead-weight rows), and gaps (power-thin designs + the disk-feasibility budget for new runs). Deletes nothing; separates safe-to-prune from irreplaceable. Use to plan pruning under storage pressure and to ground what-to-run-next proposals with the disk budget.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "data_availability", "description": "For data BEYOND the distilled shard (an arbitrary non-panel species, a full-resolution trajectory, or FBA fluxes), tells the user the TWO ways to get it: (1) download the run's raw simOut from the HF dataset, or (2) regenerate it locally. The shard already answers panel-species + summary questions with no download; only use this when the question needs a species/resolution the shard doesn't carry, and present both alternatives.",
+     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string", "description": "the result id (from list_results/survey_corpus)"}}, "required": ["result_id"]}},
+    {"name": "prune_candidates", "description": "The SPECIFIC run dirs safe to prune: the excess seeds of designs redundancy marks 'prune-safe' (lowest seed indices kept), each with raw-on-disk + estimated GB. DELETES NOTHING -- relay this grounded, deterministic list; the user confirms and deletes (irreversible), never you. Use after corpus_audit/redundancy when the user asks which files they can delete.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "provenance", "description": "Is a design's result IN-SAMPLE (a ParCa-fitted condition — model was calibrated to match it, so agreement is consistency NOT prediction) or OUT-OF-SAMPLE (a perturbation the fit didn't target — a genuine prediction)? Check before claiming the model 'predicts' or 'validates' something.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}},
                       "required": ["perturbation"]}},
@@ -405,7 +438,8 @@ TOOLS = [
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
-             "disconfirm": disconfirm, "coverage_check": coverage_check, "provenance": provenance,
+             "disconfirm": disconfirm, "coverage_check": coverage_check, "corpus_audit": corpus_audit,
+             "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,
              "list_results": list_results, "design_space": design_space,

@@ -23,6 +23,7 @@ IMPLAUSIBLE_GROWTH = 0.001
 
 class QCStatus(str, Enum):
     OK = "ok"
+    EMPTY = "empty"        # no readable generation data at all — NOT ok (e.g. a crash before generation 0)
     DEAD = "dead"
     DEGENERATE = "degenerate"
     OVER_REPLICATED = "over_replicated"
@@ -48,8 +49,12 @@ def check_generation(gen: GenerationResult) -> QCStatus:
 
 
 def check_result(sim: SimResult) -> tuple[QCStatus, list[QCStatus]]:
-    """Return (overall status, per-generation statuses). Overall is the first non-ok status, else ok."""
-    per = [check_generation(g) for g in sim.generations] or [QCStatus.OK]
+    """Return (overall status, per-generation statuses). Overall is the first non-ok status, else ok. A result with
+    NO readable generations is EMPTY (never ok) — an empty read must not launder into a clean 'ok' (that is exactly
+    how disk-crash artifacts slipped through as viable)."""
+    if not sim.generations:
+        return QCStatus.EMPTY, [QCStatus.EMPTY]
+    per = [check_generation(g) for g in sim.generations]
     overall = next((s for s in per if s is not QCStatus.OK), QCStatus.OK)
     return overall, per
 

@@ -191,6 +191,7 @@ def mode_run(run_root):
     if not gs:
         return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": [],
                 "viability": _lineage_viability([])}
+    panel = _load_panel()
     # headline channels/dynamics from the LAST generation (most-adapted steady state); per-gen trajectory below
     stats, series, segments = _dynamics(gs[-1])
     generations = [_generation(so, i) for i, so in enumerate(gs)]
@@ -198,7 +199,8 @@ def mode_run(run_root):
             "channels": {n: s["mean"] for n, s in stats.items()},  # flat means (compat + easy SQL)
             "channel_stats": stats, "series": series, "media_segments": segments,
             "viability": _lineage_viability(generations),  # per-lineage division facts (first-class channel, §J)
-            "pathways": _pathways(gs[-1], _load_panel())}  # per-pathway proteome fractions (P2.1 depth)
+            "pathways": _pathways(gs[-1], panel),            # per-pathway proteome fractions (P2.1 depth)
+            "species_panel": _species_panel(gs[-1], panel)}  # per-species terminal + coarse trajectory (scope A)
 
 
 def _cell_viability(so):
@@ -344,6 +346,31 @@ def _pathways(so, panel):
         cols = [idx[m] for m in monomers if m in idx]
         if cols:
             out[pathway] = _finite(np.nanmean(counts[:, cols].sum(axis=1) / total))
+    return out
+
+
+def _species_panel(so, panel):
+    """Per-SPECIES (monomer) mean, terminal count, and a coarse k=16 trajectory for the curated panel proteins
+    (the union of monomers across pathways) — scope-A depth at the species level, so read_species/differential
+    answer for panel members straight from the shard (no raw read). Non-panel species stay HF-only. Mirrors
+    mode_species, but batched over the panel from the LAST generation."""
+    monomers = sorted({m for ms in panel.values() for m in ms})
+    if not monomers:
+        return {}
+    try:
+        counts = np.asarray(_col(so, "MonomerCounts", "monomerCounts"), dtype=float)  # (T, nMonomers)
+        ids = _attr(so, "MonomerCounts", "monomerIds")
+        t = _col(so, "Main", "time").ravel()
+    except Exception:
+        return {}
+    idx = {m: i for i, m in enumerate(ids)}
+    out = {}
+    for m in monomers:
+        j = idx.get(m)
+        if j is None:
+            continue
+        s = counts[:, j]
+        out[m] = {"mean": _finite(np.nanmean(s)), "last": _finite(s[-1]), "series": _downsample(t, s)}
     return out
 
 
