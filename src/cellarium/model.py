@@ -81,13 +81,36 @@ class ResultStore:
         return self._by_id.get(result_id)
 
 
-def run_live(design: Design) -> SimResult:  # pragma: no cover - extension point
-    """Run the public wcEcoli model for an uncached design.
+def run_live(design: Design, *, seeds: list[int] | None = None, generations: int | None = None,
+             sim_path: str = "cellarium", append_manifest: bool = True) -> list[SimResult]:  # pragma: no cover - drives the external model
+    """Run the public wcEcoli model live for an (uncached) design and return one SimResult per seed.
 
-    Intentionally not stubbed with fake numbers: wiring the Covert-lab runner is the documented extension
-    point (see README). For the demo, everything the agent needs is in the committed cache.
+    Chains the existing execution pieces — ParCa (cached) -> runner.run_one per lineage -> reader -> a
+    SimResult — and, by default, appends the fresh runs to the manifest so they become queryable by the
+    grounded tools (survey, rigor.disconfirm). This is what lets a hypothesis be tested against NEW simulation
+    output rather than only the committed cache.
+
+    Requires the model to be reachable: set WCECOLI_DOCKER (a local model image) or WCECOLI_DIR (a native
+    checkout) — see runner.py / docs/GENERATE.md. Feasibility and biosecurity are enforced inside
+    runner.run_one (via envelope.check); an out-of-envelope design raises rather than running.
+
+    seeds/generations default to the design's own `seeds`/`generations`. Real runs are slow (~9 min/generation,
+    plus a one-time ParCa compile); size accordingly.
     """
-    raise NotImplementedError(
-        "Live wcEcoli runs are not wired in this demo build. "
-        "The agent works over the committed result cache; add the runner here to go live."
-    )
+    from . import manifest, runner  # lazy: manifest imports model -> avoid an import cycle
+
+    gens = generations if generations is not None else design.generations
+    seed_list = list(seeds) if seeds is not None else list(range(design.seeds))
+    if not (runner._out_root(sim_path) / "kb" / "simData.cPickle").exists():
+        runner.ensure_parca(sim_path)  # compile sim_data once; skip when already cached (ParCa is ~10-20 min)
+
+    results: list[SimResult] = []
+    rows: list[dict] = []
+    for s in seed_list:
+        run_root = runner.run_one(design, s, gens, sim_path)
+        rec = manifest.build_record(run_root, design, s)
+        results.append(rec)
+        rows.append(manifest._flat_row(rec, s, run_root))
+    if append_manifest and rows:
+        manifest.append_shard(rows)  # fresh runs become visible to survey / disconfirm (the falsifier)
+    return results

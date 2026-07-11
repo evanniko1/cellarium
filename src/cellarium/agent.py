@@ -59,12 +59,22 @@ SYSTEM = (
 )
 
 
-def run(question: str, *, max_turns: int = 8, verbose: bool = True) -> str:
+def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True) -> str:
     from . import rigor
 
     rigor.reset()  # fresh coverage tracking per question
     client = anthropic.Anthropic()
-    messages: list[dict] = [{"role": "user", "content": question}]
+    if hypothesis is not None:
+        # The Socratic Council has already operationalized the question into a falsifiable hypothesis; hand the
+        # grounded agent that brief instead of the raw string. The agent still does ALL grounding itself — the
+        # Council supplies a sharpened question, never a result (the docs/SOCRATIC_COUNCIL.md quarantine).
+        brief = hypothesis.brief() if hasattr(hypothesis, "brief") else str(hypothesis)
+        first = (f"{brief}\n\nTest this hypothesis against the corpus using the tools: survey first, then read "
+                 f"exactly the falsifier's channel(s), seek disconfirmation, and report whether the evidence "
+                 f"supports or refutes it — grounding every number in a tool result.")
+    else:
+        first = question
+    messages: list[dict] = [{"role": "user", "content": first}]
 
     for _ in range(max_turns):
         resp = client.messages.create(

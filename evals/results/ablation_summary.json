@@ -1,0 +1,490 @@
+{
+  "source": "evals/results/ablation.json",
+  "n_records": 120,
+  "n_errors": 0,
+  "configs": {
+    "full": {
+      "n": 30,
+      "quality_claude": {
+        "mean": 6.0,
+        "ci95": [
+          6.0,
+          6.0
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "quality_gpt": {
+        "mean": 6.0,
+        "ci95": [
+          6.0,
+          6.0
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "convergence_rate": {
+        "p": 0.9,
+        "ci95": [
+          0.744,
+          0.965
+        ]
+      },
+      "feasible_rate": {
+        "p": 1.0,
+        "ci95": [
+          0.886,
+          1
+        ]
+      },
+      "mean_rounds": 2.7
+    },
+    "no_skeptic": {
+      "n": 30,
+      "quality_claude": {
+        "mean": 5.967,
+        "ci95": [
+          5.901,
+          6.032
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 5.667
+        }
+      },
+      "quality_gpt": {
+        "mean": 6.0,
+        "ci95": [
+          6.0,
+          6.0
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "convergence_rate": {
+        "p": 1.0,
+        "ci95": [
+          0.886,
+          1
+        ]
+      },
+      "feasible_rate": {
+        "p": 1.0,
+        "ci95": [
+          0.886,
+          1
+        ]
+      },
+      "mean_rounds": 2.0,
+      "vs_full_quality_claude": {
+        "n_paired_cases": 10,
+        "mean_diff_full_minus_config": 0.033,
+        "cases_full_better": 1,
+        "cases_worse": 0,
+        "cases_tie": 9,
+        "wilcoxon_p": 1.0
+      }
+    },
+    "proposer_only": {
+      "n": 30,
+      "quality_claude": {
+        "mean": 6.0,
+        "ci95": [
+          6.0,
+          6.0
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "quality_gpt": {
+        "mean": 6.0,
+        "ci95": [
+          6.0,
+          6.0
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "convergence_rate": {
+        "p": 1.0,
+        "ci95": [
+          0.886,
+          1
+        ]
+      },
+      "feasible_rate": {
+        "p": 1.0,
+        "ci95": [
+          0.886,
+          1
+        ]
+      },
+      "mean_rounds": 1.0,
+      "vs_full_quality_claude": {
+        "n_paired_cases": 10,
+        "mean_diff_full_minus_config": 0.0,
+        "cases_full_better": 0,
+        "cases_worse": 0,
+        "cases_tie": 10
+      }
+    },
+    "generic_judge": {
+      "n": 30,
+      "quality_claude": {
+        "mean": 5.967,
+        "ci95": [
+          5.901,
+          6.032
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 5.667,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "quality_gpt": {
+        "mean": 6.0,
+        "ci95": [
+          6.0,
+          6.0
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 6.0,
+          "3.1": 6.0,
+          "1.2": 6.0,
+          "4.1": 6.0,
+          "4.2": 6.0,
+          "5.1": 6.0,
+          "6.1": 6.0,
+          "6.2": 6.0,
+          "2.1": 6.0,
+          "2.2": 6.0
+        }
+      },
+      "convergence_rate": {
+        "p": 0.9,
+        "ci95": [
+          0.744,
+          0.965
+        ]
+      },
+      "feasible_rate": {
+        "p": 1.0,
+        "ci95": [
+          0.886,
+          1
+        ]
+      },
+      "mean_rounds": 2.3,
+      "vs_full_quality_claude": {
+        "n_paired_cases": 10,
+        "mean_diff_full_minus_config": 0.033,
+        "cases_full_better": 1,
+        "cases_worse": 0,
+        "cases_tie": 9,
+        "wilcoxon_p": 1.0
+      }
+    }
+  },
+  "interrater_claude_vs_gpt": {
+    "n": 120,
+    "mean_abs_score_diff": 0.017,
+    "per_criterion_pct_agreement": {
+      "q1_falsifiable": 1.0,
+      "q2_operationalized": 1.0,
+      "q3_discriminating": 1.0,
+      "q4_quantitative": 1.0,
+      "q5_specified": 1.0,
+      "q6_consistent": 0.983
+    }
+  },
+  "residual_defects": {
+    "full": {
+      "n": 30,
+      "defects_claude": {
+        "mean": 3.367,
+        "ci95": [
+          1.495,
+          5.239
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 5.333,
+          "3.1": 3.0,
+          "1.2": 0.0,
+          "4.1": 2.667,
+          "4.2": 5.333,
+          "5.1": 6.0,
+          "6.1": 2.333,
+          "6.2": 9.0,
+          "2.1": 0.0,
+          "2.2": 0.0
+        }
+      },
+      "defects_gpt": {
+        "mean": 3.8,
+        "ci95": [
+          3.489,
+          4.111
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 2.667,
+          "3.1": 3.333,
+          "1.2": 3.667,
+          "4.1": 4.0,
+          "4.2": 4.333,
+          "5.1": 4.0,
+          "6.1": 4.0,
+          "6.2": 3.667,
+          "2.1": 4.0,
+          "2.2": 4.333
+        }
+      }
+    },
+    "no_skeptic": {
+      "n": 30,
+      "defects_claude": {
+        "mean": 4.833,
+        "ci95": [
+          2.684,
+          6.983
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 9.0,
+          "3.1": 8.333,
+          "1.2": 0.0,
+          "4.1": 3.0,
+          "4.2": 8.333,
+          "5.1": 7.667,
+          "6.1": 0.0,
+          "6.2": 3.333,
+          "2.1": 6.0,
+          "2.2": 2.667
+        }
+      },
+      "defects_gpt": {
+        "mean": 4.667,
+        "ci95": [
+          4.472,
+          4.861
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 4.333,
+          "3.1": 4.333,
+          "1.2": 4.667,
+          "4.1": 5.0,
+          "4.2": 5.0,
+          "5.1": 4.667,
+          "6.1": 4.333,
+          "6.2": 4.333,
+          "2.1": 5.0,
+          "2.2": 5.0
+        }
+      },
+      "vs_full_claude": {
+        "n_paired_cases": 10,
+        "mean_defects_reduced_by_full": 1.467,
+        "cases_full_fewer": 7,
+        "cases_full_more": 2,
+        "wilcoxon_p_full_fewer": 0.1016
+      },
+      "vs_full_gpt": {
+        "n_paired_cases": 10,
+        "mean_defects_reduced_by_full": 0.867,
+        "cases_full_fewer": 10,
+        "cases_full_more": 0,
+        "wilcoxon_p_full_fewer": 0.001
+      }
+    },
+    "proposer_only": {
+      "n": 30,
+      "defects_claude": {
+        "mean": 4.5,
+        "ci95": [
+          2.542,
+          6.458
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 2.333,
+          "3.1": 8.0,
+          "1.2": 9.333,
+          "4.1": 2.667,
+          "4.2": 5.333,
+          "5.1": 8.667,
+          "6.1": 0.0,
+          "6.2": 3.0,
+          "2.1": 3.0,
+          "2.2": 2.667
+        }
+      },
+      "defects_gpt": {
+        "mean": 4.767,
+        "ci95": [
+          4.667,
+          4.866
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 4.667,
+          "3.1": 4.667,
+          "1.2": 4.667,
+          "4.1": 5.0,
+          "4.2": 4.667,
+          "5.1": 4.667,
+          "6.1": 5.0,
+          "6.2": 4.667,
+          "2.1": 5.0,
+          "2.2": 4.667
+        }
+      },
+      "vs_full_claude": {
+        "n_paired_cases": 10,
+        "mean_defects_reduced_by_full": 1.133,
+        "cases_full_fewer": 5,
+        "cases_full_more": 3,
+        "wilcoxon_p_full_fewer": 0.2383
+      },
+      "vs_full_gpt": {
+        "n_paired_cases": 10,
+        "mean_defects_reduced_by_full": 0.967,
+        "cases_full_fewer": 10,
+        "cases_full_more": 0,
+        "wilcoxon_p_full_fewer": 0.001
+      }
+    },
+    "generic_judge": {
+      "n": 30,
+      "defects_claude": {
+        "mean": 4.733,
+        "ci95": [
+          3.104,
+          6.362
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 3.0,
+          "3.1": 8.667,
+          "1.2": 3.0,
+          "4.1": 5.0,
+          "4.2": 8.0,
+          "5.1": 5.333,
+          "6.1": 6.333,
+          "6.2": 2.667,
+          "2.1": 5.333,
+          "2.2": 0.0
+        }
+      },
+      "defects_gpt": {
+        "mean": 3.3,
+        "ci95": [
+          2.86,
+          3.74
+        ],
+        "n_cases": 10,
+        "per_case": {
+          "1.1": 4.0,
+          "3.1": 2.0,
+          "1.2": 3.0,
+          "4.1": 4.0,
+          "4.2": 4.0,
+          "5.1": 3.333,
+          "6.1": 3.667,
+          "6.2": 2.333,
+          "2.1": 3.667,
+          "2.2": 3.0
+        }
+      },
+      "vs_full_claude": {
+        "n_paired_cases": 10,
+        "mean_defects_reduced_by_full": 1.367,
+        "cases_full_fewer": 6,
+        "cases_full_more": 3,
+        "wilcoxon_p_full_fewer": 0.1309
+      },
+      "vs_full_gpt": {
+        "n_paired_cases": 10,
+        "mean_defects_reduced_by_full": -0.5,
+        "cases_full_fewer": 1,
+        "cases_full_more": 8,
+        "wilcoxon_p_full_fewer": 0.9688
+      }
+    }
+  }
+}
