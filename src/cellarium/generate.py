@@ -186,14 +186,17 @@ def machinery_calibration_designs() -> list[Design]:
 
 
 def objective_weight_designs() -> list[Design]:
-    """The LEGITIMATE objective levers (§K): sweep the metabolism FBA's kinetic-objective weight and secretion
-    penalty — GRADED metabolic-behaviour perturbations the wcEcoli team ships analyses for, and the only sanctioned
-    way to touch the objective (changing its TYPE to biomass-max would break the whole-cell coupling; see D4).
-    weight=0 is pure homeostatic (no kinetic targets); larger binds the kinetic targets harder. Unlike a single
-    metabolic KO (reroutes -> viable), these tune the network's behaviour continuously. Indices index the model's
-    own arrays: KINETIC_OBJECTIVE_WEIGHT=[0,1e-8..1], SECRETION_PENALTY=[0,1e-5..0.05]."""
-    kw = {0: "0", 5: "1e-4", 8: "0.1", 9: "1"}
-    sp = {0: "0", 4: "1e-3", 7: "0.01", 9: "0.05"}
+    """Objective levers (§K), NEAR-DEFAULT range. The FITTED values are kinetic_objective_weight=1e-7 (KW index 2)
+    and secretion_penalty=1e-3 (SP index 4). The first sweep used extremes {0,1e-4,0.1,1} — 1e3-1e7x the fitted
+    weight — and ALL crashed with NegativeCountsError (ATP[c] in PolypeptideElongation): over-weighting the kinetic
+    targets starves ATP and crashes translation. FOLLOW-UP FINDING (2026-07-11): this near-default bracket ALSO
+    crashed 12/12 — INCLUDING at the fitted default itself (index 2 = 1e-7, a no-op). So it is NOT a value-choice
+    issue: these variants destabilize the CURRENT model regardless of the weight (they may need a makeVariants
+    pre-step our inline --variant path skips, or be incompatible with this model version). The graded-objective-
+    lever arm is a DEAD END here; kept for the record. Bounded runs only (<=3h).
+    KINETIC_OBJECTIVE_WEIGHT=[0,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,0.01,0.1,1]; SECRETION_PENALTY=[0,1e-5,1e-4,5e-4,1e-3,...]."""
+    kw = {1: "1e-8", 2: "1e-7_default", 3: "1e-6", 4: "1e-5"}   # bracket fitted 1e-7; index 5 (1e-4)+ crashes
+    sp = {3: "5e-4", 4: "1e-3_default"}                          # bracket fitted 1e-3
     designs = [Design(perturbation="metabolism_kinetic_objective_weight", condition=f"minimal|kin_w:{lbl}",
                       params={"variant_index": i}) for i, lbl in kw.items()]
     designs += [Design(perturbation="metabolism_secretion_penalty", condition=f"minimal|sec_pen:{lbl}",
