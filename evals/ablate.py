@@ -32,6 +32,7 @@ CONFIGS = {
     "no_skeptic":    dict(use_skeptic=False),                       # proposer + judge (no elenctic critic)
     "proposer_only": dict(use_skeptic=False, use_judge=False),      # single-shot generation (the baseline)
     "generic_judge": dict(judge_mode="generic"),                   # proposer + skeptic + plain quality judge
+    "leaked":        dict(),      # quarantine ABLATION: full system BUT the proposer is handed the answer key
 }
 
 # Six operationalization-quality criteria — judgeable from the hypothesis text alone (NO answer key).
@@ -98,8 +99,10 @@ def _score(g: dict) -> int:
 def _one_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader) -> dict:
     rec = {"id": case["id"], "config": cfg, "rep": rep, "temperature": temperature}
     try:
-        h = council.deliberate(case["question"], temperature=temperature, client=client, verbose=False,
-                               **CONFIGS[cfg])
+        kw = dict(CONFIGS[cfg])
+        if cfg == "leaked":  # inject this case's canonical literature answer into the proposer (breaks quarantine)
+            kw["leak"] = case.get("canonical", "")
+        h = council.deliberate(case["question"], temperature=temperature, client=client, verbose=False, **kw)
         rec.update(converged=h.converged, rounds_used=h.rounds_used,
                    substantive_objections=h.substantive_objections, feasible=_feasible(h))
         gc = grade_claude(case, h, client, claude_grader)
