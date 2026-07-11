@@ -3,11 +3,11 @@
 from cellarium import hf, store, tools
 
 
-def test_hf_rel_maps_run_path_to_portable_dataset_path():
+def test_hf_rel_maps_run_path_to_portable_archive_path():
     p = hf.OUT_ROOT / "cellarium" / "gene_knockout_001594" / "000000"
-    assert hf._hf_rel(str(p)) == "runs/cellarium/gene_knockout_001594/000000"
+    assert hf._hf_rel(str(p)) == "runs/cellarium/gene_knockout_001594/000000.tar.gz"   # the packaged archive
     # PORTABLE: a foreign machine's absolute path still maps -> resolves for cloners / HF, not just this machine
-    assert hf._hf_rel("/home/someone/x/runs/cellarium/gene_knockout_000058/000000") == "runs/cellarium/gene_knockout_000058/000000"
+    assert hf._hf_rel("/home/someone/x/runs/cellarium/gene_knockout_000058/000000") == "runs/cellarium/gene_knockout_000058/000000.tar.gz"
     assert hf._hf_rel(None) is None
     assert hf._hf_rel("/some/unrelated/path") is None      # no /cellarium/ segment -> None, never crashes
 

@@ -33,7 +33,7 @@ def _hf_rel(simout_path: str | None) -> str | None:
     s = str(simout_path).replace("\\", "/")
     i = s.rfind("/cellarium/")
     if i >= 0:
-        return "runs/cellarium/" + s[i + len("/cellarium/"):]   # mirrors scripts/hf_upload.py's runs/cellarium layout
+        return "runs/cellarium/" + s[i + len("/cellarium/"):] + ".tar.gz"  # the packaged per-run archive (hf_pack_upload)
     return None
 
 
@@ -46,7 +46,8 @@ def data_availability(result_id: str) -> dict:
     rel = _hf_rel(path)
     raw_local = bool(path and Path(path).exists())
     available = HF_HAS_RAW and rel is not None      # only 'available' once the raw corpus is actually uploaded
-    download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}/**' --local-dir {OUT_ROOT.parent}"
+    download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}' --local-dir {OUT_ROOT.parent} && "
+                f"tar xzf '{OUT_ROOT.parent}/{rel}' -C '{OUT_ROOT}'"
                 if available else None)
     hf_alt = {"repo": HF_REPO, "path": rel, "available": available, "command": download}
     if not HF_HAS_RAW:
