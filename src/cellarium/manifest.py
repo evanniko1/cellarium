@@ -112,6 +112,44 @@ def compact(dry_run: bool = False) -> dict:
     return res
 
 
+def prune(where_sql: str, dry_run: bool = True) -> dict:
+    """Delete manifest rows matching a SQL predicate and rewrite ONE consolidated shard. DELIBERATE and auditable
+    (dry_run returns exactly what WOULD be dropped) — unlike compact() this is NOT automatic, because it removes
+    rows you name. Use ONLY for infrastructure-crash artifacts (e.g. a disk-crashed batch); NEVER for valid results.
+    Keeps rows by id (NULL-safe); write-new-then-delete-old."""
+    import glob
+    import os
+
+    import duckdb
+
+    glob_pat = "data/manifest/*.parquet"
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards"}
+    con = duckdb.connect()
+    try:
+        drop = con.execute(f"SELECT id, perturbation, condition, seed, generations, crashed, simout_path "
+                           f"FROM read_parquet('{glob_pat}', union_by_name=true) WHERE {where_sql}"
+                           ).fetch_arrow_table().to_pylist()
+        allrows = con.execute(f"SELECT * FROM read_parquet('{glob_pat}', union_by_name=true)"
+                              ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+    drop_ids = {r["id"] for r in drop}
+    keep = [r for r in allrows if r.get("id") not in drop_ids]
+    res = {"where": where_sql, "n_dropped": len(drop_ids), "n_kept": len(keep), "dry_run": dry_run,
+           "dropped_sample": [{k: r.get(k) for k in ("perturbation", "condition", "seed", "generations", "crashed")}
+                              for r in drop[:15]]}
+    if dry_run:
+        return res
+    new = append_shard(keep, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
+
+
 def _label(design: Design, seed: int) -> str:
     return f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
 
@@ -121,10 +159,24 @@ def _run_job(design: Design, seed: int, generations: int) -> dict:
     return _flat_row(build_record(run_root, design, seed), seed, run_root, requested_generations=generations)
 
 
+def _classify_crash(exc: Exception) -> str:
+    """infrastructure (disk / I/O / host) vs model (FBA / biology) crash. A lethal KO and an infra-crash otherwise
+    look identical in the row (generations=0, crashed=True), so tagging the CAUSE at write time is the only way to
+    tell a valid inviable datapoint from a disk-crash artifact without batch archaeology."""
+    s = f"{type(exc).__name__}: {exc}".lower()
+    if any(k in s for k in ("oserror", "ioerror", "errno 5", "winerror", "no space", "input/output", "disk full")):
+        return "infrastructure"
+    if "returned non-zero" in s or "docker" in s:      # container failure — ambiguous (could be either)
+        return "container"
+    return "model"
+
+
 def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> dict:
     """A row for a sim that CRASHED (run_one raised) — captures the partial on-disk lineage so the crash is a
-    first-class INVIABLE point (§M), not a silently-dropped job. crashed=True overrides any 'looks viable' partial."""
+    first-class INVIABLE point (§M), not a silently-dropped job. crashed=True overrides any 'looks viable' partial.
+    crash_type distinguishes a real lethal KO (model) from a disk/host failure (infrastructure)."""
     run_root = runner._run_subpath(design, seed, "cellarium")
+    ctype = _classify_crash(exc)
     try:
         rec = build_record(run_root, design, seed) if run_root.exists() else None
     except Exception:
@@ -132,11 +184,12 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> d
     if rec is not None:
         row = _flat_row(rec, seed, run_root, requested_generations=generations, crashed=True)
         row["qc"], row["reportable"], row["note"] = "crashed", False, f"sim crashed: {str(exc)[:150]}"
+        row["crash_type"] = ctype
         return row
     return {"id": f"{design.perturbation}_{seed}_crash", "label": _label(design, seed),
             "perturbation": design.perturbation, "condition": design.condition, "timeline": design.timeline,
             "seed": seed, "generations": 0, "requested_generations": generations, "crashed": True,
-            "qc": "crashed", "reportable": False, "gens_reached": 0, "division_rate": 0.0,
+            "qc": "crashed", "reportable": False, "gens_reached": 0, "division_rate": 0.0, "crash_type": ctype,
             "terminal_divided": False, "n_fba_failures": 0, "note": f"sim crashed (no data): {str(exc)[:150]}",
             "simout_path": str(run_root)}
 

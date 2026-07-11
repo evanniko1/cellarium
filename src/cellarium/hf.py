@@ -25,13 +25,16 @@ NEEDS_RAW = "arbitrary (non-panel) species, full-resolution trajectories, FBA re
 
 
 def _hf_rel(simout_path: str | None) -> str | None:
-    """A run's local path -> its path inside the HF dataset (relative to the output root, forward-slashed)."""
+    """A run's local path -> its PORTABLE path inside the HF dataset. Derived from the '/cellarium/' suffix (the
+    sim_path root), so it resolves for cloners and HF regardless of the absolute prefix or output root — NOT
+    Path.relative_to(OUT_ROOT), which only worked on the machine that recorded the absolute path."""
     if not simout_path:
         return None
-    try:
-        return str(Path(simout_path).resolve().relative_to(OUT_ROOT)).replace("\\", "/")
-    except Exception:
-        return None
+    s = str(simout_path).replace("\\", "/")
+    i = s.rfind("/cellarium/")
+    if i >= 0:
+        return "runs/cellarium/" + s[i + len("/cellarium/"):]   # mirrors scripts/hf_upload.py's runs/cellarium layout
+    return None
 
 
 def data_availability(result_id: str) -> dict:
@@ -43,7 +46,7 @@ def data_availability(result_id: str) -> dict:
     rel = _hf_rel(path)
     raw_local = bool(path and Path(path).exists())
     available = HF_HAS_RAW and rel is not None      # only 'available' once the raw corpus is actually uploaded
-    download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}/**' --local-dir {OUT_ROOT}"
+    download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}/**' --local-dir {OUT_ROOT.parent}"
                 if available else None)
     hf_alt = {"repo": HF_REPO, "path": rel, "available": available, "command": download}
     if not HF_HAS_RAW:

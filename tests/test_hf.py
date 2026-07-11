@@ -3,11 +3,13 @@
 from cellarium import hf, store, tools
 
 
-def test_hf_rel_maps_run_path_to_dataset_path():
+def test_hf_rel_maps_run_path_to_portable_dataset_path():
     p = hf.OUT_ROOT / "cellarium" / "gene_knockout_001594" / "000000"
-    assert hf._hf_rel(str(p)) == "cellarium/gene_knockout_001594/000000"
+    assert hf._hf_rel(str(p)) == "runs/cellarium/gene_knockout_001594/000000"
+    # PORTABLE: a foreign machine's absolute path still maps -> resolves for cloners / HF, not just this machine
+    assert hf._hf_rel("/home/someone/x/runs/cellarium/gene_knockout_000058/000000") == "runs/cellarium/gene_knockout_000058/000000"
     assert hf._hf_rel(None) is None
-    assert hf._hf_rel("/some/unrelated/path") is None      # outside OUT_ROOT -> None, never crashes
+    assert hf._hf_rel("/some/unrelated/path") is None      # no /cellarium/ segment -> None, never crashes
 
 
 def test_data_availability_always_surfaces_both_alternatives():
