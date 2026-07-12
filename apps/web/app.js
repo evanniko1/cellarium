@@ -8,7 +8,9 @@ const trunc = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…
 const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
 const KEY = "cellarium.invs";
 
-const state = { invs: [], cur: null, running: false, model: null, reasoning: "none", poll: null, curTurn: null, results: null };
+const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null, results: null };
+// streaming is per-investigation: each inv carries .running + ._live (its in-flight turn's DOM), so navigating
+// away never orphans the stream or locks the UI — generation continues in the background and is saved to its inv.
 
 // ---------------- markdown ----------------
 function inlineMd(t) {
@@ -46,15 +48,16 @@ function curCouncil() { return state.cur ? state.cur.council : { rounds: [], hyp
 function resetToHero() {
   state.cur = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
   $("#convoTitle").textContent = ""; clearTimeout(state.poll); renderCouncil(); clearBadge("councilBadge");
-  closeDrawers(); renderSidebar(); $("#q").focus();
+  closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
 function openInv(inv) {
   state.cur = inv; $("#thread").innerHTML = "";
   (inv.turns || []).forEach(replayTurn);
-  $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0);
+  if (inv.running && inv._live) $("#thread").appendChild(inv._live.root);   // re-attach the still-streaming turn (keeps updating live)
+  $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
   renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
-  renderSidebar(); scrollBottom(); refreshQueue();
+  renderSidebar(); scrollBottom(); refreshQueue(); updateSend();
 }
 function ensureCur(q) {
   if (state.cur) return;
@@ -91,58 +94,62 @@ function deleteInv(inv) {
   if (state.cur === inv) resetToHero(); else renderSidebar();
 }
 
-// ---------------- send / stream ----------------
+// ---------------- send / stream (per-investigation; never blocks navigation) ----------------
 function scrollBottom() { const s = $("#scroll"); s.scrollTop = s.scrollHeight; }
-function setSend(on) { $("#send").disabled = !on; }
+const isRunning = () => !!(state.cur && state.cur.running);
+function updateSend() { $("#send").disabled = isRunning(); }
 function addUserBubble(q) { $("#thread").appendChild(el("div", "turn user", `<div class="bubble">${esc(q)}</div>`)); scrollBottom(); }
 
-async function send(q) {
+function send(q) {
   q = (q != null ? q : $("#q").value).trim();
-  if (!q || state.running) return;
-  $("#q").value = ""; autosize();
+  if (!q) return;
   ensureCur(q);
+  if (state.cur.running) return;   // block only a second send of THIS conversation; other invs stream freely
   if (!state.cur.title) state.cur.title = trunc(q, 60);
+  $("#q").value = ""; autosize();
   $("#app").classList.add("app-chatting"); $("#convoTitle").textContent = state.cur.title; renderSidebar(); saveInvs();
   addUserBubble(q);
-  await stream(q);
+  stream(q);
 }
 
-async function stream(question) {
-  state.running = true; setSend(false);
+function stream(question) {
   const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = $("#council").checked;
-  state.curTurn = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
+  inv.running = true; updateSend();
   const turn = assistantTurn();
+  inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
+  const ct = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
   turn.status(usedCouncil && firstTurn ? "Convening the Socratic Council…" : "Thinking…");
-  try {
-    const resp = await fetch("/api/investigate", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: inv.sid, question, use_council: usedCouncil, model: state.model, reasoning: state.reasoning }),
-    });
-    const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
-    while (true) {
-      const { value, done } = await reader.read(); if (done) break;
-      buf += dec.decode(value, { stream: true }); let i;
-      while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line.trim()) { const { kind, data } = JSON.parse(line); handle(kind, data, turn); } }
+  (async () => {
+    try {
+      const resp = await fetch("/api/investigate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: inv.sid, question, use_council: usedCouncil, model: state.model, reasoning: state.reasoning }),
+      });
+      const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
+      while (true) {
+        const { value, done } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true }); let i;
+        while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line.trim()) { const { kind, data } = JSON.parse(line); handle(kind, data, turn, ct, inv); } }
+      }
+    } catch (e) { turn.error(esc(String(e))); }
+    finally {
+      inv.running = false; inv._live = null;
+      inv.turns.push(ct); saveInvs();
+      if (state.cur === inv) { updateSend(); scrollBottom(); }   // only touch the live UI if still viewing this inv
     }
-  } catch (e) { turn.error(esc(String(e))); }
-  finally {
-    state.running = false; setSend(true);
-    inv.turns.push(state.curTurn); saveInvs();
-    scrollBottom();
-  }
+  })();
 }
 
-function handle(kind, data, turn) {
-  const c = curCouncil();
-  if (kind === "council_round") { c.rounds.push(data); renderCouncil(); bumpBadge("councilBadge", c.rounds.length); turn.status(`Council deliberating — round ${data.round}…`); }
-  else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; renderCouncil(); state.curTurn.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
-  else if (kind === "tool") { state.curTurn.tools.push(data); turn.tool(data); turn.status(`Calling ${data.tool}…`); }
+function handle(kind, data, turn, ct, inv) {
+  const c = inv.council, viewing = state.cur === inv;   // events belong to the STREAM's inv, not the current view
+  if (kind === "council_round") { c.rounds.push(data); if (viewing) { renderCouncil(); bumpBadge("councilBadge", c.rounds.length); } turn.status(`Council deliberating — round ${data.round}…`); }
+  else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; if (viewing) renderCouncil(); ct.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
+  else if (kind === "tool") { ct.tools.push(data); turn.tool(data); turn.status(`Calling ${data.tool}…`); }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
   else if (kind === "note") { turn.note(data.message); }
   else if (kind === "answer") {
-    state.curTurn.answer = data.answer; state.curTurn.trust = data.trust || {};
-    state.curTurn.model = data.model; state.curTurn.routed = !!data.routed;
-    turn.answer(data); turn.badge(data.model, data.routed); refreshQueue();
+    ct.answer = data.answer; ct.trust = data.trust || {}; ct.model = data.model; ct.routed = !!data.routed;
+    turn.answer(data); turn.badge(data.model, data.routed); if (viewing) refreshQueue();
   }
   else if (kind === "error") { turn.error(esc(data.message) + (data.hint ? `<br><span style="opacity:.8">${esc(data.hint)}</span>` : "")); }
   else if (kind === "done") { turn.done(); }
@@ -155,22 +162,24 @@ function assistantTurn(replay) {
   const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
   root.append(statusEl, noteSlot, hypSlot, trailSlot, ansSlot);
   $("#thread").appendChild(root); let line = null, liveEl = null;
+  const scroll = () => { if (root.isConnected) scrollBottom(); };   // a background stream must not scroll the current view
   const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); } return liveEl.querySelector(".answer-body"); };
   const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; } };
   return {
-    status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scrollBottom(); },
+    root,
+    status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scroll(); },
     done() { statusEl.remove(); },
-    note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scrollBottom(); },
-    text(delta) { liveBody().textContent += delta; scrollBottom(); },   // token streaming
+    note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
+    text(delta) { liveBody().textContent += delta; scroll(); },   // token streaming
     hyp(v) {
       const c = el("div", "hyp-chip");
       const top = el("div", "hc-top", `<span class="label">Socratic Council · framed before any data</span>`);
       const b = el("button", "linkbtn", "view debate →"); b.onclick = () => openDrawer("council"); top.appendChild(b); c.appendChild(top);
       if (v.claim) c.appendChild(el("div", "hc-claim", `<span class="lbl">Hypothesis</span>${esc(v.claim)}`));
-      hypSlot.appendChild(c); scrollBottom();
+      hypSlot.appendChild(c); scroll();
     },
-    tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scrollBottom(); },
-    answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scrollBottom(); },
+    tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scroll(); },
+    answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
   };
