@@ -109,49 +109,85 @@ def _run_label(rid: str) -> str:
     return f"{base}·s{r.get('seed')}" if r.get("seed") is not None else base
 
 
+def _resolve_result(x: str) -> str | None:
+    """Accept a result_id OR a design label 'perturbation/condition' -> a representative result_id (qc-ok, lowest
+    seed). Matches how differential/disconfirm speak in design labels, so chart doesn't fail on the agent's
+    natural vocabulary."""
+    rows = store.list_results()
+    if any(r.get("id") == x for r in rows):
+        return x
+    pert, _, cond = str(x).partition("/")
+    cands = [r for r in rows if r.get("perturbation") == pert
+             and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
+    cands.sort(key=lambda r: (r.get("qc") != "ok", r.get("seed") if r.get("seed") is not None else 99))
+    return cands[0]["id"] if cands else None
+
+
+def _pct(a: list, p: float) -> float:
+    if not a:
+        return 0.0
+    return a[min(len(a) - 1, max(0, int(round(p / 100 * (len(a) - 1)))))]
+
+
 def chart(kind: str = "line", result_id: str | None = None, results: list | None = None,
           channel: str = "growth_rate", title: str | None = None) -> dict:
-    """Draw a GROUNDED figure from real run data as a Vega-Lite spec (rendered inline in the chat). Every value
+    """Draw a GROUNDED figure from real run data as a Vega-Lite spec (rendered inline, interactive). Every value
     comes from the manifest — never chart a number you did not read from a tool. Use it when a figure SHARPENS the
-    answer (a trajectory, a comparison), not decoratively.
-    - kind='line': the CHANNEL's trajectory over the cell cycle for result_id (pass results=[ids] to overlay several).
-    - kind='bar':  compare the channel's value across results=[ids].
+    answer (a trajectory, a comparison), not decoratively. Accepts result_ids OR design labels ('wildtype/basal',
+    'ppgpp_conc/basal|ppGpp:0.2x') — labels resolve to a representative seed, like differential/disconfirm.
+    - kind='line': the CHANNEL's trajectory over the cell cycle for result_id (pass results=[...] to overlay several).
+      The x-axis is TIME-SINCE-START (each run aligned to t=0) so runs with different absolute clocks are comparable.
+    - kind='bar':  compare the channel's value across results=[...].
     Returns {spec, caption, provenance}."""
-    ids = [i for i in (results or ([result_id] if result_id else [])) if i]
+    raw = [i for i in (results or ([result_id] if result_id else [])) if i]
+    if not raw:
+        return {"error": "give result_id/results (ids) or design labels like 'wildtype/basal'."}
+    ids = [rid for rid in (_resolve_result(x) for x in raw) if rid]
     if not ids:
-        return {"error": "give result_id (line) or results=[...] (bar/overlay)."}
+        return {"error": f"could not resolve any of {raw} to a run (use a result_id or 'perturbation/condition')."}
     for rid in ids:
         rigor.note_result(rid)
 
     if kind == "bar":
-        vals = []
-        for rid in ids:
-            rc = store.read_channel(rid, channel)
-            if isinstance(rc, dict) and rc.get("value") is not None:
-                vals.append({"run": _run_label(rid), channel: rc["value"]})
+        vals = [{"run": _run_label(rid), channel: rc["value"]} for rid in ids
+                for rc in [store.read_channel(rid, channel)] if isinstance(rc, dict) and rc.get("value") is not None]
         if not vals:
             return {"error": f"no '{channel}' values for those runs."}
-        spec = {"$schema": _VL, "title": title or f"{channel} across runs", "data": {"values": vals}, "mark": "bar",
+        spec = {"$schema": _VL, "title": title or f"{channel} across runs", "data": {"values": vals},
+                "mark": {"type": "bar", "tooltip": True},
                 "encoding": {"x": {"field": "run", "type": "nominal", "sort": "-y"},
                              "y": {"field": channel, "type": "quantitative"}}}
         return {"spec": spec, "caption": title or f"{channel} across {len(vals)} run(s)",
                 "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest"}}
 
-    values = []
+    # line: align each run's x to TIME-SINCE-START (t - t0) so runs on different clocks overlay comparably
+    values, allys = [], []
     for rid in ids:
-        rc = store.read_channel(rid, channel)
-        for p in (rc.get("series") or []):
-            if len(p) == 2 and p[1] is not None:
-                values.append({"t": p[0], channel: p[1], "run": _run_label(rid)})
+        ser = store.read_channel(rid, channel).get("series") or []
+        pts = [p for p in ser if len(p) == 2 and p[1] is not None]
+        if not pts:
+            continue
+        t0 = min(p[0] for p in ser)
+        for p in pts:
+            values.append({"t": p[0] - t0, channel: p[1], "run": _run_label(rid)}); allys.append(p[1])
     if not values:
         return {"error": f"no '{channel}' trajectory for those runs (try read_series or a different channel)."}
+    allys.sort()
+    ylo, yhi, ytop = _pct(allys, 2), _pct(allys, 98), allys[-1]
+    n_clamp = sum(1 for v in allys if v > yhi)
+    yenc = {"field": channel, "type": "quantitative", "title": channel}
+    if n_clamp and yhi < ytop:                    # robust y: a division transient / spike shouldn't flatten the axis
+        yenc["scale"] = {"domain": [min(0, ylo), yhi], "clamp": True}
     spec = {"$schema": _VL, "title": title or f"{channel} over the cell cycle", "data": {"values": values},
-            "mark": {"type": "line", "point": True},
-            "encoding": {"x": {"field": "t", "type": "quantitative", "title": "time (s)"},
-                         "y": {"field": channel, "type": "quantitative", "title": channel},
-                         "color": {"field": "run", "type": "nominal", "title": "run"}}}
-    return {"spec": spec, "caption": title or f"{channel} trajectory — {len(ids)} run(s)",
-            "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest"}}
+            "mark": {"type": "line", "point": True, "tooltip": True},
+            "params": [{"name": "zoom", "select": "interval", "bind": "scales"}],
+            "encoding": {"x": {"field": "t", "type": "quantitative", "title": "time since start (s)"},
+                         "y": yenc, "color": {"field": "run", "type": "nominal", "title": "run"}}}
+    cap = title or f"{channel} trajectory — {len(ids)} run(s)"
+    if n_clamp:
+        cap += f" · {n_clamp} transient point(s) clamped to the axis (up to {ytop:.2g})"
+    return {"spec": spec, "caption": cap,
+            "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest", "clamped_outliers": n_clamp}}
 
 
 def coverage_check() -> dict:

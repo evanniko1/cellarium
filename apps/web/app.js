@@ -288,8 +288,12 @@ function renderChart(spec) {
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "vl-chart", width: "100%", preserveAspectRatio: "xMidYMid meet" });
   const x0 = pad.l, y0 = H - pad.b, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
   const yv = data.map((d) => +d[yf]).filter((v) => isFinite(v));
-  let ymin = Math.min(0, ...yv), ymax = Math.max(...yv); if (ymin === ymax) ymax = ymin + 1;
-  const ys = (v) => y0 - ((v - ymin) / (ymax - ymin)) * ih;
+  const dom = enc.y && enc.y.scale && enc.y.scale.domain;   // honor a robust/clamped y-domain from the spec
+  let ymin, ymax;
+  if (Array.isArray(dom) && dom.length === 2 && isFinite(+dom[0]) && isFinite(+dom[1])) { ymin = +dom[0]; ymax = +dom[1]; }
+  else { ymin = Math.min(0, ...yv); ymax = Math.max(...yv); }
+  if (ymin === ymax) ymax = ymin + 1;
+  const ys = (v) => y0 - ((Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin)) * ih;   // clamp to domain
   for (let i = 0; i <= 4; i++) { const v = ymin + (ymax - ymin) * i / 4, y = ys(v);
     svg.appendChild(svgEl("line", { x1: x0, y1: y, x2: x0 + iw, y2: y, class: "vl-grid" }));
     svg.appendChild(svgEl("text", { x: x0 - 8, y: y + 3.5, class: "vl-tick vl-ty" }, fmtNum(v)));
@@ -317,10 +321,28 @@ function renderChart(spec) {
   }
   return svg;
 }
+// vega config that matches the app palette so the interactive chart looks native (and matches the SVG fallback)
+const VEGA_CONFIG = {
+  background: "transparent", font: '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif',
+  view: { stroke: "transparent" }, range: { category: CHART_COLORS },
+  axis: { labelColor: "#6B6862", titleColor: "#20201D", gridColor: "#EFEDE6", domainColor: "#E7E4DB", tickColor: "#E7E4DB", labelFontSize: 11, titleFontSize: 12, titleFontWeight: 600 },
+  legend: { labelColor: "#6B6862", titleColor: "#20201D", labelFontSize: 11, titleFontSize: 11 },
+  title: { color: "#20201D", fontSize: 14, fontWeight: 600, anchor: "start", font: '"Iowan Old Style",Palatino,Georgia,serif' },
+  line: { strokeWidth: 2 }, point: { size: 24, filled: true }, bar: { color: "#C96442" },
+};
+function renderInto(container, spec) {   // interactive vega-embed when the vendored libs loaded; SVG fallback otherwise
+  if (window.vegaEmbed) {
+    const s = Object.assign({ width: "container", height: 280, autosize: { type: "fit", contains: "padding" }, config: VEGA_CONFIG }, spec);
+    window.vegaEmbed(container, s, { actions: { export: true, source: true, compiled: false, editor: false }, tooltip: true, renderer: "svg" })
+      .catch(() => { container.textContent = ""; container.appendChild(renderChart(spec)); });
+    return;
+  }
+  container.appendChild(renderChart(spec));
+}
 function figureEl(out) {
   const wrap = el("div", "figure");
   if (out.error) { wrap.appendChild(el("div", "fig-err", esc(out.error))); return wrap; }
-  wrap.appendChild(renderChart(out.spec));
+  const chart = el("div", "fig-chart"); wrap.appendChild(chart); renderInto(chart, out.spec);
   if (out.caption) wrap.appendChild(el("div", "fig-cap", esc(out.caption)));
   const prov = out.provenance || {}, runs = (prov.runs || []).join(", ");
   const d = el("details", "fig-prov");

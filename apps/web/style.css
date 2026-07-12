@@ -234,6 +234,13 @@ svg{display:block}
 .answer-body tbody tr:nth-child(even),.answer-body tbody tr:nth-child(even){background:rgba(0,0,0,.015)}
 /* grounded figures (charts) */
 .figure{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:12px 14px; margin:4px 0}
+.fig-chart{position:relative; width:100%; min-height:40px}
+.fig-chart .vega-embed{width:100%}
+.fig-chart .vega-embed summary{border-radius:8px; box-shadow:none; opacity:.5; transition:.12s}
+.fig-chart .vega-embed:hover summary{opacity:1}
+.fig-chart .vega-embed .vega-actions{background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow-lg)}
+.fig-chart .vega-embed .vega-actions a{font-family:var(--sans); font-size:12px; color:var(--ink-2)}
+.fig-chart .vega-embed .vega-actions a:hover{background:var(--clay-tint); color:var(--clay-ink)}
 .vl-chart{display:block; max-width:100%; height:auto}
 .vl-grid{stroke:var(--line-2); stroke-width:1}
 .vl-line{fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
