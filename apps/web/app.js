@@ -756,42 +756,35 @@ async function openCorpus() {
 function closeCorpus() { $("#corpusView").classList.remove("open"); $("#corpusBtn").classList.remove("active"); }
 
 // ---------------- Hypothesis-Generation surface (the Socratic Council, split out + persisted) ----------------
+// top-level Cellarium nav (#1): the Investigations|Hypotheses switch lives in the SIDEBAR — one level up from the
+// surfaces it toggles, not inside the hyp page. Keeping the sidebar toggle in sync here means every path that
+// leaves the surface (Esc, opening a chat, a queue backlink) flips it back correctly.
+function _navToggle(hyp) {
+  $("#navSegInv").setAttribute("aria-selected", String(!hyp));
+  $("#navSegHyp").setAttribute("aria-selected", String(hyp));
+  $("#navSegThumb").className = "nav-seg-thumb " + (hyp ? "r" : "l");
+  $("#navInv").hidden = hyp; $("#navHyp").hidden = !hyp;
+}
 async function openHyp() {
+  _navToggle(true);
   $("#hypView").classList.add("open"); $("#hypBtn").classList.add("active");
   await loadHypRuns();
-  if (state.hypActive) return;                                    // already viewing a run — leave it
+  if (state.hypActive && state.hypActive !== "__live") { viewHypRun(state.hypActive); return; }  // keep the run in view
   if (state.hypRuns && state.hypRuns.length) viewHypRun(state.hypRuns[0].id);   // land on the latest run's detail
   else newHypComposer();                                         // no runs yet — the composer ("+ New hypothesis" also opens it)
 }
-function closeHyp() { $("#hypView").classList.remove("open"); $("#hypBtn").classList.remove("active"); }
+function closeHyp() {
+  _navToggle(false);
+  $("#hypView").classList.remove("open"); $("#hypBtn").classList.remove("active");
+}
 async function loadHypRuns(activeId) {
   try { const j = await (await fetch("/api/hypotheses")).json(); state.hypRuns = j.runs || []; }
   catch { state.hypRuns = []; }
   renderHypRuns(activeId != null ? activeId : state.hypActive);
 }
-function renderHypRuns(activeId) {
-  const rail = $("#hypRuns"); rail.innerHTML = "";
-  if (!state.hypRailMode) state.hypRailMode = "hyp";
-  const inv = state.hypRailMode === "inv";
-  // single rail, two modes — the Council's hypotheses OR the Cellwright investigations (#1)
-  const seg = el("div", "hyp-seg", `<div class="hyp-seg-thumb ${inv ? "r" : "l"}"></div>`);
-  const bH = el("button", inv ? "" : "on", "Hypotheses"); bH.onclick = () => { state.hypRailMode = "hyp"; renderHypRuns(activeId); };
-  const bI = el("button", inv ? "on" : "", "Investigations"); bI.onclick = () => { state.hypRailMode = "inv"; renderHypRuns(activeId); };
-  seg.append(bH, bI); rail.appendChild(seg);
+function renderHypRuns(activeId) {   // the Council run list — lives in the top-level sidebar (#1)
+  const rail = $("#hypRuns"); if (!rail) return; rail.innerHTML = "";
   $("#hypCount").textContent = state.hypRuns.length ? `${state.hypRuns.length} run(s)` : "";
-
-  if (inv) {
-    const invs = state.invs || [];
-    if (!invs.length) { rail.appendChild(el("div", "drawer-empty", "No investigations yet — start one in Cellwright.")); return; }
-    invs.forEach((iv) => {
-      const card = el("button", "hyp-run-card");
-      card.appendChild(el("div", "hrc-q", esc(trunc(iv.title || "New investigation", 96))));
-      card.appendChild(el("div", "hrc-meta", `<span class="hrc-cw">Cellwright</span>`));
-      card.onclick = () => { closeHyp(); openInv(iv); };
-      rail.appendChild(card);
-    });
-    return;
-  }
   if (!state.hypRuns.length) { rail.appendChild(el("div", "drawer-empty", "No hypotheses yet. Pose a research question — the Council operationalizes it into a falsifiable test, blind to the data.")); return; }
   state.hypRuns.forEach((r) => {
     const card = el("button", "hyp-run-card" + (r.id === activeId ? " active" : ""));
@@ -1045,6 +1038,8 @@ $("#newBtn").onclick = resetToHero;
 $("#corpusBtn").onclick = () => ($("#corpusView").classList.contains("open") ? closeCorpus() : openCorpus());
 $("#corpusClose").onclick = closeCorpus;
 $("#corpusSearch").addEventListener("input", (e) => renderCorpus(e.target.value));
+$("#navSegInv").onclick = closeHyp;                 // top-level workspace switch (sidebar)
+$("#navSegHyp").onclick = openHyp;
 $("#hypBtn").onclick = () => ($("#hypView").classList.contains("open") ? closeHyp() : openHyp());
 $("#hypClose").onclick = closeHyp;
 $("#hypNewBtn").onclick = newHypComposer;

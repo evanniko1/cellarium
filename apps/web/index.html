@@ -23,12 +23,25 @@
         <svg viewBox="0 0 24 24" width="16" height="16"><path d="M14 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
-    <button class="new-btn" id="newBtn">
-      <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      New investigation
-    </button>
-    <div class="nav-label">Investigations</div>
-    <div class="recents" id="recents"></div>
+    <div class="nav-seg" id="navSeg" role="tablist" aria-label="Workspace">
+      <div class="nav-seg-thumb l" id="navSegThumb"></div>
+      <button role="tab" id="navSegInv" aria-selected="true">Investigations</button>
+      <button role="tab" id="navSegHyp" aria-selected="false">Hypotheses</button>
+    </div>
+    <div class="nav-panel" id="navInv">
+      <button class="new-btn" id="newBtn">
+        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        New investigation
+      </button>
+      <div class="recents" id="recents"></div>
+    </div>
+    <div class="nav-panel" id="navHyp" hidden>
+      <button class="new-btn" id="hypNewBtn">
+        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        New hypothesis
+      </button>
+      <div class="recents" id="hypRuns"></div>
+    </div>
     <div class="sidebar-foot">
       Grounded in a real whole-cell <em>E. coli</em> K‑12 MG1655 simulation.
       Every number rides with its provenance.
@@ -110,13 +123,9 @@
       <header class="corpus-head">
         <div class="corpus-title">Hypothesis Generation <span class="corpus-count" id="hypCount"></span></div>
         <span class="hyp-sub">The Socratic Council frames a falsifiable hypothesis — blind to the data — then hands it to Cellwright.</span>
-        <button class="new-btn hyp-newbtn" id="hypNewBtn">+ New hypothesis</button>
         <button class="drawer-close" id="hypClose">&times;</button>
       </header>
-      <div class="hyp-body">
-        <aside class="hyp-runs" id="hypRuns"></aside>
-        <main class="hyp-main" id="hypMain"></main>
-      </div>
+      <main class="hyp-main" id="hypMain"></main>
     </section>
   </div>
 

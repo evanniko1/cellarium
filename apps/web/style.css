@@ -393,13 +393,18 @@ svg{display:block}
 .q-clear:hover{border-color:var(--clay); color:var(--clay-ink)}
 
 /* ============ Hypothesis Generator redesign ============ */
-/* #1 — full-bleed single-rail takeover (covers the app sidebar so there aren't two competing rails) */
-.corpus.hypview{position:fixed; inset:0; z-index:35}
-.hyp-seg{position:relative; display:flex; background:var(--line-2); border-radius:10px; padding:3px; margin-bottom:12px}
-.hyp-seg .hyp-seg-thumb{position:absolute; top:3px; bottom:3px; width:calc(50% - 3px); background:var(--card); border-radius:8px; box-shadow:var(--shadow); transition:transform .18s ease}
-.hyp-seg .hyp-seg-thumb.l{transform:translateX(0)} .hyp-seg .hyp-seg-thumb.r{transform:translateX(100%)}
-.hyp-seg button{position:relative; z-index:1; flex:1; border:0; background:none; color:var(--ink-2); font:inherit; font-size:12.5px; font-weight:600; padding:7px 6px; border-radius:8px; cursor:pointer; transition:color .15s}
-.hyp-seg button.on{color:var(--ink)}
+/* #1 — the Investigations|Hypotheses switch is a TOP-LEVEL nav in the sidebar; the hyp surface is a detail pane in
+   the main area (it must NOT cover the sidebar, so no full-bleed) */
+.nav-seg{position:relative; display:flex; background:var(--line-2); border-radius:10px; padding:3px}
+.nav-seg .nav-seg-thumb{position:absolute; top:3px; bottom:3px; left:3px; width:calc(50% - 3px); background:var(--card); border-radius:8px; box-shadow:var(--shadow); transition:transform .18s ease}
+.nav-seg .nav-seg-thumb.r{transform:translateX(100%)}
+.nav-seg button{position:relative; z-index:1; flex:1; border:0; background:none; color:var(--ink-2); font:inherit; font-size:12.5px; font-weight:600; padding:7px 6px; border-radius:8px; cursor:pointer; transition:color .15s}
+.nav-seg button[aria-selected="true"]{color:var(--ink)}
+.nav-panel{display:flex; flex-direction:column; gap:12px; flex:1; min-height:0}
+.nav-panel[hidden]{display:none}
+.nav-panel .recents{flex:1}
+#hypRuns .hyp-run-card{box-shadow:none}
+#hypRuns .hyp-run-card.active{border-color:var(--clay); background:var(--clay-tint)}
 .hrc-cw{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:1px 6px; border-radius:6px; background:var(--clay-tint); color:var(--clay-ink)}
 
 /* #4 — spec card */
