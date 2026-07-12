@@ -321,6 +321,9 @@ async def propose(request):
     res = launch.propose(
         b.get("perturbation", "wildtype"), b.get("condition"), b.get("timeline"),
         b.get("params") or {}, int(b.get("seeds", 1)), int(b.get("generations", 1)), b.get("gene"))
+    src = b.get("source") or {}   # a Council falsifier queued from the Hypothesis surface carries its origin run
+    if res.get("request_id") and (src.get("hyp_id") or src.get("question")):
+        launch.stamp_provenance(res["request_id"], hyp_id=src.get("hyp_id"), question=src.get("question"))
     return JSONResponse(res)
 
 

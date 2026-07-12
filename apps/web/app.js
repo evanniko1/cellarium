@@ -541,7 +541,7 @@ function designEl(dv, i) {
   const btn = el("button", "btn primary", "Queue →");
   btn.onclick = async () => {
     btn.disabled = true; btn.textContent = "Queuing…";
-    const res = await postJSON("/api/propose", { perturbation: dv.perturbation, condition: dv.condition, timeline: dv.timeline, params: dv.params || {}, gene: (dv.genes && dv.genes[0]) || null, seeds: +iS.value, generations: +iG.value });
+    const res = await postJSON("/api/propose", { perturbation: dv.perturbation, condition: dv.condition, timeline: dv.timeline, params: dv.params || {}, gene: (dv.genes && dv.genes[0]) || null, seeds: +iS.value, generations: +iG.value, source: state._hypSource || {} });
     btn.disabled = false; btn.textContent = "Queue →";
     if (res.error) { alert(res.error); return; }
     await refreshQueue(); openDrawer("queue");
@@ -575,6 +575,7 @@ function relTime(ts) {
 }
 function jumpToJob(r) {   // backlink: open the proposing investigation and flash the propose tool-call (like the Figures panel)
   closeDrawers();
+  if (r.hyp_id && !r.session_id) { openHyp().then(() => viewHypRun(r.hyp_id)); return; }   // queued from the Hypothesis surface
   const inv = r.session_id ? (state.invs || []).find((v) => v.sid === r.session_id) : null;
   const switching = inv && inv !== state.cur;
   if (switching) openInv(inv);
@@ -592,9 +593,10 @@ function qitem(r) {
   const genes = (d.params && d.params.target_genes && d.params.target_genes.length) ? d.params.target_genes.join("+") : "";
   const meta = [genes, d.condition].filter(Boolean).map(esc).join(" · ");
   it.appendChild(el("div", "q-top", `<span class="q-id">${esc(r.id)}</span><span class="q-design"><b>${esc(d.perturbation)}</b>${meta ? " · " + meta : ""} · ${r.seeds}×${r.generations}</span><span class="status ${esc(r.status)}">${esc(r.status.replace(/_/g, " "))}</span>`));
-  const inv = r.session_id ? (state.invs || []).find((v) => v.sid === r.session_id) : null;   // provenance: which chat proposed it
-  if (inv || r.from_question) {
-    const prov = el("button", "q-prov", `<svg viewBox="0 0 24 24" width="11" height="11"><path d="M9 10L4 15l5 5M4 15h11a5 5 0 0 0 5-5V4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> from <b>${esc(trunc(inv ? (inv.title || "an investigation") : r.from_question, 40))}</b>${r.ts ? ` · ${relTime(r.ts)}` : ""}`);
+  const inv = r.session_id ? (state.invs || []).find((v) => v.sid === r.session_id) : null;   // provenance: chat OR Hypothesis run
+  const from = inv ? (inv.title || "an investigation") : (r.hyp_id ? "Hypothesis · " + (r.from_question || "a run") : r.from_question);
+  if (from) {
+    const prov = el("button", "q-prov", `<svg viewBox="0 0 24 24" width="11" height="11"><path d="M9 10L4 15l5 5M4 15h11a5 5 0 0 0 5-5V4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> from <b>${esc(trunc(from, 42))}</b>${r.ts ? ` · ${relTime(r.ts)}` : ""}`);
     prov.title = "Jump to where this was proposed";
     prov.onclick = () => jumpToJob(r);
     it.appendChild(prov);
@@ -716,7 +718,11 @@ function renderHypDetail(run) {
   m.appendChild(st);
   if (run.hypothesis && run.hypothesis.claim) m.appendChild(hypBlockEl(run.hypothesis));
   if (run.rounds && run.rounds.length) { m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`)); run.rounds.forEach((r) => m.appendChild(roundEl(r))); }
-  if (run.designs && run.designs.length) { m.appendChild(el("div", "label", "Falsifier designs — propose to the airlock")); run.designs.forEach((dv, i) => m.appendChild(designEl(dv, i))); }
+  if (run.designs && run.designs.length) {
+    state._hypSource = { hyp_id: run.id, question: run.question };   // so a queued falsifier remembers which hypothesis it came from
+    m.appendChild(el("div", "label", "Falsifier designs — propose to the airlock"));
+    run.designs.forEach((dv, i) => m.appendChild(designEl(dv, i)));
+  }
   if (run.status === "done" && run.hypothesis && run.hypothesis.claim) {
     const ho = el("div", "hyp-handover");
     const open = el("button", "hyp-open"); open.innerHTML = `Open in Cellwright ${ARROW_SVG}`;
@@ -735,7 +741,17 @@ function hypSpec(hyp) {
 function openInCellwright(run) {
   const hyp = run.hypothesis || {};
   const brief = hyp.brief || hypSpec(hyp);
-  const msg = `Test this operationalized hypothesis against the corpus — the Socratic Council framed it blind to the data:\n\n${brief}\n\nSurvey first, read the falsifier's channel(s), seek disconfirmation, and report whether the evidence supports or refutes it — grounding every number in a tool result.`;
+  const designs = (run.designs || []).map((d) => {
+    const g = (d.genes && d.genes.length) ? "KO:" + d.genes.join("+") : (d.condition || "basal");
+    return `- ${d.perturbation} · ${g} (${d.seeds}×${d.generations})`;
+  }).join("\n");
+  const msg = `The Socratic Council framed this falsifiable hypothesis blind to the data. Help me TEST it:\n\n${brief}` +
+    (designs ? `\n\nThe Council's falsifier designs:\n${designs}` : "") +
+    `\n\nApproach: survey the corpus for the falsifier's channel(s). If the runs the falsifier needs ALREADY EXIST, ` +
+    `run the test and report support/refute, grounding every number in a tool result. If the corpus does NOT yet ` +
+    `have those runs, DO NOT call the hypothesis untestable — instead propose the missing falsifier experiments to ` +
+    `the launch airlock (propose_experiment) so I can approve and run them. A hypothesis whose data doesn't exist ` +
+    `yet is a reason to RUN experiments, not grounds to reject it. Say clearly which of the two paths you're taking and why.`;
   closeHyp();
   resetToHero();
   const cb = $("#council"); if (cb) cb.checked = false;   // (legacy toggle retired; the Council already framed it)
