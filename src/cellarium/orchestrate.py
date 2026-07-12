@@ -36,7 +36,7 @@ class Investigation:
 
 def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quota: int = 3,
                 ask_user: Callable[[str], str] | None = None, on_hypothesis: Callable[[Any], None] | None = None,
-                max_turns: int = 8, verbose: bool = True) -> Investigation:
+                on_tool: Callable | None = None, max_turns: int = 8, verbose: bool = True) -> Investigation:
     """Run one question end-to-end and return a structured result.
 
     use_council=True routes through the Socratic Council first (open questions that benefit from being
@@ -55,7 +55,7 @@ def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quo
             on_hypothesis(hyp)
 
     from .agent import run  # imported late so the API key is present in env
-    answer = run(question, hypothesis=hyp, max_turns=max_turns, verbose=verbose)
+    answer = run(question, hypothesis=hyp, max_turns=max_turns, verbose=verbose, on_tool=on_tool)
 
     brief = hyp.brief() if (hyp is not None and hasattr(hyp, "brief")) else None
     return Investigation(question=question, used_council=use_council, answer=answer,
