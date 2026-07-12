@@ -1,0 +1,2427 @@
+{
+  "results": [
+    {
+      "id": "1.1",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Question asks about variation in a single gene's expression level, but the operational measure is total RNA mass integrating all genes \u2014 the measure does not match the construct."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "'Do cells express the same gene at the same level?' is answered by aggregate RNA mass rather than per-gene expression variability, narrowing the question drastically."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1 (transient artifact) predicts CV drops below 0.15 at 10 generations vs stays \u22650.15 under true noise, but the two candidate designs (5 vs 10 gen) are not tied to any decision rule that would actually adjudicate this \u2014 no threshold comparison across designs is specified."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2 (deterministic initial-state differences) is explicitly conceded to be untestable because the simulator exposes no initial-condition controls, so it cannot be discriminated from the stochastic hypothesis."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Cell-to-cell variability' is operationalized as cross-seed variance of one cell per seed, but each seed is a lineage/single cell \u2014 this conflates lineage-to-lineage variance with within-population cell-to-cell variability, an unvalidated proxy."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Assumes 5 generations reaches steady state without providing any criterion or evidence for equilibration; the steady-state definition is merely 'the last time-step' by fiat."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Claim invokes stochastic partitioning at division and ribosome-allocation fluctuations as mechanisms, but the falsifier only reads end-point total RNA mass and cannot attribute the CV to these mechanisms."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The H0 (CV<0.05) and H1 (CV\u22650.15) leave a 0.05\u20130.15 gap; the decision rule rejects H1 only if CV<0.15, so any residual numerical stochasticity \u22650.15 passes and the falsifier is unlikely to fail in a stochastic simulator."
+        }
+      ],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that five generations are sufficient for reaching steady state is not explicitly justified or tested."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not allow explicit initialization of cell mass/cycle phase, which is critical for testing the rival hypothesis about deterministic initial conditions."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis about transient dynamics is not adequately tested since the 10-generation design is not actually implemented or compared."
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 10,
+      "claude_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 requires CV>0.05 for only ONE of three channels; with 30 stochastic seeds, at least one noisy channel exceeding 0.05 is nearly guaranteed, so the falsifier can almost never trigger."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier's decision rule names channel 'growth_rate' but rejects H1 only if ALL three channels have CV\u22640.05, contradicting the single-channel target field."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The chaos rival's own distinguishing test is undermined by auxiliary assumption stating chaos vs stochastic noise 'cannot be definitively separated within the simulator's architecture.'"
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Chaos rival requires >100 seeds but all candidate designs specify only 30 seeds, so the discriminating test cannot be executed."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Chaos rival predicts CV stays high with large seed counts if chaotic, but any seed-based stochastic engine will also produce persistent CV, so seed-count stability does not separate chaos from noise."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "CV is computed 'across independent seeds' but whether a seed = a single cell or a whole population is never defined; population averaging would suppress single-cell heterogeneity."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The core construct 'cell-to-cell heterogeneity' is operationalized as cross-seed variance, but seed-to-seed variance measures simulator run variance, not variability among genetically identical cells in one population."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "rrna_operon_knockout rival admits CV 'may not increase or even decrease' under the competing hypothesis, giving no clean directional prediction to distinguish it from partitioning-noise dominance."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The R\u00b2>0.8 vs R\u00b2<0.3 correlation thresholds for the chaos rival are asserted without justification for why these cutoffs separate deterministic from stochastic structure."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question 'do identical cells behave differently' is answered only via cross-seed replicate variance at a single timepoint (gen 10) for three variables, not actual within-population single-cell behavioral divergence."
+        }
+      ],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 requires CV \u2264 0.05 for all three channels, which may not be achievable due to inherent biological variability, making the falsifier too stringent."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the deterministic chaos rival does not clearly separate it from stochastic noise, as both could potentially show weak correlations with increasing seed count."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that generation 10 is sufficient for steady-state heterogeneity to emerge is critical but not justified or tested, potentially affecting the validity of the results."
+        }
+      ]
+    },
+    {
+      "id": "1.1",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "H1 sets substantive threshold CV\u22650.3 but the falsifier rejects H1 only at CV<0.1, leaving the 0.1\u20130.3 band where neither H1 is confirmed nor rejected."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Aux assumption states cell-cycle/partitioning noise is 'intrinsic noise, not a confounder,' yet rival 2's discriminating test removes cell-cycle variation to attribute CV elsewhere\u2014the two treat the same variance source oppositely."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1's test (deterministic replay of same seed) is a solver sanity check that cannot fail given the aux assumption that the simulator is deterministic per seed, so it does not discriminate measurement-artifact from biological stochasticity."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Given the stated aux assumption that the simulator uses stochastic (Gillespie/tau-leaping) transcription across seeds, nonzero across-seed variance is guaranteed, so CV<0.1 refutation is structurally unlikely to ever trigger."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No specified single reference CV or baseline noise floor from the simulator; the 0.3 and 0.1 cutoffs are asserted without calibration to the model's inherent stochastic granularity."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Representative gene' and 'not anomalous expression dynamics' for acrB are unmeasured assertions; representativeness is never operationalized or verified."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks about gene expression generally, but design measures a single gene (acrB) in one condition, so results cannot generalize across genes as claimed."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Design samples 'final mRNA counts across seeds' but the claim requires single-cell/per-lineage counts; over 3 generations one seed yields multiple daughter cells, and it is unspecified which cell is sampled, conflating across-seed with across-cell variance."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 3 requires measuring rpsA, but the sole candidate design only tracks acrB, so no data are collected to run the abundance-scaling comparison."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 (CV < 0.1) is inconsistent with the hypothesis claim (CV \u2265 0.3), making it impossible to reject H1."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that acrB is representative of typical single-copy chromosomal genes is critical but not justified or tested."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis about measurement noise is not adequately discriminated since deterministic replay does not rule out systematic errors in measurement."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'intrinsic stochastic noise' is vaguely defined and lacks a clear operationalization distinct from other noise sources."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on acrB, a single gene, rather than addressing gene expression levels more broadly across multiple genes."
+        }
+      ]
+    },
+    {
+      "id": "1.1",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier tests wildtype/basal against itself (target = reference = wildtype/basal); a self-comparison has no contrast and the decision rule reduces to a bare threshold with no reference-arm discrimination."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The whole design hinges on whether 'seeds' actually samples single-cell intrinsic transcription/translation noise vs. whole-population deterministic runs; this is flagged as 'pending instrument validation' yet the entire test proceeds assuming it \u2014 an unvalidated critical premise."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The extrinsic-noise rival uses relA knockout as a discriminator but predicts only qualitative direction ('should NOT reduce' vs 'WOULD reduce') with no threshold, and relA specifically affects stringent-response/growth-rate, so a null result is uninformative about general extrinsic noise."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The claim states CV of 10\u201340% is typical, but the falsifier rejects H1 if CV_protein < 10% \u2014 making the lower edge of the claimed range itself grounds for refutation."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "dry_mass is chosen as the intrinsic-noise floor and also as the CV_mass in the CV_protein/CV_mass ratio for both the falsifier and the numerical-noise rival, but no independent evidence establishes dry_mass captures solver noise rather than being buffered for unrelated reasons, so the ratio does not cleanly separate numerical from biological variance."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Treating 'each seed = one cell snapshot' assumes the simulator emits single-cell trajectories; if it produces population-level state, CV across seeds measures run-to-run reproducibility, not cell-to-cell heterogeneity \u2014 the instrument may not support the intended single-cell readout."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The 'right skew typical of stochastic gene expression' distributional prediction has no operational decision rule or test statistic and cannot be objectively evaluated as pass/fail."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The extrinsic-noise normalization divides protein[acrB] by protein_mass as a cell-size proxy, but no justification is given that protein_mass tracks cell-cycle stage, and the acetate condition arm has no stated role in any decision rule."
+        }
+      ],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule allows for rejecting H1 even if CV_protein is slightly above 10% but not 1.5 times CV_mass, potentially failing to detect true stochastic noise."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately models stochastic gene expression is critical but not validated within the study."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis regarding extrinsic factors may not be adequately discriminated if cell-cycle variability is not sufficiently controlled or measured."
+        }
+      ]
+    },
+    {
+      "id": "1.1",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "H0 sets CV\u22640.05 for all genes and H1 sets CV\u22650.15 for \u226570% of genes, leaving CV in [0.05,0.15) and the 1/3 minority as an undefined gap where neither hypothesis is decided."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The ppGpp-clamp rival predicts CV drops for extrinsic noise, but clamping ppGpp only fixes one physiological axis; cell size, ribosome number, and growth-phase spread are not clamped, so a low CV would not uniquely implicate intrinsic noise."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The ppgpp_multiple=1.0 'clamp' design assumes multiple=1.0 actually holds ppGpp constant across seeds rather than merely keeping its mean nominal; if it does not fix per-seed ppGpp, the extrinsic-vs-intrinsic discrimination collapses."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "If the simulator implements any stochastic transcription/translation (asserted as auxiliary), positive cross-seed CV is guaranteed, so the falsifier's 'reject if <2/3 noisy' cannot realistically trigger given the stated engine assumption."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks about 'the same gene at the same level' generally, but the design uses only n=3 genes and defines 'general property' as \u22652/3, an underpowered proxy for a genome-wide claim."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Same physiological state / global physiological state matched' is asserted but only partially operationalized (growth_rate, ribosome_conc, cell_mass); cell-cycle phase and spatial state are explicitly not tracked, so 'matched state' is not fully measurable."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Cross-seed variance conflates intrinsic noise with extrinsic seed-to-seed physiological drift; the design cannot separate intrinsic from extrinsic components without a dual-reporter or two-gene decomposition, which it lacks."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The relA-knockout rival assumes relA-KO leaves all other noise sources and mean expression unchanged; if KO shifts mean expression or growth, the CV comparison is confounded and non-discriminating."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Sampling 'final timepoint' of an 8-generation run as steady-state assumes the sim exposes a single-cell snapshot per seed with converged statistics; whether 30 seeds yield a stable CV estimate for high-CV genes is unverified."
+        }
+      ],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis about extrinsic noise is not adequately discriminated because clamping ppGpp may not control all extrinsic factors affecting gene expression variance."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's stochastic engine is mechanistically faithful to real noise sources is critical but not explicitly tested or validated."
+        }
+      ]
+    },
+    {
+      "id": "1.1",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 does not account for scenarios where R is between 0.5 and 0.7, leaving a gap where neither hypothesis is clearly supported or refuted."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that acrB and lacZ are independently regulated is critical but unverifiable, potentially confounding the intrinsic vs. extrinsic noise partitioning."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The assumption that the simulator implements stochastic transcription and translation is unverifiable, making it unclear if intrinsic noise can be meaningfully assessed."
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 7,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "H1 predicts CV \u2265 0.10 but the falsifier only rejects H1 when CV < 0.05, leaving the 0.05\u20130.10 gap unadjudicated (neither confirms nor rejects)."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The numerical-noise rival is not discriminating: if the deterministic core yields identical trajectories per seed, the falsifier's own 'seed-varied' CV cannot separate biological stochasticity from seed-injected numerical perturbation \u2014 both are seed-driven."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'terminal growth_rate' is undefined (instantaneous at gen 10 vs. average over gens 8\u201310), as the authors themselves flag in residual_ambiguities; the CV value depends on this choice."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Assumes the simulator's 'seed' mechanism actually models intrinsic gene-expression/partitioning noise rather than a generic RNG reseed; if it doesn't, the whole biological interpretation collapses."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks whether identical cells 'behave differently' broadly, but the design measures only growth_rate CV across whole-population seeds, not single-cell behavioral heterogeneity or non-growth phenotypes."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Seed-to-seed variation across 25 independent whole-population runs measures run-level stochastic reproducibility, not inter-individual (single-cell) heterogeneity within one isogenic population as the claim asserts."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The stress rival's decision rule (CV_acetate > CV_basal) does not discriminate H1 from its rival, since H1 can hold even if stress further increases CV; both predict the same ordering."
+        }
+      ],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes that the simulator's stochastic engine accurately models intrinsic noise without explicitly validating this assumption against empirical data."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The term 'terminal growth_rate' is ambiguous without a clear definition of how it is measured or calculated at the end of the simulation."
+        }
+      ]
+    },
+    {
+      "id": "1.1",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 is too lenient, allowing acceptance even if only 2 out of 3 genes show CV > 0.10, which may not represent a majority of genes."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the deterministic chaos rival hypothesis does not clearly differentiate between chaos and stochastic noise, as both could result in modest CV reduction."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis does not explicitly state assumptions about the independence of stochastic replicates, which is critical for interpreting CV as reflecting intrinsic noise."
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The numerical-artifact rival is explicitly admitted to be untestable in the current design ('current design cannot directly test this'), so it is not discriminated \u2014 deterministic re-run or high-copy-number control is not among the candidate designs."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The extrinsic-fluctuation rival is discriminated only by assertion (single-lineage model has no spatial coupling), not by any run in the design; the discriminating multi-cell spatial simulation is 'not available here.'"
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The claim attributes heterogeneity to INTRINSIC noise, but this hinges entirely on the stated auxiliary that the stochastic engine represents molecular shot noise rather than numerical artifact \u2014 an assumption the design cannot verify, making the intrinsic-noise attribution unfalsifiable."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "operational_defs measure 'genetically identical cells' as seed-to-seed variation of independent runs, but the H0 dismisses <5% seed variation as 'numerical error' \u2014 the same observable (seed variance) is treated as both the signal and the noise floor without a way to separate them."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier tests three channels with an OR structure ('if it fails, check growth_rate and dry_mass'), so any single channel crossing 15% triggers rejection of H0 \u2014 multiplying the chances and weakening the falsifier's ability to fail."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks broadly whether genetically identical cells behave differently, but the design tests only wildtype/basal seed-to-seed variance in a single-lineage model with no spatial/environmental coupling and no mutation/selection, covering only intrinsic-noise heterogeneity."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'generation 10' as a common measurement point is ambiguous when different seeds diverge in growth rate \u2014 cells reach generation 10 at different wall-clock times, so CV is compared across non-aligned physiological/temporal states."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "'at least 20% of individual seed trajectories deviating >15% from population mean' plus a bootstrapped 95% CI lower bound requirement is statistically demanding on only 30 seeds, giving unstable tail-fraction and CI estimates."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The CV_gen10/CV_gen3 >= 0.7 threshold and choice of generation 3 as 'transients settled' are asserted without justification; the design provides no test that gen3 is post-transient, so the sustained-vs-transient discrimination rests on an unvalidated assumption."
+        }
+      ],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes the simulator's stochastic engine accurately represents intrinsic noise without providing evidence or validation for this assumption."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The hypothesis relies on the simulator's ability to distinguish between intrinsic noise and numerical artifacts, which may exceed the simulator's design capabilities without explicit validation."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The hypothesis does not provide a direct method to distinguish between intrinsic noise and numerical artifacts, relying instead on an auxiliary assumption."
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier decision rule uses CV<10% and >50% CV drop, but H0 defines convergence as CV\u22645% and predicted_effect uses \u226515%/decrease-not-more-than-30%; the multiple inconsistent thresholds (5/8/10/15%, 30/50% decay) are mutually contradictory."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The relA-knockout rival predicts 'identical CV decay' as the distinguishing result, but H1's own falsifier only rejects on the wildtype channel; a knockout showing identical persistent (non-decaying) CV would not discriminate the ppGpp-amplification mechanism from generic stochasticity."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The between-seed measure is CV of per-seed MEAN growth_rate; averaging within each seed suppresses stochastic variance so a large between-seed CV can arise from few seeds, and the rule leaves a dead band (CV 8-10%, or 30-50% decay) where neither H1 nor H0 is decided."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No stated auxiliary that between-seed CV of seed-means is distinguishable from finite-sample estimation noise at n=25 seeds (no CI/threshold for CV estimator uncertainty), so a 'persistent' CV could be sampling artifact."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The claim attributes heterogeneity specifically to low-copy RelA/ppGpp fluctuations, but the falsifier tests only whether growth_rate CV is large/persistent \u2014 it never tests that rela_conc fluctuations CAUSE the divergence (only reports rela_conc CV, no linkage)."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Divergent physiological states' and 'stabilized over multiple generations' are asserted causally but operationalized only as a static CV threshold; no measure links between-seed rela state to that seed's persistent growth state."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The cell-cycle rival requires tracking individual lineage temporal CV within seeds across generations 3-5, but the instrument is defined as reporting per-seed mean values, so within-lineage temporal CV may not be extractable from the specified design."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The acetate/rich-media rival concludes heterogeneity is 'condition-dependent, not intrinsic' if CV<5% in rich media, but a null result there is fully consistent with H1 (which is only about basal), so it cannot discriminate the mechanism claimed."
+        }
+      ],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier's decision rule does not account for the possibility that CV could remain between 10% and 15%, which would neither confirm nor refute H1."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival claiming heterogeneity is due to cell-cycle phase asynchrony does not adequately distinguish from H1, as both could result in persistent CV."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the basal condition does not impose severe stress is critical but not explicitly tested or justified."
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 does not account for the possibility that CV of ppgpp_conc or growth_rate could be high due to other factors, making it possible to reject H0 without truly testing the hypothesis."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1's distinguishing result does not effectively discriminate from H1 because both could predict CV of rela_conc remains high at generation 10 due to persistent heterogeneity or insufficient equilibration."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's stochastic engine accurately represents intrinsic molecular noise is critical but not explicitly tested or validated within the study."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'behave differently' is operationalized only in terms of molecular state and growth rate, potentially missing other behavioral aspects that could be relevant."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on specific proteins and growth rate, which may not fully capture the broader question of whether genetically identical cells behave differently in all relevant aspects."
+        }
+      ]
+    },
+    {
+      "id": "3.1",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 needs only 1 of 6 channels to exceed CV\u22650.10; with 6 stochastic channels and a 10% threshold, near-guaranteed to pass, so refutation is practically impossible."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The relA-knockout / ppGpp=0 rival predicts CV(ppgpp_conc)<0.05, but clamping ppGpp to zero trivially forces its CV low regardless of the heterogeneity mechanism \u2014 zero variance is a mathematical artifact, not evidence about the driver."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier decision rule uses generation-3 CV thresholds, but the first rival requires cross-generational CV trajectory (gen1\u2192gen3 decay vs persistence), data the primary falsifier design never specifies collecting."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Claim asserts heterogeneity 'persists across multiple generations,' yet the decision rule measures only a single snapshot at generation 3, never testing persistence/stability across generations."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The second rival attributes heterogeneity specifically to RelA/ppGpp, but knocking out relA alters the whole physiological steady state; a CV change cannot distinguish 'ppGpp-specific noise source' from 'general perturbation of the network.'"
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Stable, individual differences' and 'persistent individuality' imply lineage-tracked identity, but CV across independent seeds measures population spread, not persistent per-cell identity across generations."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Attributing variation to 'intrinsic stochastic noise in low-copy regulatory proteins' is a mechanistic claim the CV-across-seeds instrument cannot verify \u2014 CV magnitude does not identify the molecular source."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "predicted_effect and falsifier list six channels including rna_mass, but operational_defs enumerate protein_mass rather than rna_mass among the defined measures, leaving one falsifier channel undefined."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The CV<0.10 threshold and the ppGpp CV\u22650.20 prediction are asserted without justification tied to the simulator's noise scale, so the pass/fail boundary is arbitrary."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 requires all six channels to show CV < 0.10, which is overly stringent and may not account for natural variability in biological systems."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis that heterogeneity is driven specifically by ppGpp fluctuations is not adequately distinguished from general low-copy protein noise, as both could result in similar CV patterns."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that three generations are sufficient for transient artifacts to decay is critical but not justified or tested within the study."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct of 'stable individuality' is not clearly defined or operationalized, making it difficult to measure or validate."
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 10,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Burst size is operationally defined as mean(protein)/mean(mrna), which is mathematically collinear with mean_protein, yet the design claims the multiple regression can isolate beta_burst from beta_mean."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H1 predicts higher burst size lowers CV (beta<0), but the stated mechanism 'translation amplifies low-frequency transcriptional fluctuations' is the standard argument that larger bursts INCREASE protein noise, contradicting the negative exponent."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The Poisson rival predicts beta_mean~-0.5, but H1's burst-size definition (protein/mrna) is confounded with mean_protein, so both models draw on the same variance and the partial-R2 threshold cannot cleanly separate them."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier bundles many OR-linked reject conditions with overlapping thresholds (CI-excludes-zero, |beta|<0.2, R2<0.30) that make refutation nearly automatic under noisy small-N estimation rather than a targeted test."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The critical auxiliary itself admits per-gene stochastic protein/mrna counts may not exist as channels; if only bulk masses are output, the entire measure is infeasible and this is unverified before execution."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "N=12 genes for a 2-predictor regression demanding partial R2>=0.50 with tight CI is severely underpowered; the required residual degrees of freedom and power analysis are unstated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Quasi-steady-state at generation 8' is asserted but no criterion (e.g., stationarity test of the CV across generations) is given to confirm the distribution is stationary."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "CV across seeds conflates intrinsic and extrinsic noise; the design concedes it cannot decouple them, so the 'intrinsic burst' interpretation of the measured CV is an unverified assumption."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks about gene-to-gene noise generally, but the design measures only 12 synthetic reporters and explicitly cannot generalize to native endogenous genes."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The mRNA-decay rival's discriminating test compares reporters with identical half-life but differing translation, yet since burst_size=trans_eff*half_life these pairs also differ in mean_protein, so a CV difference cannot distinguish burst architecture from mean-level Poisson scaling."
+        }
+      ],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes the simulation provides single-gene stochastic counts, but this is not verified against the actual simulation output schema."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The hypothesis relies on the assumption that the simulation can accurately reflect biophysical burst kinetics without numerical artifacts, which may exceed the design of the simulation."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis tests synthetic reporter genes as proxies, not directly measuring native gene expression noise, limiting the scope of the question."
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The ppgpp_conc clamp uses ppgpp_multiple=1.0, i.e. the basal value, so it does NOT suppress growth-rate variation and cannot show R_clamp persists when extrinsic variation is removed."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The claim that mean protein can be held constant while independently tuning promoter and RBS strength assumes the new_gene perturbation accepts a target_mean_protein and achieves it; whether the simulator honors this target is unverified."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Constructs use discrete 'weak'/'strong' promoter/RBS labels, but the predicted effect requires precise mRNA levels (~40 vs ~10) and matched protein ~400; nothing guarantees these categorical settings yield the specified 4-fold mRNA ratio."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier fires on three OR-linked conditions (R<1.5, CI includes 1.0, R_conditioned<1.5) but the extrinsic-noise-dominates rival predicts exactly R_conditioned collapse \u2014 so the same result both refutes H1 and confirms a rival, conflating falsification of H1 with rival support."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 3 (post-transcriptional regulation) is tested only on heterologous genes lacking native regulation, so R>=1.8 is guaranteed by construction and cannot discriminate \u2014 it does not actually test the post-transcriptional mechanism."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks what makes one gene noisier than another (native genes), but the design is scoped only to two synthetic heterologous constructs and explicitly excludes native genes."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Intrinsic' vs 'extrinsic' noise is asserted but the CV-across-seeds measure conflates both; without a dual-reporter (two-color) design the intrinsic component is not separately measurable."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The 1/sqrt(mRNA) prediction assumes mRNA-copy is a faithful proxy for transcription rate via the similar-half-life assumption, but half-life equivalence of the two constructs is asserted, not controlled or verified."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Partitioning rival predicts a fixed CV~0.29 from binomial partitioning, but this numeric value is unsupported for the ~400-copy proteins here (binomial CV at n=400 would be far smaller), making the rival's discriminating prediction internally inconsistent."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 includes conditions (R < 1.5 OR 95% CI includes 1.0) that may not adequately account for variability in biological systems, potentially leading to false negatives."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that mRNA half-lives are similar for the two heterologous genes is critical but not explicitly tested or validated, which could affect the proxy for transcription rate."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The assumption that the simulator's stochastic engine faithfully represents transcriptional and translational shot noise is critical, but the method does not specify how this is validated or ensured."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis regarding post-transcriptional regulation assumes heterologous genes lack native regulatory elements, but this does not rule out all forms of post-transcriptional regulation that could affect noise."
+        }
+      ]
+    },
+    {
+      "id": "4.1",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 7,
+      "claude_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The relA-knockout rival relies on abolishing ppGpp, but auxiliary assumptions concede SpoT may compensate and the simulator may not model it \u2014 so a non-flat ribosome profile cannot distinguish 'ppGpp-independent' from 'residual ppGpp via SpoT'."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier bundles an OR over multiple thresholds (t, effect, CI, R2, slope sign), making refutation trivially easy but the confirmation asymmetric; H0 as stated ('fixed or independent') is nearly guaranteed to be rejected by any nutrient-dependent variation, so the falsifier barely tests the causal claim."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Nutrient gradient is described as basal\u2192acetate\u2192fumarate\u2192malate\u2192succinate implying monotonic quality ordering, but no evidence this ordering matches actual amino-acid biosynthetic burden; the monotonicity prediction assumes an ordering the design does not establish."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Quantitative claim of log-log slope \u22120.5 to \u22121.0 with R2\u22650.85 across only 5 points (one of which is the reference) is fragile and the design provides no basis for expecting the simulator to produce continuous proportionality rather than discrete regime shifts."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The ppgpp_conc 'clamp' perturbation assumes ppGpp can be held fixed independent of the feedback loop while everything else adjusts, but whether the simulator implements a true clamp (vs a transient offset that the loop restores) is never stated."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The growth-law rival ('ppGpp covaries but not necessary') and H1 both predict inverse ribosome\u2013ppGpp correlation in the 5 wildtype conditions; only the clamp experiment separates them, yet a clamp that also changes growth rate would leave the rival's 'growth-rate set-point' prediction untested."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Steady state (final 20% of simulation)' is asserted to be reached by generation 8 as an assumption but no convergence check is built into the decision rule, so the steady-state construct is unverified."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier relies on a t-test and regression that may not detect non-linear relationships or interactions, potentially failing to refute H1 even if it is false."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The ppGpp clamp experiment may not distinguish between H1 and the growth-law rival if ppGpp affects growth rate indirectly."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately models the DksA-ppGpp-RNAP interaction is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The assumption that steady state is reached by generation 8 may not hold across all nutrient conditions, affecting measurement validity."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'amino-acid supply sufficiency' is operationalized as 'fraction_trna_charged,' which may not fully capture the complexity of nutrient sensing."
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier's decision rule allows for rejection of H0 even if the slope is within 3-fold of the median burst size, which does not strictly test the hypothesis that translational burst size is the primary factor."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2's distinguishing result relies on a parameter ('half_life_protein_min') that may not be supported by the simulator, making it infeasible to test this rival hypothesis."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator can accurately model stochastic processes and extrinsic noise sources is critical but not explicitly validated or stated as a testable auxiliary assumption."
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The extrinsic-noise rival's distinguishing test (normalizing by housekeeping protein 'collapses' CV) requires an added analysis step not in the falsifier's design, and positive cross-gene correlation is consistent with both intrinsic-birth-death and extrinsic accounts, so it does not cleanly discriminate."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The burst-size rival requires mean-matched gene sets (means within 2-fold), but the 8-gene panel is explicitly chosen to span >=100-fold range and may contain no mean-matched pairs, making the discriminating test uncomputable from the specified design."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Burst size is defined as protein/mRNA ratio requiring per-gene mRNA copy-number readout, but the channel list only includes protein[...] observables \u2014 mRNA measurement is never operationalized."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "CV 'across seeds at steady state' conflates single-timepoint cross-replicate variation with cell-cycle phase; without gating on cell-cycle stage or ensemble averaging, intrinsic vs cell-cycle-driven variance is not separated as the auxiliary assumption presumes."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The falsifier channel lists exactly 8 named genes yet the decision rule requires >=100-fold mean span; whether these specific genes actually span 100-fold is asserted as an assumption, not guaranteed, so the falsifier may be inapplicable while claimed applicable."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks what makes one gene noisier than another (mechanistic determinants), but H1/falsifier only test a mean-CV scaling law, leaving 'primarily determined by mean' underdetermined against burst/extrinsic mechanisms within the actual decision rule."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Candidate designs use 50 seeds but operational_defs/falsifier reference regression across genes with no power analysis; 50 replicates for estimating a CV and its 95% CI at low copy numbers (<100) may be insufficient to exclude zero, but feasibility of the CI-based rule is asserted without justification."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'synthetic_low' and 'synthetic_high' new_gene perturbations lack defined copy-number targets or verification that they land in the <100 and >1000 regimes required by the predicted effect."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 does not account for the possibility of a non-linear relationship, which could lead to false acceptance of H1."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the rival hypothesis on transcriptional burst size does not clearly differentiate from the main hypothesis if burst size correlates with mean expression."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that extrinsic noise sources affect all genes proportionally is critical but not explicitly tested or justified."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The requirement for genes spanning a 100-fold range in mean expression may not be feasible with the selected gene set, potentially limiting the study's scope."
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis claiming noise is dominated by transcriptional bursting is not adequately discriminated, as the distinguishing result does not specify how mRNA CV is measured or controlled."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately captures gene-specific mRNA degradation and translation rates is critical but not explicitly stated as testable or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The requirement for single-cell resolution measurement of protein and mRNA copy numbers may exceed the simulator's design capabilities if not explicitly supported."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct of 'extrinsic noise floor' is vaguely defined without clear operationalization for how it is isolated from intrinsic noise in the model."
+        }
+      ]
+    },
+    {
+      "id": "4.1",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The ppGpp clamp at 2x/3x basal is imposed by design, so the primary Spearman correlation is partly manufactured: two of seven points are engineered to sit at high ppGpp/low ribosome by construction, guaranteeing negative monotonicity almost regardless of simulator physiology (the auxiliary even admits the clamps 'ensure adequate span by design, making the test robust to unknown simulator physiology')."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The growth-law rival is not discriminated by the ppGpp clamp: clamping ppGpp high directly perturbs the ppGpp node and would also lower growth rate, so a ribosome drop is consistent with growth-demand feedback (fewer ribosomes because growth slowed), not uniquely with direct ppGpp repression."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The relA-KO/acetate test uses |t|<2 as evidence FOR H1, i.e., a null result confirms the favored hypothesis, so failure to detect a difference (including from low power at seeds=5) is scored as support rather than as inconclusive."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H1's mechanism is uncharged-tRNA-driven ppGpp accumulation, but fraction_trna_charged is defined as an observable and never used in the falsifier or any decision rule; the proposed causal chain (nutrient -> uncharged tRNA -> ppGpp -> ribosome) is not tested."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Auxiliary assumptions concede relA KO 'may not be implemented' and ppGpp clamp mechanistic propagation is uncertain, yet these same perturbations are the sole basis for discriminating both rivals; if unimplemented, the rival tests collapse while the claim of convergence stands."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks how a cell DECIDES ribosome number (mechanism of sensing/decision); the falsifier only establishes a negative ppGpp-ribosome correlation, not that ppGpp is the decision variable versus a downstream correlate."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The ppGpp clamp comparison assumes the clamp affects ribosomes ONLY via rRNA transcription and not through other clamp side-effects (translation, metabolism), which is required for the clamp t-test to isolate the hypothesized causal path."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Active ribosome concentration' readout assumes the model separates active vs inactive pools appropriately (auxiliary flags this as an open question), leaving the primary channel operationally underdetermined."
+        }
+      ],
+      "gpt_defects": 1,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes that the ppGpp concentration clamp can be precisely controlled and maintained, but does not state how this is achieved or verified in the simulation."
+        }
+      ]
+    },
+    {
+      "id": "4.1",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier decision rule uses R\u00b2\u22650.70, but predicted_effect states R\u00b2\u22650.85 \u2014 two inconsistent success thresholds."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1's ppGpp-clamp distinguishing test is run only in 'basal' medium (candidate design), not the 'rich medium' the rival's discriminator requires, so it cannot separate H1 from the gene-dosage rival."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 3 (relA/spoT KO) requires the KO across ALL five nutrient conditions to compare slopes, but only a single basal-condition KO run is designed \u2014 no slope can be estimated to discriminate demand-driven vs ppGpp-driven."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H0 falsifier only tests slope\u22600 and R\u00b2 threshold on ribosome_conc; it can be 'passed' by any monotonic relation (including the inverse Rival-2 prediction fails it) yet the rule as stated rejects H0 for a negative slope too, so it doesn't uniquely support H1's positive-slope claim."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks how a cell 'decides' ribosome number generally, but the design tests only nutrient-limited carbon-source variation via ppGpp, ignoring translation-inhibition/amino-acid and other decision channels."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No stated criterion or measurement to verify steady state is actually reached by generation 8; it is only assumed, with no convergence check on the reported means."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Predicted \u03b2\u2081\u224810\u201330 uM/(1/h) mapped to '15\u201340% increase per doubling' presupposes a baseline ribosome_conc that is never specified, so the quantitative prediction is not checkable against simulator output."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'both jointly determine ribosomal-gene transcription' is asserted but no observable for ribosomal-gene transcription rate is defined among operational_defs, so the causal-mediation claim is unmeasured."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Assumes the five chosen carbon sources actually span growth rates ~0.4\u20131.0 1/h, but provides no verification; if they cluster, the regression is underpowered by construction."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires both a non-zero slope and R\u00b2 \u2265 0.70, which may not be stringent enough to conclusively reject H0 if only one condition is met."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the first rival does not clearly differentiate it from H1, as clamping ppGpp could affect ribosome concentration through indirect pathways not accounted for."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's ppGpp-regulation module accurately represents biological control mechanisms is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The assumption that the relaxed strain remains viable and does not trigger compensatory responses is not guaranteed, potentially affecting the validity of the rival tests."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'ribosome abundance decision' is not clearly defined in terms of measurable outcomes beyond ribosome concentration."
+        }
+      ]
+    },
+    {
+      "id": "4.1",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires multiple conditions to be met simultaneously, making it difficult to conclusively falsify the hypothesis."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the passive-partitioning rival does not clearly differentiate it from H1, as both could potentially show changes in ribosome concentration under ppGpp clamp."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that ppGpp concentration accurately reflects the stringent response is critical but not explicitly stated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'nutrient quality' is vague and lacks a clear, measurable definition beyond the static media condition."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on ribosome concentration and growth rate but does not address the broader question of how cells decide ribosome numbers in different media."
+        }
+      ]
+    },
+    {
+      "id": "4.2",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier compares target 'amino_acid_shift/basal' against reference 'wildtype/basal', but decision_rule contrasts post-shift generations 4-5 in target vs steady-state generations 2-3 in reference \u2014 mixing across-arm and within-run comparisons inconsistently."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2 (compensatory biosynthesis) is not tested by the candidate_designs: no channel for ilvC/leuA mRNA is measured, so its 3-fold-rise distinguishing result cannot be evaluated."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Rival 2's distinguishing result requires an amino-acid-biosynthesis mRNA readout (ilvC/leuA) that is not listed in operational_defs or observable channels."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Rival 1's discriminating result assumes growth still drops >=50% in the relA knockout, but no growth_rate falsification threshold is defined for the knockout arm to confirm RelA-independence quantitatively."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Timeline event 'remove amino acids at generation 3' but analysis windows use generations 2-3 (reference) and 4-5 (target); at 5 total generations only ~2 post-shift generations exist, tight for the claimed 'within minutes' ppGpp dynamics."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks broadly 'what does a cell do'; hypothesis only tests ppGpp/tRNA/growth stringent-response axis and ignores other acute responses (transport, proteolysis, ribosome regulation)."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'growth_rate drops sharply / within minutes' in the claim is operationalized only as a post-shift mean over 30 min, so the temporal 'minutes' claim is not measured by any defined observable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 conjoins three thresholds (ppGpp>=5x, growth<=50%, tRNA<=65%) but the falsifier's decision_rule tests only ppgpp_conc fold-change, so partial-failure outcomes cannot refute the full conjunctive H1."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires both |t| < 2 and fold-change < 5, which may not account for cases where one condition is met but not the other."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the rival hypothesis involving relA knockout does not account for potential compensatory mechanisms that could maintain growth rate independently of ppGpp levels."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately models the dynamics of tRNA charging and ppGpp synthesis is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'stringent response activation' is not clearly defined in terms of measurable outcomes beyond ppGpp concentration changes."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on ppGpp and growth rate changes but does not address other potential cellular responses to amino acid starvation."
+        }
+      ]
+    },
+    {
+      "id": "4.1",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires multiple conditions (slope, R\u00b2, and t-test) to be met simultaneously, making it overly stringent and potentially unfalsifiable."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis involving ppGpp clamp does not clearly distinguish from the main hypothesis since both involve ppGpp-mediated feedback."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's ribosome_conc channel reports only active ribosomes is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'ribosomal proteome fraction' is inferred indirectly and lacks a direct measurement, making it vague."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on ribosome concentration and growth rate but does not address the broader question of 'how a cell decides' ribosome synthesis, which may involve additional regulatory mechanisms."
+        }
+      ]
+    },
+    {
+      "id": "1.2",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 6,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier decision rule allows for multiple criteria to be met, but does not specify what happens if some criteria are met and others are not, potentially allowing the hypothesis to be unfalsifiable."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes that the simulator accurately models stochastic gene expression dynamics, but this is not explicitly stated as an auxiliary assumption."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The operational definition of translational burst size requires per-gene mRNA counts, but the provided channel list does not include these observables, making the hypothesis untestable."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The auxiliary assumption that the simulator reports per-gene mRNA copy numbers is contradicted by the lack of such channels in the provided list, creating an internal inconsistency."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis does not explicitly state that the simulator's gene expression module includes stochastic dynamics, which is critical for testing noise-related claims."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The candidate design entry contains a parameter typo ('prospective' instead of 'promoter'), which would cause the design to fail or produce undefined behavior."
+        }
+      ]
+    },
+    {
+      "id": "4.1",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not allow simultaneous application of rrna_operon_knockout and ppgpp_conc clamp, making the distinguishing experiment for Rival #1 infeasible."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes that the ppGpp clamp perturbation completely overrides endogenous RelA/SpoT activity, but this assumption is not explicitly tested or validated."
+        }
+      ]
+    },
+    {
+      "id": "4.2",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier decision rule refutes if ppGpp stays within 2-fold, but claim/predicted_effect require \u22653-fold; a 2.5-fold rise would neither confirm nor refute, leaving a gap."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'clamp ppGpp at basal' rival uses perturbation ppgpp_conc with ppgpp_multiplier=1.0, which is identity (no clamp): it does not hold ppGpp fixed during starvation, so it cannot discriminate causal from passive."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The ppGpp-clamp rival assumes the simulator can hold ppgpp_conc fixed while amino acids are removed, but the design provides no mechanism/parameter to override endogenous ppGpp dynamics."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Predicted_effect and h1 require ribosome_conc to fall \u226530%, but the claim text states only that ribosome_conc 'falls' without threshold; the falsifier tests only ppgpp_conc, so ribosome/growth thresholds are never actually adjudicated."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier channel is limited to ppgpp_conc; the multi-part claim (tRNA<0.5, ribosome \u226530% drop, growth \u226550% drop) has no decision rule, so those sub-claims cannot be refuted."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Timeline removes amino acids at t=120 (min?) but the 10-min ppGpp window and '\u226410 min = \u22641 generation' framing assume a generation time inconsistent with growth_rate ~0.5 1/h (~120 min doubling)."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'precedes major proteome remodeling confounds' is asserted as an auxiliary but never operationalized or checked in any design channel."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RelA-knockout rival's distinguishing result assumes SpoT contribution is negligible on this timescale (an auxiliary), so a residual ppGpp rise cannot cleanly separate 'RelA not required' from 'SpoT compensates'."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires both a t-test and a fold-change, which may not be independent, potentially allowing H0 to be rejected even if the fold-change is not significant."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the rival hypothesis involving SpoT does not account for potential compensatory mechanisms that could still lead to a ppGpp rise."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately models all relevant biochemical pathways, including SpoT activity, is not explicitly stated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'growth slowdown' as a passive consequence is not operationally defined, making it difficult to measure or distinguish from active regulation."
+        }
+      ]
+    },
+    {
+      "id": "4.2",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 7,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Auxiliary assumption states basal medium is limiting for at least one amino acid, so the wildtype/basal reference used in the falsifier may itself be under stringent activation, contaminating the baseline."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The relA-knockout rival requires ppGpp to stay low (<1.5-fold) while ribosomes still decline; but spoT retains synthetase activity, so ppGpp could rise substantially even in relA-alone knockout, making the predicted discriminating result non-guaranteed."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The falsifier compares amino_acid_shift/basal against wildtype/basal baseline, but reference and target are different runs with differing timelines/generations; no assumption justifies these baselines being commensurable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Refuting condition '|t| < 2 OR fold-change < 3' is an OR, but the reject rule requires both |t|>=2 AND fold>=3; with only 5 seeds and a strong step perturbation, ppGpp spike is near-certain to clear thresholds, so the falsifier is unlikely to be able to fail."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks what a cell does generally when amino acids run out; hypothesis restricts scope to the ppGpp/RelA stringent axis and ignores other responses (amino-acid biosynthesis upregulation, translation adjustment, transport)."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'RelA activity' operationalized only as RelA concentration (proxy for synthetase availability), which does not measure activation state by uncharged tRNA that H1 actually claims."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The relaxed-mutant rival predicts wildtype-equivalent growth arrest 'purely metabolic'; distinguishing attenuated vs delayed arrest requires quantitative timing thresholds that are never operationalized or given a decision rule."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires both a fold-change and a t-test threshold, which may not be independent, potentially allowing H0 to be rejected even if the fold-change is not significant."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the relA/spoT double-knockout does not account for potential compensatory mechanisms that could mimic the wildtype response, failing to truly discriminate between H1 and the rival hypothesis."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately captures the dynamics of ppGpp synthesis and ribosome repression is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The reliance on a 5-seed simulation for a Welch t-test may not provide sufficient statistical power to detect the specified effect sizes, especially given biological variability."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The operational definition of 'ribosome synthesis repression' lacks clarity on how 'plateaus or declines' will be quantitatively measured and distinguished from normal fluctuations."
+        }
+      ]
+    },
+    {
+      "id": "4.2",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1 (passive dilution) predicts the relA knockout shows small ribosome decline and no IlvG rise \u2014 identical to H1's own prediction for the relA knockout under the ppGpp-dependent mechanism, so the relA-KO result cannot discriminate H1 from Rival 1."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2's relA-KO prediction (coordinated response persists) is the ONLY channel that separates it from H1, but the falsifier only tests ppGpp in wildtype; no decision rule is stated on the relA-KO ribosome/IlvG channels, so Rival 2 is never actually adjudicated."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier compares target vs. wildtype/basal at the SAME absolute time window (1200-1800 s) but the reference has no timeline shift; since amino acid removal trivially perturbs ppGpp, any nonzero starvation effect passes fold-change \u22655 \u2014 the falsifier is not a stringent test of the coupled temporal signature it claims to test."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The claim states 'ribosome concentration declines' as a core stringent signature, yet Rival 1 stipulates growth_rate drops \u226590% in ALL cases including relA-KO; if growth halts identically, dilution-driven ribosome decline should be similar across conditions, undermining the stated 15% vs 30% discrimination threshold."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The 15% (passive) vs 30% (active) ribosome-decline discrimination boundary is asserted but its derivation (degradation rate, cell-cycle dilution rate) is not quantitatively justified; the entire Rival-1 discrimination rests on this unvalidated cutoff."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks what a cell does upon amino acid starvation generally, but the operational test reduces 'biosynthesis reallocation' to a single marker (IlvG copy number), leaving the genome-wide reallocation claim untested."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Coordinated genome-wide reallocation from translation to stress survival' is claimed but only one biosynthetic protein is measured; 'stress survival' has no operational observable at all."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The predicted temporal ORDER (charged-tRNA drop \u2192 ppGpp rise \u2192 ribosome decline + biosynthesis \u2192 growth arrest) is claimed as the signature, but no decision rule tests ordering; the falsifier collapses the whole causal-order claim to a single ppGpp fold-change, so the order can never fail."
+        }
+      ],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 relies solely on ppGpp concentration, which may not capture the full stringent response signature if other channels (e.g., ribosome concentration, IlvG protein) do not change as predicted."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2's distinguishing result does not clearly differentiate from H1 since both predict similar outcomes in the relA knockout, lacking a unique observable to confirm the alternative pathway."
+        }
+      ]
+    },
+    {
+      "id": "4.2",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Basal condition adds amino acids at t=0 then removes them at 1200s \u2014 the reference 'wildtype/basal' arm may itself include amino-acid supplementation, so target vs reference are not on a common baseline; also amino_acid_shift baseline already contains amino acids, making 'sudden runout' just a return to true basal rather than deprivation below normal."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2 predicts clamping ppGpp abolishes the response AND rpoS-KO is identical to wildtype, but the candidate designs include no rpoS knockout arm, so half the distinguishing test cannot be run."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier only tests the ppGpp spike channel; if ppGpp spikes but growth/ribosome effects fail, H1 is not refuted, so the causal-repression claim can never fail its own test."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The rivals require a ppGpp clamp that holds concentration fixed against active RelA synthesis, but there is no stated assumption that clamp_multiple=1.0 can override starvation-driven synthesis rather than merely setting an initial value."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "fraction_trna_charged is claimed measurable per-2-min, yet auxiliary assumptions state the simulator does not track individual amino-acid pools; if aminoacylation is not resolved this observable may not exist."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks generally what a cell does on sudden amino-acid loss; the design operationalizes only ppGpp/growth/ribosome/tRNA channels and preselects the RelA mechanism, ignoring other cellular responses (proteolysis, transport upregulation, other stress pathways)."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'growth rate to near-zero'/'instantaneous specific growth rate' sampled every 2 min is ambiguous as to how instantaneous rate is computed in a stochastic single-cell simulator, and 'active ribosome concentration' lacks a defined activity threshold."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1 predicts relA/spoT-KO shows tRNA depletion and growth arrest identical to wildtype with ribosomes NOT repressed; but if H1 is true the KO should show the same lack of repression, so 'growth arrest identical' does not by itself distinguish direct-stall from ppGpp mechanism without a separate ribosome-repression contrast."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 allows for a fold-change < 5, which contradicts the predicted effect of a \u22655-fold increase in ppGpp concentration."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the 'general stress response' rival does not clearly differentiate it from the stringent response, as clamping ppGpp could affect both responses similarly."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that clamping ppGpp to basal levels will not affect other cellular processes is unstated and critical for the rival discrimination."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'stringent response activation' is not clearly defined beyond ppGpp concentration, lacking a comprehensive operational definition."
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier allows for rejecting H0 if either of two conditions are met, but does not specify how to handle cases where one condition is met and the other is not, potentially allowing for ambiguous conclusions."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's gene-knockout mechanism accurately reflects loss-of-function mutations lacks validation, which is critical for interpreting knockout results."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'basal condition' is vaguely defined and may not be consistently reproducible across different experimental setups."
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 7,
+      "claude_defect_list": [
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks 'which genes' can be deleted (gene-level identification), but the hypothesis and falsifier only estimate a genome-wide fraction (\u226570%) from a 30-gene sample, never delivering a per-gene dispensability map."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The claim of '\u226570% dispensable genome-wide' rests on the 30-gene sample being representative, but the genes are hand-picked (heavy on transporters/catabolic loci and known essentials) and there is no stated basis this proportion matches the ~4400-gene genome."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The 30 target genes are deliberately loaded with obviously dispensable catabolic/transport genes (lacZ, galK, araA, malT, fliC, etc.), so the \u226570%-dispensable outcome is nearly guaranteed by curation rather than tested."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The condition-dependence rival predicts biosynthetic genes flip to essential in acetate, but this is fully consistent with H1 (dispensable in rich basal); no result cleanly separates 'condition-dependent essentiality' from the main hypothesis, which already restricts its claim to basal media."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Predicted_effect asserts a bimodal distribution with a dispensable cluster mean ~0.6\u20131.0/h, but the decision rule and operational defs only use a single 0.1/h threshold and never test for bimodality, so the stated distributional prediction is not evaluated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Compensatory pathways / slow adaptation' rival invokes a declining-slope-through-50-generations mechanism, but 'accumulating fitness costs' and the slope threshold are only specified for one design and not tied to the primary classification, leaving the confound untestable within the main falsifier."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The mapping 'wildtype basal growth_rate ~1.0/h' anchors the 0.1/h (10%) cutoff, but the wildtype rate is assumed rather than established as a measured baseline before classifying knockouts."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule allows H1 to be rejected only if <50% are dispensable, but does not specify what happens if 50-69% are dispensable, leaving a gap where neither hypothesis is clearly supported or refuted."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately captures all gene-function dependencies lacks validation or evidence, which is critical for interpreting knockout results."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis about condition-dependent essentiality is not effectively discriminated by the proposed acetate condition test, as it does not address potential compensatory mechanisms or adaptation artifacts."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The assumption that genetic redundancy is implicitly captured by the simulator is unverified, potentially exceeding the simulator's design capabilities."
+        }
+      ]
+    },
+    {
+      "id": "4.2",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier compares relA knockout at 'gene_knockout/basal' (no amino-acid removal timeline) against WT 'amino_acid_shift/basal', but the causal test requires comparing both strains AFTER amino-acid removal; the knockout arm's reference has no shift."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1 (substrate limitation) predicts ppGpp <1.5-fold AND arrest, while H1's own falsifier reference (gene_knockout/basal without shift) cannot expose the ppGpp channel, so the ppGpp discriminator is not actually tested against the rival."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule bundles a t-test with fixed thresholds (\u0394relA >60%, WT <20%); if \u0394relA lands between 20-60% both rejection and refutation conditions can be unmet, leaving no defined outcome, but as written any relaxed phenotype passes\u2014the compound rule is not a clean single falsification criterion."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Assumes ribosome_conc drops \u226530% within 10 min via reduced rRNA synthesis, but ribosome concentration is set by dilution/degradation over generation timescales; halted-growth dilution cannot remove 30% of ribosomes in 10 min\u2014the timescale linking mechanism to observable is unjustified."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The relA+spoT double knockout is stated to possibly not be mechanistically implemented (spoT hydrolysis) yet the auxiliary calls this a 'scope limitation'; if the instrument cannot realize a true ppGpp-null strain, Rival 2's discriminating test is infeasible as designed."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'amino_acid_shift' with empty params and timeline token 'basal_amino_acid_removal' does not specify which/how many amino acids are removed, so the 'sudden complete starvation' construct is not operationally pinned to a measurable perturbation."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "'Instantaneous specific growth rate' over a 10-min window with 10 seeds claims df\u224818 and adequate power, but instantaneous growth rate in a stochastic whole-cell sim is noisy and the power/df justification is asserted without variance basis."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks what a cell does when it runs out of amino acids; the hypothesis measures only ppGpp/ribosome/growth arrest and explicitly excludes adaptive remodeling, amino-acid biosynthesis induction, and recovery, answering a narrower slice than posed."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes the simulator accurately models the effects of a spoT knockout, but this is not explicitly validated or described."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The hypothesis relies on a ppGpp-null strain (relA+spoT knockout), but the simulator's ability to model this condition is not confirmed."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2's distinguishing result does not effectively discriminate if the simulator cannot accurately model the ppGpp-null condition."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The operational definition of 'stringent response activation' lacks clarity on how ppGpp concentration changes are specifically linked to the stringent response."
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The hypothesis assumes that the simulator can accurately represent essentiality for all genes, but this is not guaranteed and may exceed the simulator's design capabilities."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis does not explicitly state how the simulator's accuracy in representing gene essentiality is validated beyond the known-essential genes, which is critical for the validity of the results."
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 is inconsistent with the claim; rejecting H1 if fraction_dispensable \u22640.50 does not directly test the claim that >80% are dispensable."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1's distinguishing result does not effectively test redundancy, as it assumes multi-gene knockouts will still show dispensability without considering potential compensatory mechanisms beyond paralogs."
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 is based on a threshold (f_disp <0.65) that does not account for the possibility of intermediate values (e.g., f_disp between 0.65 and 0.80) that could neither support H1 nor H0 conclusively."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for Rival 1 does not adequately test genetic redundancy, as it only considers a small number of paralog pairs, which may not represent genome-wide redundancy."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's gene_knockout perturbation accurately represents a complete loss-of-function is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The sample size of 35 genes may not be sufficient to robustly estimate genome-wide essentiality patterns, given the large number of E. coli genes (~4,300) and the wide confidence intervals for small class sizes."
+        }
+      ]
+    },
+    {
+      "id": "5.1",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Claim is genome-wide (\u226560% of the genome) but the design tests only 30 hand-picked genes, so the falsifier cannot support a genome-wide fraction."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The stated aux assumption that 30 genes are 'representative' is not operationalized \u2014 no random/stratified sampling procedure links the 30-gene fraction to the genome-wide claim."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Predicted effect asserts a bimodal distribution with a mode at zero, yet the classification rule treats near-zero as essential; refuter also rejects H1 if >40% land in (0,0.3), which conflicts with the claimed clean bimodality without justification."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1's H1 threshold (\u22650.55 in minimal) overlaps ambiguously with its rival threshold (<0.40), leaving the 0.40\u20130.55 band unassigned so many outcomes fail to discriminate."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Viability maintained over multiple generations' and growth_rate 'stable' are defined inconsistently (3 gen vs 10 gen vs CV<0.15) without a single unambiguous viability criterion."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Gene list is heavily weighted toward catabolic/regulatory genes (lac, mal, ara, gal) known dispensable in rich medium, biasing the 60% fraction toward being met by construction."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Operon polar-effect and complete-null assumption is stated but the simulator's actual knockout semantics (does it model operon structure?) is not verified, critical for interpreting essentiality."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'growth_rate > 0' as viability lacks a numeric threshold distinguishing true positive growth from stochastic near-zero noise; 3 seeds is asserted sufficient without a power/variance justification."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule does not account for potential variability in growth rates across different environmental conditions, which could lead to false positives in determining non-essential genes."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1 does not adequately distinguish between true non-essentiality and medium-specific artifacts, as it assumes a substantial drop in non-essentiality without considering other factors that might influence gene essentiality in minimal medium."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's gene_knockout faithfully represents loss-of-function without polar effects is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct of 'viability' is vaguely defined as growth_rate > 0, which does not capture potential sub-lethal phenotypes or fitness costs that might affect long-term survival."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on basal conditions, which may not generalize to other environmental contexts where gene essentiality could differ significantly."
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The primary test for rejecting H0 relies solely on CV of growth_rate, which may not capture all relevant dynamics of diauxic growth."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1's distinguishing result does not effectively differentiate from H1 since both allow for biphasic growth under certain conditions."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the timeline perturbation accurately models glucose depletion without artifacts is critical but not explicitly tested or validated."
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes glucose depletion occurs before 2400 s, but this is not explicitly tested or measured, leaving a critical assumption unverified."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator's ability to accurately simulate CRP-mediated repression and gene knockouts is assumed but not validated, risking instrument limitations affecting results."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The kinetic sequestration rival is not effectively discriminated if the simulator does not implement CRP-mediated repression, as both H1 and the rival could show similar phenotypes."
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes the model accurately represents CRP\u2013cAMP regulation and enzyme induction kinetics, but this is not directly testable with the available channels."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The model's available channels do not include direct measurements of cAMP or Acs protein, which are critical for validating the CRP\u2013cAMP mechanism."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The dip test for bimodality may lack power with only ~30\u201350 samples per replicate, risking false negatives."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The acetate-toxicity rival is not adequately discriminated because the acetate-only condition may not replicate the mixed condition's lag without prior glucose exposure."
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 does not account for the possibility of a bimodal distribution with a fraction of cells in the slow mode outside the specified range [0.2, 0.5], which could still indicate asynchronous switching."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes that the simulator accurately models stochastic variation in gene expression, but this is not explicitly tested or validated within the study."
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not support mid-run carbon-source depletion events, so modeling the shift as an instantaneous media switch may not accurately capture the diauxic shift dynamics."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the relA/spoT double knockout is viable and eliminates ppGpp synthesis without compensatory pathways is critical but not explicitly justified or tested."
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 does not account for the possibility of growth rates falling between 0.2 and 0.4 h\u207b\u00b9, which could lead to an inconclusive result."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately captures stochastic variation in gene expression and regulatory-network dynamics is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The Hartigan's dip test may not have sufficient power with n=50 to reliably detect bimodality with the specified separation and proportions, especially given biological variability."
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 8,
+      "claude_defect_list": [
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks how bacteria CHOOSE between two co-present sugars in a flask; hypothesis tests separate steady-state cultures on glucose vs acetate, never any mixture or choice event."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "H1 predicts ppGpp 1.5-2 fold on acetate while RIVAL 1 (toxicity) predicts >=3 fold; but the falsifier's secondary refutation of H1 requires fold-change <1.5, leaving the 1.5-2 vs >=3 boundary and the actP rescue as the sole discriminator, with no stated handling if ppGpp lands in an overlapping mid-range."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H0 rejection rule (|t|>=2 AND ratio>=1.67) uses n=10 seeds where near-deterministic simulator noise makes tiny mean differences trivially significant, so the t-test component almost cannot fail to reject H0."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier reference is 'timeline/basal_glucose' (a glucose-supplemented timeline shifting at t=600), but operational def measures steady-state over final 50% window; comparing a mid-run substrate shift against a static acetate culture conflates transition dynamics with steady state."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Growth-rate ratio thresholds (glucose 0.6-0.8/h, acetate 0.25-0.40/h) assume the simulator yields nonzero viable growth on acetate as sole carbon source; if acetate alone gives near-zero growth the ratio is undefined/uninformative."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Auxiliary assumptions admit it is unknown whether actP and relA/spoT knockouts are mechanistically simulated rather than merely deleted from the parts list, so the two rival-discriminating knockout designs may exceed the instrument's capability."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Catabolite preference hierarchy' is operationalized purely as a growth-rate ratio plus ppGpp elevation, which does not measure preferential CONSUMPTION or repression of one substrate's uptake in the presence of another\u2014the actual construct of choice."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 2 refutation relies on relA/spoT knockout growing faster on acetate, but a relaxed mutant's growth change could arise from many pleiotropic effects unrelated to catabolite choice, so faster growth does not uniquely implicate ppGpp in the preference mechanism."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The hypothesis cannot be falsified by the primary falsifier alone, as it requires both growth rate and ppGpp concentration conditions to be met, making it overly stringent."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1 does not effectively discriminate between toxicity and preference because the same ppGpp elevation range is used for both hypotheses."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's FBA and regulatory logic accurately represent the pathways is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis addresses carbon-source preference rather than directly answering the question of sugar choice in a mixture, which is narrower than the original question."
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes the simulator accurately models Crp-cAMP regulation, but does not verify if the simulator's gene_knockout perturbation for crp faithfully represents this regulatory defect."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis addresses carbon source utilization using glucose and acetate, but the original question asks about sugar choice, which is not directly tested due to simulator limitations."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not allow a mid-run switch between two sugars, limiting the ability to test the hypothesis as originally framed."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The operational definition of 'diauxic_growth_phenotype' relies on detecting a lag phase, but the method for segmenting growth phases may not reliably distinguish genuine transitions from noise without manual inspection."
+        }
+      ]
+    },
+    {
+      "id": "6.1",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier does not account for the possibility that both wildtype and crp_ko could show similar biphasic patterns due to unmodeled factors, making it unable to definitively reject H0."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1's distinguishing result relies on actP knockout as a control for toxicity, but if the model does not simulate pH/toxicity explicitly, this control may not fully discriminate toxicity from repression."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that aconitase abundance is a valid proxy for acetate catabolic capacity is critical but not explicitly justified or tested within the model."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The model's inability to simulate a true simultaneous dual-carbon condition from t=0 limits the feasibility of testing the hypothesis as stated."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses specifically on glucose-acetate and CRP-cAMP repression, which does not fully address the broader question of how bacteria choose between any two sugars."
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The hypothesis cannot be falsified by the simulator since it does not model antibiotic exposure directly, which is central to the question of antibiotic tolerance."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis regarding nutrient depletion does not adequately distinguish from the main hypothesis since both could result in low growth rates without clear discrimination criteria."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's stochastic engine produces biologically realistic phenotypic heterogeneity is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'persister-like state' is not directly measurable within the simulation, relying on indirect inference from growth rate bimodality."
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "internal_contradiction",
+          "issue": "Auxiliary states per-seed ppGpp distributions are NOT logged (only population mean), yet the claim/h1 attributes heterogeneity to stochastic single-cell ppGpp VARIANCE \u2014 the proposed mechanism cannot be measured with the stated instrument."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 3 (irreversible damage) uses ribosome_conc/ppgpp_conc thresholds and slow-ramp glucose, but an auxiliary admits the simulator does not track viability/damage and the envelope forbids mid-run ramp switches, so the distinguishing result is not obtainable."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The slow glucose ramp-down proposed in RIVAL 3's distinguishing result contradicts the stated auxiliary that only sharp timeline-dial glucose depletion is permitted in the envelope."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Design treats each seed as an independent single cell, but generations=3 means each run is a growing lineage/population, not a single cell; the bimodal split is over lineage-mean growth rates, not single-cell states."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Acetate as post-glucose carbon source is only assumed ('models acetate as alternative source') with no confirmation the 'minimal_GLC_0mM' timeline actually provides acetate; without it the whole diauxic setup may test starvation, not a shift."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The 0.3/h vs 0.1/h classification thresholds and the 50\u201365% responsive-fraction band are asserted without justification for why these specific cutoffs demarcate the two modes in this simulator."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Catabolite-repression state is named as a co-mediator in the claim/h1 but is neither operationalized nor manipulated (CRP clamp explicitly excluded), so this half of the mechanism is untested."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The responsive-fraction refuter window [30%,85%] is wide while the H1-predicted band is 50\u201365%; outcomes in the 65\u201385% or 30\u201350% margins neither confirm the prediction nor trigger refutation, leaving a large non-committal zone."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The primary falsifier's dip test on timeline/basal cannot distinguish H1's bet-hedging from RIVAL 1's transient uniform lag at the single 60-min timepoint; only a multi-timepoint (30/60/120 min) comparison discriminates, which the falsifier does not require."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier does not account for the possibility of a bimodal distribution with a responsive fraction outside [30%, 85%], which could still indicate heterogeneity."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 2's distinguishing result does not adequately discriminate from H1, as it relies on a lack of change in responsive fraction, which could be due to insufficient sensitivity of the measurement."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator accurately models the stringent response and ppGpp dynamics is critical but not explicitly validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'bet-hedging strategy' is interpretive and not directly measurable, relying on inferred functional consequences rather than empirical data."
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks about temporal synchrony ('switch at the same time'), but hypothesis explicitly reframes to 'do all cells switch (yes/no)' and admits it cannot resolve timing without intermediate timepoints."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier's own decision rule treats both unimodal (all switch) and out-of-range responsive fraction as refuting H1, yet a single-endpoint design cannot distinguish 'arrested' from 'delayed but eventually switching', so a positive is nearly guaranteed by construction."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Claims a 'deterministic whole-cell model' yet requires the 'stochastic engine' to inject per-seed single-cell variability as the driver of bimodality \u2014 deterministic and stochastic descriptions of the same seed variation conflict."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Assumes 'basal' condition contains finite glucose plus a secondary carbon source that naturally depletes to force a diauxic shift within 6 generations, but this composition is unverified and central to the whole design."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1 (numerical chaos vs stochastic ppGpp) is tested by ppGpp\u2013growth correlation, but chaos-driven divergence could equally produce ppGpp\u2013growth correlation since ppGpp is upstream of growth, so the correlation does not separate the mechanisms."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Per-seed variability treated as single-cell heterogeneity/bet-hedging, but each seed is a whole-cell (single-cell/population-average) trajectory; inferring population bimodality from across-seed variance exceeds what the instrument measures."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Growth resumption on acetate' at a single terminal timepoint cannot distinguish permanent arrest from delay, and the growth_rate<0.1 vs >=0.3 thresholds are self-described 'informed guesses' not grounded in corpus data."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 3's ceiling-artifact test relies on wildtype/acetate showing mean >=0.25 h-1, but a unimodal-low acetate result plus a bimodal basal result is also compatible with heterogeneous switching timing, not proving true bet-hedging bimodality."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The relA knockout and ppGpp clamp designs are listed but no decision rule ties their outcomes to accept/reject; their expected effect on bimodality is asserted without a stated threshold."
+        }
+      ],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier does not account for the possibility that the observed bimodality could be due to noise rather than a true biological effect, making it unable to definitively reject H1."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for the chaos rival does not adequately separate deterministic chaos from stochastic variation, as both could show weak correlations with ppGpp."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's stochastic engine captures sufficient variability is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct of 'bimodal population split' is not clearly operationalized in terms of how bimodality is quantitatively assessed beyond the dip test."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis reframes the question to 'do all cells switch (yes/no)' without addressing the temporal aspect of 'at the same time,' which is part of the original question."
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that methionine removal via amino_acid_shift is a valid proxy for antibiotic-induced stringent response is critical but not explicitly justified or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not include explicit antibiotic molecules or cell viability assays, yet the hypothesis assumes antibiotic survival can be inferred from physiological pre-conditions without direct validation."
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 9,
+      "claude_defect_list": [
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks about surviving antibiotics, but no design applies antibiotic stress; survival is proxied only by basal-medium slow growth, never tested against a kill challenge."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The core link 'slow-growing cells survive bactericidal antibiotics' is assumed by literature analogy but never modeled or validated in the simulator, making the central claim untestable here."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier's decision rule chains conditions with OR (|t|<2 OR CV<0.25 OR slow-fraction<8%), so H1 can be refuted by any single criterion while H1 requires all to hold \u2014 the acceptance region is over-narrow and the falsifier can trip on noise."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 2 (division noise) is 'distinguished' by relA+spoT knockout retaining CV\u22650.25, but this uses the same channel and knockout as the primary H1 test, so it does not separately isolate cell-cycle/division noise from ppGpp effects."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 3 (pre-stress heterogeneity unrelated to survival) cannot be discriminated because survival itself is never measured; the rrna_operon_knockout 'survival proxy' is again just growth_rate>0, circularly equating slow growth with survival."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H1 claims stochastic emergence in isogenic cells, yet the ppGpp clamp arm is described as 'deterministic suppression, not stochastic heterogeneity' \u2014 a clamped forcing cannot demonstrate the stochastic bistability the hypothesis asserts."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Persister state is operationalized as 'lowest 10% growth_rate' by definition, so the predicted '\u226510% of seeds slow' is partly baked into the measurement threshold rather than an independent prediction."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Whole-cell simulation seeds typically represent single-cell trajectories; claiming a bimodal/heavy-tailed 'population' distribution and CV across 50-60 seeds may exceed what independent stochastic seeds can represent as a true subpopulation structure."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Auxiliary states 'condition' has no antibiotic medium and the simulator lacks kill kinetics, yet operational_defs and rivals repeatedly invoke 'differential survival upon antibiotic challenge' as if measurable."
+        }
+      ],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 is based on a CV threshold that may not be sensitive enough to detect subtle heterogeneity, risking false negatives."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that slow growth in basal medium predicts antibiotic survival is untested within this simulation, relying on external literature without validation in the current model."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not explicitly model antibiotic stress conditions, limiting the ability to directly test the hypothesis about survival under antibiotic exposure."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct of 'persister state' is operationally defined by growth rate alone, which may not capture the full complexity of persister physiology."
+        }
+      ]
+    },
+    {
+      "id": "6.2",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 requires both p < 0.05 and CV \u2265 0.5, which may allow H0 to be incorrectly accepted if only one condition is met."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1's distinguishing result does not account for the possibility that ppGpp modulation could still create subpopulations even if crp knockout eliminates bimodality."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's ppgpp_conc clamp perturbation effectively overrides endogenous ppGpp dynamics without catastrophic pleiotropic effects is critical but not explicitly tested."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The requirement for the instrument to return dry_mass per seed at t=1100 s for RIVAL 2 discrimination is not guaranteed, potentially making this test infeasible."
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The hypothesis assumes that the simulator's stochastic engine generates sufficient intrinsic noise to produce phenotypic heterogeneity, but this is not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not model antibiotic exposure directly, yet the hypothesis relies on the pre-existence of a slow-growth subpopulation that would survive if antibiotic were present."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that growth_rate \u22640.01/h is a valid proxy for antibiotic tolerance is not independently validated within the simulation context."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the acrB knockout does not pleiotropically affect the slow-growth state through unrelated mechanisms is critical but untested."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The hypothesis does not directly test or measure reversible state-switching kinetics, which is a hallmark of phenotypic persistence."
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "config": "full",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 3,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H0 in the falsifier's test (3) is not stringent enough, as it allows for overlap in mean growth rates between target and reference without clear discrimination."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "RIVAL 1's distinguishing result does not adequately differentiate between adaptive and non-adaptive responses, as it relies on a correlation magnitude that could occur by chance."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's stochastic-noise module generates biologically realistic heterogeneity is critical but not explicitly tested or validated."
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 4,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the dip test has adequate power with 50 seeds is critical but not explicitly justified or tested."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Lineage-level tracking to confirm phenotypic reversibility is acknowledged as stronger but is not feasible with the current instrument."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The operational definition of 'persister phenotype (ppGpp elevation)' lacks clarity on how ppGpp concentration is measured and compared."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 3's distinguishing result relies on a 'ppgpp_conc/basal clamp' which is not clearly defined or operationalized in the candidate designs."
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "config": "full",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier's decision rule allows for rejecting H1 based on a weak negative correlation (\u0003c1 \u00003e -0.3), which does not necessarily refute the hypothesis of differential recovery."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 1's distinguishing result (CV of growth_rate <0.10) overlaps with the hypothesis's predicted effect (CV \u00003e=0.15), but does not account for intermediate values that could support neither claim."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator's stochastic engine accurately reflects biological variability is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The assumption that the simulator can track individual-cell dry_mass and growth_rate with sufficient resolution is not substantiated, risking infeasibility."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'prepared for a change' is not operationally defined, making it difficult to measure or validate."
+        }
+      ]
+    },
+    {
+      "id": "2.1",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier relies on a single statistical test (Hartigan's dip test) which may not capture all forms of bimodality, potentially allowing the hypothesis to pass even if bimodality is present but not detected by this test."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis regarding ppGpp-mediated stringent response does not clearly distinguish itself from the main hypothesis since both could potentially result in bimodal ribosome concentrations."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that ribosome concentration is a valid mechanistic proxy for antibiotic tolerance is critical but not directly tested within the simulation, relying on extrapolation beyond the simulator's scope."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The simulator does not support seeding a new run from a subset of survivors, making it infeasible to directly test reversibility of the persister state."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct of 'noise-driven bimodality' is not directly measurable or perturbable within the simulation, relying on exclusion of deterministic alternatives rather than direct evidence."
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "config": "leaked",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 5,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that clamping ppGpp at 1.0\u00d7 basal suppresses stochastic switching without altering mean basal physiology is critical but not explicitly justified or tested."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The Hartigan dip test may lack sufficient power to reliably detect bimodality with only 25 seeds, potentially leading to false negatives."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'prepared state physiological marker' is defined solely by ppGpp concentration, which may not capture all relevant aspects of the 'prepared' state."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The distinguishing result for RIVAL 1 does not clearly differentiate between damage-repair and stochastic switching, as both could lead to reduced growth under elevated ppGpp."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on growth rate as a proxy for fitness, which may not encompass other fitness components relevant to population survival in fluctuating environments."
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "config": "leaked",
+      "rep": 0,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 6,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier does not account for the possibility that the bimodal distribution might not emerge due to insufficient stochastic noise, making it impossible to reject H0."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis involving uniform ppGpp elevation does not adequately distinguish from stochastic switching if both can lead to similar growth advantages."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The design assumes the simulator can combine tf_activity clamp with gene knockout, which may not be supported."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the simulator captures stochastic gene expression noise is critical but not explicitly tested or validated."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Preparedness is operationalized as elevated ppGpp concentration, which may not capture all relevant mechanisms of cellular readiness."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis only tests nutrient-downshift scenarios, not other environmental changes, limiting the scope of the question about population-level benefits of slow growth."
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "config": "leaked",
+      "rep": 2,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 2,
+      "gpt_defect_list": [
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that the relA knockout serves as a valid proxy for a homogeneous fast-growth population is critical but not explicitly justified; potential pleiotropic effects could confound results."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The hypothesis relies on the simulator's ability to generate intrinsic stochastic noise sufficient for phenotypic diversity, but this capability is not verified or guaranteed within the model's design."
+        }
+      ]
+    },
+    {
+      "id": "2.2",
+      "config": "full",
+      "rep": 1,
+      "claude_defects": 0,
+      "claude_defect_list": [],
+      "gpt_defects": 6,
+      "gpt_defect_list": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The decision rule for rejecting H1 is too lenient, as it only requires t < 2 or wildtype mean \u2264 relA-KO mean, which may not adequately capture the absence of a heterogeneity benefit."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rival hypothesis about division-of-labor is not adequately tested, as the metabolic cross-feeding dynamics are not explicitly measured or controlled."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The assumption that stochastic noise in the wildtype simulation is sufficient to generate meaningful ppGpp heterogeneity is not explicitly validated or quantified."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'preparedness heterogeneity' is not clearly operationalized beyond ppGpp concentration, potentially missing other relevant factors."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The hypothesis focuses on a specific nutrient downshift scenario, which may not generalize to other types of environmental changes or stressors."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The auxiliary assumption that the model does not include spatial structure contradicts the potential for division-of-labor effects, which may require spatial considerations."
+        }
+      ]
+    }
+  ]
+}

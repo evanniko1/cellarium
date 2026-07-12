@@ -1,0 +1,71 @@
+{
+  "grader": "pilot (system builder, blinded to config)",
+  "n_pairs": 10,
+  "human_prefers_full": 4,
+  "human_prefers_1shot": 4,
+  "ties": 2,
+  "llm_auditor_prefers_full": "10/10",
+  "human_llm_agreement_on_full": "4/10",
+  "rows": [
+    {
+      "pair": "P01",
+      "case": "1.1",
+      "choice": "A",
+      "preferred": "proposer_only"
+    },
+    {
+      "pair": "P02",
+      "case": "1.2",
+      "choice": "A",
+      "preferred": "proposer_only"
+    },
+    {
+      "pair": "P03",
+      "case": "2.1",
+      "choice": "A",
+      "preferred": "full"
+    },
+    {
+      "pair": "P04",
+      "case": "2.2",
+      "choice": "B",
+      "preferred": "full"
+    },
+    {
+      "pair": "P05",
+      "case": "3.1",
+      "choice": "B",
+      "preferred": "proposer_only"
+    },
+    {
+      "pair": "P06",
+      "case": "4.1",
+      "choice": "B",
+      "preferred": "full"
+    },
+    {
+      "pair": "P07",
+      "case": "4.2",
+      "choice": "tie",
+      "preferred": "tie"
+    },
+    {
+      "pair": "P08",
+      "case": "5.1",
+      "choice": "B",
+      "preferred": "proposer_only"
+    },
+    {
+      "pair": "P09",
+      "case": "6.1",
+      "choice": "B",
+      "preferred": "full"
+    },
+    {
+      "pair": "P10",
+      "case": "6.2",
+      "choice": "tie",
+      "preferred": "tie"
+    }
+  ]
+}

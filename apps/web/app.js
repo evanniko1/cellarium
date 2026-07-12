@@ -16,13 +16,14 @@ const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null,
 // ---------------- markdown ----------------
 function inlineMd(t) {
   return esc(t).replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>")   // non-greedy + allow nested * so **bold *italic* bold** renders
     .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
 function md(src) {
   const lines = String(src).replace(/\r\n/g, "\n").split("\n"); let out = "", i = 0;
   const isUL = (l) => /^\s*[-*]\s+/.test(l), isOL = (l) => /^\s*\d+\.\s+/.test(l), isH = (l) => /^\s*#{1,6}\s+/.test(l);
+  const isHR = (l) => /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(l);   // --- *** ___  -> thematic break
   const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
   const isSep = (l) => l.includes("|") && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(l);
   const isTable = (j) => isRow(lines[j]) && j + 1 < lines.length && isSep(lines[j + 1]);
@@ -36,12 +37,13 @@ function md(src) {
         rows.map((r) => `<tr>${r.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`).join("") + "</tbody></table>";
       continue;
     }
+    if (isHR(l)) { out += "<hr>"; i++; continue; }   // before paragraph so a lone --- becomes a rule, not literal text
     if (isH(l)) { const m = l.match(/^\s*(#{1,6})\s+(.*)$/), h = Math.min(m[1].length + 2, 5); out += `<h${h}>${inlineMd(m[2])}</h${h}>`; i++; continue; }
     if (isUL(l)) { let it = ""; while (i < lines.length && isUL(lines[i])) { it += `<li>${inlineMd(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`; i++; } out += `<ul>${it}</ul>`; continue; }
     if (isOL(l)) { let it = ""; while (i < lines.length && isOL(lines[i])) { it += `<li>${inlineMd(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`; i++; } out += `<ol>${it}</ol>`; continue; }
     if (/^\s*$/.test(l)) { i++; continue; }
     const p = [lines[i]]; i++;
-    while (i < lines.length && !/^\s*$/.test(lines[i]) && !isH(lines[i]) && !isUL(lines[i]) && !isOL(lines[i]) && !isTable(i)) { p.push(lines[i]); i++; }
+    while (i < lines.length && !/^\s*$/.test(lines[i]) && !isH(lines[i]) && !isUL(lines[i]) && !isOL(lines[i]) && !isHR(lines[i]) && !isTable(i)) { p.push(lines[i]); i++; }
     out += `<p>${inlineMd(p.join(" "))}</p>`;
   }
   return out;
@@ -61,7 +63,7 @@ function curCouncil() { return state.cur ? state.cur.council : { rounds: [], hyp
 function resetToHero() {
   state.cur = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
   $("#convoTitle").textContent = ""; clearTimeout(state.poll); renderCouncil(); clearBadge("councilBadge");
-  closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
+  renderFigures(null); closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
 function openInv(inv) {
   state.cur = inv; $("#thread").innerHTML = "";
@@ -70,7 +72,8 @@ function openInv(inv) {
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
   renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
-  renderSidebar(); scrollBottom(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
+  renderFigures(inv);
+  renderSidebar(); scrollToEnd(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
 }
 function ensureCur(q) {
   if (state.cur) return;
@@ -112,6 +115,15 @@ function scrollBottom(force) {   // sticky: streaming only auto-scrolls if the u
   const s = $("#scroll");
   if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 140) s.scrollTop = s.scrollHeight;
 }
+function scrollToEnd() {   // land on the LATEST message when opening a conversation — re-fire to catch async figures
+  scrollBottom(true);
+  requestAnimationFrame(() => scrollBottom(true));
+  [120, 400, 900].forEach((ms) => setTimeout(() => { if ($("#scroll")) scrollBottom(true); }, ms));
+}
+// Was the user following the bottom? A figure (vega-embed) lays out AFTER we scroll and grows the thread by more than
+// the sticky threshold, which a one-shot scroll can't follow — so we capture "were they following?" BEFORE the figure
+// streams in, and force a scroll once it lays out (below, in the turn's figure()). This never yanks a scrolled-up user.
+function nearBottom() { const s = $("#scroll"); return s ? s.scrollHeight - s.scrollTop - s.clientHeight < 200 : true; }
 const isRunning = () => !!(state.cur && state.cur.running);
 const ARROW_SVG = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const STOP_SVG = `<svg viewBox="0 0 24 24" width="15" height="15"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`;
@@ -177,6 +189,7 @@ function stream(question) {
   const turn = assistantTurn();
   inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
   const ct = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
+  inv._ct = ct;   // expose the in-flight turn so the Figures panel can index charts before the turn is committed
   turn.status(usedCouncil && firstTurn ? "Convening the Socratic Council…" : "Thinking…");
   const t0 = Date.now(); const timer = setInterval(() => turn.setTimer(fmtElapsed(Date.now() - t0)), 500);
   (async () => {
@@ -197,9 +210,9 @@ function stream(question) {
     }
     finally {
       clearInterval(timer);
-      inv.running = false; inv._live = null; inv._abort = null;
+      inv.running = false; inv._live = null; inv._abort = null; inv._ct = null;
       if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
-      if (state.cur === inv) { updateSend(); scrollBottom(); }
+      if (state.cur === inv) { updateSend(); scrollBottom(); renderFigures(inv); }
       maybeRunQueue(inv);   // run the next queued question, if any
       if (state.cur === inv) markLastUserReask();
     }
@@ -210,7 +223,12 @@ function handle(kind, data, turn, ct, inv) {
   const c = inv.council, viewing = state.cur === inv;   // events belong to the STREAM's inv, not the current view
   if (kind === "council_round") { c.rounds.push(data); if (viewing) { renderCouncil(); bumpBadge("councilBadge", c.rounds.length); } turn.status(`Council deliberating — round ${data.round}…`); }
   else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; if (viewing) renderCouncil(); ct.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
-  else if (kind === "tool") { ct.tools.push(data); (isChart(data) ? turn.figure(data.output) : turn.tool(data)); turn.status(`Calling ${data.tool}…`); }
+  else if (kind === "tool") {
+    ct.tools.push(data);
+    if (isChart(data)) { data.fid = data.fid || nextFid(); turn.figure(data.output, data.fid); if (viewing) renderFigures(inv); }
+    else turn.tool(data);
+    turn.status(`Calling ${data.tool}…`);
+  }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
   else if (kind === "note") { turn.note(data.message); }
   else if (kind === "answer") {
@@ -246,7 +264,11 @@ function assistantTurn(replay) {
       hypSlot.appendChild(c); scroll();
     },
     tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scroll(); },
-    figure(out) { figSlot.appendChild(figureEl(out)); scroll(); },   // grounded chart, rendered inline
+    figure(out, fid) {   // capture "was the user following?" before the figure grows the thread; re-pin once it lays out
+      const stick = root.isConnected && nearBottom();
+      figSlot.appendChild(figureEl(out, fid, () => { if (stick) scrollBottom(true); }));
+      scroll();
+    },
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
@@ -261,7 +283,7 @@ const isChart = (d) => d && d.tool === "chart" && d.output && d.output.spec;
 function replayTurn(t) {
   addUserBubble(t.q); const a = assistantTurn(true);
   if (t.hyp) a.hyp(t.hyp);
-  (t.tools || []).forEach((d) => (isChart(d) ? a.figure(d.output) : a.tool(d)));
+  (t.tools || []).forEach((d) => { if (isChart(d)) { d.fid = d.fid || nextFid(); a.figure(d.output, d.fid); } else a.tool(d); });
   if (t.answer != null) { a.answer({ answer: t.answer, trust: t.trust || {} }); if (t.model) a.badge(t.model, t.routed); }
 }
 function trailScaffold() { return { head: el("div", "trail-head", `<span class="label">Grounded reasoning</span><span class="sub">every number comes from a real run</span>`), line: el("div", "trail-line") }; }
@@ -280,7 +302,36 @@ function fmtNum(v) {
   if (a !== 0 && (a < 1e-3 || a >= 1e5)) return v.toExponential(1);
   return String(Math.round(v * 1000) / 1000);
 }
+function renderBand(spec) {   // SVG fallback for a layered mean±band spec (vega-embed handles it natively when loaded)
+  const W = 660, H = 300, pad = { l: 66, r: 14, t: 12, b: 42 };
+  const data = (spec.data && spec.data.values) || [], xf = (spec.encoding && spec.encoding.x && spec.encoding.x.field) || "t";
+  const lyr = spec.layer || [], meanEnc = ((lyr[1] || {}).encoding || {}).y || { field: "mean" };
+  const yf = meanEnc.field, loF = "lo", hiF = "hi";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "vl-chart", width: "100%", preserveAspectRatio: "xMidYMid meet" });
+  const x0 = pad.l, y0 = H - pad.b, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const dom = meanEnc.scale && meanEnc.scale.domain;
+  const allY = data.flatMap((d) => [d[loF], d[hiF], d[yf]]).filter((v) => isFinite(v));
+  let ymin, ymax;
+  if (Array.isArray(dom) && dom.length === 2) { ymin = +dom[0]; ymax = +dom[1]; } else { ymin = Math.min(0, ...allY); ymax = Math.max(...allY); }
+  if (ymin === ymax) ymax = ymin + 1;
+  const xv = data.map((d) => +d[xf]), xmin = Math.min(...xv), xmax = Math.max(...xv);
+  const xs = (v) => x0 + ((v - xmin) / ((xmax - xmin) || 1)) * iw;
+  const ys = (v) => y0 - ((Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin)) * ih;
+  for (let i = 0; i <= 4; i++) { const v = ymin + (ymax - ymin) * i / 4, y = ys(v);
+    svg.appendChild(svgEl("line", { x1: x0, y1: y, x2: x0 + iw, y2: y, class: "vl-grid" }));
+    svg.appendChild(svgEl("text", { x: x0 - 8, y: y + 3.5, class: "vl-tick vl-ty" }, fmtNum(v))); }
+  for (let i = 0; i <= 4; i++) { const v = xmin + (xmax - xmin) * i / 4; svg.appendChild(svgEl("text", { x: xs(v), y: y0 + 15, class: "vl-tick vl-tx" }, fmtNum(v))); }
+  if (meanEnc.title) svg.appendChild(svgEl("text", { x: 13, y: pad.t + ih / 2, class: "vl-axis-title", transform: `rotate(-90 13 ${pad.t + ih / 2})` }, meanEnc.title));
+  if (spec.encoding && spec.encoding.x && spec.encoding.x.title) svg.appendChild(svgEl("text", { x: x0 + iw / 2, y: H - 6, class: "vl-axis-title" }, spec.encoding.x.title));
+  const up = data.filter((d) => isFinite(+d[hiF])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[hiF]).toFixed(1)}`);
+  const dn = data.filter((d) => isFinite(+d[loF])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[loF]).toFixed(1)}`).reverse();
+  svg.appendChild(svgEl("polygon", { points: up.concat(dn).join(" "), fill: CHART_COLORS[0], "fill-opacity": "0.22", stroke: "none" }));
+  const mp = data.filter((d) => isFinite(+d[yf])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[yf]).toFixed(1)}`).join(" ");
+  svg.appendChild(svgEl("polyline", { points: mp, class: "vl-line", stroke: CHART_COLORS[0] }));
+  return svg;
+}
 function renderChart(spec) {
+  if (spec.layer) return renderBand(spec);   // layered mean±band
   const W = 660, H = 300, pad = { l: 66, r: 14, t: 12, b: 42 };
   const enc = spec.encoding || {}, data = (spec.data && spec.data.values) || [];
   const xf = enc.x && enc.x.field, yf = enc.y && enc.y.field, cf = enc.color && enc.color.field;
@@ -288,8 +339,12 @@ function renderChart(spec) {
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "vl-chart", width: "100%", preserveAspectRatio: "xMidYMid meet" });
   const x0 = pad.l, y0 = H - pad.b, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
   const yv = data.map((d) => +d[yf]).filter((v) => isFinite(v));
-  let ymin = Math.min(0, ...yv), ymax = Math.max(...yv); if (ymin === ymax) ymax = ymin + 1;
-  const ys = (v) => y0 - ((v - ymin) / (ymax - ymin)) * ih;
+  const dom = enc.y && enc.y.scale && enc.y.scale.domain;   // honor a robust/clamped y-domain from the spec
+  let ymin, ymax;
+  if (Array.isArray(dom) && dom.length === 2 && isFinite(+dom[0]) && isFinite(+dom[1])) { ymin = +dom[0]; ymax = +dom[1]; }
+  else { ymin = Math.min(0, ...yv); ymax = Math.max(...yv); }
+  if (ymin === ymax) ymax = ymin + 1;
+  const ys = (v) => y0 - ((Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin)) * ih;   // clamp to domain
   for (let i = 0; i <= 4; i++) { const v = ymin + (ymax - ymin) * i / 4, y = ys(v);
     svg.appendChild(svgEl("line", { x1: x0, y1: y, x2: x0 + iw, y2: y, class: "vl-grid" }));
     svg.appendChild(svgEl("text", { x: x0 - 8, y: y + 3.5, class: "vl-tick vl-ty" }, fmtNum(v)));
@@ -317,16 +372,80 @@ function renderChart(spec) {
   }
   return svg;
 }
-function figureEl(out) {
+// vega config that matches the app palette so the interactive chart looks native (and matches the SVG fallback)
+const VEGA_CONFIG = {
+  background: "transparent", font: '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif',
+  view: { stroke: "transparent" }, range: { category: CHART_COLORS },
+  axis: { labelColor: "#6B6862", titleColor: "#20201D", gridColor: "#EFEDE6", domainColor: "#E7E4DB", tickColor: "#E7E4DB", labelFontSize: 11, titleFontSize: 12, titleFontWeight: 600 },
+  legend: { labelColor: "#6B6862", titleColor: "#20201D", labelFontSize: 11, titleFontSize: 11 },
+  title: { color: "#20201D", fontSize: 14, fontWeight: 600, anchor: "start", font: '"Iowan Old Style",Palatino,Georgia,serif' },
+  line: { strokeWidth: 2 }, point: { size: 24, filled: true }, bar: { color: "#C96442" },
+};
+function renderInto(container, spec, onDone) {   // interactive vega-embed when the vendored libs loaded; SVG fallback otherwise
+  const done = () => onDone && onDone();          // fires AFTER layout so a streaming view can re-follow the taller content
+  if (window.vegaEmbed) {
+    const s = Object.assign({ width: "container", height: 280, autosize: { type: "fit", contains: "padding" }, config: VEGA_CONFIG }, spec);
+    window.vegaEmbed(container, s, { actions: { export: true, source: true, compiled: false, editor: false }, tooltip: true, renderer: "svg" })
+      .then(done).catch(() => { container.textContent = ""; container.appendChild(renderChart(spec)); done(); });
+    return;
+  }
+  container.appendChild(renderChart(spec));
+  done();
+}
+function figureEl(out, fid, onRender) {
   const wrap = el("div", "figure");
+  if (fid) wrap.id = figDomId(fid);   // backlink target for the Figures panel
   if (out.error) { wrap.appendChild(el("div", "fig-err", esc(out.error))); return wrap; }
-  wrap.appendChild(renderChart(out.spec));
+  const chart = el("div", "fig-chart"); wrap.appendChild(chart); renderInto(chart, out.spec, onRender);
   if (out.caption) wrap.appendChild(el("div", "fig-cap", esc(out.caption)));
+  if (out.rationale) wrap.appendChild(el("div", "fig-why", esc(out.rationale)));   // the agent's grounded takeaway
   const prov = out.provenance || {}, runs = (prov.runs || []).join(", ");
   const d = el("details", "fig-prov");
   d.appendChild(el("summary", null, `grounded from ${esc(prov.grounded_from || "the corpus")}${runs ? " · " + esc(trunc(runs, 60)) : ""} · view spec`));
   d.appendChild(el("pre", null, esc(JSON.stringify(out.spec, null, 2)).slice(0, 3000)));
   wrap.appendChild(d); return wrap;
+}
+
+// ---------------- Figures panel: a navigable index projected from the inline figures (single source of truth) ----------------
+let _figSeq = 0;
+function nextFid() { return "f" + (++_figSeq); }
+const figDomId = (fid) => "fig-" + fid;
+function figuresOf(inv) {   // every chart in the investigation, in order — completed turns plus the in-flight one
+  if (!inv) return [];
+  const turns = (inv.turns || []).slice();
+  if (inv.running && inv._ct) turns.push(inv._ct);
+  const out = [];
+  turns.forEach((t) => (t.tools || []).forEach((d) => {
+    if (isChart(d) && !d.output.error) { d.fid = d.fid || nextFid(); out.push({ fid: d.fid, q: t.q, o: d.output }); }
+  }));
+  return out;
+}
+function renderFigures(inv) {
+  const figs = figuresOf(inv), n = figs.length;
+  const btn = $("#figuresBtn"); btn.style.display = n ? "" : "none";   // progressive disclosure — only once a figure exists
+  bumpBadge("figuresBadge", n);
+  const b = $("#figuresBody"); b.innerHTML = "";
+  if (!n) { b.appendChild(el("div", "drawer-empty", "No figures yet. Cellwright draws one when a trajectory or comparison sharpens the answer.")); return; }
+  figs.forEach((f, i) => {
+    const prov = f.o.provenance || {}, runs = (prov.runs || []).join(", ");
+    const card = el("button", "fig-card");
+    card.appendChild(el("div", "fc-idx", `Figure ${i + 1}`));
+    card.appendChild(el("div", "fc-title", esc((f.o.spec && f.o.spec.title) || f.o.caption || "figure")));
+    if (f.q) card.appendChild(el("div", "fc-q", esc(trunc(f.q, 110))));
+    if (f.o.rationale) card.appendChild(el("div", "fc-why", esc(f.o.rationale)));
+    const meta = (prov.channel ? prov.channel : "") + (runs ? " · " + trunc(runs, 48) : "");
+    if (meta) card.appendChild(el("div", "fc-meta", esc(meta)));
+    card.onclick = () => scrollToFigure(f.fid);
+    b.appendChild(card);
+  });
+}
+function scrollToFigure(fid) {
+  closeDrawers();
+  const elx = document.getElementById(figDomId(fid));
+  if (!elx) return;
+  elx.scrollIntoView({ behavior: "smooth", block: "center" });
+  elx.classList.remove("fig-flash"); void elx.offsetWidth; elx.classList.add("fig-flash");   // brief highlight
+  setTimeout(() => elx.classList.remove("fig-flash"), 1400);
 }
 function verdictOf(o) {
   if (!o || typeof o !== "object") return "";
@@ -582,8 +701,9 @@ function availView(a) {
 }
 
 // ---------------- drawers / models / plumbing ----------------
-function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(which === "council" ? "#councilDrawer" : "#queueDrawer").classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
-function closeDrawers() { $("#scrim").classList.remove("show"); $("#councilDrawer").classList.remove("open"); $("#queueDrawer").classList.remove("open"); }
+const DRAWER_ID = { council: "#councilDrawer", queue: "#queueDrawer", figures: "#figuresDrawer" };
+function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(DRAWER_ID[which] || DRAWER_ID.queue).classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
+function closeDrawers() { $("#scrim").classList.remove("show"); Object.values(DRAWER_ID).forEach((id) => $(id).classList.remove("open")); }
 function bumpBadge(id, n) { const b = $("#" + id); if (n > 0) { b.textContent = n; b.classList.add("show"); } else b.classList.remove("show"); }
 function clearBadge(id) { $("#" + id).classList.remove("show"); }
 async function postJSON(url, body) { return (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json(); }
@@ -611,6 +731,7 @@ $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed
 $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapsed");
 $("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");
+$("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeDrawers(); } });
 $("#scroll").addEventListener("scroll", () => {

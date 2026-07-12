@@ -1,0 +1,10 @@
+{
+  "wcecoli_image_id": "sha256:a2e3baea69d1adda21632aa4532646e9e1e541320fe6b41ad8d7d2a139c054ef",
+  "sim_data_md5": "59edb147ecdb25359650c65db30a8ad4",
+  "shards": {
+    "fmenol-1783595764-8b4249.parquet": 8,
+    "fmenol-1783701178-644745.parquet": 1,
+    "fmenol-1783764005-489db7.parquet": 8
+  },
+  "snapshot": "corpus-v1"
+}
