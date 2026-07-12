@@ -319,28 +319,85 @@ async function openCorpus() {
     try { const j = await (await fetch("/api/results")).json(); state.results = j.results || []; }
     catch { state.results = []; }
   }
-  renderCorpus($("#corpusSearch").value);
+  state.corpusFacet = { type: null, qc: null, prov: null };   // always open on the full corpus
+  $("#corpusSearch").value = "";
+  renderCorpus("");
 }
 function closeCorpus() { $("#corpusView").classList.remove("open"); }
-function renderCorpus(filter) {
-  const f = (filter || "").trim().toLowerCase();
-  const rows = (state.results || []).filter((r) =>
-    !f || `${r.perturbation} ${r.condition || ""} ${r.label || ""} ${r.id}`.toLowerCase().includes(f));
+
+const PERT_LABEL = {
+  wildtype: "Wildtype (baseline)", gene_knockout: "Gene knockouts", multi_gene_knockout: "Multi-gene knockouts",
+  ppgpp_conc: "ppGpp sweep", rrna_operon_knockout: "rRNA operon knockouts", condition: "Media conditions",
+};
+const pertLabel = (p) => PERT_LABEL[p] || String(p).replace(/_/g, " ");
+const geneOf = (r) => (String(r.condition || "").startsWith("KO:") ? r.condition.slice(3) : "");
+function primaryLabel(r) {
+  const g = geneOf(r);
+  if (g) return g;
+  if (r.perturbation === "wildtype") return "wildtype";
+  return r.condition || r.timeline || r.perturbation;
+}
+function corpusStats(rows) {
+  const byPert = {}, byQc = { ok: 0, flagged: 0 }, byProv = { in_sample: 0, out_of_sample: 0 };
+  rows.forEach((r) => {
+    byPert[r.perturbation] = (byPert[r.perturbation] || 0) + 1;
+    r.qc === "ok" ? byQc.ok++ : byQc.flagged++;
+    (r.provenance === "out_of_sample" ? byProv.out_of_sample++ : byProv.in_sample++);
+  });
+  return { byPert, byQc, byProv };
+}
+function facetChip(label, active, onclick) {
+  const c = el("button", "facet" + (active ? " active" : ""), esc(label)); c.onclick = onclick; return c;
+}
+function renderFacets() {
+  const f = state.corpusFacet, stats = corpusStats(state.results || []), box = $("#corpusFacets");
+  box.innerHTML = "";
+  const redo = () => renderCorpus($("#corpusSearch").value);
+  const r1 = el("div", "facet-row"); r1.appendChild(el("span", "facet-lbl", "Design"));
+  r1.appendChild(facetChip("all", !f.type, () => { f.type = null; redo(); }));
+  Object.keys(stats.byPert).sort((a, b) => stats.byPert[b] - stats.byPert[a]).forEach((p) =>
+    r1.appendChild(facetChip(`${pertLabel(p)} · ${stats.byPert[p]}`, f.type === p, () => { f.type = f.type === p ? null : p; redo(); })));
+  box.appendChild(r1);
+  const r2 = el("div", "facet-row"); r2.appendChild(el("span", "facet-lbl", "Filter"));
+  const tog = (key, val) => () => { f[key] = f[key] === val ? null : val; redo(); };
+  r2.appendChild(facetChip(`OK · ${stats.byQc.ok}`, f.qc === "ok", tog("qc", "ok")));
+  r2.appendChild(facetChip(`flagged · ${stats.byQc.flagged}`, f.qc === "flagged", tog("qc", "flagged")));
+  r2.appendChild(facetChip(`out-of-sample · ${stats.byProv.out_of_sample}`, f.prov === "out_of_sample", tog("prov", "out_of_sample")));
+  r2.appendChild(facetChip(`in-sample · ${stats.byProv.in_sample}`, f.prov === "in_sample", tog("prov", "in_sample")));
+  box.appendChild(r2);
+}
+function renderCorpus(search) {
+  if (!state.corpusFacet) state.corpusFacet = { type: null, qc: null, prov: null };
+  const f = state.corpusFacet, q = (search || "").trim().toLowerCase();
+  const rows = (state.results || []).filter((r) => {
+    if (f.type && r.perturbation !== f.type) return false;
+    if (f.qc === "ok" && r.qc !== "ok") return false;
+    if (f.qc === "flagged" && r.qc === "ok") return false;
+    if (f.prov && (r.provenance || "in_sample") !== f.prov) return false;
+    if (q && !`${r.perturbation} ${r.condition || ""} ${geneOf(r)} ${r.label || ""} ${r.id}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
   $("#corpusCount").textContent = `${rows.length} of ${(state.results || []).length} runs`;
+  renderFacets();
   const b = $("#corpusBody"); b.innerHTML = "";
-  if (!rows.length) { b.appendChild(el("div", "empty", "No runs match that filter.")); return; }
-  rows.forEach((r) => b.appendChild(resRow(r)));
+  if (!rows.length) { b.appendChild(el("div", "empty", "No runs match. Clear a filter or the search above.")); return; }
+  const groups = {};
+  rows.forEach((r) => (groups[r.perturbation] = groups[r.perturbation] || []).push(r));
+  Object.keys(groups).sort((a, c) => groups[c].length - groups[a].length).forEach((p) => {
+    b.appendChild(el("div", "res-group", `${esc(pertLabel(p))}<span class="rg-count">${groups[p].length}</span>`));
+    groups[p].forEach((r) => b.appendChild(resRow(r)));
+  });
 }
 function resRow(r) {
   const d = el("details", "res");
-  const qcBad = r.qc && r.qc !== "ok";
-  const tags = `<span class="tag ${qcBad ? "qc-bad" : "qc-ok"}">${esc(r.qc || "ok")}</span>` +
-    `<span class="tag ${r.provenance === "out_of_sample" ? "oos" : ""}">${esc((r.provenance || "").replace("_", "-") || "—")}</span>`;
-  const s = el("summary", null,
-    `<span class="r-pert"><span class="pert">${esc(r.perturbation)}</span></span>` +
-    `<span class="r-cond">${esc(r.condition || r.timeline || "—")} · seed ${esc(r.seed)} · ${esc(r.id)}</span>` +
-    `<span class="r-tags">${tags}</span>`);
-  d.appendChild(s);
+  const g = geneOf(r), qcBad = r.qc && r.qc !== "ok";
+  const sub = [r.perturbation.replace(/_/g, " "), (g ? "" : (r.condition || r.timeline || "")), `seed ${r.seed}`].filter(Boolean).join(" · ");
+  d.appendChild(el("summary", null,
+    `<span class="r-primary">${esc(primaryLabel(r))}</span>` +
+    `<span class="r-sub">${esc(sub)}</span>` +
+    `<span class="r-tags"><span class="tag ${qcBad ? "qc-bad" : "qc-ok"}">${esc(r.qc || "ok")}</span>` +
+    `<span class="tag ${r.provenance === "out_of_sample" ? "oos" : ""}">${esc((r.provenance || "").replace("_", "-") || "—")}</span></span>` +
+    `<span class="r-chev">›</span>`));
   const box = el("div", "avail", `<div class="empty" style="padding:0">Loading availability…</div>`);
   d.appendChild(box);
   d.addEventListener("toggle", async () => {
@@ -350,7 +407,7 @@ function resRow(r) {
       const a = await (await fetch("/api/result_availability?id=" + encodeURIComponent(r.id))).json();
       box.innerHTML = ""; box.appendChild(availView(a));
     } catch (e) { box.innerHTML = `<span class="no">availability unavailable: ${esc(String(e))}</span>`; }
-  }, { once: false });
+  });
   return d;
 }
 function availView(a) {
