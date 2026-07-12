@@ -104,6 +104,105 @@ def _is_thinking_error(exc) -> bool:
     return "thinking" in s or "budget_tokens" in s
 
 
+# ---- summarization / context compaction -------------------------------------------------------------------
+# Durable multi-turn chats grow without bound; past a budget we roll OLD turns into a summary (keeping recent
+# turns verbatim) so token cost + latency stay flat and we never hit the context window. Compaction happens only
+# at a turn boundary (start of converse), never mid-tool-loop, so tool_use/tool_result pairing is never broken.
+_SUMMARY_MODEL = os.environ.get("CELLARIUM_SUMMARY_MODEL", "claude-haiku-4-5-20251001")
+_COMPACT_TRIGGER = int(os.environ.get("CELLARIUM_COMPACT_TOKENS", "24000"))  # ~est input tokens
+_KEEP_RECENT_TURNS = 3
+
+
+def _estimate_tokens(messages: list) -> int:
+    total = 0
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, str):
+            total += len(c)
+        elif isinstance(c, list):
+            for b in c:
+                total += len(json.dumps(b, default=str)) if isinstance(b, dict) else len(str(getattr(b, "text", "") or "")) + 40
+    return total // 4
+
+
+def _split_turns(messages: list) -> list:
+    """Group the flat message list into turns; a turn STARTS at a user message with string content (a real
+    question), so tool_use/tool_result cycles stay inside their turn."""
+    turns: list = []
+    cur: list = []
+    for m in messages:
+        if m.get("role") == "user" and isinstance(m.get("content"), str) and cur:
+            turns.append(cur); cur = []
+        cur.append(m)
+    if cur:
+        turns.append(cur)
+    return turns
+
+
+def _btype(b):
+    return b.get("type") if isinstance(b, dict) else getattr(b, "type", None)
+
+
+def _summarize(old_turns: list, model: str) -> str:
+    """LLM summary of the older turns — faithful, compact, preserving questions, established claims, and the key
+    grounded numbers. Bulky tool_results are dropped (only their existence is noted)."""
+    parts: list = []
+    for t in old_turns:
+        for m in t:
+            c = m.get("content")
+            if isinstance(c, str):
+                parts.append(f"{m.get('role', '').upper()}: {c}")
+            elif isinstance(c, list):
+                for b in c:
+                    bt = _btype(b)
+                    if bt == "text":
+                        parts.append("ASSISTANT: " + (b.get("text") if isinstance(b, dict) else getattr(b, "text", "")))
+                    elif bt == "tool_use":
+                        parts.append("[called tool: " + str(b.get("name") if isinstance(b, dict) else getattr(b, "name", "")) + "]")
+                    elif bt == "tool_result":
+                        parts.append("[tool result]")
+    transcript = "\n".join(parts)[:20000]
+    client = anthropic.Anthropic(max_retries=2)
+    resp = client.messages.create(
+        model=model, max_tokens=900,
+        system=("Summarize this whole-cell reasoning conversation into a compact brief that will REPLACE the raw "
+                "history as the agent's memory. Preserve faithfully: the user's questions, the hypotheses/claims "
+                "established, the key grounded findings WITH their numbers and the runs they came from, and any "
+                "open threads. Be concise and do not invent anything."),
+        messages=[{"role": "user", "content": transcript}])
+    return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+
+
+def _strip_tool_results(old_turns: list) -> list:
+    """No-LLM fallback: keep every old message (alternation intact) but stub the bulky tool_result payloads."""
+    out: list = []
+    for t in old_turns:
+        for m in t:
+            if m.get("role") == "user" and isinstance(m.get("content"), list):
+                out.append({"role": "user", "content": [
+                    ({**b, "content": "[elided in compaction]"} if isinstance(b, dict) and b.get("type") == "tool_result" else b)
+                    for b in m["content"]]})
+            else:
+                out.append(m)
+    return out
+
+
+def compact_history(messages: list, *, model: str | None = None, keep_recent_turns: int = _KEEP_RECENT_TURNS) -> list:
+    """Return a compacted copy: OLD turns rolled into a summary (LLM; falls back to stubbing tool_results),
+    recent turns kept verbatim. Alternation-safe: head is user(summary)->assistant(ack), then whole recent turns."""
+    turns = _split_turns(messages)
+    if len(turns) <= keep_recent_turns + 1:
+        return messages
+    old, recent = turns[:-keep_recent_turns], turns[-keep_recent_turns:]
+    try:
+        summary = _summarize(old, model or _SUMMARY_MODEL)
+        head = [{"role": "user", "content": "[Summary of the earlier conversation]\n" + summary},
+                {"role": "assistant", "content": "Understood — I'll continue with that context."}]
+    except Exception:
+        head = _strip_tool_results(old)
+    return head + [m for t in recent for m in t]
+
+
 def _run_turn(client, kw: dict, on_text):
     """One model turn, STREAMED. Forwards text deltas to on_text (token streaming) and returns the final message
     (with any tool_use / thinking blocks intact for the loop + history)."""
@@ -116,8 +215,8 @@ def _run_turn(client, kw: dict, on_text):
         return stream.get_final_message()
 
 
-def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, max_turns: int = 8,
-             verbose: bool = False, reasoning: str = "none") -> str:
+def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, on_note=None,
+             max_turns: int = 8, verbose: bool = False, reasoning: str = "none") -> str:
     """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
     in place — appending the assistant + tool_result turns — so the caller can persist it for a MULTI-TURN
     conversation. Returns the final assistant text. This is what makes the chat remember: the same messages list
@@ -133,6 +232,12 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     mdl = model or MODEL
     system, tool_defs = _system_blocks(), _cached_tools()
     budget = _REASON.get(reasoning, 0)
+
+    if _estimate_tokens(messages) > _COMPACT_TRIGGER:   # bound the growing context at the turn boundary
+        before = len(messages)
+        messages[:] = compact_history(messages, model=_SUMMARY_MODEL)
+        if on_note is not None and len(messages) < before:
+            on_note(f"Compacted {before - len(messages)} earlier messages into a summary to keep the context lean.")
 
     for _ in range(max_turns):
         kw = dict(model=mdl, system=system, tools=tool_defs, messages=messages)

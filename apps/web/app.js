@@ -138,6 +138,7 @@ function handle(kind, data, turn) {
   else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; renderCouncil(); state.curTurn.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
   else if (kind === "tool") { state.curTurn.tools.push(data); turn.tool(data); turn.status(`Calling ${data.tool}…`); }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
+  else if (kind === "note") { turn.note(data.message); }
   else if (kind === "answer") { state.curTurn.answer = data.answer; state.curTurn.trust = data.trust || {}; turn.answer(data); if (data.model) setModelValue(data.model); refreshQueue(); }
   else if (kind === "error") { turn.error(esc(data.message) + (data.hint ? `<br><span style="opacity:.8">${esc(data.hint)}</span>` : "")); }
   else if (kind === "done") { turn.done(); }
@@ -147,14 +148,15 @@ function handle(kind, data, turn) {
 function assistantTurn(replay) {
   const root = el("div", "turn assistant");
   const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span>`);
-  const hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
-  root.append(statusEl, hypSlot, trailSlot, ansSlot);
+  const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
+  root.append(statusEl, noteSlot, hypSlot, trailSlot, ansSlot);
   $("#thread").appendChild(root); let line = null, liveEl = null;
   const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); } return liveEl.querySelector(".answer-body"); };
   const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; } };
   return {
     status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scrollBottom(); },
     done() { statusEl.remove(); },
+    note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scrollBottom(); },
     text(delta) { liveBody().textContent += delta; scrollBottom(); },   // token streaming
     hyp(v) {
       const c = el("div", "hyp-chip");

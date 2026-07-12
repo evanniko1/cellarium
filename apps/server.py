@@ -81,6 +81,9 @@ async def investigate(request):
         def on_text(delta):
             ev.put(("text", {"delta": delta}))   # token streaming: forward the answer deltas as they arrive
 
+        def on_note(msg):
+            ev.put(("note", {"message": msg}))    # transparency: e.g. context compaction happened
+
         try:
             if first_turn:
                 hyp = None
@@ -98,7 +101,7 @@ async def investigate(request):
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
                 sess["model"] = model
             answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool, on_text=on_text,
-                                     verbose=False, reasoning=reasoning)
+                                     on_note=on_note, verbose=False, reasoning=reasoning)
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace),
                               "session_id": sid, "model": sess["model"], "first_turn": first_turn}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
