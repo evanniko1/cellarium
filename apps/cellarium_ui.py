@@ -60,11 +60,13 @@ def _render_trace(trace) -> None:
 
 
 # ---------------------------------------------------------------- ACT half: the experiment loop
-def _queue_design(dv: dict, seeds: int, gens: int) -> None:
-    """propose -> vet -> queue (the agent CANNOT do this itself; a human clicks). Never runs; only queues."""
+def _queue_design(dv: dict, seeds: int, gens: int) -> dict:
+    """propose -> vet -> queue (the agent CANNOT do this itself; a human clicks). Never runs; only queues.
+    Returns the propose result so the caller can surface a refusal (e.g. an unresolvable KO gene)."""
     from cellarium import launch
     gene = dv["genes"][0] if dv["genes"] else None
-    launch.propose(dv["perturbation"], dv["condition"], dv["timeline"], dv["params"], int(seeds), int(gens), gene)
+    return launch.propose(dv["perturbation"], dv["condition"], dv["timeline"], dv["params"],
+                          int(seeds), int(gens), gene)
 
 
 def _render_candidate_designs(hyp) -> None:
@@ -86,8 +88,11 @@ def _render_candidate_designs(hyp) -> None:
             seeds = c1.number_input("seeds", 1, max(dv["seeds"], 10), 1, key=f"seeds_{i}")
             gens = c2.number_input("generations", 1, max(dv["generations"], 8), 1, key=f"gens_{i}")
             if c3.button("Queue this experiment ▸", key=f"queue_{i}", use_container_width=True):
-                _queue_design(dv, seeds, gens)
-                st.rerun()
+                res = _queue_design(dv, seeds, gens)
+                if res.get("error"):
+                    st.error(res["error"])
+                else:
+                    st.rerun()
 
 
 def _render_custom_proposer() -> None:
@@ -102,8 +107,11 @@ def _render_custom_proposer() -> None:
         gens = cg.number_input("generations", 1, 8, 1, key="custom_gens")
         if st.button("Queue custom design ▸", key="queue_custom"):
             params = {"target_genes": [gene.strip()]} if gene.strip() else {}
-            launch.propose(p, cond.strip() or None, None, params, int(seeds), int(gens), gene.strip() or None)
-            st.rerun()
+            res = launch.propose(p, cond.strip() or None, None, params, int(seeds), int(gens), gene.strip() or None)
+            if res.get("error"):
+                st.error(res["error"])
+            else:
+                st.rerun()
 
 
 def _render_gate(vet: dict) -> None:

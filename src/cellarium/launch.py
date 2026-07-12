@@ -27,11 +27,44 @@ def _save(q: list[dict]) -> None:
     QUEUE.write_text(json.dumps(q, indent=2), encoding="utf-8")
 
 
+def _resolve_ko(perturbation: str, params: dict | None, gene: str | None) -> tuple[dict, str | None]:
+    """A gene KO runs on a variant INDEX, not a symbol: the runner reads params['variant_index'] / ['ko_indices']
+    and IGNORES a symbolic 'target_genes'. Left unresolved, _variant_index falls back to a content HASH and the
+    model silently knocks out the wrong gene. So resolve target gene(s) -> ko_index here (via scope), for BOTH
+    interface- and agent-proposed designs. Returns (params_with_index, error_or_None); refuses if unresolvable."""
+    params = dict(params or {})
+    if perturbation not in ("gene_knockout", "multi_gene_knockout"):
+        return params, None
+    if "variant_index" in params or "ko_indices" in params:   # already correctly indexed — trust it
+        return params, None
+    genes = list(params.get("target_genes") or ([gene] if gene else []))
+    if not genes:
+        return params, f"{perturbation} needs a target gene (params.target_genes or gene=)."
+    from . import scope
+    idxs: list[int] = []
+    for g in genes:
+        ix = scope.classify_gene(g).get("ko_index")
+        if ix is None:
+            return params, f"could not resolve ko_index for gene '{g}' — check the symbol (design_space resolves it)."
+        idxs.append(int(ix))
+    params["target_genes"] = genes                            # keep the symbol for provenance
+    if perturbation == "multi_gene_knockout":
+        params["ko_indices"] = idxs
+    else:
+        params["variant_index"] = idxs[0]
+    return params, None
+
+
 def propose(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
             params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None) -> dict:
     """Vet + queue a proposed experiment. Never runs. A safety-flagged design is queued 'blocked'; otherwise
-    'pending_approval'. Returns the request (with the full vet result)."""
+    'pending_approval'. A gene KO with no resolvable index is REFUSED (not queued) so we never run the wrong gene.
+    Returns the request (with the full vet result)."""
     from . import tools
+    params, err = _resolve_ko(perturbation, params, gene)
+    if err:
+        return {"status": "unresolved", "error": err,
+                "note": "gene_knockout runs on a variant index; resolve the gene -> ko_index (design_space) first."}
     vet = tools.vet_hypothesis(perturbation, condition, timeline, params, gene)
     req = {"id": "req_" + uuid.uuid4().hex[:8],
            "status": "blocked" if not vet.get("runnable") else "pending_approval",
