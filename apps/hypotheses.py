@@ -65,10 +65,13 @@ class HypothesisStore:
 
     def needs_spec(self, run_id: str, gate: dict) -> None:
         """The sufficiency gate found the question underspecified: park the run awaiting the user's specification,
-        carrying the SCOPE-ONLY clarifying questions (never a hint at the answer)."""
+        carrying the SCOPE-ONLY clarifying questions (never a hint at the answer) + a concrete example. `capped`
+        marks the cached firm nudge shown after a repeated insufficient reply."""
         self._write("UPDATE council_runs SET status='needs_spec', meta=? WHERE id=?",
                     (json.dumps({"clarifying_questions": gate.get("clarifying_questions") or [],
-                                 "missing": gate.get("missing") or []}, default=str), run_id))
+                                 "missing": gate.get("missing") or [],
+                                 "example": gate.get("example"), "capped": bool(gate.get("capped"))},
+                                default=str), run_id))
 
     def fail(self, run_id: str, error: str) -> None:
         self._write("UPDATE council_runs SET status='error', meta=? WHERE id=?",
@@ -102,7 +105,16 @@ def _summary(r) -> dict:
             "n_designs": len(json.loads(r[6] or "[]")), "converged": meta.get("converged")}
 
 
-def run_council(store: HypothesisStore, question: str, model: str | None = None, on_round=None) -> dict:
+# the sufficiency gate's cached, LLM-free fallback for a REPEATED insufficient reply — no override: the user stays
+# gated until the question names one decisive test. (Revisit when Phase 3(a) web/lit-review lands.)
+_SPEC_EXAMPLE = "Is a pfkA knockout viable versus wildtype, measured by division_rate?"
+_SPEC_CAP_MSG = ("The Council still can't find a single decisive test in this question. Before re-convening, think "
+                 "of ONE specific, testable question — name a perturbation it can run, an observable to measure, and "
+                 "what to compare against.")
+
+
+def run_council(store: HypothesisStore, question: str, model: str | None = None, on_round=None,
+                attempt: int = 0) -> dict:
     """Run ONE Council deliberation and persist the whole thing (rounds + operationalized hypothesis + falsifier
     designs + convergence meta). Blind by construction — deliberate() never sees corpus results (the paper's
     quarantine control; see docs/HYPOTHESIS_MODE_PLAN.md). Returns the stored run dict."""
@@ -122,7 +134,11 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
         # a question too vague to yield a decisive test, and never hint at the answer.
         gate = council.sufficiency_gate(question)
         if not gate.get("sufficient") and gate.get("clarifying_questions"):
-            store.needs_spec(run_id, gate)
+            if attempt >= 1:   # already asked once and the reply is STILL too broad — cached firm nudge, no LLM,
+                store.needs_spec(run_id, {"missing": gate.get("missing"),   # no override: he stays gated until specific
+                                          "clarifying_questions": [_SPEC_CAP_MSG], "example": _SPEC_EXAMPLE, "capped": True})
+            else:              # first ask: the gate's tailored SCOPE-ONLY questions + a concrete example
+                store.needs_spec(run_id, {**gate, "example": _SPEC_EXAMPLE})
             return store.get(run_id)
         hyp = council.deliberate(question, verbose=False, on_round=_round)
         hview = ui.hypothesis_view(hyp)

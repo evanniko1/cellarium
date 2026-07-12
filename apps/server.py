@@ -224,7 +224,8 @@ async def hypothesize(request):
     def work():
         try:
             run = hypotheses.run_council(HYPOTHESES, question, model=(None if model == "auto" else model),
-                                         on_round=lambda rid, p: ev.put(("round", _jsonsafe(p))))
+                                         on_round=lambda rid, p: ev.put(("round", _jsonsafe(p))),
+                                         attempt=int(body.get("attempt") or 0))
             ev.put(("done", {"run": _jsonsafe(run)}))
         except Exception as exc:
             ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",

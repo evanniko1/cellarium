@@ -798,7 +798,8 @@ function renderHypRuns(activeId) {   // the Council run list — lives in the to
   });
 }
 function newHypComposer() {
-  state.hypActive = null; renderHypRuns(null);
+  state.hypActive = null; state._specAttempt = 0;   // fresh question — reset the sufficiency-gate attempt counter
+  renderHypRuns(null);
   const m = $("#hypMain"); m.innerHTML = "";
   const box = el("div", "hyp-composer");
   const ta = el("textarea"); ta.placeholder = "Pose a research question — e.g. Is the aaRS-KO survival spread a genuine biochemical difference in charged-tRNA depletion, or a generation-depth artifact?";
@@ -819,7 +820,7 @@ function runHypothesis(question, goBtn) {
   (async () => {
     try {
       const resp = await fetch("/api/hypothesis", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, model: state.model }) });
+        body: JSON.stringify({ question, model: state.model, attempt: state._specAttempt || 0 }) });
       const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
       while (true) {
         const { value, done } = await reader.read(); if (done) break;
@@ -829,7 +830,11 @@ function runHypothesis(question, goBtn) {
           if (!line.trim()) continue;
           const { kind, data } = JSON.parse(line);
           if (kind === "round") { live.rounds.push(data); renderHypDetail(live); }
-          else if (kind === "done" && data.run) { state.hypActive = data.run.id; renderHypDetail(data.run); await loadHypRuns(data.run.id); }
+          else if (kind === "done" && data.run) {
+            // sufficiency gate: count consecutive underspecified attempts so a repeat gets the cached firm nudge
+            state._specAttempt = data.run.status === "needs_spec" ? (state._specAttempt || 0) + 1 : 0;
+            state.hypActive = data.run.id; renderHypDetail(data.run); await loadHypRuns(data.run.id);
+          }
           else if (kind === "error") { live.status = "error"; live.meta = { error: data.message }; renderHypDetail(live); }
         }
       }
@@ -844,12 +849,20 @@ async function viewHypRun(id) {
   catch { m.innerHTML = `<div class="hyp-empty">Could not load this run.</div>`; }
 }
 function needsSpecEl(run) {   // Phase 3(b): the gate found the question too broad — show SCOPE-ONLY asks + refine box
-  const qs = (run.meta && run.meta.clarifying_questions) || [];
+  const meta = run.meta || {}, qs = meta.clarifying_questions || [], capped = !!meta.capped;
   const box = el("div", "needspec");
-  box.appendChild(el("p", "needspec-lede", "The Socratic Council frames a hypothesis blind to the data, so it needs your question narrow enough to yield ONE decisive test. To keep it blind, it asks only for specification — never a hint at the answer:"));
+  box.appendChild(el("p", "needspec-lede", capped
+    ? "Still too broad. The Council frames a hypothesis blind to the data, so it can only help once your question names one decisive test — it won't guess for you."
+    : "The Socratic Council frames a hypothesis blind to the data, so it needs your question narrow enough to yield ONE decisive test. To keep it blind, it asks only for specification — never a hint at the answer:"));
   const ul = el("div", "needspec-qs");
   qs.forEach((q) => ul.appendChild(el("div", "needspec-q", esc(q))));
   box.appendChild(ul);
+  if (meta.example) {
+    const ex = el("div", "needspec-ex");
+    ex.appendChild(el("span", "needspec-ex-k", "A specific question looks like"));
+    ex.appendChild(el("span", "needspec-ex-q", esc(meta.example)));
+    box.appendChild(ex);
+  }
   box.appendChild(el("div", "label", "Refine your question"));
   const ta = el("textarea", "needspec-ta"); ta.value = run.question || ""; box.appendChild(ta);
   const go = el("button", "hyp-run-go"); go.innerHTML = `${ARROW_SVG} Re-convene the Council`;
@@ -907,7 +920,14 @@ function openInCellwright(run) {
     `have those runs, DO NOT call the hypothesis untestable — instead propose the missing falsifier experiments to ` +
     `the launch airlock. Queue the WHOLE panel in ONE call with propose_experiments(designs=[...]) — including the ` +
     `discriminating controls — never one-at-a-time (that runs out of turns and drops the controls). A hypothesis ` +
-    `whose data doesn't exist yet is a reason to RUN experiments, not grounds to reject it. Say clearly which of the two paths you're taking and why.`;
+    `whose data doesn't exist yet is a reason to RUN experiments, not grounds to reject it.\n\n` +
+    `Before you queue, do ONE brief discrimination sanity-check on the falsifier: can this panel decisively ` +
+    `separate the named rivals, or only observationally? In particular, if a rival's observable is mechanistically ` +
+    `COUPLED to the claim's (e.g. ppGpp rises as charged-tRNA falls, so their correlations are collinear), an ` +
+    `observational R²-comparison cannot cleanly separate them — an interventional control that BREAKS the coupling ` +
+    `(a KO-background that removes the confounder, e.g. relA) is needed. If you spot such a gap AND a feasible ` +
+    `control exists, ADD it to the panel before queuing and say so. This is a one-line caveat + augment, NOT a veto: ` +
+    `still queue the panel, never reject the hypothesis over an imperfect discriminator. Say clearly which path you took and any caveat.`;
   closeHyp();
   resetToHero();
   const cb = $("#council"); if (cb) cb.checked = false;   // (legacy toggle retired; the Council already framed it)

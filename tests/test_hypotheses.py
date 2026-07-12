@@ -98,3 +98,22 @@ def test_run_council_parks_underspecified_question(tmp_path, monkeypatch):
     run = hypotheses.run_council(s, "what happens to the cell?")
     assert run["status"] == "needs_spec"
     assert run["meta"]["clarifying_questions"] == ["Which gene or perturbation?"]
+    assert run["meta"]["example"] and run["meta"]["capped"] is False   # first ask: tailored questions + an example
+
+
+def test_sufficiency_gate_caps_repeated_insufficiency(tmp_path, monkeypatch):
+    """A REPEATED too-broad reply (attempt>=1) gets the cached, LLM-free firm nudge + example — the user stays
+    gated (no override), and the raw gate questions are replaced by the fixed message."""
+    import cellarium.council as council
+
+    def _no_deliberate(*a, **k):
+        raise AssertionError("deliberate must not run while still underspecified")
+
+    monkeypatch.setattr(council, "deliberate", _no_deliberate)
+    monkeypatch.setattr(council, "sufficiency_gate", lambda q, **kw: {
+        "sufficient": False, "clarifying_questions": ["which gene?"]})
+    s = hypotheses.HypothesisStore(path=tmp_path / "t3.db")
+    run = hypotheses.run_council(s, "still pretty vague", attempt=1)
+    assert run["status"] == "needs_spec" and run["meta"]["capped"] is True
+    assert run["meta"]["example"]                                     # a concrete example is offered
+    assert run["meta"]["clarifying_questions"] != ["which gene?"]     # cached firm message, not the raw gate output
