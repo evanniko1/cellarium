@@ -29,19 +29,30 @@ def _a_design_with_local_raw():
     return None
 
 
+def _a_single_gen_design_with_local_raw():
+    """A design whose local seeds are SINGLE-generation — so 'raw mean over all timesteps' is apples-to-apples with
+    the manifest per-seed value (which means over the last generation). Multi-gen designs legitimately differ."""
+    for r in store.list_results():
+        pert, cond = r.get("perturbation"), r.get("condition")
+        label = f"{pert}/{cond}" if cond else pert
+        runs = raw.seed_runs(label)
+        if runs and all(x["n_gens"] == 1 for x in runs):
+            return label
+    return None
+
+
 def test_read_column_matches_manifest_mean():
     """The self-contained COLM reader must agree with the grounded manifest: a seed's raw growth_rate mean should
     match that seed's manifest growth_rate value (the manifest was built from the same column)."""
-    design = _a_design_with_local_raw()
+    design = _a_single_gen_design_with_local_raw()
     if not design:
-        pytest.skip("no local raw simOut available")
-    runs = raw.seed_runs(design)
-    r0 = runs[0]
+        pytest.skip("no local single-generation design available")
+    r0 = raw.seed_runs(design)[0]
     t, v = raw.seed_channel(r0["root"], "growth_rate")
     assert t.size > 10 and v.size == t.size
     manifest_mean = store.read_channel(r0["result_id"], "growth_rate").get("value")
     if manifest_mean is not None:
-        # nan at t=0 is dropped in raw; means agree to a few %% (downsample vs full-res)
+        # nan at t=0 is dropped in raw; on a single-gen design the means agree to a few %%
         assert abs(float(v.mean()) - float(manifest_mean)) <= 0.15 * abs(float(manifest_mean)) + 1e-9
 
 

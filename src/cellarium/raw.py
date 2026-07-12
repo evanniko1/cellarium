@@ -24,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import store
+from . import stats, store
 
 # channel -> (listener table, column). Mirrors _reader_worker.SUMMARY_CHANNELS (which can't be imported here — it
 # pulls `wholecell`). Keep in sync with that dict.
@@ -166,7 +166,7 @@ def cross_seed_band(design_or_id: str, channel: str, n_points: int = 40) -> dict
     std = stacked.std(axis=0, ddof=1)
     n = stacked.shape[0]
     sem = std / math.sqrt(n)
-    ci95 = 1.96 * sem
+    ci95 = stats.t_critical_95(n - 1) * sem   # t-distribution, not 1.96 — right for n=4-8 seeds (see stats.py)
 
     def f(x):
         x = float(x)
