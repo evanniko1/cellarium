@@ -58,13 +58,50 @@ _LOOKUP = ("list", "show me", "browse", "what is", "what are", "define", "about 
            "tell me about", "summariz", "look up")
 
 
-def route_model(question: str, used_council: bool) -> str:
+def _route_heuristic(question: str, used_council: bool) -> str:
     q = (question or "").lower()
     if used_council or any(h in q for h in _HARD):
         return _OPUS
     if any(h in q for h in _LOOKUP) or len(q.split()) <= 6:
         return _HAIKU
     return _SONNET
+
+
+def _classify(question: str):
+    """A tiny Haiku call that sizes the question's reasoning difficulty up front. Returns 'lookup'|'moderate'|
+    'hard', or None if unavailable (no key / error) so the caller falls back to the keyword heuristic."""
+    try:
+        import anthropic
+        resp = anthropic.Anthropic(max_retries=1).messages.create(
+            model=_HAIKU, max_tokens=8,
+            system=("Classify the reasoning difficulty of a question about a whole-cell E. coli simulation into "
+                    "exactly one lowercase word: 'lookup' (a fact, list, definition, or browse), 'moderate' (a "
+                    "single-step analysis), or 'hard' (multi-step mechanistic reasoning, causal explanation, "
+                    "comparison, or hypothesis testing). Reply with only that one word."),
+            messages=[{"role": "user", "content": question or ""}])
+        w = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip().lower()
+        for t in ("lookup", "moderate", "hard"):
+            if t in w:
+                return t
+    except Exception:
+        return None
+    return None
+
+
+def route_model(question: str, used_council: bool) -> str:
+    """Per-turn model selection when the user leaves the model on Auto. A Council-framed investigation is hard by
+    construction (-> Opus, no classifier call); otherwise a Haiku classifier sizes it, falling back to the keyword
+    heuristic if the classifier is unavailable."""
+    if used_council:
+        return _OPUS
+    tier = _classify(question)
+    if tier == "lookup":
+        return _HAIKU
+    if tier == "moderate":
+        return _SONNET
+    if tier == "hard":
+        return _OPUS
+    return _route_heuristic(question, used_council)
 
 # durable conversation memory (SQLite, data/sessions.db): the same messages list carries every prior turn and
 # survives a server restart. This is what makes the chat remember (see agent.converse + apps/sessions.py).

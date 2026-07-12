@@ -40,14 +40,27 @@ def trust_signals(trace: list) -> dict:
 
 def hypothesis_view(hyp) -> dict:
     """Render-ready fields of a converged Hypothesis (safe on any shape). Empty dict on the direct path (no council).
-    This is the credibility surface: the hypothesis was operationalized BEFORE the agent read any result."""
+    This is the credibility surface: the hypothesis was operationalized BEFORE the agent read any result. Exposes
+    the FULL structured brief (H1/H0, predicted effect, operational defs, assumptions) so the interface can show it
+    as readable sections in the Council drawer instead of the raw brief() blob."""
     if hyp is None:
         return {}
     view = {"brief": hyp.brief() if hasattr(hyp, "brief") else str(hyp)}
-    for attr in ("claim", "falsifier", "rivals", "operational_def"):
+    for attr in ("claim", "h1", "h0", "predicted_effect", "falsifier", "rivals"):
         v = getattr(hyp, attr, None)
         if v:
             view[attr] = str(v)
+    ods = getattr(hyp, "operational_defs", None) or []
+    if ods:
+        view["operational_defs"] = [{"term": getattr(o, "term", ""), "observable": getattr(o, "observable", ""),
+                                     "measure": getattr(o, "measure", "")} for o in ods]
+    aux = getattr(hyp, "auxiliary_assumptions", None) or []
+    if aux:
+        view["assumptions"] = [str(a) for a in aux]
+    for attr in ("rounds_used", "substantive_objections"):
+        v = getattr(hyp, attr, None)
+        if v:
+            view[attr] = v
     return view
 
 

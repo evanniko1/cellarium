@@ -35,6 +35,28 @@ def test_hypothesis_view_handles_none_and_brief():
     assert "viable" in v["brief"] and v["claim"] == "pfkA is non-essential"
 
 
+def test_hypothesis_view_exposes_full_structured_brief():
+    class OD:
+        term, observable, measure = "essentiality", "division_rate", "fraction dividing"
+
+    class H:
+        claim, h1, h0 = "pfkA essential", "ΔpfkA abolishes division", "ΔpfkA divides normally"
+        predicted_effect = "division_rate < 0.1"
+        operational_defs = [OD()]
+        auxiliary_assumptions = ["glucose is the sole carbon source"]
+        rounds_used, substantive_objections = 3, 2
+
+        def brief(self):
+            return "full brief"
+
+    v = ui.hypothesis_view(H())
+    assert v["h1"] == "ΔpfkA abolishes division" and v["h0"] == "ΔpfkA divides normally"
+    assert v["predicted_effect"] == "division_rate < 0.1"
+    assert v["operational_defs"][0] == {"term": "essentiality", "observable": "division_rate", "measure": "fraction dividing"}
+    assert v["assumptions"] == ["glucose is the sole carbon source"]
+    assert v["rounds_used"] == 3 and v["substantive_objections"] == 2
+
+
 def test_trace_view_is_json_safe_and_compact():
     tv = ui.trace_view([("viability", {"gene": "pfkA"}, {"verdict": "viable"})])
     assert tv[0]["tool"] == "viability" and tv[0]["output"]["verdict"] == "viable"

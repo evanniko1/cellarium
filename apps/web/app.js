@@ -213,8 +213,23 @@ function renderCouncil() {
   if (hyp) {
     const h = el("div", "c-hyp"); h.appendChild(el("div", "label", "Operationalized hypothesis"));
     if (hyp.claim) h.appendChild(row("Claim", hyp.claim));
+    if (hyp.h1) h.appendChild(row("H1", hyp.h1));
+    if (hyp.h0) h.appendChild(row("H0", hyp.h0));
+    if (hyp.predicted_effect) h.appendChild(row("Predicted", hyp.predicted_effect));
     if (hyp.falsifier) h.appendChild(row("Falsifier", hyp.falsifier));
     if (hyp.rivals) h.appendChild(row("Rivals", cleanRivals(hyp.rivals)));
+    if (hyp.operational_defs && hyp.operational_defs.length) {
+      const od = el("div", "row"); od.appendChild(el("span", "lbl", "Operational defs"));
+      hyp.operational_defs.forEach((d) => od.appendChild(el("div", "od-item",
+        `${esc(d.term)} → ${esc(d.observable)}${d.measure ? " (" + esc(d.measure) + ")" : ""}`)));
+      h.appendChild(od);
+    }
+    if (hyp.assumptions && hyp.assumptions.length) {
+      const as = el("div", "row"); as.appendChild(el("span", "lbl", "Assumptions"));
+      hyp.assumptions.forEach((a) => as.appendChild(el("div", "od-item", esc(a))));
+      h.appendChild(as);
+    }
+    if (hyp.rounds_used) h.appendChild(el("div", "c-meta", `${hyp.rounds_used} round(s) · ${hyp.substantive_objections || 0} substantive objection(s)`));
     b.appendChild(h);
   }
   if (rounds.length) b.appendChild(el("div", "label", `The debate — ${rounds.length} round(s)`));
