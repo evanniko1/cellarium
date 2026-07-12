@@ -1,0 +1,160 @@
+"""Cellarium — the glass-box web interface (Starlette + a vanilla SPA, no new deps).
+
+Run:
+    pip install -U uvicorn            # (uvicorn + starlette are usually already present)
+    ANTHROPIC_API_KEY=...  WCECOLI_DOCKER=wcecoli-sim:multiko  python apps/server.py
+    # open http://127.0.0.1:8000
+
+A thin transport over the SAME pipeline as the CLI — no rigor lives here:
+  POST /api/investigate  -> streams the investigation as NDJSON: {kind, data} lines
+                            (hypothesis -> each grounded tool call -> answer + trust strip).
+  GET  /api/queue        -> the launch airlock (each request + its approval gate).
+  POST /api/propose      -> vet + queue a design (the agent has no launch button).
+  POST /api/approve      -> a human approves; the model runs in a background thread (poll /api/queue).
+  POST /api/reject       -> drop a queued design.
+
+The heavy imports (council, agent, Docker) are lazy + per-request, so the page serves even with no API key
+and errors surface as an event instead of a 500.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import queue
+import sys
+import threading
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+from starlette.applications import Starlette
+from starlette.responses import FileResponse, JSONResponse, StreamingResponse
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
+
+WEB = Path(__file__).resolve().parent / "web"
+
+
+def _jsonsafe(o):
+    return json.loads(json.dumps(o, default=str))
+
+
+# ---------------------------------------------------------------- the investigation stream
+async def investigate(request):
+    body = await request.json()
+    question = (body.get("question") or "").strip()
+    use_council = bool(body.get("use_council", True))
+    if not question:
+        return JSONResponse({"error": "empty question"}, status_code=400)
+
+    ev: "queue.Queue" = queue.Queue()
+
+    def work():
+        from cellarium import orchestrate, ui
+        trace: list = []
+
+        def on_hyp(h):
+            from cellarium import ui as _ui
+            view = _ui.hypothesis_view(h)
+            view["candidate_designs"] = [_ui.design_view(d)
+                                         for d in (getattr(h, "candidate_designs", None) or [])]
+            ev.put(("hypothesis", view))
+
+        def on_tool(name, inp, out):
+            trace.append((name, inp, out))
+            ev.put(("tool", {"tool": name, "input": _jsonsafe(inp), "output": _jsonsafe(out)}))
+
+        try:
+            inv = orchestrate.investigate(question, use_council=use_council,
+                                          on_hypothesis=on_hyp, on_tool=on_tool, verbose=False)
+            ev.put(("answer", {"answer": inv.answer, "trust": ui.trust_signals(trace)}))
+        except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
+            ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",
+                              "hint": "Live runs need ANTHROPIC_API_KEY set (and Docker up for deep reads)."}))
+        finally:
+            ev.put(("done", {}))
+
+    threading.Thread(target=work, daemon=True).start()
+
+    async def stream():
+        loop = asyncio.get_event_loop()
+        while True:
+            kind, data = await loop.run_in_executor(None, ev.get)
+            yield json.dumps({"kind": kind, "data": data}) + "\n"
+            if kind == "done":
+                break
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+# ---------------------------------------------------------------- the experiment loop (airlock)
+def queue_list(request):
+    from cellarium import launch, ui
+    reqs = [r for r in launch.list_requests() if r["status"] != "rejected"]   # dismissed requests leave the airlock
+    for r in reqs:
+        r["gate"] = ui.vet_summary(r.pop("vet", None))
+    return JSONResponse({"queue": reqs})
+
+
+async def propose(request):
+    from cellarium import launch
+    b = await request.json()
+    res = launch.propose(
+        b.get("perturbation", "wildtype"), b.get("condition"), b.get("timeline"),
+        b.get("params") or {}, int(b.get("seeds", 1)), int(b.get("generations", 1)), b.get("gene"))
+    return JSONResponse(res)
+
+
+_RUNS: dict = {}
+
+
+async def approve(request):
+    """Human approval. The run (Docker; minutes) goes to a background thread; the client polls /api/queue for
+    the status flip (running -> done/failed). The agent still can NEVER reach this endpoint."""
+    from cellarium import launch
+    b = await request.json()
+    rid = b.get("request_id")
+    if not rid:
+        return JSONResponse({"error": "no request_id"}, status_code=400)
+
+    def run():
+        try:
+            launch.approve_and_run(rid)               # sets status running -> done/failed on disk
+        except Exception:
+            pass
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    _RUNS[rid] = t
+    return JSONResponse({"started": True, "request_id": rid})
+
+
+async def reject(request):
+    from cellarium import launch
+    b = await request.json()
+    return JSONResponse(launch.reject(b.get("request_id")))
+
+
+def index(request):
+    return FileResponse(WEB / "index.html")
+
+
+routes = [
+    Route("/", index),
+    Route("/api/investigate", investigate, methods=["POST"]),
+    Route("/api/queue", queue_list, methods=["GET"]),
+    Route("/api/propose", propose, methods=["POST"]),
+    Route("/api/approve", approve, methods=["POST"]),
+    Route("/api/reject", reject, methods=["POST"]),
+    Mount("/static", app=StaticFiles(directory=str(WEB)), name="static"),
+]
+
+app = Starlette(routes=routes)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    print("Cellarium -> http://127.0.0.1:8000")
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")

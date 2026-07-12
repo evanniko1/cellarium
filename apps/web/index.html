@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cellarium</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">✳</div>
+      <div>
+        <div class="brand-name">Cellarium</div>
+        <div class="brand-sub">a glass box over whole-cell reasoning</div>
+      </div>
+    </div>
+    <button class="new-btn" id="newBtn">＋&nbsp; New investigation</button>
+    <div class="nav-label">Recent</div>
+    <div class="recents" id="recents"></div>
+    <div class="sidebar-foot">
+      Grounded in a real whole-cell<br><em>E. coli</em> K‑12 MG1655 simulation.<br>
+      Every number rides with its provenance.
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="composer-wrap" id="composerWrap">
+      <h1 class="hero">What should we ask <span class="accent">the cell?</span></h1>
+      <div class="composer">
+        <textarea id="q" rows="1" placeholder="Ask a whole-cell question — e.g. Is pfkA essential in E. coli?"></textarea>
+        <div class="composer-row">
+          <label class="toggle">
+            <input type="checkbox" id="council" checked>
+            <span class="track"><span class="thumb"></span></span>
+            Socratic Council <span class="muted">— frame → falsifiable hypothesis</span>
+          </label>
+          <button class="send" id="send">Investigate →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="thread" id="thread"></div>
+  </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
