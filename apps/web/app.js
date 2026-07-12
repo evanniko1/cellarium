@@ -63,7 +63,7 @@ function curCouncil() { return state.cur ? state.cur.council : { rounds: [], hyp
 
 function resetToHero() {
   state.cur = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
-  $("#convoTitle").textContent = ""; clearTimeout(state.poll); renderCouncil(); clearBadge("councilBadge");
+  $("#convoTitle").textContent = ""; clearTimeout(state.poll);
   renderFigures(null); closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
 function openInv(inv) {
@@ -72,7 +72,6 @@ function openInv(inv) {
   if (inv.running && inv._live) $("#thread").appendChild(inv._live.root);   // re-attach the still-streaming turn (keeps updating live)
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
-  renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
   renderFigures(inv);
   renderSidebar(); scrollToEnd(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
 }
@@ -460,6 +459,7 @@ function verdictOf(o) {
 }
 function toolEl(d) {
   const t = el("details", "tool"), v = verdictOf(d.output), arg = trunc(JSON.stringify(d.input), 50).replace(/^\{|\}$/g, "");
+  if ((d.tool === "propose_experiment" || d.tool === "revise_experiment") && d.output && d.output.request_id) t.id = "job-" + d.output.request_id;   // backlink target for the launch queue
   t.appendChild(el("summary", null, `<span class="tname">${esc(d.tool)}</span><span class="targ">${esc(arg)}</span>` + (v ? `<span class="verdict">${esc(trunc(v, 22))}</span>` : "")));
   t.appendChild(el("pre", null, esc(JSON.stringify(d.output, null, 2)))); return t;
 }
@@ -549,18 +549,53 @@ function designEl(dv, i) {
 // ---------------- queue drawer ----------------
 async function refreshQueue() {
   let data; try { data = await (await fetch("/api/queue")).json(); } catch { return; }
-  const q = data.queue || [], pending = q.filter((r) => r.status === "pending_approval").length;
-  bumpBadge("queueBadge", pending);
+  const q = data.queue || [];
+  // badge counts what still needs attention: pending approvals AND finished jobs the user hasn't cleared yet
+  const notify = q.filter((r) => ["pending_approval", "done", "failed"].includes(r.status)).length;
+  bumpBadge("queueBadge", notify);
   const b = $("#queueBody"); b.innerHTML = "";
-  if (!q.length) { b.appendChild(el("div", "empty", "Empty. The Council's falsifier designs can be queued here for approval — open the Council drawer and hit Queue. Nothing runs without your approval.")); return; }
+  if (q.some((r) => ["done", "failed"].includes(r.status))) {   // a Clear affordance once finished jobs pile up
+    const c = el("button", "q-clear", "Clear finished");
+    c.onclick = async () => { await postJSON("/api/queue_clear", {}); refreshQueue(); };
+    b.appendChild(c);
+  }
+  if (!q.length) { b.appendChild(el("div", "empty", "Empty. Cellwright proposes experiments here for your approval — click a proposed job to jump back to the chat that raised it. Nothing runs without your approval.")); return; }
   let running = false; q.forEach((r) => { if (r.status === "running") running = true; b.appendChild(qitem(r)); });
   if (running) { clearTimeout(state.poll); state.poll = setTimeout(refreshQueue, 3000); }
+}
+function relTime(ts) {
+  const s = Math.floor(Date.now() / 1000 - ts);
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return Math.floor(s / 86400) + "d ago";
+}
+function jumpToJob(r) {   // backlink: open the proposing investigation and flash the propose tool-call (like the Figures panel)
+  closeDrawers();
+  const inv = r.session_id ? (state.invs || []).find((v) => v.sid === r.session_id) : null;
+  const switching = inv && inv !== state.cur;
+  if (switching) openInv(inv);
+  setTimeout(() => {
+    const elx = document.getElementById("job-" + r.id);
+    if (!elx) return;
+    if (elx.tagName === "DETAILS") elx.open = true;
+    elx.scrollIntoView({ behavior: "smooth", block: "center" });
+    elx.classList.remove("fig-flash"); void elx.offsetWidth; elx.classList.add("fig-flash");
+    setTimeout(() => elx.classList.remove("fig-flash"), 1400);
+  }, switching ? 250 : 0);
 }
 function qitem(r) {
   const d = r.design || {}, it = el("div", "qitem");
   const genes = (d.params && d.params.target_genes && d.params.target_genes.length) ? d.params.target_genes.join("+") : "";
   const meta = [genes, d.condition].filter(Boolean).map(esc).join(" · ");
   it.appendChild(el("div", "q-top", `<span class="q-id">${esc(r.id)}</span><span class="q-design"><b>${esc(d.perturbation)}</b>${meta ? " · " + meta : ""} · ${r.seeds}×${r.generations}</span><span class="status ${esc(r.status)}">${esc(r.status.replace(/_/g, " "))}</span>`));
+  const inv = r.session_id ? (state.invs || []).find((v) => v.sid === r.session_id) : null;   // provenance: which chat proposed it
+  if (inv || r.from_question) {
+    const prov = el("button", "q-prov", `<svg viewBox="0 0 24 24" width="11" height="11"><path d="M9 10L4 15l5 5M4 15h11a5 5 0 0 0 5-5V4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> from <b>${esc(trunc(inv ? (inv.title || "an investigation") : r.from_question, 40))}</b>${r.ts ? ` · ${relTime(r.ts)}` : ""}`);
+    prov.title = "Jump to where this was proposed";
+    prov.onclick = () => jumpToJob(r);
+    it.appendChild(prov);
+  }
   const g = r.gate || {};
   if (g.safety) {
     const gate = el("div", "gate");
@@ -860,4 +895,4 @@ $("#scrollDownBtn").onclick = () => { scrollBottom(true); $("#scrollDownBtn").cl
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeDrawers));
 document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.dataset.q)));
 
-loadModels(); loadInvs(); renderSidebar(); renderCouncil(); refreshQueue(); updateSend();
+loadModels(); loadInvs(); renderSidebar(); refreshQueue(); updateSend();

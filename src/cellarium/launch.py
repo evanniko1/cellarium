@@ -112,8 +112,36 @@ def revise(request_id: str, *, perturbation: str | None = None, condition: str |
 def list_requests(status: str | None = None) -> list[dict]:
     return [{"id": r["id"], "status": r["status"], "design": r["design"], "seeds": r["seeds"],
              "generations": r["generations"], "recommendation": r.get("vet", {}).get("recommendation"),
-             "vet": r.get("vet")}   # the interface renders the approval gate (safety/feasibility/provenance) from this
+             "vet": r.get("vet"),   # the interface renders the approval gate (safety/feasibility/provenance) from this
+             "session_id": r.get("session_id"), "from_question": r.get("from_question"),   # provenance: which chat proposed it
+             "ts": r.get("ts"), "shard": r.get("shard"), "error": r.get("error")}
             for r in _load() if status is None or r["status"] == status]
+
+
+def stamp_provenance(request_id: str, session_id: str | None = None, question: str | None = None) -> bool:
+    """Record WHICH investigation proposed a queued job (the agent proposes blind to the session, so the server —
+    which knows the sid + the turn's question — stamps it after the propose tool call). Powers the queue's
+    click-to-jump-back-to-context."""
+    q = _load()
+    for r in q:
+        if r["id"] == request_id:
+            if session_id:
+                r["session_id"] = session_id
+            if question:
+                r["from_question"] = question[:200]
+            _save(q)
+            return True
+    return False
+
+
+def clear_finished() -> dict:
+    """The queue's 'Clear': drop FINISHED/dismissed requests (done, failed, rejected, superseded) from the airlock,
+    keeping live work (pending_approval, running, blocked). Called after the user has seen the results."""
+    q = _load()
+    keep = [r for r in q if r["status"] in ("pending_approval", "running", "blocked")]
+    n = len(q) - len(keep)
+    _save(keep)
+    return {"cleared": n, "remaining": len(keep)}
 
 
 def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> dict:

@@ -140,6 +140,12 @@ async def investigate(request):
 
         def on_tool(name, inp, out):
             trace.append((name, inp, out))
+            if name in ("propose_experiment", "revise_experiment") and isinstance(out, dict) and out.get("request_id"):
+                try:   # stamp the queued job with its provenance (this chat + turn) for click-to-jump-back
+                    from cellarium import launch
+                    launch.stamp_provenance(out["request_id"], sid, question)
+                except Exception:
+                    pass
             ev.put(("tool", {"tool": name, "input": _jsonsafe(inp), "output": _jsonsafe(out)}))
 
         def on_text(delta):
@@ -304,6 +310,11 @@ def queue_list(request):
     return JSONResponse({"queue": reqs})
 
 
+async def queue_clear(request):
+    from cellarium import launch
+    return JSONResponse(launch.clear_finished())
+
+
 async def propose(request):
     from cellarium import launch
     b = await request.json()
@@ -360,6 +371,7 @@ routes = [
     Route("/api/results", results_list, methods=["GET"]),
     Route("/api/result_availability", result_availability, methods=["GET"]),
     Route("/api/queue", queue_list, methods=["GET"]),
+    Route("/api/queue_clear", queue_clear, methods=["POST"]),
     Route("/api/propose", propose, methods=["POST"]),
     Route("/api/approve", approve, methods=["POST"]),
     Route("/api/reject", reject, methods=["POST"]),

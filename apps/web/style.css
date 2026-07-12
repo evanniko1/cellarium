@@ -382,5 +382,10 @@ svg{display:block}
 .gate-why{font-size:11.5px; color:var(--ink-3); margin:0 0 9px; line-height:1.5}
 .q-actions{display:flex; gap:7px}
 .q-note{font-size:12px; color:var(--ink-2); margin-top:7px} .q-note.ok{color:var(--green)} .q-note.stop{color:var(--red)}
+.q-prov{display:inline-flex; align-items:center; gap:5px; margin-top:6px; padding:3px 8px; border:1px solid var(--line); background:var(--paper-2); color:var(--ink-3); font:inherit; font-size:11.5px; border-radius:7px; cursor:pointer; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.q-prov:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
+.q-prov b{font-weight:600}
+.q-clear{display:block; margin:0 0 12px auto; border:1px solid var(--line); background:var(--card); color:var(--ink-3); font:inherit; font-size:12px; border-radius:8px; padding:5px 12px; cursor:pointer}
+.q-clear:hover{border-color:var(--clay); color:var(--clay-ink)}
 
 @media(max-width:860px){.sidebar{display:none}}
