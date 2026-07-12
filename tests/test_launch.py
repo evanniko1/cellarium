@@ -54,6 +54,37 @@ def test_propose_experiment_multi_gene_ko_resolves_indices(tmp_path, monkeypatch
     assert queued["design"]["params"]["target_genes"] == ["pfkA", "pfkB"]
 
 
+def test_reconcile_heals_orphaned_running_jobs(tmp_path, monkeypatch):
+    """A server restart mid-run leaves approve_and_run's in-process job stuck at 'running'. On boot, reconcile
+    flips it by what actually landed: a run indexed in the manifest -> 'done'; nothing indexed -> 'failed'. Live
+    drafts (pending_approval) are untouched, and a re-run is a no-op (idempotent)."""
+    import json
+
+    from cellarium import manifest
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    q = [
+        {"id": "req_landed", "status": "running",
+         "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": "",
+                    "params": {"target_genes": ["pfkA"]}}},
+        {"id": "req_orphan", "status": "running",
+         "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": "",
+                    "params": {"target_genes": ["ghostZ"]}}},
+        {"id": "req_pending", "status": "pending_approval",
+         "design": {"perturbation": "wildtype", "condition": "basal", "timeline": "", "params": {}}},
+    ]
+    (tmp_path / "q.json").write_text(json.dumps(q))
+    # stand in for the manifest: pfkA's run landed, ghostZ's did not
+    monkeypatch.setattr(manifest, "has_run", lambda d: "pfkA" in (d.params or {}).get("target_genes", []))
+
+    res = launch.reconcile()
+    assert res["reconciled"] == 2                                    # only the two 'running' jobs are touched
+    by_id = {r["id"]: r for r in launch._load()}
+    assert by_id["req_landed"]["status"] == "done"                  # indexed -> done
+    assert by_id["req_orphan"]["status"] == "failed" and by_id["req_orphan"]["error"]   # nothing indexed -> failed
+    assert by_id["req_pending"]["status"] == "pending_approval"     # live draft left alone
+    assert launch.reconcile()["reconciled"] == 0                    # idempotent
+
+
 def test_revise_supersedes_old_draft_and_requeues(tmp_path, monkeypatch):
     """Changing an argument on a pending draft must WITHDRAW the old one (no duplicate) and queue a re-vetted new
     draft — the flow when a user asks to modify a queued experiment."""

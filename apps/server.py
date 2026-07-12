@@ -109,6 +109,16 @@ def route_model(question: str, used_council: bool) -> str:
 SESSIONS = SessionStore()
 HYPOTHESES = hypotheses.HypothesisStore()   # persisted Socratic Council deliberations (the Hypothesis surface)
 
+# heal jobs orphaned at 'running' by a prior restart: approve_and_run runs the sim in an in-process thread, so a
+# restart mid-run leaves the status stuck forever. On boot, flip such jobs to done/failed by what landed on disk.
+try:
+    from cellarium import launch as _launch
+    _rec = _launch.reconcile()
+    if _rec.get("reconciled"):
+        print(f"[startup] reconciled {_rec['reconciled']} orphaned running job(s)", file=sys.stderr)
+except Exception as _exc:                      # never let a reconcile failure block server start
+    print(f"[startup] reconcile skipped: {_exc}", file=sys.stderr)
+
 
 def _jsonsafe(o):
     return json.loads(json.dumps(o, default=str))

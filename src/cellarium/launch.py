@@ -138,6 +138,38 @@ def stamp_provenance(request_id: str, session_id: str | None = None, question: s
     return False
 
 
+def reconcile() -> dict:
+    """Heal jobs orphaned at 'running' by a server restart/crash. approve_and_run runs the sim in an in-process
+    thread, so if the server dies between the sim finishing and the status write, the job is stuck at 'running'
+    forever even though its data landed. On startup, for each 'running' job: if the manifest already has a run for
+    its design -> 'done' (the data is indexed and agent-visible); otherwise it produced nothing -> 'failed'. We ask
+    the manifest, not a recomputed run dir, because the raw output's location (out/ vs runs/) and the variant-index
+    hash are both unreliable to reproduce. Idempotent; run once at boot."""
+    from . import manifest
+    from .model import Design
+
+    q = _load()
+    healed = 0
+    for r in q:
+        if r.get("status") != "running":
+            continue
+        d = r.get("design") or {}
+        landed = False
+        try:
+            design = Design(perturbation=d["perturbation"], condition=d.get("condition"),
+                            timeline=d.get("timeline"), params=d.get("params") or {})
+            landed = manifest.has_run(design)
+        except Exception:
+            landed = False
+        r["status"] = "done" if landed else "failed"
+        if not landed:
+            r["error"] = "orphaned at 'running' (server restart/crash mid-run); no indexed run found"
+        healed += 1
+    if healed:
+        _save(q)
+    return {"reconciled": healed}
+
+
 def clear_finished() -> dict:
     """The queue's 'Clear': drop FINISHED/dismissed requests (done, failed, rejected, superseded) from the airlock,
     keeping live work (pending_approval, running, blocked). Called after the user has seen the results."""

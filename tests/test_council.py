@@ -255,6 +255,17 @@ def test_unfalsifiable_verdict_blocks_convergence():
     assert h.converged is False
 
 
+def test_to_design_clamps_over_specified_scale():
+    """The proposer sometimes asks for 20x20 (~400 sims/design). _to_design clamps to a runnable proposal
+    (seeds<=8, generations<=6) so the human isn't handed an unaffordable falsifier; in-range values pass through."""
+    big = council._to_design({"perturbation": "gene_knockout", "condition": "basal",
+                              "seeds": 20, "generations": 20, "params": {"target_genes": ["alaS"]}})
+    assert big.seeds == 8 and big.generations == 6
+    ok = council._to_design({"perturbation": "gene_knockout", "condition": "basal",
+                             "seeds": 4, "generations": 3, "params": {"target_genes": ["alaS"]}})
+    assert ok.seeds == 4 and ok.generations == 3            # a sane proposal is left untouched
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

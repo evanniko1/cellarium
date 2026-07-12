@@ -62,6 +62,8 @@ _PROPOSER_SYS = (
     "- candidate_designs MUST be STRUCTURED objects (perturbation/condition/timeline/seeds/generations/params) "
     "expressible in the validated envelope (only listed perturbations; a mid-run carbon-source switch is NOT "
     "allowed). Put the experiment HERE, not in prose inside the falsifier.\n"
+    "- Propose a MODEST, runnable scale: seeds 4-8 (replicate power) and generations 1-4 (a KO that crashes does so "
+    "by ~gen 3-4). Each sim is minutes of compute; a human scales up on approval. Do NOT propose 20x20-style runs.\n"
     "- RIGOR (required for a decisive test):\n"
     "  (a) predicted_effect states the quantitative FORM — for a relationship, the functional form + a slope / "
     "intercept or a target R^2; for a difference, the fold-change / CV / effect size as a number; for a "
@@ -305,6 +307,12 @@ def _to_design(d: dict) -> Design | None:
     clean = {k: v for k, v in d.items() if k in _DESIGN_KEYS and v is not None}
     if "params" in clean and not isinstance(clean["params"], dict):
         clean.pop("params")
+    # calibrate scale: the proposer sometimes asks for 20x20 (~400 sims/design). Clamp to a runnable proposal — a
+    # few seeds for replicate power, a few generations (a KO that crashes does so by gen ~3-4). The human scales up.
+    if isinstance(clean.get("seeds"), int):
+        clean["seeds"] = max(1, min(clean["seeds"], 8))
+    if isinstance(clean.get("generations"), int):
+        clean["generations"] = max(1, min(clean["generations"], 6))
     try:
         return Design(**clean)
     except Exception:

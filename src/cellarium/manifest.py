@@ -176,6 +176,29 @@ def prune(where_sql: str, dry_run: bool = True) -> dict:
     return res
 
 
+def has_run(design: Design) -> bool:
+    """Is at least one indexed run for this design in the manifest? The `label` column encodes the design identity
+    ('{perturbation}·{tag}·s{seed}'), so match on that prefix — robust to WHERE the raw output landed on disk
+    (out/ vs runs/) and to variant-index recomputation, both of which make a run-dir probe unreliable. Used by
+    launch.reconcile to decide whether an orphaned 'running' job actually produced agent-visible data."""
+    import glob
+
+    import duckdb
+
+    glob_pat = "data/manifest/*.parquet"
+    if not glob.glob(str(MANIFEST_DIR / "*.parquet")):
+        return False
+    prefix = f"{design.perturbation}·{_design_tag(design)}·"
+    con = duckdb.connect()
+    try:
+        n = con.execute(
+            f"SELECT count(*) FROM read_parquet('{glob_pat}', union_by_name=true) WHERE starts_with(label, ?)",
+            [prefix]).fetchone()[0]
+    finally:
+        con.close()
+    return n > 0
+
+
 def _label(design: Design, seed: int) -> str:
     return f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
 
