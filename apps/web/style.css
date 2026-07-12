@@ -250,6 +250,9 @@ svg{display:block}
 .vl-axis-title{fill:var(--ink-2); font-size:11px; font-weight:600; text-anchor:middle}
 .vl-legend{fill:var(--ink-2); font-size:11px}
 .fig-cap{font-size:13px; color:var(--ink-2); margin-top:6px; text-align:center; font-style:italic}
+.fig-why{font-size:12.5px; color:var(--ink-2); margin-top:7px; padding:8px 11px; background:var(--paper-2); border-left:2px solid var(--clay); border-radius:0 8px 8px 0; line-height:1.5}
+.figure.fig-flash{animation:figFlash 1.4s ease-out}
+@keyframes figFlash{0%{box-shadow:0 0 0 3px var(--clay)} 60%{box-shadow:0 0 0 3px var(--clay-tint)} 100%{box-shadow:var(--shadow)}}
 .fig-prov{margin-top:8px; border-top:1px dashed var(--line); padding-top:7px}
 .fig-prov summary{cursor:pointer; font-size:11.5px; color:var(--ink-3); font-weight:600; list-style:none}
 .fig-prov summary::-webkit-details-marker{display:none}
@@ -282,6 +285,14 @@ svg{display:block}
 .drawer-close:hover{color:var(--ink)}
 .drawer-body{flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px}
 .drawer-body > *{flex-shrink:0}   /* never compress cards to fit — let the drawer scroll */
+.drawer-empty{font-size:13px; color:var(--ink-3); line-height:1.55; padding:8px 2px}
+.fig-card{display:block; width:100%; text-align:left; border:1px solid var(--line); background:var(--card); border-radius:12px; padding:11px 13px; cursor:pointer; transition:.12s; box-shadow:var(--shadow)}
+.fig-card:hover{border-color:var(--clay); background:var(--clay-tint)}
+.fc-idx{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); font-weight:700}
+.fc-title{font-family:var(--serif); font-size:14.5px; color:var(--ink); margin-top:3px; line-height:1.35}
+.fc-q{font-size:12px; color:var(--ink-3); margin-top:5px; font-style:italic}
+.fc-why{font-size:12.5px; color:var(--ink-2); margin-top:7px; line-height:1.5}
+.fc-meta{font-family:var(--mono); font-size:10.5px; color:var(--ink-3); margin-top:7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .empty{color:var(--ink-3); font-size:13px; padding:8px 2px; line-height:1.6}
 
 /* council drawer */

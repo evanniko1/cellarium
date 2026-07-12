@@ -130,7 +130,7 @@ def _pct(a: list, p: float) -> float:
 
 
 def chart(kind: str = "line", result_id: str | None = None, results: list | None = None,
-          channel: str = "growth_rate", title: str | None = None) -> dict:
+          channel: str = "growth_rate", title: str | None = None, rationale: str | None = None) -> dict:
     """Draw a GROUNDED figure from real run data as a Vega-Lite spec (rendered inline, interactive). Every value
     comes from the manifest — never chart a number you did not read from a tool. Use it when a figure SHARPENS the
     answer (a trajectory, a comparison), not decoratively. Accepts result_ids OR design labels ('wildtype/basal',
@@ -138,7 +138,10 @@ def chart(kind: str = "line", result_id: str | None = None, results: list | None
     - kind='line': the CHANNEL's trajectory over the cell cycle for result_id (pass results=[...] to overlay several).
       The x-axis is TIME-SINCE-START (each run aligned to t=0) so runs with different absolute clocks are comparable.
     - kind='bar':  compare the channel's value across results=[...].
-    Returns {spec, caption, provenance}."""
+    - rationale: ONE grounded sentence on why this figure matters to the answer — it becomes the figure's card in the
+      investigation's Figures panel, so make it read on its own (what the reader should take away). Keep it to what the
+      data shows; do not editorialize beyond it.
+    Returns {spec, caption, rationale, provenance}."""
     raw = [i for i in (results or ([result_id] if result_id else [])) if i]
     if not raw:
         return {"error": "give result_id/results (ids) or design labels like 'wildtype/basal'."}
@@ -157,7 +160,7 @@ def chart(kind: str = "line", result_id: str | None = None, results: list | None
                 "mark": {"type": "bar", "tooltip": True},
                 "encoding": {"x": {"field": "run", "type": "nominal", "sort": "-y"},
                              "y": {"field": channel, "type": "quantitative"}}}
-        return {"spec": spec, "caption": title or f"{channel} across {len(vals)} run(s)",
+        return {"spec": spec, "caption": title or f"{channel} across {len(vals)} run(s)", "rationale": rationale,
                 "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest"}}
 
     # line: align each run's x to TIME-SINCE-START (t - t0) so runs on different clocks overlay comparably
@@ -186,7 +189,7 @@ def chart(kind: str = "line", result_id: str | None = None, results: list | None
     cap = title or f"{channel} trajectory — {len(ids)} run(s)"
     if n_clamp:
         cap += f" · {n_clamp} transient point(s) clamped to the axis (up to {ytop:.2g})"
-    return {"spec": spec, "caption": cap,
+    return {"spec": spec, "caption": cap, "rationale": rationale,
             "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest", "clamped_outliers": n_clamp}}
 
 
@@ -497,8 +500,8 @@ TOOLS = [
     {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "channel": {"type": "string"}},
                       "required": ["result_id", "channel"]}},
-    {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as a chart. Every value comes from the manifest; never chart a number you did not read from a tool. Use it when a figure SHARPENS the answer (a trajectory, a comparison), not decoratively. kind='line' plots the channel's trajectory over the cell cycle for result_id (pass results=[ids] to overlay several); kind='bar' compares the channel's value across results=[ids].",
-     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar"], "description": "line = trajectory over time; bar = compare across runs"}, "result_id": {"type": "string", "description": "the run to plot (line)"}, "results": {"type": "array", "items": {"type": "string"}, "description": "run ids to overlay (line) or compare (bar)"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}}}},
+    {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as an interactive chart AND is indexed in the investigation's Figures panel. Every value comes from the manifest; never chart a number you did not read from a tool. Use it when a figure SHARPENS the answer (a trajectory, a comparison), not decoratively. kind='line' plots the channel's trajectory over the cell cycle (x is time-since-start, so runs on different clocks overlay comparably); kind='bar' compares the channel's value across runs. Accepts result_ids OR design labels like 'wildtype/basal'.",
+     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar"], "description": "line = trajectory over time; bar = compare across runs"}, "result_id": {"type": "string", "description": "the run to plot (line) — a result_id or a design label like 'wildtype/basal'"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}}}},
     {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "search": {"type": "string"}},

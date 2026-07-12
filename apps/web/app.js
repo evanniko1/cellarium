@@ -61,7 +61,7 @@ function curCouncil() { return state.cur ? state.cur.council : { rounds: [], hyp
 function resetToHero() {
   state.cur = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
   $("#convoTitle").textContent = ""; clearTimeout(state.poll); renderCouncil(); clearBadge("councilBadge");
-  closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
+  renderFigures(null); closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
 function openInv(inv) {
   state.cur = inv; $("#thread").innerHTML = "";
@@ -70,6 +70,7 @@ function openInv(inv) {
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
   renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
+  renderFigures(inv);
   renderSidebar(); scrollBottom(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
 }
 function ensureCur(q) {
@@ -177,6 +178,7 @@ function stream(question) {
   const turn = assistantTurn();
   inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
   const ct = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
+  inv._ct = ct;   // expose the in-flight turn so the Figures panel can index charts before the turn is committed
   turn.status(usedCouncil && firstTurn ? "Convening the Socratic Council…" : "Thinking…");
   const t0 = Date.now(); const timer = setInterval(() => turn.setTimer(fmtElapsed(Date.now() - t0)), 500);
   (async () => {
@@ -197,9 +199,9 @@ function stream(question) {
     }
     finally {
       clearInterval(timer);
-      inv.running = false; inv._live = null; inv._abort = null;
+      inv.running = false; inv._live = null; inv._abort = null; inv._ct = null;
       if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
-      if (state.cur === inv) { updateSend(); scrollBottom(); }
+      if (state.cur === inv) { updateSend(); scrollBottom(); renderFigures(inv); }
       maybeRunQueue(inv);   // run the next queued question, if any
       if (state.cur === inv) markLastUserReask();
     }
@@ -210,7 +212,12 @@ function handle(kind, data, turn, ct, inv) {
   const c = inv.council, viewing = state.cur === inv;   // events belong to the STREAM's inv, not the current view
   if (kind === "council_round") { c.rounds.push(data); if (viewing) { renderCouncil(); bumpBadge("councilBadge", c.rounds.length); } turn.status(`Council deliberating — round ${data.round}…`); }
   else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; if (viewing) renderCouncil(); ct.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
-  else if (kind === "tool") { ct.tools.push(data); (isChart(data) ? turn.figure(data.output) : turn.tool(data)); turn.status(`Calling ${data.tool}…`); }
+  else if (kind === "tool") {
+    ct.tools.push(data);
+    if (isChart(data)) { data.fid = data.fid || nextFid(); turn.figure(data.output, data.fid); if (viewing) renderFigures(inv); }
+    else turn.tool(data);
+    turn.status(`Calling ${data.tool}…`);
+  }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
   else if (kind === "note") { turn.note(data.message); }
   else if (kind === "answer") {
@@ -246,7 +253,7 @@ function assistantTurn(replay) {
       hypSlot.appendChild(c); scroll();
     },
     tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scroll(); },
-    figure(out) { figSlot.appendChild(figureEl(out)); scroll(); },   // grounded chart, rendered inline
+    figure(out, fid) { figSlot.appendChild(figureEl(out, fid)); scroll(); },   // grounded chart, rendered inline
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
@@ -261,7 +268,7 @@ const isChart = (d) => d && d.tool === "chart" && d.output && d.output.spec;
 function replayTurn(t) {
   addUserBubble(t.q); const a = assistantTurn(true);
   if (t.hyp) a.hyp(t.hyp);
-  (t.tools || []).forEach((d) => (isChart(d) ? a.figure(d.output) : a.tool(d)));
+  (t.tools || []).forEach((d) => { if (isChart(d)) { d.fid = d.fid || nextFid(); a.figure(d.output, d.fid); } else a.tool(d); });
   if (t.answer != null) { a.answer({ answer: t.answer, trust: t.trust || {} }); if (t.model) a.badge(t.model, t.routed); }
 }
 function trailScaffold() { return { head: el("div", "trail-head", `<span class="label">Grounded reasoning</span><span class="sub">every number comes from a real run</span>`), line: el("div", "trail-line") }; }
@@ -339,16 +346,60 @@ function renderInto(container, spec) {   // interactive vega-embed when the vend
   }
   container.appendChild(renderChart(spec));
 }
-function figureEl(out) {
+function figureEl(out, fid) {
   const wrap = el("div", "figure");
+  if (fid) wrap.id = figDomId(fid);   // backlink target for the Figures panel
   if (out.error) { wrap.appendChild(el("div", "fig-err", esc(out.error))); return wrap; }
   const chart = el("div", "fig-chart"); wrap.appendChild(chart); renderInto(chart, out.spec);
   if (out.caption) wrap.appendChild(el("div", "fig-cap", esc(out.caption)));
+  if (out.rationale) wrap.appendChild(el("div", "fig-why", esc(out.rationale)));   // the agent's grounded takeaway
   const prov = out.provenance || {}, runs = (prov.runs || []).join(", ");
   const d = el("details", "fig-prov");
   d.appendChild(el("summary", null, `grounded from ${esc(prov.grounded_from || "the corpus")}${runs ? " · " + esc(trunc(runs, 60)) : ""} · view spec`));
   d.appendChild(el("pre", null, esc(JSON.stringify(out.spec, null, 2)).slice(0, 3000)));
   wrap.appendChild(d); return wrap;
+}
+
+// ---------------- Figures panel: a navigable index projected from the inline figures (single source of truth) ----------------
+let _figSeq = 0;
+function nextFid() { return "f" + (++_figSeq); }
+const figDomId = (fid) => "fig-" + fid;
+function figuresOf(inv) {   // every chart in the investigation, in order — completed turns plus the in-flight one
+  if (!inv) return [];
+  const turns = (inv.turns || []).slice();
+  if (inv.running && inv._ct) turns.push(inv._ct);
+  const out = [];
+  turns.forEach((t) => (t.tools || []).forEach((d) => {
+    if (isChart(d) && !d.output.error) { d.fid = d.fid || nextFid(); out.push({ fid: d.fid, q: t.q, o: d.output }); }
+  }));
+  return out;
+}
+function renderFigures(inv) {
+  const figs = figuresOf(inv), n = figs.length;
+  const btn = $("#figuresBtn"); btn.style.display = n ? "" : "none";   // progressive disclosure — only once a figure exists
+  bumpBadge("figuresBadge", n);
+  const b = $("#figuresBody"); b.innerHTML = "";
+  if (!n) { b.appendChild(el("div", "drawer-empty", "No figures yet. Cellwright draws one when a trajectory or comparison sharpens the answer.")); return; }
+  figs.forEach((f, i) => {
+    const prov = f.o.provenance || {}, runs = (prov.runs || []).join(", ");
+    const card = el("button", "fig-card");
+    card.appendChild(el("div", "fc-idx", `Figure ${i + 1}`));
+    card.appendChild(el("div", "fc-title", esc((f.o.spec && f.o.spec.title) || f.o.caption || "figure")));
+    if (f.q) card.appendChild(el("div", "fc-q", esc(trunc(f.q, 110))));
+    if (f.o.rationale) card.appendChild(el("div", "fc-why", esc(f.o.rationale)));
+    const meta = (prov.channel ? prov.channel : "") + (runs ? " · " + trunc(runs, 48) : "");
+    if (meta) card.appendChild(el("div", "fc-meta", esc(meta)));
+    card.onclick = () => scrollToFigure(f.fid);
+    b.appendChild(card);
+  });
+}
+function scrollToFigure(fid) {
+  closeDrawers();
+  const elx = document.getElementById(figDomId(fid));
+  if (!elx) return;
+  elx.scrollIntoView({ behavior: "smooth", block: "center" });
+  elx.classList.remove("fig-flash"); void elx.offsetWidth; elx.classList.add("fig-flash");   // brief highlight
+  setTimeout(() => elx.classList.remove("fig-flash"), 1400);
 }
 function verdictOf(o) {
   if (!o || typeof o !== "object") return "";
@@ -604,8 +655,9 @@ function availView(a) {
 }
 
 // ---------------- drawers / models / plumbing ----------------
-function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(which === "council" ? "#councilDrawer" : "#queueDrawer").classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
-function closeDrawers() { $("#scrim").classList.remove("show"); $("#councilDrawer").classList.remove("open"); $("#queueDrawer").classList.remove("open"); }
+const DRAWER_ID = { council: "#councilDrawer", queue: "#queueDrawer", figures: "#figuresDrawer" };
+function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(DRAWER_ID[which] || DRAWER_ID.queue).classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
+function closeDrawers() { $("#scrim").classList.remove("show"); Object.values(DRAWER_ID).forEach((id) => $(id).classList.remove("open")); }
 function bumpBadge(id, n) { const b = $("#" + id); if (n > 0) { b.textContent = n; b.classList.add("show"); } else b.classList.remove("show"); }
 function clearBadge(id) { $("#" + id).classList.remove("show"); }
 async function postJSON(url, body) { return (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json(); }
@@ -633,6 +685,7 @@ $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed
 $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapsed");
 $("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");
+$("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeDrawers(); } });
 $("#scroll").addEventListener("scroll", () => {
