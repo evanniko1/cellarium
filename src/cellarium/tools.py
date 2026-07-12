@@ -168,12 +168,19 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
 
 
 def propose_experiment(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
-                       params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None) -> dict:
+                       params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None,
+                       genes: list | None = None) -> dict:
     """PROPOSE an experiment to run — Coli CANNOT launch sims itself. The design is vetted (safety is the only hard
     gate) and QUEUED pending human approval; a human approves via the interface, then the result is indexed so you
-    can reason over it. Use design_space to pick a valid, correctly-indexed design first. Returns the request id +
-    the full vet result (pending_approval, or blocked if it hits a misuse signature)."""
+    can reason over it. Use design_space first to resolve gene symbols.
+
+    Single-gene KO: perturbation='gene_knockout', gene='pfkA'. MULTI-gene KO: perturbation='multi_gene_knockout',
+    genes=['pfkA','pfkB'] (the ko_indices are resolved for you). Returns the request id + the full vet result
+    (pending_approval, or blocked if it hits a misuse signature)."""
     from . import launch
+    params = dict(params or {})
+    if genes:
+        params["target_genes"] = list(genes)   # -> launch._resolve_ko turns these into ko_indices
     return launch.propose(perturbation, condition, timeline, params, seeds, generations, gene)
 
 
@@ -433,8 +440,8 @@ TOOLS = [
                       "required": ["target"]}},
     {"name": "run_experiment", "description": "Envelope- AND biosecurity-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
-    {"name": "propose_experiment", "description": "PROPOSE an experiment to run when the corpus lacks the data you need. Coli CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to pick a valid, correctly-indexed design. Returns request id + vet result (pending_approval or blocked).",
-     "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "optional KO'd gene for the scope prior"}}}},
+    {"name": "propose_experiment", "description": "PROPOSE an experiment to run when the corpus lacks the data you need. Coli CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. Returns request id + vet result (pending_approval or blocked).",
+     "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}}}},
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,

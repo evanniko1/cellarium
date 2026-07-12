@@ -37,3 +37,18 @@ def test_propose_refuses_unresolvable_ko_without_queuing(tmp_path, monkeypatch):
     res = launch.propose("gene_knockout", gene="notagene")
     assert res["status"] == "unresolved" and "notagene" in res["error"]
     assert not (tmp_path / "q.json").exists()                        # refused BEFORE any queue write
+
+
+def test_propose_experiment_multi_gene_ko_resolves_indices(tmp_path, monkeypatch):
+    """The agent-facing tool: perturbation='multi_gene_knockout' + genes=[...] must queue a design whose params
+    carry the resolved ko_indices (the fix that lets Coli actually queue a synthetic-lethal double KO)."""
+    import json
+
+    from cellarium import tools
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    res = tools.propose_experiment(perturbation="multi_gene_knockout", condition="basal",
+                                   genes=["pfkA", "pfkB"], seeds=1, generations=1)
+    assert res["status"] == "pending_approval"
+    queued = json.loads((tmp_path / "q.json").read_text())[-1]
+    assert queued["design"]["params"]["ko_indices"] == [1594, 2073]
+    assert queued["design"]["params"]["target_genes"] == ["pfkA", "pfkB"]
