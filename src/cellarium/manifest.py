@@ -33,11 +33,24 @@ def _portable_runpath(run_root) -> str:
 MANIFEST_DIR = Path("data/manifest")
 
 
+def _design_tag(design: Design) -> str:
+    """The label's middle segment. For a gene KO, the GENE is the identity — but the propose (agent/UI) path sets
+    condition='basal' with the gene in params.target_genes, while generate.py sets condition='KO:<gene>'. Both must
+    label as 'KO:<gene>' so a KO run is never mislabeled 'basal'. Appends a non-basal media as '@<cond>'."""
+    genes = list((design.params or {}).get("target_genes") or [])
+    if "gene_knockout" in design.perturbation and genes:
+        tag = "KO:" + "+".join(genes)
+        if design.condition and design.condition not in ("basal", "KO:" + "+".join(genes)):
+            tag += "@" + design.condition
+        return tag
+    return design.condition or design.timeline or "basal"
+
+
 def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
     data = reader.read_run(run_root)
     note = "" if "error" not in data else f"reader error: {data['error']}"
     gens = [GenerationResult(**g) for g in data.get("generations", [])]
-    label = f"{design.perturbation}·{design.condition or design.timeline or 'basal'}·s{seed}"
+    label = f"{design.perturbation}·{_design_tag(design)}·s{seed}"
     return SimResult(id=f"{design.perturbation}_{seed}_{uuid.uuid4().hex[:8]}", label=label,
                      design=design, channels=data.get("channels", {}), generations=gens, note=note,
                      channel_stats=data.get("channel_stats", {}), series=data.get("series", {}),

@@ -132,9 +132,14 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
     design = Design(perturbation=d["perturbation"], condition=d["condition"], timeline=d["timeline"], params=d["params"])
     req["status"] = "running"; _save(q)
     try:
+        # campaign runs the sim AND indexes the new run into its own shard (one reader container per run) — that
+        # alone makes it agent-visible. Then compact() consolidates shards WITHOUT re-reading every run on disk
+        # (record_existing did, which spun a container per corpus run — the "blinking + seems-stuck" churn, and it
+        # deleted the shard we then referenced). compact leaves ONE surviving shard, so point `shard` at it.
         shard = manifest.campaign([design], list(range(req["seeds"])), req["generations"], parallel)
         if index:
-            manifest.record_existing()   # make the new data agent-visible
+            res = manifest.compact()
+            shard = res.get("shard") or shard
         req["status"], req["shard"] = "done", str(shard)
     except Exception as exc:
         req["status"], req["error"] = "failed", str(exc)[:200]
