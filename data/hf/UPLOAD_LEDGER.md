@@ -24,9 +24,19 @@ rrna_operon_knockout_000002 (4), wildtype_374656 (4) = **55 runs**.
 - **graded:** `ppgpp_conc_000000`, `rrna_operon_knockout_000002`
 - **condition:** `condition_000007`
 
+## 🧹 Pruned locally (HF-only now) — 2026-07-12
+To reclaim disk, the seed raw of the HF-backed designs was deleted locally **except two showcases** kept for
+instant demos: `condition_000007` (no_oxygen) and `wildtype_374656`. **~97 GB freed** (46 seed dirs across 12
+designs). Each pruned design keeps its tiny `kb/` (~66 MB, simData) + `metadata/`, so reproducibility/sim-context
+survives; only the bulk simOut is gone. All are **recoverable from HF** via the `download_raw` tool (size-gated) —
+verified by a non-destructive round-trip of `gene_knockout_002835/000000` (download+extract+read OK).
+Pruned: `condition_000001`, `gene_knockout_000644/001340/001594/002074/002078/002095/002819/002835`,
+`multi_gene_knockout_227981`, `ppgpp_conc_000000`, `rrna_operon_knockout_000002`.
+(The manifest still describes every pruned run; `raw_available` now reports them non-local → the download path.)
+
 ## ⬜ Not uploaded (local-only)
-Everything else — the remainder of the 361 GB raw corpus. Full upload deferred: needs a ~1-day resumable push
-+ an HF research-storage grant request (datasets@huggingface.co) given the size.
+Everything else — the remainder of the raw corpus (~236 GB local-only, not on HF). Full upload deferred: needs a
+~1-day resumable push + an HF research-storage grant request (datasets@huggingface.co) given the size.
 - **`gene_knockout_000058` (dnaN, 4 seeds, all QC=`crashed`)** — was in the curated *plan* but excluded from the
   `bls546073` batch, so it is **not** on the repo. It exists locally; add it in the next batch if a lethal-KO
   exemplar is wanted (the manifest still describes all 4 seeds, so the agent can reason about it either way).
