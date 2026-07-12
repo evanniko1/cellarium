@@ -210,7 +210,7 @@ function handle(kind, data, turn, ct, inv) {
   const c = inv.council, viewing = state.cur === inv;   // events belong to the STREAM's inv, not the current view
   if (kind === "council_round") { c.rounds.push(data); if (viewing) { renderCouncil(); bumpBadge("councilBadge", c.rounds.length); } turn.status(`Council deliberating — round ${data.round}…`); }
   else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; if (viewing) renderCouncil(); ct.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
-  else if (kind === "tool") { ct.tools.push(data); turn.tool(data); turn.status(`Calling ${data.tool}…`); }
+  else if (kind === "tool") { ct.tools.push(data); (isChart(data) ? turn.figure(data.output) : turn.tool(data)); turn.status(`Calling ${data.tool}…`); }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
   else if (kind === "note") { turn.note(data.message); }
   else if (kind === "answer") {
@@ -225,8 +225,8 @@ function handle(kind, data, turn, ct, inv) {
 function assistantTurn(replay) {
   const root = el("div", "turn assistant");
   const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span><span class="st-timer"></span>`);
-  const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
-  root.append(statusEl, noteSlot, hypSlot, trailSlot, ansSlot);
+  const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), figSlot = el("div"), ansSlot = el("div");
+  root.append(statusEl, noteSlot, hypSlot, trailSlot, figSlot, ansSlot);
   $("#thread").appendChild(root); let line = null, liveEl = null, liveRaw = "";
   const scroll = () => { if (root.isConnected) scrollBottom(); };   // a background stream must not scroll the current view
   const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); liveRaw = ""; } return liveEl.querySelector(".answer-body"); };
@@ -246,6 +246,7 @@ function assistantTurn(replay) {
       hypSlot.appendChild(c); scroll();
     },
     tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scroll(); },
+    figure(out) { figSlot.appendChild(figureEl(out)); scroll(); },   // grounded chart, rendered inline
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
@@ -256,12 +257,77 @@ function assistantTurn(replay) {
     },
   };
 }
+const isChart = (d) => d && d.tool === "chart" && d.output && d.output.spec;
 function replayTurn(t) {
   addUserBubble(t.q); const a = assistantTurn(true);
-  if (t.hyp) a.hyp(t.hyp); (t.tools || []).forEach((d) => a.tool(d));
+  if (t.hyp) a.hyp(t.hyp);
+  (t.tools || []).forEach((d) => (isChart(d) ? a.figure(d.output) : a.tool(d)));
   if (t.answer != null) { a.answer({ answer: t.answer, trust: t.trust || {} }); if (t.model) a.badge(t.model, t.routed); }
 }
 function trailScaffold() { return { head: el("div", "trail-head", `<span class="label">Grounded reasoning</span><span class="sub">every number comes from a real run</span>`), line: el("div", "trail-line") }; }
+
+// ---------------- grounded charts: a lightweight Vega-Lite subset renderer (line + bar), no heavy dependency ----------------
+const CHART_COLORS = ["#C96442", "#3E6E9E", "#4F8A5B", "#B27E2A", "#7d5ba6", "#B4483C"];
+function svgEl(tag, attrs, text) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function fmtNum(v) {
+  if (!isFinite(v)) return "";
+  const a = Math.abs(v);
+  if (a !== 0 && (a < 1e-3 || a >= 1e5)) return v.toExponential(1);
+  return String(Math.round(v * 1000) / 1000);
+}
+function renderChart(spec) {
+  const W = 660, H = 300, pad = { l: 66, r: 14, t: 12, b: 42 };
+  const enc = spec.encoding || {}, data = (spec.data && spec.data.values) || [];
+  const xf = enc.x && enc.x.field, yf = enc.y && enc.y.field, cf = enc.color && enc.color.field;
+  const mark = typeof spec.mark === "string" ? spec.mark : (spec.mark && spec.mark.type) || "line";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "vl-chart", width: "100%", preserveAspectRatio: "xMidYMid meet" });
+  const x0 = pad.l, y0 = H - pad.b, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const yv = data.map((d) => +d[yf]).filter((v) => isFinite(v));
+  let ymin = Math.min(0, ...yv), ymax = Math.max(...yv); if (ymin === ymax) ymax = ymin + 1;
+  const ys = (v) => y0 - ((v - ymin) / (ymax - ymin)) * ih;
+  for (let i = 0; i <= 4; i++) { const v = ymin + (ymax - ymin) * i / 4, y = ys(v);
+    svg.appendChild(svgEl("line", { x1: x0, y1: y, x2: x0 + iw, y2: y, class: "vl-grid" }));
+    svg.appendChild(svgEl("text", { x: x0 - 8, y: y + 3.5, class: "vl-tick vl-ty" }, fmtNum(v)));
+  }
+  if (enc.y && enc.y.title) svg.appendChild(svgEl("text", { x: 13, y: pad.t + ih / 2, class: "vl-axis-title", transform: `rotate(-90 13 ${pad.t + ih / 2})` }, enc.y.title));
+  if (mark === "bar") {
+    data.forEach((d, i) => { const cw = iw / data.length, cx = x0 + (i + 0.5) * cw, bw = Math.min(cw * 0.66, 60);
+      svg.appendChild(svgEl("rect", { x: cx - bw / 2, y: ys(+d[yf]), width: bw, height: y0 - ys(+d[yf]), rx: 2, class: "vl-bar" }));
+      svg.appendChild(svgEl("text", { x: cx, y: y0 + 15, class: "vl-tick vl-tx" }, trunc(String(d[xf]), 14)));
+    });
+  } else {
+    const xv = data.map((d) => +d[xf]), xmin = Math.min(...xv), xmax = Math.max(...xv);
+    const xs = (v) => x0 + ((v - xmin) / ((xmax - xmin) || 1)) * iw;
+    for (let i = 0; i <= 4; i++) { const v = xmin + (xmax - xmin) * i / 4; svg.appendChild(svgEl("text", { x: xs(v), y: y0 + 15, class: "vl-tick vl-tx" }, fmtNum(v))); }
+    if (enc.x && enc.x.title) svg.appendChild(svgEl("text", { x: x0 + iw / 2, y: H - 6, class: "vl-axis-title" }, enc.x.title));
+    const groups = {}; data.forEach((d) => (groups[cf ? d[cf] : "_"] = groups[cf ? d[cf] : "_"] || []).push(d));
+    const gk = Object.keys(groups);
+    gk.forEach((g, gi) => { const pts = groups[g].filter((d) => isFinite(+d[yf])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[yf]).toFixed(1)}`).join(" ");
+      svg.appendChild(svgEl("polyline", { points: pts, class: "vl-line", stroke: CHART_COLORS[gi % CHART_COLORS.length] }));
+    });
+    if (cf && gk.length > 1) gk.forEach((g, gi) => { const ly = pad.t + 12 + gi * 15;
+      svg.appendChild(svgEl("rect", { x: x0 + 8, y: ly - 8, width: 10, height: 10, rx: 2, fill: CHART_COLORS[gi % CHART_COLORS.length] }));
+      svg.appendChild(svgEl("text", { x: x0 + 22, y: ly + 1, class: "vl-legend" }, trunc(String(g), 22)));
+    });
+  }
+  return svg;
+}
+function figureEl(out) {
+  const wrap = el("div", "figure");
+  if (out.error) { wrap.appendChild(el("div", "fig-err", esc(out.error))); return wrap; }
+  wrap.appendChild(renderChart(out.spec));
+  if (out.caption) wrap.appendChild(el("div", "fig-cap", esc(out.caption)));
+  const prov = out.provenance || {}, runs = (prov.runs || []).join(", ");
+  const d = el("details", "fig-prov");
+  d.appendChild(el("summary", null, `grounded from ${esc(prov.grounded_from || "the corpus")}${runs ? " · " + esc(trunc(runs, 60)) : ""} · view spec`));
+  d.appendChild(el("pre", null, esc(JSON.stringify(out.spec, null, 2)).slice(0, 3000)));
+  wrap.appendChild(d); return wrap;
+}
 function verdictOf(o) {
   if (!o || typeof o !== "object") return "";
   if ("verdict" in o) return String(o.verdict);

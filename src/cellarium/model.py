@@ -97,7 +97,7 @@ def run_live(design: Design, *, seeds: list[int] | None = None, generations: int
 
     GATING (see DECISIONS.md D5): this is the UNGATED, operator/eval launch path — it runs immediately, skipping
     the human-approval airlock. The gated, agent-facing path is launch.propose -> launch.approve_and_run (a human,
-    not Coli, approves). Both enforce the same feasibility/biosecurity screen; they differ only in the human gate.
+    not Cellwright, approves). Both enforce the same feasibility/biosecurity screen; they differ only in the human gate.
 
     seeds/generations default to the design's own `seeds`/`generations`. Real runs are slow (~9 min/generation,
     plus a one-time ParCa compile); size accordingly.

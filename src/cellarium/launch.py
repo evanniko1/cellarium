@@ -1,9 +1,9 @@
 """Close-the-loop with a HUMAN APPROVAL GATE.
 
-Coli PROPOSES experiments (the `propose_experiment` tool); each is vetted (safety is the only hard gate) and
+Cellwright PROPOSES experiments (the `propose_experiment` tool); each is vetted (safety is the only hard gate) and
 queued as PENDING. Only a human approval — `approve_and_run`, which is NOT an agent tool; the hackathon interface
-calls it — actually launches sims. After a run the data is indexed (record_existing) so Coli can reason over it.
-Coli can never launch autonomously: the queue is the airlock.
+calls it — actually launches sims. After a run the data is indexed (record_existing) so Cellwright can reason over it.
+Cellwright can never launch autonomously: the queue is the airlock.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
     return {"request_id": req["id"], "status": req["status"], "runnable": vet.get("runnable"),
             "recommendation": vet.get("recommendation"), "vet": vet,
             "note": ("SAFETY-BLOCKED — will not run without human override." if req["status"] == "blocked"
-                     else "Queued PENDING human approval — Coli cannot launch; a human approves via the interface.")}
+                     else "Queued PENDING human approval — Cellwright cannot launch; a human approves via the interface.")}
 
 
 def revise(request_id: str, *, perturbation: str | None = None, condition: str | None = None,
@@ -118,7 +118,7 @@ def list_requests(status: str | None = None) -> list[dict]:
 
 def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> dict:
     """HUMAN APPROVAL — launches the vetted design. NOT an agent tool (the interface / a human calls it). Refuses a
-    safety-blocked request. Indexes the result so Coli can then reason over it."""
+    safety-blocked request. Indexes the result so Cellwright can then reason over it."""
     from . import manifest
     q = _load()
     req = next((r for r in q if r["id"] == request_id), None)

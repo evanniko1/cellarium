@@ -100,6 +100,60 @@ def read_series(result_id: str, channel: str) -> dict:
     return store.read_channel(result_id, channel)
 
 
+_VL = "https://vega.github.io/schema/vega-lite/v5.json"
+
+
+def _run_label(rid: str) -> str:
+    r = next((x for x in store.list_results() if x.get("id") == rid), {})
+    base = (r.get("condition") or "").replace("KO:", "") or r.get("perturbation") or rid
+    return f"{base}·s{r.get('seed')}" if r.get("seed") is not None else base
+
+
+def chart(kind: str = "line", result_id: str | None = None, results: list | None = None,
+          channel: str = "growth_rate", title: str | None = None) -> dict:
+    """Draw a GROUNDED figure from real run data as a Vega-Lite spec (rendered inline in the chat). Every value
+    comes from the manifest — never chart a number you did not read from a tool. Use it when a figure SHARPENS the
+    answer (a trajectory, a comparison), not decoratively.
+    - kind='line': the CHANNEL's trajectory over the cell cycle for result_id (pass results=[ids] to overlay several).
+    - kind='bar':  compare the channel's value across results=[ids].
+    Returns {spec, caption, provenance}."""
+    ids = [i for i in (results or ([result_id] if result_id else [])) if i]
+    if not ids:
+        return {"error": "give result_id (line) or results=[...] (bar/overlay)."}
+    for rid in ids:
+        rigor.note_result(rid)
+
+    if kind == "bar":
+        vals = []
+        for rid in ids:
+            rc = store.read_channel(rid, channel)
+            if isinstance(rc, dict) and rc.get("value") is not None:
+                vals.append({"run": _run_label(rid), channel: rc["value"]})
+        if not vals:
+            return {"error": f"no '{channel}' values for those runs."}
+        spec = {"$schema": _VL, "title": title or f"{channel} across runs", "data": {"values": vals}, "mark": "bar",
+                "encoding": {"x": {"field": "run", "type": "nominal", "sort": "-y"},
+                             "y": {"field": channel, "type": "quantitative"}}}
+        return {"spec": spec, "caption": title or f"{channel} across {len(vals)} run(s)",
+                "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest"}}
+
+    values = []
+    for rid in ids:
+        rc = store.read_channel(rid, channel)
+        for p in (rc.get("series") or []):
+            if len(p) == 2 and p[1] is not None:
+                values.append({"t": p[0], channel: p[1], "run": _run_label(rid)})
+    if not values:
+        return {"error": f"no '{channel}' trajectory for those runs (try read_series or a different channel)."}
+    spec = {"$schema": _VL, "title": title or f"{channel} over the cell cycle", "data": {"values": values},
+            "mark": {"type": "line", "point": True},
+            "encoding": {"x": {"field": "t", "type": "quantitative", "title": "time (s)"},
+                         "y": {"field": channel, "type": "quantitative", "title": channel},
+                         "color": {"field": "run", "type": "nominal", "title": "run"}}}
+    return {"spec": spec, "caption": title or f"{channel} trajectory — {len(ids)} run(s)",
+            "provenance": {"channel": channel, "runs": ids, "grounded_from": "manifest"}}
+
+
 def coverage_check() -> dict:
     """How much of the corpus you have deep-read this session — call before generalising a conclusion."""
     return rigor.coverage()
@@ -170,7 +224,7 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
 def propose_experiment(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
                        params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None,
                        genes: list | None = None) -> dict:
-    """PROPOSE an experiment to run — Coli CANNOT launch sims itself. The design is vetted (safety is the only hard
+    """PROPOSE an experiment to run — Cellwright CANNOT launch sims itself. The design is vetted (safety is the only hard
     gate) and QUEUED pending human approval; a human approves via the interface, then the result is indexed so you
     can reason over it. Use design_space first to resolve gene symbols.
 
@@ -407,6 +461,8 @@ TOOLS = [
     {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "channel": {"type": "string"}},
                       "required": ["result_id", "channel"]}},
+    {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as a chart. Every value comes from the manifest; never chart a number you did not read from a tool. Use it when a figure SHARPENS the answer (a trajectory, a comparison), not decoratively. kind='line' plots the channel's trajectory over the cell cycle for result_id (pass results=[ids] to overlay several); kind='bar' compares the channel's value across results=[ids].",
+     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar"], "description": "line = trajectory over time; bar = compare across runs"}, "result_id": {"type": "string", "description": "the run to plot (line)"}, "results": {"type": "array", "items": {"type": "string"}, "description": "run ids to overlay (line) or compare (bar)"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}}}},
     {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "search": {"type": "string"}},
@@ -453,7 +509,7 @@ TOOLS = [
                       "required": ["target"]}},
     {"name": "run_experiment", "description": "Envelope- AND biosecurity-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
-    {"name": "propose_experiment", "description": "PROPOSE a NEW experiment to run when the corpus lacks the data you need. Coli CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. To CHANGE an argument on a draft you already proposed, use revise_experiment (NOT this — proposing again leaves a stale duplicate). Returns request id + vet result (pending_approval or blocked).",
+    {"name": "propose_experiment", "description": "PROPOSE a NEW experiment to run when the corpus lacks the data you need. Cellwright CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. To CHANGE an argument on a draft you already proposed, use revise_experiment (NOT this — proposing again leaves a stale duplicate). Returns request id + vet result (pending_approval or blocked).",
      "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}}}},
     {"name": "revise_experiment", "description": "REVISE a PENDING experiment draft when the user asks to CHANGE an argument (more/fewer seeds, a different condition, a different gene set). This SUPERSEDES the old draft (no duplicate is left in the queue) and returns a re-vetted new draft pending human approval. Pass request_id plus ONLY the fields you're changing. Use THIS to change a draft — never propose_experiment again for the same intent.",
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string", "description": "the pending draft's req_ id"}, **_DESIGN_PROPS, "gene": {"type": "string"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "new gene set for a multi_gene_knockout"}}, "required": ["request_id"]}},
@@ -465,7 +521,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,
              "list_results": list_results, "design_space": design_space,
-             "read_series": read_series, "list_species": list_species,
+             "read_series": read_series, "chart": chart, "list_species": list_species,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,

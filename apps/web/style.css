@@ -232,6 +232,24 @@ svg{display:block}
 .answer-body th,.answer-body td{border:1px solid var(--line); padding:6px 11px; text-align:left; vertical-align:top}
 .answer-body th{background:var(--paper-2); font-weight:700; white-space:nowrap}
 .answer-body tbody tr:nth-child(even),.answer-body tbody tr:nth-child(even){background:rgba(0,0,0,.015)}
+/* grounded figures (charts) */
+.figure{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:12px 14px; margin:4px 0}
+.vl-chart{display:block; max-width:100%; height:auto}
+.vl-grid{stroke:var(--line-2); stroke-width:1}
+.vl-line{fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
+.vl-bar{fill:var(--clay)}
+.vl-tick{fill:var(--ink-3); font-size:10px}
+.vl-ty{text-anchor:end} .vl-tx{text-anchor:middle}
+.vl-axis-title{fill:var(--ink-2); font-size:11px; font-weight:600; text-anchor:middle}
+.vl-legend{fill:var(--ink-2); font-size:11px}
+.fig-cap{font-size:13px; color:var(--ink-2); margin-top:6px; text-align:center; font-style:italic}
+.fig-prov{margin-top:8px; border-top:1px dashed var(--line); padding-top:7px}
+.fig-prov summary{cursor:pointer; font-size:11.5px; color:var(--ink-3); font-weight:600; list-style:none}
+.fig-prov summary::-webkit-details-marker{display:none}
+.fig-prov summary::before{content:"▸ "; color:var(--ink-3)}
+.fig-prov[open] summary::before{content:"▾ "}
+.fig-prov pre{margin:8px 0 0; font-family:var(--mono); font-size:10.5px; color:var(--ink-2); white-space:pre-wrap; max-height:220px; overflow:auto; background:var(--paper-2); padding:10px; border-radius:8px}
+.fig-err{font-size:12.5px; color:var(--ink-3); font-style:italic; padding:8px}
 
 /* trust strip */
 .trust{display:flex; flex-wrap:wrap; gap:7px}

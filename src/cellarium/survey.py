@@ -4,7 +4,7 @@ Anchoring on the first salient run is not fixable by prompting (Lou 2024); the f
 WHOLE corpus, pre-computed and ranked by salience, so its (position-biased) attention isn't what decides what
 matters. `survey_corpus` reads every run × channel from the manifest and returns, per channel, designs ranked
 by |z| across designs (+ % change vs a reference), a cross-channel notable set, and coverage. No LLM, no
-cherry-picking: the ranking is arithmetic. Coli must consume this before forming a hypothesis (see agent.py).
+cherry-picking: the ranking is arithmetic. Cellwright must consume this before forming a hypothesis (see agent.py).
 """
 
 from __future__ import annotations
