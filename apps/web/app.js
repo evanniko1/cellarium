@@ -9,7 +9,8 @@ const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
 const fmtElapsed = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const KEY = "cellarium.invs";
 
-const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null, results: null };
+const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null, results: null,
+                hypRuns: [], hypActive: null, hypRunning: false };
 // streaming is per-investigation: each inv carries .running + ._live (its in-flight turn's DOM), so navigating
 // away never orphans the stream or locks the UI — generation continues in the background and is saved to its inv.
 
@@ -473,31 +474,32 @@ function cleanRivals(v) {
   return parts.map((p) => trunc(p.replace(/^claim=/, "").replace(/,\s*distinguishing_result=.*$/, "").replace(/^['"]|['"]\)?,?\s*$/g, "").trim(), 150)).join("  ·  ");
 }
 function row(lbl, txt) { return el("div", "row", `<span class="lbl">${esc(lbl)}</span>${esc(txt)}`); }
+function hypBlockEl(hyp) {   // the operationalized-hypothesis card — shared by the Council drawer AND the Hypothesis surface
+  const h = el("div", "c-hyp"); h.appendChild(el("div", "label", "Operationalized hypothesis"));
+  if (hyp.claim) h.appendChild(row("Claim", hyp.claim));
+  if (hyp.h1) h.appendChild(row("H1", hyp.h1));
+  if (hyp.h0) h.appendChild(row("H0", hyp.h0));
+  if (hyp.predicted_effect) h.appendChild(row("Predicted", hyp.predicted_effect));
+  if (hyp.falsifier) h.appendChild(row("Falsifier", hyp.falsifier));
+  if (hyp.rivals) h.appendChild(row("Rivals", cleanRivals(hyp.rivals)));
+  if (hyp.operational_defs && hyp.operational_defs.length) {
+    const od = el("div", "row"); od.appendChild(el("span", "lbl", "Operational defs"));
+    hyp.operational_defs.forEach((d) => od.appendChild(el("div", "od-item",
+      `${esc(d.term)} → ${esc(d.observable)}${d.measure ? " (" + esc(d.measure) + ")" : ""}`)));
+    h.appendChild(od);
+  }
+  if (hyp.assumptions && hyp.assumptions.length) {
+    const as = el("div", "row"); as.appendChild(el("span", "lbl", "Assumptions"));
+    hyp.assumptions.forEach((a) => as.appendChild(el("div", "od-item", esc(a))));
+    h.appendChild(as);
+  }
+  if (hyp.rounds_used) h.appendChild(el("div", "c-meta", `${hyp.rounds_used} round(s) · ${hyp.substantive_objections || 0} substantive objection(s)`));
+  return h;
+}
 function renderCouncil() {
   const b = $("#councilBody"); b.innerHTML = ""; const { rounds, hyp, designs } = curCouncil();
   if (!rounds.length && !hyp) { b.appendChild(el("div", "empty", "No debate yet. Ask a question with the Socratic Council toggle on — the Proposer, Skeptic, and Judge operationalize it into a falsifiable hypothesis before any data is read.")); return; }
-  if (hyp) {
-    const h = el("div", "c-hyp"); h.appendChild(el("div", "label", "Operationalized hypothesis"));
-    if (hyp.claim) h.appendChild(row("Claim", hyp.claim));
-    if (hyp.h1) h.appendChild(row("H1", hyp.h1));
-    if (hyp.h0) h.appendChild(row("H0", hyp.h0));
-    if (hyp.predicted_effect) h.appendChild(row("Predicted", hyp.predicted_effect));
-    if (hyp.falsifier) h.appendChild(row("Falsifier", hyp.falsifier));
-    if (hyp.rivals) h.appendChild(row("Rivals", cleanRivals(hyp.rivals)));
-    if (hyp.operational_defs && hyp.operational_defs.length) {
-      const od = el("div", "row"); od.appendChild(el("span", "lbl", "Operational defs"));
-      hyp.operational_defs.forEach((d) => od.appendChild(el("div", "od-item",
-        `${esc(d.term)} → ${esc(d.observable)}${d.measure ? " (" + esc(d.measure) + ")" : ""}`)));
-      h.appendChild(od);
-    }
-    if (hyp.assumptions && hyp.assumptions.length) {
-      const as = el("div", "row"); as.appendChild(el("span", "lbl", "Assumptions"));
-      hyp.assumptions.forEach((a) => as.appendChild(el("div", "od-item", esc(a))));
-      h.appendChild(as);
-    }
-    if (hyp.rounds_used) h.appendChild(el("div", "c-meta", `${hyp.rounds_used} round(s) · ${hyp.substantive_objections || 0} substantive objection(s)`));
-    b.appendChild(h);
-  }
+  if (hyp) b.appendChild(hypBlockEl(hyp));
   if (rounds.length) b.appendChild(el("div", "label", `The debate — ${rounds.length} round(s)`));
   rounds.forEach((r) => b.appendChild(roundEl(r)));
   if (designs.length) { b.appendChild(el("div", "label", "Falsifier designs — propose to the airlock")); designs.forEach((dv, i) => b.appendChild(designEl(dv, i))); }
@@ -592,6 +594,121 @@ async function openCorpus() {
   renderCorpus("");
 }
 function closeCorpus() { $("#corpusView").classList.remove("open"); $("#corpusBtn").classList.remove("active"); }
+
+// ---------------- Hypothesis-Generation surface (the Socratic Council, split out + persisted) ----------------
+async function openHyp() {
+  $("#hypView").classList.add("open"); $("#hypBtn").classList.add("active");
+  await loadHypRuns();
+  if (!state.hypActive) newHypComposer();
+}
+function closeHyp() { $("#hypView").classList.remove("open"); $("#hypBtn").classList.remove("active"); }
+async function loadHypRuns(activeId) {
+  try { const j = await (await fetch("/api/hypotheses")).json(); state.hypRuns = j.runs || []; }
+  catch { state.hypRuns = []; }
+  renderHypRuns(activeId != null ? activeId : state.hypActive);
+}
+function renderHypRuns(activeId) {
+  const rail = $("#hypRuns"); rail.innerHTML = "";
+  $("#hypCount").textContent = state.hypRuns.length ? `${state.hypRuns.length} run(s)` : "";
+  if (!state.hypRuns.length) { rail.appendChild(el("div", "drawer-empty", "No hypotheses yet. Pose a research question — the Council operationalizes it into a falsifiable test, blind to the data.")); return; }
+  state.hypRuns.forEach((r) => {
+    const card = el("button", "hyp-run-card" + (r.id === activeId ? " active" : ""));
+    card.appendChild(el("div", "hrc-q", esc(trunc(r.claim || r.question, 96))));
+    const meta = el("div", "hrc-meta");
+    meta.appendChild(el("span", "hrc-status " + r.status, r.status));
+    if (r.n_designs) meta.appendChild(el("span", null, `${r.n_designs} falsifier(s)`));
+    card.appendChild(meta);
+    card.onclick = () => viewHypRun(r.id);
+    rail.appendChild(card);
+  });
+}
+function newHypComposer() {
+  state.hypActive = null; renderHypRuns(null);
+  const m = $("#hypMain"); m.innerHTML = "";
+  const box = el("div", "hyp-composer");
+  const ta = el("textarea"); ta.placeholder = "Pose a research question — e.g. Is the aaRS-KO survival spread a genuine biochemical difference in charged-tRNA depletion, or a generation-depth artifact?";
+  box.appendChild(ta);
+  const go = el("button", "hyp-run-go");
+  go.innerHTML = `${ARROW_SVG} Convene the Council`;
+  go.onclick = () => runHypothesis(ta.value.trim(), go);
+  box.appendChild(go);
+  m.appendChild(box);
+  m.appendChild(el("div", "hyp-empty", "The Council runs blind to the corpus — it frames the hypothesis before any result is read, then hands it to Cellwright to test."));
+  ta.focus();
+}
+function runHypothesis(question, goBtn) {
+  if (!question || state.hypRunning) return;
+  state.hypRunning = true;
+  const live = { id: null, question, status: "running", rounds: [], hypothesis: {}, designs: [], meta: {} };
+  state.hypActive = "__live"; renderHypDetail(live);
+  (async () => {
+    try {
+      const resp = await fetch("/api/hypothesis", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, model: state.model }) });
+      const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
+      while (true) {
+        const { value, done } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true }); let i;
+        while ((i = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, i); buf = buf.slice(i + 1);
+          if (!line.trim()) continue;
+          const { kind, data } = JSON.parse(line);
+          if (kind === "round") { live.rounds.push(data); renderHypDetail(live); }
+          else if (kind === "done" && data.run) { state.hypActive = data.run.id; renderHypDetail(data.run); await loadHypRuns(data.run.id); }
+          else if (kind === "error") { live.status = "error"; live.meta = { error: data.message }; renderHypDetail(live); }
+        }
+      }
+    } catch (e) { live.status = "error"; live.meta = { error: String(e) }; renderHypDetail(live); }
+    finally { state.hypRunning = false; }
+  })();
+}
+async function viewHypRun(id) {
+  state.hypActive = id; renderHypRuns(id);
+  const m = $("#hypMain"); m.innerHTML = `<div class="hyp-empty">Loading…</div>`;
+  try { const run = await (await fetch("/api/hypothesis_get?id=" + encodeURIComponent(id))).json(); renderHypDetail(run); }
+  catch { m.innerHTML = `<div class="hyp-empty">Could not load this run.</div>`; }
+}
+function renderHypDetail(run) {
+  const m = $("#hypMain"); m.innerHTML = "";
+  m.appendChild(el("div", "hyp-q", esc(run.question)));
+  const st = el("div", "hyp-status" + (run.status === "error" ? " err" : ""));
+  if (run.status === "running") st.innerHTML = `<span class="dot-pulse"></span> The Council is deliberating${run.rounds.length ? " — round " + run.rounds.length : ""}…`;
+  else if (run.status === "error") st.textContent = (run.meta && run.meta.error) || "The run failed.";
+  else st.textContent = `Converged in ${(run.meta && run.meta.rounds_used) || run.rounds.length} round(s) · ${(run.meta && run.meta.substantive_objections) || 0} substantive objection(s)`;
+  m.appendChild(st);
+  if (run.hypothesis && run.hypothesis.claim) m.appendChild(hypBlockEl(run.hypothesis));
+  if (run.rounds && run.rounds.length) { m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`)); run.rounds.forEach((r) => m.appendChild(roundEl(r))); }
+  if (run.designs && run.designs.length) { m.appendChild(el("div", "label", "Falsifier designs — propose to the airlock")); run.designs.forEach((dv, i) => m.appendChild(designEl(dv, i))); }
+  if (run.status === "done" && run.hypothesis && run.hypothesis.claim) {
+    const ho = el("div", "hyp-handover");
+    const open = el("button", "hyp-open"); open.innerHTML = `Open in Cellwright ${ARROW_SVG}`;
+    open.onclick = () => openInCellwright(run); ho.appendChild(open);
+    const copy = el("button", "hyp-copy", "Copy spec");
+    copy.onclick = () => { navigator.clipboard.writeText(hypSpec(run.hypothesis)); copy.textContent = "Copied ✓"; setTimeout(() => (copy.textContent = "Copy spec"), 1200); };
+    ho.appendChild(copy);
+    if (run.id) { const del = el("button", "hyp-del", "Delete"); del.onclick = () => deleteHypRun(run.id); ho.appendChild(del); }
+    m.appendChild(ho);
+  }
+}
+function hypSpec(hyp) {
+  return [hyp.brief, hyp.claim && ("Claim: " + hyp.claim), hyp.h1 && ("H1: " + hyp.h1), hyp.h0 && ("H0: " + hyp.h0),
+          hyp.falsifier && ("Falsifier: " + hyp.falsifier)].filter(Boolean).join("\n\n");
+}
+function openInCellwright(run) {
+  const hyp = run.hypothesis || {};
+  const brief = hyp.brief || hypSpec(hyp);
+  const msg = `Test this operationalized hypothesis against the corpus — the Socratic Council framed it blind to the data:\n\n${brief}\n\nSurvey first, read the falsifier's channel(s), seek disconfirmation, and report whether the evidence supports or refutes it — grounding every number in a tool result.`;
+  closeHyp();
+  resetToHero();
+  $("#council").checked = false;   // the Council already framed it — don't re-run it
+  send(msg);
+}
+async function deleteHypRun(id) {
+  await postJSON("/api/hypothesis_delete", { id });
+  state.hypActive = null;
+  await loadHypRuns(null);
+  newHypComposer();
+}
 
 const PERT_LABEL = {
   wildtype: "Wildtype (baseline)", gene_knockout: "Gene knockouts", multi_gene_knockout: "Multi-gene knockouts",
@@ -727,13 +844,16 @@ $("#newBtn").onclick = resetToHero;
 $("#corpusBtn").onclick = () => ($("#corpusView").classList.contains("open") ? closeCorpus() : openCorpus());
 $("#corpusClose").onclick = closeCorpus;
 $("#corpusSearch").addEventListener("input", (e) => renderCorpus(e.target.value));
+$("#hypBtn").onclick = () => ($("#hypView").classList.contains("open") ? closeHyp() : openHyp());
+$("#hypClose").onclick = closeHyp;
+$("#hypNewBtn").onclick = newHypComposer;
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");
 $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapsed");
 $("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");
 $("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeDrawers(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeHyp(); closeDrawers(); } });
 $("#scroll").addEventListener("scroll", () => {
   const s = $("#scroll"); $("#scrollDownBtn").classList.toggle("show", s.scrollHeight - s.scrollTop - s.clientHeight > 140);
 });

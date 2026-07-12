@@ -57,6 +57,9 @@
           <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 4v16h16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 15l3-4 3 2 4-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span class="badge" id="figuresBadge"></span>
         </button>
+        <button class="icon-btn" id="hypBtn" title="Hypothesis Generation — the Socratic Council, persisted">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.5 14h9" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
       </div>
     </header>
 
@@ -109,6 +112,19 @@
       </header>
       <div class="corpus-facets" id="corpusFacets"></div>
       <div class="corpus-body" id="corpusBody"></div>
+    </section>
+
+    <section class="corpus hypview" id="hypView">
+      <header class="corpus-head">
+        <div class="corpus-title">Hypothesis Generation <span class="corpus-count" id="hypCount"></span></div>
+        <span class="hyp-sub">The Socratic Council frames a falsifiable hypothesis — blind to the data — then hands it to Cellwright.</span>
+        <button class="new-btn hyp-newbtn" id="hypNewBtn">+ New hypothesis</button>
+        <button class="drawer-close" id="hypClose">&times;</button>
+      </header>
+      <div class="hyp-body">
+        <aside class="hyp-runs" id="hypRuns"></aside>
+        <main class="hyp-main" id="hypMain"></main>
+      </div>
     </section>
   </div>
 
