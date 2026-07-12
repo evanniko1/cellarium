@@ -119,7 +119,7 @@ async def investigate(request):
     body = await request.json()
     question = (body.get("question") or "").strip()
     sid = body.get("session_id") or ("s_" + uuid.uuid4().hex[:8])
-    use_council = bool(body.get("use_council", True))
+    use_council = bool(body.get("use_council", False))   # default OFF: the Council is expensive (multi-round, route-bumped) and most turns just want a grounded answer — opt in per investigation
     model = body.get("model") or DEFAULT_MODEL
     reasoning = body.get("reasoning") or "none"
     if not question:
