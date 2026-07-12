@@ -90,6 +90,8 @@ _PROPOSER_SYS = (
     "SIMULATOR cannot resolve (deterministic chaos vs stochastic noise; a mutant's confounded basal physiology; "
     "a readout the model does not compute), do NOT chase it forever — record it as an explicit "
     "auxiliary_assumption / scope caveat and move on.\n"
+    "`debate_so_far` is a compact digest of prior rounds (each round's claim + its objections and resolution "
+    "status). Build on what already converged; do NOT re-introduce a framing the skeptic already killed.\n"
     "You have NOT run anything: never assume an experimental result or a corpus value. Emit via the tool."
 )
 
@@ -130,7 +132,9 @@ _SKEPTIC_SYS = (
     "RESOLUTION: you are given `open_objections` — YOUR prior objections (each with an id), which the proposer was "
     "asked to address in this revision. For each, judge whether the CURRENT candidate now adequately addresses it; "
     "return the ids of the resolved ones in `resolved`. Be honest — only mark an objection resolved if the revision "
-    "genuinely answers it, not merely gestures at it. Then raise any NEW objections as usual."
+    "genuinely answers it, not merely gestures at it. Then raise any NEW objections as usual. `debate_so_far` shows "
+    "the arc across rounds; do not re-raise an objection already marked resolved there — press only what is still "
+    "open or genuinely new."
 )
 
 _JUDGE_SYS = (
@@ -154,8 +158,9 @@ _JUDGE_SYS = (
     "round that is neither addressed nor parked. Do not demand the impossible: a hypothesis that is falsifiable, "
     "specified, operationalized, discriminating, and feasible, whose remaining objections are refinements or "
     "parked assumptions, MUST converge (open_objections_resolved=true, new_substantive_objection_this_round="
-    "false). A perpetual stream of ever-finer objections is not a reason to withhold convergence. Emit via the "
-    "tool."
+    "false). A perpetual stream of ever-finer objections is not a reason to withhold convergence. `debate_so_far` "
+    "gives the arc — claims and objections with their resolution across rounds — use it to read convergence "
+    "honestly (a claim that keeps drawing NEW rubric-breaking objections has not converged). Emit via the tool."
 )
 
 
@@ -261,9 +266,16 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
     empty (a rare truncation/degenerate emit). `temperature` is passed only when set (None => API default),
     so a run can pin it for reproducibility / name the sampling variance source."""
     kw = {} if temperature is None else {"temperature": temperature}
+    # Prompt caching: a role's system prompt + tool schema are IDENTICAL across its ~4 calls in one deliberation, so
+    # cache that (large, static) prefix; the per-round payload is the uncached suffix. Cache read = 0.1x input price,
+    # so after the first (1.25x write) call each repeat pays ~10% for the prompt+schema. Mirrors agent.py. Under the
+    # 1024-token min the API just skips caching — no error. The dynamic `debate_so_far` rides in the payload, so it
+    # never invalidates the cached prefix.
+    system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+    tools = [{**tool, "cache_control": {"type": "ephemeral"}}]
     for _ in range(2):
         resp = client.messages.create(
-            model=model, max_tokens=max_tokens, system=system, tools=[tool],
+            model=model, max_tokens=max_tokens, system=system_blocks, tools=tools,
             tool_choice={"type": "tool", "name": tool["name"]},
             messages=[{"role": "user", "content": json.dumps(payload)}], **kw,
         )
@@ -276,10 +288,11 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
 # --- role calls (compact payloads — no growing transcript) --------------------------------------------------
 
 def _propose(client, models, question, labels, previous_candidate, open_objections, answered,
-             *, temperature=None, leak=None) -> dict:
+             *, temperature=None, leak=None, debate_so_far=None) -> dict:
     payload = {"question": question, "dial_labels": labels,
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
                "previous_candidate": previous_candidate, "open_objections": open_objections,
+               "debate_so_far": debate_so_far or [],
                "instruction": "Revise previous_candidate to resolve open_objections; keep what already works; "
                               "return a COMPLETE hypothesis."}
     if leak is not None:  # quarantine ABLATION only: hand the proposer the answer key it is normally denied
@@ -291,11 +304,11 @@ def _propose(client, models, question, labels, previous_candidate, open_objectio
 
 
 def _skeptic(client, models, question, labels, candidate, answered, open_objections=None, *,
-             temperature=None, adversarial=False) -> dict:
+             temperature=None, adversarial=False, debate_so_far=None) -> dict:
     payload = {"question": question, "channels": instrument.channel_names(),
                "perturbations": sorted(labels.get("perturbations", {})),
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
-               "candidate": candidate,
+               "candidate": candidate, "debate_so_far": debate_so_far or [],
                "open_objections": [{"id": o["id"], "type": o.get("type"), "issue": o.get("issue")}
                                    for o in (open_objections or [])]}
     system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
@@ -304,9 +317,10 @@ def _skeptic(client, models, question, labels, candidate, answered, open_objecti
 
 
 def _judge(client, models, question, candidate, objections, feasible_code, *, temperature=None,
-           judge_mode="rubric") -> dict:
+           judge_mode="rubric", debate_so_far=None) -> dict:
     payload = {"question": question, "candidate": candidate, "objections": objections,
-               "feasible": feasible_code, "channels": instrument.channel_names()}
+               "feasible": feasible_code, "channels": instrument.channel_names(),
+               "debate_so_far": debate_so_far or []}
     if judge_mode == "generic":  # ablation: a plain "is this a good hypothesis?" judge, no falsifiability rubric
         out = _emit(client, models["judge"], _JUDGE_GENERIC_SYS, _JUDGE_GENERIC_TOOL, payload, max_tokens=1024,
                     temperature=temperature)
@@ -411,6 +425,24 @@ def _score(cand: dict, feasible: bool, verdict: dict) -> int:
     return (8 if _complete(cand) else 0) + (4 if feasible else 0) + rubric
 
 
+def _debate_digest(debate_log: list[dict], ledger: list[dict]) -> list[dict]:
+    """A compact, BOUNDED memory of the debate so far, for every role. Built ONLY from the debate's own internal
+    artifacts — the proposer's per-round claim (truncated) and the skeptic's objection types/severities with their
+    resolution round — so it stays BLIND by construction: those artifacts are produced by role-LLMs that never saw a
+    corpus reading, so no reading can enter here. Bounded by the round cap (<=4) + claim truncation, so it can't grow
+    unbounded. Lets a role see the arc (what was tried, what was objected to, what got resolved) without the raw
+    transcript: the proposer stops re-introducing killed ideas, the skeptic stops re-raising settled ones, the judge
+    reads convergence honestly."""
+    res = {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")}
+    digest = []
+    for e in debate_log:
+        objs = [{"type": o.get("type"), "severity": o.get("severity"),
+                 "status": (f"resolved@R{res[o['id']]}" if res.get(o.get("id")) else "open")}
+                for o in e.get("objections", [])]
+        digest.append({"round": e["round"], "claim": (e.get("claim") or "")[:200], "objections": objs})
+    return digest
+
+
 # --- Phase 3(b): the scope-only sufficiency gate -----------------------------------------------------------
 
 _SUFFICIENCY_SYS = (
@@ -486,6 +518,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     parked: set[str] = set()
     open_objections: list[dict] = []
     ledger: list[dict] = []   # every objection ever raised + the round that resolved it (per-objection resolution track)
+    debate_log: list[dict] = []   # per-round {claim, objections} → the compact, bounded "debate so far" each role sees
     total_substantive = 0
     previous_candidate: dict | None = None
     best: dict = {}
@@ -495,8 +528,9 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     consecutive_clean = 0
 
     for rnd in range(max_rounds):
+        digest = _debate_digest(debate_log, ledger)   # rounds 1..rnd — a blind, bounded memory for every role
         cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered,
-                        temperature=temperature, leak=leak)
+                        temperature=temperature, leak=leak, debate_so_far=digest)
         if not _complete(cand) and _complete(previous_candidate or {}):
             cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
         previous_candidate = cand
@@ -512,7 +546,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         if use_skeptic:
             open_led = [o for o in ledger if o["resolved_round"] is None]
             objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
-                            temperature=temperature, adversarial=adversarial_skeptic)
+                            temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest)
             resolved_ids = {r for r in (objs.get("resolved") or []) if isinstance(r, str)}
             for o in ledger:   # the skeptic (who raised them) certifies which prior objections the revision addressed
                 if o["resolved_round"] is None and o["id"] in resolved_ids:
@@ -545,7 +579,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
 
         if use_judge:
             verdict = _judge(client, models, question, cand, objections, feasible_code,
-                             temperature=temperature, judge_mode=judge_mode)
+                             temperature=temperature, judge_mode=judge_mode, debate_so_far=digest)
         else:  # no independent judge: derive adequacy structurally, converge when the skeptic goes quiet
             ok = _structural_ok(cand)
             verdict = {"falsifiable": ok, "specified": ok, "operationalized": ok, "discriminating": ok,
@@ -578,6 +612,9 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
             })
 
         open_objections = objections
+        debate_log.append({"round": rnd + 1, "claim": cand.get("claim", ""),   # feeds next round's blind digest
+                           "objections": [{"id": o.get("id"), "type": o.get("type"), "severity": o.get("severity")}
+                                          for o in objections]})
         score = _score(cand, feasible_code, verdict)
         if score > best_score:
             best, best_score = cand, score

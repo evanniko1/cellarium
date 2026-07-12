@@ -19,6 +19,7 @@ from cellarium import council, instrument  # noqa: E402
 _ALLOWED_KEYS = {
     "question", "dial_labels", "channels", "perturbations", "candidate", "objections", "feasible",
     "answered", "resolved_ambiguities", "previous_candidate", "open_objections", "instruction",
+    "debate_so_far",   # the bounded cross-round digest — built from the debate's own claims/objections, never readings
 }
 
 
@@ -71,6 +72,24 @@ def test_sufficiency_gate_payload_is_blind(monkeypatch):
     extra = set(captured) - _ALLOWED_KEYS
     assert not extra, f"unexpected key(s) in the gate payload (possible corpus leak): {extra}"
     assert (captured.get("dial_labels") or {}).get("channels"), "the gate should see channel capabilities"
+
+
+def test_debate_digest_is_blind_and_bounded():
+    """The 'debate so far' digest each role now sees must carry ONLY the debate's own artifacts (claims + objection
+    type/severity/status), never a reading — and stay bounded (claims truncated). It is built from role-LLM output,
+    which was itself blind, so no corpus value can enter."""
+    ledger = [{"id": "r1.1", "round": 1, "type": "undefined_term", "severity": "substantive", "resolved_round": 2}]
+    log = [{"round": 1, "claim": "X" * 500, "objections": [{"id": "r1.1", "type": "undefined_term", "severity": "substantive"}]}]
+    dig = council._debate_digest(log, ledger)
+    assert dig and dig[0]["round"] == 1
+    assert len(dig[0]["claim"]) <= 200                       # bounded: claim truncated
+    assert dig[0]["objections"][0]["status"] == "resolved@R2"
+    import json
+    blob = json.dumps(dig)
+    for marker in ("simout_path", "growth_rate", "welch_t", "/cellarium/", "division_rate", "mean"):   # readings
+        assert marker not in blob, f"a reading leaked into the debate digest: {marker}"
+    nums = [v for e in dig for v in (e.get("round"),) if isinstance(v, (int, float))]
+    assert nums == [1]                                       # only the round index is numeric — no data values
 
 
 def test_leak_control_mechanism_exists():
