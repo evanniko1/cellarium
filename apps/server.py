@@ -62,6 +62,7 @@ async def investigate(request):
     sid = body.get("session_id") or ("s_" + uuid.uuid4().hex[:8])
     use_council = bool(body.get("use_council", True))
     model = body.get("model") or DEFAULT_MODEL
+    reasoning = body.get("reasoning") or "none"
     if not question:
         return JSONResponse({"error": "empty question"}, status_code=400)
 
@@ -93,7 +94,8 @@ async def investigate(request):
             else:
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
                 sess["model"] = model
-            answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool, verbose=False)
+            answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool,
+                                     verbose=False, reasoning=reasoning)
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace),
                               "session_id": sid, "model": sess["model"], "first_turn": first_turn}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
@@ -115,8 +117,22 @@ async def investigate(request):
     return StreamingResponse(stream(), media_type="application/x-ndjson")
 
 
+REASONING = [
+    {"id": "none", "label": "Standard"},
+    {"id": "low", "label": "Extended"},
+    {"id": "high", "label": "Extended+"},
+]
+
+
 def models_list(request):
-    return JSONResponse({"models": MODELS, "default": DEFAULT_MODEL})
+    return JSONResponse({"models": MODELS, "default": DEFAULT_MODEL,
+                         "reasoning": REASONING, "reasoning_default": "none"})
+
+
+async def session_delete(request):
+    b = await request.json()
+    SESSIONS.pop(b.get("session_id"), None)   # drop the in-process conversation memory
+    return JSONResponse({"ok": True})
 
 
 # ---------------------------------------------------------------- the experiment loop (airlock)
@@ -175,6 +191,7 @@ routes = [
     Route("/", index),
     Route("/api/investigate", investigate, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
+    Route("/api/session_delete", session_delete, methods=["POST"]),
     Route("/api/queue", queue_list, methods=["GET"]),
     Route("/api/propose", propose, methods=["POST"]),
     Route("/api/approve", approve, methods=["POST"]),

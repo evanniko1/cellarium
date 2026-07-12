@@ -22,7 +22,7 @@
       <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       New investigation
     </button>
-    <div class="nav-label">Recent</div>
+    <div class="nav-label">Investigations</div>
     <div class="recents" id="recents"></div>
     <div class="sidebar-foot">
       Grounded in a real whole-cell <em>E. coli</em> K‑12 MG1655 simulation.
@@ -32,18 +32,17 @@
 
   <div class="main">
     <header class="topbar">
+      <button class="icon-btn ghost" id="sidebarToggle" title="Show / hide sidebar">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
       <div class="convo-title" id="convoTitle"></div>
       <div class="topbar-right">
-        <label class="model-select">
-          <span>Model</span>
-          <select id="model"></select>
-        </label>
         <button class="icon-btn" id="councilBtn" title="Socratic Council — the debate">
           <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 5h11a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M20 9v6a2 2 0 0 1-2 2h-1v2l-2-2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
           <span class="badge" id="councilBadge"></span>
         </button>
         <button class="icon-btn" id="queueBtn" title="Launch queue — the approval airlock">
-          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 13h4l2 3h6l2-3h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5 13V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 13h4l2 3h6l2-3h4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5 13V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
           <span class="badge" id="queueBadge"></span>
         </button>
       </div>
@@ -57,6 +56,11 @@
         <h1 class="hero">What should we ask <span class="accent">the cell?</span></h1>
         <div class="hero-hint">A Socratic Council frames your question blind to the data; a grounded agent answers it
           from real whole‑cell runs; you close the loop by approving new experiments.</div>
+        <div class="chips" id="chips">
+          <button class="chip" data-q="Tell me about the Cellarium platform — what it is and how it works.">About the platform</button>
+          <button class="chip" data-q="Tell me about the whole-cell model — what it simulates and its known limits.">About the model</button>
+          <button class="chip" data-q="Is pfkA essential in E. coli?">Is pfkA essential?</button>
+        </div>
       </div>
       <div class="thread" id="thread"></div>
     </div>
@@ -70,9 +74,13 @@
             <span class="track"><span class="thumb"></span></span>
             Socratic Council
           </label>
-          <button class="send" id="send" title="Send">
-            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+          <div class="composer-controls">
+            <select id="model" class="mini-select" title="Model"></select>
+            <select id="reasoning" class="mini-select" title="Reasoning strength (extended thinking)"></select>
+            <button class="send" id="send" title="Send">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         </div>
       </div>
       <div class="composer-foot">Cellarium grounds every number in a real run — it does not launch simulations without your approval.</div>
@@ -82,18 +90,12 @@
   <div class="scrim" id="scrim"></div>
 
   <aside class="drawer" id="councilDrawer">
-    <header class="drawer-head">
-      <span>Socratic Council</span>
-      <button class="drawer-close" data-close>&times;</button>
-    </header>
+    <header class="drawer-head"><span>Socratic Council</span><button class="drawer-close" data-close>&times;</button></header>
     <div class="drawer-body" id="councilBody"></div>
   </aside>
 
   <aside class="drawer" id="queueDrawer">
-    <header class="drawer-head">
-      <span>Launch queue — approval airlock</span>
-      <button class="drawer-close" data-close>&times;</button>
-    </header>
+    <header class="drawer-head"><span>Launch queue — approval airlock</span><button class="drawer-close" data-close>&times;</button></header>
     <div class="drawer-body" id="queueBody"></div>
   </aside>
 </div>

@@ -55,7 +55,17 @@ SYSTEM = (
     "as evidence-absent: report the QC flag, never a doubling time derived from it.\n"
     "- The model gives the dynamic/regulatory/single-cell regime that steady-state FBA cannot. Prefer "
     "mechanistic explanation (e.g. ppGpp -> ribosome allocation -> growth) grounded in the channels.\n"
-    "- Be concise and honest. Users are hypothesis generators, not decision-makers."
+    "- Be concise and honest. Users are hypothesis generators, not decision-makers.\n"
+    "\nABOUT YOURSELF (answer plainly if asked 'what are you / what is this platform / what is the model'):\n"
+    "- Cellarium is a grounded reasoning copilot over a corpus of whole-cell E. coli (K-12 MG1655) simulations. "
+    "A Socratic Council first operationalizes a question into a falsifiable hypothesis BLIND to the data; then you "
+    "(the grounded agent) answer it strictly from real simulation runs via ~25 tools; you cannot state a number "
+    "you did not read from a tool, and you cannot launch a simulation — a human approves every new run.\n"
+    "- THE MODEL is the Covert-lab whole-cell model (wcEcoli): a mechanistic single-cell simulation integrating "
+    "metabolism (FBA), transcription, translation, replication and regulation over a cell cycle. Its regime is "
+    "dynamic/regulatory/single-cell, complementary to steady-state FBA. Its known boundary: the FBA objective is "
+    "homeostatic (not growth-maximizing), so metabolic KOs tend to reroute (a viable-KO artifact) — trust the "
+    "essentiality benchmark over the sim there. Be honest about scope and provenance (in- vs out-of-sample)."
 )
 
 
@@ -84,23 +94,50 @@ def _cached_tools():
     return ts
 
 
+# extended-thinking budgets (reasoning strength). budget_tokens must be >=1024 and < max_tokens.
+_REASON = {"none": 0, "low": 2048, "high": 8000}
+_TOOL_CAP = 6000   # trim a bulky tool_result before it re-enters the growing context (e.g. species panels)
+
+
+def _is_thinking_error(exc) -> bool:
+    s = str(exc).lower()
+    return "thinking" in s or "budget_tokens" in s
+
+
 def converse(messages: list, *, model: str | None = None, on_tool=None, max_turns: int = 8,
-             verbose: bool = False) -> str:
+             verbose: bool = False, reasoning: str = "none") -> str:
     """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
     in place — appending the assistant + tool_result turns — so the caller can persist it for a MULTI-TURN
     conversation. Returns the final assistant text. This is what makes the chat remember: the same messages list
-    carries prior turns, and prompt caching (system + tools) keeps the growing prefix cheap."""
+    carries prior turns, and prompt caching (system + tools) keeps the growing prefix cheap.
+
+    reasoning ('none'|'low'|'high') enables extended thinking on models that support it (falls back to the base
+    model otherwise). The SDK retries 429/5xx with exponential backoff; bulky tool results are trimmed."""
     from . import rigor
 
     rigor.reset()  # fresh coverage tracking per user turn
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(max_retries=4)   # exponential backoff on rate limits / transient 5xx
     mdl = model or MODEL
     system, tool_defs = _system_blocks(), _cached_tools()
+    budget = _REASON.get(reasoning, 0)
 
     for _ in range(max_turns):
-        resp = client.messages.create(
-            model=mdl, max_tokens=1500, system=system, tools=tool_defs, messages=messages,
-        )
+        kw = dict(model=mdl, system=system, tools=tool_defs, messages=messages)
+        if budget:
+            kw["thinking"] = {"type": "enabled", "budget_tokens": budget}
+            kw["max_tokens"] = budget + 2000
+        else:
+            kw["max_tokens"] = 1500
+        try:
+            resp = client.messages.create(**kw)
+        except Exception as exc:                      # extended thinking unsupported here -> retry as base model
+            if budget and _is_thinking_error(exc):
+                budget = 0
+                kw.pop("thinking", None)
+                kw["max_tokens"] = 1500
+                resp = client.messages.create(**kw)
+            else:
+                raise
         messages.append({"role": "assistant", "content": resp.content})
         tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
 
@@ -114,7 +151,10 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, max_turn
                 print(f"  tool {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
             if on_tool is not None:
                 on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
-            results.append({"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(out)})
+            content = json.dumps(out)
+            if len(content) > _TOOL_CAP:              # keep the growing context lean
+                content = content[:_TOOL_CAP] + ' …[truncated]'
+            results.append({"type": "tool_result", "tool_use_id": tu.id, "content": content})
         messages.append({"role": "user", "content": results})
 
     return "(stopped: reached max turns)"
