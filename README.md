@@ -50,10 +50,25 @@ docs/DEMO.md    the demo script
 python -m venv .venv && . .venv/Scripts/activate   # (or bin/activate on unix)
 pip install -e .
 cp .env.example .env      # add your ANTHROPIC_API_KEY
-python -m cellarium.cli "Do genetically identical E. coli cells behave differently, and why?"
 ```
 
-Open `ui/index.html` in a browser for the interface mockup.
+### Run the web app (the glass box)
+
+```bash
+ANTHROPIC_API_KEY=...  python apps/server.py      # -> http://127.0.0.1:8000
+```
+
+A multi-turn chat: the Socratic Council frames each question into a falsifiable hypothesis, a grounded agent
+answers it strictly from real simulation runs (every number comes from a tool), and you approve any new
+experiments. Conversations persist locally (SQLite). Deep species reads and running new sims also need Docker +
+the wcEcoli image (`WCECOLI_DOCKER=wcecoli-sim:multiko`); the chat, corpus browser, and manifest reasoning work
+with just the API key.
+
+Or use the CLI:
+
+```bash
+python -m cellarium.cli "Do genetically identical E. coli cells behave differently, and why?"
+```
 
 ## Scope & honesty
 
