@@ -1,0 +1,95 @@
+"""The Council blindness invariant — the paper's D2/D4 quarantine, as a test.
+
+The Socratic Council frames its hypothesis BLIND to the corpus RESULTS: it sees the instrument's dial LABELS
+(capabilities) and the question, never its readings. That property is the scientific control the human-eval /
+recitation experiments rest on, and it is now the thing a dedicated Hypothesis surface (with web/lit-review coming)
+must not erode. This test captures the payloads the Council actually sends to its role-LLMs and asserts no
+simulation reading — and no reference answer — ever enters them. See docs/HYPOTHESIS_MODE_PLAN.md.
+"""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+
+from cellarium import council, instrument  # noqa: E402
+
+# capabilities + internal debate state — everything the Council is allowed to see. Corpus READINGS are NOT here.
+_ALLOWED_KEYS = {
+    "question", "dial_labels", "channels", "perturbations", "candidate", "objections", "feasible",
+    "answered", "resolved_ambiguities", "previous_candidate", "open_objections", "instruction",
+}
+
+
+def test_proposer_payload_is_blind_to_corpus_results(monkeypatch):
+    """The proposer — which writes the hypothesis — must see only the question + dial labels, no reading, no leak."""
+    captured = {}
+
+    class _StopAfterFirstCall(Exception):
+        pass
+
+    def fake_emit(client, model, system, tool, payload, **kw):
+        captured.update(payload)
+        raise _StopAfterFirstCall()
+
+    monkeypatch.setattr(council, "_emit", fake_emit)
+    try:
+        council.deliberate("Is the aaRS-KO survival spread a real charged-tRNA depletion difference, or a "
+                           "generation-depth artifact?", max_rounds=1)
+    except _StopAfterFirstCall:
+        pass
+
+    assert captured, "no Council payload was captured"
+    # THE quarantine control key: a reference answer must NOT be in a normal deliberation
+    assert "leaked_reference_answer" not in captured, "quarantine breach: a reference answer leaked to the proposer"
+    # no surprise key that could smuggle in corpus data
+    extra = set(captured) - _ALLOWED_KEYS
+    assert not extra, f"unexpected key(s) in the proposer payload (possible corpus leak): {extra}"
+    # dial_labels are capability metadata (channel NAMES + notes/units), never readings
+    chans = (captured.get("dial_labels") or {}).get("channels", {})
+    assert chans, "dial_labels should expose channel capabilities"
+    for name, meta in chans.items():
+        meta = meta or {}
+        leaked = {k for k in meta if k in ("value", "values", "mean", "reading", "result", "growth_rate")}
+        assert not leaked, f"a reading leaked into dial_labels[{name}]: {leaked}"
+
+
+def test_leak_control_mechanism_exists():
+    """The quarantine is testable BECAUSE the ablation can deliberately leak an answer key — confirm that lever
+    exists (so 'blind' is a measured claim, not an assumption) and that it is off by default."""
+    seen = {}
+
+    def fake_emit(client, model, system, tool, payload, **kw):
+        seen.clear()
+        seen.update(payload)
+        return {"claim": "x"}
+
+    import cellarium.council as c
+    orig = c._emit
+    c._emit = fake_emit
+    try:
+        labels = instrument.dial_labels()
+        c._propose(None, {"proposer": "m"}, "q", labels, None, [], [])           # normal: no leak
+        assert "leaked_reference_answer" not in seen
+        c._propose(None, {"proposer": "m"}, "q", labels, None, [], [], leak="THE ANSWER")  # ablation: leak on
+        assert seen.get("leaked_reference_answer") == "THE ANSWER"
+    finally:
+        c._emit = orig
+
+
+def test_dial_labels_carry_no_readings():
+    """instrument.dial_labels() is the whole capability view handed to the Council — assert it's STRUCTURE, not
+    data: each channel maps to capability metadata (unit/note strings), never a per-run numeric value, and the view
+    carries no run identifiers or paths (those would be readings)."""
+    labels = instrument.dial_labels()
+    chans = labels.get("channels", {})
+    assert chans, "dial_labels should name the channels (capabilities)"
+    for name, meta in chans.items():
+        assert isinstance(meta, dict), f"channel {name} should be capability metadata"
+        nums = [v for v in meta.values() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        assert not nums, f"a numeric reading leaked into dial_labels[{name}]: {nums}"
+    import json
+    blob = json.dumps(labels)
+    for marker in ("simout_path", "/cellarium/", "gene_knockout_0_", "condition_0_"):   # run ids / paths = readings
+        assert marker not in blob, f"a run reference leaked into dial_labels: {marker}"
