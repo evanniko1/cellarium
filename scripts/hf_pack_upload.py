@@ -34,6 +34,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Package raw runs into per-run .tar.gz and upload to a HF dataset.")
     ap.add_argument("--repo", default=os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus"))
     ap.add_argument("--out", default=os.environ.get("CELLARIUM_OUT", "runs"), help="local output root")
+    ap.add_argument("--designs", default="", help="comma-separated design dir names (e.g. gene_knockout_002095) "
+                                                   "-- upload only runs under these (for a curated subset)")
     ap.add_argument("--limit", type=int, default=0, help="upload only the first N runs (0 = all)")
     ap.add_argument("--card", action="store_true", help="also upload data/hf/README.md as the dataset card")
     ap.add_argument("--dry-run", action="store_true")
@@ -51,6 +53,9 @@ def main() -> int:
         return 2
 
     roots = _run_roots(args.out)
+    if args.designs:
+        keep = {d.strip() for d in args.designs.split(",") if d.strip()}
+        roots = [r for r in roots if r.parent.name in keep]   # <out>/cellarium/<design>/<seed> -> parent = <design>
     if args.limit:
         roots = roots[:args.limit]
     if not roots:

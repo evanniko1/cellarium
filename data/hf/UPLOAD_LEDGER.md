@@ -13,11 +13,16 @@ upload batch.** Local raw corpus total: **361 GB** (~187 runs, 138,983 files). U
 | `runs/cellarium/condition_000001/000001.tar.gz` | raw archive | |
 | `runs/cellarium/condition_000001/000002.tar.gz` | raw archive | |
 
-## 🎯 Planned — curated raw subset (target 100–150 GB)
-Selection criteria: the scientifically load-bearing designs (wildtype controls; the machinery-KO landscape
-rpoB/dnaN/argS/alaS/pheS/rplB/rpmE/gltX; metabolic/reroute KOs pfkA/tpiA/gltA/fabI/…; representative graded
-sweeps ppGpp/rRNA-operon/objective-weight; key conditions). **Exact run list pending the per-design size scan.**
-Upload with `scripts/hf_pack_upload.py --designs <list>` (flag to be added).
+## 🔄 In progress — curated raw subset (~128 GB uncompressed, 55 runs, 14 designs)
+Started 2026-07-12 via `scripts/hf_pack_upload.py --designs "<list>"`. Value-weighted load-bearing set:
+- **control:** `wildtype_374656`
+- **KO landscape:** `gene_knockout_002095` (rpoB, late-crash), `002819` (lysS), `001594` (pfkA, reroute),
+  `002074`, `000644` (argS), `002078` (alaS), `001340` (pheS), `000058` (dnaN), `002835` (rplB)
+- **multi-KO:** `multi_gene_knockout_227981` (pfkA+pfkB)
+- **graded:** `ppgpp_conc_000000`, `rrna_operon_knockout_000002`
+- **condition:** `condition_000007`
+
+55 archives; ~90–100 GB compressed; ~6–7 h at 4 MB/s. Background task `bls546073`. **Move to the ✅ table when it lands.**
 
 ## ⬜ Not uploaded (local-only)
 Everything else — the remainder of the 361 GB raw corpus. Full upload deferred: needs a ~1-day resumable push
