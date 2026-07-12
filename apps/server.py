@@ -203,6 +203,22 @@ async def session_delete(request):
     return JSONResponse({"ok": True})
 
 
+async def session_pop(request):
+    """Remove the LAST turn (the last user question + its assistant response + tool cycles) from a session, so the
+    user can re-ask it. Truncates the agent history back to before the last user(str) message and re-persists."""
+    b = await request.json()
+    sess = SESSIONS.get(b.get("session_id"))
+    if not sess:
+        return JSONResponse({"ok": False, "popped": False})
+    msgs = sess.get("messages", [])
+    last = next((i for i in range(len(msgs) - 1, -1, -1)
+                 if msgs[i].get("role") == "user" and isinstance(msgs[i].get("content"), str)), None)
+    if last is not None:
+        sess["messages"] = msgs[:last]
+        SESSIONS.put(b.get("session_id"), sess)
+    return JSONResponse({"ok": True, "popped": last is not None})
+
+
 def results_list(request):
     """The corpus: one deduped row per run (design + qc + provenance). Backs the results browser."""
     from cellarium import store
@@ -282,6 +298,7 @@ routes = [
     Route("/api/investigate", investigate, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
     Route("/api/session_delete", session_delete, methods=["POST"]),
+    Route("/api/session_pop", session_pop, methods=["POST"]),
     Route("/api/results", results_list, methods=["GET"]),
     Route("/api/result_availability", result_availability, methods=["GET"]),
     Route("/api/queue", queue_list, methods=["GET"]),

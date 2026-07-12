@@ -70,7 +70,7 @@ function openInv(inv) {
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
   renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
-  renderSidebar(); scrollBottom(); refreshQueue(); updateSend(); maybeRunQueue(inv);
+  renderSidebar(); scrollBottom(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
 }
 function ensureCur(q) {
   if (state.cur) return;
@@ -151,6 +151,24 @@ function maybeRunQueue(inv) {
   else addUserBubble(next.q);
   stream(next.q);
 }
+function markLastUserReask() {   // put an "Edit & re-ask" control on the latest user turn (only when idle)
+  document.querySelectorAll(".reask-btn").forEach((b) => b.remove());
+  if (!state.cur || state.cur.running || !(state.cur.turns || []).length) return;
+  const users = document.querySelectorAll("#thread .turn.user:not(.queued)");
+  const last = users[users.length - 1];
+  if (!last) return;
+  const b = el("button", "reask-btn", `<svg viewBox="0 0 24 24" width="12" height="12"><path d="M4 20h4L18 10l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg> Edit & re-ask`);
+  b.onclick = reaskLast;
+  last.appendChild(b);
+}
+function reaskLast() {
+  const inv = state.cur;
+  if (!inv || inv.running || !(inv.turns || []).length) return;
+  const last = inv.turns.pop(); saveInvs();
+  postJSON("/api/session_pop", { session_id: inv.sid });   // truncate the server/SQLite history to match
+  openInv(inv);                                            // re-render without the last turn
+  $("#q").value = last.q; autosize(); $("#q").focus();
+}
 
 function stream(question) {
   const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = $("#council").checked;
@@ -183,6 +201,7 @@ function stream(question) {
       if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
       if (state.cur === inv) { updateSend(); scrollBottom(); }
       maybeRunQueue(inv);   // run the next queued question, if any
+      if (state.cur === inv) markLastUserReask();
     }
   })();
 }

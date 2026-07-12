@@ -175,10 +175,16 @@ svg{display:block}
 .st-timer{font-variant-numeric:tabular-nums; font-size:12px; opacity:.7; margin-left:2px}
 .turn.user.queued .bubble{opacity:.55}
 .turn.user .q-tag{font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--clay-ink); background:var(--card); border-radius:10px; padding:1px 7px; margin-left:8px; vertical-align:middle}
-.scroll-down{position:absolute; right:28px; bottom:112px; z-index:15; width:38px; height:38px; border-radius:50%;
-  border:1px solid var(--line); background:var(--card); color:var(--ink-2); display:none; place-items:center; cursor:pointer; box-shadow:var(--shadow); transition:.14s}
+.scroll-down{position:absolute; left:50%; transform:translateX(-50%); bottom:110px; z-index:15; width:34px; height:34px;
+  border-radius:50%; border:1px solid var(--line); background:var(--card); color:var(--ink-2); display:none; place-items:center;
+  cursor:pointer; box-shadow:var(--shadow); transition:background .14s,color .14s,border-color .14s}
 .scroll-down.show{display:grid}
 .scroll-down:hover{color:var(--clay-ink); border-color:var(--clay); background:var(--clay-tint)}
+/* re-ask the latest question */
+.reask-btn{display:none; margin-top:5px; align-items:center; gap:5px; border:1px solid var(--line); background:var(--card);
+  color:var(--ink-3); border-radius:8px; padding:4px 10px; font:inherit; font-size:11.5px; font-weight:600; cursor:pointer}
+.turn.user:hover .reask-btn{display:inline-flex}
+.reask-btn:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
 .dot-pulse{width:7px;height:7px;border-radius:50%;background:var(--clay);animation:pulse 1s infinite ease-in-out}
 .compact-note{font-size:11.5px; color:var(--ink-3); background:var(--line-2); border-radius:8px; padding:5px 10px;
   display:inline-block; margin:2px 0 4px}
