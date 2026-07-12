@@ -550,20 +550,22 @@ function fillExpandable(container, text, limit) {
   btn.onclick = () => { open = !open; span.textContent = open ? text : text.slice(0, limit - 1) + "…"; btn.textContent = open ? "show less" : "show full"; };
   container.append(span, document.createTextNode(" "), btn);
 }
-function objThread(o, roundConverged) {   // an objection as a first-class thread: severity + type + carried status
+function objThread(o, clean, resolutions) {   // an objection as a first-class thread: severity + type + resolution
   const sub = o.severity === "substantive";
-  const carried = sub && !roundConverged;   // truthful: a substantive objection in a non-converged round forced another round
+  const resolvedRound = (resolutions && o.id != null) ? resolutions[o.id] : null;   // a round number, or null if open
   const d = el("details", "obj-thread");
   const sum = el("summary");
   sum.appendChild(el("span", "obj-sev " + (sub ? "substantive" : "minor"), sub ? "Substantive" : "Minor"));
   if (o.type) sum.appendChild(el("span", "obj-type", esc(o.type)));
   sum.appendChild(el("span", "obj-title", esc(trunc(o.issue || "", 64))));
-  if (carried) sum.appendChild(el("span", "obj-status carried", "◷ Carried"));
+  // prefer the TRUE per-objection resolution (the skeptic certified it); else fall back to the round-derived "carried"
+  if (resolvedRound) sum.appendChild(el("span", "obj-status resolved", "✓ Resolved R" + resolvedRound));
+  else if (sub && !clean) sum.appendChild(el("span", "obj-status carried", "◷ Carried"));
   d.appendChild(sum);
   d.appendChild(el("div", "obj-full", esc(o.issue || "")));
   return d;
 }
-function roundEl(r, isFinal) {
+function roundEl(r, isFinal, resolutions) {
   const clean = !!(r.judge && r.judge.converged);   // this round is adequate + no open substantive objection
   const converged = clean && isFinal;               // AND it's the round that actually terminated the debate
   const c = el("div", "c-round" + (clean ? "" : " held"));
@@ -580,7 +582,7 @@ function roundEl(r, isFinal) {
   const objs = r.skeptic || [];
   const s = el("div", "role skeptic", `<div class="role-name">Skeptic · ${objs.length} objection(s)</div>`);
   if (!objs.length) s.appendChild(el("div", "role-text", "No new rubric-breaking objection this round."));
-  objs.forEach((o) => s.appendChild(objThread(o, clean)));   // a substantive objection in a NON-clean round is carried
+  objs.forEach((o) => s.appendChild(objThread(o, clean, resolutions)));
   c.appendChild(s);
   const j = el("div", "role judge", `<div class="role-name">Judge</div>`), g = el("div", "verdict-grid");
   ["falsifiable", "specified", "operationalized", "discriminating"].forEach((k) => { const y = !!r.judge[k]; g.appendChild(el("span", "vpill " + (y ? "yes" : "no"), (y ? "✓ " : "✗ ") + k)); });
@@ -855,7 +857,11 @@ function renderHypDetail(run) {
   else st.textContent = `Converged in ${(run.meta && run.meta.rounds_used) || run.rounds.length} round(s) · ${(run.meta && run.meta.substantive_objections) || 0} substantive objection(s)`;
   m.appendChild(st);
   if (run.hypothesis && run.hypothesis.claim) m.appendChild(hypBlockEl(run.hypothesis));
-  if (run.rounds && run.rounds.length) { m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`)); run.rounds.forEach((r, i) => m.appendChild(roundEl(r, i === run.rounds.length - 1))); }
+  if (run.rounds && run.rounds.length) {
+    const resolutions = (run.meta && run.meta.resolutions) || {};
+    m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`));
+    run.rounds.forEach((r, i) => m.appendChild(roundEl(r, i === run.rounds.length - 1, resolutions)));
+  }
   if (run.designs && run.designs.length) {
     state._hypSource = { hyp_id: run.id, question: run.question };   // so a queued falsifier remembers which hypothesis it came from
     m.appendChild(el("div", "label", "Falsifier panel"));

@@ -113,7 +113,11 @@ _SKEPTIC_SYS = (
     "predicted result does not discriminate the named rivals, or the design is infeasible. A request for an "
     "ADDITIONAL nice-to-have control, more precision, or an ideal-but-unnecessary refinement is 'minor', not "
     "'substantive'. Do not manufacture a fresh substantive objection every round to keep the debate alive — if "
-    "the rubric is met, say so. Emit via the tool."
+    "the rubric is met, say so. Emit via the tool.\n"
+    "RESOLUTION: you are given `open_objections` — YOUR prior objections (each with an id), which the proposer was "
+    "asked to address in this revision. For each, judge whether the CURRENT candidate now adequately addresses it; "
+    "return the ids of the resolved ones in `resolved`. Be honest — only mark an objection resolved if the revision "
+    "genuinely answers it, not merely gestures at it. Then raise any NEW objections as usual."
 )
 
 _JUDGE_SYS = (
@@ -189,6 +193,8 @@ _SKEPTIC_TOOL = {
             "irreducible": {"type": "boolean"},
             "user_question": {"type": "string"},
         }, "required": ["type", "issue", "severity"]}},
+        "resolved": {"type": "array", "items": {"type": "string"},
+                     "description": "ids from open_objections that the CURRENT candidate now adequately addresses"},
         "assessment": {"type": "string"},
     }, "required": ["objections"]},
 }
@@ -271,11 +277,14 @@ def _propose(client, models, question, labels, previous_candidate, open_objectio
                  temperature=temperature)
 
 
-def _skeptic(client, models, question, labels, candidate, answered, *, temperature=None, adversarial=False) -> dict:
+def _skeptic(client, models, question, labels, candidate, answered, open_objections=None, *,
+             temperature=None, adversarial=False) -> dict:
     payload = {"question": question, "channels": instrument.channel_names(),
                "perturbations": sorted(labels.get("perturbations", {})),
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
-               "candidate": candidate}
+               "candidate": candidate,
+               "open_objections": [{"id": o["id"], "type": o.get("type"), "issue": o.get("issue")}
+                                   for o in (open_objections or [])]}
     system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
     return _emit(client, models["skeptic"], system, _SKEPTIC_TOOL, payload, max_tokens=2048,
                  temperature=temperature)
@@ -341,8 +350,18 @@ def _feasible(cand: dict) -> bool:
     return any(instrument.check_design(d)["usable"] for d in designs)
 
 
+def _finalize_ledger(ledger: list[dict], at_round: int) -> list[dict]:
+    """On convergence, objections from EARLIER rounds still marked open were addressed by the time the debate went
+    clean (convergence requires open_objections_resolved) — credit them to the converging round. Objections raised
+    IN the converging round that are still open (minor, non-blocking) stay open — they were accepted, not resolved."""
+    for o in ledger or []:
+        if o.get("resolved_round") is None and o.get("round", 0) < at_round:
+            o["resolved_round"] = at_round
+    return ledger
+
+
 def _assemble(question: str, cand: dict, residual: list[str], converged: bool,
-              rounds_used: int = 0, substantive_objections: int = 0) -> Hypothesis:
+              rounds_used: int = 0, substantive_objections: int = 0, ledger: list[dict] | None = None) -> Hypothesis:
     cand = cand or {}
     ods = [OperationalDef(**o) for o in cand.get("operational_defs", []) if isinstance(o, dict)]
     rivals = [Rival(**r) for r in cand.get("rivals", []) if isinstance(r, dict)]
@@ -361,6 +380,7 @@ def _assemble(question: str, cand: dict, residual: list[str], converged: bool,
         rivals=rivals, auxiliary_assumptions=list(cand.get("auxiliary_assumptions", []) or []),
         candidate_designs=designs, residual_ambiguities=residual, converged=converged,
         rounds_used=rounds_used, substantive_objections=substantive_objections,
+        objection_ledger=ledger or [],
     )
 
 
@@ -401,6 +421,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     answered: list[tuple[str, str]] = []
     parked: set[str] = set()
     open_objections: list[dict] = []
+    ledger: list[dict] = []   # every objection ever raised + the round that resolved it (per-objection resolution track)
     total_substantive = 0
     previous_candidate: dict | None = None
     best: dict = {}
@@ -425,9 +446,18 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                              substantive_objections=0)
 
         if use_skeptic:
-            objs = _skeptic(client, models, question, labels, cand, answered,
+            open_led = [o for o in ledger if o["resolved_round"] is None]
+            objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
                             temperature=temperature, adversarial=adversarial_skeptic)
+            resolved_ids = {r for r in (objs.get("resolved") or []) if isinstance(r, str)}
+            for o in ledger:   # the skeptic (who raised them) certifies which prior objections the revision addressed
+                if o["resolved_round"] is None and o["id"] in resolved_ids:
+                    o["resolved_round"] = rnd + 1
             objections = [o for o in (objs.get("objections") or []) if isinstance(o, dict)]  # guard string emits
+            for i, o in enumerate(objections):   # stable id per objection, and log it as open until later resolved
+                o["id"] = f"r{rnd + 1}.{i + 1}"
+                ledger.append({"id": o["id"], "round": rnd + 1, "type": o.get("type"),
+                               "severity": o.get("severity"), "issue": o.get("issue"), "resolved_round": None})
         else:
             objections = []
         substantive = [o for o in objections if o.get("severity") == "substantive"]
@@ -476,8 +506,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
             on_round({
                 "round": rnd + 1,
                 "proposer": {"claim": cand.get("claim", ""), "h1": cand.get("h1", ""), "h0": cand.get("h0", "")},
-                "skeptic": [{"issue": o.get("issue") or o.get("user_question", ""), "severity": o.get("severity"),
-                             "type": o.get("type")} for o in objections],
+                "skeptic": [{"id": o.get("id"), "issue": o.get("issue") or o.get("user_question", ""),
+                             "severity": o.get("severity"), "type": o.get("type")} for o in objections],
                 "judge": {"falsifiable": verdict.get("falsifiable"), "specified": verdict.get("specified"),
                           "operationalized": verdict.get("operationalized"), "discriminating": verdict.get("discriminating"),
                           "adequate": adequate, "converged": converged_signal},
@@ -501,14 +531,14 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         # few substantive objections, so 'stable' is the honest convergence signal when the quota is unreachable.
         if clean and (total_substantive >= quota or consecutive_clean >= 2):
             return _assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
-                             substantive_objections=total_substantive)
+                             substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, rnd + 1))
 
     # Round cap. The full debate has run, so the quota's scrutiny has been applied; if any round produced a clean
     # judge-certified candidate, accept it. Otherwise return the best complete candidate, flagged not-converged.
     if converged_cand:
         return _assemble(question, converged_cand, residual=[], converged=True, rounds_used=max_rounds,
-                         substantive_objections=total_substantive)
+                         substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, max_rounds))
     final = best if best else (previous_candidate or {})
     residual = _residual(open_objections, parked) or ["reached round cap without full convergence"]
     return _assemble(question, final, residual=residual, converged=False, rounds_used=max_rounds,
-                     substantive_objections=total_substantive)
+                     substantive_objections=total_substantive, ledger=ledger)

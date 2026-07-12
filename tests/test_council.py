@@ -273,6 +273,26 @@ def test_substantive_objection_blocks_same_round_convergence():
     assert h.converged is True and h.rounds_used == 2   # NOT round 1 — the substantive objection forced a clean round
 
 
+def test_objection_resolution_is_tracked_per_objection():
+    """Per-objection resolution: the skeptic (who raised it) certifies which prior objections the revision resolves.
+    An objection raised in round 1 that the round-2 skeptic marks resolved must carry resolved_round=2 in the
+    ledger; the UI reads this to show 'Resolved R2' instead of the coarse round-derived 'carried'."""
+    scripts = {
+        "propose_hypothesis": [_candidate(), _candidate(), _candidate()],
+        "raise_objections": [
+            {"objections": [_obj("undefined_term")]},          # round 1 -> objection id r1.1 (substantive, blocks)
+            {"objections": [], "resolved": ["r1.1"]},          # round 2: skeptic certifies r1.1 addressed; clean
+            {"objections": []},
+        ],
+        "rule": [_verdict(new_substantive_objection_this_round=True, open_objections_resolved=False), _verdict(), _verdict()],
+    }
+    h = council.deliberate("q", max_rounds=4, quota=0, client=FakeClient(scripts),
+                           models={"proposer": "m", "skeptic": "m", "judge": "m"}, verbose=False)
+    led = {o["id"]: o for o in h.objection_ledger}
+    assert "r1.1" in led and led["r1.1"]["round"] == 1
+    assert led["r1.1"]["resolved_round"] == 2      # certified resolved by the round-2 skeptic, not just "carried"
+
+
 def test_to_design_clamps_over_specified_scale():
     """The proposer sometimes asks for 20x20 (~400 sims/design). _to_design clamps to a runnable proposal
     (seeds<=8, generations<=6) so the human isn't handed an unaffordable falsifier; in-range values pass through."""

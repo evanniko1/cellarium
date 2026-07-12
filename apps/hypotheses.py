@@ -113,9 +113,13 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
         hyp = council.deliberate(question, verbose=False, on_round=_round)
         hview = ui.hypothesis_view(hyp)
         designs = [ui.design_view(d) for d in (getattr(hyp, "candidate_designs", None) or [])]
+        ledger = getattr(hyp, "objection_ledger", None) or []
         meta = {"converged": getattr(hyp, "converged", None),
                 "rounds_used": getattr(hyp, "rounds_used", None),
-                "substantive_objections": getattr(hyp, "substantive_objections", None)}
+                "substantive_objections": getattr(hyp, "substantive_objections", None),
+                # per-objection resolution: obj id -> the round that resolved it (null if still open) — the surface
+                # renders "resolved in round N" per objection instead of the coarse round-derived "carried".
+                "resolutions": {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")}}
         store.complete(run_id, hview, designs, meta)
     except Exception as exc:
         store.fail(run_id, f"{type(exc).__name__}: {exc}")
