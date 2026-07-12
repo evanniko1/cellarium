@@ -83,5 +83,26 @@ def test_chart_band_builds_layered_spec():
 
 def test_raw_tools_registered():
     names = {s["name"] for s in tools.TOOLS}
-    for n in ("read_raw_series", "variance_band", "raw_available"):
+    for n in ("read_raw_series", "variance_band", "raw_available", "download_raw"):
         assert n in names and n in tools._DISPATCH
+
+
+def test_chart_design_alias():
+    """chart(kind='band', design=...) must work (the agent naturally uses `design`, matching variance_band)."""
+    design = _a_design_with_local_raw()
+    if not design:
+        pytest.skip("no local raw simOut available")
+    out = tools.chart(kind="band", design=design, channel="growth_rate", rationale="alias")
+    assert "spec" in out and len(out["spec"]["layer"]) == 2
+
+
+def test_download_gate_never_downloads_without_confirm():
+    """The size gate's core safety property: confirm=False must NEVER download — no 'downloaded' key, ever. Holds
+    with or without network (no network -> nothing resolves as on-HF -> still no download)."""
+    for design in ("condition/no_oxygen", "gene_knockout/KO:rpoB", "wildtype/basal"):
+        out = tools.download_raw(design)  # confirm defaults False
+        assert not out.get("downloaded"), (design, out)   # nothing actually pulled
+        # if there IS something to pull, it must be gated behind an explicit confirmation
+        if out.get("n_to_pull", 0) > 0:
+            assert out.get("needs_confirmation") is True
+            assert "est_gb" in out and "GB" in out.get("message", "")

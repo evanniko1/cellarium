@@ -178,6 +178,20 @@ def raw_available(design: str) -> dict:
     return rawmod.available(design)
 
 
+def download_raw(design: str, confirm: bool = False) -> dict:
+    """Fetch a design's missing raw simOut archives from HF into the local runs dir, so read_raw_series /
+    variance_band can then read them. GATED BY SIZE: call it FIRST with confirm=False (default) — it downloads
+    NOTHING and returns est_gb + a needs_confirmation message. Surface that size to the user ('this pulls ~N GB from
+    HF, proceed?') and only call again with confirm=True AFTER they approve. Never pass confirm=True without the
+    user's explicit go-ahead. Use only when raw_available shows the design isn't fully local."""
+    from . import hf
+    out = hf.download_raw(design, confirm)
+    if confirm and out.get("downloaded"):
+        for rid in out["downloaded"]:
+            rigor.note_result(rid)
+    return out
+
+
 def _band_chart(design, channel, title, rationale):
     """chart(kind='band'): a cross-seed mean±CI95 ribbon over time, built from local raw simOut."""
     from . import raw as rawmod
@@ -219,7 +233,8 @@ def _band_chart(design, channel, title, rationale):
 
 
 def chart(kind: str = "line", result_id: str | None = None, results: list | None = None,
-          channel: str = "growth_rate", title: str | None = None, rationale: str | None = None) -> dict:
+          channel: str = "growth_rate", title: str | None = None, rationale: str | None = None,
+          design: str | None = None) -> dict:
     """Draw a GROUNDED figure from real run data as a Vega-Lite spec (rendered inline, interactive). Every value
     comes from the manifest — never chart a number you did not read from a tool. Use it when a figure SHARPENS the
     answer (a trajectory, a comparison), not decoratively. Accepts result_ids OR design labels ('wildtype/basal',
@@ -232,7 +247,7 @@ def chart(kind: str = "line", result_id: str | None = None, results: list | None
       data shows; do not editorialize beyond it.
     Returns {spec, caption, rationale, provenance}."""
     if kind == "band":
-        return _band_chart(result_id or (results[0] if results else None), channel, title, rationale)
+        return _band_chart(design or result_id or (results[0] if results else None), channel, title, rationale)
     raw = [i for i in (results or ([result_id] if result_id else [])) if i]
     if not raw:
         return {"error": "give result_id/results (ids) or design labels like 'wildtype/basal'."}
@@ -597,8 +612,10 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, ppgpp_conc, cell_mass, ..."}, "n_points": {"type": "integer", "description": "grid resolution (default 40)"}}, "required": ["design"]}},
     {"name": "raw_available", "description": "What FULL-RESOLUTION raw simOut is reachable on LOCAL DISK right now for a design: which seeds, generations per seed, and which channels are readable. The drill-down discovery step before read_raw_series / variance_band. Distinct from data_availability (which is about the HF download path) — this reports what you can read WITHOUT any download.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen' or a result_id"}}, "required": ["design"]}},
+    {"name": "download_raw", "description": "Fetch a design's MISSING raw simOut archives from HF into the local runs dir, so read_raw_series/variance_band can then read them. GATED BY SIZE (a bandwidth action, not a read): call it FIRST with confirm=false — it downloads NOTHING and returns est_gb + needs_confirmation. Tell the user 'this pulls ~N GB from HF, proceed?' and only call again with confirm=true AFTER they say yes. NEVER pass confirm=true without the user's explicit approval. Use only when raw_available shows the design isn't fully local but it's on HF.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen'"}, "confirm": {"type": "boolean", "description": "leave false/absent to get the size estimate; set true ONLY after the user approves the ~N GB pull"}}, "required": ["design"]}},
     {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as an interactive chart AND is indexed in the investigation's Figures panel. Every value comes from a tool read; never chart a number you did not read. Use it when a figure SHARPENS the answer, not decoratively. kind='line' plots the channel's trajectory over the cell cycle (x is time-since-start, so runs on different clocks overlay comparably); kind='bar' compares the channel's value across runs; kind='band' draws a cross-seed mean±CI95 ribbon over time from local raw simOut (the true per-timepoint variance — use for 'plot the variance'). Accepts result_ids OR design labels like 'wildtype/basal'.",
-     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar", "band"], "description": "line = trajectory over time; bar = compare across runs; band = cross-seed variance ribbon over time (needs local raw)"}, "result_id": {"type": "string", "description": "the run to plot (line), or the DESIGN label for band — a result_id or a design label like 'wildtype/basal'"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}}}},
+     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar", "band"], "description": "line = trajectory over time; bar = compare across runs; band = cross-seed variance ribbon over time (needs local raw)"}, "result_id": {"type": "string", "description": "the run to plot (line), or the DESIGN label for band — a result_id or a design label like 'wildtype/basal'"}, "design": {"type": "string", "description": "for kind='band': the design label whose seeds to band, e.g. 'condition/no_oxygen' (alias of result_id, matches variance_band/raw_available)"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}}}},
     {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "search": {"type": "string"}},
@@ -659,6 +676,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
              "read_raw_series": read_raw_series, "variance_band": variance_band, "raw_available": raw_available,
+             "download_raw": download_raw,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
