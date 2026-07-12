@@ -126,6 +126,7 @@ function scrollToEnd() {   // land on the LATEST message when opening a conversa
 function nearBottom() { const s = $("#scroll"); return s ? s.scrollHeight - s.scrollTop - s.clientHeight < 200 : true; }
 const isRunning = () => !!(state.cur && state.cur.running);
 const ARROW_SVG = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const FLASK_SVG = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a1.5 1.5 0 001.3 2.2h9.4A1.5 1.5 0 0023 18l-5-9V3M7.5 14h9"/></svg>`;
 const STOP_SVG = `<svg viewBox="0 0 24 24" width="15" height="15"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`;
 function updateSend() {   // the send button doubles as a STOP button while the current chat is generating
   const b = $("#send"), run = isRunning();
@@ -473,27 +474,64 @@ function cleanRivals(v) {
   return parts.map((p) => trunc(p.replace(/^claim=/, "").replace(/,\s*distinguishing_result=.*$/, "").replace(/^['"]|['"]\)?,?\s*$/g, "").trim(), 150)).join("  ·  ");
 }
 function row(lbl, txt) { return el("div", "row", `<span class="lbl">${esc(lbl)}</span>${esc(txt)}`); }
-function hypBlockEl(hyp) {   // the operationalized-hypothesis card — shared by the Council drawer AND the Hypothesis surface
-  const h = el("div", "c-hyp"); h.appendChild(el("div", "label", "Operationalized hypothesis"));
-  if (hyp.claim) h.appendChild(row("Claim", hyp.claim));
-  if (hyp.h1) h.appendChild(row("H1", hyp.h1));
-  if (hyp.h0) h.appendChild(row("H0", hyp.h0));
-  if (hyp.predicted_effect) h.appendChild(row("Predicted", hyp.predicted_effect));
-  if (hyp.falsifier) h.appendChild(row("Falsifier", hyp.falsifier));
-  if (hyp.rivals) h.appendChild(row("Rivals", cleanRivals(hyp.rivals)));
-  if (hyp.operational_defs && hyp.operational_defs.length) {
-    const od = el("div", "row"); od.appendChild(el("span", "lbl", "Operational defs"));
-    hyp.operational_defs.forEach((d) => od.appendChild(el("div", "od-item",
-      `${esc(d.term)} → ${esc(d.observable)}${d.measure ? " (" + esc(d.measure) + ")" : ""}`)));
-    h.appendChild(od);
+const CHEV_SVG = `<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>`;
+function specAcc(title, count, build) {   // a collapsible spec section (rivals / defs / assumptions)
+  const d = el("details", "spec-acc");
+  const s = el("summary", null, `${CHEV_SVG}<span>${esc(title)}</span>` + (count != null ? `<span class="acc-cnt">${count}</span>` : ""));
+  d.appendChild(s);
+  const body = el("div", "spec-acc-body"); build(body); d.appendChild(body); return d;
+}
+function parseFalsifier(f) {   // structured dict from the backend; legacy runs stored a "key='value' …" string — parse it
+  if (f && typeof f === "object") return f;
+  const out = {}; let m; const re = /(\w+)='([^']*)'/g;
+  while ((m = re.exec(String(f)))) out[m[1]] = m[2];
+  return Object.keys(out).length ? out : { decision_rule: String(f) };
+}
+function parseRivals(rivals) {   // structured list from the backend; legacy string is a Rival(...) repr
+  if (Array.isArray(rivals)) return rivals;
+  return String(rivals).split(/Rival\(/).filter((x) => x.includes("claim=")).map((p) => {
+    const cm = p.match(/claim=['"]([^'"]*)/), dm = p.match(/distinguishing_result=['"]([^'"]*)/);
+    return { claim: cm ? cm[1] : trunc(p, 120), distinguishing_result: dm ? dm[1] : "" };
+  });
+}
+function falsifierEl(f) {   // the decisive test, as human prose — never the disconfirm() call signature
+  f = parseFalsifier(f);
+  const box = el("div", "falsi");
+  box.appendChild(el("div", "falsi-k", `${FLASK_SVG}<span>Falsifier — the decisive test</span>`));
+  const body = el("div", "falsi-body");
+  if (f.channel) body.appendChild(el("p", "falsi-line", `Measure <b>${esc(f.channel)}</b> for <b>${esc(f.target || "the target")}</b> against <b>${esc(f.reference || "the reference")}</b>.`));
+  if (f.decision_rule) body.appendChild(el("p", "falsi-line", `<span class="fl">Test</span> ${esc(f.decision_rule)}`));
+  if (f.refuting_result) body.appendChild(el("p", "falsi-line refute", `<span class="fl">Refuted if</span> ${esc(f.refuting_result)}`));
+  box.appendChild(body);
+  const copy = el("button", "falsi-copy", "Copy as disconfirm() call");
+  copy.onclick = () => {
+    const src = `disconfirm(target='${f.target || ""}', reference='${f.reference || ""}', channel='${f.channel || ""}')\n# decision rule: ${f.decision_rule || ""}\n# refuted if: ${f.refuting_result || ""}`;
+    navigator.clipboard.writeText(src); copy.textContent = "Copied ✓"; setTimeout(() => (copy.textContent = "Copy as disconfirm() call"), 1300);
+  };
+  box.appendChild(copy); return box;
+}
+function hypBlockEl(hyp) {   // the operationalized-hypothesis SPEC CARD — shared by the Council drawer AND the surface
+  const c = el("div", "spec");
+  if (hyp.claim) { const cl = el("div", "spec-claim"); cl.appendChild(el("span", "spec-k", "Claim")); cl.appendChild(el("p", null, esc(hyp.claim))); c.appendChild(cl); }
+  if (hyp.h1 || hyp.h0) {
+    const hh = el("div", "spec-hh");
+    const h1 = el("div", "hh-cell h1"); h1.appendChild(el("span", "hh-tag", "H1 · the claim")); h1.appendChild(el("p", null, esc(hyp.h1 || "—")));
+    const h0 = el("div", "hh-cell h0"); h0.appendChild(el("span", "hh-tag", "H0 · the null")); h0.appendChild(el("p", null, esc(hyp.h0 || "—")));
+    hh.append(h1, h0); c.appendChild(hh);
   }
-  if (hyp.assumptions && hyp.assumptions.length) {
-    const as = el("div", "row"); as.appendChild(el("span", "lbl", "Assumptions"));
-    hyp.assumptions.forEach((a) => as.appendChild(el("div", "od-item", esc(a))));
-    h.appendChild(as);
-  }
-  if (hyp.rounds_used) h.appendChild(el("div", "c-meta", `${hyp.rounds_used} round(s) · ${hyp.substantive_objections || 0} substantive objection(s)`));
-  return h;
+  if (hyp.predicted_effect) { const pe = el("div", "spec-pred"); pe.appendChild(el("span", "spec-k", "Predicted effect")); pe.appendChild(el("p", null, esc(hyp.predicted_effect))); c.appendChild(pe); }
+  if (hyp.falsifier) c.appendChild(falsifierEl(hyp.falsifier));
+  const rivals = hyp.rivals ? parseRivals(hyp.rivals) : [];
+  if (rivals.length) c.appendChild(specAcc("Rival explanations", rivals.length, (b) => rivals.forEach((r) => {
+    const rv = el("div", "rival"); rv.appendChild(el("b", null, esc(r.claim)));
+    if (r.distinguishing_result) rv.appendChild(el("span", "rival-disc", "Distinguished if: " + esc(r.distinguishing_result)));
+    b.appendChild(rv);
+  })));
+  if (hyp.operational_defs && hyp.operational_defs.length) c.appendChild(specAcc("Operational definitions", hyp.operational_defs.length, (b) =>
+    hyp.operational_defs.forEach((d) => b.appendChild(el("div", "def-item", `<b>${esc(d.term)}</b> → ${esc(d.observable)}${d.measure ? " · " + esc(d.measure) : ""}`)))));
+  if (hyp.assumptions && hyp.assumptions.length) c.appendChild(specAcc("Ceteris-paribus assumptions", hyp.assumptions.length, (b) =>
+    hyp.assumptions.forEach((a) => b.appendChild(el("div", "assum-item", esc(a))))));
+  return c;
 }
 function renderCouncil() {
   const b = $("#councilBody"); if (!b) return;   // in-chat Council drawer retired
@@ -512,20 +550,42 @@ function fillExpandable(container, text, limit) {
   btn.onclick = () => { open = !open; span.textContent = open ? text : text.slice(0, limit - 1) + "…"; btn.textContent = open ? "show less" : "show full"; };
   container.append(span, document.createTextNode(" "), btn);
 }
-function roundEl(r) {
-  const c = el("div", "c-round"); c.appendChild(el("div", "rn", `Round ${r.round}`));
+function objThread(o, roundConverged) {   // an objection as a first-class thread: severity + type + carried status
+  const sub = o.severity === "substantive";
+  const carried = sub && !roundConverged;   // truthful: a substantive objection in a non-converged round forced another round
+  const d = el("details", "obj-thread");
+  const sum = el("summary");
+  sum.appendChild(el("span", "obj-sev " + (sub ? "substantive" : "minor"), sub ? "Substantive" : "Minor"));
+  if (o.type) sum.appendChild(el("span", "obj-type", esc(o.type)));
+  sum.appendChild(el("span", "obj-title", esc(trunc(o.issue || "", 64))));
+  if (carried) sum.appendChild(el("span", "obj-status carried", "◷ Carried"));
+  d.appendChild(sum);
+  d.appendChild(el("div", "obj-full", esc(o.issue || "")));
+  return d;
+}
+function roundEl(r, isFinal) {
+  const clean = !!(r.judge && r.judge.converged);   // this round is adequate + no open substantive objection
+  const converged = clean && isFinal;               // AND it's the round that actually terminated the debate
+  const c = el("div", "c-round" + (clean ? "" : " held"));
+  const head = el("div", "round-head");
+  head.appendChild(el("span", "round-n", `Round ${r.round}`));
+  const label = converged ? "✓ Converged" : clean ? "✓ Clean round" : "◷ Held — objections open";
+  head.appendChild(el("span", "round-outcome " + (clean ? "pass" : "hold"), label));
+  c.appendChild(head);
   const p = el("div", "role proposer", `<div class="role-name">Proposer</div>`);
   let full = r.proposer.claim || "";
   if (r.proposer.h1) full += "\n\nH1: " + r.proposer.h1;
   if (r.proposer.h0) full += "\nH0: " + r.proposer.h0;
   const pt = el("div", "role-text"); fillExpandable(pt, full, 220); p.appendChild(pt); c.appendChild(p);
-  const s = el("div", "role skeptic", `<div class="role-name">Skeptic · ${(r.skeptic || []).length} objection(s)</div>`);
-  (r.skeptic || []).forEach((o) => {
-    const div = el("div", "obj" + (o.severity === "substantive" ? " substantive" : "")); fillExpandable(div, o.issue || "", 160); s.appendChild(div);
-  });
+  const objs = r.skeptic || [];
+  const s = el("div", "role skeptic", `<div class="role-name">Skeptic · ${objs.length} objection(s)</div>`);
+  if (!objs.length) s.appendChild(el("div", "role-text", "No new rubric-breaking objection this round."));
+  objs.forEach((o) => s.appendChild(objThread(o, clean)));   // a substantive objection in a NON-clean round is carried
   c.appendChild(s);
   const j = el("div", "role judge", `<div class="role-name">Judge</div>`), g = el("div", "verdict-grid");
   ["falsifiable", "specified", "operationalized", "discriminating"].forEach((k) => { const y = !!r.judge[k]; g.appendChild(el("span", "vpill " + (y ? "yes" : "no"), (y ? "✓ " : "✗ ") + k)); });
+  // the honest convergence verdict — not just four green rubric ticks
+  g.appendChild(el("span", "vpill " + (clean ? "yes" : "no"), clean ? (converged ? "✓ converged" : "✓ clean") : "✗ objection open"));
   j.appendChild(g); c.appendChild(j); return c;
 }
 function designEl(dv, i) {
@@ -548,6 +608,63 @@ function designEl(dv, i) {
     await refreshQueue(); openDrawer("queue");
   };
   ctr.append(sS, sG, btn); c.appendChild(ctr); return c;
+}
+function designTable(run) {   // the falsifier panel as a scannable table — design · scale · in-corpus? · action (#5)
+  const designs = run.designs, needs = designs.filter((d) => !d.in_corpus);
+  const wrap = el("div", "panel");
+  const head = el("div", "panel-head");
+  head.appendChild(el("h3", null, `${designs.length} designs`));
+  head.appendChild(el("span", "panel-sum", `${designs.length - needs.length} in corpus · ${needs.length} need running`));
+  const flab = el("label", "panel-filter"); const fchk = el("input"); fchk.type = "checkbox";
+  flab.append(fchk, document.createTextNode(" Needs running only"));
+  head.appendChild(flab);
+  const qall = el("button", "queue-all", `Queue all ${needs.length} → airlock`);
+  qall.onclick = async () => {   // one atomic call — the whole panel at the Council's proposed scale, controls included
+    qall.disabled = true; qall.textContent = "Queuing panel…";
+    const res = await postJSON("/api/propose_panel", { hyp_id: run.id, question: run.question });
+    if (res.error) { qall.disabled = false; qall.textContent = `Queue all ${needs.length} → airlock`; alert(res.error); return; }
+    qall.textContent = "Panel queued ✓";
+    await refreshQueue(); openDrawer("queue");
+  };
+  if (needs.length) head.appendChild(qall);
+  wrap.appendChild(head);
+  const tbl = el("div", "panel-tbl"), table = el("table");
+  table.appendChild(el("thead", null, `<tr><th>Design</th><th class="num">Scale</th><th>In corpus?</th><th></th></tr>`));
+  const tb = el("tbody");
+  designs.forEach((dv) => tb.appendChild(designRow(dv)));
+  table.appendChild(tb); tbl.appendChild(table); wrap.appendChild(tbl);
+  fchk.onchange = () => tb.querySelectorAll("tr.in-yes").forEach((tr) => tr.classList.toggle("hide", fchk.checked));
+  return wrap;
+}
+function designRow(dv) {
+  const genes = (dv.genes && dv.genes.length) ? dv.genes.join("+") : "";
+  const isMulti = dv.perturbation === "multi_gene_knockout";
+  const isKO = String(dv.perturbation || "").includes("gene_knockout") && genes;
+  const label = isKO ? (isMulti ? "multi_ko" : "gene_knockout") + " · KO:" + genes
+    : `${dv.perturbation}${dv.condition ? " · " + dv.condition : ""}`;
+  const role = dv.perturbation === "wildtype" ? "reference" : isMulti ? "discriminating control" : isKO ? "single knockout" : "perturbation";
+  const tr = el("tr", dv.in_corpus ? "in-yes" : "in-no");
+  const dcell = el("td");
+  dcell.appendChild(el("div", "d-label", esc(label)));
+  dcell.appendChild(el("div", "d-role" + (dv.perturbation === "wildtype" ? " ref" : isMulti ? " ctrl" : ""), role));
+  tr.appendChild(dcell);
+  tr.appendChild(el("td", "num", `${dv.seeds}×${dv.generations}`));
+  const ic = el("td"); ic.appendChild(el("span", "incorp " + (dv.in_corpus ? "yes" : "no"), dv.in_corpus ? "✓ in corpus" : "◷ needs running")); tr.appendChild(ic);
+  const act = el("td", "act-cell");
+  if (dv.in_corpus) { act.appendChild(el("span", "act-note", "analyze in place")); }
+  else {
+    const q = el("button", "row-q", "Queue");
+    q.onclick = async () => {   // proposes at the Council's scale (dv.seeds×dv.generations), not 1×1
+      if (q.classList.contains("queued")) return;
+      q.disabled = true; q.textContent = "…";
+      const res = await postJSON("/api/propose", { perturbation: dv.perturbation, condition: dv.condition, timeline: dv.timeline,
+        params: dv.params || {}, gene: (dv.genes && dv.genes[0]) || null, seeds: dv.seeds || 1, generations: dv.generations || 1, source: state._hypSource || {} });
+      if (res.error) { q.disabled = false; q.textContent = "Queue"; alert(res.error); return; }
+      q.classList.add("queued"); q.textContent = "✓ Queued"; await refreshQueue();
+    };
+    act.appendChild(q);
+  }
+  tr.appendChild(act); return tr;
 }
 
 // ---------------- queue drawer ----------------
@@ -650,7 +767,27 @@ async function loadHypRuns(activeId) {
 }
 function renderHypRuns(activeId) {
   const rail = $("#hypRuns"); rail.innerHTML = "";
+  if (!state.hypRailMode) state.hypRailMode = "hyp";
+  const inv = state.hypRailMode === "inv";
+  // single rail, two modes — the Council's hypotheses OR the Cellwright investigations (#1)
+  const seg = el("div", "hyp-seg", `<div class="hyp-seg-thumb ${inv ? "r" : "l"}"></div>`);
+  const bH = el("button", inv ? "" : "on", "Hypotheses"); bH.onclick = () => { state.hypRailMode = "hyp"; renderHypRuns(activeId); };
+  const bI = el("button", inv ? "on" : "", "Investigations"); bI.onclick = () => { state.hypRailMode = "inv"; renderHypRuns(activeId); };
+  seg.append(bH, bI); rail.appendChild(seg);
   $("#hypCount").textContent = state.hypRuns.length ? `${state.hypRuns.length} run(s)` : "";
+
+  if (inv) {
+    const invs = state.invs || [];
+    if (!invs.length) { rail.appendChild(el("div", "drawer-empty", "No investigations yet — start one in Cellwright.")); return; }
+    invs.forEach((iv) => {
+      const card = el("button", "hyp-run-card");
+      card.appendChild(el("div", "hrc-q", esc(trunc(iv.title || "New investigation", 96))));
+      card.appendChild(el("div", "hrc-meta", `<span class="hrc-cw">Cellwright</span>`));
+      card.onclick = () => { closeHyp(); openInv(iv); };
+      rail.appendChild(card);
+    });
+    return;
+  }
   if (!state.hypRuns.length) { rail.appendChild(el("div", "drawer-empty", "No hypotheses yet. Pose a research question — the Council operationalizes it into a falsifiable test, blind to the data.")); return; }
   state.hypRuns.forEach((r) => {
     const card = el("button", "hyp-run-card" + (r.id === activeId ? " active" : ""));
@@ -718,21 +855,11 @@ function renderHypDetail(run) {
   else st.textContent = `Converged in ${(run.meta && run.meta.rounds_used) || run.rounds.length} round(s) · ${(run.meta && run.meta.substantive_objections) || 0} substantive objection(s)`;
   m.appendChild(st);
   if (run.hypothesis && run.hypothesis.claim) m.appendChild(hypBlockEl(run.hypothesis));
-  if (run.rounds && run.rounds.length) { m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`)); run.rounds.forEach((r) => m.appendChild(roundEl(r))); }
+  if (run.rounds && run.rounds.length) { m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`)); run.rounds.forEach((r, i) => m.appendChild(roundEl(r, i === run.rounds.length - 1))); }
   if (run.designs && run.designs.length) {
     state._hypSource = { hyp_id: run.id, question: run.question };   // so a queued falsifier remembers which hypothesis it came from
-    const hd = el("div", "label label-row");
-    hd.appendChild(el("span", null, "Falsifier designs — propose to the airlock"));
-    const all = el("button", "queue-all", `Queue all ${run.designs.length} → airlock`);
-    all.onclick = async () => {                                      // one atomic action, at the Council's proposed scale
-      all.disabled = true; all.textContent = "Queuing panel…";
-      const res = await postJSON("/api/propose_panel", { hyp_id: run.id, question: run.question });
-      all.disabled = false; all.textContent = `Queue all ${run.designs.length} → airlock`;
-      if (res.error) { alert(res.error); return; }
-      await refreshQueue(); openDrawer("queue");
-    };
-    hd.appendChild(all); m.appendChild(hd);
-    run.designs.forEach((dv, i) => m.appendChild(designEl(dv, i)));
+    m.appendChild(el("div", "label", "Falsifier panel"));
+    m.appendChild(designTable(run));
   }
   if (run.status === "done" && run.hypothesis && run.hypothesis.claim) {
     const ho = el("div", "hyp-handover");

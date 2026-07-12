@@ -251,6 +251,16 @@ async def hypotheses_list(request):
 async def hypothesis_get(request):
     rid = request.query_params.get("id")
     run = HYPOTHESES.get(rid) if rid else None
+    if run and run.get("designs"):   # tag each falsifier with whether the corpus already has it (the panel table's badge)
+        try:
+            from cellarium import manifest
+            from cellarium.model import Design
+            for dv in run["designs"]:
+                d = Design(perturbation=dv.get("perturbation", "wildtype"), condition=dv.get("condition"),
+                           timeline=dv.get("timeline"), params=dv.get("params") or {})
+                dv["in_corpus"] = manifest.has_run(d)
+        except Exception:
+            pass
     return JSONResponse(run if run else {"error": "not found"}, status_code=(200 if run else 404))
 
 

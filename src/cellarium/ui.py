@@ -46,10 +46,23 @@ def hypothesis_view(hyp) -> dict:
     if hyp is None:
         return {}
     view = {"brief": hyp.brief() if hasattr(hyp, "brief") else str(hyp)}
-    for attr in ("claim", "h1", "h0", "predicted_effect", "falsifier", "rivals"):
+    for attr in ("claim", "h1", "h0", "predicted_effect"):
         v = getattr(hyp, attr, None)
         if v:
             view[attr] = str(v)
+    # falsifier + rivals as STRUCTURED objects, not str() — the interface renders the decisive test as human prose
+    # (measured channel, reference, decision rule), never the disconfirm() call signature it used to stringify to.
+    fals = getattr(hyp, "falsifier", None)
+    if fals:
+        view["falsifier"] = fals if isinstance(fals, str) else {
+            "target": getattr(fals, "target", ""), "reference": getattr(fals, "reference", ""),
+            "channel": getattr(fals, "channel", ""), "decision_rule": getattr(fals, "decision_rule", ""),
+            "refuting_result": getattr(fals, "refuting_result", "")}
+    rivals = getattr(hyp, "rivals", None) or []
+    if rivals:
+        view["rivals"] = rivals if isinstance(rivals, str) else [
+            {"claim": getattr(r, "claim", ""), "distinguishing_result": getattr(r, "distinguishing_result", "")}
+            for r in rivals]
     ods = getattr(hyp, "operational_defs", None) or []
     if ods:
         view["operational_defs"] = [{"term": getattr(o, "term", ""), "observable": getattr(o, "observable", ""),

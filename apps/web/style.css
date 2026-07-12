@@ -392,4 +392,99 @@ svg{display:block}
 .q-clear{display:block; margin:0 0 12px auto; border:1px solid var(--line); background:var(--card); color:var(--ink-3); font:inherit; font-size:12px; border-radius:8px; padding:5px 12px; cursor:pointer}
 .q-clear:hover{border-color:var(--clay); color:var(--clay-ink)}
 
+/* ============ Hypothesis Generator redesign ============ */
+/* #1 — full-bleed single-rail takeover (covers the app sidebar so there aren't two competing rails) */
+.corpus.hypview{position:fixed; inset:0; z-index:35}
+.hyp-seg{position:relative; display:flex; background:var(--line-2); border-radius:10px; padding:3px; margin-bottom:12px}
+.hyp-seg .hyp-seg-thumb{position:absolute; top:3px; bottom:3px; width:calc(50% - 3px); background:var(--card); border-radius:8px; box-shadow:var(--shadow); transition:transform .18s ease}
+.hyp-seg .hyp-seg-thumb.l{transform:translateX(0)} .hyp-seg .hyp-seg-thumb.r{transform:translateX(100%)}
+.hyp-seg button{position:relative; z-index:1; flex:1; border:0; background:none; color:var(--ink-2); font:inherit; font-size:12.5px; font-weight:600; padding:7px 6px; border-radius:8px; cursor:pointer; transition:color .15s}
+.hyp-seg button.on{color:var(--ink)}
+.hrc-cw{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:1px 6px; border-radius:6px; background:var(--clay-tint); color:var(--clay-ink)}
+
+/* #4 — spec card */
+.spec{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow)}
+.spec-k{font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.spec-claim{padding:15px 18px; border-bottom:1px solid var(--line-2)}
+.spec-claim p{margin:6px 0 0; font-family:var(--serif); font-size:17px; line-height:1.44; color:var(--ink)}
+.spec-hh{display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--line-2)}
+.spec-hh .hh-cell{padding:14px 18px}
+.spec-hh .hh-cell.h1{border-right:1px solid var(--line-2)}
+.hh-tag{display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:.03em; padding:2px 9px; border-radius:999px; margin-bottom:7px}
+.hh-cell.h1 .hh-tag{color:var(--blue); background:var(--blue-tint)}
+.hh-cell.h0 .hh-tag{color:var(--ink-2); background:var(--line-2)}
+.spec-hh .hh-cell p{margin:0; font-size:13px; line-height:1.5; color:var(--ink-2)}
+.spec-pred{padding:14px 18px; border-bottom:1px solid var(--line-2)}
+.spec-pred p{margin:5px 0 0; font-size:13px; line-height:1.5; color:var(--ink-2)}
+.falsi{padding:15px 18px; background:linear-gradient(180deg,var(--clay-tint),transparent); border-bottom:1px solid var(--line-2)}
+.falsi-k{display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--clay-ink); margin-bottom:9px}
+.falsi-body{display:flex; flex-direction:column; gap:7px}
+.falsi-line{margin:0; font-size:13px; line-height:1.5; color:var(--ink)}
+.falsi-line b{font-weight:600}
+.falsi-line.refute{color:var(--ink-2)}
+.falsi-line .fl{font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); margin-right:6px}
+.falsi-copy{margin-top:11px; border:1px solid var(--line); background:var(--card); color:var(--ink-2); font:inherit; font-size:11.5px; font-weight:600; border-radius:8px; padding:6px 11px; cursor:pointer; transition:.14s}
+.falsi-copy:hover{border-color:var(--clay); color:var(--clay-ink)}
+.spec-acc{border-top:1px solid var(--line-2)}
+.spec-acc > summary{list-style:none; padding:12px 18px; display:flex; align-items:center; gap:9px; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; user-select:none}
+.spec-acc > summary::-webkit-details-marker{display:none}
+.spec-acc > summary .chev{color:var(--ink-3); transition:transform .18s; flex:0 0 auto}
+.spec-acc[open] > summary .chev{transform:rotate(90deg)}
+.spec-acc .acc-cnt{color:var(--ink-3); font-weight:500; font-size:12px}
+.spec-acc-body{padding:0 18px 14px 39px; display:flex; flex-direction:column; gap:9px}
+.rival b{display:block; font-size:12.5px; color:var(--ink); font-weight:600; line-height:1.45}
+.rival .rival-disc{display:block; font-size:12px; color:var(--blue); margin-top:2px; line-height:1.45}
+.def-item{font-size:12.5px; color:var(--ink-2); line-height:1.5}.def-item b{color:var(--ink)}
+.assum-item{font-size:12.5px; color:var(--ink-2); line-height:1.5; padding-left:14px; position:relative}
+.assum-item::before{content:"·"; position:absolute; left:4px; color:var(--clay); font-weight:700}
+
+/* #2 + #3 — honest rounds + objection threads */
+.c-round.held{border-color:color-mix(in srgb,var(--amber) 40%,var(--line))}
+.round-head{display:flex; align-items:center; gap:10px; margin-bottom:9px}
+.round-head .round-n{font-family:var(--serif); font-size:14.5px; font-weight:600; color:var(--ink); text-transform:none; letter-spacing:0; margin:0}
+.round-outcome{margin-left:auto; font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:999px}
+.round-outcome.pass{color:var(--green); background:var(--green-tint)}
+.round-outcome.hold{color:var(--amber); background:var(--amber-tint)}
+.obj-thread{border:1px solid var(--line); border-radius:9px; margin-top:7px; overflow:hidden}
+.obj-thread > summary{list-style:none; display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer; user-select:none}
+.obj-thread > summary::-webkit-details-marker{display:none}
+.obj-sev{flex:0 0 auto; font-size:9.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:2px 6px; border-radius:5px}
+.obj-sev.substantive{color:var(--red); background:var(--red-tint)} .obj-sev.minor{color:var(--ink-2); background:var(--line-2)}
+.obj-type{flex:0 0 auto; font-family:var(--mono); font-size:10.5px; color:var(--ink-3)}
+.obj-title{flex:1; min-width:0; font-size:12px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.obj-status{flex:0 0 auto; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px}
+.obj-status.carried{color:var(--amber); background:var(--amber-tint)}
+.obj-full{padding:0 11px 11px; font-size:12.5px; color:var(--ink-2); line-height:1.5; border-top:1px solid var(--line-2); padding-top:9px}
+
+/* #5 — falsifier panel as a table */
+.panel{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow)}
+.panel-head{display:flex; align-items:center; gap:11px; padding:11px 16px; border-bottom:1px solid var(--line-2); flex-wrap:wrap}
+.panel-head h3{font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin:0}
+.panel-sum{font-size:12px; color:var(--ink-3); flex:1}
+.panel-filter{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); cursor:pointer; user-select:none}
+.panel-filter input{accent-color:var(--clay)}
+.panel-tbl{width:100%; overflow-x:auto}
+.panel-tbl table{width:100%; border-collapse:collapse; font-size:13px}
+.panel-tbl thead th{text-align:left; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); font-weight:700; padding:8px 16px; border-bottom:1px solid var(--line-2)}
+.panel-tbl th.num, .panel-tbl td.num{text-align:center; white-space:nowrap; font-variant-numeric:tabular-nums}
+.panel-tbl tbody tr{border-bottom:1px solid var(--line-2)} .panel-tbl tbody tr:last-child{border-bottom:0}
+.panel-tbl tbody tr.hide{display:none}
+.panel-tbl td{padding:9px 16px; vertical-align:middle}
+.panel-tbl .d-label{font-family:var(--mono); font-size:12px; color:var(--ink); font-weight:600}
+.panel-tbl .d-role{font-size:10.5px; color:var(--ink-3); margin-top:1px}
+.panel-tbl .d-role.ref{color:var(--blue)} .panel-tbl .d-role.ctrl{color:var(--clay-ink)}
+.panel-tbl td.num{color:var(--ink-2)}
+.incorp{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap}
+.incorp.yes{color:var(--green); background:var(--green-tint)} .incorp.no{color:var(--amber); background:var(--amber-tint)}
+.panel-tbl .act-cell{text-align:right}
+.row-q{border:1px solid var(--line); background:var(--card); color:var(--ink-2); font:inherit; font-size:11.5px; font-weight:600; border-radius:8px; padding:5px 11px; cursor:pointer; transition:.14s}
+.row-q:hover{border-color:var(--clay); color:var(--clay-ink)}
+.row-q.queued{background:var(--green-tint); color:var(--green); border-color:transparent; cursor:default}
+.act-note{font-size:11px; color:var(--ink-3); font-style:italic}
+
+@media(max-width:720px){
+  .spec-hh{grid-template-columns:1fr}
+  .spec-hh .hh-cell.h1{border-right:0; border-bottom:1px solid var(--line-2)}
+  .hyp-runs{flex-basis:200px}
+}
 @media(max-width:860px){.sidebar{display:none}}
