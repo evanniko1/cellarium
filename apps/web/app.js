@@ -759,7 +759,9 @@ function closeCorpus() { $("#corpusView").classList.remove("open"); $("#corpusBt
 async function openHyp() {
   $("#hypView").classList.add("open"); $("#hypBtn").classList.add("active");
   await loadHypRuns();
-  if (!state.hypActive) newHypComposer();
+  if (state.hypActive) return;                                    // already viewing a run — leave it
+  if (state.hypRuns && state.hypRuns.length) viewHypRun(state.hypRuns[0].id);   // land on the latest run's detail
+  else newHypComposer();                                         // no runs yet — the composer ("+ New hypothesis" also opens it)
 }
 function closeHyp() { $("#hypView").classList.remove("open"); $("#hypBtn").classList.remove("active"); }
 async function loadHypRuns(activeId) {
