@@ -24,6 +24,7 @@ import json
 import queue
 import sys
 import threading
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -35,6 +36,18 @@ from starlette.staticfiles import StaticFiles
 
 WEB = Path(__file__).resolve().parent / "web"
 
+# user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults)
+MODELS = [
+    {"id": "claude-opus-4-8", "label": "Opus 4.8", "note": "most capable"},
+    {"id": "claude-sonnet-4-5", "label": "Sonnet 4.5", "note": "balanced (default)"},
+    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5", "note": "fastest"},
+]
+DEFAULT_MODEL = "claude-sonnet-4-5"
+
+# in-process conversation memory: session_id -> {messages, model, used_council}. This is what makes the chat
+# remember — the same messages list carries every prior turn (see agent.converse).
+SESSIONS: dict = {}
+
 
 def _jsonsafe(o):
     return json.loads(json.dumps(o, default=str))
@@ -42,33 +55,47 @@ def _jsonsafe(o):
 
 # ---------------------------------------------------------------- the investigation stream
 async def investigate(request):
+    """One turn of the conversation. First turn (new session_id) optionally runs the Council; follow-up turns
+    continue the SAME agent message history (memory). Streams: council_round* -> hypothesis? -> tool* -> answer."""
     body = await request.json()
     question = (body.get("question") or "").strip()
+    sid = body.get("session_id") or ("s_" + uuid.uuid4().hex[:8])
     use_council = bool(body.get("use_council", True))
+    model = body.get("model") or DEFAULT_MODEL
     if not question:
         return JSONResponse({"error": "empty question"}, status_code=400)
 
     ev: "queue.Queue" = queue.Queue()
 
     def work():
-        from cellarium import orchestrate, ui
+        from cellarium import agent, council, ui
+        sess = SESSIONS.get(sid)
+        first_turn = sess is None
         trace: list = []
-
-        def on_hyp(h):
-            from cellarium import ui as _ui
-            view = _ui.hypothesis_view(h)
-            view["candidate_designs"] = [_ui.design_view(d)
-                                         for d in (getattr(h, "candidate_designs", None) or [])]
-            ev.put(("hypothesis", view))
 
         def on_tool(name, inp, out):
             trace.append((name, inp, out))
             ev.put(("tool", {"tool": name, "input": _jsonsafe(inp), "output": _jsonsafe(out)}))
 
         try:
-            inv = orchestrate.investigate(question, use_council=use_council,
-                                          on_hypothesis=on_hyp, on_tool=on_tool, verbose=False)
-            ev.put(("answer", {"answer": inv.answer, "trust": ui.trust_signals(trace)}))
+            if first_turn:
+                hyp = None
+                if use_council:
+                    hyp = council.deliberate(question, verbose=False,
+                                             on_round=lambda r: ev.put(("council_round", _jsonsafe(r))))
+                    view = ui.hypothesis_view(hyp)
+                    view["candidate_designs"] = [ui.design_view(d)
+                                                 for d in (getattr(hyp, "candidate_designs", None) or [])]
+                    ev.put(("hypothesis", view))
+                messages = [{"role": "user", "content": agent.first_user_content(question, hyp)}]
+                sess = {"messages": messages, "model": model, "used_council": use_council}
+                SESSIONS[sid] = sess
+            else:
+                sess["messages"].append({"role": "user", "content": question})   # continue the conversation
+                sess["model"] = model
+            answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool, verbose=False)
+            ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace),
+                              "session_id": sid, "model": sess["model"], "first_turn": first_turn}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
             ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",
                               "hint": "Live runs need ANTHROPIC_API_KEY set (and Docker up for deep reads)."}))
@@ -86,6 +113,10 @@ async def investigate(request):
                 break
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+def models_list(request):
+    return JSONResponse({"models": MODELS, "default": DEFAULT_MODEL})
 
 
 # ---------------------------------------------------------------- the experiment loop (airlock)
@@ -143,6 +174,7 @@ def index(request):
 routes = [
     Route("/", index),
     Route("/api/investigate", investigate, methods=["POST"]),
+    Route("/api/models", models_list, methods=["GET"]),
     Route("/api/queue", queue_list, methods=["GET"]),
     Route("/api/propose", propose, methods=["POST"]),
     Route("/api/approve", approve, methods=["POST"]),

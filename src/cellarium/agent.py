@@ -59,26 +59,47 @@ SYSTEM = (
 )
 
 
-def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True, on_tool=None) -> str:
+def first_user_content(question: str, hypothesis=None) -> str:
+    """The opening user turn. With a Council hypothesis, hand the agent the operationalized brief (never a result —
+    the docs/SOCRATIC_COUNCIL.md quarantine); the agent still does ALL grounding itself."""
+    if hypothesis is None:
+        return question
+    brief = hypothesis.brief() if hasattr(hypothesis, "brief") else str(hypothesis)
+    return (f"{brief}\n\nTest this hypothesis against the corpus using the tools: survey first, then read "
+            f"exactly the falsifier's channel(s), seek disconfirmation, and report whether the evidence "
+            f"supports or refutes it — grounding every number in a tool result.")
+
+
+def _system_blocks():
+    # prompt caching: the (long, static) system prompt is a cache breakpoint — reused across every turn of a
+    # conversation, so we pay to process it once, not on every follow-up.
+    return [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]
+
+
+def _cached_tools():
+    # cache the tool definitions too (they never change) by marking the final tool as a breakpoint.
+    ts = [dict(t) for t in tools.TOOLS]
+    if ts:
+        ts[-1] = {**ts[-1], "cache_control": {"type": "ephemeral"}}
+    return ts
+
+
+def converse(messages: list, *, model: str | None = None, on_tool=None, max_turns: int = 8,
+             verbose: bool = False) -> str:
+    """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
+    in place — appending the assistant + tool_result turns — so the caller can persist it for a MULTI-TURN
+    conversation. Returns the final assistant text. This is what makes the chat remember: the same messages list
+    carries prior turns, and prompt caching (system + tools) keeps the growing prefix cheap."""
     from . import rigor
 
-    rigor.reset()  # fresh coverage tracking per question
+    rigor.reset()  # fresh coverage tracking per user turn
     client = anthropic.Anthropic()
-    if hypothesis is not None:
-        # The Socratic Council has already operationalized the question into a falsifiable hypothesis; hand the
-        # grounded agent that brief instead of the raw string. The agent still does ALL grounding itself — the
-        # Council supplies a sharpened question, never a result (the docs/SOCRATIC_COUNCIL.md quarantine).
-        brief = hypothesis.brief() if hasattr(hypothesis, "brief") else str(hypothesis)
-        first = (f"{brief}\n\nTest this hypothesis against the corpus using the tools: survey first, then read "
-                 f"exactly the falsifier's channel(s), seek disconfirmation, and report whether the evidence "
-                 f"supports or refutes it — grounding every number in a tool result.")
-    else:
-        first = question
-    messages: list[dict] = [{"role": "user", "content": first}]
+    mdl = model or MODEL
+    system, tool_defs = _system_blocks(), _cached_tools()
 
     for _ in range(max_turns):
         resp = client.messages.create(
-            model=MODEL, max_tokens=1500, system=SYSTEM, tools=tools.TOOLS, messages=messages,
+            model=mdl, max_tokens=1500, system=system, tools=tool_defs, messages=messages,
         )
         messages.append({"role": "assistant", "content": resp.content})
         tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
@@ -90,10 +111,17 @@ def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = T
         for tu in tool_uses:
             out = tools.dispatch(tu.name, tu.input)
             if verbose:
-                print(f"  ⌥ {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
+                print(f"  tool {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
             if on_tool is not None:
                 on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
             results.append({"type": "tool_result", "tool_use_id": tu.id, "content": json.dumps(out)})
         messages.append({"role": "user", "content": results})
 
     return "(stopped: reached max turns)"
+
+
+def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True, on_tool=None,
+        model: str | None = None) -> str:
+    """One-shot convenience: seed a fresh conversation and run it to an answer (used by the CLI / orchestrate)."""
+    messages: list = [{"role": "user", "content": first_user_content(question, hypothesis)}]
+    return converse(messages, model=model, on_tool=on_tool, max_turns=max_turns, verbose=verbose)

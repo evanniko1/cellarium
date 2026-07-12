@@ -377,7 +377,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                labels: dict | None = None, verbose: bool = True,
                use_skeptic: bool = True, use_judge: bool = True, leak: str | None = None,
                judge_mode: str = "rubric", temperature: float | None = None,
-               adversarial_skeptic: bool = False) -> Hypothesis:
+               adversarial_skeptic: bool = False, on_round: Callable[[dict], None] | None = None) -> Hypothesis:
     """Run the elenchus and return a justification-ready Hypothesis (see module docstring).
 
     Ablation knobs (all default to the full system): `use_skeptic`/`use_judge` disable a role (proposer-only when
@@ -457,6 +457,17 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         if verbose:
             print(f"    judge -> adequate={adequate} converged={converged_signal} "
                   f"quota={total_substantive}/{quota} feasible={feasible_code}")
+
+        if on_round is not None:   # stream the debate to the interface's Council drawer (roles + this round's verdict)
+            on_round({
+                "round": rnd + 1,
+                "proposer": {"claim": cand.get("claim", ""), "h1": cand.get("h1", ""), "h0": cand.get("h0", "")},
+                "skeptic": [{"issue": o.get("issue") or o.get("user_question", ""), "severity": o.get("severity"),
+                             "type": o.get("type")} for o in objections],
+                "judge": {"falsifiable": verdict.get("falsifiable"), "specified": verdict.get("specified"),
+                          "operationalized": verdict.get("operationalized"), "discriminating": verdict.get("discriminating"),
+                          "adequate": adequate, "converged": converged_signal},
+            })
 
         open_objections = objections
         score = _score(cand, feasible_code, verdict)
