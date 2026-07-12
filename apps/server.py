@@ -36,6 +36,7 @@ from starlette.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # for the sibling `sessions` module
 from sessions import SessionStore
+import hypotheses   # dedicated Hypothesis-Generation surface — persisted Council runs (docs/HYPOTHESIS_MODE_PLAN.md)
 
 WEB = Path(__file__).resolve().parent / "web"
 
@@ -106,6 +107,7 @@ def route_model(question: str, used_council: bool) -> str:
 # durable conversation memory (SQLite, data/sessions.db): the same messages list carries every prior turn and
 # survives a server restart. This is what makes the chat remember (see agent.converse + apps/sessions.py).
 SESSIONS = SessionStore()
+HYPOTHESES = hypotheses.HypothesisStore()   # persisted Socratic Council deliberations (the Hypothesis surface)
 
 
 def _jsonsafe(o):
@@ -183,6 +185,58 @@ async def investigate(request):
                 break
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+async def hypothesize(request):
+    """Run ONE Socratic Council deliberation (blind) as a dedicated, PERSISTED Hypothesis-Generation run — the
+    Council split out of the main chat (docs/HYPOTHESIS_MODE_PLAN.md). Streams: round* -> done{run}. The whole run
+    (rounds + operationalized hypothesis + falsifier designs) is stored so the surface can re-read it and hand it
+    to Cellwright. Blind by construction: the Council never sees corpus results (the quarantine control)."""
+    body = await request.json()
+    question = (body.get("question") or "").strip()
+    model = body.get("model") or DEFAULT_MODEL
+    if not question:
+        return JSONResponse({"error": "empty question"}, status_code=400)
+
+    ev: "queue.Queue" = queue.Queue()
+
+    def work():
+        try:
+            run = hypotheses.run_council(HYPOTHESES, question, model=(None if model == "auto" else model),
+                                         on_round=lambda rid, p: ev.put(("round", _jsonsafe(p))))
+            ev.put(("done", {"run": _jsonsafe(run)}))
+        except Exception as exc:
+            ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",
+                              "hint": "Live Council runs need ANTHROPIC_API_KEY set."}))
+            ev.put(("done", {}))
+
+    threading.Thread(target=work, daemon=True).start()
+
+    async def stream():
+        loop = asyncio.get_event_loop()
+        while True:
+            kind, data = await loop.run_in_executor(None, ev.get)
+            yield json.dumps({"kind": kind, "data": data}) + "\n"
+            if kind == "done":
+                break
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+async def hypotheses_list(request):
+    return JSONResponse({"runs": HYPOTHESES.list()})
+
+
+async def hypothesis_get(request):
+    rid = request.query_params.get("id")
+    run = HYPOTHESES.get(rid) if rid else None
+    return JSONResponse(run if run else {"error": "not found"}, status_code=(200 if run else 404))
+
+
+async def hypothesis_delete(request):
+    b = await request.json()
+    HYPOTHESES.delete(b.get("id"))
+    return JSONResponse({"ok": True})
 
 
 REASONING = [
@@ -296,6 +350,10 @@ def index(request):
 routes = [
     Route("/", index),
     Route("/api/investigate", investigate, methods=["POST"]),
+    Route("/api/hypothesis", hypothesize, methods=["POST"]),          # run a Council deliberation (streams rounds, persists)
+    Route("/api/hypotheses", hypotheses_list, methods=["GET"]),       # list persisted runs (the surface's run list)
+    Route("/api/hypothesis_get", hypothesis_get, methods=["GET"]),    # full run by id
+    Route("/api/hypothesis_delete", hypothesis_delete, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
     Route("/api/session_delete", session_delete, methods=["POST"]),
     Route("/api/session_pop", session_pop, methods=["POST"]),
