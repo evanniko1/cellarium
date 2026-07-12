@@ -154,8 +154,18 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     return {"perturbation": perturbation, "designs": designs}
 
 
+def _resolve_run(p: str | None) -> str | None:
+    """A stored run path may be repo-relative (portable, current) or absolute (legacy). Return an absolute path so
+    local reads work regardless of the caller's CWD."""
+    if not p:
+        return p
+    from pathlib import Path
+    pp = Path(p)
+    return str(pp if pp.is_absolute() else (Path.cwd() / pp))
+
+
 def simout_path(result_id: str) -> str | None:
     if has_manifest():
         rows = _duck(f"SELECT simout_path FROM {_FROM} WHERE id = ?", [result_id])
-        return rows[0]["simout_path"] if rows else None
+        return _resolve_run(rows[0]["simout_path"]) if rows else None
     return None

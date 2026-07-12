@@ -68,3 +68,18 @@ def test_estimate_tokens_grows_with_content():
     small = _convo(1)
     big = _convo(20)
     assert agent._estimate_tokens(big) > agent._estimate_tokens(small) > 0
+
+
+def test_to_dict_whitelists_input_fields():
+    # a text block's output-only parsed_output / citations must be dropped (the 400 "Extra inputs" bug)
+    assert agent._to_dict({"type": "text", "text": "hi", "parsed_output": {"x": 1}, "citations": None}) == {"type": "text", "text": "hi"}
+    assert agent._to_dict({"type": "tool_use", "id": "t", "name": "survey", "input": {}, "extra": 9}) == {"type": "tool_use", "id": "t", "name": "survey", "input": {}}
+    tr = {"type": "tool_result", "tool_use_id": "t", "content": "x"}   # unknown types pass through untouched
+    assert agent._to_dict(tr) == tr
+
+
+def test_sanitize_repairs_existing_messages():
+    msgs = [{"role": "user", "content": "q"},
+            {"role": "assistant", "content": [{"type": "text", "text": "a", "parsed_output": {"bad": 1}}]}]
+    agent._sanitize(msgs)
+    assert msgs[1]["content"] == [{"type": "text", "text": "a"}]

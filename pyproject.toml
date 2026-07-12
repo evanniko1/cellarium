@@ -13,7 +13,12 @@ dependencies = [
     "numpy>=1.26",
     "duckdb>=1.0",
     "pyarrow>=15",
+    "starlette>=0.37",     # the web glass-box (apps/server.py); SQLite session store uses stdlib sqlite3
+    "uvicorn>=0.29",
 ]
+
+[project.optional-dependencies]
+hf = ["huggingface_hub>=0.24"]   # only for the corpus upload scripts (scripts/hf_*.py)
 
 [project.scripts]
 cellarium = "cellarium.cli:main"

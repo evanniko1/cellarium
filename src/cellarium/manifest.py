@@ -18,6 +18,18 @@ from pathlib import Path
 from . import qc, reader, runner
 from .model import Design, GenerationResult, SimResult
 
+
+def _portable_runpath(run_root) -> str:
+    """Repo-relative, forward-slash run path (e.g. 'runs/cellarium/<variant>/<seed>'). A stable dedup key that
+    does NOT embed the machine's absolute directory — so the distilled/public manifest can't leak it. `store`
+    resolves it back to an absolute path for local reads. Falls back to a slash-normalized path if no runs root
+    is found."""
+    parts = str(run_root).replace("\\", "/").split("/")
+    for i, c in enumerate(parts):
+        if c == "runs" or c.startswith("runs_"):
+            return "/".join(parts[i:])
+    return str(run_root).replace("\\", "/")
+
 MANIFEST_DIR = Path("data/manifest")
 
 
@@ -49,8 +61,9 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
                                            "divided": g.divided} for g in rec.generations]),
            "pathways": json.dumps(rec.pathways),   # {pathway: proteome_fraction} — surveyed as channels
            "species_panel": json.dumps(rec.species_panel),  # {monomer_id: {mean,last,series}} — per-species depth (scope A)
-           "simout_path": str(Path(run_root).resolve()),  # RESOLVED so the read-time dedup key is consistent
-           # (absolute vs relative path strings were treated as distinct runs — a dedup-fragility bug)
+           "simout_path": _portable_runpath(run_root),  # repo-RELATIVE, forward-slash: a stable dedup key that
+           # does NOT leak the machine's absolute path into the distilled/public manifest (store resolves it back
+           # to an absolute path for local reads).
            "channel_stats": json.dumps(rec.channel_stats),   # dynamics (JSON) — depth without a live read
            "series": json.dumps(rec.series),
            "media_segments": json.dumps(rec.media_segments)}
@@ -191,7 +204,7 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> d
             "seed": seed, "generations": 0, "requested_generations": generations, "crashed": True,
             "qc": "crashed", "reportable": False, "gens_reached": 0, "division_rate": 0.0, "crash_type": ctype,
             "terminal_divided": False, "n_fba_failures": 0, "note": f"sim crashed (no data): {str(exc)[:150]}",
-            "simout_path": str(run_root)}
+            "simout_path": _portable_runpath(run_root)}
 
 
 def campaign(designs: list[Design], seeds: list[int], generations: int = 1, parallel: int = 1) -> Path:

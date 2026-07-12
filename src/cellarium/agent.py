@@ -94,12 +94,33 @@ def _cached_tools():
     return ts
 
 
+# the fields each assistant block type accepts as INPUT. model_dump() also emits output-only fields (e.g. a text
+# block's parsed_output / citations) which the API rejects when the history is sent back ("Extra inputs are not
+# permitted"), so we whitelist. thinking keeps its signature (required to continue a thinking conversation).
+_INPUT_FIELDS = {
+    "text": ("type", "text"),
+    "tool_use": ("type", "id", "name", "input"),
+    "thinking": ("type", "thinking", "signature"),
+    "redacted_thinking": ("type", "data"),
+}
+
+
 def _to_dict(block):
-    """Anthropic content blocks -> plain JSON dicts, so the whole message history is serializable (SQLite
-    durability) and re-sendable to the API."""
-    if isinstance(block, dict):
+    """Anthropic content blocks -> plain, INPUT-VALID JSON dicts (SQLite-serializable + re-sendable to the API)."""
+    d = block if isinstance(block, dict) else (block.model_dump() if hasattr(block, "model_dump") else None)
+    if d is None:
         return block
-    return block.model_dump() if hasattr(block, "model_dump") else block
+    keep = _INPUT_FIELDS.get(d.get("type"))
+    return {k: d[k] for k in keep if k in d} if keep else d
+
+
+def _sanitize(messages: list) -> None:
+    """Strip output-only fields from existing assistant content in place — repairs sessions persisted before the
+    whitelist (so an in-progress conversation stops 400-ing without the user having to start over)."""
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, list):
+            m["content"] = [_to_dict(b) for b in c]
 
 
 def _prefix_cached(messages: list) -> list:
@@ -259,6 +280,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     mdl = model or MODEL
     system, tool_defs = _system_blocks(), _cached_tools()
     budget = _REASON.get(reasoning, 0)
+
+    _sanitize(messages)   # repair any output-only fields from a session saved before the input-field whitelist
 
     if _estimate_tokens(messages) > _COMPACT_TRIGGER:   # bound the growing context at the turn boundary
         before = len(messages)
