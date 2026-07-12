@@ -39,13 +39,32 @@ from sessions import SessionStore
 
 WEB = Path(__file__).resolve().parent / "web"
 
-# user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults)
+# user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults). "auto"
+# routes per turn (see route_model); an explicit pick pins that model.
+_OPUS, _SONNET, _HAIKU = "claude-opus-4-8", "claude-sonnet-4-5", "claude-haiku-4-5-20251001"
 MODELS = [
-    {"id": "claude-opus-4-8", "label": "Opus 4.8", "note": "most capable"},
-    {"id": "claude-sonnet-4-5", "label": "Sonnet 4.5", "note": "balanced (default)"},
-    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5", "note": "fastest"},
+    {"id": "auto", "label": "Auto", "note": "routes per question"},
+    {"id": _OPUS, "label": "Opus 4.8", "note": "most capable"},
+    {"id": _SONNET, "label": "Sonnet 4.5", "note": "balanced"},
+    {"id": _HAIKU, "label": "Haiku 4.5", "note": "fastest"},
 ]
-DEFAULT_MODEL = "claude-sonnet-4-5"
+DEFAULT_MODEL = "auto"
+
+# zero-cost per-turn router: reasoning-heavy questions (or a Council-framed investigation) -> Opus; simple
+# lookups / very short asks -> Haiku; everything else -> Sonnet. Explicit model choice bypasses this entirely.
+_HARD = ("why", "how does", "how do", "mechanism", "explain", "compare", "reroute", "essential", "predict",
+         "hypothes", "cause", "versus", " vs ", "trade-off", "tradeoff", "interpret", "diagnos")
+_LOOKUP = ("list", "show me", "browse", "what is", "what are", "define", "about the", "how many", "which ",
+           "tell me about", "summariz", "look up")
+
+
+def route_model(question: str, used_council: bool) -> str:
+    q = (question or "").lower()
+    if used_council or any(h in q for h in _HARD):
+        return _OPUS
+    if any(h in q for h in _LOOKUP) or len(q.split()) <= 6:
+        return _HAIKU
+    return _SONNET
 
 # durable conversation memory (SQLite, data/sessions.db): the same messages list carries every prior turn and
 # survives a server restart. This is what makes the chat remember (see agent.converse + apps/sessions.py).
@@ -75,6 +94,9 @@ async def investigate(request):
         from cellarium import agent, council, ui
         sess = SESSIONS.get(sid)
         first_turn = sess is None
+        council_signal = use_council if first_turn else bool(sess.get("used_council"))
+        routed = model == "auto"
+        chosen = route_model(question, council_signal) if routed else model   # per-turn model selection
         trace: list = []
 
         def on_tool(name, inp, out):
@@ -98,15 +120,15 @@ async def investigate(request):
                                                  for d in (getattr(hyp, "candidate_designs", None) or [])]
                     ev.put(("hypothesis", view))
                 messages = [{"role": "user", "content": agent.first_user_content(question, hyp)}]
-                sess = {"messages": messages, "model": model, "used_council": use_council, "title": question[:80]}
+                sess = {"messages": messages, "model": chosen, "used_council": use_council, "title": question[:80]}
             else:
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
-                sess["model"] = model
-            answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool, on_text=on_text,
+                sess["model"] = chosen
+            answer = agent.converse(sess["messages"], model=chosen, on_tool=on_tool, on_text=on_text,
                                      on_note=on_note, verbose=False, reasoning=reasoning)
             SESSIONS.put(sid, sess)   # write-through so the conversation survives a restart
-            ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace),
-                              "session_id": sid, "model": sess["model"], "first_turn": first_turn}))
+            ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace), "session_id": sid,
+                              "model": chosen, "routed": routed, "first_turn": first_turn}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
             ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",
                               "hint": "Live runs need ANTHROPIC_API_KEY set (and Docker up for deep reads)."}))

@@ -159,6 +159,8 @@ svg{display:block}
 .dot-pulse{width:7px;height:7px;border-radius:50%;background:var(--clay);animation:pulse 1s infinite ease-in-out}
 .compact-note{font-size:11.5px; color:var(--ink-3); background:var(--line-2); border-radius:8px; padding:5px 10px;
   display:inline-block; margin:2px 0 4px}
+.model-badge{font-size:11px; color:var(--ink-3); margin-top:6px; display:inline-flex; align-items:center; gap:5px}
+.model-badge::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--clay); opacity:.7}
 @keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 
 .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); font-weight:700}

@@ -110,7 +110,7 @@ async function send(q) {
 async function stream(question) {
   state.running = true; setSend(false);
   const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = $("#council").checked;
-  state.curTurn = { q: question, hyp: null, tools: [], answer: null, trust: null };
+  state.curTurn = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
   const turn = assistantTurn();
   turn.status(usedCouncil && firstTurn ? "Convening the Socratic Council…" : "Thinking…");
   try {
@@ -139,7 +139,11 @@ function handle(kind, data, turn) {
   else if (kind === "tool") { state.curTurn.tools.push(data); turn.tool(data); turn.status(`Calling ${data.tool}…`); }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
   else if (kind === "note") { turn.note(data.message); }
-  else if (kind === "answer") { state.curTurn.answer = data.answer; state.curTurn.trust = data.trust || {}; turn.answer(data); if (data.model) setModelValue(data.model); refreshQueue(); }
+  else if (kind === "answer") {
+    state.curTurn.answer = data.answer; state.curTurn.trust = data.trust || {};
+    state.curTurn.model = data.model; state.curTurn.routed = !!data.routed;
+    turn.answer(data); turn.badge(data.model, data.routed); refreshQueue();
+  }
   else if (kind === "error") { turn.error(esc(data.message) + (data.hint ? `<br><span style="opacity:.8">${esc(data.hint)}</span>` : "")); }
   else if (kind === "done") { turn.done(); }
 }
@@ -167,12 +171,14 @@ function assistantTurn(replay) {
     },
     tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scrollBottom(); },
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scrollBottom(); },
+    badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
   };
 }
 function replayTurn(t) {
   addUserBubble(t.q); const a = assistantTurn(true);
-  if (t.hyp) a.hyp(t.hyp); (t.tools || []).forEach((d) => a.tool(d)); if (t.answer != null) a.answer({ answer: t.answer, trust: t.trust || {} });
+  if (t.hyp) a.hyp(t.hyp); (t.tools || []).forEach((d) => a.tool(d));
+  if (t.answer != null) { a.answer({ answer: t.answer, trust: t.trust || {} }); if (t.model) a.badge(t.model, t.routed); }
 }
 function trailScaffold() { return { head: el("div", "trail-head", `<span class="label">Grounded reasoning</span><span class="sub">every number comes from a real run</span>`), line: el("div", "trail-line") }; }
 function verdictOf(o) {
@@ -348,15 +354,14 @@ async function postJSON(url, body) { return (await fetch(url, { method: "POST", 
 async function loadModels() {
   try {
     const j = await (await fetch("/api/models")).json();
-    const ms = $("#model"); ms.innerHTML = "";
-    j.models.forEach((m) => { const o = el("option"); o.value = m.id; o.textContent = m.label; o.title = m.note; ms.appendChild(o); });
+    const ms = $("#model"); ms.innerHTML = ""; state.modelLabels = {};
+    j.models.forEach((m) => { const o = el("option"); o.value = m.id; o.textContent = m.label; o.title = m.note; ms.appendChild(o); state.modelLabels[m.id] = m.label; });
     state.model = j.default; ms.value = j.default; ms.onchange = () => (state.model = ms.value);
     const rs = $("#reasoning"); rs.innerHTML = "";
     (j.reasoning || []).forEach((r) => { const o = el("option"); o.value = r.id; o.textContent = r.label; rs.appendChild(o); });
     state.reasoning = j.reasoning_default || "none"; rs.value = state.reasoning; rs.onchange = () => (state.reasoning = rs.value);
   } catch { /* offline */ }
 }
-function setModelValue(id) { const ms = $("#model"); if (ms && [...ms.options].some((o) => o.value === id)) { ms.value = id; state.model = id; } }
 function autosize() { const t = $("#q"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }
 
 $("#send").onclick = () => send();
