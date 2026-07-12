@@ -221,11 +221,26 @@ function renderCouncil() {
   rounds.forEach((r) => b.appendChild(roundEl(r)));
   if (designs.length) { b.appendChild(el("div", "label", "Falsifier designs — propose to the airlock")); designs.forEach((dv, i) => b.appendChild(designEl(dv, i))); }
 }
+function fillExpandable(container, text, limit) {
+  limit = limit || 220; text = text || "";
+  if (text.length <= limit) { container.appendChild(document.createTextNode(text)); return; }
+  const span = el("span"); span.textContent = text.slice(0, limit - 1) + "…";
+  const btn = el("button", "rt-more", "show full"); let open = false;
+  btn.onclick = () => { open = !open; span.textContent = open ? text : text.slice(0, limit - 1) + "…"; btn.textContent = open ? "show less" : "show full"; };
+  container.append(span, document.createTextNode(" "), btn);
+}
 function roundEl(r) {
   const c = el("div", "c-round"); c.appendChild(el("div", "rn", `Round ${r.round}`));
-  const p = el("div", "role proposer", `<div class="role-name">Proposer</div>`); p.appendChild(el("div", "role-text", esc(trunc(r.proposer.claim || "", 220)))); c.appendChild(p);
+  const p = el("div", "role proposer", `<div class="role-name">Proposer</div>`);
+  let full = r.proposer.claim || "";
+  if (r.proposer.h1) full += "\n\nH1: " + r.proposer.h1;
+  if (r.proposer.h0) full += "\nH0: " + r.proposer.h0;
+  const pt = el("div", "role-text"); fillExpandable(pt, full, 220); p.appendChild(pt); c.appendChild(p);
   const s = el("div", "role skeptic", `<div class="role-name">Skeptic · ${(r.skeptic || []).length} objection(s)</div>`);
-  (r.skeptic || []).slice(0, 4).forEach((o) => s.appendChild(el("div", "obj" + (o.severity === "substantive" ? " substantive" : ""), esc(trunc(o.issue || "", 150))))); c.appendChild(s);
+  (r.skeptic || []).forEach((o) => {
+    const div = el("div", "obj" + (o.severity === "substantive" ? " substantive" : "")); fillExpandable(div, o.issue || "", 160); s.appendChild(div);
+  });
+  c.appendChild(s);
   const j = el("div", "role judge", `<div class="role-name">Judge</div>`), g = el("div", "verdict-grid");
   ["falsifiable", "specified", "operationalized", "discriminating"].forEach((k) => { const y = !!r.judge[k]; g.appendChild(el("span", "vpill " + (y ? "yes" : "no"), (y ? "✓ " : "✗ ") + k)); });
   j.appendChild(g); c.appendChild(j); return c;
