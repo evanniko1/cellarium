@@ -37,3 +37,6 @@ paper/*.out
 paper/missfont.log
 # scratch campaign scripts
 scratchpad_campaign.py*
+
+# local durable chat sessions (user data)
+data/sessions.db

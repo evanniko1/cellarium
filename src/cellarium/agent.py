@@ -94,6 +94,33 @@ def _cached_tools():
     return ts
 
 
+def _to_dict(block):
+    """Anthropic content blocks -> plain JSON dicts, so the whole message history is serializable (SQLite
+    durability) and re-sendable to the API."""
+    if isinstance(block, dict):
+        return block
+    return block.model_dump() if hasattr(block, "model_dump") else block
+
+
+def _prefix_cached(messages: list) -> list:
+    """Incremental prompt caching of the growing CONVERSATION prefix: mark the last content block as a cache
+    breakpoint so every turn reuses the cached prefix (system + tools are already cached separately -> 3 of the
+    4 allowed breakpoints). Returns a shallow copy for the request; the stored history stays free of the marker."""
+    if not messages:
+        return messages
+    last = messages[-1]
+    content = last.get("content")
+    if isinstance(content, str):
+        marked = {"role": last["role"], "content": [{"type": "text", "text": content, "cache_control": {"type": "ephemeral"}}]}
+    elif isinstance(content, list) and content and isinstance(content[-1], dict):
+        blocks = list(content)
+        blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
+        marked = {"role": last["role"], "content": blocks}
+    else:
+        return messages
+    return messages[:-1] + [marked]
+
+
 # extended-thinking budgets (reasoning strength). budget_tokens must be >=1024 and < max_tokens.
 _REASON = {"none": 0, "low": 2048, "high": 8000}
 _TOOL_CAP = 6000   # trim a bulky tool_result before it re-enters the growing context (e.g. species panels)
@@ -240,7 +267,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             on_note(f"Compacted {before - len(messages)} earlier messages into a summary to keep the context lean.")
 
     for _ in range(max_turns):
-        kw = dict(model=mdl, system=system, tools=tool_defs, messages=messages)
+        kw = dict(model=mdl, system=system, tools=tool_defs, messages=_prefix_cached(messages))
         if budget:
             kw["thinking"] = {"type": "enabled", "budget_tokens": budget}
             kw["max_tokens"] = budget + 2000
@@ -256,7 +283,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                 resp = _run_turn(client, kw, on_text)
             else:
                 raise
-        messages.append({"role": "assistant", "content": resp.content})
+        messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
         tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
 
         if resp.stop_reason != "tool_use" or not tool_uses:

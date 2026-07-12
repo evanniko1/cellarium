@@ -34,6 +34,9 @@ from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # for the sibling `sessions` module
+from sessions import SessionStore
+
 WEB = Path(__file__).resolve().parent / "web"
 
 # user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults)
@@ -44,9 +47,9 @@ MODELS = [
 ]
 DEFAULT_MODEL = "claude-sonnet-4-5"
 
-# in-process conversation memory: session_id -> {messages, model, used_council}. This is what makes the chat
-# remember — the same messages list carries every prior turn (see agent.converse).
-SESSIONS: dict = {}
+# durable conversation memory (SQLite, data/sessions.db): the same messages list carries every prior turn and
+# survives a server restart. This is what makes the chat remember (see agent.converse + apps/sessions.py).
+SESSIONS = SessionStore()
 
 
 def _jsonsafe(o):
@@ -95,13 +98,13 @@ async def investigate(request):
                                                  for d in (getattr(hyp, "candidate_designs", None) or [])]
                     ev.put(("hypothesis", view))
                 messages = [{"role": "user", "content": agent.first_user_content(question, hyp)}]
-                sess = {"messages": messages, "model": model, "used_council": use_council}
-                SESSIONS[sid] = sess
+                sess = {"messages": messages, "model": model, "used_council": use_council, "title": question[:80]}
             else:
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
                 sess["model"] = model
             answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool, on_text=on_text,
                                      on_note=on_note, verbose=False, reasoning=reasoning)
+            SESSIONS.put(sid, sess)   # write-through so the conversation survives a restart
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace),
                               "session_id": sid, "model": sess["model"], "first_turn": first_turn}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
@@ -137,7 +140,7 @@ def models_list(request):
 
 async def session_delete(request):
     b = await request.json()
-    SESSIONS.pop(b.get("session_id"), None)   # drop the in-process conversation memory
+    SESSIONS.delete(b.get("session_id"))   # drop the persisted conversation memory
     return JSONResponse({"ok": True})
 
 
