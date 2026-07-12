@@ -110,6 +110,36 @@ svg{display:block}
   font:inherit; font-size:13px; cursor:pointer; transition:.14s}
 .chip:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
 .hidden{display:none !important}
+.new-btn.subtle{color:var(--ink-2); font-weight:500; margin-top:-8px}
+.new-btn.subtle:hover{color:var(--clay-ink)}
+
+/* streamed answer: a blinking cursor while text arrives */
+.answer-body.live::after{content:"▍"; color:var(--clay); animation:blink 1s steps(1) infinite; margin-left:1px}
+@keyframes blink{50%{opacity:0}}
+
+/* corpus browser overlay */
+.corpus{position:absolute; inset:56px 0 0 0; background:var(--paper); z-index:25; display:none; flex-direction:column}
+.corpus.open{display:flex}
+.corpus-head{flex:0 0 auto; display:flex; align-items:center; gap:14px; padding:14px 22px; border-bottom:1px solid var(--line)}
+.corpus-title{font-family:var(--serif); font-size:19px; font-weight:500}
+.corpus-count{color:var(--ink-3); font-size:13px; font-family:var(--sans)}
+.corpus-search{flex:1; max-width:420px; font:inherit; font-size:14px; border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:var(--card)}
+.corpus-search:focus{outline:0; border-color:#DDBBA9; box-shadow:0 0 0 3px var(--clay-tint)}
+.corpus-body{flex:1; overflow-y:auto; padding:14px 22px 40px; display:flex; flex-direction:column; gap:6px; max-width:960px; width:100%; margin:0 auto}
+.res{background:var(--card); border:1px solid var(--line); border-radius:11px; overflow:hidden}
+.res summary{list-style:none; cursor:pointer; display:flex; align-items:center; gap:12px; padding:11px 14px; font-size:13.5px}
+.res summary::-webkit-details-marker{display:none}
+.res .r-pert{font-weight:700; color:var(--ink); min-width:150px}
+.res .r-pert .pert{color:var(--clay-ink)}
+.res .r-cond{color:var(--ink-2); font-family:var(--mono); font-size:12px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.res .r-tags{display:flex; gap:6px; flex:0 0 auto}
+.res .tag{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:14px; text-transform:uppercase; letter-spacing:.03em; background:var(--line-2); color:var(--ink-2)}
+.res .tag.oos{background:var(--blue-tint); color:var(--blue)} .res .tag.qc-bad{background:var(--red-tint); color:var(--red)} .res .tag.qc-ok{background:var(--green-tint); color:var(--green)}
+.res .avail{border-top:1px solid var(--line-2); padding:12px 14px; background:var(--paper-2); font-size:12.5px; color:var(--ink-2); line-height:1.55}
+.res .avail .a-row{margin:6px 0; display:flex; gap:8px; align-items:baseline}
+.res .avail .a-lbl{font-weight:700; color:var(--ink); min-width:96px; flex:0 0 auto}
+.res .avail code{display:block; margin-top:4px; font-family:var(--mono); font-size:11px; background:var(--card); border:1px solid var(--line); border-radius:7px; padding:8px 10px; color:var(--ink); white-space:pre-wrap; word-break:break-all}
+.res .avail .yes{color:var(--green); font-weight:600} .res .avail .no{color:var(--ink-3)}
 
 /* ---------------- chat turns ---------------- */
 .turn{display:flex; flex-direction:column; gap:10px; animation:rise .3s ease}

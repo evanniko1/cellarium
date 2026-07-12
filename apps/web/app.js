@@ -8,7 +8,7 @@ const trunc = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…
 const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
 const KEY = "cellarium.invs";
 
-const state = { invs: [], cur: null, running: false, model: null, reasoning: "none", poll: null, curTurn: null };
+const state = { invs: [], cur: null, running: false, model: null, reasoning: "none", poll: null, curTurn: null, results: null };
 
 // ---------------- markdown ----------------
 function inlineMd(t) {
@@ -137,6 +137,7 @@ function handle(kind, data, turn) {
   if (kind === "council_round") { c.rounds.push(data); renderCouncil(); bumpBadge("councilBadge", c.rounds.length); turn.status(`Council deliberating — round ${data.round}…`); }
   else if (kind === "hypothesis") { c.hyp = data; c.designs = data.candidate_designs || []; renderCouncil(); state.curTurn.hyp = { claim: data.claim }; turn.hyp(data); turn.status("Grounding against the corpus…"); }
   else if (kind === "tool") { state.curTurn.tools.push(data); turn.tool(data); turn.status(`Calling ${data.tool}…`); }
+  else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
   else if (kind === "answer") { state.curTurn.answer = data.answer; state.curTurn.trust = data.trust || {}; turn.answer(data); if (data.model) setModelValue(data.model); refreshQueue(); }
   else if (kind === "error") { turn.error(esc(data.message) + (data.hint ? `<br><span style="opacity:.8">${esc(data.hint)}</span>` : "")); }
   else if (kind === "done") { turn.done(); }
@@ -148,10 +149,13 @@ function assistantTurn(replay) {
   const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span>`);
   const hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
   root.append(statusEl, hypSlot, trailSlot, ansSlot);
-  $("#thread").appendChild(root); let line = null;
+  $("#thread").appendChild(root); let line = null, liveEl = null;
+  const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); } return liveEl.querySelector(".answer-body"); };
+  const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; } };
   return {
     status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scrollBottom(); },
     done() { statusEl.remove(); },
+    text(delta) { liveBody().textContent += delta; scrollBottom(); },   // token streaming
     hyp(v) {
       const c = el("div", "hyp-chip");
       const top = el("div", "hc-top", `<span class="label">Socratic Council · framed before any data</span>`);
@@ -159,9 +163,9 @@ function assistantTurn(replay) {
       if (v.claim) c.appendChild(el("div", "hc-claim", `<span class="lbl">Hypothesis</span>${esc(v.claim)}`));
       hypSlot.appendChild(c); scrollBottom();
     },
-    tool(d) { if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scrollBottom(); },
-    answer(d) { ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scrollBottom(); },
-    error(msg) { statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
+    tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scrollBottom(); },
+    answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scrollBottom(); },
+    error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
   };
 }
 function replayTurn(t) {
@@ -269,6 +273,70 @@ function qitem(r) {
   return it;
 }
 
+// ---------------- corpus browser ----------------
+async function openCorpus() {
+  $("#corpusView").classList.add("open");
+  if (state.results === null) {
+    $("#corpusBody").innerHTML = `<div class="empty">Loading the corpus…</div>`;
+    try { const j = await (await fetch("/api/results")).json(); state.results = j.results || []; }
+    catch { state.results = []; }
+  }
+  renderCorpus($("#corpusSearch").value);
+}
+function closeCorpus() { $("#corpusView").classList.remove("open"); }
+function renderCorpus(filter) {
+  const f = (filter || "").trim().toLowerCase();
+  const rows = (state.results || []).filter((r) =>
+    !f || `${r.perturbation} ${r.condition || ""} ${r.label || ""} ${r.id}`.toLowerCase().includes(f));
+  $("#corpusCount").textContent = `${rows.length} of ${(state.results || []).length} runs`;
+  const b = $("#corpusBody"); b.innerHTML = "";
+  if (!rows.length) { b.appendChild(el("div", "empty", "No runs match that filter.")); return; }
+  rows.forEach((r) => b.appendChild(resRow(r)));
+}
+function resRow(r) {
+  const d = el("details", "res");
+  const qcBad = r.qc && r.qc !== "ok";
+  const tags = `<span class="tag ${qcBad ? "qc-bad" : "qc-ok"}">${esc(r.qc || "ok")}</span>` +
+    `<span class="tag ${r.provenance === "out_of_sample" ? "oos" : ""}">${esc((r.provenance || "").replace("_", "-") || "—")}</span>`;
+  const s = el("summary", null,
+    `<span class="r-pert"><span class="pert">${esc(r.perturbation)}</span></span>` +
+    `<span class="r-cond">${esc(r.condition || r.timeline || "—")} · seed ${esc(r.seed)} · ${esc(r.id)}</span>` +
+    `<span class="r-tags">${tags}</span>`);
+  d.appendChild(s);
+  const box = el("div", "avail", `<div class="empty" style="padding:0">Loading availability…</div>`);
+  d.appendChild(box);
+  d.addEventListener("toggle", async () => {
+    if (!d.open || d.dataset.loaded) return;
+    d.dataset.loaded = "1";
+    try {
+      const a = await (await fetch("/api/result_availability?id=" + encodeURIComponent(r.id))).json();
+      box.innerHTML = ""; box.appendChild(availView(a));
+    } catch (e) { box.innerHTML = `<span class="no">availability unavailable: ${esc(String(e))}</span>`; }
+  }, { once: false });
+  return d;
+}
+function availView(a) {
+  const wrap = el("div");
+  const alt = a.alternatives || {};
+  const local = el("div", "a-row");
+  local.innerHTML = `<span class="a-lbl">Raw local</span>` + (a.raw_local
+    ? `<span class="yes">available on this machine</span> <code>${esc(a.raw_local_path || "")}</code>`
+    : `<span class="no">not on this machine</span>`);
+  wrap.appendChild(local);
+  const hf = alt["1_download_from_hf"] || {};
+  const dl = el("div", "a-row");
+  dl.innerHTML = `<span class="a-lbl">Download (HF)</span>` + (hf.available && hf.command
+    ? `<span class="yes">on the dataset</span><code>${esc(hf.command)}</code>`
+    : `<span class="no">${esc(hf.status || "not uploaded yet")}</span>`);
+  wrap.appendChild(dl);
+  const rg = alt["2_regenerate_locally"] || {};
+  const re = el("div", "a-row");
+  re.innerHTML = `<span class="a-lbl">Regenerate</span><span>${esc((rg.how || "").split(";")[0])} — you accept the wcEcoli license by running it yourself.</span>`;
+  wrap.appendChild(re);
+  if (a.note) wrap.appendChild(el("div", "gate-why", esc(a.note)));
+  return wrap;
+}
+
 // ---------------- drawers / models / plumbing ----------------
 function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(which === "council" ? "#councilDrawer" : "#queueDrawer").classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
 function closeDrawers() { $("#scrim").classList.remove("show"); $("#councilDrawer").classList.remove("open"); $("#queueDrawer").classList.remove("open"); }
@@ -293,6 +361,9 @@ $("#send").onclick = () => send();
 $("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("#q").addEventListener("input", autosize);
 $("#newBtn").onclick = resetToHero;
+$("#corpusBtn").onclick = openCorpus;
+$("#corpusClose").onclick = closeCorpus;
+$("#corpusSearch").addEventListener("input", (e) => renderCorpus(e.target.value));
 $("#sidebarToggle").onclick = () => $("#app").classList.toggle("sidebar-collapsed");
 $("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");

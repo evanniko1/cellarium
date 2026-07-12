@@ -78,6 +78,9 @@ async def investigate(request):
             trace.append((name, inp, out))
             ev.put(("tool", {"tool": name, "input": _jsonsafe(inp), "output": _jsonsafe(out)}))
 
+        def on_text(delta):
+            ev.put(("text", {"delta": delta}))   # token streaming: forward the answer deltas as they arrive
+
         try:
             if first_turn:
                 hyp = None
@@ -94,7 +97,7 @@ async def investigate(request):
             else:
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
                 sess["model"] = model
-            answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool,
+            answer = agent.converse(sess["messages"], model=sess["model"], on_tool=on_tool, on_text=on_text,
                                      verbose=False, reasoning=reasoning)
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace),
                               "session_id": sid, "model": sess["model"], "first_turn": first_turn}))
@@ -133,6 +136,28 @@ async def session_delete(request):
     b = await request.json()
     SESSIONS.pop(b.get("session_id"), None)   # drop the in-process conversation memory
     return JSONResponse({"ok": True})
+
+
+def results_list(request):
+    """The corpus: one deduped row per run (design + qc + provenance). Backs the results browser."""
+    from cellarium import store
+    try:
+        rows = store.list_results()
+    except Exception as exc:
+        return JSONResponse({"results": [], "count": 0, "error": f"{type(exc).__name__}: {exc}"})
+    return JSONResponse({"results": rows, "count": len(rows)})
+
+
+def result_availability(request):
+    """Per-result data availability: raw-local? download-from-HF? regenerate-locally? (wraps hf.data_availability)."""
+    from cellarium import hf
+    rid = request.query_params.get("id")
+    if not rid:
+        return JSONResponse({"error": "no id"}, status_code=400)
+    try:
+        return JSONResponse(hf.data_availability(rid))
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
 
 
 # ---------------------------------------------------------------- the experiment loop (airlock)
@@ -192,6 +217,8 @@ routes = [
     Route("/api/investigate", investigate, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
     Route("/api/session_delete", session_delete, methods=["POST"]),
+    Route("/api/results", results_list, methods=["GET"]),
+    Route("/api/result_availability", result_availability, methods=["GET"]),
     Route("/api/queue", queue_list, methods=["GET"]),
     Route("/api/propose", propose, methods=["POST"]),
     Route("/api/approve", approve, methods=["POST"]),

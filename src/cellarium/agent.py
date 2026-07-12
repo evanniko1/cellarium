@@ -104,15 +104,28 @@ def _is_thinking_error(exc) -> bool:
     return "thinking" in s or "budget_tokens" in s
 
 
-def converse(messages: list, *, model: str | None = None, on_tool=None, max_turns: int = 8,
+def _run_turn(client, kw: dict, on_text):
+    """One model turn, STREAMED. Forwards text deltas to on_text (token streaming) and returns the final message
+    (with any tool_use / thinking blocks intact for the loop + history)."""
+    with client.messages.stream(**kw) as stream:
+        if on_text is not None:
+            for delta in stream.text_stream:
+                on_text(delta)
+        else:
+            stream.until_done()
+        return stream.get_final_message()
+
+
+def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, max_turns: int = 8,
              verbose: bool = False, reasoning: str = "none") -> str:
     """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
     in place — appending the assistant + tool_result turns — so the caller can persist it for a MULTI-TURN
     conversation. Returns the final assistant text. This is what makes the chat remember: the same messages list
     carries prior turns, and prompt caching (system + tools) keeps the growing prefix cheap.
 
-    reasoning ('none'|'low'|'high') enables extended thinking on models that support it (falls back to the base
-    model otherwise). The SDK retries 429/5xx with exponential backoff; bulky tool results are trimmed."""
+    on_text, if given, receives streamed answer-text deltas (token streaming). reasoning ('none'|'low'|'high')
+    enables extended thinking on models that support it (falls back to the base model otherwise). The SDK retries
+    429/5xx with exponential backoff; bulky tool results are trimmed."""
     from . import rigor
 
     rigor.reset()  # fresh coverage tracking per user turn
@@ -129,13 +142,13 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, max_turn
         else:
             kw["max_tokens"] = 1500
         try:
-            resp = client.messages.create(**kw)
+            resp = _run_turn(client, kw, on_text)
         except Exception as exc:                      # extended thinking unsupported here -> retry as base model
             if budget and _is_thinking_error(exc):
                 budget = 0
                 kw.pop("thinking", None)
                 kw["max_tokens"] = 1500
-                resp = client.messages.create(**kw)
+                resp = _run_turn(client, kw, on_text)
             else:
                 raise
         messages.append({"role": "assistant", "content": resp.content})

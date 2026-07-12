@@ -22,6 +22,10 @@
       <svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       New investigation
     </button>
+    <button class="new-btn subtle" id="corpusBtn">
+      <svg viewBox="0 0 24 24" width="15" height="15"><path d="M4 5h16M4 12h16M4 19h16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7" cy="5" r="1.4" fill="currentColor"/><circle cx="7" cy="12" r="1.4" fill="currentColor"/><circle cx="7" cy="19" r="1.4" fill="currentColor"/></svg>
+      Browse corpus
+    </button>
     <div class="nav-label">Investigations</div>
     <div class="recents" id="recents"></div>
     <div class="sidebar-foot">
@@ -85,6 +89,15 @@
       </div>
       <div class="composer-foot">Cellarium grounds every number in a real run — it does not launch simulations without your approval.</div>
     </div>
+
+    <section class="corpus" id="corpusView">
+      <header class="corpus-head">
+        <div class="corpus-title">Corpus <span class="corpus-count" id="corpusCount"></span></div>
+        <input class="corpus-search" id="corpusSearch" placeholder="Filter by gene, perturbation, condition…">
+        <button class="drawer-close" id="corpusClose">&times;</button>
+      </header>
+      <div class="corpus-body" id="corpusBody"></div>
+    </section>
   </div>
 
   <div class="scrim" id="scrim"></div>
