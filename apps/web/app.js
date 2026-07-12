@@ -536,8 +536,9 @@ function designEl(dv, i) {
   c.appendChild(el("div", "d-name", `<span class="pert">${esc(dv.perturbation)}</span>${tag ? " · " + esc(tag) : ""}`));
   c.appendChild(el("div", "d-meta", `${isKO ? "" : (genes || "control") + " · "}Council proposed ${dv.seeds}×${dv.generations} — override below`));
   const ctr = el("div", "d-controls");
-  const sS = el("div", "stepper", `<label>seeds</label>`), iS = el("input"); iS.type = "number"; iS.min = 1; iS.value = 1; sS.appendChild(iS);
-  const sG = el("div", "stepper", `<label>gens</label>`), iG = el("input"); iG.type = "number"; iG.min = 1; iG.value = 1; sG.appendChild(iG);
+  // default to the scale the Council PROPOSED (not 1×1) — a one-click queue must not silently underpower the test
+  const sS = el("div", "stepper", `<label>seeds</label>`), iS = el("input"); iS.type = "number"; iS.min = 1; iS.value = dv.seeds || 1; sS.appendChild(iS);
+  const sG = el("div", "stepper", `<label>gens</label>`), iG = el("input"); iG.type = "number"; iG.min = 1; iG.value = dv.generations || 1; sG.appendChild(iG);
   const btn = el("button", "btn primary", "Queue →");
   btn.onclick = async () => {
     btn.disabled = true; btn.textContent = "Queuing…";
@@ -720,7 +721,17 @@ function renderHypDetail(run) {
   if (run.rounds && run.rounds.length) { m.appendChild(el("div", "label", `The debate — ${run.rounds.length} round(s)`)); run.rounds.forEach((r) => m.appendChild(roundEl(r))); }
   if (run.designs && run.designs.length) {
     state._hypSource = { hyp_id: run.id, question: run.question };   // so a queued falsifier remembers which hypothesis it came from
-    m.appendChild(el("div", "label", "Falsifier designs — propose to the airlock"));
+    const hd = el("div", "label label-row");
+    hd.appendChild(el("span", null, "Falsifier designs — propose to the airlock"));
+    const all = el("button", "queue-all", `Queue all ${run.designs.length} → airlock`);
+    all.onclick = async () => {                                      // one atomic action, at the Council's proposed scale
+      all.disabled = true; all.textContent = "Queuing panel…";
+      const res = await postJSON("/api/propose_panel", { hyp_id: run.id, question: run.question });
+      all.disabled = false; all.textContent = `Queue all ${run.designs.length} → airlock`;
+      if (res.error) { alert(res.error); return; }
+      await refreshQueue(); openDrawer("queue");
+    };
+    hd.appendChild(all); m.appendChild(hd);
     run.designs.forEach((dv, i) => m.appendChild(designEl(dv, i)));
   }
   if (run.status === "done" && run.hypothesis && run.hypothesis.claim) {
@@ -750,8 +761,9 @@ function openInCellwright(run) {
     `\n\nApproach: survey the corpus for the falsifier's channel(s). If the runs the falsifier needs ALREADY EXIST, ` +
     `run the test and report support/refute, grounding every number in a tool result. If the corpus does NOT yet ` +
     `have those runs, DO NOT call the hypothesis untestable — instead propose the missing falsifier experiments to ` +
-    `the launch airlock (propose_experiment) so I can approve and run them. A hypothesis whose data doesn't exist ` +
-    `yet is a reason to RUN experiments, not grounds to reject it. Say clearly which of the two paths you're taking and why.`;
+    `the launch airlock. Queue the WHOLE panel in ONE call with propose_experiments(designs=[...]) — including the ` +
+    `discriminating controls — never one-at-a-time (that runs out of turns and drops the controls). A hypothesis ` +
+    `whose data doesn't exist yet is a reason to RUN experiments, not grounds to reject it. Say clearly which of the two paths you're taking and why.`;
   closeHyp();
   resetToHero();
   const cb = $("#council"); if (cb) cb.checked = false;   // (legacy toggle retired; the Council already framed it)

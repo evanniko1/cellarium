@@ -150,10 +150,15 @@ async def investigate(request):
 
         def on_tool(name, inp, out):
             trace.append((name, inp, out))
-            if name in ("propose_experiment", "revise_experiment") and isinstance(out, dict) and out.get("request_id"):
-                try:   # stamp the queued job with its provenance (this chat + turn) for click-to-jump-back
+            if isinstance(out, dict):
+                try:   # stamp each queued job with its provenance (this chat + turn) for click-to-jump-back
                     from cellarium import launch
-                    launch.stamp_provenance(out["request_id"], sid, question)
+                    if name in ("propose_experiment", "revise_experiment") and out.get("request_id"):
+                        launch.stamp_provenance(out["request_id"], sid, question)
+                    elif name == "propose_experiments":   # batch: stamp every request_id in the panel
+                        for r in out.get("requests") or []:
+                            if r.get("request_id"):
+                                launch.stamp_provenance(r["request_id"], sid, question)
                 except Exception:
                     pass
             ev.put(("tool", {"tool": name, "input": _jsonsafe(inp), "output": _jsonsafe(out)}))
@@ -337,6 +342,25 @@ async def propose(request):
     return JSONResponse(res)
 
 
+async def propose_panel(request):
+    """Queue an ENTIRE Council falsifier panel in ONE action, at the scale the Council proposed (not the 1x1 UI
+    default). The manual-path twin of the agent's propose_experiments — powers the surface's 'Queue all' button so
+    a 17-design panel goes in atomically instead of 17 clicks (and never half-queued). Stamps each job's origin."""
+    from cellarium import launch, tools
+    b = await request.json()
+    hyp_id = b.get("hyp_id")
+    designs = b.get("designs")
+    if not designs and hyp_id:                       # resolve the panel from the persisted run
+        run = HYPOTHESES.get(hyp_id)
+        designs = (run or {}).get("designs") or []
+    res = tools.propose_experiments(designs=designs)
+    q = b.get("question")
+    for r in res.get("requests") or []:              # provenance -> the originating Hypothesis run
+        if r.get("request_id"):
+            launch.stamp_provenance(r["request_id"], hyp_id=hyp_id, question=q)
+    return JSONResponse(res)
+
+
 _RUNS: dict = {}
 
 
@@ -386,6 +410,7 @@ routes = [
     Route("/api/queue", queue_list, methods=["GET"]),
     Route("/api/queue_clear", queue_clear, methods=["POST"]),
     Route("/api/propose", propose, methods=["POST"]),
+    Route("/api/propose_panel", propose_panel, methods=["POST"]),   # queue a whole Council panel at proposed scale
     Route("/api/approve", approve, methods=["POST"]),
     Route("/api/reject", reject, methods=["POST"]),
     Mount("/static", app=StaticFiles(directory=str(WEB)), name="static"),

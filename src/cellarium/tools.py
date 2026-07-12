@@ -396,6 +396,42 @@ def revise_experiment(request_id: str, perturbation: str | None = None, conditio
                          params=params, seeds=seeds, generations=generations, gene=gene, genes=genes)
 
 
+def propose_experiments(designs: list | None = None) -> dict:
+    """PROPOSE a WHOLE PANEL of experiments in ONE call — use this instead of many propose_experiment calls whenever
+    you are queuing more than one design (e.g. the Socratic Council's full falsifier panel: a reference + N KOs +
+    the discriminating controls). Queuing per-design one at a time exhausts the turn budget and can leave the panel
+    HALF-queued (the discriminating controls dropped) — this queues them atomically. Each design is vetted and
+    queued exactly as propose_experiment does (safety-gated, pending human approval). `designs` is a list of objects,
+    each: {perturbation, condition?, timeline?, gene?, genes?, params?, seeds?, generations?}. Returns a per-design
+    result list plus a summary (queued / blocked / refused counts)."""
+    from . import launch
+    designs = designs or []
+    if not designs:
+        return {"error": "propose_experiments needs a non-empty `designs` list."}
+    results = []
+    queued = blocked = refused = 0
+    for d in designs:
+        d = dict(d or {})
+        params = dict(d.get("params") or {})
+        if d.get("genes"):
+            params["target_genes"] = list(d["genes"])
+        res = launch.propose(d.get("perturbation", "wildtype"), d.get("condition"), d.get("timeline"),
+                             params, int(d.get("seeds", 4)), int(d.get("generations", 4)), d.get("gene"))
+        status = res.get("status")
+        if status == "pending_approval":
+            queued += 1
+        elif status == "blocked":
+            blocked += 1
+        else:                       # unresolved gene, bad args, etc. — not queued
+            refused += 1
+        results.append({"design": {k: d.get(k) for k in ("perturbation", "condition", "gene", "genes")},
+                        "request_id": res.get("request_id"), "status": status, "error": res.get("error")})
+    return {"queued": queued, "blocked": blocked, "refused": refused, "total": len(designs),
+            "requests": results,
+            "note": f"Queued {queued}/{len(designs)} designs PENDING human approval (blocked {blocked}, refused "
+                    f"{refused}). Cellwright cannot launch — a human approves the panel via the interface."}
+
+
 def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
                    params: dict | None = None, gene: str | None = None) -> dict:
     """Vet a proposed experiment before running it. SAFETY is the ONLY hard gate — out-of-sample / predicted-to-
@@ -664,6 +700,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "propose_experiment", "description": "PROPOSE a NEW experiment to run when the corpus lacks the data you need. Cellwright CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. To CHANGE an argument on a draft you already proposed, use revise_experiment (NOT this — proposing again leaves a stale duplicate). Returns request id + vet result (pending_approval or blocked).",
      "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}}}},
+    {"name": "propose_experiments", "description": "PROPOSE a WHOLE PANEL of experiments in ONE call — use this INSTEAD of many propose_experiment calls whenever you queue more than one design (e.g. the Socratic Council's full falsifier panel: a reference + N knockouts + the discriminating controls). One-at-a-time proposing burns the turn budget and can leave the panel HALF-queued with the discriminating controls dropped; this queues them atomically. Same vetting + human-approval airlock as propose_experiment. `designs` is a list; each item: {perturbation, condition?, timeline?, gene?, genes?, params?, seeds?, generations?}.",
+     "input_schema": {"type": "object", "properties": {"designs": {"type": "array", "description": "the panel to queue", "items": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene set for a multi_gene_knockout"}, "params": {"type": "object"}}}}}, "required": ["designs"]}},
     {"name": "revise_experiment", "description": "REVISE a PENDING experiment draft when the user asks to CHANGE an argument (more/fewer seeds, a different condition, a different gene set). This SUPERSEDES the old draft (no duplicate is left in the queue) and returns a re-vetted new draft pending human approval. Pass request_id plus ONLY the fields you're changing. Use THIS to change a draft — never propose_experiment again for the same intent.",
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string", "description": "the pending draft's req_ id"}, **_DESIGN_PROPS, "gene": {"type": "string"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "new gene set for a multi_gene_knockout"}}, "required": ["request_id"]}},
 ]
@@ -681,7 +719,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
              "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
-             "propose_experiment": propose_experiment, "revise_experiment": revise_experiment,
+             "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
+             "revise_experiment": revise_experiment,
              "metabolic_essentiality": metabolic_essentiality}
 
 

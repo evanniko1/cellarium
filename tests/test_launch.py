@@ -54,6 +54,27 @@ def test_propose_experiment_multi_gene_ko_resolves_indices(tmp_path, monkeypatch
     assert queued["design"]["params"]["target_genes"] == ["pfkA", "pfkB"]
 
 
+def test_propose_experiments_queues_a_whole_panel_in_one_call(tmp_path, monkeypatch):
+    """The batch tool: a Council panel (reference + KO + a multi-KO control) queues atomically in ONE call, so the
+    agent never runs out of turns mid-panel and drops the discriminating controls. Unresolvable genes are refused,
+    not queued; multi-KO indices are resolved."""
+    import json
+
+    from cellarium import tools
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    res = tools.propose_experiments(designs=[
+        {"perturbation": "wildtype", "condition": "basal", "seeds": 6, "generations": 3},
+        {"perturbation": "gene_knockout", "condition": "basal", "genes": ["pfkA"], "seeds": 6, "generations": 3},
+        {"perturbation": "multi_gene_knockout", "condition": "basal", "genes": ["pfkA", "pfkB"], "seeds": 6, "generations": 3},
+        {"perturbation": "gene_knockout", "condition": "basal", "gene": "notagene"},   # unresolvable -> refused
+    ])
+    assert res["queued"] == 3 and res["refused"] == 1 and res["total"] == 4
+    q = json.loads((tmp_path / "q.json").read_text())
+    assert len(q) == 3                                                   # only the 3 resolvable designs landed
+    multi = next(r for r in q if r["design"]["perturbation"] == "multi_gene_knockout")
+    assert multi["design"]["params"]["ko_indices"] == [1594, 2073]      # gene set resolved to indices in the batch
+
+
 def test_reconcile_heals_orphaned_running_jobs(tmp_path, monkeypatch):
     """A server restart mid-run leaves approve_and_run's in-process job stuck at 'running'. On boot, reconcile
     flips it by what actually landed: a run indexed in the manifest -> 'done'; nothing indexed -> 'failed'. Live

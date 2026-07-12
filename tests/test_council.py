@@ -255,6 +255,24 @@ def test_unfalsifiable_verdict_blocks_convergence():
     assert h.converged is False
 
 
+def test_substantive_objection_blocks_same_round_convergence():
+    """Convergence guard: even if the JUDGE waves a round through (its flags say converged), a SUBSTANTIVE
+    objection the skeptic raised THAT round must block convergence — the proposer has to earn a genuinely clean
+    round. This is the aaRS-KO failure: the judge let a skeptic-flagged backwards slope-sign converge in-round."""
+    scripts = {
+        "propose_hypothesis": [_candidate(), _candidate()],
+        "raise_objections": [
+            {"objections": [_obj("undefined_term")]},   # round 1: skeptic flags a SUBSTANTIVE objection
+            {"objections": []},                          # round 2: clean — skeptic silent
+        ],
+        # the judge (wrongly) reports 'converged' in BOTH rounds; the guard must still refuse round 1
+        "rule": [_verdict(), _verdict()],
+    }
+    h = council.deliberate("q", max_rounds=2, quota=0, client=FakeClient(scripts),
+                           models={"proposer": "m", "skeptic": "m", "judge": "m"}, verbose=False)
+    assert h.converged is True and h.rounds_used == 2   # NOT round 1 — the substantive objection forced a clean round
+
+
 def test_to_design_clamps_over_specified_scale():
     """The proposer sometimes asks for 20x20 (~400 sims/design). _to_design clamps to a runnable proposal
     (seeds<=8, generations<=6) so the human isn't handed an unaffordable falsifier; in-range values pass through."""

@@ -227,6 +227,10 @@ svg{display:block}
 @keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
 
 .label{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); font-weight:700}
+.label-row{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.queue-all{border:0; background:var(--clay); color:#fff; font:inherit; font-size:12px; font-weight:600; border-radius:9px; padding:6px 12px; cursor:pointer; text-transform:none; letter-spacing:0}
+.queue-all:hover{background:var(--clay-ink)}
+.queue-all:disabled{opacity:.6; cursor:default}
 .hyp-chip{background:var(--paper-2); border:1px solid var(--line); border-radius:12px; padding:11px 14px}
 .hyp-chip .hc-top{display:flex; align-items:center; justify-content:space-between; gap:10px}
 .hyp-chip .hc-claim{font-size:14px; color:var(--ink); margin-top:5px; line-height:1.5}

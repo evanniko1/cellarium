@@ -459,7 +459,13 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                        "open_objections_resolved": not substantive}
         adequate = all([verdict.get("falsifiable"), verdict.get("specified"),
                         verdict.get("operationalized"), verdict.get("discriminating"), feasible_code])
-        converged_signal = (not verdict.get("new_substantive_objection_this_round")
+        # Convergence guard: a SUBSTANTIVE objection raised THIS round blocks convergence regardless of the judge's
+        # own flag. The judge is an LLM and sometimes waves a skeptic-flagged substantive objection through — in the
+        # aaRS-KO run it let a backwards predicted-slope sign converge in the same round the skeptic caught it. So we
+        # also trust the skeptic's own `substantive` label: the proposer must earn a genuinely clean round (skeptic
+        # silent AND judge agrees no new substantive objection AND open objections resolved).
+        converged_signal = (not substantive
+                            and not verdict.get("new_substantive_objection_this_round")
                             and verdict.get("open_objections_resolved"))
         structural = _structural_ok(cand)
         if verbose:
