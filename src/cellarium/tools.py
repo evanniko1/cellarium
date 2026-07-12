@@ -129,6 +129,95 @@ def _pct(a: list, p: float) -> float:
     return a[min(len(a) - 1, max(0, int(round(p / 100 * (len(a) - 1)))))]
 
 
+def read_raw_series(result_id: str, channel: str = "growth_rate", max_points: int = 60) -> dict:
+    """DRILL DOWN into the local raw simOut: the FULL-RESOLUTION trajectory of `channel` for ONE seed, where
+    read_series/the manifest only carry a coarse ~16-point downsample. Accepts a result_id or a design label (uses
+    its lowest local seed). Reads wcEcoli listener columns directly from disk — no Docker. Returns a downsampled
+    view (max_points) plus true stats over ALL timesteps. Use this when a question needs resolution the shard lacks
+    (a transient, an exact rate at a time), or as the per-seed complement to variance_band."""
+    from . import raw as rawmod
+    runs = rawmod.seed_runs(result_id)
+    if not runs:
+        return {"error": f"no local raw simOut for '{result_id}' — see data_availability for the HF/regenerate path."}
+    run = next((r for r in runs if r["result_id"] == result_id), runs[0])
+    try:
+        t, v = rawmod.seed_channel(run["root"], channel)
+    except KeyError:
+        return {"error": f"channel '{channel}' has no raw mapping; try {sorted(rawmod.CHANNELS)}."}
+    if t.size == 0:
+        return {"error": f"no readable '{channel}' trajectory in the raw simOut for that seed."}
+    rigor.note_result(run["result_id"])
+    k = max(2, min(int(max_points), 200))
+    idx = range(t.size) if t.size <= k else (int(round(i * (t.size - 1) / (k - 1))) for i in range(k))
+    series = [[round(float(t[i]), 1), round(float(v[i]), 8)] for i in idx]
+    return {"result_id": run["result_id"], "seed": run["seed"], "channel": channel, "n_gens": run["n_gens"],
+            "n_timesteps": int(t.size), "resolution_sec": round(float(t[-1] - t[-2]), 2) if t.size > 1 else None,
+            "stats": {"mean": round(float(v.mean()), 8), "min": round(float(v.min()), 8),
+                      "max": round(float(v.max()), 8), "first": round(float(v[0]), 8), "last": round(float(v[-1]), 8)},
+            "series": series, "grounded_from": "raw simOut (local, full-resolution)"}
+
+
+def variance_band(design: str, channel: str = "growth_rate", n_points: int = 40) -> dict:
+    """The CROSS-SEED variance the coarse shard cannot express: read every LOCAL seed's full-resolution simOut for
+    `channel`, resample onto a common time grid, and return per-timepoint mean, std, sem and CI95 ACROSS seeds
+    (grounded numbers only — no fabricated spread). Pass a design label ('condition/no_oxygen'). Pair with
+    chart(kind='band', ...) to draw it, or read the numbers here. Needs >=2 local seeds with the channel."""
+    from . import raw as rawmod
+    out = rawmod.cross_seed_band(design, channel, n_points)
+    if "error" not in out:
+        for s in out.get("seeds", []):
+            rigor.note_result(s["result_id"])
+    return out
+
+
+def raw_available(design: str) -> dict:
+    """What FULL-RESOLUTION raw simOut is reachable on LOCAL DISK right now for a design: which seeds, generations
+    per seed, and which channels are readable. The drill-down discovery step before read_raw_series / variance_band
+    (distinct from data_availability, which is about the HF download path)."""
+    from . import raw as rawmod
+    return rawmod.available(design)
+
+
+def _band_chart(design, channel, title, rationale):
+    """chart(kind='band'): a cross-seed mean±CI95 ribbon over time, built from local raw simOut."""
+    from . import raw as rawmod
+    if not design:
+        return {"error": "band needs a design label, e.g. result_id='condition/no_oxygen'."}
+    b = rawmod.cross_seed_band(design, channel, 48)
+    if "error" in b:
+        return b
+    for s in b.get("seeds", []):
+        rigor.note_result(s["result_id"])
+    ser = b["series"]
+    values = [{"t": p["t"], "mean": p["mean"], "lo": p["lo"], "hi": p["hi"]}
+              for p in ser if p["mean"] is not None]
+    bounds = sorted(x for p in ser for x in (p["lo"], p["hi"]) if x is not None)
+    ylo, yhi, ytop = _pct(bounds, 2), _pct(bounds, 98), (bounds[-1] if bounds else 0)
+    n_clamp = sum(1 for x in bounds if x > yhi)
+    yscale = {"domain": [min(0, ylo), yhi], "clamp": True} if (n_clamp and yhi < ytop) else None
+    xenc = {"field": "t", "type": "quantitative", "title": "time since start (s)"}
+    yenc = {"field": "mean", "type": "quantitative", "title": f"{channel} (mean ± CI95, n={b['n_seeds']})"}
+    if yscale:
+        yenc["scale"] = yscale
+    area_y = {"field": "lo", "type": "quantitative"}
+    if yscale:
+        area_y["scale"] = yscale
+    spec = {"$schema": _VL, "title": title or f"{channel}: cross-seed variance — {design}",
+            "data": {"values": values}, "encoding": {"x": xenc},
+            "layer": [
+                {"mark": {"type": "area", "opacity": 0.22, "color": "#C96442", "tooltip": True},
+                 "encoding": {"y": area_y, "y2": {"field": "hi"}}},
+                {"mark": {"type": "line", "point": True, "color": "#C96442", "tooltip": True},
+                 "encoding": {"y": yenc}}]}
+    cap = title or f"{channel} — cross-seed mean ± CI95 band across {b['n_seeds']} seeds ({design})"
+    if n_clamp:
+        cap += f" · {n_clamp} early transient point(s) clamped (up to {ytop:.2g})"
+    return {"spec": spec, "caption": cap, "rationale": rationale,
+            "provenance": {"channel": channel, "design": design, "n_seeds": b["n_seeds"],
+                           "runs": [s["result_id"] for s in b["seeds"]],
+                           "grounded_from": "raw simOut (local, full-resolution)", "clamped_outliers": n_clamp}}
+
+
 def chart(kind: str = "line", result_id: str | None = None, results: list | None = None,
           channel: str = "growth_rate", title: str | None = None, rationale: str | None = None) -> dict:
     """Draw a GROUNDED figure from real run data as a Vega-Lite spec (rendered inline, interactive). Every value
@@ -142,6 +231,8 @@ def chart(kind: str = "line", result_id: str | None = None, results: list | None
       investigation's Figures panel, so make it read on its own (what the reader should take away). Keep it to what the
       data shows; do not editorialize beyond it.
     Returns {spec, caption, rationale, provenance}."""
+    if kind == "band":
+        return _band_chart(result_id or (results[0] if results else None), channel, title, rationale)
     raw = [i for i in (results or ([result_id] if result_id else [])) if i]
     if not raw:
         return {"error": "give result_id/results (ids) or design labels like 'wildtype/basal'."}
@@ -497,11 +588,17 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "design_space", "description": "Enumerate the RUNNABLE design space before proposing an experiment: static conditions (index->label), perturbation/variant types (with which give CLEAN graded phenotypes vs which reroute), and gene-KO resolution. Pass `gene` to get its ko_index PLUS its calibrated KO prior + essentiality benchmark. Use this so a hypothesis proposes a real, correctly-indexed experiment instead of guessing.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene symbol to resolve to its ko_index + KO prior"}}}},
-    {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides.",
+    {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides. This is the COARSE manifest view (~16 points); for the full-resolution raw trajectory use read_raw_series.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"}, "channel": {"type": "string"}},
                       "required": ["result_id", "channel"]}},
-    {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as an interactive chart AND is indexed in the investigation's Figures panel. Every value comes from the manifest; never chart a number you did not read from a tool. Use it when a figure SHARPENS the answer (a trajectory, a comparison), not decoratively. kind='line' plots the channel's trajectory over the cell cycle (x is time-since-start, so runs on different clocks overlay comparably); kind='bar' compares the channel's value across runs. Accepts result_ids OR design labels like 'wildtype/basal'.",
-     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar"], "description": "line = trajectory over time; bar = compare across runs"}, "result_id": {"type": "string", "description": "the run to plot (line) — a result_id or a design label like 'wildtype/basal'"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}}}},
+    {"name": "read_raw_series", "description": "DRILL DOWN into the local raw simOut: the FULL-RESOLUTION trajectory of a channel for ONE seed (every timestep), where read_series/the manifest carry only a ~16-point downsample. Reads wcEcoli listener columns directly from local disk — no Docker. Use when a question needs resolution the shard lacks (a transient, an exact rate at a time). Accepts a result_id or a design label (lowest local seed). Only for designs with raw on local disk — check raw_available first.",
+     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string", "description": "a result_id or design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, cell_mass, dry_mass, protein_mass, rna_mass, ppgpp_conc, ribosome_conc, fraction_trna_charged, rela_conc, fba_objective"}, "max_points": {"type": "integer", "description": "downsample the returned series to at most this many points (default 60); stats are over ALL timesteps"}}, "required": ["result_id", "channel"]}},
+    {"name": "variance_band", "description": "The CROSS-SEED variance the coarse shard cannot express: reads EVERY local seed's full-resolution simOut for a channel, resamples onto a common time grid, and returns per-timepoint mean, std, sem and CI95 ACROSS seeds — grounded numbers only, no fabricated spread. Pass a DESIGN label. This is how to honestly answer 'draw the variance over time/generations'. Pair with chart(kind='band') to draw it. Needs >=2 local seeds with the channel (check raw_available).",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, ppgpp_conc, cell_mass, ..."}, "n_points": {"type": "integer", "description": "grid resolution (default 40)"}}, "required": ["design"]}},
+    {"name": "raw_available", "description": "What FULL-RESOLUTION raw simOut is reachable on LOCAL DISK right now for a design: which seeds, generations per seed, and which channels are readable. The drill-down discovery step before read_raw_series / variance_band. Distinct from data_availability (which is about the HF download path) — this reports what you can read WITHOUT any download.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen' or a result_id"}}, "required": ["design"]}},
+    {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as an interactive chart AND is indexed in the investigation's Figures panel. Every value comes from a tool read; never chart a number you did not read. Use it when a figure SHARPENS the answer, not decoratively. kind='line' plots the channel's trajectory over the cell cycle (x is time-since-start, so runs on different clocks overlay comparably); kind='bar' compares the channel's value across runs; kind='band' draws a cross-seed mean±CI95 ribbon over time from local raw simOut (the true per-timepoint variance — use for 'plot the variance'). Accepts result_ids OR design labels like 'wildtype/basal'.",
+     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar", "band"], "description": "line = trajectory over time; bar = compare across runs; band = cross-seed variance ribbon over time (needs local raw)"}, "result_id": {"type": "string", "description": "the run to plot (line), or the DESIGN label for band — a result_id or a design label like 'wildtype/basal'"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}}}},
     {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "search": {"type": "string"}},
@@ -561,6 +658,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "reroute_diagnosis": reroute_diagnosis,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
+             "read_raw_series": read_raw_series, "variance_band": variance_band, "raw_available": raw_available,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,

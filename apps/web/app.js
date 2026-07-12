@@ -287,7 +287,36 @@ function fmtNum(v) {
   if (a !== 0 && (a < 1e-3 || a >= 1e5)) return v.toExponential(1);
   return String(Math.round(v * 1000) / 1000);
 }
+function renderBand(spec) {   // SVG fallback for a layered mean±band spec (vega-embed handles it natively when loaded)
+  const W = 660, H = 300, pad = { l: 66, r: 14, t: 12, b: 42 };
+  const data = (spec.data && spec.data.values) || [], xf = (spec.encoding && spec.encoding.x && spec.encoding.x.field) || "t";
+  const lyr = spec.layer || [], meanEnc = ((lyr[1] || {}).encoding || {}).y || { field: "mean" };
+  const yf = meanEnc.field, loF = "lo", hiF = "hi";
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, class: "vl-chart", width: "100%", preserveAspectRatio: "xMidYMid meet" });
+  const x0 = pad.l, y0 = H - pad.b, iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const dom = meanEnc.scale && meanEnc.scale.domain;
+  const allY = data.flatMap((d) => [d[loF], d[hiF], d[yf]]).filter((v) => isFinite(v));
+  let ymin, ymax;
+  if (Array.isArray(dom) && dom.length === 2) { ymin = +dom[0]; ymax = +dom[1]; } else { ymin = Math.min(0, ...allY); ymax = Math.max(...allY); }
+  if (ymin === ymax) ymax = ymin + 1;
+  const xv = data.map((d) => +d[xf]), xmin = Math.min(...xv), xmax = Math.max(...xv);
+  const xs = (v) => x0 + ((v - xmin) / ((xmax - xmin) || 1)) * iw;
+  const ys = (v) => y0 - ((Math.max(ymin, Math.min(ymax, v)) - ymin) / (ymax - ymin)) * ih;
+  for (let i = 0; i <= 4; i++) { const v = ymin + (ymax - ymin) * i / 4, y = ys(v);
+    svg.appendChild(svgEl("line", { x1: x0, y1: y, x2: x0 + iw, y2: y, class: "vl-grid" }));
+    svg.appendChild(svgEl("text", { x: x0 - 8, y: y + 3.5, class: "vl-tick vl-ty" }, fmtNum(v))); }
+  for (let i = 0; i <= 4; i++) { const v = xmin + (xmax - xmin) * i / 4; svg.appendChild(svgEl("text", { x: xs(v), y: y0 + 15, class: "vl-tick vl-tx" }, fmtNum(v))); }
+  if (meanEnc.title) svg.appendChild(svgEl("text", { x: 13, y: pad.t + ih / 2, class: "vl-axis-title", transform: `rotate(-90 13 ${pad.t + ih / 2})` }, meanEnc.title));
+  if (spec.encoding && spec.encoding.x && spec.encoding.x.title) svg.appendChild(svgEl("text", { x: x0 + iw / 2, y: H - 6, class: "vl-axis-title" }, spec.encoding.x.title));
+  const up = data.filter((d) => isFinite(+d[hiF])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[hiF]).toFixed(1)}`);
+  const dn = data.filter((d) => isFinite(+d[loF])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[loF]).toFixed(1)}`).reverse();
+  svg.appendChild(svgEl("polygon", { points: up.concat(dn).join(" "), fill: CHART_COLORS[0], "fill-opacity": "0.22", stroke: "none" }));
+  const mp = data.filter((d) => isFinite(+d[yf])).map((d) => `${xs(+d[xf]).toFixed(1)},${ys(+d[yf]).toFixed(1)}`).join(" ");
+  svg.appendChild(svgEl("polyline", { points: mp, class: "vl-line", stroke: CHART_COLORS[0] }));
+  return svg;
+}
 function renderChart(spec) {
+  if (spec.layer) return renderBand(spec);   // layered mean±band
   const W = 660, H = 300, pad = { l: 66, r: 14, t: 12, b: 42 };
   const enc = spec.encoding || {}, data = (spec.data && spec.data.values) || [];
   const xf = enc.x && enc.x.field, yf = enc.y && enc.y.field, cf = enc.color && enc.color.field;

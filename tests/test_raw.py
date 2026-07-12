@@ -1,0 +1,87 @@
+"""Raw simOut drill-down: the host-side COLM reader + cross-seed variance band.
+
+These exercise the real local raw simOut (numpy-only reader, no Docker). They SKIP cleanly when no design has raw
+on local disk (e.g. CI without the corpus), so they protect the feature locally without breaking a corpus-less run.
+"""
+
+import os
+import sys
+
+import pytest
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+
+from cellarium import raw, store  # noqa: E402
+from cellarium import tools  # noqa: E402
+
+
+def _a_design_with_local_raw():
+    """A design label that has >=2 seeds of raw simOut on local disk, or None."""
+    seen = {}
+    for r in store.list_results():
+        pert, cond = r.get("perturbation"), r.get("condition")
+        label = f"{pert}/{cond}" if cond else pert
+        seen.setdefault(label, 0)
+    for label in seen:
+        if len(raw.seed_runs(label)) >= 2:
+            return label
+    return None
+
+
+def test_read_column_matches_manifest_mean():
+    """The self-contained COLM reader must agree with the grounded manifest: a seed's raw growth_rate mean should
+    match that seed's manifest growth_rate value (the manifest was built from the same column)."""
+    design = _a_design_with_local_raw()
+    if not design:
+        pytest.skip("no local raw simOut available")
+    runs = raw.seed_runs(design)
+    r0 = runs[0]
+    t, v = raw.seed_channel(r0["root"], "growth_rate")
+    assert t.size > 10 and v.size == t.size
+    manifest_mean = store.read_channel(r0["result_id"], "growth_rate").get("value")
+    if manifest_mean is not None:
+        # nan at t=0 is dropped in raw; means agree to a few %% (downsample vs full-res)
+        assert abs(float(v.mean()) - float(manifest_mean)) <= 0.15 * abs(float(manifest_mean)) + 1e-9
+
+
+def test_cross_seed_band_is_grounded_and_json_safe():
+    design = _a_design_with_local_raw()
+    if not design:
+        pytest.skip("no local raw simOut available")
+    band = raw.cross_seed_band(design, "growth_rate", n_points=12)
+    assert "error" not in band, band
+    assert band["n_seeds"] >= 2
+    assert 4 <= len(band["series"]) <= 12
+    for p in band["series"]:
+        assert p["hi"] is None or p["lo"] is None or p["hi"] >= p["lo"]  # band bounds ordered
+    import json
+    json.dumps(band)  # no numpy leaks
+
+
+def test_variance_band_needs_two_seeds():
+    """A single result_id (not a design) can't yield a cross-seed band."""
+    design = _a_design_with_local_raw()
+    if not design:
+        pytest.skip("no local raw simOut available")
+    rid = raw.seed_runs(design)[0]["result_id"]
+    out = raw.cross_seed_band(rid, "growth_rate")
+    assert "error" in out and "seed" in out["error"].lower()
+
+
+def test_chart_band_builds_layered_spec():
+    design = _a_design_with_local_raw()
+    if not design:
+        pytest.skip("no local raw simOut available")
+    out = tools.chart(kind="band", channel="growth_rate", result_id=design, rationale="test")
+    assert "spec" in out, out
+    assert len(out["spec"]["layer"]) == 2  # area ribbon + mean line
+    assert out["provenance"]["n_seeds"] >= 2
+    import json
+    json.dumps(out)
+
+
+def test_raw_tools_registered():
+    names = {s["name"] for s in tools.TOOLS}
+    for n in ("read_raw_series", "variance_band", "raw_available"):
+        assert n in names and n in tools._DISPATCH
