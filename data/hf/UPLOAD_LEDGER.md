@@ -8,21 +8,18 @@ upload batch.** Local raw corpus total: **361 GB** (~187 runs, 138,983 files). U
 | Path | What | Notes |
 |---|---|---|
 | `README.md` | dataset card | `data/hf/README.md` |
-| `data/manifest/vmnik-compact.parquet` | distilled manifest, 238 rows | the full queryable corpus |
-| `runs/cellarium/condition_000001/000000.tar.gz` | raw archive | round-trip validated (download+extract OK) |
-| `runs/cellarium/condition_000001/000001.tar.gz` | raw archive | |
-| `runs/cellarium/condition_000001/000002.tar.gz` | raw archive | |
+| `data/manifest/vmnik-compact.parquet` | distilled manifest, 238 rows | full queryable corpus; **paths sanitized** (repo-relative, no host leak) 2026-07-12 |
+| `runs/cellarium/condition_000001/*.tar.gz` | raw archives (3 seeds) | round-trip validated (download+extract OK) |
+| `runs/**/*.tar.gz` | **curated raw subset — 14 designs / 55 runs (~90–100 GB compressed)** | see the list below; task `bls546073`, finished 2026-07-12 |
 
-## 🔄 In progress — curated raw subset (~128 GB uncompressed, 55 runs, 14 designs)
-Started 2026-07-12 via `scripts/hf_pack_upload.py --designs "<list>"`. Value-weighted load-bearing set:
+### Curated raw subset (uploaded) — the value-weighted, load-bearing set
+Packed via `scripts/hf_pack_upload.py --designs "<list>"` (one `.tar.gz` per run under `runs/cellarium/<design>/<seed>`):
 - **control:** `wildtype_374656`
 - **KO landscape:** `gene_knockout_002095` (rpoB, late-crash), `002819` (lysS), `001594` (pfkA, reroute),
   `002074`, `000644` (argS), `002078` (alaS), `001340` (pheS), `000058` (dnaN), `002835` (rplB)
 - **multi-KO:** `multi_gene_knockout_227981` (pfkA+pfkB)
 - **graded:** `ppgpp_conc_000000`, `rrna_operon_knockout_000002`
 - **condition:** `condition_000007`
-
-55 archives; ~90–100 GB compressed; ~6–7 h at 4 MB/s. Background task `bls546073`. **Move to the ✅ table when it lands.**
 
 ## ⬜ Not uploaded (local-only)
 Everything else — the remainder of the 361 GB raw corpus. Full upload deferred: needs a ~1-day resumable push

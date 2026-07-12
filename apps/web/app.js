@@ -6,6 +6,7 @@ function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const trunc = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…" : String(s));
 const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
+const fmtElapsed = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 const KEY = "cellarium.invs";
 
 const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null, results: null };
@@ -69,7 +70,7 @@ function openInv(inv) {
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
   renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
-  renderSidebar(); scrollBottom(); refreshQueue(); updateSend();
+  renderSidebar(); scrollBottom(); refreshQueue(); updateSend(); maybeRunQueue(inv);
 }
 function ensureCur(q) {
   if (state.cur) return;
@@ -107,7 +108,10 @@ function deleteInv(inv) {
 }
 
 // ---------------- send / stream (per-investigation; never blocks navigation) ----------------
-function scrollBottom() { const s = $("#scroll"); s.scrollTop = s.scrollHeight; }
+function scrollBottom(force) {   // sticky: streaming only auto-scrolls if the user is already near the bottom
+  const s = $("#scroll");
+  if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 140) s.scrollTop = s.scrollHeight;
+}
 const isRunning = () => !!(state.cur && state.cur.running);
 const ARROW_SVG = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const STOP_SVG = `<svg viewBox="0 0 24 24" width="15" height="15"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`;
@@ -125,12 +129,27 @@ function send(q) {
   q = (q != null ? q : $("#q").value).trim();
   if (!q) return;
   ensureCur(q);
-  if (state.cur.running) return;   // block only a second send of THIS conversation; other invs stream freely
-  if (!state.cur.title) state.cur.title = trunc(q, 60);
   $("#q").value = ""; autosize();
+  if (state.cur.running) { queueQuestion(state.cur, q); return; }   // queue it to run after the current turn
+  if (!state.cur.title) state.cur.title = trunc(q, 60);
   $("#app").classList.add("app-chatting"); $("#convoTitle").textContent = state.cur.title; renderSidebar(); saveInvs();
   addUserBubble(q);
   stream(q);
+}
+function addQueuedBubble(q) {
+  const t = el("div", "turn user queued", `<div class="bubble">${esc(q)}<span class="q-tag">queued</span></div>`);
+  $("#thread").appendChild(t); scrollBottom(); return t;
+}
+function queueQuestion(inv, q) {
+  inv._queue = inv._queue || [];
+  inv._queue.push({ q, bubble: state.cur === inv ? addQueuedBubble(q) : null });
+}
+function maybeRunQueue(inv) {
+  if (inv.running || !inv._queue || !inv._queue.length || state.cur !== inv) return;
+  const next = inv._queue.shift();
+  if (next.bubble && next.bubble.isConnected) next.bubble.classList.remove("queued");   // promote the queued bubble
+  else addUserBubble(next.q);
+  stream(next.q);
 }
 
 function stream(question) {
@@ -141,6 +160,7 @@ function stream(question) {
   inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
   const ct = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
   turn.status(usedCouncil && firstTurn ? "Convening the Socratic Council…" : "Thinking…");
+  const t0 = Date.now(); const timer = setInterval(() => turn.setTimer(fmtElapsed(Date.now() - t0)), 500);
   (async () => {
     try {
       const resp = await fetch("/api/investigate", {
@@ -158,9 +178,11 @@ function stream(question) {
       turn.retry(() => { if (state.cur !== inv) openInv(inv); send(question); });   // resubmit a hanging/stopped question
     }
     finally {
+      clearInterval(timer);
       inv.running = false; inv._live = null; inv._abort = null;
       if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
       if (state.cur === inv) { updateSend(); scrollBottom(); }
+      maybeRunQueue(inv);   // run the next queued question, if any
     }
   })();
 }
@@ -183,7 +205,7 @@ function handle(kind, data, turn, ct, inv) {
 // ---------------- an assistant turn ----------------
 function assistantTurn(replay) {
   const root = el("div", "turn assistant");
-  const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span>`);
+  const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span><span class="st-timer"></span>`);
   const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
   root.append(statusEl, noteSlot, hypSlot, trailSlot, ansSlot);
   $("#thread").appendChild(root); let line = null, liveEl = null, liveRaw = "";
@@ -193,6 +215,7 @@ function assistantTurn(replay) {
   return {
     root,
     status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scroll(); },
+    setTimer(t) { const e = statusEl.querySelector(".st-timer"); if (e) e.textContent = t; },
     done() { statusEl.remove(); },
     note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
     text(delta) { const b = liveBody(); liveRaw += delta; b.innerHTML = md(liveRaw); scroll(); },   // live markdown as it streams
@@ -503,6 +526,10 @@ $("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");
 $("#scrim").onclick = closeDrawers;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeDrawers(); } });
+$("#scroll").addEventListener("scroll", () => {
+  const s = $("#scroll"); $("#scrollDownBtn").classList.toggle("show", s.scrollHeight - s.scrollTop - s.clientHeight > 140);
+});
+$("#scrollDownBtn").onclick = () => { scrollBottom(true); $("#scrollDownBtn").classList.remove("show"); };
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeDrawers));
 document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.dataset.q)));
 
