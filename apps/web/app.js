@@ -22,13 +22,25 @@ function inlineMd(t) {
 function md(src) {
   const lines = String(src).replace(/\r\n/g, "\n").split("\n"); let out = "", i = 0;
   const isUL = (l) => /^\s*[-*]\s+/.test(l), isOL = (l) => /^\s*\d+\.\s+/.test(l), isH = (l) => /^\s*#{1,6}\s+/.test(l);
+  const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
+  const isSep = (l) => l.includes("|") && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(l);
+  const isTable = (j) => isRow(lines[j]) && j + 1 < lines.length && isSep(lines[j + 1]);
+  const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
   while (i < lines.length) {
     const l = lines[i];
+    if (isTable(i)) {   // GFM table
+      const head = cells(l); i += 2; const rows = [];
+      while (i < lines.length && isRow(lines[i])) { rows.push(cells(lines[i])); i++; }
+      out += `<table><thead><tr>${head.map((h) => `<th>${inlineMd(h)}</th>`).join("")}</tr></thead><tbody>` +
+        rows.map((r) => `<tr>${r.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`).join("") + "</tbody></table>";
+      continue;
+    }
     if (isH(l)) { const m = l.match(/^\s*(#{1,6})\s+(.*)$/), h = Math.min(m[1].length + 2, 5); out += `<h${h}>${inlineMd(m[2])}</h${h}>`; i++; continue; }
     if (isUL(l)) { let it = ""; while (i < lines.length && isUL(lines[i])) { it += `<li>${inlineMd(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`; i++; } out += `<ul>${it}</ul>`; continue; }
     if (isOL(l)) { let it = ""; while (i < lines.length && isOL(lines[i])) { it += `<li>${inlineMd(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`; i++; } out += `<ol>${it}</ol>`; continue; }
     if (/^\s*$/.test(l)) { i++; continue; }
-    const p = []; while (i < lines.length && !/^\s*$/.test(lines[i]) && !isH(lines[i]) && !isUL(lines[i]) && !isOL(lines[i])) { p.push(lines[i]); i++; }
+    const p = [lines[i]]; i++;
+    while (i < lines.length && !/^\s*$/.test(lines[i]) && !isH(lines[i]) && !isUL(lines[i]) && !isOL(lines[i]) && !isTable(i)) { p.push(lines[i]); i++; }
     out += `<p>${inlineMd(p.join(" "))}</p>`;
   }
   return out;
@@ -97,7 +109,16 @@ function deleteInv(inv) {
 // ---------------- send / stream (per-investigation; never blocks navigation) ----------------
 function scrollBottom() { const s = $("#scroll"); s.scrollTop = s.scrollHeight; }
 const isRunning = () => !!(state.cur && state.cur.running);
-function updateSend() { $("#send").disabled = isRunning(); }
+const ARROW_SVG = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const STOP_SVG = `<svg viewBox="0 0 24 24" width="15" height="15"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`;
+function updateSend() {   // the send button doubles as a STOP button while the current chat is generating
+  const b = $("#send"), run = isRunning();
+  b.innerHTML = run ? STOP_SVG : ARROW_SVG;
+  b.title = run ? "Stop generating" : "Send";
+  b.classList.toggle("stop", run);
+  b.disabled = false;
+}
+function stopCurrent() { if (state.cur && state.cur._abort) state.cur._abort.abort(); }
 function addUserBubble(q) { $("#thread").appendChild(el("div", "turn user", `<div class="bubble">${esc(q)}</div>`)); scrollBottom(); }
 
 function send(q) {
@@ -114,6 +135,7 @@ function send(q) {
 
 function stream(question) {
   const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = $("#council").checked;
+  const ac = new AbortController(); inv._abort = ac;   // so a Stop click can cancel this stream
   inv.running = true; updateSend();
   const turn = assistantTurn();
   inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
@@ -122,7 +144,7 @@ function stream(question) {
   (async () => {
     try {
       const resp = await fetch("/api/investigate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" }, signal: ac.signal,
         body: JSON.stringify({ session_id: inv.sid, question, use_council: usedCouncil, model: state.model, reasoning: state.reasoning }),
       });
       const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
@@ -131,11 +153,14 @@ function stream(question) {
         buf += dec.decode(value, { stream: true }); let i;
         while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line.trim()) { const { kind, data } = JSON.parse(line); handle(kind, data, turn, ct, inv); } }
       }
-    } catch (e) { turn.error(esc(String(e))); }
+    } catch (e) {
+      if (e && e.name === "AbortError") turn.stopped(); else turn.error(esc(String(e)));
+      turn.retry(() => { if (state.cur !== inv) openInv(inv); send(question); });   // resubmit a hanging/stopped question
+    }
     finally {
-      inv.running = false; inv._live = null;
-      inv.turns.push(ct); saveInvs();
-      if (state.cur === inv) { updateSend(); scrollBottom(); }   // only touch the live UI if still viewing this inv
+      inv.running = false; inv._live = null; inv._abort = null;
+      if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
+      if (state.cur === inv) { updateSend(); scrollBottom(); }
     }
   })();
 }
@@ -161,16 +186,16 @@ function assistantTurn(replay) {
   const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span>`);
   const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), ansSlot = el("div");
   root.append(statusEl, noteSlot, hypSlot, trailSlot, ansSlot);
-  $("#thread").appendChild(root); let line = null, liveEl = null;
+  $("#thread").appendChild(root); let line = null, liveEl = null, liveRaw = "";
   const scroll = () => { if (root.isConnected) scrollBottom(); };   // a background stream must not scroll the current view
-  const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); } return liveEl.querySelector(".answer-body"); };
-  const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; } };
+  const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); liveRaw = ""; } return liveEl.querySelector(".answer-body"); };
+  const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; liveRaw = ""; } };
   return {
     root,
     status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scroll(); },
     done() { statusEl.remove(); },
     note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
-    text(delta) { liveBody().textContent += delta; scroll(); },   // token streaming
+    text(delta) { const b = liveBody(); liveRaw += delta; b.innerHTML = md(liveRaw); scroll(); },   // live markdown as it streams
     hyp(v) {
       const c = el("div", "hyp-chip");
       const top = el("div", "hc-top", `<span class="label">Socratic Council · framed before any data</span>`);
@@ -182,6 +207,11 @@ function assistantTurn(replay) {
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
+    stopped() { statusEl.remove(); if (liveEl) liveEl.querySelector(".answer-body").classList.remove("live"); ansSlot.appendChild(el("div", "stopped-note", "Stopped.")); },
+    retry(fn) {
+      const b = el("button", "retry-btn", `<svg viewBox="0 0 24 24" width="13" height="13"><path d="M4 12a8 8 0 1 1 2.3 5.6M4 12V7m0 5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Retry`);
+      b.onclick = () => { b.remove(); fn(); }; ansSlot.appendChild(b); scroll();
+    },
   };
 }
 function replayTurn(t) {
@@ -322,7 +352,7 @@ function qitem(r) {
 
 // ---------------- corpus browser ----------------
 async function openCorpus() {
-  $("#corpusView").classList.add("open");
+  $("#corpusView").classList.add("open"); $("#corpusBtn").classList.add("active");
   if (state.results === null) {
     $("#corpusBody").innerHTML = `<div class="empty">Loading the corpus…</div>`;
     try { const j = await (await fetch("/api/results")).json(); state.results = j.results || []; }
@@ -332,7 +362,7 @@ async function openCorpus() {
   $("#corpusSearch").value = "";
   renderCorpus("");
 }
-function closeCorpus() { $("#corpusView").classList.remove("open"); }
+function closeCorpus() { $("#corpusView").classList.remove("open"); $("#corpusBtn").classList.remove("active"); }
 
 const PERT_LABEL = {
   wildtype: "Wildtype (baseline)", gene_knockout: "Gene knockouts", multi_gene_knockout: "Multi-gene knockouts",
@@ -460,11 +490,11 @@ async function loadModels() {
 }
 function autosize() { const t = $("#q"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; }
 
-$("#send").onclick = () => send();
+$("#send").onclick = () => (isRunning() ? stopCurrent() : send());
 $("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("#q").addEventListener("input", autosize);
 $("#newBtn").onclick = resetToHero;
-$("#corpusBtn").onclick = openCorpus;
+$("#corpusBtn").onclick = () => ($("#corpusView").classList.contains("open") ? closeCorpus() : openCorpus());
 $("#corpusClose").onclick = closeCorpus;
 $("#corpusSearch").addEventListener("input", (e) => renderCorpus(e.target.value));
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");
@@ -472,7 +502,8 @@ $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapse
 $("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");
 $("#scrim").onclick = closeDrawers;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeDrawers(); } });
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeDrawers));
 document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.dataset.q)));
 
-loadModels(); loadInvs(); renderSidebar(); renderCouncil(); refreshQueue();
+loadModels(); loadInvs(); renderSidebar(); renderCouncil(); refreshQueue(); updateSend();

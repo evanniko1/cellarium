@@ -107,6 +107,11 @@ svg{display:block}
   place-items:center; cursor:pointer; transition:.15s}
 .send:hover{background:var(--clay-ink)}
 .send:disabled{opacity:.45; cursor:default}
+.send.stop{background:var(--ink-2)} .send.stop:hover{background:var(--ink)}
+.icon-btn.active{background:var(--clay-tint); border-color:var(--clay); color:var(--clay-ink)}
+.stopped-note{font-size:12px; color:var(--ink-3); margin-top:6px; font-style:italic}
+.retry-btn{display:inline-flex; align-items:center; gap:6px; margin-top:8px; border:1px solid var(--line); background:var(--card); color:var(--ink-2); border-radius:9px; padding:6px 12px; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; transition:.14s}
+.retry-btn:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
 .composer-foot{font-size:11.5px; color:var(--ink-3)}
 .composer-controls{display:flex; align-items:center; gap:8px}
 .mini-select{font:inherit; font-size:12.5px; color:var(--ink-2); background:var(--paper-2); border:1px solid var(--line);
@@ -209,6 +214,10 @@ svg{display:block}
 .answer-body code{font-family:var(--mono); font-size:.88em; background:var(--paper-2); padding:1px 5px; border-radius:5px; color:var(--clay-ink)}
 .answer-body strong{font-weight:700} .answer-body em{font-style:italic}
 .answer-body a{color:var(--clay-ink)}
+.answer-body table{border-collapse:collapse; margin:10px 0; font-size:13.5px; display:block; max-width:100%; overflow-x:auto}
+.answer-body th,.answer-body td{border:1px solid var(--line); padding:6px 11px; text-align:left; vertical-align:top}
+.answer-body th{background:var(--paper-2); font-weight:700; white-space:nowrap}
+.answer-body tbody tr:nth-child(even),.answer-body tbody tr:nth-child(even){background:rgba(0,0,0,.015)}
 
 /* trust strip */
 .trust{display:flex; flex-wrap:wrap; gap:7px}
