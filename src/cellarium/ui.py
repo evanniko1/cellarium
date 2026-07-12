@@ -54,3 +54,39 @@ def hypothesis_view(hyp) -> dict:
 def trace_view(trace: list) -> list:
     """Compact per-tool-call view for the reasoning trail: tool name, input, and its grounded output (JSON-safe)."""
     return [{"tool": n, "input": i, "output": json.loads(json.dumps(o, default=str))} for (n, i, o) in trace]
+
+
+def design_view(design) -> dict:
+    """Render-ready view of a candidate Design — the runnable experiment the Council proposed to test its
+    hypothesis. Accepts a Design model or a plain dict (the queue stores designs as dicts)."""
+    def g(attr, default=None):
+        return design.get(attr, default) if isinstance(design, dict) else getattr(design, attr, default)
+    params = g("params", {}) or {}
+    genes = list(params.get("target_genes") or ([params["gene"]] if params.get("gene") else []))
+    return {
+        "perturbation": g("perturbation", "wildtype"),
+        "condition": g("condition"),
+        "timeline": g("timeline"),
+        "seeds": int(g("seeds", 1) or 1),
+        "generations": int(g("generations", 1) or 1),
+        "params": params,
+        "genes": genes,
+    }
+
+
+def vet_summary(vet) -> dict:
+    """Distill a vet_hypothesis result into the approval gate's signals. SAFETY is the only hard block; feasibility
+    and provenance are advisory — out-of-sample / boundary probes are ENCOURAGED (they are where the model can be
+    wrong), never gated. This is what the human reads before approving a run."""
+    if not isinstance(vet, dict):
+        return {}
+    safety = vet.get("safety") or {}
+    feas = vet.get("feasibility") or {}
+    prov = vet.get("provenance") or {}
+    return {
+        "runnable": bool(vet.get("runnable")),
+        "safety": "FLAGGED — human review required" if safety.get("flagged") else "clear",
+        "feasibility": "in the validated envelope" if feas.get("in_envelope") else "boundary probe (out-of-envelope)",
+        "provenance": prov.get("provenance") or "—",
+        "why": (prov.get("value") or feas.get("advisory") or "").strip(),
+    }

@@ -46,7 +46,8 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
 
 def list_requests(status: str | None = None) -> list[dict]:
     return [{"id": r["id"], "status": r["status"], "design": r["design"], "seeds": r["seeds"],
-             "generations": r["generations"], "recommendation": r.get("vet", {}).get("recommendation")}
+             "generations": r["generations"], "recommendation": r.get("vet", {}).get("recommendation"),
+             "vet": r.get("vet")}   # the interface renders the approval gate (safety/feasibility/provenance) from this
             for r in _load() if status is None or r["status"] == status]
 
 
