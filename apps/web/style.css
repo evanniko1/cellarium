@@ -96,6 +96,7 @@ svg{display:block}
   background:transparent; line-height:1.5; max-height:200px}
 .composer textarea::placeholder{color:var(--ink-3)}
 .composer-row{display:flex; align-items:center; justify-content:space-between; margin-top:8px; gap:12px}
+.composer-hint{font-size:12px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .toggle{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink-2); cursor:pointer; user-select:none}
 .toggle input{display:none}
 .toggle .track{width:34px; height:20px; border-radius:20px; background:#D9D5CB; position:relative; transition:.18s; flex:0 0 auto}

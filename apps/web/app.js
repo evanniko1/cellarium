@@ -184,7 +184,7 @@ function reaskLast() {
 }
 
 function stream(question) {
-  const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = $("#council").checked;
+  const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = false;   // in-chat Council retired -> the Hypothesis surface
   const ac = new AbortController(); inv._abort = ac;   // so a Stop click can cancel this stream
   inv.running = true; updateSend();
   const turn = assistantTurn();
@@ -258,9 +258,8 @@ function assistantTurn(replay) {
     note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
     text(delta) { const b = liveBody(); liveRaw += delta; b.innerHTML = md(liveRaw); scroll(); },   // live markdown as it streams
     hyp(v) {
-      const c = el("div", "hyp-chip");
-      const top = el("div", "hc-top", `<span class="label">Socratic Council · framed before any data</span>`);
-      const b = el("button", "linkbtn", "view debate →"); b.onclick = () => openDrawer("council"); top.appendChild(b); c.appendChild(top);
+      const c = el("div", "hyp-chip");   // legacy: only fires when replaying an old investigation that used the in-chat Council
+      c.appendChild(el("div", "hc-top", `<span class="label">Socratic Council · framed before any data</span>`));
       if (v.claim) c.appendChild(el("div", "hc-claim", `<span class="lbl">Hypothesis</span>${esc(v.claim)}`));
       hypSlot.appendChild(c); scroll();
     },
@@ -497,7 +496,8 @@ function hypBlockEl(hyp) {   // the operationalized-hypothesis card — shared b
   return h;
 }
 function renderCouncil() {
-  const b = $("#councilBody"); b.innerHTML = ""; const { rounds, hyp, designs } = curCouncil();
+  const b = $("#councilBody"); if (!b) return;   // in-chat Council drawer retired
+  b.innerHTML = ""; const { rounds, hyp, designs } = curCouncil();
   if (!rounds.length && !hyp) { b.appendChild(el("div", "empty", "No debate yet. Ask a question with the Socratic Council toggle on — the Proposer, Skeptic, and Judge operationalize it into a falsifiable hypothesis before any data is read.")); return; }
   if (hyp) b.appendChild(hypBlockEl(hyp));
   if (rounds.length) b.appendChild(el("div", "label", `The debate — ${rounds.length} round(s)`));
@@ -700,7 +700,7 @@ function openInCellwright(run) {
   const msg = `Test this operationalized hypothesis against the corpus — the Socratic Council framed it blind to the data:\n\n${brief}\n\nSurvey first, read the falsifier's channel(s), seek disconfirmation, and report whether the evidence supports or refutes it — grounding every number in a tool result.`;
   closeHyp();
   resetToHero();
-  $("#council").checked = false;   // the Council already framed it — don't re-run it
+  const cb = $("#council"); if (cb) cb.checked = false;   // (legacy toggle retired; the Council already framed it)
   send(msg);
 }
 async function deleteHypRun(id) {
@@ -818,11 +818,11 @@ function availView(a) {
 }
 
 // ---------------- drawers / models / plumbing ----------------
-const DRAWER_ID = { council: "#councilDrawer", queue: "#queueDrawer", figures: "#figuresDrawer" };
+const DRAWER_ID = { queue: "#queueDrawer", figures: "#figuresDrawer" };
 function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(DRAWER_ID[which] || DRAWER_ID.queue).classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
 function closeDrawers() { $("#scrim").classList.remove("show"); Object.values(DRAWER_ID).forEach((id) => $(id).classList.remove("open")); }
-function bumpBadge(id, n) { const b = $("#" + id); if (n > 0) { b.textContent = n; b.classList.add("show"); } else b.classList.remove("show"); }
-function clearBadge(id) { $("#" + id).classList.remove("show"); }
+function bumpBadge(id, n) { const b = $("#" + id); if (!b) return; if (n > 0) { b.textContent = n; b.classList.add("show"); } else b.classList.remove("show"); }
+function clearBadge(id) { const b = $("#" + id); if (b) b.classList.remove("show"); }
 async function postJSON(url, body) { return (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json(); }
 async function loadModels() {
   try {
@@ -849,7 +849,6 @@ $("#hypClose").onclick = closeHyp;
 $("#hypNewBtn").onclick = newHypComposer;
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");
 $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapsed");
-$("#councilBtn").onclick = () => openDrawer("council");
 $("#queueBtn").onclick = () => openDrawer("queue");
 $("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
