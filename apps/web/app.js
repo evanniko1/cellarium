@@ -16,7 +16,7 @@ const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null,
 // ---------------- markdown ----------------
 function inlineMd(t) {
   return esc(t).replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>")   // non-greedy + allow nested * so **bold *italic* bold** renders
     .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 }
