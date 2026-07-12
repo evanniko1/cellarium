@@ -843,14 +843,30 @@ async function viewHypRun(id) {
   try { const run = await (await fetch("/api/hypothesis_get?id=" + encodeURIComponent(id))).json(); renderHypDetail(run); }
   catch { m.innerHTML = `<div class="hyp-empty">Could not load this run.</div>`; }
 }
+function needsSpecEl(run) {   // Phase 3(b): the gate found the question too broad — show SCOPE-ONLY asks + refine box
+  const qs = (run.meta && run.meta.clarifying_questions) || [];
+  const box = el("div", "needspec");
+  box.appendChild(el("p", "needspec-lede", "The Socratic Council frames a hypothesis blind to the data, so it needs your question narrow enough to yield ONE decisive test. To keep it blind, it asks only for specification — never a hint at the answer:"));
+  const ul = el("div", "needspec-qs");
+  qs.forEach((q) => ul.appendChild(el("div", "needspec-q", esc(q))));
+  box.appendChild(ul);
+  box.appendChild(el("div", "label", "Refine your question"));
+  const ta = el("textarea", "needspec-ta"); ta.value = run.question || ""; box.appendChild(ta);
+  const go = el("button", "hyp-run-go"); go.innerHTML = `${ARROW_SVG} Re-convene the Council`;
+  go.onclick = () => runHypothesis(ta.value.trim(), go);
+  box.appendChild(go);
+  return box;
+}
 function renderHypDetail(run) {
   const m = $("#hypMain"); m.innerHTML = "";
   m.appendChild(el("div", "hyp-q", esc(run.question)));
   const st = el("div", "hyp-status" + (run.status === "error" ? " err" : ""));
   if (run.status === "running") st.innerHTML = `<span class="dot-pulse"></span> The Council is deliberating${run.rounds.length ? " — round " + run.rounds.length : ""}…`;
   else if (run.status === "error") st.textContent = (run.meta && run.meta.error) || "The run failed.";
+  else if (run.status === "needs_spec") st.textContent = "Needs specification — too broad for a decisive test yet.";
   else st.textContent = `Converged in ${(run.meta && run.meta.rounds_used) || run.rounds.length} round(s) · ${(run.meta && run.meta.substantive_objections) || 0} substantive objection(s)`;
   m.appendChild(st);
+  if (run.status === "needs_spec") { m.appendChild(needsSpecEl(run)); return; }   // the sufficiency gate — refine & re-convene
   if (run.hypothesis && run.hypothesis.claim) m.appendChild(hypBlockEl(run.hypothesis));
   if (run.rounds && run.rounds.length) {
     const resolutions = (run.meta && run.meta.resolutions) || {};

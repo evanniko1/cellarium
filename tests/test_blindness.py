@@ -55,6 +55,24 @@ def test_proposer_payload_is_blind_to_corpus_results(monkeypatch):
         assert not leaked, f"a reading leaked into dial_labels[{name}]: {leaked}"
 
 
+def test_sufficiency_gate_payload_is_blind(monkeypatch):
+    """Phase 3(b): the scope-only sufficiency gate is another Council surface — it too must see ONLY the question +
+    capabilities, never a reading or a leaked answer, so a clarifying question can never smuggle out a finding."""
+    captured = {}
+
+    def fake_emit(client, model, system, tool, payload, **kw):
+        captured.update(payload)
+        return {"sufficient": True}
+
+    monkeypatch.setattr(council, "_emit", fake_emit)
+    council.sufficiency_gate("what happens to the cell?", client=object(), models={"judge": "m"})
+    assert captured, "no gate payload was captured"
+    assert "leaked_reference_answer" not in captured, "quarantine breach: a reference answer leaked to the gate"
+    extra = set(captured) - _ALLOWED_KEYS
+    assert not extra, f"unexpected key(s) in the gate payload (possible corpus leak): {extra}"
+    assert (captured.get("dial_labels") or {}).get("channels"), "the gate should see channel capabilities"
+
+
 def test_leak_control_mechanism_exists():
     """The quarantine is testable BECAUSE the ablation can deliberately leak an answer key — confirm that lever
     exists (so 'blind' is a measured claim, not an assumption) and that it is off by default."""

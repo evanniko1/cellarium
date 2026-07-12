@@ -63,6 +63,13 @@ class HypothesisStore:
                     (json.dumps(hypothesis, default=str), json.dumps(designs, default=str),
                      json.dumps(meta, default=str), run_id))
 
+    def needs_spec(self, run_id: str, gate: dict) -> None:
+        """The sufficiency gate found the question underspecified: park the run awaiting the user's specification,
+        carrying the SCOPE-ONLY clarifying questions (never a hint at the answer)."""
+        self._write("UPDATE council_runs SET status='needs_spec', meta=? WHERE id=?",
+                    (json.dumps({"clarifying_questions": gate.get("clarifying_questions") or [],
+                                 "missing": gate.get("missing") or []}, default=str), run_id))
+
     def fail(self, run_id: str, error: str) -> None:
         self._write("UPDATE council_runs SET status='error', meta=? WHERE id=?",
                     (json.dumps({"error": error}), run_id))
@@ -110,6 +117,13 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
             on_round(run_id, payload)
 
     try:
+        # Phase 3(b): scope-only sufficiency gate — blind to the corpus, decide if the question is specified enough
+        # to deliberate. If not, park it with clarifying questions (the user refines and re-convenes) — never deliberate
+        # a question too vague to yield a decisive test, and never hint at the answer.
+        gate = council.sufficiency_gate(question)
+        if not gate.get("sufficient") and gate.get("clarifying_questions"):
+            store.needs_spec(run_id, gate)
+            return store.get(run_id)
         hyp = council.deliberate(question, verbose=False, on_round=_round)
         hview = ui.hypothesis_view(hyp)
         designs = [ui.design_view(d) for d in (getattr(hyp, "candidate_designs", None) or [])]

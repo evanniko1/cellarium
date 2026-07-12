@@ -67,6 +67,7 @@ def test_run_council_persists(tmp_path, monkeypatch):
         return _Hyp()
 
     monkeypatch.setattr(council, "deliberate", _fake_deliberate)
+    monkeypatch.setattr(council, "sufficiency_gate", lambda q, **kw: {"sufficient": True, "clarifying_questions": []})
 
     s = hypotheses.HypothesisStore(path=tmp_path / "t.db")
     seen = []
@@ -79,3 +80,21 @@ def test_run_council_persists(tmp_path, monkeypatch):
     assert run["meta"]["rounds_used"] == 4 and run["meta"]["substantive_objections"] == 6
     assert seen == [1, 2]                       # rounds streamed to the caller AND persisted
     assert s.get(run["id"])["status"] == "done"
+
+
+def test_run_council_parks_underspecified_question(tmp_path, monkeypatch):
+    """Phase 3(b): a question the sufficiency gate deems too broad is parked as 'needs_spec' with SCOPE-ONLY
+    clarifying questions — deliberate is never called on a question too vague to yield a decisive test."""
+    import cellarium.council as council
+
+    def _no_deliberate(*a, **k):
+        raise AssertionError("deliberate must not run on an underspecified question")
+
+    monkeypatch.setattr(council, "deliberate", _no_deliberate)
+    monkeypatch.setattr(council, "sufficiency_gate", lambda q, **kw: {
+        "sufficient": False, "missing": ["target"], "clarifying_questions": ["Which gene or perturbation?"]})
+
+    s = hypotheses.HypothesisStore(path=tmp_path / "t2.db")
+    run = hypotheses.run_council(s, "what happens to the cell?")
+    assert run["status"] == "needs_spec"
+    assert run["meta"]["clarifying_questions"] == ["Which gene or perturbation?"]

@@ -273,6 +273,22 @@ def test_substantive_objection_blocks_same_round_convergence():
     assert h.converged is True and h.rounds_used == 2   # NOT round 1 — the substantive objection forced a clean round
 
 
+def test_sufficiency_gate_challenges_vague_question_scope_only():
+    """Phase 3(b): a too-broad question is parked with SCOPE-ONLY clarifying questions; a specified one passes
+    straight through. The gate never runs the deliberation on a question too vague to yield a decisive test."""
+    vague = council.sufficiency_gate("what happens to the cell?", client=FakeClient(
+        {"gate": [{"sufficient": False, "missing": ["target", "observable"],
+                   "clarifying_questions": ["Which gene or perturbation should we knock out?",
+                                            "Which observable channel should we measure?"]}]}),
+        models={"proposer": "m", "skeptic": "m", "judge": "m"})
+    assert vague["sufficient"] is False and len(vague["clarifying_questions"]) == 2
+
+    ok = council.sufficiency_gate("Is a pfkA knockout viable versus wildtype, by division_rate?",
+        client=FakeClient({"gate": [{"sufficient": True}]}),
+        models={"proposer": "m", "skeptic": "m", "judge": "m"})
+    assert ok["sufficient"] is True and ok["clarifying_questions"] == []
+
+
 def test_objection_resolution_is_tracked_per_objection():
     """Per-objection resolution: the skeptic (who raised it) certifies which prior objections the revision resolves.
     An objection raised in round 1 that the round-2 skeptic marks resolved must carry resolved_round=2 in the

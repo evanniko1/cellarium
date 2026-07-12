@@ -398,6 +398,57 @@ def _score(cand: dict, feasible: bool, verdict: dict) -> int:
     return (8 if _complete(cand) else 0) + (4 if feasible else 0) + rubric
 
 
+# --- Phase 3(b): the scope-only sufficiency gate -----------------------------------------------------------
+
+_SUFFICIENCY_SYS = (
+    "You are the INTAKE gate of a Socratic Council. Before any deliberation you decide ONE thing: is the user's "
+    "question specified enough to become a FALSIFIABLE, decisive hypothesis over this instrument? You see ONLY the "
+    "instrument's CAPABILITIES (dial_labels — the perturbations it can run and the channels it can read) and the "
+    "question. You NEVER see data, results, or any reading, and you must not guess them.\n"
+    "SUFFICIENT if a competent scientist could, from the question ALONE, recover: (i) a manipulation the instrument "
+    "can run (a perturbation / gene / condition), (ii) an observable channel to measure, and (iii) an implicit "
+    "comparison or contrast. If all three are recoverable, sufficient=true and emit no questions.\n"
+    "INSUFFICIENT if the question is too broad ('what happens to the cell?'), names no measurable target, or admits "
+    "many unrelated decisive tests. Then sufficient=false and emit 1-2 SCOPE-ONLY clarifying questions. A clarifying "
+    "question asks the user to SPECIFY (which gene or perturbation? which observable channel? compared to what?). It "
+    "is a request for specification, NOT a hint: NEVER suggest what the finding might be, never name the "
+    "'interesting' answer, never steer toward a particular hypothesis. You are choosing the QUESTION's scope, never "
+    "previewing its answer — blindness is absolute. Emit via the tool."
+)
+
+_SUFFICIENCY_TOOL = {
+    "name": "gate",
+    "description": "Rule on whether the question is specified enough to deliberate.",
+    "input_schema": {"type": "object", "properties": {
+        "sufficient": {"type": "boolean"},
+        "missing": {"type": "array", "items": {"type": "string"},
+                    "description": "which of target / observable / comparison is underspecified"},
+        "clarifying_questions": {"type": "array", "items": {"type": "string"},
+                                 "description": "1-2 SCOPE-ONLY questions asking the user to specify — never hinting the answer"},
+        "rationale": {"type": "string"},
+    }, "required": ["sufficient"]},
+}
+
+
+def sufficiency_gate(question: str, *, client=None, models: dict | None = None, labels: dict | None = None) -> dict:
+    """The scope-only sufficiency gate. BEFORE deliberating, decide — blind to the corpus (only the instrument's
+    capabilities + the question) — whether the question is specified enough to yield a decisive, falsifiable
+    hypothesis. If not, return SCOPE-ONLY clarifying questions that ask the user to specify, never a hint at the
+    answer. Same quarantine boundary as the Council (instrument.dial_labels carries capabilities, no readings), so
+    no answer can leak out. Returns {sufficient, missing, clarifying_questions, rationale}."""
+    labels = labels if labels is not None else instrument.dial_labels()
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    models = models or _default_models()
+    out = _emit(client, models["judge"], _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
+                {"question": question, "dial_labels": labels}, max_tokens=1024)
+    return {"sufficient": bool(out.get("sufficient", True)),   # fail-open: a degenerate emit must not block a run
+            "missing": [m for m in (out.get("missing") or []) if isinstance(m, str)],
+            "clarifying_questions": [q for q in (out.get("clarifying_questions") or []) if isinstance(q, str)][:2],
+            "rationale": out.get("rationale", "")}
+
+
 # --- the loop ----------------------------------------------------------------------------------------------
 
 def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
