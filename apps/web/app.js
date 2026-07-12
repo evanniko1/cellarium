@@ -767,7 +767,7 @@ function _navToggle(hyp) {
 }
 async function openHyp() {
   _navToggle(true);
-  $("#hypView").classList.add("open"); $("#hypBtn").classList.add("active");
+  $("#hypView").classList.add("open");
   await loadHypRuns();
   if (state.hypActive && state.hypActive !== "__live") { viewHypRun(state.hypActive); return; }  // keep the run in view
   if (state.hypRuns && state.hypRuns.length) viewHypRun(state.hypRuns[0].id);   // land on the latest run's detail
@@ -775,7 +775,7 @@ async function openHyp() {
 }
 function closeHyp() {
   _navToggle(false);
-  $("#hypView").classList.remove("open"); $("#hypBtn").classList.remove("active");
+  $("#hypView").classList.remove("open");
 }
 async function loadHypRuns(activeId) {
   try { const j = await (await fetch("/api/hypotheses")).json(); state.hypRuns = j.runs || []; }
@@ -1040,7 +1040,6 @@ $("#corpusClose").onclick = closeCorpus;
 $("#corpusSearch").addEventListener("input", (e) => renderCorpus(e.target.value));
 $("#navSegInv").onclick = closeHyp;                 // top-level workspace switch (sidebar)
 $("#navSegHyp").onclick = openHyp;
-$("#hypBtn").onclick = () => ($("#hypView").classList.contains("open") ? closeHyp() : openHyp());
 $("#hypClose").onclick = closeHyp;
 $("#hypNewBtn").onclick = newHypComposer;
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");

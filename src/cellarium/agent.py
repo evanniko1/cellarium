@@ -35,6 +35,12 @@ SYSTEM = (
     "pulls ~N GB from HF, proceed?', and only call again with confirm=true AFTER they approve. Never confirm=true on "
     "your own. Launching a NEW simulation stays fully gated by the approval airlock (propose_experiment) — you never "
     "run one without human approval.\n"
+    "- BE ECONOMICAL WITH TOOL CALLS (you have a limited turn budget). Do NOT call the same tool once per item when "
+    "one call covers the set: viability(perturbation) with NO condition returns EVERY variant (all gene_knockouts) "
+    "at once — call it ONCE, never per-KO. To queue a PANEL of designs, call propose_experiments(designs=[...]) ONCE "
+    "— it vets each design (safety + feasibility + provenance) for you, so do NOT pre-vet the panel design-by-design "
+    "with vet_hypothesis / check_feasibility / screen_design first (those are for a SINGLE ad-hoc design you are "
+    "reasoning about, not for every row of a panel). Scope-check only the genes you actually need.\n"
     "- To interpret a KO/perturbation, use differential (what channels/pathways moved most vs control) and "
     "top_movers (which individual proteins) — do NOT pre-decide which molecules matter; let the data rank them.\n"
     "- Before interpreting a gene KO, call mechanistic_scope: if the gene is expressed-but-inert (no modeled "
@@ -287,7 +293,7 @@ def _run_turn(client, kw: dict, on_text):
 
 
 def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, on_note=None,
-             max_turns: int = 8, verbose: bool = False, reasoning: str = "none") -> str:
+             max_turns: int = 12, verbose: bool = False, reasoning: str = "none") -> str:
     """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
     in place — appending the assistant + tool_result turns — so the caller can persist it for a MULTI-TURN
     conversation. Returns the final assistant text. This is what makes the chat remember: the same messages list
