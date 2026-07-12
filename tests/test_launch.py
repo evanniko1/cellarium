@@ -52,3 +52,20 @@ def test_propose_experiment_multi_gene_ko_resolves_indices(tmp_path, monkeypatch
     queued = json.loads((tmp_path / "q.json").read_text())[-1]
     assert queued["design"]["params"]["ko_indices"] == [1594, 2073]
     assert queued["design"]["params"]["target_genes"] == ["pfkA", "pfkB"]
+
+
+def test_revise_supersedes_old_draft_and_requeues(tmp_path, monkeypatch):
+    """Changing an argument on a pending draft must WITHDRAW the old one (no duplicate) and queue a re-vetted new
+    draft — the flow when a user asks to modify a queued experiment."""
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    r1 = launch.propose("gene_knockout", condition="basal", gene="pfkA", seeds=6, generations=1)
+    old_id = r1["request_id"]
+    r2 = launch.revise(old_id, seeds=10)
+    assert r2.get("revised_from") == old_id and r2["status"] == "pending_approval"
+    reqs = {r["id"]: r for r in launch._load()}
+    assert reqs[old_id]["status"] == "superseded"                       # old draft withdrawn
+    assert reqs[old_id]["superseded_by"] == r2["request_id"]            # linked for traceability
+    new = reqs[r2["request_id"]]
+    assert new["seeds"] == 10 and new["design"]["params"]["variant_index"] == 1594   # kept pfkA, new seed count
+    pending = launch.list_requests(status="pending_approval")           # only the revised draft is live
+    assert len(pending) == 1 and pending[0]["id"] == r2["request_id"]

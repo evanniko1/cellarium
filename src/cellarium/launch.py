@@ -77,6 +77,38 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
                      else "Queued PENDING human approval — Coli cannot launch; a human approves via the interface.")}
 
 
+def revise(request_id: str, *, perturbation: str | None = None, condition: str | None = None,
+           timeline: str | None = None, params: dict | None = None, seeds: int | None = None,
+           generations: int | None = None, gene: str | None = None, genes: list | None = None) -> dict:
+    """REVISE a PENDING draft: mark the old one 'superseded' and queue a re-vetted new draft with the changed
+    arg(s) merged over the old design. Keeps the human-approval airlock — only an UN-approved draft can be
+    revised; a human still approves the result. Returns the new request (linked back via `revised_from`)."""
+    q = _load()
+    old = next((r for r in q if r["id"] == request_id), None)
+    if not old:
+        return {"error": f"no request '{request_id}'"}
+    if old["status"] not in ("pending_approval", "blocked"):
+        return {"error": f"request '{request_id}' is '{old['status']}' — only a pending draft can be revised."}
+    d = old["design"]
+    merged = dict(params) if params is not None else dict(d.get("params") or {})
+    if genes:   # a gene-set change: drop stale indices so the new symbols are re-resolved
+        merged["target_genes"] = list(genes)
+        merged.pop("ko_indices", None); merged.pop("variant_index", None)
+    old["status"] = "superseded"; _save(q)                       # withdraw the old draft (no duplicate left)
+    res = propose(perturbation or d["perturbation"],
+                  condition if condition is not None else d.get("condition"),
+                  timeline if timeline is not None else d.get("timeline"),
+                  merged,
+                  seeds if seeds is not None else old["seeds"],
+                  generations if generations is not None else old["generations"], gene)
+    q = _load()                                                  # link old -> new for traceability
+    for r in q:
+        if r["id"] == request_id:
+            r["superseded_by"] = res.get("request_id")
+    _save(q)
+    return {**res, "revised_from": request_id}
+
+
 def list_requests(status: str | None = None) -> list[dict]:
     return [{"id": r["id"], "status": r["status"], "design": r["design"], "seeds": r["seeds"],
              "generations": r["generations"], "recommendation": r.get("vet", {}).get("recommendation"),

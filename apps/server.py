@@ -244,7 +244,7 @@ def result_availability(request):
 # ---------------------------------------------------------------- the experiment loop (airlock)
 def queue_list(request):
     from cellarium import launch, ui
-    reqs = [r for r in launch.list_requests() if r["status"] != "rejected"]   # dismissed requests leave the airlock
+    reqs = [r for r in launch.list_requests() if r["status"] not in ("rejected", "superseded")]   # dismissed / revised leave the airlock
     for r in reqs:
         r["gate"] = ui.vet_summary(r.pop("vet", None))
     return JSONResponse({"queue": reqs})
