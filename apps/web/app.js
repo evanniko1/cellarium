@@ -371,7 +371,9 @@ async function refreshQueue() {
 }
 function qitem(r) {
   const d = r.design || {}, it = el("div", "qitem");
-  it.appendChild(el("div", "q-top", `<span class="q-id">${esc(r.id)}</span><span class="q-design"><b>${esc(d.perturbation)}</b>${d.condition ? " · " + esc(d.condition) : ""} · ${r.seeds}×${r.generations}</span><span class="status ${esc(r.status)}">${esc(r.status.replace(/_/g, " "))}</span>`));
+  const genes = (d.params && d.params.target_genes && d.params.target_genes.length) ? d.params.target_genes.join("+") : "";
+  const meta = [genes, d.condition].filter(Boolean).map(esc).join(" · ");
+  it.appendChild(el("div", "q-top", `<span class="q-id">${esc(r.id)}</span><span class="q-design"><b>${esc(d.perturbation)}</b>${meta ? " · " + meta : ""} · ${r.seeds}×${r.generations}</span><span class="status ${esc(r.status)}">${esc(r.status.replace(/_/g, " "))}</span>`));
   const g = r.gate || {};
   if (g.safety) {
     const gate = el("div", "gate");
