@@ -23,6 +23,7 @@ function inlineMd(t) {
 function md(src) {
   const lines = String(src).replace(/\r\n/g, "\n").split("\n"); let out = "", i = 0;
   const isUL = (l) => /^\s*[-*]\s+/.test(l), isOL = (l) => /^\s*\d+\.\s+/.test(l), isH = (l) => /^\s*#{1,6}\s+/.test(l);
+  const isHR = (l) => /^\s*([-*_])(?:\s*\1){2,}\s*$/.test(l);   // --- *** ___  -> thematic break
   const isRow = (l) => /^\s*\|.*\|\s*$/.test(l);
   const isSep = (l) => l.includes("|") && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(l);
   const isTable = (j) => isRow(lines[j]) && j + 1 < lines.length && isSep(lines[j + 1]);
@@ -36,12 +37,13 @@ function md(src) {
         rows.map((r) => `<tr>${r.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`).join("") + "</tbody></table>";
       continue;
     }
+    if (isHR(l)) { out += "<hr>"; i++; continue; }   // before paragraph so a lone --- becomes a rule, not literal text
     if (isH(l)) { const m = l.match(/^\s*(#{1,6})\s+(.*)$/), h = Math.min(m[1].length + 2, 5); out += `<h${h}>${inlineMd(m[2])}</h${h}>`; i++; continue; }
     if (isUL(l)) { let it = ""; while (i < lines.length && isUL(lines[i])) { it += `<li>${inlineMd(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`; i++; } out += `<ul>${it}</ul>`; continue; }
     if (isOL(l)) { let it = ""; while (i < lines.length && isOL(lines[i])) { it += `<li>${inlineMd(lines[i].replace(/^\s*\d+\.\s+/, ""))}</li>`; i++; } out += `<ol>${it}</ol>`; continue; }
     if (/^\s*$/.test(l)) { i++; continue; }
     const p = [lines[i]]; i++;
-    while (i < lines.length && !/^\s*$/.test(lines[i]) && !isH(lines[i]) && !isUL(lines[i]) && !isOL(lines[i]) && !isTable(i)) { p.push(lines[i]); i++; }
+    while (i < lines.length && !/^\s*$/.test(lines[i]) && !isH(lines[i]) && !isUL(lines[i]) && !isOL(lines[i]) && !isHR(lines[i]) && !isTable(i)) { p.push(lines[i]); i++; }
     out += `<p>${inlineMd(p.join(" "))}</p>`;
   }
   return out;
@@ -71,7 +73,7 @@ function openInv(inv) {
   $("#convoTitle").textContent = inv.title || "";
   renderCouncil(); const rn = curCouncil().rounds.length; bumpBadge("councilBadge", rn); clearBadge("councilBadge");
   renderFigures(inv);
-  renderSidebar(); scrollBottom(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
+  renderSidebar(); scrollToEnd(); refreshQueue(); updateSend(); maybeRunQueue(inv); markLastUserReask();
 }
 function ensureCur(q) {
   if (state.cur) return;
@@ -113,6 +115,15 @@ function scrollBottom(force) {   // sticky: streaming only auto-scrolls if the u
   const s = $("#scroll");
   if (force || s.scrollHeight - s.scrollTop - s.clientHeight < 140) s.scrollTop = s.scrollHeight;
 }
+function scrollToEnd() {   // land on the LATEST message when opening a conversation — re-fire to catch async figures
+  scrollBottom(true);
+  requestAnimationFrame(() => scrollBottom(true));
+  [120, 400, 900].forEach((ms) => setTimeout(() => { if ($("#scroll")) scrollBottom(true); }, ms));
+}
+// Was the user following the bottom? A figure (vega-embed) lays out AFTER we scroll and grows the thread by more than
+// the sticky threshold, which a one-shot scroll can't follow — so we capture "were they following?" BEFORE the figure
+// streams in, and force a scroll once it lays out (below, in the turn's figure()). This never yanks a scrolled-up user.
+function nearBottom() { const s = $("#scroll"); return s ? s.scrollHeight - s.scrollTop - s.clientHeight < 200 : true; }
 const isRunning = () => !!(state.cur && state.cur.running);
 const ARROW_SVG = `<svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const STOP_SVG = `<svg viewBox="0 0 24 24" width="15" height="15"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>`;
@@ -253,7 +264,11 @@ function assistantTurn(replay) {
       hypSlot.appendChild(c); scroll();
     },
     tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scroll(); },
-    figure(out, fid) { figSlot.appendChild(figureEl(out, fid)); scroll(); },   // grounded chart, rendered inline
+    figure(out, fid) {   // capture "was the user following?" before the figure grows the thread; re-pin once it lays out
+      const stick = root.isConnected && nearBottom();
+      figSlot.appendChild(figureEl(out, fid, () => { if (stick) scrollBottom(true); }));
+      scroll();
+    },
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
     error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
@@ -366,20 +381,22 @@ const VEGA_CONFIG = {
   title: { color: "#20201D", fontSize: 14, fontWeight: 600, anchor: "start", font: '"Iowan Old Style",Palatino,Georgia,serif' },
   line: { strokeWidth: 2 }, point: { size: 24, filled: true }, bar: { color: "#C96442" },
 };
-function renderInto(container, spec) {   // interactive vega-embed when the vendored libs loaded; SVG fallback otherwise
+function renderInto(container, spec, onDone) {   // interactive vega-embed when the vendored libs loaded; SVG fallback otherwise
+  const done = () => onDone && onDone();          // fires AFTER layout so a streaming view can re-follow the taller content
   if (window.vegaEmbed) {
     const s = Object.assign({ width: "container", height: 280, autosize: { type: "fit", contains: "padding" }, config: VEGA_CONFIG }, spec);
     window.vegaEmbed(container, s, { actions: { export: true, source: true, compiled: false, editor: false }, tooltip: true, renderer: "svg" })
-      .catch(() => { container.textContent = ""; container.appendChild(renderChart(spec)); });
+      .then(done).catch(() => { container.textContent = ""; container.appendChild(renderChart(spec)); done(); });
     return;
   }
   container.appendChild(renderChart(spec));
+  done();
 }
-function figureEl(out, fid) {
+function figureEl(out, fid, onRender) {
   const wrap = el("div", "figure");
   if (fid) wrap.id = figDomId(fid);   // backlink target for the Figures panel
   if (out.error) { wrap.appendChild(el("div", "fig-err", esc(out.error))); return wrap; }
-  const chart = el("div", "fig-chart"); wrap.appendChild(chart); renderInto(chart, out.spec);
+  const chart = el("div", "fig-chart"); wrap.appendChild(chart); renderInto(chart, out.spec, onRender);
   if (out.caption) wrap.appendChild(el("div", "fig-cap", esc(out.caption)));
   if (out.rationale) wrap.appendChild(el("div", "fig-why", esc(out.rationale)));   // the agent's grounded takeaway
   const prov = out.provenance || {}, runs = (prov.runs || []).join(", ");

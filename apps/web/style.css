@@ -228,6 +228,7 @@ svg{display:block}
 .answer-body code{font-family:var(--mono); font-size:.88em; background:var(--paper-2); padding:1px 5px; border-radius:5px; color:var(--clay-ink)}
 .answer-body strong{font-weight:700} .answer-body em{font-style:italic}
 .answer-body a{color:var(--clay-ink)}
+.answer-body hr{border:0; border-top:1px solid var(--line); margin:16px 0}
 .answer-body table{border-collapse:collapse; margin:10px 0; font-size:13.5px; display:block; max-width:100%; overflow-x:auto}
 .answer-body th,.answer-body td{border:1px solid var(--line); padding:6px 11px; text-align:left; vertical-align:top}
 .answer-body th{background:var(--paper-2); font-weight:700; white-space:nowrap}
