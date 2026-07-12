@@ -529,9 +529,12 @@ function roundEl(r) {
   j.appendChild(g); c.appendChild(j); return c;
 }
 function designEl(dv, i) {
-  const c = el("div", "design"), genes = (dv.genes && dv.genes.length) ? dv.genes.join(",") : "control";
-  c.appendChild(el("div", "d-name", `<span class="pert">${esc(dv.perturbation)}</span>${dv.condition ? " · " + esc(dv.condition) : ""}`));
-  c.appendChild(el("div", "d-meta", `${esc(genes)} · Council proposed ${dv.seeds}×${dv.generations}`));
+  const c = el("div", "design"), genes = (dv.genes && dv.genes.length) ? dv.genes.join("+") : "";
+  // lead with the GENE for a KO (KO:gltX), not 'basal' — the gene is the identity of the experiment
+  const isKO = String(dv.perturbation || "").includes("gene_knockout") && genes;
+  const tag = isKO ? ("KO:" + genes + (dv.condition && dv.condition !== "basal" ? " · " + dv.condition : "")) : dv.condition;
+  c.appendChild(el("div", "d-name", `<span class="pert">${esc(dv.perturbation)}</span>${tag ? " · " + esc(tag) : ""}`));
+  c.appendChild(el("div", "d-meta", `${isKO ? "" : (genes || "control") + " · "}Council proposed ${dv.seeds}×${dv.generations} — override below`));
   const ctr = el("div", "d-controls");
   const sS = el("div", "stepper", `<label>seeds</label>`), iS = el("input"); iS.type = "number"; iS.min = 1; iS.value = 1; sS.appendChild(iS);
   const sG = el("div", "stepper", `<label>gens</label>`), iG = el("input"); iG.type = "number"; iG.min = 1; iG.value = 1; sG.appendChild(iG);
