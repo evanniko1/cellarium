@@ -52,9 +52,14 @@ JOBS = {
             "compensate? Compute per-operon rRNA output as rna_mass divided by the operons still present (5, 3, 1) "
             "and see whether it rises, and whether ppGpp stays flat. Finally, hold this NUMBERS-axis result against "
             "Scott's second growth law — where impairing ribosome EFFICIENCY (chloramphenicol) makes a cell "
-            "over-build ribosomes — and run a literature-review (use_skill → web_get) to find whether the "
-            "numbers × translation-inhibitor synergy is a known result and whether it has ever been shown "
-            "computationally in a whole-cell model. Give me the clash, the compensation, and where it leads."),
+            "over-build ribosomes. Then derive the experiment the clash implies — cut the numbers AND impair "
+            "efficiency with a translation-inhibiting antibiotic — and run a FOCUSED literature review (use_skill "
+            "literature-review, then only a FEW targeted web_get searches) on two questions: (1) has reducing rRNA "
+            "operon number been shown to change a cell's sensitivity to ribosome-targeting antibiotics, and does that "
+            "phenomenon have a name? (2) has it ever been reproduced in a whole-cell computational model? Then STOP "
+            "searching and write a synthesis: the numbers-vs-efficiency clash, the compensation (with its citation), "
+            "what the literature calls the synergy (with a citation + DOI), the computational gap, and what it would "
+            "take to close it (a colony-scale simulator)."),
     },
     "nitrate": {
         "sid": "s_nitrate_control",
@@ -80,7 +85,7 @@ def record(job: dict, model: str | None, write_seed: bool) -> None:
     def on_tool(name, inp, out):
         print(f"  · tool {name}({', '.join(f'{k}={v}' for k, v in list((inp or {}).items())[:3])})")
 
-    answer = agent.converse(messages, model=model, on_tool=on_tool, verbose=True, max_turns=14)
+    answer = agent.converse(messages, model=model, on_tool=on_tool, verbose=True, max_turns=24)
     print(f"  → {len(messages)} messages; answer {len(answer)} chars")
 
     sess = {"messages": messages, "model": model or "(agent-default)", "used_council": False, "title": job["title"]}
@@ -94,7 +99,8 @@ def record(job: dict, model: str | None, write_seed: bool) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Record the demo's two direct-mode sessions as genuine live runs.")
     ap.add_argument("--only", choices=sorted(JOBS), help="record just one job")
-    ap.add_argument("--model", default=os.environ.get("CELLARIUM_MODEL"), help="model id (default: agent's choice)")
+    ap.add_argument("--model", default=os.environ.get("CELLARIUM_MODEL", "claude-opus-4-8"),
+                    help="model id (default: claude-opus-4-8 — best convergence for the demo transcript)")
     ap.add_argument("--seed", action="store_true", help="also write data/sessions.seed.db (do this AFTER reviewing)")
     a = ap.parse_args()
 
