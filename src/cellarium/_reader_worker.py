@@ -26,7 +26,9 @@ try:  # shared viability verdict (same rule store uses); this script's dir is on
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from viability_rules import verdict as _viability_verdict
 except Exception:  # fallback keeps the worker self-contained if the sibling module is unreachable
-    def _viability_verdict(min_dr, all_term, any_term, n_fba_fail):
+    def _viability_verdict(min_dr, all_term, any_term, n_fba_fail, crashed=False, truncated=False):
+        if crashed or truncated:
+            return "inviable"
         if min_dr is None:
             return "unknown"
         if n_fba_fail and n_fba_fail > 0:

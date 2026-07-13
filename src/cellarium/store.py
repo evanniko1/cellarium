@@ -102,15 +102,14 @@ def _viability_verdict(rows: list[dict]) -> dict:
     term = [bool(r.get("terminal_divided")) for r in rows]
     fbf = sum(int(r.get("n_fba_failures") or 0) for r in rows)
     min_dr = min(drs)
-    from . import viability_rules
-    verdict = viability_rules.verdict(min_dr, all(term), any(term), fbf)
-    # §M truncation/crash override: a lineage that CRASHED (run raised) or stopped short of the requested depth is
-    # inviable even if its completed generations all divided (the alaS/pheS blind spot — crash on gen-4 startup).
+    # §M truncation/crash: a lineage that CRASHED (run raised) or stopped short of the requested depth is inviable
+    # even if its completed generations all divided (the alaS/pheS blind spot). Computed here and passed INTO the
+    # shared verdict rule so the host and the worker never diverge on it.
     crashed = any(bool(r.get("crashed")) for r in rows)
     reqs = [r.get("requested_generations") for r in rows if r.get("requested_generations")]
     truncated = bool(reqs) and max(gens) < max(reqs)
-    if crashed or truncated:
-        verdict = "inviable"
+    from . import viability_rules
+    verdict = viability_rules.verdict(min_dr, all(term), any(term), fbf, crashed=crashed, truncated=truncated)
     return {"n_seeds": len(rows), "min_division_rate": round(min_dr, 3),
             "max_gens_reached": max(gens), "requested_generations": (max(reqs) if reqs else None),
             "crashed": crashed, "truncated": truncated,

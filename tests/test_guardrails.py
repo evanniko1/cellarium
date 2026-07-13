@@ -132,6 +132,32 @@ def test_viability_verdict_fba_failure_is_inviable():
     assert viability_rules.verdict(None, True, True, 0) == "unknown"
 
 
+def test_viability_truncation_and_crash_are_inviable():
+    """§M metric fix: a lineage that CRASHED or stopped SHORT of the requested depth is inviable even if its
+    completed generations all divided (the alaS/pheS blind spot). The rule is now SHARED (verdict), not a host-only
+    override, so the worker and the store can't diverge on it."""
+    from cellarium import store, viability_rules
+
+    # the shared rule: crash or truncation overrides a fully-dividing lineage; neither -> unchanged
+    assert viability_rules.verdict(1.0, True, True, 0, crashed=True) == "inviable"
+    assert viability_rules.verdict(1.0, True, True, 0, truncated=True) == "inviable"
+    assert viability_rules.verdict(1.0, True, True, 0) == "viable"
+    assert viability_rules.verdict(None, True, True, 0, crashed=True) == "inviable"   # crash wins over 'unknown'
+
+    def rows(reached, requested, crashed=False):   # 4 seeds, all fully divide their completed gens
+        return [{"seed": i, "division_rate": 1.0, "gens_reached": reached, "terminal_divided": True,
+                 "n_fba_failures": 0, "requested_generations": requested, "crashed": crashed} for i in range(4)]
+
+    # stopped short of the requested depth (reached 3 of 4) -> inviable, and flagged truncated
+    short = store._viability_verdict(rows(3, 4))
+    assert short["truncated"] is True and short["verdict"] == "inviable"
+    # reached the requested depth -> viable, not truncated
+    full = store._viability_verdict(rows(4, 4))
+    assert full["truncated"] is False and full["verdict"] == "viable"
+    # a crashed run -> inviable regardless of a clean division rate
+    assert store._viability_verdict(rows(3, 4, crashed=True))["verdict"] == "inviable"
+
+
 def test_t95_ci_wider_than_normal_at_small_n():
     import statistics
 

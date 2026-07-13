@@ -12,7 +12,14 @@ VIABLE_MIN_RATE = 0.9
 INVIABLE_MAX_RATE = 0.6
 
 
-def verdict(min_division_rate, all_terminal_divided, any_terminal_divided, n_fba_failures) -> str:
+def verdict(min_division_rate, all_terminal_divided, any_terminal_divided, n_fba_failures,
+            crashed=False, truncated=False) -> str:
+    # §M truncation/crash: a lineage that CRASHED (the sim raised) or stopped SHORT of the requested depth is
+    # inviable even if its completed generations all divided (the alaS/pheS blind spot — a gen-N startup crash
+    # leaves N-1 clean generations). Checked FIRST and in the SHARED rule, so the worker and the host store agree —
+    # previously this override lived only host-side, so a worker/other caller could still mislabel it 'viable'.
+    if crashed or truncated:
+        return "inviable"
     if min_division_rate is None:
         return "unknown"                       # shards predate the viability channel
     if n_fba_failures and n_fba_failures > 0:
