@@ -82,43 +82,51 @@ def test_run_council_persists(tmp_path, monkeypatch):
     assert s.get(run["id"])["status"] == "done"
 
 
-def test_run_council_parks_underspecified_question(tmp_path, monkeypatch):
-    """Phase 3(b): a question the sufficiency gate deems too broad is parked as 'needs_spec' with SCOPE-ONLY
-    clarifying questions — deliberate is never called on a question too vague to yield a decisive test."""
+def test_run_council_soft_nudges_broad_question_but_deliberates(tmp_path, monkeypatch):
+    """Soft nudge, never block: a broad question is NOT parked — the Council deliberates it (its core competency)
+    and only carries a non-blocking sharpening hint in meta. The old blocking gate parked ~23/25 canonical
+    questions (see evals/run_ab.py gate diagnostic); midwifing a vague seed IS the Council's whole purpose."""
     import cellarium.council as council
 
-    def _no_deliberate(*a, **k):
-        raise AssertionError("deliberate must not run on an underspecified question")
+    class _Hyp:
+        claim = "operationalized from a broad seed"; h1 = "h1"; candidate_designs = []
+        converged = True; rounds_used = 3; substantive_objections = 2
 
-    monkeypatch.setattr(council, "deliberate", _no_deliberate)
-    monkeypatch.setattr(council, "sufficiency_gate", lambda q, **kw: {
-        "sufficient": False, "missing": ["target"], "clarifying_questions": ["Which gene or perturbation?"]})
+        def brief(self):
+            return "b"
+
+    ran = {"n": 0}
+
+    def _fake_deliberate(question, *, verbose=False, on_round=None, **kw):
+        ran["n"] += 1
+        if on_round:
+            on_round({"round": 1, "proposer": {"claim": "c"}, "skeptic": [], "judge": {}})
+        return _Hyp()
+
+    monkeypatch.setattr(council, "deliberate", _fake_deliberate)
 
     s = hypotheses.HypothesisStore(path=tmp_path / "t2.db")
-    run = hypotheses.run_council(s, "what happens to the cell?")
-    assert run["status"] == "needs_spec"
-    assert run["meta"]["clarifying_questions"] == ["Which gene or perturbation?"]
-    assert run["meta"]["example"] and run["meta"]["capped"] is False   # first ask: tailored questions + an example
-    assert s.list() == []                                              # a parked run must NOT clutter the run list
-    # a re-convene reuses the SAME row instead of spawning a dead-end
-    run2 = hypotheses.run_council(s, "still vague", attempt=1, reuse_id=run["id"])
-    assert run2["id"] == run["id"]
-    assert len([r for r in s._read("SELECT id FROM council_runs", (), many=True)]) == 1   # one row, not two
+    run = hypotheses.run_council(s, "what happens to the cell?")     # maximally broad
+    assert run["status"] == "done"                                   # NEVER needs_spec — the gate no longer blocks
+    assert ran["n"] == 1                                             # deliberate DID run on the broad question
+    assert run["meta"]["broad_question"] is True                    # flagged broad...
+    assert run["meta"]["hint"]                                       # ...with an advisory, non-blocking hint
+    assert s.list()                                                  # and it appears in the run list (a real run)
 
 
-def test_sufficiency_gate_caps_repeated_insufficiency(tmp_path, monkeypatch):
-    """A REPEATED too-broad reply (attempt>=1) gets the cached, LLM-free firm nudge + example — the user stays
-    gated (no override), and the raw gate questions are replaced by the fixed message."""
+def test_run_council_specific_question_has_no_nudge(tmp_path, monkeypatch):
+    """A question that already names a manipulation + observable deliberates with no nudge (broad_question False)."""
     import cellarium.council as council
 
-    def _no_deliberate(*a, **k):
-        raise AssertionError("deliberate must not run while still underspecified")
+    class _Hyp:
+        claim = "c"; h1 = "h1"; candidate_designs = []
+        converged = True; rounds_used = 1; substantive_objections = 0
 
-    monkeypatch.setattr(council, "deliberate", _no_deliberate)
-    monkeypatch.setattr(council, "sufficiency_gate", lambda q, **kw: {
-        "sufficient": False, "clarifying_questions": ["which gene?"]})
+        def brief(self):
+            return "b"
+
+    monkeypatch.setattr(council, "deliberate", lambda q, *, verbose=False, on_round=None, **kw: _Hyp())
     s = hypotheses.HypothesisStore(path=tmp_path / "t3.db")
-    run = hypotheses.run_council(s, "still pretty vague", attempt=1)
-    assert run["status"] == "needs_spec" and run["meta"]["capped"] is True
-    assert run["meta"]["example"]                                     # a concrete example is offered
-    assert run["meta"]["clarifying_questions"] != ["which gene?"]     # cached firm message, not the raw gate output
+    run = hypotheses.run_council(s, "Does knocking out pfkA reduce growth rate versus wildtype?")
+    assert run["status"] == "done"
+    assert run["meta"]["broad_question"] is False and run["meta"]["hint"] is None

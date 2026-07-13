@@ -925,7 +925,9 @@ function renderHypDetail(run) {
   else if (run.status === "needs_spec") st.textContent = "Needs specification — too broad for a decisive test yet.";
   else st.textContent = `Converged in ${(run.meta && run.meta.rounds_used) || run.rounds.length} round(s) · ${(run.meta && run.meta.substantive_objections) || 0} substantive objection(s)`;
   m.appendChild(st);
-  if (run.status === "needs_spec") { m.appendChild(needsSpecEl(run)); return; }   // the sufficiency gate — refine & re-convene
+  // soft nudge (never blocks): a broad question still gets a full deliberation; we just show an advisory note.
+  if (run.meta && run.meta.hint) { const h = el("div", "hyp-hint", run.meta.hint); m.appendChild(h); }
+  if (run.status === "needs_spec") { m.appendChild(needsSpecEl(run)); return; }   // legacy path (gate no longer blocks)
   if (run.hypothesis && run.hypothesis.claim) m.appendChild(hypBlockEl(run.hypothesis));
   if (run.rounds && run.rounds.length) {
     const resolutions = (run.meta && run.meta.resolutions) || {};

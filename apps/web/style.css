@@ -173,6 +173,7 @@ svg{display:block}
 .hyp-q{font-family:var(--serif); font-size:19px; line-height:1.35; color:var(--ink); margin-bottom:8px}
 .hyp-status{font-size:13px; color:var(--ink-2); margin-bottom:14px; display:flex; align-items:center; gap:8px}
 .hyp-status.err{color:var(--red)}
+.hyp-hint{font-size:12.5px; color:var(--ink-2); background:var(--card); border:1px solid var(--line); border-left:3px solid var(--clay); border-radius:8px; padding:8px 11px; margin:-2px 0 16px; line-height:1.5}
 .hyp-handover{display:flex; gap:10px; margin-top:22px; padding-top:16px; border-top:1px solid var(--line)}
 .hyp-open{display:flex; align-items:center; gap:7px; border:0; background:var(--clay); color:#fff; font:inherit; font-size:14px; font-weight:600; border-radius:10px; padding:9px 16px; cursor:pointer}
 .hyp-open:hover{background:var(--clay-ink)}

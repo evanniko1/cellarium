@@ -116,23 +116,25 @@ def _summary(r) -> dict:
             "n_designs": len(json.loads(r[6] or "[]")), "converged": meta.get("converged")}
 
 
-# the sufficiency gate's cached, LLM-free fallback for a REPEATED insufficient reply — no override: the user stays
-# gated until the question names one decisive test. (Revisit when Phase 3(a) web/lit-review lands.)
-_SPEC_EXAMPLE = "Does knocking out pfkA stop the cell from dividing, compared with wildtype?"
-_SPEC_CAP_MSG = ("The Council still can't find a single decisive test in this question. Before re-convening, think "
-                 "of ONE specific, testable question — name a perturbation it can run, an observable to measure, and "
-                 "what to compare against.")
+# Soft-nudge design (never block): the Council's job is to MIDWIFE a vague scientific question into a falsifiable
+# hypothesis (Socratic maieutics), and it has its own D3 escalation for irreducible ambiguity — so we never refuse
+# to deliberate. When the question is broad (a deterministic pre-pass, no model call) we carry this advisory hint
+# the surface can show; the run still completes. The old blocking gate parked ~23/25 canonical questions — exactly
+# the Council's own competency (see evals/run_ab.py gate diagnostic) — so a hard block was the wrong tool.
+_BROAD_HINT = ("This was a broad question — the Council operationalized it as best it could. For a more targeted "
+               "test, you can name a perturbation it can run, an observable to measure, and what to compare against.")
 
 
 def run_council(store: HypothesisStore, question: str, model: str | None = None, on_round=None,
                 attempt: int = 0, reuse_id: str | None = None) -> dict:
     """Run ONE Council deliberation and persist the whole thing (rounds + operationalized hypothesis + falsifier
     designs + convergence meta). Blind by construction — deliberate() never sees corpus results (the paper's
-    quarantine control; see docs/HYPOTHESIS_MODE_PLAN.md). Returns the stored run dict."""
+    quarantine control; see docs/HYPOTHESIS_MODE_PLAN.md). NEVER blocks: a broad question is still deliberated (the
+    Council midwifes it) and only carries a non-blocking sharpening hint; genuine ambiguity is handled by the
+    Council's own D3 escalation mid-deliberation, not by refusing up front. `attempt` is vestigial (kept for API
+    compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. Returns the stored run."""
     from cellarium import council, ui   # lazy: the store itself stays dependency-free + unit-testable
 
-    # reuse_id: a re-convene of a parked question overwrites the SAME row (create is INSERT OR REPLACE) instead of
-    # spawning a new one — so one refinement session is one row, not a trail of needs_spec dead-ends.
     run_id = reuse_id or store.new_id()
     store.create(run_id, question, model)
 
@@ -142,17 +144,7 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
             on_round(run_id, payload)
 
     try:
-        # Phase 3(b): scope-only sufficiency gate — blind to the corpus, decide if the question is specified enough
-        # to deliberate. If not, park it with clarifying questions (the user refines and re-convenes) — never deliberate
-        # a question too vague to yield a decisive test, and never hint at the answer.
-        gate = council.sufficiency_gate(question)
-        if not gate.get("sufficient") and gate.get("clarifying_questions"):
-            if attempt >= 1:   # already asked once and the reply is STILL too broad — cached firm nudge, no LLM,
-                store.needs_spec(run_id, {"missing": gate.get("missing"),   # no override: he stays gated until specific
-                                          "clarifying_questions": [_SPEC_CAP_MSG], "example": _SPEC_EXAMPLE, "capped": True})
-            else:              # first ask: the gate's tailored SCOPE-ONLY questions + a concrete example
-                store.needs_spec(run_id, {**gate, "example": _SPEC_EXAMPLE})
-            return store.get(run_id)
+        broad = not council.looks_specific(question)   # deterministic, no model call — a soft nudge, not a gate
         hyp = council.deliberate(question, verbose=False, on_round=_round)
         hview = ui.hypothesis_view(hyp)
         designs = [ui.design_view(d) for d in (getattr(hyp, "candidate_designs", None) or [])]
@@ -162,7 +154,9 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 "substantive_objections": getattr(hyp, "substantive_objections", None),
                 # per-objection resolution: obj id -> the round that resolved it (null if still open) — the surface
                 # renders "resolved in round N" per objection instead of the coarse round-derived "carried".
-                "resolutions": {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")}}
+                "resolutions": {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")},
+                # soft, non-blocking sharpening nudge (advisory only — the run still completed)
+                "broad_question": broad, "hint": (_BROAD_HINT if broad else None)}
         store.complete(run_id, hview, designs, meta)
     except Exception as exc:
         store.fail(run_id, f"{type(exc).__name__}: {exc}")
