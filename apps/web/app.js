@@ -68,7 +68,7 @@ function resetToHero() {
   renderFigures(null); closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
 function openInv(inv) {
-  state.cur = inv; state.viewingServer = null; $("#thread").innerHTML = "";
+  state.cur = inv; state.viewingServer = null; inv.unread = false; $("#thread").innerHTML = "";
   (inv.turns || []).forEach(replayTurn);
   if (inv.running && inv._live) $("#thread").appendChild(inv._live.root);   // re-attach the still-streaming turn (keeps updating live)
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
@@ -85,6 +85,9 @@ function renderSidebar() {
   const box = $("#recents"); box.innerHTML = "";
   state.invs.forEach((inv) => {
     const it = el("div", "recent" + (inv === state.cur ? " active" : ""));
+    // activity bullet: pulsing while a turn streams (so a backgrounded chat announces itself), a calm solid dot
+    // once a response landed unread, nothing when idle+read. Lets the user track how many live/unseen convos they have.
+    if (inv.running || inv.unread) it.appendChild(el("span", "recent-dot" + (inv.running ? " active" : " unread")));
     const title = el("span", "r-title", esc(inv.title || "New investigation"));
     it.appendChild(title);
     it.onclick = () => openInv(inv);
@@ -257,7 +260,7 @@ function reaskLast() {
 function stream(question) {
   const inv = state.cur, firstTurn = (inv.turns || []).length === 0, usedCouncil = false;   // in-chat Council retired -> the Hypothesis surface
   const ac = new AbortController(); inv._abort = ac;   // so a Stop click can cancel this stream
-  inv.running = true; updateSend();
+  inv.running = true; updateSend(); renderSidebar();   // show the pulsing activity bullet immediately (incl. backgrounded chats)
   const turn = assistantTurn();
   inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
   const ct = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
@@ -284,6 +287,8 @@ function stream(question) {
       clearInterval(timer);
       inv.running = false; inv._live = null; inv._abort = null; inv._ct = null;
       if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
+      if (state.cur !== inv && ct.answer != null) inv.unread = true;   // finished in the background -> mark unread
+      renderSidebar();   // flip the bullet from pulsing (active) to a solid unread dot (or clear it) on this row
       if (state.cur === inv) { updateSend(); scrollBottom(); renderFigures(inv); }
       maybeRunQueue(inv);   // run the next queued question, if any
       if (state.cur === inv) markLastUserReask();

@@ -69,7 +69,9 @@ ANTHROPIC_API_KEY=...  python apps/server.py      # -> http://127.0.0.1:8000
 Two workspaces: **Investigations** (chat with Cellwright, grounded in the corpus) and **Hypotheses** (convene
 the Socratic Council, then *Open in Cellwright*). The chat, corpus browser, and manifest reasoning work with
 just the API key; deep species reads and running new sims also need Docker + the wcEcoli image
-(`WCECOLI_DOCKER=wcecoli-sim:multiko`). Conversations and deliberations persist locally in SQLite.
+(`WCECOLI_DOCKER=wcecoli-sim:multiko`) — see **[docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md)** for the full
+setup (clone the model, build the image, ParCa, smoke test). Conversations and deliberations persist locally
+in SQLite (a fresh clone comes up pre-populated from the committed `data/sessions.seed.db`).
 
 Or the CLI:
 

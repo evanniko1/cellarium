@@ -47,6 +47,15 @@ svg{display:block}
   color:var(--ink-2); cursor:pointer; transition:.12s}
 .recent:hover{background:var(--line-2); color:var(--ink)}
 .recent.active{background:var(--clay-tint); color:var(--clay-ink)}
+.recent-dot{flex:0 0 auto; width:7px; height:7px; border-radius:50%; background:var(--clay)}
+.recent-dot.active{animation:dot-pulse 1.4s ease-out infinite}          /* a turn is streaming in this chat */
+.recent-dot.unread{opacity:.85}                                          /* a response landed but hasn't been opened */
+@keyframes dot-pulse{
+  0%{box-shadow:0 0 0 0 rgba(201,100,66,.55)}
+  70%{box-shadow:0 0 0 6px rgba(201,100,66,0)}
+  100%{box-shadow:0 0 0 0 rgba(201,100,66,0)}
+}
+@media (prefers-reduced-motion:reduce){ .recent-dot.active{animation:none; box-shadow:0 0 0 2px rgba(201,100,66,.35)} }
 .recent .r-title{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .recent .r-title input{width:100%; font:inherit; font-size:13.5px; border:1px solid var(--clay); border-radius:6px; padding:2px 5px; background:#fff; color:var(--ink)}
 .recent .r-menu{display:none; gap:2px; flex:0 0 auto}
