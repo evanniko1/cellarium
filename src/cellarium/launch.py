@@ -180,6 +180,16 @@ def clear_finished() -> dict:
     return {"cleared": n, "remaining": len(keep)}
 
 
+def clear_all() -> dict:
+    """The queue's 'Clear ALL': drop every request EXCEPT one that is actively running (never orphan a live sim).
+    For wiping a pile of accumulated pending drafts in one go."""
+    q = _load()
+    keep = [r for r in q if r["status"] == "running"]
+    n = len(q) - len(keep)
+    _save(keep)
+    return {"cleared": n, "remaining": len(keep)}
+
+
 def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> dict:
     """HUMAN APPROVAL — launches the vetted design. NOT an agent tool (the interface / a human calls it). Refuses a
     safety-blocked request. Indexes the result so Cellwright can then reason over it."""

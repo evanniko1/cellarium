@@ -350,6 +350,11 @@ async def queue_clear(request):
     return JSONResponse(launch.clear_finished())
 
 
+async def queue_clear_all(request):
+    from cellarium import launch
+    return JSONResponse(launch.clear_all())
+
+
 async def propose(request):
     from cellarium import launch
     b = await request.json()
@@ -430,6 +435,7 @@ routes = [
     Route("/api/result_availability", result_availability, methods=["GET"]),
     Route("/api/queue", queue_list, methods=["GET"]),
     Route("/api/queue_clear", queue_clear, methods=["POST"]),
+    Route("/api/queue_clear_all", queue_clear_all, methods=["POST"]),
     Route("/api/propose", propose, methods=["POST"]),
     Route("/api/propose_panel", propose_panel, methods=["POST"]),   # queue a whole Council panel at proposed scale
     Route("/api/approve", approve, methods=["POST"]),

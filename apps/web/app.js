@@ -677,10 +677,18 @@ async function refreshQueue() {
   const notify = q.filter((r) => ["pending_approval", "done", "failed"].includes(r.status)).length;
   bumpBadge("queueBadge", notify);
   const b = $("#queueBody"); b.innerHTML = "";
-  if (q.some((r) => ["done", "failed"].includes(r.status))) {   // a Clear affordance once finished jobs pile up
-    const c = el("button", "q-clear", "Clear finished");
-    c.onclick = async () => { await postJSON("/api/queue_clear", {}); refreshQueue(); };
-    b.appendChild(c);
+  const clearable = q.filter((r) => r.status !== "running").length;   // everything a Clear could remove
+  if (clearable) {
+    const row = el("div", "q-clear-row");
+    if (q.some((r) => ["done", "failed", "rejected", "superseded"].includes(r.status))) {
+      const c = el("button", "q-clear", "Clear finished");
+      c.onclick = async () => { await postJSON("/api/queue_clear", {}); refreshQueue(); };
+      row.appendChild(c);
+    }
+    const ca = el("button", "q-clear", `Clear all (${clearable})`);   // wipe piled-up drafts; running jobs are kept
+    ca.onclick = async () => { if (confirm(`Remove ${clearable} queued request(s)? A running job is kept.`)) { await postJSON("/api/queue_clear_all", {}); refreshQueue(); } };
+    row.appendChild(ca);
+    b.appendChild(row);
   }
   if (!q.length) { b.appendChild(el("div", "empty", "Empty. Cellwright proposes experiments here for your approval — click a proposed job to jump back to the chat that raised it. Nothing runs without your approval.")); return; }
   let running = false; q.forEach((r) => { if (r.status === "running") running = true; b.appendChild(qitem(r)); });

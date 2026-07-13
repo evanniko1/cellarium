@@ -36,8 +36,8 @@ svg{display:block}
 .sidebar-collapse{width:26px; height:26px; flex:0 0 auto; border:0; background:none; color:var(--ink-3);
   border-radius:7px; display:grid; place-items:center; cursor:pointer; transition:.14s}
 .sidebar-collapse:hover{background:var(--line-2); color:var(--ink)}
-.sidebar-expand{display:none}
-#app.sidebar-collapsed .sidebar-expand{display:grid}
+.icon-btn.sidebar-expand{display:none}                       /* beat .icon-btn{display:grid} — hide unless collapsed */
+#app.sidebar-collapsed .icon-btn.sidebar-expand{display:grid}
 .new-btn{display:flex; align-items:center; gap:8px; border:1px solid var(--line); background:var(--card); color:var(--ink);
   border-radius:12px; padding:10px 12px; font:inherit; font-weight:600; cursor:pointer; transition:.15s}
 .new-btn:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
@@ -390,6 +390,8 @@ svg{display:block}
 .q-prov:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
 .q-prov b{font-weight:600}
 .q-clear{display:block; margin:0 0 12px auto; border:1px solid var(--line); background:var(--card); color:var(--ink-3); font:inherit; font-size:12px; border-radius:8px; padding:5px 12px; cursor:pointer}
+.q-clear-row{display:flex; gap:8px; justify-content:flex-end; margin-bottom:12px}
+.q-clear-row .q-clear{margin:0}
 .q-clear:hover{border-color:var(--clay); color:var(--clay-ink)}
 
 /* ============ Hypothesis Generator redesign ============ */
