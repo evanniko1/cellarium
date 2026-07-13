@@ -112,3 +112,71 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
         ],
         "note": "Disconfirmation aid — challenge the claimed effect with statistics before concluding.",
     }
+
+
+def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
+    """OLS fit of y_channel on x_channel ACROSS designs — each design contributes its cross-seed mean as one point.
+    This is how a growth LAW is stated (ribosome ∝ growth; RNA/protein ∝ growth): slope + R² across designs, not a
+    per-design effect. Grounded (means from the manifest, no fabricated spread). CRITICAL: every point is tagged
+    in_sample / out_of_sample, and the fit is split so a caller can see whether the law holds on GENUINE predictions
+    (out_of_sample) vs merely reproduces fitted conditions (in_sample) — the distinction the provenance guard exists
+    for. designs: ['perturbation/condition', ...]. Needs >=3 designs carrying BOTH channels."""
+    import math
+
+    from . import provenance, survey
+
+    rows = survey._deduped_rows(survey.CHANNELS)
+    if not rows or "__error__" in rows[0]:
+        return {"error": "corpus unreadable or empty"}
+    for r in rows:
+        try:
+            r["_pw"] = json.loads(r.get("pathways") or "{}")
+        except Exception:
+            r["_pw"] = {}
+
+    def val(r, ch):
+        return r["_pw"].get(ch[3:]) if ch.startswith("pw:") else r.get(ch)
+
+    def mean_for(label, ch):
+        vs = [val(r, ch) for r in rows
+              if f'{r.get("perturbation")}/{r.get("condition")}' == label and val(r, ch) is not None]
+        return statistics.fmean(vs) if vs else None
+
+    pts = []
+    for d in designs:
+        pert, _, cond = str(d).partition("/")
+        x, y = mean_for(d, x_channel), mean_for(d, y_channel)
+        if x is not None and y is not None:
+            pts.append({"design": d, "x": round(x, 6), "y": round(y, 6),
+                        "provenance": provenance.tag(pert, cond or None)})
+    if len(pts) < 3:
+        return {"error": f"need >=3 designs carrying both '{x_channel}' and '{y_channel}'; got {len(pts)}",
+                "points": pts}
+
+    def _ols(points):
+        n = len(points)
+        if n < 2:
+            return None
+        xs = [p["x"] for p in points]
+        ys = [p["y"] for p in points]
+        mx, my = statistics.fmean(xs), statistics.fmean(ys)
+        sxx = sum((x - mx) ** 2 for x in xs)
+        sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+        syy = sum((y - my) ** 2 for y in ys)
+        if sxx == 0 or syy == 0:
+            return {"n": n, "slope": None, "intercept": None, "r_squared": None, "pearson_r": None}
+        slope = sxy / sxx
+        intercept = my - slope * mx
+        r = sxy / math.sqrt(sxx * syy)
+        return {"n": n, "slope": round(slope, 4), "intercept": round(intercept, 4),
+                "r_squared": round(r * r, 3), "pearson_r": round(r, 3)}
+
+    oos = [p for p in pts if p["provenance"] == "out_of_sample"]
+    return {"x_channel": x_channel, "y_channel": y_channel, "n_designs": len(pts),
+            "fit_all": _ols(pts),
+            "fit_out_of_sample_only": _ols(oos),   # the honest test: does the law hold on genuine predictions?
+            "n_out_of_sample": len(oos), "n_in_sample": len(pts) - len(oos),
+            "points": pts,
+            "note": ("A law fitted ACROSS designs. `fit_out_of_sample_only` is the predictive test; `fit_all` mixes "
+                     "fitted (in_sample) and predicted points. A high R² driven mainly by in_sample points is "
+                     "CONSISTENCY, not prediction — check n_out_of_sample and the out-of-sample fit before crediting.")}

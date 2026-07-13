@@ -93,6 +93,98 @@ def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "prot
     return _diff.top_movers(target, reference, kind, top)
 
 
+def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
+    """Fit a growth LAW across designs: OLS of y_channel on x_channel, each design a cross-seed mean point. Returns
+    slope/intercept/R², SPLIT into fit_all vs fit_out_of_sample_only (the honest predictive test) with every point
+    tagged in_sample/out_of_sample. Use for laws like ribosome_conc vs growth_rate (Scott/Hui) or a dose-response
+    across a clamp/dosage series — never hand-regress means."""
+    for d in (designs or []):
+        rigor.note_design(d)
+    return rigor.fit_relation(designs or [], x_channel, y_channel)
+
+
+def _species_mean(ser):
+    """The mean of a read_species result, tolerant of its shape (a 'mean' field, or a points/series/values list)."""
+    if not isinstance(ser, dict):
+        return None
+    if isinstance(ser.get("mean"), (int, float)):
+        return round(float(ser["mean"]), 4)
+    pts = ser.get("points") or ser.get("series") or ser.get("values")
+    if isinstance(pts, list) and pts:
+        vals = [(p.get("y", p.get("value")) if isinstance(p, dict) else p) for p in pts]
+        vals = [v for v in vals if isinstance(v, (int, float))]
+        return round(sum(vals) / len(vals), 4) if vals else None
+    return None
+
+
+# curated regulons the pathway SECTORS don't carry — for regulon_response (the out-of-sample regulon-prediction test)
+_REGULONS = {
+    "nar_nitrate": ["narG", "narH", "narJ", "narI", "narK", "narX", "narL", "narZ", "narY", "narW"],
+    "ara_arabinose": ["araA", "araB", "araD", "araC", "araE", "araF", "araG", "araH", "araJ"],
+    "pho_phosphate": ["phoA", "phoB", "phoR", "phoE", "pstS", "pstC", "pstA", "pstB", "phoU", "ugpB"],
+    "fnr_anaerobic": ["dcuB", "dcuC", "frdA", "frdB", "frdC", "frdD", "cydA", "cydB", "pflB", "focA", "ansB", "dmsA"],
+    "mar_sox_rob_efflux": ["marA", "marB", "marR", "soxS", "soxR", "rob", "acrA", "acrB", "tolC", "acrD", "micF"],
+}
+
+
+def regulon_response(regulon: str, condition: str, reference: str = "wildtype/basal") -> dict:
+    """Does a SPECIFIC regulon respond to a condition? Fills the gap between the pathway SECTORS (differential) and
+    FDR-filtered top_movers: it reports how many of a NAMED gene-set moved and their direction, so an out-of-sample
+    regulon PREDICTION can be tested (nitrate->nar, arabinose->araBAD, phosphate->pho, stress->mar/sox/rob). Built on
+    top_movers, so it needs BOTH designs' raw local — returns a download hint otherwise (check raw_available)."""
+    genes = _REGULONS.get(regulon)
+    if not genes:
+        return {"error": f"unknown regulon '{regulon}'", "known": sorted(_REGULONS)}
+    # top_movers needs BOTH designs' FULL simOut local (per-protein counts) — note raw_available only reports
+    # CHANNEL-level raw, which is present more often, so we gate on top_movers' own outcome, not raw_available.
+    tm = top_movers(condition, reference, kind="protein", top=400)
+    if isinstance(tm, dict) and tm.get("error"):
+        return {"regulon": regulon, "condition": condition, "reference": reference, "needs_raw": True,
+                "message": f"full simOut for '{condition}'/'{reference}' not readable locally (top_movers: "
+                           f"{str(tm['error'])[:80]}). Pull both designs' raw (download_raw) then re-run.",
+                "top_movers_error": tm["error"]}
+    movers = tm.get("movers") or tm.get("top") or tm.get("results") or []
+    gs = {g.lower() for g in genes}
+    hits = []
+    for m in movers:
+        sym = str(m.get("gene") or m.get("symbol") or m.get("id") or "").lower()
+        if sym in gs:
+            hits.append({"gene": sym, "log2fc": m.get("log2fc") or m.get("log2_fc") or m.get("lfc"),
+                         "q": m.get("q") or m.get("qval")})
+    up = sum(1 for h in hits if (h["log2fc"] or 0) > 0)
+    down = sum(1 for h in hits if (h["log2fc"] or 0) < 0)
+    verdict = ("activated" if up > down and up else "repressed" if down > up and down
+               else "no significant regulon response")
+    return {"regulon": regulon, "condition": condition, "reference": reference,
+            "n_regulon_genes": len(genes), "n_significant_in_regulon": len(hits), "n_up": up, "n_down": down,
+            "verdict": verdict, "movers": sorted(hits, key=lambda h: -abs(h["log2fc"] or 0)),
+            "note": "Only FDR-significant movers appear (via top_movers); a gene absent here did not move beyond "
+                    "replicate noise. A named-regulon PREDICTION test the sector-level differential cannot give."}
+
+
+def exchange_flux(design: str, metabolite: str = "acetate") -> dict:
+    """Read a metabolite's EXCHANGE flux (secretion +, uptake -) for a design from LOCAL raw simOut — the
+    overflow-metabolism readout (acetate excretion at high growth; Basan 2015) the summary shard doesn't carry.
+    Resolves the exchange reaction via list_species, then read_species. Needs the design's raw local (raw_available)."""
+    hits = list_species(design, kind="exchange_flux", search=metabolite)
+    if isinstance(hits, dict) and hits.get("error"):
+        return {"design": design, "metabolite": metabolite, "error": hits["error"],
+                "needs_raw": "local" in str(hits.get("error")).lower(), "raw": raw_available(design)}
+    ids = hits.get("species") or hits.get("matches") or hits.get("ids") or []
+    if not ids:
+        return {"design": design, "metabolite": metabolite, "error": f"no exchange reaction matched '{metabolite}'",
+                "hint": "try a broader term or check list_species(kind='exchange_flux')"}
+    sid = ids[0].get("id") if isinstance(ids[0], dict) else ids[0]
+    ser = read_species(design, sid, kind="exchange_flux")
+    if isinstance(ser, dict) and ser.get("error"):
+        return {"design": design, "metabolite": metabolite, "exchange_reaction": sid, "error": ser["error"],
+                "needs_raw": "local" in str(ser.get("error")).lower(), "raw": raw_available(design)}
+    mean = _species_mean(ser)
+    return {"design": design, "metabolite": metabolite, "exchange_reaction": sid, "mean_flux": mean,
+            "direction": ("secreted (overflow)" if (mean or 0) > 0 else "taken up" if (mean or 0) < 0 else "~zero"),
+            "series": ser}
+
+
 def screen_design(perturbation: str = "wildtype", condition: str | None = None,
                   timeline: str | None = None, params: dict | None = None) -> dict:
     v = biosecurity.screen(Design(perturbation=perturbation, condition=condition, timeline=timeline,
@@ -692,6 +784,16 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "top": {"type": "integer"}},
                       "required": ["target"]}},
+    {"name": "fit_relation", "description": "Fit a growth LAW across DESIGNS: OLS of y_channel on x_channel, each design one cross-seed mean point. Returns slope/intercept/R² SPLIT into fit_all vs fit_out_of_sample_only, with every point tagged in_sample/out_of_sample. Use for laws (ribosome_conc vs growth_rate = Scott/Hui; RNA/protein vs growth = Bremer-Dennis) or a dose-response across a series — instead of eyeballing means. CRITICAL: a high fit_all R² driven by in_sample points is CONSISTENCY, not prediction; read fit_out_of_sample_only + n_out_of_sample to judge predictive validity.",
+     "input_schema": {"type": "object", "properties": {"designs": {"type": "array", "items": {"type": "string"}, "description": "'perturbation/condition' labels, e.g. ['wildtype/basal','condition/with_aa','condition/acetate']"},
+                      "x_channel": {"type": "string"}, "y_channel": {"type": "string"}},
+                      "required": ["designs", "x_channel", "y_channel"]}},
+    {"name": "regulon_response", "description": "Does a SPECIFIC regulon respond to a condition? Reports how many of a NAMED gene-set (nar_nitrate, ara_arabinose, pho_phosphate, fnr_anaerobic, mar_sox_rob_efflux) moved (FDR-significant) and their direction — the out-of-sample regulon-PREDICTION test the sector-level differential and FDR-filtered top_movers can't give directly. Needs BOTH designs' raw simOut local (built on top_movers); returns a download hint otherwise.",
+     "input_schema": {"type": "object", "properties": {"regulon": {"type": "string", "enum": ["nar_nitrate", "ara_arabinose", "pho_phosphate", "fnr_anaerobic", "mar_sox_rob_efflux"]},
+                      "condition": {"type": "string", "description": "the 'perturbation/condition' design to test, e.g. 'condition/plus_nitrate'"},
+                      "reference": {"type": "string"}}, "required": ["regulon", "condition"]}},
+    {"name": "exchange_flux", "description": "Read a metabolite's EXCHANGE flux (secretion +, uptake -) for a design from LOCAL raw simOut — the overflow-metabolism readout (acetate excretion; Basan 2015) the summary shard doesn't carry. Needs the design's raw local; returns a download hint otherwise.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string"}, "metabolite": {"type": "string", "description": "e.g. 'acetate'"}}, "required": ["design"]}},
     {"name": "list_results", "description": "List simulation results in the corpus (id, label, QC). FILTER rather than dump: gene='pfkA' returns just that KO's runs; perturbation='gene_knockout' narrows to KOs; contains='<label substring>' is a free search. To answer 'are there results for X?', pass gene=X and read `n` — n=0 means genuinely absent. The unfiltered list is long and can be TRUNCATED in context, so NEVER conclude a design is absent from an unfiltered dump — filter for it. Same manifest the Corpus Browser reads.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "a gene symbol, e.g. 'pfkA' — returns its KO runs"}, "perturbation": {"type": "string"}, "contains": {"type": "string", "description": "free substring match on the label"}}}},
     {"name": "design_space", "description": "Enumerate the RUNNABLE design space before proposing an experiment: static conditions (index->label), perturbation/variant types (with which give CLEAN graded phenotypes vs which reroute), and gene-KO resolution. Pass `gene` to get its ko_index PLUS its calibrated KO prior + essentiality benchmark. Use this so a hypothesis proposes a real, correctly-indexed experiment instead of guessing.",
@@ -768,6 +870,7 @@ TOOLS = [
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
+             "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "coverage_check": coverage_check, "corpus_audit": corpus_audit,
              "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
