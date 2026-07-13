@@ -26,13 +26,14 @@ from cellarium import tools  # noqa: E402
 
 DB = sys.argv[1] if len(sys.argv) > 1 else "data/sessions.db"
 
-# (keyword to match the question, observable) — the 5 A/B questions
+# (distinctive substring of the exact question, gene for corpus-existence, label) — disambiguated so 'ppGpp' doesn't
+# match both argS and the clamp question, and 'lpxC' doesn't match the deep-dive session.
 QUESTIONS = [
-    ("pfkA", "growth rate — reroute or cost?"),
-    ("lpxC", "viability vs essentiality"),
-    ("argS", "ppGpp up or down?"),
-    ("rRNA", "operon dosage vs max growth"),
-    ("ppGpp", "clamp 2x vs growth"),
+    ("pfka knockout reduce growth", "pfkA", "pfkA — reroute or cost"),
+    ("lpxc knockout's simulated viability", "lpxC", "lpxC — viability vs essentiality"),
+    ("args knockout raise or lower", "argS", "argS — ppGpp up or down"),
+    ("reducing rrna operon", "rRNA", "rRNA — operon dosage"),
+    ("clamping ppgpp to 2", "ppGpp", "ppGpp — clamp 2x"),
 ]
 
 # corpus-read tools: a hypothesis stated after these is data-informed (HARKing-prone)
@@ -68,23 +69,22 @@ def main():
         s["fu"] = _first_user(s["msgs"]).lower()
 
     print(f"A/B HARKing scorecard  ·  {DB}\n")
-    for key, obs in QUESTIONS:
-        k = key.lower()
-        arm_a = [s for s in sess if k in s["fu"] and HANDOFF not in s["fu"]]
-        arm_b_council = [r for r in runs if k in (r["question"] or "").lower()]
-        arm_b_test = [s for s in sess if HANDOFF in s["fu"] and k in s["fu"]]
-        corpus_has = tools.list_results(gene=key).get("n", 0)
+    for key, gene, obs in QUESTIONS:
+        arm_a = [s for s in sess if key in s["fu"] and HANDOFF not in s["fu"]]
+        arm_b_council = [r for r in runs if key in (r["question"] or "").lower()]
+        corpus_has = tools.list_results(gene=gene).get("n", 0)
 
         print("=" * 74)
-        print(f"Q[{key}] — {obs}")
-        print(f"  corpus already has {corpus_has} {key} run(s) at framing time  ->  HARKing {'POSSIBLE' if corpus_has else 'not possible'}")
+        print(f"Q[{gene}] — {obs}")
+        print(f"  corpus already has {corpus_has} {gene} run(s) at framing time  ->  HARKing {'POSSIBLE' if corpus_has else 'not possible'}")
         if arm_a:
-            print(f"  Arm A  Cellwright-direct  [{arm_a[-1]['sid']}]  corpus-reads={_read_tool_calls(arm_a[-1]['msgs'])}  ->  data-informed (HARKing-prone)")
+            print(f"  Arm A  Cellwright-direct  [{arm_a[-1]['sid']}]  corpus-reads={_read_tool_calls(arm_a[-1]['msgs'])}  ->  data-informed (framing after reading -> HARKing-prone)")
         else:
             print("  Arm A  — NOT FOUND (ask it in Investigations)")
         if arm_b_council:
-            print(f"  Arm B  Council  [{arm_b_council[-1]['id']}]  blind by construction (0 corpus reads)  ->  PRE-REGISTERED"
-                  + (f"  +test [{arm_b_test[-1]['sid']}]" if arm_b_test else "  (no handoff session yet)"))
+            r = arm_b_council[-1]
+            status = "PRE-REGISTERED (0 corpus reads, blind)" if r["status"] == "done" else f"PARKED at gate ({r['status']}) — couldn't frame without more specification"
+            print(f"  Arm B  Council  [{r['id']}]  status={r['status']}  ->  {status}")
         else:
             print("  Arm B  — NOT FOUND (convene it in Hypotheses)")
         print(f"  MANUAL:  predicted direction  ArmA=____  ArmB=____  |  corpus shows=____  |  ArmB diverges from corpus? ____")

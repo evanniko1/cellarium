@@ -16,9 +16,10 @@ from . import store
 from .runner import OUT_ROOT
 
 HF_REPO = os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus")
-# Set CELLARIUM_HF_HAS_RAW=1 ONCE the raw corpus is actually uploaded (scripts/hf_upload.py --what runs). Until
-# then, HF download is reported as unavailable so the agent honestly points the user to regenerate-locally instead.
-HF_HAS_RAW = os.environ.get("CELLARIUM_HF_HAS_RAW", "").strip().lower() in ("1", "true", "yes")
+# The raw corpus IS uploaded to the HF dataset, so download_raw / data_availability offer HF pulls by DEFAULT —
+# users get that capability out of the box. Per-design HF presence is still checked (a design not on HF reports so
+# honestly). Set CELLARIUM_HF_HAS_RAW=0 to force the regenerate-locally path instead.
+HF_HAS_RAW = os.environ.get("CELLARIUM_HF_HAS_RAW", "1").strip().lower() in ("1", "true", "yes")
 # What the shard carries locally (no raw read) vs what needs raw simOut (HF download or regenerate).
 SHARD_ANSWERS = "panel-species terminal+coarse trajectory, summary channels, viability, pathways"
 NEEDS_RAW = "arbitrary (non-panel) species, full-resolution trajectories, FBA reaction/exchange fluxes"
