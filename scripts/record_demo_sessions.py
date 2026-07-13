@@ -43,7 +43,7 @@ load_dotenv(ROOT / ".env")      # ANTHROPIC_API_KEY
 JOBS = {
     "clash": {
         "sid": "s_rrna_clash",
-        "title": "Delete rRNA operons: the numbers-vs-efficiency clash and the Numbers Game",
+        "title": "Delete rRNA operons: the numbers-vs-efficiency clash",
         "prompt": (
             "Delete the ribosomal-RNA operons one dose at a time — the rrna_operon_knockout designs on minimal "
             "(2, 4, and 6 of the 7 operons removed). Using disconfirm, track ribosome_conc, growth_rate, ppgpp_conc "
@@ -68,9 +68,11 @@ JOBS = {
             "Does nitrate switch on the nitrate-reductase (nar) genes? Run top_movers for condition/plus_nitrate vs "
             "wildtype/basal at the protein level. Then be skeptical: the plus_nitrate condition also REMOVES OXYGEN, "
             "and anaerobiosis alone drives many of the same genes — so re-run top_movers for condition/plus_nitrate "
-            "vs the anaerobic control condition/no_oxygen to isolate the nitrate-specific effect. Report whether "
-            "narGHJI is genuinely nitrate-induced or a confound of the anaerobic shift, and what (if anything) IS "
-            "nitrate-specific once controlled, with a citation for the mechanism."),
+            "vs the anaerobic control condition/no_oxygen to isolate the nitrate-specific effect. In the controlled "
+            "comparison report BOTH directions — the genes INDUCED and the genes REPRESSED by nitrate (the up and "
+            "down movers) — since the NarL hierarchy has both arms. Conclude whether narGHJI is genuinely "
+            "nitrate-induced or a confound of the anaerobic shift, and what the full nitrate-specific signature is "
+            "(induced respiratory chain + repressed fermentation), with a citation for the mechanism."),
     },
 }
 

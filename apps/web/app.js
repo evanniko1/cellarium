@@ -1338,11 +1338,11 @@ async function runDemo() {
     <div class="ds-title">A clash that led somewhere</div>
     <div class="ds-body ds-lead">
       <p>Cut ribosome <b>numbers</b> and ribosomes and growth fall together — but Scott's second law says impairing
-      <b>efficiency</b> makes a cell <i>over-build</i>. That clash framed an experiment, and a grounded search named
-      it: the <b>Numbers Game</b> [Levin&nbsp;2017].</p>
-      <p class="ds-next"><b>The lead:</b> confirmed in the wet lab, yet <b>never shown computationally</b> — a clean
-      Vivarium validation target [Agmon&nbsp;2022; Skalnik&nbsp;2023], opening antibiotic-potency prediction. The
-      method produced a research lead, not just a verdict.</p>
+      <b>efficiency</b> makes a cell <i>over-build</i>. That clash framed an experiment, and a grounded search reached
+      the theory of <b>ribosome-limited antibiotic susceptibility</b> [Greulich–Scott&nbsp;2015].</p>
+      <p class="ds-next"><b>The lead:</b> established in theory + wet lab, yet <b>never shown computationally</b> — it
+      needs a colony-scale simulator, exactly what <b>Vivarium</b> runs [Agmon&nbsp;2022; Skalnik&nbsp;2023], opening
+      antibiotic-potency prediction. The agent reasoned to the frontier, not just a verdict.</p>
     </div>`;
 
   const showArch = () => {
@@ -1369,8 +1369,8 @@ async function runDemo() {
     { ms: 9000, go: async () => { say("The corpus", "239 whole-cell runs in <b>DuckDB shards</b>; full-resolution raw simOut streams from <b>Hugging Face</b> on demand — the seed of an open corpus."); closeHyp(); openCorpus(); } },
     { ms: 8000, go: async () => { say("The launch airlock", "Cellwright <b>proposes</b> experiments as job drafts — nothing simulates without <b>your approval</b>. Safety is a gate, not a footnote."); closeCorpus(); openDrawer("queue"); } },
     { ms: 8000, go: async () => { say("A queryable record", "Every interaction persists in <b>SQLite</b> — a durable, analyzable record of the model's reasoning, not a disposable chat."); closeDrawers(); } },
-    { ms: 10000, go: async () => { say("Beyond catching failures — a lead", "A direct question — <b>delete rRNA operons</b> — grounds a dose-response and a real plot: ribosome content and growth fall together, the cell stays viable."); if (rrnaSid) { closeDrawers(); await openServerSession({ sid: rrnaSid, title: "Delete rRNA operons: the numbers-vs-efficiency clash and the Numbers Game" }); scrollMain("#scroll", 0); } } },
-    { ms: 10000, go: async () => { say("The clash, grounded", "The remaining operons compensate (Condon 1993), ppGpp stays flat — then a <b>live literature review</b> names the clash with Scott's law: the <b>Numbers Game</b> [Levin 2017]."); scrollMain("#scroll", "end"); } },
+    { ms: 10000, go: async () => { say("Beyond catching failures — a lead", "A direct question — <b>delete rRNA operons</b> — grounds a dose-response and a real plot: ribosome content and growth fall together, the cell stays viable."); if (rrnaSid) { closeDrawers(); await openServerSession({ sid: rrnaSid, title: "Delete rRNA operons: the numbers-vs-efficiency clash" }); scrollMain("#scroll", 0); } } },
+    { ms: 10000, go: async () => { say("The clash, grounded", "The remaining operons compensate (Condon 1993), ppGpp stays flat — then a <b>live literature review</b> reaches the theory of <b>ribosome-limited antibiotic susceptibility</b> [Greulich–Scott 2015] — and the computational gap."); scrollMain("#scroll", "end"); } },
     { ms: 13000, go: () => showSlide(CLASH) },
     { ms: 18000, go: () => showSlide(CLOSING) },
   ];

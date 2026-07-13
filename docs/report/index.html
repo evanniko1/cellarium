@@ -387,22 +387,24 @@
           nitrate</b> — re-run against <span class="mono">no_oxygen</span>.</p></div></div>
       <div class="step"><div class="mk">T</div><div>
         <div class="role">Cellwright · reference-controlled</div>
-        <h3>Controlled, narGHJI no longer moves — the real signal is repression.</h3>
-        <p>The nitrate-specific effect is <b>repression of fermentation</b> (fumarate reductase, mixed-acid genes):
-          the NarL respiratory hierarchy.</p>
+        <h3>Controlled, narGHJI no longer moves — the signal is the respiratory hierarchy.</h3>
+        <p>Once anaerobiosis is controlled, the nitrate-specific effect is the full <b>NarL respiratory hierarchy</b>,
+          in both directions: <b>induce</b> the nitrate-respiration chain (the nuo Complex I) and <b>repress</b> the
+          less-favourable fermentation pathways (fumarate reductase, cytochrome bd).</p>
         <div class="datatable"><table>
           <thead><tr><th>gene</th><th>vs no_oxygen</th><th>q</th><th>role</th></tr></thead>
           <tbody>
+            <tr><td>nuoA–N</td><td class="up">+3.7</td><td>&lt;0.01</td><td>Complex I — induced (nitrate respiration)</td></tr>
             <tr><td>narG/narH</td><td class="v-mid">~0 (ns)</td><td>—</td><td>not nitrate-specific after control</td></tr>
-            <tr><td>frdD</td><td class="down">−2.67</td><td>0.003</td><td>fumarate reductase</td></tr>
-            <tr><td>frdA</td><td class="down">−2.24</td><td>0.009</td><td>fumarate reductase</td></tr>
-            <tr><td>pflB</td><td class="down">−1.46</td><td>—</td><td>pyruvate formate-lyase</td></tr>
+            <tr><td>cydB</td><td class="down">−3.40</td><td>0.001</td><td>cytochrome bd — repressed</td></tr>
+            <tr><td>frdD / frdA</td><td class="down">−2.67 / −2.24</td><td>&lt;0.01</td><td>fumarate reductase — repressed</td></tr>
           </tbody></table></div></div></div>
     </div>
     <div class="verdict boundary">
       <div class="role eyebrow">Cellwright · verdict</div>
-      <p>The naive "yes" was the oxygen effect. Controlled, the defensible out-of-sample result is the <b>repressive
-        arm</b> of nitrate regulation — and it needed no Council to enforce the discipline.</p>
+      <p>The naive "yes" was the oxygen effect. Controlled, the defensible out-of-sample result is the NarL
+        <b>respiratory hierarchy</b> — induce nitrate respiration, repress fermentation — and it needed no Council to
+        enforce the discipline, just the right reference. <span class="mono">[Goh 2005]</span></p>
     </div>
   </div></section>
 
@@ -415,7 +417,7 @@
       <div class="card good"><div class="badge">non-obvious</div><h3>ppGpp allocation optimum</h3>
         <p>Growth is worst at both clamp extremes, best mid-range (Zhu &amp; Dai 2019).</p><div class="num">−28% · −14% · −27%</div></div>
       <div class="card good"><div class="badge">regulatory</div><h3>Nitrate respiratory hierarchy</h3>
-        <p>Represses fermentation when nitrate is available (NarL).</p><div class="num">frd −2.1…−2.7 · cyd −3.4</div></div>
+        <p>Induces nitrate respiration (nuo) and represses fermentation (frd, cyd) when nitrate is available (NarL).</p><div class="num">nuo +3.7 · frd/cyd −2.2…−3.4</div></div>
       <div class="card good"><div class="badge">viable · graded</div><h3>rRNA-operon dosage</h3>
         <p>Removing operons lowers ribosomes and growth proportionally; the cell stays viable (§05).</p><div class="num">ribosome −50% · divides</div></div>
     </div>
@@ -471,8 +473,8 @@
         <span class="pill">the result · cut the NUMBERS</span>
         <h3 style="margin:0 0 6px">Delete operons → fewer ribosomes, and the cell copes</h3>
         <ul class="predlist">
-          <li>Graded, not catastrophic: ribosome <b>−50%</b>, growth <b>−35%</b> at six of seven operons removed;
-            still dividing for four generations.</li>
+          <li><b>Threshold-like, not linear</b>: 4 operons out is still ≈ 2 out; only at 6 out (one operon left) does
+            it collapse — ribosome <b>−50%</b>, growth <b>−35%</b>, yet still dividing four generations.</li>
           <li>The <b>remaining operons compensate</b> — per-operon rRNA output rises <b>1.6× → 3.3×</b> — exactly the
             ribosome-feedback up-regulation Condon measured. <span class="mono">[Condon 1993]</span></li>
           <li>And with <b>ppGpp flat</b> (~62 µM), matching Condon's finding that this compensation is
@@ -512,22 +514,25 @@
           operon-deletion series crossed with a translation inhibitor.</p></div></div>
       <div class="step"><div class="mk">L</div><div>
         <div class="role">Cellwright · targeted literature search</div>
-        <h3>The experiment has a name — the "Numbers Game."</h3>
-        <p>Levin et al. built <i>E. coli</i> with 1–6 of the 7 rrn operons deleted and challenged them with
-          chloramphenicol, tetracycline and azithromycin: operon-poor strains are <b>killed far faster</b> — but not
-          by ciprofloxacin, which does not target ribosomes. The synergy is real and experimentally confirmed.
-          <span class="mono">[Levin 2017, mBio]</span></p></div></div>
+        <h3>The clash has a theory — ribosome-limited antibiotic susceptibility.</h3>
+        <p>The synergy the clash predicts is the subject of <b>growth-dependent, ribosome-limited susceptibility to
+          ribosome-targeting antibiotics</b> — a coarse-grained theory (drug transport + binding × the cell's
+          ribosome physiology) that even predicts a translation-mutant's susceptibility: the direct bridge from
+          Scott's second law to the kill regime. It is <b>theory and wet lab, not yet a whole-cell simulation</b>.
+          <span class="mono">[Greulich, Scott, Evans &amp; Allen 2015, Mol Syst Biol]</span></p></div></div>
     </div>
     <div class="verdict">
       <div class="role eyebrow">the contribution</div>
-      <p>The Numbers Game is established biology — but it has <b>never been shown computationally</b> in a whole-cell
-        model. Cellarium already reproduces the numbers half (the dose-response and Condon's compensation); the
-        drug-synergy prediction is a clean, falsifiable validation target — and its natural scale, a growing colony
-        under a drug gradient, is exactly what <b>Vivarium</b> (many wcEcoli cells in a shared environment, already
-        used for tetracycline) can run. It also opens a <b>pharmacology angle</b>: predicting a ribosome-targeting
-        antibiotic's potency from a cell's ribosome-allocation state. The clash did not just recover biology we had
-        forgotten — it pointed at a model test worth running.
-        <span class="mono">[Vivarium: Agmon et al. 2022, Bioinformatics · wcEcoli colonies: Skalnik et al. 2023, PLoS Comput Biol]</span></p>
+      <p>This susceptibility regime is established in theory and the wet lab — but it has <b>never been shown
+        computationally</b> in a whole-cell model. Cellwright reasoned to <i>why</i>: the model holds both
+        ingredients separately (the operon supply-cap here; the ppGpp→ribosome efficiency response), yet antibiotic
+        hypersensitivity is a <b>population-level</b> survival phenomenon a single dividing lineage cannot express.
+        Closing it needs a <b>colony-scale simulator</b> — many wcEcoli cells under a translation-inhibitor gradient
+        — which is exactly what <b>Vivarium</b> runs (it already simulates wcEcoli colonies under tetracycline). It
+        opens a <b>pharmacology angle</b>: predicting a ribosome-targeting antibiotic's potency from a cell's
+        ribosome-allocation state. The clash did not just recover a fact — the agent reasoned to an unexplored regime
+        and the tool to probe it.
+        <span class="mono">[Greulich–Scott 2015, Mol Syst Biol · Vivarium: Agmon et al. 2022 · wcEcoli colonies: Skalnik et al. 2023]</span></p>
     </div>
   </div></section>
 
@@ -543,7 +548,7 @@
         <tr><td>Nutrient / cell-size laws</td><td>control</td><td>growth +128%, size +147% (with_aa)</td><td class="v-ok">✓ obeys</td></tr>
         <tr><td>ppGpp non-monotonicity</td><td>control</td><td>worst at both clamp extremes</td><td class="v-ok">✓ obeys</td></tr>
         <tr><td>rRNA-operon dosage</td><td>control · prediction</td><td>graded, viable; Condon compensation (ppGpp-flat)</td><td class="v-ok">✓ obeys · bench lead</td></tr>
-        <tr><td>Nitrate respiratory hierarchy</td><td>out-of-sample</td><td>represses frd/pfl (controlled)</td><td class="v-ok">✓ predicts</td></tr>
+        <tr><td>Nitrate respiratory hierarchy</td><td>out-of-sample</td><td>induces nuo, represses frd/cyd (controlled)</td><td class="v-ok">✓ predicts</td></tr>
         <tr><td>Non-genetic heterogeneity</td><td>novelty</td><td>isogenic seeds diverge (ppGpp 51–64 µM)</td><td class="v-ok">✓ whole-cell only</td></tr>
         <tr><td>Generation-paced crash timing</td><td>novelty</td><td>rplB gen-0 · argS gen-3 · rpoB 7 gens</td><td class="v-ok">✓ whole-cell only</td></tr>
         <tr><td>Stringent sensing (aaRS→ppGpp)</td><td>failure</td><td>ppGpp −90% (should rise)</td><td class="v-fail">✕ inverted</td></tr>
@@ -608,7 +613,7 @@
       <div class="next">
         <div><div class="n4">Close the boundaries</div><p>Treat the §04 boundaries as a research agenda, with Cellarium as the regression harness that verifies each fix.</p></div>
         <div><div class="n4">Grow &amp; open the corpus</div><p>"The Well for the cell": more designs, more depth on Hugging Face, as a community benchmark and a substrate for ML surrogates.</p></div>
-        <div><div class="n4">The Numbers Game, computationally</div><p>Reproduce Levin's rRNA-operon × translation-inhibitor synergy in a wcEcoli colony via Vivarium — never shown in a whole-cell model — opening an antibiotic-potency prediction.</p></div>
+        <div><div class="n4">Ribosome-limited susceptibility, computationally</div><p>Reproduce the operon-number × translation-inhibitor synergy in a wcEcoli colony via Vivarium — never shown in a whole-cell model — opening antibiotic-potency prediction from a cell's ribosome-allocation state.</p></div>
       </div>
 
       <p class="sendoff">A whole-cell model is a black box you can now <b>question</b> — and every answer tells you
@@ -639,12 +644,13 @@
     <div class="refgroup">Nitrate regulation</div>
     <div class="ref"><span class="rn">9</span><span class="rb">Goh E-B, Bledsoe PJ, Chen L-L, Gyaneshwar P, Stewart V, Igo MM (2005). <b>Hierarchical control of anaerobic gene expression in <i>E. coli</i> K-12: the nitrate-responsive NarX-NarL system represses the fumarate-responsive DcuS-DcuR system.</b> <i>J Bacteriol</i> 187:4890–4899. <span class="doi">doi:10.1128/JB.187.14.4890-4899.2005</span></span></div>
 
-    <div class="refgroup">rRNA operons &amp; the Numbers Game</div>
+    <div class="refgroup">rRNA operons &amp; ribosome-limited antibiotic susceptibility</div>
     <div class="ref"><span class="rn">10</span><span class="rb">Condon C, French S, Squires C, Squires CL (1993). <b>Depletion of functional ribosomal RNA operons in <i>E. coli</i> causes increased expression of the remaining intact copies.</b> <i>EMBO J</i> 12:4305–4315. <span class="doi">doi:10.1002/j.1460-2075.1993.tb06115.x</span></span></div>
-    <div class="ref"><span class="rn">11</span><span class="rb">Levin BR, McCall IC, Perrot V, Weiss H, Ovesepian A, Baquero F (2017). <b>A numbers game: ribosome densities, bacterial growth, and antibiotic-mediated stasis and death.</b> <i>mBio</i> 8:e02253-16. <span class="doi">doi:10.1128/mBio.02253-16</span></span></div>
+    <div class="ref"><span class="rn">11</span><span class="rb">Greulich P, Scott M, Evans MR, Allen RJ (2015). <b>Growth-dependent bacterial susceptibility to ribosome-targeting antibiotics.</b> <i>Mol Syst Biol</i> 11:796. <span class="doi">doi:10.15252/msb.20145949</span></span></div>
 
-    <p class="note" style="margin-top:20px">All eleven verified against the primary record via PubMed. The Scott law
-      (4) is cited only for the numbers-vs-efficiency contrast in §05 — the model is <i>not</i> claimed to obey it.</p>
+    <p class="note" style="margin-top:20px">All eleven verified against the primary record via PubMed. The Scott
+      first law (4) is cited only for the numbers-vs-efficiency contrast in §05 — the model is <i>not</i> claimed to
+      obey it; Greulich–Scott (11) is the ribosome-limited-susceptibility theory the §05 investigation converged on.</p>
   </div></section>
 
   <footer><div class="wrap">
