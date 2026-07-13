@@ -87,14 +87,13 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
     run_id = hstore.new_id()
     hstore.create(run_id, case["question"], council_models.get("proposer"))
 
-    # app-fidelity: the same blind sufficiency gate the UI runs. For these specified cases the deterministic
-    # pre-pass should pass without the model; a genuine park is recorded honestly (and flagged in aggregation).
-    gate = council.sufficiency_gate(case["question"], client=client)   # no models => the cheap Haiku gate default
-    if not gate.get("sufficient") and gate.get("clarifying_questions"):
-        hstore.needs_spec(run_id, {**gate, "example": None})
-        return {"id": case["id"], "run_id": run_id, "status": "needs_spec",
-                "missing": gate.get("missing"), "converged": False,
-                "min_bar_pass": False, "stringent_bar_pass": False}
+    # The eval deliberates DIRECTLY — it does NOT run the app's sufficiency gate. The eval cases are the
+    # deliberately-vague literature SEED questions the Council exists to midwife (e.g. "What does a cell do when it
+    # runs out of amino acids?" -> the stringent response). Gating them parks ~23/25 and would measure the gate, not
+    # the Council. Mirrors evals/grade.py, which never gated. We still record the gate's deterministic pre-pass
+    # verdict as a DIAGNOSTIC — how often the APP gate would fire on a canonical scientific question — but we always
+    # deliberate. (This is the empirical case that the app gate conflicts with the Council's core competency.)
+    gate_prepass_specific = council.looks_specific(case["question"])
 
     def _round(payload):
         hstore.append_round(run_id, payload)
@@ -122,6 +121,7 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
     min_bar = det["_floor_pass"] and min_judge
     stringent_bar = min_bar and str_judge and bool(h.converged)
     return {"id": case["id"], "run_id": run_id, "status": "done", "converged": bool(h.converged),
+            "gate_prepass_specific": gate_prepass_specific,   # diagnostic: would the APP gate have let this through?
             "deterministic_floor": det["_floor_pass"], "min_bar_pass": min_bar,
             "stringent_bar_pass": stringent_bar, "min_criteria": min_c, "stringent_criteria": str_c,
             "comment": g.get("comment", ""), "hypothesis": hview}
@@ -212,10 +212,12 @@ def main():
 def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
     """Roll the ledger up into a scorecard: Council min/stringent-bar pass rates + the HARKing contrast."""
     ok_b = [led[c["id"]]["b"] for c in selected if led.get(c["id"], {}).get("b", {}).get("status") == "done"]
-    parked = [c["id"] for c in selected if led.get(c["id"], {}).get("b", {}).get("status") == "needs_spec"]
     err_b = [c["id"] for c in selected if led.get(c["id"], {}).get("b", {}).get("status") == "error"]
     n_min = sum(bool(r.get("min_bar_pass")) for r in ok_b)
     n_str = sum(bool(r.get("stringent_bar_pass")) for r in ok_b)
+    # gate diagnostic: of the canonical questions the Council deliberated, how many would the APP's gate pre-pass
+    # have let through? (Low = the gate over-fires on exactly the questions the Council is built to answer.)
+    gate_pass = [r["id"] for r in ok_b if r.get("gate_prepass_specific")]
     a_rows = [led[c["id"]]["a"] for c in selected if "corpus_reads" in led.get(c["id"], {}).get("a", {})]
     a_informed = sum(bool(r.get("data_informed")) for r in a_rows)
 
@@ -223,9 +225,11 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
         "n_cases": len(selected), "arm": args.arm, "elapsed_sec": round(elapsed, 1),
         "council_model": args.council_model, "grader_model": args.grader_model,
         "arm_b_council": {
-            "n_deliberated": len(ok_b), "n_parked_at_gate": len(parked), "parked_ids": parked,
-            "n_error": len(err_b), "error_ids": err_b,
-            "n_min_bar": n_min, "n_stringent_bar": n_str},
+            "n_deliberated": len(ok_b), "n_error": len(err_b), "error_ids": err_b,
+            "n_min_bar": n_min, "n_stringent_bar": n_str,
+            "gate_diagnostic": {"n_gate_prepass_pass": len(gate_pass),
+                                "note": "the eval deliberates all cases directly; this counts how many the APP "
+                                        "sufficiency-gate pre-pass would have let through unblocked."}},
         "arm_a_cellwright": {
             "n_answered": len(a_rows), "n_data_informed": a_informed,
             "note": "Arm A reads the corpus before committing (HARKing-prone); Arm B is blind by construction."},
@@ -234,9 +238,9 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
     (RESULTS / "ab_summary.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     _log("\n" + "=" * 72)
     _log(f"Arm B (Council):  deliberated {len(ok_b)}   min-bar {n_min}/{len(ok_b)}   "
-         f"stringent-bar {n_str}/{len(ok_b)}   parked {len(parked)}   errored {len(err_b)}")
-    if parked:
-        _log(f"  parked at gate: {parked}   (should be ~none now with the deterministic pre-pass)")
+         f"stringent-bar {n_str}/{len(ok_b)}   errored {len(err_b)}")
+    _log(f"  gate diagnostic: only {len(gate_pass)}/{len(ok_b)} of these canonical questions would clear the "
+         f"app gate pre-pass — the gate over-fires on the Council's own competency")
     _log(f"Arm A (Cellwright): answered {len(a_rows)}   data-informed {a_informed}/{len(a_rows)} "
          f"(blind Arm B = 0/{len(ok_b)} by construction)")
     _log(f"\n-> evals/results/ab_summary.json   ·   app backfill: Council runs in the Hypotheses surface; "
