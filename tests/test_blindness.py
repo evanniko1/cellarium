@@ -92,6 +92,40 @@ def test_debate_digest_is_blind_and_bounded():
     assert nums == [1]                                       # only the round index is numeric — no data values
 
 
+def test_web_research_input_is_blind(monkeypatch):
+    """Phase 3(a) librarian: the web_search pass may search EXTERNAL literature, but its INPUT must carry only the
+    question + instrument capabilities — never a corpus reading or a leaked answer, so it can't search FROM the
+    answer or smuggle corpus data into the request."""
+    captured = {}
+
+    class _Cli:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                import json as _j
+                captured.update(_j.loads(kw["messages"][0]["content"]))
+
+                class _B:
+                    type = "text"; text = "a cited brief"; citations = []
+
+                class _R:
+                    content = [_B()]
+                return _R()
+
+    out = council.web_research("Is the aaRS-KO survival spread a charging-depletion difference?", client=_Cli())
+    assert out["brief"] == "a cited brief"
+    assert "leaked_reference_answer" not in captured
+    # capabilities (channel/perturbation NAMES) are allowed; a READING would be a run path, a stat, or a numeric value
+    import json as _j
+    blob = _j.dumps(captured)
+    for m in ("simout_path", "welch_t", "/cellarium/", "gene_knockout_0", "condition_0"):
+        assert m not in blob, f"a corpus reading/run-ref leaked into the librarian request: {m}"
+    caps = captured.get("instrument_capabilities", {})
+    assert all(isinstance(c, str) for c in caps.get("channels", []))   # channel NAMES only, never {name: value} readings
+    nums = [v for v in _j.loads(blob).get("instrument_capabilities", {}).get("channels", []) if isinstance(v, (int, float))]
+    assert not nums
+
+
 def test_leak_control_mechanism_exists():
     """The quarantine is testable BECAUSE the ablation can deliberately leak an answer key — confirm that lever
     exists (so 'blind' is a measured claim, not an assumption) and that it is off by default."""

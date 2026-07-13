@@ -273,6 +273,26 @@ def test_substantive_objection_blocks_same_round_convergence():
     assert h.converged is True and h.rounds_used == 2   # NOT round 1 — the substantive objection forced a clean round
 
 
+def test_web_brief_extracts_text_and_dedupes_citations():
+    """The librarian returns the synthesized brief + its web sources, pulled from the text blocks' citations and
+    de-duplicated by URL."""
+    class _Cit:
+        def __init__(self, url, title): self.url, self.title = url, title
+
+    class _B:
+        type = "text"
+        text = "aaRS KOs deplete charged tRNA and crash by ~gen 3 [1][2]."
+        citations = [_Cit("https://example.org/paper", "Choi & Covert 2023"),
+                     _Cit("https://example.org/paper", "Choi & Covert 2023")]   # dup URL
+
+    class _R:
+        content = [_B()]
+
+    out = council._read_web_brief(_R())
+    assert out["brief"].startswith("aaRS KOs deplete")
+    assert out["sources"] == [{"url": "https://example.org/paper", "title": "Choi & Covert 2023"}]   # deduped
+
+
 def test_sufficiency_gate_challenges_vague_question_scope_only():
     """Phase 3(b): a too-broad question is parked with SCOPE-ONLY clarifying questions; a specified one passes
     straight through. The gate never runs the deliberation on a question too vague to yield a decisive test."""

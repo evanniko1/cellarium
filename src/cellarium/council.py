@@ -496,6 +496,60 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
             "rationale": out.get("rationale", "")}
 
 
+# --- Phase 3(a): native web/literature access (the librarian) ----------------------------------------------
+# web_search is on the standard Messages endpoint (no beta). Bump the dated type as newer ones ship.
+_WEB_SEARCH_TOOL = {"type": "web_search_20260318", "name": "web_search", "max_uses": 5}
+
+_LIBRARIAN_SYS = (
+    "You are the LIBRARIAN of a Socratic Council. Given a research QUESTION (and, optionally, the sharpened claim "
+    "the Council is now debating), search the web and primary literature for GENERAL BIOLOGY that bears on FRAMING "
+    "a falsifiable hypothesis: established mechanisms, prior experimental findings, quantitative priors, the leading "
+    "rival explanations, and where whole-cell / FBA models are known to disagree with observation. Return a COMPACT "
+    "CITED brief — a few tight bullets, each with its source. If a sharpened claim is given, say specifically what "
+    "the literature would ASSIST (supports/plausible) or DISCLAIM (contradicts/implausible) about it.\n"
+    "HARD BOUNDARY (the quarantine): this is EXTERNAL published knowledge ONLY. You have NO access to this project's "
+    "simulation corpus and must NEVER state, guess, or imply what THIS corpus / these runs show — report only what "
+    "the literature says, with sources. You inform the FRAMING; you never preview the corpus answer.")
+
+
+def _read_web_brief(resp) -> dict:
+    """Pull the synthesized text + its web citations out of a web_search response (text blocks carry .citations)."""
+    parts: list[str] = []
+    sources: list[dict] = []
+    seen: set = set()
+    for b in getattr(resp, "content", None) or []:
+        if getattr(b, "type", None) == "text":
+            parts.append(getattr(b, "text", "") or "")
+            for c in (getattr(b, "citations", None) or []):
+                url = getattr(c, "url", None)
+                if url and url not in seen:
+                    seen.add(url)
+                    sources.append({"url": url, "title": getattr(c, "title", None)})
+    return {"brief": "".join(parts).strip(), "sources": sources}
+
+
+def web_research(question: str, *, focus: str | None = None, client=None, model: str | None = None,
+                 labels: dict | None = None, max_tokens: int = 1600) -> dict:
+    """The librarian step: a native web_search pass returning a compact, CITED general-biology brief to inform the
+    Council's framing. BLIND to the corpus by construction — it searches the published literature from the QUESTION
+    (and optionally the sharpened claim), never the simulation results. Runs as a SEPARATE call from the structured
+    role emits: web_search needs tool_choice=auto, which the forced-tool _emit cannot use. Returns {brief, sources}."""
+    labels = labels if labels is not None else instrument.dial_labels()
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    model = model or os.environ.get("CELLARIUM_LIBRARIAN_MODEL") or _default_models()["proposer"]
+    payload = {"question": question,   # capabilities are metadata (what's measurable), never readings — stays blind
+               "instrument_capabilities": {"channels": list(labels.get("channels") or {}),
+                                           "perturbations": sorted(labels.get("perturbations") or {})}}
+    if focus:
+        payload["sharpened_claim"] = focus
+    resp = client.messages.create(model=model, max_tokens=max_tokens, system=_LIBRARIAN_SYS,
+                                  tools=[_WEB_SEARCH_TOOL],
+                                  messages=[{"role": "user", "content": json.dumps(payload)}])
+    return _read_web_brief(resp)
+
+
 # --- the loop ----------------------------------------------------------------------------------------------
 
 def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
