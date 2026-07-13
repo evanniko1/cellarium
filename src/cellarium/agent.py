@@ -342,18 +342,21 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
 
     for _ in range(max_turns):
         kw = dict(model=mdl, system=system, tools=tool_defs, messages=_prefix_cached(messages))
+        # max_tokens is a CAP, not a target — the model stops when done, so a generous cap costs nothing on short
+        # answers but stops a synthesis ('top 5 findings …') being truncated mid-item. With thinking, leave room for
+        # the answer AFTER the reasoning budget.
         if budget:
             kw["thinking"] = {"type": "enabled", "budget_tokens": budget}
-            kw["max_tokens"] = budget + 2000
+            kw["max_tokens"] = budget + 4000
         else:
-            kw["max_tokens"] = 1500
+            kw["max_tokens"] = 4096
         try:
             resp = _run_turn(client, kw, on_text)
         except Exception as exc:                      # extended thinking unsupported here -> retry as base model
             if budget and _is_thinking_error(exc):
                 budget = 0
                 kw.pop("thinking", None)
-                kw["max_tokens"] = 1500
+                kw["max_tokens"] = 4096
                 resp = _run_turn(client, kw, on_text)
             else:
                 raise
