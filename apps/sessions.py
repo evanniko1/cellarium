@@ -56,6 +56,18 @@ class SessionStore:
                     (sid, sess.get("model"), int(bool(sess.get("used_council"))), sess.get("title"),
                      json.dumps(sess.get("messages", []), default=str), time.time()))
 
+    def list(self, limit: int = 300) -> list[dict]:
+        """Every persisted session, newest first — the server-side index the client's localStorage doesn't have.
+        Powers the Investigations 'saved / backfilled sessions' list, so a session written by another process (the
+        eval A/B runner) or lost from localStorage (a cleared / different browser) is still browsable."""
+        db = sqlite3.connect(self.path)
+        try:
+            rows = db.execute("SELECT sid, title, model, updated, LENGTH(messages) FROM sessions "
+                              "ORDER BY updated DESC LIMIT ?", (int(limit),)).fetchall()
+        finally:
+            db.close()
+        return [{"sid": r[0], "title": r[1], "model": r[2], "updated": r[3], "bytes": r[4] or 0} for r in rows]
+
     def delete(self, sid: str) -> None:
         self.mem.pop(sid, None)
         self._write("DELETE FROM sessions WHERE sid=?", (sid,))

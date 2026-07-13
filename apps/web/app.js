@@ -10,7 +10,8 @@ const fmtElapsed = (ms) => { const s = Math.floor(ms / 1000); return `${Math.flo
 const KEY = "cellarium.invs";
 
 const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null, results: null,
-                hypRuns: [], hypActive: null, hypRunning: false };
+                hypRuns: [], hypActive: null, hypRunning: false,
+                serverSessions: [], viewingServer: null };
 // streaming is per-investigation: each inv carries .running + ._live (its in-flight turn's DOM), so navigating
 // away never orphans the stream or locks the UI — generation continues in the background and is saved to its inv.
 
@@ -62,12 +63,12 @@ function saveInvs() {
 function curCouncil() { return state.cur ? state.cur.council : { rounds: [], hyp: null, designs: [] }; }
 
 function resetToHero() {
-  state.cur = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
+  state.cur = null; state.viewingServer = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
   $("#convoTitle").textContent = ""; clearTimeout(state.poll);
   renderFigures(null); closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
 function openInv(inv) {
-  state.cur = inv; $("#thread").innerHTML = "";
+  state.cur = inv; state.viewingServer = null; $("#thread").innerHTML = "";
   (inv.turns || []).forEach(replayTurn);
   if (inv.running && inv._live) $("#thread").appendChild(inv._live.root);   // re-attach the still-streaming turn (keeps updating live)
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
@@ -95,6 +96,17 @@ function renderSidebar() {
     menu.append(ren, del); it.appendChild(menu);
     box.appendChild(it);
   });
+  // server-backed sessions this browser doesn't have locally (the eval A/B Cellwright arm, etc.) — read-only
+  const srv = serverOnlySessions();
+  if (srv.length) {
+    box.appendChild(el("div", "recents-divider", `Backfilled · read-only <span class="rd-count">${srv.length}</span>`));
+    srv.forEach((s) => {
+      const it = el("div", "recent server" + (s.sid === state.viewingServer ? " active" : ""));
+      it.appendChild(el("span", "r-title", esc(s.title || s.sid)));
+      it.onclick = () => openServerSession(s);
+      box.appendChild(it);
+    });
+  }
 }
 function renameInv(inv, titleEl) {
   const inp = el("input"); inp.value = inv.title || "";
@@ -108,6 +120,65 @@ function deleteInv(inv) {
   postJSON("/api/session_delete", { session_id: inv.sid });
   saveInvs();
   if (state.cur === inv) resetToHero(); else renderSidebar();
+}
+
+// ---------------- server-backed sessions (backfilled / other-browser — read-only) ----------------
+// The client owns the LIVE investigations list in localStorage; these are sessions the SERVER has that this
+// browser's localStorage does not (e.g. the eval A/B runner's Cellwright arm). They render read-only, reconstructed
+// from the stored agent messages, so both arms of a run are browsable side-by-side with the Council's Hypotheses.
+async function loadServerSessions() {
+  try { const j = await (await fetch("/api/sessions")).json(); state.serverSessions = j.sessions || []; }
+  catch { state.serverSessions = []; }
+  renderSidebar();
+}
+function serverOnlySessions() {   // hide sids the client already has locally (those are live, editable, richer)
+  const local = new Set(state.invs.map((v) => v.sid));
+  return state.serverSessions.filter((s) => !local.has(s.sid));
+}
+function parseToolOutput(content) {   // a tool_result block's content -> the tool's return object (best effort)
+  let s = content;
+  if (Array.isArray(content)) s = content.map((x) => (x && x.type === "text" ? x.text : "")).join("");
+  if (typeof s !== "string") return s;
+  try { return JSON.parse(s); } catch { return { text: s }; }
+}
+function messagesToTurns(msgs) {   // agent message history -> the client turn shape {q, tools:[{tool,input,output}], answer}
+  const turns = [], byId = {};   // byId: tool_use id -> its tool dict, so a later tool_result fills in .output
+  let cur = null;
+  (msgs || []).forEach((m) => {
+    const content = m.content;
+    if (m.role === "user") {
+      const isToolResult = Array.isArray(content) && content.some((b) => b && b.type === "tool_result");
+      if (isToolResult) {
+        content.forEach((b) => { if (b && b.type === "tool_result" && byId[b.tool_use_id]) byId[b.tool_use_id].output = parseToolOutput(b.content); });
+      } else {
+        const q = typeof content === "string" ? content : (content || []).filter((b) => b && b.type === "text").map((b) => b.text).join("\n");
+        cur = { q: q, tools: [], answer: null }; turns.push(cur);
+      }
+    } else if (m.role === "assistant") {
+      if (!cur) { cur = { q: "", tools: [], answer: null }; turns.push(cur); }
+      const blocks = Array.isArray(content) ? content : [{ type: "text", text: String(content) }];
+      blocks.forEach((b) => {
+        if (b.type === "text") cur.answer = (cur.answer || "") + (cur.answer ? "\n\n" : "") + b.text;
+        else if (b.type === "tool_use") { const d = { tool: b.name, input: b.input || {}, output: null }; cur.tools.push(d); byId[b.id] = d; }
+      });
+    }
+  });
+  return turns;
+}
+async function openServerSession(sess) {
+  closeHyp();                         // this is an Investigations view
+  state.cur = null;                   // view-only: not a persisted, editable local investigation
+  state.viewingServer = sess.sid;
+  $("#thread").innerHTML = ""; $("#app").classList.add("app-chatting");
+  $("#convoTitle").innerHTML = esc(sess.title || "Session") + ` <span class="ro-badge">backfilled · read-only</span>`;
+  renderFigures(null); renderSidebar();
+  try {
+    const full = await (await fetch("/api/session_get?sid=" + encodeURIComponent(sess.sid))).json();
+    if (full.error) throw new Error(full.error);
+    messagesToTurns(full.messages).forEach(replayTurn);
+    if (!$("#thread").children.length) $("#thread").appendChild(el("div", "hyp-empty", "This session has no stored turns."));
+  } catch { $("#thread").innerHTML = ""; $("#thread").appendChild(el("div", "hyp-empty", "Could not load this session.")); }
+  scrollToEnd();
 }
 
 // ---------------- send / stream (per-investigation; never blocks navigation) ----------------
@@ -1139,4 +1210,4 @@ $("#scrollDownBtn").onclick = () => { scrollBottom(true); $("#scrollDownBtn").cl
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeDrawers));
 document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.dataset.q)));
 
-loadModels(); loadInvs(); renderSidebar(); refreshQueue(); updateSend();
+loadModels(); loadInvs(); renderSidebar(); refreshQueue(); updateSend(); loadServerSessions();

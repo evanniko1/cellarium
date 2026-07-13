@@ -292,6 +292,24 @@ def models_list(request):
                          "reasoning": REASONING, "reasoning_default": "none"})
 
 
+def sessions_list(request):
+    """The server-side session index (Investigations). The client keeps its own localStorage list of live chats;
+    this surfaces every PERSISTED session — including ones written by another process (the eval A/B runner) or
+    absent from this browser's localStorage — so they can be browsed read-only."""
+    return JSONResponse({"sessions": SESSIONS.list()})
+
+
+def session_get(request):
+    """Full persisted session by sid (its agent message history) for a READ-ONLY render of a backfilled/other
+    session — the client reconstructs the turns from these messages."""
+    sid = request.query_params.get("sid")
+    sess = SESSIONS.get(sid) if sid else None
+    if not sess:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return JSONResponse({"sid": sid, "title": sess.get("title"), "model": sess.get("model"),
+                         "used_council": sess.get("used_council"), "messages": sess.get("messages", [])})
+
+
 async def session_delete(request):
     b = await request.json()
     SESSIONS.delete(b.get("session_id"))   # drop the persisted conversation memory
@@ -429,6 +447,8 @@ routes = [
     Route("/api/hypothesis_delete", hypothesis_delete, methods=["POST"]),
     Route("/api/hypothesis_rename", hypothesis_rename, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
+    Route("/api/sessions", sessions_list, methods=["GET"]),          # server-side session index (Investigations)
+    Route("/api/session_get", session_get, methods=["GET"]),         # one session's messages for a read-only render
     Route("/api/session_delete", session_delete, methods=["POST"]),
     Route("/api/session_pop", session_pop, methods=["POST"]),
     Route("/api/results", results_list, methods=["GET"]),
