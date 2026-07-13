@@ -217,3 +217,23 @@ confirmation would strengthen the mechanism figure.
 RelA/RNAP/ribosomal depletion vs any compensatory movers); the FBA `metabolism_kinetic_objective_weight` /
 `secretion_penalty` sweeps (the homeostatic knob itself — currently non-reportable via `disconfirm`; needs a
 raw/`read_series` read) as a probe of how the objective weight sets flux allocation.
+
+---
+
+## 9. Literature-search verdicts (via PubMed / Consensus, 2026-07)
+
+Each finding checked against the primary literature (abstracts). Verdict = does biology support that the model is
+right/wrong.
+
+| Finding | What biology says | Model | Verdict |
+|---|---|---|---|
+| **S1 stringent inversion** (aaRS KO → ppGpp) | aaRS loss → uncharged tRNA loads RelA at the ribosomal **A-site** → RelA **activates** → ppGpp **UP** (Traxler 2008, *Mol Microbiol*, 547 cites; Winther 2018 & Roghanian 2021, *Mol Cell* — the ribosome-coupled activation mechanism) | ppGpp −90%, RelA −97% (collapse) | ✗ **CONFIRMED failure.** Model lacks A-site RelA activation; treats RelA as expression-coupled, so it dilutes when translation stalls. **The breakthrough finding — decisively grounded.** |
+| **CW3 relA/spoT double** | the *relA spoT* double mutant is **ppGpp⁰ (null)** — no synthase, no ppGpp (Traxler 2008 used exactly this strain) | ppGpp +475% (triple KO, n=1) | ✗ **CONFIRMED artifact.** ppGpp cannot be made without relA/spoT; any rise is a bug. (n=1 → replicate.) |
+| **CW4 anaerobic ppGpp** | anaerobiosis triggers the **FNR regulon**, not the stringent response; ppGpp is nutrient/AA-starvation-triggered (Bafna-Rührer 2024, *Microb Biotechnol*: stringent induction is transient, glucose-driven) | ppGpp flat; FNR regulon reproduced (C9) | ✓ **NOT a failure — model defensible.** Downgrades Cellwright's "regulatory disconnect"; the anaerobic signal is FNR, which the model gets right. |
+| **F2 Mg → ribosomes** | Mg limitation **reduces** ribosome content/synthesis (McCarthy 1962, *BBA*: 95% ribosome loss; Pontes 2016, *Mol Cell* 64:480–492: rRNA transcription 10× lower) | ribosome +2% (ns) | ✗ **CONFIRMED boundary.** Model doesn't couple media-Mg to ribosome regulation. |
+| **Essentiality** (fabI/murA/lpxC/glmS) | LpxC, MurA are established essential envelope-synthesis enzymes (Dewachter 2022, *Nat Commun*); FabI (sole enoyl-ACP reductase) and GlmS likewise | viable via reroute (fabI: 27 rxns at 0 flux, divides) | ✗ **CONFIRMED under-prediction.** Homeostatic FBA reroutes around essentials. |
+| **CW2/C6 rRNA dosage** | fewer rrn operons → lower growth (Levin 2017, *mBio*; Stevenson 2004, *AEM*) but the penalty is **moderate** and deletions are **viable** — 1 operon gives 56% of WT rRNA (Asai 1999, *J Bacteriol*) | −38% growth at 6op, viable, monotone | ✓ **CONFIRMED model-consistent (control).** Moderate penalty + viability match the literature. |
+
+**Net:** 3 confirmed model failures/boundaries (S1, CW3, F2), 1 confirmed under-prediction (essentiality), 1
+confirmed control (rRNA dosage), and 1 finding **honestly downgraded** (CW4 — the model is defensible). S1 is the
+report's headline; CW4's downgrade is itself a credibility signal (we didn't force every anomaly into a failure).
