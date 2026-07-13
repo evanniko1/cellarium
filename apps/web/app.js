@@ -787,15 +787,34 @@ function renderHypRuns(activeId) {   // the Council run list — lives in the to
   $("#hypCount").textContent = state.hypRuns.length ? `${state.hypRuns.length} run(s)` : "";
   if (!state.hypRuns.length) { rail.appendChild(el("div", "drawer-empty", "No hypotheses yet. Pose a research question — the Council operationalizes it into a falsifiable test, blind to the data.")); return; }
   state.hypRuns.forEach((r) => {
-    const card = el("button", "hyp-run-card" + (r.id === activeId ? " active" : ""));
-    card.appendChild(el("div", "hrc-q", esc(trunc(r.claim || r.question, 96))));
+    const card = el("div", "hyp-run-card" + (r.id === activeId ? " active" : ""));   // div (hosts the rename/delete menu)
+    const title = el("div", "hrc-q", esc(trunc(r.title || r.claim || r.question, 96)));
+    card.appendChild(title);
     const meta = el("div", "hrc-meta");
     meta.appendChild(el("span", "hrc-status " + r.status, r.status));
     if (r.n_designs) meta.appendChild(el("span", null, `${r.n_designs} falsifier(s)`));
+    const menu = el("span", "r-menu");   // rename + delete, on hover — mirrors the investigations list
+    const ren = el("button", "r-act", `<svg viewBox="0 0 24 24" width="13" height="13"><path d="M4 20h4L18 10l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`);
+    ren.title = "Rename"; ren.onclick = (e) => { e.stopPropagation(); renameHypRun(r, title); };
+    const del = el("button", "r-act", `<svg viewBox="0 0 24 24" width="13" height="13"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`);
+    del.title = "Delete"; del.onclick = (e) => { e.stopPropagation(); deleteHypRun(r.id); };
+    menu.append(ren, del); meta.appendChild(menu);
     card.appendChild(meta);
     card.onclick = () => viewHypRun(r.id);
     rail.appendChild(card);
   });
+}
+function renameHypRun(run, titleEl) {
+  const cur = run.title || run.claim || run.question || "";
+  const inp = el("input"); inp.value = cur;
+  titleEl.innerHTML = ""; titleEl.appendChild(inp); inp.focus(); inp.select();
+  const commit = () => {
+    const t = inp.value.trim();
+    if (t && t !== cur) { run.title = t; postJSON("/api/hypothesis_rename", { id: run.id, title: t }); }
+    renderHypRuns(state.hypActive);
+  };
+  inp.onkeydown = (e) => { if (e.key === "Enter") inp.blur(); if (e.key === "Escape") { inp.value = cur; inp.blur(); } };
+  inp.onblur = commit; inp.onclick = (e) => e.stopPropagation();
 }
 function newHypComposer() {
   state.hypActive = null; state._specAttempt = 0; state._specReuseId = null;   // fresh question — reset the gate session
@@ -937,10 +956,10 @@ function openInCellwright(run) {
   send(msg);
 }
 async function deleteHypRun(id) {
+  const wasActive = state.hypActive === id;
   await postJSON("/api/hypothesis_delete", { id });
-  state.hypActive = null;
-  await loadHypRuns(null);
-  newHypComposer();
+  if (wasActive) { state.hypActive = null; await loadHypRuns(null); newHypComposer(); }   // deleted the run in view
+  else { await loadHypRuns(state.hypActive); }                                            // deleted from the list — stay put
 }
 
 const PERT_LABEL = {

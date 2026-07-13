@@ -25,6 +25,10 @@ class HypothesisStore:
         self._write("CREATE TABLE IF NOT EXISTS council_runs("
                     "id TEXT PRIMARY KEY, question TEXT, status TEXT, model TEXT, "
                     "rounds TEXT, hypothesis TEXT, designs TEXT, meta TEXT, created REAL)")
+        try:   # a user-set display label for the run list (migration for pre-existing DBs)
+            self._write("ALTER TABLE council_runs ADD COLUMN title TEXT")
+        except Exception:
+            pass   # column already present
 
     def _write(self, sql: str, params: tuple = ()):   # own connection per op, always closed (mirrors SessionStore)
         db = sqlite3.connect(self.path)
@@ -82,10 +86,13 @@ class HypothesisStore:
                          "FROM council_runs WHERE id=?", (run_id,))
         return _full(row) if row else None
 
+    def rename(self, run_id: str, title: str) -> None:
+        self._write("UPDATE council_runs SET title=? WHERE id=?", (title, run_id))
+
     def list(self, limit: int = 100) -> list[dict]:
         # exclude 'needs_spec' — a parked gate result is a transient interaction, not a hypothesis; it lives in the
         # detail pane until the user specifies (or abandons it), and must not clutter the run list with dead-ends.
-        rows = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created "
+        rows = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created,title "
                           "FROM council_runs WHERE status != 'needs_spec' ORDER BY created DESC LIMIT ?",
                           (int(limit),), many=True)
         return [_summary(r) for r in rows]
@@ -104,6 +111,7 @@ def _summary(r) -> dict:
     """Compact list-view row for the surface's run list — no heavy rounds/designs blobs."""
     hyp, meta = json.loads(r[5] or "{}"), json.loads(r[7] or "{}")
     return {"id": r[0], "question": r[1], "status": r[2], "created": r[8],
+            "title": (r[9] if len(r) > 9 else None),   # user-set display label (rename)
             "claim": hyp.get("claim"), "n_rounds": len(json.loads(r[4] or "[]")),
             "n_designs": len(json.loads(r[6] or "[]")), "converged": meta.get("converged")}
 

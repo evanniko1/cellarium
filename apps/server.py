@@ -272,6 +272,14 @@ async def hypothesis_delete(request):
     return JSONResponse({"ok": True})
 
 
+async def hypothesis_rename(request):
+    b = await request.json()
+    title = (b.get("title") or "").strip()
+    if b.get("id") and title:
+        HYPOTHESES.rename(b["id"], title[:200])
+    return JSONResponse({"ok": True})
+
+
 REASONING = [
     {"id": "none", "label": "Standard"},
     {"id": "low", "label": "Extended"},
@@ -414,6 +422,7 @@ routes = [
     Route("/api/hypotheses", hypotheses_list, methods=["GET"]),       # list persisted runs (the surface's run list)
     Route("/api/hypothesis_get", hypothesis_get, methods=["GET"]),    # full run by id
     Route("/api/hypothesis_delete", hypothesis_delete, methods=["POST"]),
+    Route("/api/hypothesis_rename", hypothesis_rename, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
     Route("/api/session_delete", session_delete, methods=["POST"]),
     Route("/api/session_pop", session_pop, methods=["POST"]),

@@ -404,6 +404,9 @@ svg{display:block}
 .nav-panel[hidden]{display:none}
 .nav-panel .recents{flex:1}
 #hypRuns .hyp-run-card{box-shadow:none}
+.hyp-run-card .hrc-meta .r-menu{display:none; gap:2px; margin-left:auto}
+.hyp-run-card:hover .hrc-meta .r-menu{display:flex}
+.hyp-run-card .hrc-q input{width:100%; font:inherit; font-size:13px; border:1px solid var(--clay); border-radius:6px; padding:2px 5px; background:var(--card); color:var(--ink)}
 #hypRuns .hyp-run-card.active{border-color:var(--clay); background:var(--clay-tint)}
 .hrc-cw{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:1px 6px; border-radius:6px; background:var(--clay-tint); color:var(--clay-ink)}
 
