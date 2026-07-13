@@ -356,6 +356,7 @@
           <thead><tr><th>aaRS KO</th><th>ppGpp</th><th>RelA</th><th>charged-tRNA</th></tr></thead>
           <tbody>
             <tr><td>argS</td><td class="down">−90% (t=−27.8)</td><td class="down">−97%</td><td>−5%</td></tr>
+            <tr><td>alaS</td><td class="down">−90% (t=−31.8)</td><td class="down">−96%</td><td>−3%</td></tr>
             <tr><td>pheS</td><td class="down">−93% (t=−33.3)</td><td class="down">−97%</td><td>+1%</td></tr>
             <tr><td>gltX</td><td class="down">−92% (t=−25.4)</td><td class="down">−98%</td><td>−2%</td></tr>
           </tbody></table></div></div></div>
@@ -369,8 +370,8 @@
     <div class="verdict fail">
       <div class="role eyebrow">Judge · verdict</div>
       <p>Blind pre-registration turns "the ppGpp looks low" into a <b>decisive falsification</b> of the model's
-        stringent <i>sensing</i> — systematic (4 of 4 knockouts, |t| up to 47), mechanistically explained, and
-        bounded. A sighted agent would only have described the low ppGpp. <span class="mono">[Winther, Roghanian &amp; Gerdes 2018; Traxler 2008]</span></p>
+        stringent <i>sensing</i> — systematic (all four aaRS knockouts, ppGpp |t| up to 33), mechanistically
+        explained, and bounded. A sighted agent would only have described the low ppGpp. <span class="mono">[Winther, Roghanian &amp; Gerdes 2018; Traxler 2008]</span></p>
     </div>
 
     <div class="arclabel b">Mode B · direct data question — a control flips the finding</div>
@@ -419,7 +420,7 @@
       <div class="card good"><div class="badge">regulatory</div><h3>Nitrate respiratory hierarchy</h3>
         <p>Induces nitrate respiration (nuo) and represses fermentation (frd, cyd) when nitrate is available (NarL).</p><div class="num">nuo +3.7 · frd/cyd −2.2…−3.4</div></div>
       <div class="card good"><div class="badge">viable · graded</div><h3>rRNA-operon dosage</h3>
-        <p>Removing operons lowers ribosomes and growth proportionally; the cell stays viable (§05).</p><div class="num">ribosome −50% · divides</div></div>
+        <p>Removing operons lowers ribosomes and growth together; the cell stays viable (§05).</p><div class="num">ribosome −50% · divides</div></div>
     </div>
   </div></section>
 
@@ -473,8 +474,9 @@
         <span class="pill">the result · cut the NUMBERS</span>
         <h3 style="margin:0 0 6px">Delete operons → fewer ribosomes, and the cell copes</h3>
         <ul class="predlist">
-          <li><b>Threshold-like, not linear</b>: 4 operons out is still ≈ 2 out; only at 6 out (one operon left) does
-            it collapse — ribosome <b>−50%</b>, growth <b>−35%</b>, yet still dividing four generations.</li>
+          <li><b>Threshold-like</b>: at 4 operons out growth barely moves (−4%, n.s.); only at 6 out — one operon
+            left — does the cell collapse (ribosome <b>−50%</b>, growth <b>−35%</b>), yet it still divides four
+            generations.</li>
           <li>The <b>remaining operons compensate</b> — per-operon rRNA output rises <b>1.6× → 3.3×</b> — exactly the
             ribosome-feedback up-regulation Condon measured. <span class="mono">[Condon 1993]</span></li>
           <li>And with <b>ppGpp flat</b> (~62 µM), matching Condon's finding that this compensation is
@@ -545,7 +547,7 @@
     <div class="datatable" style="margin-top:20px"><table style="min-width:640px">
       <thead><tr><th>case</th><th>category</th><th>model result</th><th>verdict</th></tr></thead>
       <tbody>
-        <tr><td>Nutrient / cell-size laws</td><td>control</td><td>growth +128%, size +147% (with_aa)</td><td class="v-ok">✓ obeys</td></tr>
+        <tr><td>Nutrient / cell-size laws</td><td>control</td><td>growth +128%, size +147% (with_aa) [Schaechter 1958]</td><td class="v-ok">✓ obeys</td></tr>
         <tr><td>ppGpp non-monotonicity</td><td>control</td><td>worst at both clamp extremes</td><td class="v-ok">✓ obeys</td></tr>
         <tr><td>rRNA-operon dosage</td><td>control · prediction</td><td>graded, viable; Condon compensation (ppGpp-flat)</td><td class="v-ok">✓ obeys · bench lead</td></tr>
         <tr><td>Nitrate respiratory hierarchy</td><td>out-of-sample</td><td>induces nuo, represses frd/cyd (controlled)</td><td class="v-ok">✓ predicts</td></tr>
@@ -648,9 +650,10 @@
     <div class="ref"><span class="rn">10</span><span class="rb">Condon C, French S, Squires C, Squires CL (1993). <b>Depletion of functional ribosomal RNA operons in <i>E. coli</i> causes increased expression of the remaining intact copies.</b> <i>EMBO J</i> 12:4305–4315. <span class="doi">doi:10.1002/j.1460-2075.1993.tb06115.x</span></span></div>
     <div class="ref"><span class="rn">11</span><span class="rb">Greulich P, Scott M, Evans MR, Allen RJ (2015). <b>Growth-dependent bacterial susceptibility to ribosome-targeting antibiotics.</b> <i>Mol Syst Biol</i> 11:796. <span class="doi">doi:10.15252/msb.20145949</span></span></div>
 
-    <p class="note" style="margin-top:20px">All eleven verified against the primary record via PubMed. The Scott
-      first law (4) is cited only for the numbers-vs-efficiency contrast in §05 — the model is <i>not</i> claimed to
-      obey it; Greulich–Scott (11) is the ribosome-limited-susceptibility theory the §05 investigation converged on.</p>
+    <p class="note" style="margin-top:20px">All eleven verified against the primary record via PubMed. Scott's
+      <i>second</i> law (4) is invoked only for the numbers-vs-efficiency contrast in §05 — the model is <i>not</i>
+      claimed to obey it; Greulich–Scott (11) is the ribosome-limited-susceptibility theory the §05 investigation
+      converged on.</p>
   </div></section>
 
   <footer><div class="wrap">
