@@ -618,6 +618,25 @@ def read_species(result_id: str, species_id: str, kind: str = "protein") -> dict
     return reader.read_species(root, kind, species_id)
 
 
+def use_skill(name: str) -> dict:
+    """Load a vendored scientific Agent Skill (K-Dense, MIT) — its instructions + endpoint reference docs — so you
+    can execute it with web_get. Use for LITERATURE questions the corpus can't answer: 'paper-lookup' (10 literature
+    APIs with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured
+    fields: methods/results/sample sizes/quality). This is how you check what's already PUBLISHED, whether a sim
+    result agrees with the literature, and whether a finding is novel/wet-lab-worthy — NEVER for the primary numbers
+    (those stay grounded in a run)."""
+    from . import skills
+    return skills.load_skill(name)
+
+
+def web_get(url: str, headers: dict | None = None) -> dict:
+    """HTTP GET for the literature/bioinformatics skills — allow-listed scientific hosts only (PubMed/OpenAlex/etc.),
+    size-capped. This is the fetch tool the vendored skills call. Read the skill's reference doc (use_skill) for the
+    exact endpoint + parameters before calling."""
+    from . import skills
+    return skills.web_get(url, headers)
+
+
 _DESIGN_PROPS = {
     "perturbation": {"type": "string", "description": "variant type (wildtype, gene_knockout, ppgpp_conc, timeline, ...)"},
     "condition": {"type": "string", "description": "static media condition, e.g. basal, acetate"},
@@ -690,6 +709,10 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
+    {"name": "use_skill", "description": "Load a vendored scientific Agent Skill (literature, MIT/K-Dense) to answer a LITERATURE question the corpus can't: 'paper-lookup' (10 APIs — PubMed/OpenAlex/bioRxiv/… with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality). Returns the skill's instructions + endpoint reference docs; then execute it with web_get. Use to check what's PUBLISHED, whether a grounded sim result agrees with the literature, and whether a finding is novel / wet-lab-worthy — the corpus stays the source of primary numbers; the literature is comparison only, always cited.",
+     "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "paper-lookup | literature-review | bgpt-paper-search"}}, "required": ["name"]}},
+    {"name": "web_get", "description": "HTTP GET for the literature skills — allow-listed scientific hosts only (eutils.ncbi/PubMed, api.openalex.org, api.crossref.org, api.semanticscholar.org, export.arxiv.org, rest.uniprot.org, ...). Read the skill's reference doc (use_skill) for the exact endpoint + params first. Refuses any non-allow-listed host.",
+     "input_schema": {"type": "object", "properties": {"url": {"type": "string"}, "headers": {"type": "object"}}, "required": ["url"]}},
     {"name": "screen_design", "description": "Biosecurity screen for a SINGLE proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). Call for a one-off design before proposing it; for a PANEL, skip it — propose_experiments biosecurity-screens every design for you (it will block a flagged one).",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"},
                       "timeline": {"type": "string"}, "params": {"type": "object"}}}},
@@ -719,6 +742,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
              "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
+             "use_skill": use_skill, "web_get": web_get,
              "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
              "revise_experiment": revise_experiment,
              "metabolic_essentiality": metabolic_essentiality}
