@@ -60,13 +60,14 @@ class _Stream:
 
 
 class _Messages:
-    def __init__(self): self.calls, self.saw_tools = 0, []
+    def __init__(self): self.calls, self.tool_choices = 0, []
     def stream(self, **kw):
         self.calls += 1
-        self.saw_tools.append(bool(kw.get("tools")))
-        if kw.get("tools"):                                   # in-loop turn: keep asking for a tool -> exhaust budget
-            return _Stream(_Msg([_Blk(type="tool_use", name="survey_corpus", input={}, id=f"tu{self.calls}")], "tool_use"))
-        return _Stream(_Msg([_Blk(type="text", text="FINAL SYNTHESIS from partial evidence.")], "end_turn"))   # wrap call
+        self.tool_choices.append((kw.get("tool_choice") or {}).get("type"))
+        # the wrap call forbids tools via tool_choice=none (tools stay DEFINED so the tool_use history is valid)
+        if (kw.get("tool_choice") or {}).get("type") == "none":
+            return _Stream(_Msg([_Blk(type="text", text="FINAL SYNTHESIS from partial evidence.")], "end_turn"))
+        return _Stream(_Msg([_Blk(type="tool_use", name="survey_corpus", input={}, id=f"tu{self.calls}")], "tool_use"))
 
 
 class _Client:
@@ -86,4 +87,5 @@ def test_converse_forces_final_synthesis_when_tool_budget_exhausted(monkeypatch)
     assert out == "FINAL SYNTHESIS from partial evidence."        # returned the forced synthesis, not "(stopped…)"
     assert messages[-1]["role"] == "assistant"                    # ends on an assistant answer, NOT a tool_result
     assert any(b.get("type") == "text" for b in messages[-1]["content"])
-    assert client.messages.saw_tools == [True, True, True, False]  # 3 in-loop turns WITH tools, then 1 wrap WITHOUT
+    # 3 in-loop turns leave tool_choice unset, then ONE wrap call forbids tools via tool_choice=none
+    assert client.messages.tool_choices == [None, None, None, "none"]

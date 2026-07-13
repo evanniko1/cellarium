@@ -393,7 +393,11 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
         "answer now from the evidence already gathered, and state plainly what is still uncertain or was left "
         "unfinished. Do not fabricate results you did not read.")}]
     try:
-        resp = _run_turn(client, dict(model=mdl, system=wrap_system, messages=_prefix_cached(messages),
+        # tool_choice=none forbids further tool calls WITHOUT dropping the tool definitions — dropping them 400s
+        # because the history contains tool_use blocks (tools must stay defined once used). Keeping tool_defs also
+        # preserves the cached prefix. This is the path that produces the final answer when the budget is spent.
+        resp = _run_turn(client, dict(model=mdl, system=wrap_system, tools=tool_defs,
+                                      tool_choice={"type": "none"}, messages=_prefix_cached(messages),
                                       max_tokens=(budget + 4000 if budget else 4096)), on_text)
         messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
         text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
