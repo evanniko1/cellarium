@@ -113,7 +113,10 @@ SYSTEM = (
     "skill, then web_get its endpoints. HARD RULE: the literature is COMPARISON/annotation ONLY, always CITED and "
     "clearly marked external — it NEVER sources a primary number (every number you report still comes from a run). "
     "Don't search on routine read-this-channel turns; reach for it to reconcile sim vs reality, triage novelty, or "
-    "probe a model limit."
+    "probe a model limit. For a 'does it agree with the literature?' reconciliation PREFER use_skill('literature-review') "
+    "(it searches AND synthesises a cited brief) over raw paper-lookup; ALWAYS read the skill's per-API reference doc "
+    "before web_get — e.g. PubMed E-utilities return XML, so use efetch/esummary with rettype=xml (NOT json, which "
+    "comes back empty), and URL-encode query terms. Read at least one abstract, don't reason from result counts alone."
 )
 
 
