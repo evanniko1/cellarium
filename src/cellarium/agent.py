@@ -385,7 +385,21 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             results.append({"type": "tool_result", "tool_use_id": tu.id, "content": content})
         messages.append({"role": "user", "content": results})
 
-    return "(stopped: reached max turns)"
+    # Tool budget exhausted while the agent was still calling tools: force ONE final synthesis with tools DISABLED,
+    # so a turn ALWAYS ends with a real answer instead of a dangling tool_result. Without this a hard/broad question
+    # truncates with no conclusion (seen in ~1/3 of the eval Arm A sweep — 25-message sessions ending on tool_result).
+    wrap_system = system + [{"type": "text", "text": (
+        "You have reached the tool-call budget for this turn — do NOT request any more tools. Synthesize your FINAL "
+        "answer now from the evidence already gathered, and state plainly what is still uncertain or was left "
+        "unfinished. Do not fabricate results you did not read.")}]
+    try:
+        resp = _run_turn(client, dict(model=mdl, system=wrap_system, messages=_prefix_cached(messages),
+                                      max_tokens=(budget + 4000 if budget else 4096)), on_text)
+        messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
+        text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+        return text or "(stopped: reached max turns without a synthesis)"
+    except Exception:
+        return "(stopped: reached max turns)"
 
 
 def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True, on_tool=None,

@@ -135,7 +135,10 @@ def run_arm_a(case: dict, agent_model: str | None) -> dict:
     from sessions import SessionStore
 
     messages = [{"role": "user", "content": case["question"]}]
-    final = agent.converse(messages, model=agent_model, max_turns=12)   # mutates messages in place
+    # 20 (vs the app default 12): eval questions are broad and tool-heavy, and ~half the first sweep hit the 12-turn
+    # cap mid-investigation. converse now forces a final synthesis at the cap either way, but a higher budget lets
+    # the harder cases actually finish exploring before wrapping.
+    final = agent.converse(messages, model=agent_model, max_turns=20)   # mutates messages in place
     reads = sum(1 for m in messages if isinstance(m.get("content"), list)
                 for b in m["content"] if isinstance(b, dict)
                 and b.get("type") == "tool_use" and b.get("name") in READ_TOOLS)
