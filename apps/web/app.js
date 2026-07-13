@@ -1257,51 +1257,116 @@ $("#scrollDownBtn").onclick = () => { scrollBottom(true); $("#scrollDownBtn").cl
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeDrawers));
 document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.dataset.q)));
 
-// ---------------- demo auto-play (?demo=1): a hands-free glass-box walkthrough on the stored argS run ----------
-// Drives the LIVE UI through the pre-registration -> grounding -> falsification arc using ALREADY-STORED data
-// (zero model calls), so a recording is deterministic. Timings live in one array; End demo / Esc stops it.
+// ---------------- demo auto-play (?demo=1): a hands-free ~3-min presentation for recording ---------------------
+// Weaves designed SLIDES (problem · value · progressive architecture · closing) with a LIVE feature tour driven
+// on ALREADY-STORED data (zero model calls -> deterministic timing). Beat durations live in the array; Esc / End
+// stops it. All numbers are real (whole-cell model scale from the simOut; corpus stats from the manifest).
 async function runDemo() {
+  const slides = el("div", "demo-slides"); document.body.appendChild(slides);
   const cap = el("div", "demo-cap"); const step = el("div", "demo-cap-step"); const txt = el("div", "demo-cap-text");
   cap.append(step, txt); document.body.appendChild(cap);
-  const stopBtn = el("button", "demo-stop", "End demo ✕"); document.body.appendChild(stopBtn);
+  const bar = el("div", "demo-bar"); const barFill = el("div", "demo-bar-fill"); bar.appendChild(barFill); document.body.appendChild(bar);
+  const stopBtn = el("button", "demo-stop", "End ✕"); document.body.appendChild(stopBtn);
   let stopped = false;
-  const end = () => { stopped = true; cap.remove(); stopBtn.remove(); };
+  const end = () => { stopped = true; [slides, cap, bar, stopBtn].forEach((e) => e.remove()); };
   stopBtn.onclick = end;
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") end(); });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const scrollMain = (sel, to) => { const e = $(sel); if (e) e.scrollTo({ top: to === "end" ? e.scrollHeight : 0, behavior: "smooth" }); };
+  const showSlide = (html) => { cap.classList.remove("show"); slides.innerHTML = `<div class="demo-slide">${html}</div>`; slides.classList.add("show"); };
+  const say = (s, t) => { slides.classList.remove("show"); step.textContent = s; txt.innerHTML = t; cap.classList.add("show"); };
 
-  // resolve the argS runs by CONTENT (robust to id changes across machines/clones)
-  let councilId = null, argsSid = null;
+  // resolve stored runs by CONTENT (robust across clones) — the Council, the grounded arm, a direct-mode chat, a chart
+  let councilId = null, argsSid = null, cwSid = null, figSid = null;
   try {
     const runs = (await (await fetch("/api/hypotheses")).json()).runs || [];
     councilId = (runs.find((r) => /args knockout raise or lower/i.test(r.question || "") && r.status === "done")
               || runs.find((r) => /args/i.test(r.question || "") && r.status === "done") || {}).id;
     const sess = (await (await fetch("/api/sessions")).json()).sessions || [];
-    argsSid = (sess.find((s) => /args knockout raise or lower/i.test(s.title || "")) || {}).sid;
-  } catch (e) { /* fall through to whatever resolved */ }
+    const byTitle = (re) => (sess.find((s) => re.test(s.title || "")) || {}).sid;
+    argsSid = byTitle(/args knockout raise or lower/i);
+    cwSid = byTitle(/well-fed, oxygen-rich|throw away carbon|survey the whole corpus/i);
+    figSid = byTitle(/no_oxygen condition|plot how growth/i) || cwSid;
+  } catch (e) { /* proceed with whatever resolved */ }
+
+  const PROBLEM = `<div class="ds-eyebrow">The problem</div>
+    <div class="ds-title">Biology's most complete simulation — and the hardest to ask a question of</div>
+    <div class="ds-body">
+      <p>A <b>whole-cell model</b> simulates a cell's entire molecular life from its genome. The <i>E. coli</i> model
+      (Macklin et&nbsp;al., <i>Science</i> 2020) fuses metabolism, transcription, translation, replication and
+      regulation into one dynamical system.</p>
+      <div class="ds-stats">
+        <div><span class="ds-num">16,406</span><span class="ds-lbl">molecular species</span></div>
+        <div><span class="ds-num">4,310</span><span class="ds-lbl">proteins</span></div>
+        <div><span class="ds-num">3,133</span><span class="ds-lbl">mRNAs</span></div>
+        <div><span class="ds-num">9,612</span><span class="ds-lbl">reactions</span></div>
+      </div>
+      <p class="ds-sub">tracked every timestep, across a full cell cycle — FBA coupled to stochastic gene expression and polymerization.</p>
+      <p>Yet interrogating it — framing a testable question, grounding every claim in a real run, catching where the
+      model is <i>wrong</i> — takes an expert days. Today's AI-for-science agents optimize novelty, not
+      falsifiability, and rarely ground what they claim.</p>
+    </div>`;
+  const VALUE = `<div class="ds-eyebrow">Cellarium</div>
+    <div class="ds-title">A glass box over whole-cell reasoning</div>
+    <div class="ds-body ds-lead">
+      <p>Cellarium turns a vague biological question into a <b>falsifiable, pre-registered hypothesis</b> — framed
+      blind by a Socratic Council — then tests it against <b>real whole-cell simulations and the literature</b> with a
+      grounded agent. Every number rides with its provenance.</p>
+    </div>`;
+  const ARCH = [
+    { k: "A vague question", v: "“Does an argS knockout raise or lower ppGpp?” — no observable, no baseline, no prediction." },
+    { k: "Socratic Council · blind", v: "Proposer · Skeptic · Judge operationalize it into a falsifiable hypothesis — never seeing the data." },
+    { k: "A pre-registered Hypothesis", v: "H₁ / H₀, bound to real observables, with a falsifier: a risky prohibition that could fail." },
+    { k: "Cellwright · grounded", v: "A tool-using agent tests the hypothesis against real runs — it reads, it never guesses." },
+    { k: "The corpus", v: "239 whole-cell runs in DuckDB shards · full-resolution raw simOut on Hugging Face · live literature." },
+    { k: "Verdict + your gate", v: "A decisive, provenance-carrying answer. No simulation runs without your approval." },
+  ];
+  const CLOSING = `<div class="ds-eyebrow">What it paves the way to</div>
+    <div class="ds-title">The Well, for the Cell</div>
+    <div class="ds-body">
+      <p><b>For biology:</b> a shareable whole-cell simulation corpus — after PolymathicAI's <i>The Well</i> (15&nbsp;TB
+      of physics simulations for ML), but for the cell: whole-cell <i>E. coli</i> trajectories for hypothesis testing
+      and machine learning.</p>
+      <p><b>As a blueprint:</b> any large mechanistic model — climate, materials, epidemiology — could get the same
+      glass box: blind hypothesis framing, grounded testing.</p>
+      <p class="ds-next"><b>Next</b> (Evangelos · Filippo): scale the corpus · sharpen the Socratic Council on the
+      philosophy of science · deepen Cellwright — richer literature review against findings, and flagging simulation
+      regimes unsupported (or absent) in wet-lab literature.</p>
+    </div>`;
+
+  const showArch = () => {
+    cap.classList.remove("show");
+    slides.innerHTML = `<div class="demo-slide"><div class="ds-eyebrow">How it fits together</div>` +
+      `<div class="ds-title">One question, made testable — and tested</div><div class="ds-arch">` +
+      ARCH.map((it, i) => `<div class="ds-arch-item"><span class="ds-arch-n">${i + 1}</span><div><div class="ds-arch-k">${it.k}</div><div class="ds-arch-v">${it.v}</div></div></div>`).join("") +
+      `</div></div>`;
+    slides.classList.add("show");
+    [...slides.querySelectorAll(".ds-arch-item")].forEach((e, i) => setTimeout(() => { if (!stopped) e.classList.add("in"); }, 500 + i * 3200));
+  };
 
   const BEATS = [
-    { s: "Cellarium", t: "<b>A glass box over whole-cell reasoning.</b> Watch it keep the science honest — every claim grounded, every failure caught.", ms: 7000 },
-    { s: "Step 1 · the Council frames a hypothesis — blind to the data", t: "The Socratic Council never sees a result. It must <b>commit to a falsifiable prediction first.</b>", ms: 8000,
-      go: async () => { if (councilId) { await openHyp(); await viewHypRun(councilId); } } },
-    { s: "Step 1 · a pre-registered falsifier", t: "It commits: <b>argS knockout RAISES ppGpp 2–4×</b> (textbook stringent response). Falsifier: <i>if ppGpp falls below 0.8× wildtype, the model is refuted.</i>", ms: 12000,
-      go: async () => scrollMain("#hypView .corpus-body, #hypMain", "mid") },
-    { s: "Step 1 · the debate that earned it", t: "A skeptic raised typed objections; the proposer repaired them until a judge certified <b>convergence on falsifiability</b> — not mere agreement.", ms: 10000,
-      go: async () => scrollMain("#hypMain", "end") },
-    { s: "Step 2 · Cellwright grounds it in real simulations", t: "The pre-registered hypothesis is handed to <b>Cellwright</b>, which tests it against the whole-cell corpus — reading real runs, not guessing.", ms: 9000,
-      go: async () => { if (argsSid) { closeHyp(); await openServerSession({ sid: argsSid, title: "Does an argS knockout raise or lower ppGpp versus wildtype?" }); } } },
-    { s: "Step 2 · the corpus answers", t: "The simulation: argS ppGpp = <b>6.45 vs 64.70 µM — down 90%, t = −27.85.</b> ppGpp goes <b>DOWN</b>, not up.", ms: 11000,
-      go: async () => scrollMain("#scroll", "end") },
-    { s: "The falsifier fires", t: "The Council's <b>own</b> criterion is met — the whole-cell model <b>contradicts textbook biology, decisively.</b> A sighted agent would only have <i>described</i> this; the blind pre-registration turned it into a <b>falsification.</b>", ms: 13000 },
-    { s: "That's the glass box", t: "Blind hypothesis → grounded test → a decisive, honest result. Every number rides with its provenance. <b>Cellarium.</b>", ms: 9000 },
+    { ms: 30000, go: () => showSlide(PROBLEM) },
+    { ms: 12000, go: () => showSlide(VALUE) },
+    { ms: 30000, go: () => showArch() },
+    { ms: 6500, go: async () => { say("The workspace", "Two surfaces: <b>Investigations</b> — grounded chat — and <b>Hypotheses</b> — the Council. One question, two ways to answer it."); closeHyp(); } },
+    { ms: 8000, go: async () => { say("Mode 1 · the Council frames it — blind", "The Socratic Council must <b>commit to a falsifiable prediction first</b>, never seeing a result."); if (councilId) { await openHyp(); await viewHypRun(councilId); } } },
+    { ms: 9500, go: async () => { say("Mode 1 · a pre-registered falsifier", "It commits: <b>argS raises ppGpp 2–4×</b>. Falsifier: <i>if ppGpp falls below 0.8× wildtype, the model is refuted.</i>"); scrollMain("#hypMain", "end"); } },
+    { ms: 8000, go: async () => { say("Handoff → Cellwright grounds it", "The pre-registered hypothesis is handed to <b>Cellwright</b>, which tests it against real whole-cell runs."); if (argsSid) { closeHyp(); await openServerSession({ sid: argsSid, title: "Does an argS knockout raise or lower ppGpp versus wildtype?" }); } } },
+    { ms: 11000, go: async () => { say("The falsifier fires", "The corpus: argS ppGpp = <b>6.45 vs 64.70 µM — down 90%, t = −27.85.</b> The model is <b>caught contradicting textbook biology, decisively.</b>"); scrollMain("#scroll", "end"); } },
+    { ms: 9000, go: async () => { say("Mode 2 · Cellwright, directly", "Skip the Council and ask Cellwright straight. It still <b>grounds every claim in real runs</b> — reading the corpus, not guessing."); if (cwSid) await openServerSession({ sid: cwSid, title: "" }); } },
+    { ms: 8500, go: async () => { say("Grounded figures", "Charts are drawn from real simulation output and indexed with their provenance — every number is clickable back to its run."); if (figSid) await openServerSession({ sid: figSid, title: "" }); scrollMain("#scroll", "end"); } },
+    { ms: 9000, go: async () => { say("The corpus", "239 whole-cell runs in <b>DuckDB shards</b>; full-resolution raw simOut streams from <b>Hugging Face</b> on demand — the seed of an open corpus."); closeHyp(); openCorpus(); } },
+    { ms: 8000, go: async () => { say("The launch airlock", "Cellwright <b>proposes</b> experiments as job drafts — nothing simulates without <b>your approval</b>. Safety is a gate, not a footnote."); closeCorpus(); openDrawer("queue"); } },
+    { ms: 8000, go: async () => { say("A queryable record", "Every interaction persists in <b>SQLite</b> — a durable, analyzable record of the model's reasoning, not a disposable chat."); closeDrawers(); } },
+    { ms: 21000, go: () => showSlide(CLOSING) },
   ];
 
-  await wait(500);
+  const total = BEATS.reduce((a, b) => a + b.ms, 0); let elapsed = 0;
+  await wait(400);
   for (const b of BEATS) {
     if (stopped) return;
-    step.textContent = b.s; txt.innerHTML = b.t; cap.classList.add("show");
-    try { if (b.go) await b.go(); } catch (e) { /* a beat's nav failing must not abort the reel */ }
+    try { await b.go(); } catch (e) { /* a beat failing must not abort the reel */ }
+    barFill.style.width = (100 * (elapsed + b.ms) / total) + "%"; elapsed += b.ms;
     await wait(b.ms);
   }
   if (!stopped) end();

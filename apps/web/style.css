@@ -56,9 +56,38 @@ svg{display:block}
 .demo-cap-step{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--clay); margin-bottom:5px}
 .demo-cap-text{font-size:15.5px; line-height:1.5; color:var(--ink)}
 .demo-cap-text b{color:var(--clay-ink)}
-.demo-stop{position:fixed; top:16px; right:16px; z-index:10000; border:1px solid var(--line); background:var(--card);
+.demo-stop{position:fixed; top:16px; right:16px; z-index:10002; border:1px solid var(--line); background:var(--card);
   color:var(--ink-2); font:inherit; font-size:12px; border-radius:20px; padding:5px 13px; cursor:pointer; opacity:.7}
 .demo-stop:hover{opacity:1}
+/* demo presentation slides (?demo=1) */
+.demo-bar{position:fixed; top:0; left:0; right:0; height:3px; background:var(--line-2); z-index:10001}
+.demo-bar-fill{height:100%; width:0; background:var(--clay); transition:width .6s ease}
+.demo-slides{position:fixed; inset:0; z-index:9990; background:var(--paper); display:flex; align-items:center; justify-content:center;
+  padding:6vh 6vw; opacity:0; pointer-events:none; transition:opacity .5s ease}
+.demo-slides.show{opacity:1; pointer-events:auto}
+.demo-slide{width:min(860px,100%); animation:ds-in .6s ease both}
+@keyframes ds-in{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+.ds-eyebrow{font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--clay); margin-bottom:14px}
+.ds-title{font-size:clamp(26px,4vw,38px); font-weight:700; line-height:1.14; color:var(--ink); text-wrap:balance; margin-bottom:22px; letter-spacing:-.01em}
+.ds-body{font-size:17.5px; line-height:1.62; color:var(--ink-2)}
+.ds-body p{margin:0 0 14px}
+.ds-body b{color:var(--ink); font-weight:650}
+.ds-body i{color:var(--ink-2)}
+.ds-lead{font-size:21px; line-height:1.6}
+.ds-sub{font-size:14px; color:var(--ink-3); font-style:italic; margin-top:-4px}
+.ds-stats{display:flex; flex-wrap:wrap; gap:14px; margin:22px 0}
+.ds-stats > div{flex:1 1 130px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px}
+.ds-num{display:block; font-size:30px; font-weight:700; color:var(--clay); font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.ds-lbl{display:block; font-size:12px; color:var(--ink-3); margin-top:3px; text-transform:uppercase; letter-spacing:.04em}
+.ds-next{margin-top:20px; padding-top:16px; border-top:1px solid var(--line); font-size:16px; color:var(--ink-2)}
+.ds-arch{display:flex; flex-direction:column; gap:14px; margin-top:6px}
+.ds-arch-item{display:flex; align-items:flex-start; gap:14px; opacity:0; transform:translateY(12px); transition:opacity .55s ease, transform .55s ease}
+.ds-arch-item.in{opacity:1; transform:none}
+.ds-arch-n{flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--clay-tint); color:var(--clay-ink);
+  font-size:13px; font-weight:700; display:grid; place-items:center; margin-top:1px}
+.ds-arch-k{font-size:16.5px; font-weight:650; color:var(--ink)}
+.ds-arch-v{font-size:15px; line-height:1.5; color:var(--ink-2); margin-top:1px}
+@media (prefers-reduced-motion:reduce){ .demo-slide,.ds-arch-item{animation:none; transition:none} }
 .recent-dot{flex:0 0 auto; width:7px; height:7px; border-radius:50%; background:var(--clay)}
 .recent-dot.active{animation:dot-pulse 1.4s ease-out infinite}          /* a turn is streaming in this chat */
 .recent-dot.unread{opacity:.85}                                          /* a response landed but hasn't been opened */
