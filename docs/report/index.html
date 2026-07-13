@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cellarium — a glass box over whole-cell reasoning</title>
-<meta name="description" content="A glass-box report over whole-cell E. coli reasoning: a blind Socratic Council and a grounded Cellwright agent, with the model as a mathematical object, two investigation modes, a wet-lab prediction, cumulative verdicts, and where it goes next.">
+<meta name="description" content="A glass-box report over whole-cell E. coli reasoning: a blind Socratic Council and a grounded Cellwright agent, with the model as a mathematical object, two investigation modes, a wet-lab prediction, cumulative verdicts, references, and where it goes next.">
 </head>
 <body>
 <style>
@@ -191,6 +191,11 @@
   .next p{font-size:14.5px; color:var(--ink-soft); margin:0}
   .sendoff{font-size:20px; color:var(--ink); max-width:66ch; margin:26px 0 0; line-height:1.5}
   .sendoff b{color:var(--accent-ink)}
+  .refgroup{font-family:var(--mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); font-weight:700; margin:20px 0 2px}
+  .ref{display:grid; grid-template-columns:26px 1fr; gap:10px; padding:11px 0; border-top:1px solid var(--rule); font-size:14.5px}
+  .ref .rn{font-family:var(--mono); font-size:12px; color:var(--accent-ink); font-weight:700}
+  .ref .rb{color:var(--ink-soft); line-height:1.5} .ref .rb b{color:var(--ink); font-weight:600} .ref .rb i{color:var(--ink-soft)}
+  .ref .doi{font-family:var(--mono); font-size:12.5px; color:var(--accent-ink); word-break:break-word}
 
   footer{border-top:1px solid var(--rule); padding:32px 0 60px; color:var(--ink-faint)}
   footer .mono{font-size:12.5px; letter-spacing:.03em}
@@ -210,6 +215,7 @@
       <a href="#ledger">06 · Verdicts</a>
       <a href="#scale">07 · Scale</a>
       <a href="#horizon">08 · Horizon</a>
+      <a href="#references">09 · Refs</a>
     </nav>
     <button class="themebtn" onclick="(function(r){r.setAttribute('data-theme',r.getAttribute('data-theme')==='dark'?'light':'dark')})(document.documentElement)">◐ theme</button>
   </div></div>
@@ -608,6 +614,37 @@
       <p class="sendoff">A whole-cell model is a black box you can now <b>question</b> — and every answer tells you
         not only what the cell does, but where to build the model next.</p>
     </div>
+  </div></section>
+
+  <!-- ===== 09 REFERENCES ===== -->
+  <section id="references"><div class="wrap col">
+    <div class="kicker"><span class="idx">09</span><span class="eb">references</span></div>
+    <h2>Sources</h2>
+    <p class="lede">Every claim above is anchored to a primary source, each verified against the publication.</p>
+
+    <div class="refgroup">The model &amp; framework</div>
+    <div class="ref"><span class="rn">1</span><span class="rb">Macklin DN, Ahn-Horst TA, Choi H, … Covert MW (2020). <b>Simultaneous cross-evaluation of heterogeneous <i>E. coli</i> datasets via mechanistic simulation.</b> <i>Science</i> 369:eaav3751. <span class="doi">doi:10.1126/science.aav3751</span></span></div>
+    <div class="ref"><span class="rn">2</span><span class="rb">Agmon E, Spangler RK, Skalnik CJ, … Covert MW (2022). <b>Vivarium: an interface and engine for integrative multiscale modeling in computational biology.</b> <i>Bioinformatics</i> 38:1972–1979. <span class="doi">doi:10.1093/bioinformatics/btac049</span></span></div>
+    <div class="ref"><span class="rn">3</span><span class="rb">Skalnik CJ, Cheah SY, Yang MY, … Covert MW (2023). <b>Whole-cell modeling of <i>E. coli</i> colonies enables quantification of single-cell heterogeneity in antibiotic responses.</b> <i>PLoS Comput Biol</i> 19:e1011232. <span class="doi">doi:10.1371/journal.pcbi.1011232</span></span></div>
+
+    <div class="refgroup">Growth physiology &amp; resource allocation</div>
+    <div class="ref"><span class="rn">4</span><span class="rb">Scott M, Gunderson CW, Mateescu EM, Zhang Z, Hwa T (2010). <b>Interdependence of cell growth and gene expression: origins and consequences.</b> <i>Science</i> 330:1099–1102. <span class="doi">doi:10.1126/science.1192588</span></span></div>
+    <div class="ref"><span class="rn">5</span><span class="rb">Schaechter M, Maaløe O, Kjeldgaard NO (1958). <b>Dependency on medium and temperature of cell size and chemical composition during balanced growth of <i>Salmonella typhimurium</i>.</b> <i>J Gen Microbiol</i> 19:592–606. <span class="doi">doi:10.1099/00221287-19-3-592</span></span></div>
+    <div class="ref"><span class="rn">6</span><span class="rb">Zhu M, Dai X (2019). <b>Growth suppression by altered (p)ppGpp levels results from non-optimal resource allocation in <i>E. coli</i>.</b> <i>Nucleic Acids Res</i> 47:4684–4693. <span class="doi">doi:10.1093/nar/gkz211</span></span></div>
+
+    <div class="refgroup">Stringent response</div>
+    <div class="ref"><span class="rn">7</span><span class="rb">Traxler MF, Summers SM, Nguyen H-T, … Conway T (2008). <b>The global, ppGpp-mediated stringent response to amino acid starvation in <i>E. coli</i>.</b> <i>Mol Microbiol</i> 68:1128–1148. <span class="doi">doi:10.1111/j.1365-2958.2008.06229.x</span></span></div>
+    <div class="ref"><span class="rn">8</span><span class="rb">Winther KS, Roghanian M, Gerdes K (2018). <b>Activation of the stringent response by loading of RelA-tRNA complexes at the ribosomal A-site.</b> <i>Mol Cell</i> 70:95–105. <span class="doi">doi:10.1016/j.molcel.2018.02.033</span></span></div>
+
+    <div class="refgroup">Nitrate regulation</div>
+    <div class="ref"><span class="rn">9</span><span class="rb">Goh E-B, Bledsoe PJ, Chen L-L, Gyaneshwar P, Stewart V, Igo MM (2005). <b>Hierarchical control of anaerobic gene expression in <i>E. coli</i> K-12: the nitrate-responsive NarX-NarL system represses the fumarate-responsive DcuS-DcuR system.</b> <i>J Bacteriol</i> 187:4890–4899. <span class="doi">doi:10.1128/JB.187.14.4890-4899.2005</span></span></div>
+
+    <div class="refgroup">rRNA operons &amp; the Numbers Game</div>
+    <div class="ref"><span class="rn">10</span><span class="rb">Condon C, French S, Squires C, Squires CL (1993). <b>Depletion of functional ribosomal RNA operons in <i>E. coli</i> causes increased expression of the remaining intact copies.</b> <i>EMBO J</i> 12:4305–4315. <span class="doi">doi:10.1002/j.1460-2075.1993.tb06115.x</span></span></div>
+    <div class="ref"><span class="rn">11</span><span class="rb">Levin BR, McCall IC, Perrot V, Weiss H, Ovesepian A, Baquero F (2017). <b>A numbers game: ribosome densities, bacterial growth, and antibiotic-mediated stasis and death.</b> <i>mBio</i> 8:e02253-16. <span class="doi">doi:10.1128/mBio.02253-16</span></span></div>
+
+    <p class="note" style="margin-top:20px">All eleven verified against the primary record via PubMed. The Scott law
+      (4) is cited only for the numbers-vs-efficiency contrast in §05 — the model is <i>not</i> claimed to obey it.</p>
   </div></section>
 
   <footer><div class="wrap">
