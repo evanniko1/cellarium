@@ -343,7 +343,8 @@ def data_availability(result_id: str) -> dict:
     The shard already answers panel-species + summary questions with no download — only call this when a question
     needs a species/resolution the shard doesn't carry, and surface BOTH alternatives to the user."""
     from . import hf
-    return hf.data_availability(result_id)
+    rid = _resolve_result(result_id) or result_id   # accept a design label ('gene_knockout/KO:pfkA'), not just an id,
+    return hf.data_availability(rid)                 # so the HF-availability check matches download_raw (same resolution)
 
 
 def prune_candidates() -> dict:
