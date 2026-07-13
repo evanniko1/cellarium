@@ -143,11 +143,14 @@ def regulon_response(regulon: str, condition: str, reference: str = "wildtype/ba
                 "message": f"full simOut for '{condition}'/'{reference}' not readable locally (top_movers: "
                            f"{str(tm['error'])[:80]}). Pull both designs' raw (download_raw) then re-run.",
                 "top_movers_error": tm["error"]}
-    movers = tm.get("movers") or tm.get("top") or tm.get("results") or []
+    # top_movers returns FDR-significant movers as two lists (`up`/`down`), each a dict with a `symbol` field —
+    # NOT a flat `movers` list. (Older shapes kept as a fallback so a schema change degrades gracefully.)
+    movers = list(tm.get("up") or []) + list(tm.get("down") or []) \
+        or tm.get("movers") or tm.get("top") or tm.get("results") or []
     gs = {g.lower() for g in genes}
     hits = []
     for m in movers:
-        sym = str(m.get("gene") or m.get("symbol") or m.get("id") or "").lower()
+        sym = str(m.get("symbol") or m.get("gene") or m.get("id") or "").lower()
         if sym in gs:
             hits.append({"gene": sym, "log2fc": m.get("log2fc") or m.get("log2_fc") or m.get("lfc"),
                          "q": m.get("q") or m.get("qval")})
@@ -156,10 +159,11 @@ def regulon_response(regulon: str, condition: str, reference: str = "wildtype/ba
     verdict = ("activated" if up > down and up else "repressed" if down > up and down
                else "no significant regulon response")
     return {"regulon": regulon, "condition": condition, "reference": reference,
-            "n_regulon_genes": len(genes), "n_significant_in_regulon": len(hits), "n_up": up, "n_down": down,
+            "n_regulon_genes": len(genes), "n_significant_total": tm.get("n_significant_fdr10"),
+            "n_significant_in_regulon": len(hits), "n_up": up, "n_down": down,
             "verdict": verdict, "movers": sorted(hits, key=lambda h: -abs(h["log2fc"] or 0)),
-            "note": "Only FDR-significant movers appear (via top_movers); a gene absent here did not move beyond "
-                    "replicate noise. A named-regulon PREDICTION test the sector-level differential cannot give."}
+            "note": "Only FDR-significant movers appear (via top_movers up/down); a gene absent here did not move "
+                    "beyond replicate noise. A named-regulon PREDICTION test the sector-level differential can't give."}
 
 
 def exchange_flux(design: str, metabolite: str = "acetate") -> dict:

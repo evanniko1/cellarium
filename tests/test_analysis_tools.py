@@ -29,15 +29,20 @@ def test_fit_relation_splits_in_and_out_of_sample():
 
 def test_regulon_response_aggregates_a_named_gene_set(monkeypatch):
     """A regulon PREDICTION: how many of a named gene-set moved, and which way. Aggregation is exercised with a
-    stubbed top_movers (the raw read); the tool must tally only the regulon's genes and call the direction."""
+    stubbed top_movers in its REAL shape (up/down lists of {id, symbol, log2fc, q}); the tool must tally only the
+    regulon's genes and call the direction. (This mirrors the live output — an earlier version mocked a flat
+    `movers` key that top_movers never returns, which hid a real read-the-wrong-field bug.)"""
     monkeypatch.setattr(tools, "top_movers", lambda target, reference="wildtype/basal", kind="protein", top=12: {
-        "movers": [{"gene": "narG", "log2fc": 2.1, "q": 0.01}, {"gene": "narH", "log2fc": 1.8, "q": 0.02},
-                   {"gene": "narK", "log2fc": 1.2, "q": 0.04},
-                   {"gene": "pflB", "log2fc": -0.4, "q": 0.2},           # in fnr regulon, NOT nar -> ignored
-                   {"gene": "acrB", "log2fc": 3.0, "q": 0.01}]})         # not a nar gene -> ignored
+        "kind": "protein", "n_significant_fdr10": 5, "count_floor": 20.0, "n_target_runs": 2,
+        "up": [{"id": "NARG-MONOMER[m]", "symbol": "narG", "log2fc": 2.1, "q": 0.01},
+               {"id": "NARH-MONOMER[m]", "symbol": "narH", "log2fc": 1.8, "q": 0.02},
+               {"id": "NARK-MONOMER[i]", "symbol": "narK", "log2fc": 1.2, "q": 0.04},
+               {"id": "ACRB-MONOMER[i]", "symbol": "acrB", "log2fc": 3.0, "q": 0.01}],   # not a nar gene -> ignored
+        "down": [{"id": "PFLB-MONOMER[c]", "symbol": "pflB", "log2fc": -0.4, "q": 0.09}]})  # fnr, NOT nar -> ignored
     out = tools.regulon_response("nar_nitrate", "condition/plus_nitrate")
     assert out["verdict"] == "activated"
     assert out["n_significant_in_regulon"] == 3 and out["n_up"] == 3 and out["n_down"] == 0
+    assert out["n_significant_total"] == 5                                  # carries top_movers' total through
     assert {m["gene"] for m in out["movers"]} == {"narg", "narh", "nark"}   # only nar genes counted
 
     assert "known" in tools.regulon_response("no_such_regulon", "condition/x")   # unknown regulon lists options
