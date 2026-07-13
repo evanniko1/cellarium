@@ -90,8 +90,82 @@ def read_channel(result_id: str, channel: str) -> dict:
             "unit": r.units.get(channel, ""), "grounded_from": f"simOut::{result_id}"}
 
 
+def _viability_verdict(rows: list[dict]) -> dict:
+    """Cross-seed viability of one design from its per-seed manifest rows. The verdict is a MIN/BOOL_AND rollup —
+    a single seed collapsing (terminal_divided False, low division_rate) flags the design, which a per-seed row
+    can't do alone (a lineage can't see the requested depth). Reproduces CORPUS_OBSERVATIONS.md §J."""
+    drs = [r["division_rate"] for r in rows if r.get("division_rate") is not None]
+    if not drs:  # shards predate the viability channel
+        return {"n_seeds": len(rows), "verdict": "unknown",
+                "note": "no viability columns in the manifest — run `manifest.record_existing()` to backfill (§J)."}
+    gens = [r.get("gens_reached") or 0 for r in rows]
+    term = [bool(r.get("terminal_divided")) for r in rows]
+    fbf = sum(int(r.get("n_fba_failures") or 0) for r in rows)
+    min_dr = min(drs)
+    from . import viability_rules
+    verdict = viability_rules.verdict(min_dr, all(term), any(term), fbf)
+    # §M truncation/crash override: a lineage that CRASHED (run raised) or stopped short of the requested depth is
+    # inviable even if its completed generations all divided (the alaS/pheS blind spot — crash on gen-4 startup).
+    crashed = any(bool(r.get("crashed")) for r in rows)
+    reqs = [r.get("requested_generations") for r in rows if r.get("requested_generations")]
+    truncated = bool(reqs) and max(gens) < max(reqs)
+    if crashed or truncated:
+        verdict = "inviable"
+    return {"n_seeds": len(rows), "min_division_rate": round(min_dr, 3),
+            "max_gens_reached": max(gens), "requested_generations": (max(reqs) if reqs else None),
+            "crashed": crashed, "truncated": truncated,
+            "all_terminal_divided": all(term), "n_fba_failures": fbf,
+            "verdict": verdict,
+            "per_seed": [{"seed": r.get("seed"), "division_rate": r.get("division_rate"),
+                          "gens_reached": r.get("gens_reached"), "terminal_divided": r.get("terminal_divided"),
+                          "median_division_time_sec": r.get("median_division_time_sec")} for r in rows]}
+
+
+def viability(perturbation: str, condition: str | None = None) -> dict:
+    """Cross-seed VIABILITY (does the lineage divide?) per design, from the manifest viability columns — instant,
+    no container. If `condition` is omitted, returns a verdict for every condition under `perturbation` (e.g. all
+    gene_knockout variants). The KO readout that does NOT reroute away like a graded growth channel (§J)."""
+    if not has_manifest():
+        return {"error": "viability needs the Parquet manifest (record a campaign first)."}
+    base = "perturbation, condition, seed, division_rate, gens_reached, terminal_divided, n_fba_failures, median_division_time_sec"
+    where, params = "WHERE perturbation = ?", [perturbation]
+    if condition is not None:
+        where += " AND condition = ?"
+        params.append(condition)
+
+    def q(cols):
+        return _duck(f"SELECT {cols} FROM {_FROM} {where} "
+                     f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path,id) ORDER BY ts DESC)=1", params)
+
+    try:  # prefer the crash/truncation columns; fall back if no shard has them yet
+        rows = q(base + ", requested_generations, crashed")
+    except Exception:
+        try:
+            rows = q(base)
+        except Exception:
+            return {"error": "manifest has no viability columns; run `manifest.record_existing()` to backfill (§J)."}
+    if not rows:
+        return {"error": f"no runs for perturbation='{perturbation}'" +
+                (f", condition='{condition}'" if condition is not None else "") + "."}
+    by_cond: dict = {}
+    for r in rows:
+        by_cond.setdefault(r.get("condition"), []).append(r)
+    designs = [{"condition": c, **_viability_verdict(rs)} for c, rs in sorted(by_cond.items(), key=lambda x: str(x[0]))]
+    return {"perturbation": perturbation, "designs": designs}
+
+
+def _resolve_run(p: str | None) -> str | None:
+    """A stored run path may be repo-relative (portable, current) or absolute (legacy). Return an absolute path so
+    local reads work regardless of the caller's CWD."""
+    if not p:
+        return p
+    from pathlib import Path
+    pp = Path(p)
+    return str(pp if pp.is_absolute() else (Path.cwd() / pp))
+
+
 def simout_path(result_id: str) -> str | None:
     if has_manifest():
         rows = _duck(f"SELECT simout_path FROM {_FROM} WHERE id = ?", [result_id])
-        return rows[0]["simout_path"] if rows else None
+        return _resolve_run(rows[0]["simout_path"]) if rows else None
     return None

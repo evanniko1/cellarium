@@ -54,15 +54,12 @@ def panel_designs() -> list[Design]:
 
 
 def essential_ko_designs() -> list[Design]:
-    """Redesigned mechanistic-scope test: three ESSENTIAL, sole-catalyst, mechanistic KOs on minimal glucose
-    vs a basal control, MULTI-GENERATION so the defect develops as the inherited enzyme/precursors deplete
-    (the generation-depth lesson). All vetted: metabolic + is_sole_catalyst + monocistronic + Keio/conditionally
-    essential + in-envelope + biosecurity-clean.
-      H_KO_A fabI (425)  — enoyl-ACP reductase, fatty-acid synthesis; essential, unique.
-      H_KO_B glmS (2795) — glucosamine-6-P synthase, cell-wall/LPS precursor; essential, unique.
-      H_KO_C gltA (2657) — citrate synthase (TCA -> glutamate); conditionally essential on minimal.
-    Prediction: each KO shows a progressive per-generation growth decline -> arrest/no-division, matching the
-    ~91% FBA-essentiality benchmark (Joyce 2006). Run with --generations 4."""
+    """KNOWN-TO-REROUTE control set (RESOLVED — §J/§K): three Keio/Joyce-ESSENTIAL sole-catalyst metabolic KOs
+    (fabI 425, glmS 2795, gltA 2657) + a basal control, run 4 generations. The original prediction (progressive
+    growth decline -> arrest) was DISPROVEN: all three are VIABLE at division_rate 1.00 — the metabolism FBA has
+    no growth term, so it reroutes, and the enzyme is 0 from gen-0 (no dilution confound). Kept as the canonical
+    `model_UNDER_predicts` demonstration (benchmark-essential yet viable in silico). For a real phenotype use a
+    GRADED perturbation (rrna_operon_knockout, ppgpp_conc, objective_weight_designs), NOT a single metabolic KO."""
     kos = {"fabI": 425, "glmS": 2795, "gltA": 2657}
     return [Design(perturbation="wildtype", condition="basal")] + \
            [Design(perturbation="gene_knockout", condition=f"KO:{s}", params={"variant_index": i})
@@ -70,10 +67,10 @@ def essential_ko_designs() -> list[Design]:
 
 
 def mechanistic_ko_designs() -> list[Design]:
-    """KO experiment testing the mechanistic-scope guardrail: MECHANISTIC single-gene knockouts (metabolic
-    enzymes pfkA, tpiA — central glycolysis, active on glucose) vs NON-MECHANISTIC ones (flgB flagellar,
-    ymgD y-gene — expressed but inert). Prediction: the metabolic KOs perturb growth/proteome (or fail to
-    divide); the inert KOs do not. A clean contrast proves the guardrail. Indices from gene_scope.json."""
+    """Mechanistic-scope contrast (RESOLVED — §J/§K): metabolic KOs (pfkA 1594, tpiA 1542) vs non-mechanistic
+    (flgB 2791, ymgD 397). Established result: BOTH classes are VIABLE — the metabolic KOs reroute (no growth
+    term to degrade), the inert ones do nothing by construction. So a single metabolic KO is not a phenotype
+    generator here; it's a known-to-reroute control. For a measurable effect use a graded-capacity perturbation."""
     kos = {"pfkA": 1594, "tpiA": 1542, "flgB": 2791, "ymgD": 397}
     return [Design(perturbation="gene_knockout", condition=f"KO:{sym}", params={"variant_index": idx})
             for sym, idx in kos.items()]
@@ -120,6 +117,93 @@ def confounded_designs() -> list[Design]:
     return designs
 
 
+def overnight_designs() -> list[Design]:
+    """Overnight batch Arms A + C (run --generations 4). ARM A = essentiality landscape + the redundancy test:
+    does the model CRASH on Keio-NON-essential machinery (rpmE/rpmJ/lysS/selA — resolves keep-caveat vs detect-
+    redundancy) as it does on essential machinery? Plus under-predicted metabolic essentials (murA/lpxC/dapA) to
+    confirm the reroute. ARM C = graded phenotypes (objective-weight + ppGpp + rRNA sweeps) — the clean-signal
+    path. Arm B (gen-depth, 8 gens) is a separate --gendepth run. All indices vetted via design_space."""
+    armA = {"rpmE": 1943, "rpmJ": 2829, "lysS": 2819, "selA": 2840,   # redundant machinery (Keio non-essential)
+            "murA": 1027, "lpxC": 84, "dapA": 2776}                    # under-predicted metabolic essentials
+    designs = [Design(perturbation="wildtype", condition="basal")]
+    designs += [Design(perturbation="gene_knockout", condition=f"KO:{s}", params={"variant_index": i})
+                for s, i in armA.items()]
+    designs += objective_weight_designs()                              # Arm C: objective levers
+    ppgpp = {0: "0.2x", 2: "0.6x", 7: "1.6x", 9: "2.0x"}
+    rrna = {2: "2op", 4: "4op", 6: "6op"}
+    designs += [Design(perturbation="ppgpp_conc", condition=f"basal|ppGpp:{l}", params={"variant_index": i})
+                for i, l in ppgpp.items()]
+    designs += [Design(perturbation="rrna_operon_knockout", condition=f"minimal|rRNA_KO:{l}", params={"variant_index": i})
+                for i, l in rrna.items()]
+    return designs
+
+
+def gendepth_designs() -> list[Design]:
+    """Overnight Arm B (run --generations 8): confirm the RNAP/replisome LATE crash (rpoB/dnaN survive <=4 gens,
+    predicted to crash as the inherited pool depletes) AND resolve minus_phosphate div=0.0 (real starvation-arrest
+    vs a 4-gen time-budget artifact). Small + long — run separately from the 4-gen Arms A+C."""
+    return [Design(perturbation="wildtype", condition="basal"),
+            Design(perturbation="gene_knockout", condition="KO:rpoB", params={"variant_index": 2095}),
+            Design(perturbation="gene_knockout", condition="KO:dnaN", params={"variant_index": 58}),
+            Design(perturbation="condition", condition="minus_phosphate", params={"variant_index": 12})]
+
+
+def multi_gene_ko_designs(gene_sets: list[list[str]]) -> list[Design]:
+    """Multi-gene KO designs (the `multi_gene_knockout` variant) — knock out a SET of genes at once. Motivation
+    (not the ML surrogate): metabolism REROUTES around single KOs because it has alternative flux paths, so a
+    single-KO null is uninformative. A set that removes the enzyme AND its alternatives can BLOCK the reroute and
+    expose the true dependency — the council can suggest reroute-minimizing sets. Each set resolves to ko_indices
+    via gene_scope. Runs one lineage per set (the variant uses index 0; run_one gives each set a unique dir)."""
+    from . import scope
+    designs = []
+    for genes in gene_sets:
+        idxs, labels = [], []
+        for g in genes:
+            c = scope.classify_gene(g)
+            if c.get("ko_index"):
+                idxs.append(int(c["ko_index"])); labels.append(g)
+        if len(idxs) >= 2:
+            designs.append(Design(perturbation="multi_gene_knockout", condition="KO:" + "+".join(labels),
+                                  params={"ko_indices": idxs}))
+    return designs
+
+
+def machinery_calibration_designs() -> list[Design]:
+    """M1 viability-threshold calibration (DRAFT — vet before launching). A machinery-KO battery spanning all four
+    central-dogma subtypes, to populate the INVIABLE/impaired end of the viability scale. Rationale: every existing
+    metabolic KO + graded run (rRNA-operon 2/4/6, ppGpp 0.2-2.0x) is VIABLE (min_divrate 1.0 — they slow growth,
+    not division), so we have ZERO clean inviable points besides gltX (impaired, 0.667). Only machinery reaches the
+    crash end. This validates scope.py's machinery->lethal_crash rule on n=7 (was n=1: gltX) and tests whether the
+    aaRS crash generalizes across synthetases (argS = the Choi & Covert 2023 ArgRS case).
+      rpoB 2095 (RNAP; = rpoBC operon)   rplB 2835 (ribosomal; = S10 r-protein operon)   dnaN 58 (replisome)
+      argS 644 / alaS 2078 / pheS 1340   (three aminoacyl-tRNA synthetases)
+    NOTE: ko_index is a TU index, so rpoB/rplB KOs remove the whole operon (documented, fine for a crash test).
+    Expect CRASHES (partial lineages) — the runner/batch must tolerate a failing variant. Run --generations 4."""
+    kos = {"rpoB": 2095, "rplB": 2835, "argS": 644, "alaS": 2078, "pheS": 1340, "dnaN": 58}
+    return [Design(perturbation="wildtype", condition="basal")] + \
+           [Design(perturbation="gene_knockout", condition=f"KO:{s}", params={"variant_index": i})
+            for s, i in kos.items()]
+
+
+def objective_weight_designs() -> list[Design]:
+    """Objective levers (§K), NEAR-DEFAULT range. The FITTED values are kinetic_objective_weight=1e-7 (KW index 2)
+    and secretion_penalty=1e-3 (SP index 4). The first sweep used extremes {0,1e-4,0.1,1} — 1e3-1e7x the fitted
+    weight — and ALL crashed with NegativeCountsError (ATP[c] in PolypeptideElongation): over-weighting the kinetic
+    targets starves ATP and crashes translation. FOLLOW-UP FINDING (2026-07-11): this near-default bracket ALSO
+    crashed 12/12 — INCLUDING at the fitted default itself (index 2 = 1e-7, a no-op). So it is NOT a value-choice
+    issue: these variants destabilize the CURRENT model regardless of the weight (they may need a makeVariants
+    pre-step our inline --variant path skips, or be incompatible with this model version). The graded-objective-
+    lever arm is a DEAD END here; kept for the record. Bounded runs only (<=3h).
+    KINETIC_OBJECTIVE_WEIGHT=[0,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,0.01,0.1,1]; SECRETION_PENALTY=[0,1e-5,1e-4,5e-4,1e-3,...]."""
+    kw = {1: "1e-8", 2: "1e-7_default", 3: "1e-6", 4: "1e-5"}   # bracket fitted 1e-7; index 5 (1e-4)+ crashes
+    sp = {3: "5e-4", 4: "1e-3_default"}                          # bracket fitted 1e-3
+    designs = [Design(perturbation="metabolism_kinetic_objective_weight", condition=f"minimal|kin_w:{lbl}",
+                      params={"variant_index": i}) for i, lbl in kw.items()]
+    designs += [Design(perturbation="metabolism_secretion_penalty", condition=f"minimal|sec_pen:{lbl}",
+                       params={"variant_index": i}) for i, lbl in sp.items()]
+    return designs
+
+
 def knockout_designs(query: str, limit: int = 8) -> list[Design]:
     """Gene-knockout designs whose rna_id matches `query`, using the cached variant map
     (run `python -m cellarium.reader --variant-map` first). Each -> --variant gene_knockout <idx>."""
@@ -156,11 +240,33 @@ def main() -> None:
     ap.add_argument("--mechanistic-ko", action="store_true", dest="mechanistic_ko",
                     help="single-gene KO experiment: mechanistic (pfkA, tpiA) vs non-mechanistic (flgB, ymgD)")
     ap.add_argument("--essential-ko", action="store_true", dest="essential_ko",
-                    help="essential sole-catalyst KOs (fabI, glmS, gltA) + basal control; run with --generations 4")
+                    help="essential sole-catalyst KOs (fabI, glmS, gltA) + basal control; KNOWN-TO-REROUTE control")
+    ap.add_argument("--objective-weight", action="store_true", dest="objective_weight",
+                    help="graded objective levers: kinetic-objective-weight + secretion-penalty sweeps (§K/D4)")
+    ap.add_argument("--machinery-calibration", action="store_true", dest="machinery_calibration",
+                    help="M1: machinery-KO battery (RNAP/ribosomal/aaRS/replisome) to calibrate viability thresholds")
+    ap.add_argument("--overnight", action="store_true",
+                    help="overnight batch Arms A+C (essentiality landscape + redundancy test + graded); run --generations 4")
+    ap.add_argument("--gendepth", action="store_true",
+                    help="overnight Arm B: rpoB/dnaN late-crash + minus_phosphate arrest; run --generations 8")
+    ap.add_argument("--multi-gene-ko", dest="multi_gene_ko", default=None,
+                    help="multi-gene KO sets, genes '+'-joined within a set and ';'-separated across sets "
+                         "(default: pfkA+pfkB). Run with --parallel 1.")
     args = ap.parse_args()
 
     if args.panel:
         designs = panel_designs()
+    elif args.overnight:
+        designs = overnight_designs()
+    elif args.gendepth:
+        designs = gendepth_designs()
+    elif args.multi_gene_ko is not None:
+        spec = args.multi_gene_ko or "pfkA+pfkB"
+        designs = multi_gene_ko_designs([s.split("+") for s in spec.split(";") if s])
+    elif args.machinery_calibration:
+        designs = machinery_calibration_designs()
+    elif args.objective_weight:
+        designs = objective_weight_designs()
     elif args.essential_ko:
         designs = essential_ko_designs()
     elif args.mechanistic_ko:

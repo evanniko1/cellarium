@@ -38,7 +38,10 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
 - `[x]` **Phenotype-grounded biosecurity.** `biosecurity.screen_result` / `screen_phenotype` tool: flags a
   design whose simulated proteome up-regulates a concerning pathway (AMR efflux, ≥2× vs control) — grounded in
   the phenotype, not keywords (DEMO Act 3), so it catches an *emergent* AMR signature the intent screen would
-  miss. Logic unit-tested; no false positives on the corpus. **Demo-prep TODO:** generate one positive case (a
+  miss. Logic unit-tested; no false positives on the corpus. **Demo-prep TODO — RESOLVED as a scope limitation
+  (§L):** the phenotype screen cannot fire on a real run because the mar-sox-rob AMR regulon isn't modeled (not
+  among the 23 TFs; efflux genes don't move ≥2× under any modeled condition; no overexpression variant). Act 3
+  rests on the model-independent INTENT screen instead. Superseded line: generate one positive case (a
   marA/soxS-overexpression design) to show it firing on a real run.
 - `[x]` **Coverage completeness gate.** `rigor.py` tracks designs deep-read this session (via the read tools);
   `coverage_check` reports examined-vs-full-grid so a conclusion can't quietly rest on a subset. Reset per
@@ -68,3 +71,98 @@ Status: `[ ]` todo · `[~]` partial · `[x]` done.
 P1 uses existing manifest data (no new sims) — cheap + deterministic. P2.1/2.2 need the species panel in the
 manifest (a generation-time change + a one-time backfill of local runs). P3 is multi-pass (token cost) — gate
 to final conclusions, not routine reads.
+
+## P4 — KO/objective instrument, from the literature review (2026-07-10)
+From the repo pass + Covert-lab literature scan (see `DECISIONS.md` D4/D4-lit, `CORPUS_OBSERVATIONS.md` §J +
+Literature grounding). Core lesson: the model doesn't yield clean single-gene-KO phenotypes because the metabolism
+FBA objective has **no growth term** (KOs reroute) and the KO variant is an **expression** knockout; the fix is to
+change the **readout** (viability, not graded growth) and the **design** (graded / multi-gene), not the objective.
+
+### P4.0 — cheap, no new sims
+- `[x]` **Viability as a first-class corpus channel.** `mode_run` emits a per-lineage division aggregate
+  (`division_rate`, `gens_reached`, `terminal_divided`, `n_fba_failures`, `median_division_time_sec`); flattened
+  into manifest columns so viability is queryable in DuckDB (cross-seed `GROUP BY` recovers the §J verdict — a
+  lineage can't see the requested depth, so 'died early' is a cross-seed signal). Standalone rollup =
+  `reader.viability` / `mode_viability`. *Source: Gherman et al. 2025.* **Done** — corpus backfilled
+  (`record_existing`); a GROUP BY over the KO variants reproduces §J from SQL (gltX min_divrate 0.67 / max_gens 3
+  / terminal_divided False vs 1.00 / 4 / True for the metabolic KOs). Minor follow-up: the gltX run lacks a
+  `KO:` condition label (shows as `?`) — a provenance gap in that run's design.json, not the channel.
+- `[x]` **Ground-truth essentiality reference in `gene_scope`.** `mode_gene_scope` reads wcEcoli's own validation
+  set (Baba 2006 Keio + Joyce 2006, glucose-minimal; 406 genes, 402 matched) at dump time — read from the checkout,
+  NOT vendored (D3). Each gene carries `essential_reference`; `classify_gene` returns a `benchmark` comparing the
+  KO prior to it. Turns the self-reported 0/5 into a benchmarked call: fabI/glmS/gltA -> `model_UNDER_predicts`
+  (essential yet the model KO is viable), gltX/rpoB -> `consistent_lethal`, pfkA/tpiA/flgB -> `consistent_viable`.
+  *Source: EcoCyc 2025 (via the wcEcoli validation set).*
+- `[x]` **Cite the aaRS mechanism in the scope crash note** (`scope.py`): the `lethal_crash` note now appends, for
+  `machinery_role == "aaRS"`, that aaRS kcats are fit ~7.6× above in vitro and perturbing aaRS activity is
+  "catastrophic" — a full KO is the extreme. *Source: Choi & Covert 2023 (doi:10.1093/nar/gkad435).*
+- `[x]` **Relabel `mode_fba_essentiality` as under-sensitive/deprecated** — docstrings (worker + `reader`) now lead
+  with DEPRECATED and point to the `essential_reference` benchmark / graded perturbations / D4 tier-2; the result
+  carries `deprecated: True` + a `warning`. *Source: D4 root-cause.*
+
+### P4.1 — design + coverage
+- `[x]` **Expose `viability` as an agent tool** (`tools.py`): cross-seed division verdict (viable/impaired/
+  inviable) per design from the manifest — instant, no container. `store.viability` does the MIN/BOOL_AND rollup;
+  the tool cross-links `mechanistic_scope` ('viable' is the model, not ground truth — check the benchmark). Agent
+  SYSTEM prompt now tells Coli to judge KO lethality by viability, not growth. Verdict logic unit-tested (three
+  regimes). (Also installed the declared `duckdb` dep — the full suite now passes 16/16.)
+- `[x]` **Viability in `differential`** — `summary` now returns the target's cross-seed viability verdict, so a
+  differential is read with "did the cell even divide?" in view (flat channels on a VIABLE KO = reroute; on an
+  INVIABLE one the fold-changes are pre-crash garbage). *Source: §J.*
+- `[x]` **Graded-first design generators** (`generate.py`): `essential_ko_designs`/`mechanistic_ko_designs`
+  relabelled as KNOWN-TO-REROUTE controls (the old growth-decline predictions were disproven), pointing to graded
+  perturbations for real phenotypes. *Source: §K.*
+- `[x]` **Translation-factor machinery detection** — RESOLVED as a no-op: wcEcoli models elongation as rate-based,
+  not explicit factor cycling, so EF-Tu/EF-G/IF/RF are *correctly* inert; flagging them as machinery would predict
+  a crash that can't happen. The essentiality benchmark already surfaces the mismatch (fusA/infA/prfA/tsf ->
+  `model_UNDER_predicts`; tufA correctly non-essential via its tufB paralog). *Source: Choi & Covert 2023 / P4.0.*
+- `[x]` **Objective-weight design variants** (`generate.py` `objective_weight_designs`, `--objective-weight`):
+  `metabolism_kinetic_objective_weight` + `metabolism_secretion_penalty` sweeps — the legitimate graded objective
+  levers (indices into the model's own arrays; upstream ships analyses for both). *Source: D4/§K.*
+
+### P4.2 — larger / research
+- `[x]` **Reroute-diagnosis tool** (`reroute_diagnosis`): for a viable metabolic KO, seed-averages sum|flux|
+  through the KO'd enzyme's OWN reactions in KO vs WT; if wt_flux>0 and ko_flux≈0 on a dividing cell, flags
+  `reroute_is_artifact` (the model bypasses an enzyme real biology can't). Verified on fabI (27 rxns, 0 vs 0.211).
+  Turns §K's fabI finding into a reusable capability; pairs with the essentiality benchmark. *Source: §K / Q3.*
+- `[ ]` **Metabolic-essentiality verdict** — either `fba_essentiality` v2 (hard target-demand feasibility) or call
+  **EcoCyc's steady-state flux model as the oracle** (cheaper, authoritative). *Source: EcoCyc 2025 + D4.*
+- `[ ]` **Multi-gene / reduced-genome design generator** (`generate.py`): combinatorial deletions scored by
+  viability. *Source: Gherman et al. 2025.*
+- `[ ]` **ML surrogate for viability/division** trained on the corpus (95% compute reduction) — the
+  "reason over the model at scale" primitive; artifact for "The Well for the Cell". *Source: Gherman et al. 2025.*
+
+## P5 — harness gaps from the audit round (2026-07-10)
+Stress-test (17 tools, edge cases) found no crashes and semantically-correct guardrails. These are the gaps the
+recorded roadmap did NOT cover — the "close the loop to new experiments" layer + methodology/code debt.
+- `[x]` **F1 (HIGH) — design-space enumeration tool.** `design_space(gene?)` returns 21 conditions, 10 variant
+  types (flagging which give CLEAN graded phenotypes vs which reroute), and resolves a gene → ko_index + its KO
+  prior + essentiality benchmark. Agent tool + dispatch + test. So a hypothesis proposes a real, correctly-indexed
+  experiment instead of guessing.
+- `[x]` **F2 (MED-HIGH) — hypothesis-vetting tool.** `vet_hypothesis` composes the guardrails; **SAFETY is the
+  only hard gate** (`runnable` reflects biosecurity alone). Feasibility/provenance/scope are ADVISORY — out-of-
+  sample + out-of-envelope hypotheses stay runnable (the H2 lesson; verified by test). Carries an explicit
+  `principle` field so it can't be misread as a gate.
+- `[x]` **F3 (MED) — model-validation summary.** `model_validation` (scope.model_validation_summary): corpus
+  essentiality agreement vs the 402-gene benchmark. Headline: **essentiality recall 16.8%** (model correctly
+  flags 67/400 essential genes; UNDER-predicts 333) — so a 'viable' KO verdict is unreliable for essential-gene
+  candidates.
+- `[x]` **F4 (MED) — statistical-power guidance.** `power_check` uses the corpus's observed per-design replicate
+  CV: growth_rate CV ≈5.6%, so n=4 detects ~11% effects and needs 5 seeds for 10% — a KO null below the MDE is
+  under-powered, not equivalent.
+- `[x]` **M4 (MED, NEW from F2 test) — provenance is too coarse → FIXED.** Confirmed empirically: the measured-
+  data conditions are 5 media (M9 Glc ±AAs, N-/P-limited, glycerol); `minus_magnesium`'s expression is network-
+  DERIVED, not fitted (so H2 = out-of-sample is right, the blanket rule was wrong). Now classifies by a
+  conservative `IN_SAMPLE_CONDITIONS` set (basal/glc*/with_aa/no_oxygen); all other media + all perturbations →
+  out-of-sample (under-crediting is the safe error). Verified: minus_magnesium/plus_indole → out; no_oxygen/
+  with_aa → in.
+- `[x]` **F5 (LOW) — integration polish:** `division_rate` added to `survey` CHANNELS (a low value is a strong
+  flag); `reroute_diagnosis` + `design_space` added to the agent KO-guidance prompt.
+- `[ ]` **M1 (MED) — calibrate the viability verdict thresholds** (0.9/0.6, set on n=1 machinery = gltX) against
+  more machinery + graded-KO data; the "impaired" band is a guess.
+- `[x]` **M2 (LOW) — t-distribution CIs.** New `stats.t95_halfwidth` (scipy t) used by survey + rigor. Also fixed
+  a latent bug the audit surfaced: `rigor.py` used `math.sqrt` without importing `math` (survived only because
+  tests exercised the missing-data path, not the 2-sample path).
+- `[~]` **C1 (LOW) — DRY the viability verdict.** Extracted to `viability_rules.verdict` (shared by worker +
+  store) — this fixed a real divergence: the worker's viable-branch used to mislabel a crashed-but-dividing run
+  (fba_failures>0) 'viable'. `gene_scope` cache staleness guard (C3) still open.

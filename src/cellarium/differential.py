@@ -68,7 +68,28 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
                        "pct": round(100 * (tv - rv) / rv, 1), "log2fc": log2fc})
     movers.sort(key=lambda m: abs(m["log2fc"]) if m["log2fc"] is not None else abs(m["pct"]) / 100, reverse=True)
     return {"target": target, "reference": reference, "ranked": movers[:top],
-            "note": "Channels + pathways ranked by |log2 fold-change| (else |%|) vs the reference — what moved most."}
+            "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
+            "note": "Channels + pathways ranked by |log2 fold-change| (else |%|) vs the reference — what moved most. "
+                    "Check `viability`: flat channels on a VIABLE KO = reroute (no phenotype); on an INVIABLE one the "
+                    "fold-changes are pre-crash garbage."}
+
+
+def _viability_for(label: str) -> dict:
+    """The target design's cross-seed viability verdict (perturbation/condition label) — so a differential is read
+    with 'did the cell even divide?' in view. Absent viability columns / unknown design -> a soft note, not an error."""
+    from . import store
+
+    pert, _, cond = label.partition("/")
+    try:
+        out = store.viability(pert, cond or None)
+    except Exception:
+        return {"verdict": "unknown"}
+    if "error" in out or not out.get("designs"):
+        return {"verdict": "unknown"}
+    d = out["designs"][0] if len(out["designs"]) == 1 else next(
+        (x for x in out["designs"] if x.get("condition") == cond), out["designs"][0])
+    return {"verdict": d.get("verdict"), "min_division_rate": d.get("min_division_rate"),
+            "max_gens_reached": d.get("max_gens_reached")}
 
 
 def _reverse_gene_map() -> dict[str, str]:

@@ -255,6 +255,126 @@ def test_unfalsifiable_verdict_blocks_convergence():
     assert h.converged is False
 
 
+def test_substantive_objection_blocks_same_round_convergence():
+    """Convergence guard: even if the JUDGE waves a round through (its flags say converged), a SUBSTANTIVE
+    objection the skeptic raised THAT round must block convergence — the proposer has to earn a genuinely clean
+    round. This is the aaRS-KO failure: the judge let a skeptic-flagged backwards slope-sign converge in-round."""
+    scripts = {
+        "propose_hypothesis": [_candidate(), _candidate()],
+        "raise_objections": [
+            {"objections": [_obj("undefined_term")]},   # round 1: skeptic flags a SUBSTANTIVE objection
+            {"objections": []},                          # round 2: clean — skeptic silent
+        ],
+        # the judge (wrongly) reports 'converged' in BOTH rounds; the guard must still refuse round 1
+        "rule": [_verdict(), _verdict()],
+    }
+    h = council.deliberate("q", max_rounds=2, quota=0, client=FakeClient(scripts),
+                           models={"proposer": "m", "skeptic": "m", "judge": "m"}, verbose=False)
+    assert h.converged is True and h.rounds_used == 2   # NOT round 1 — the substantive objection forced a clean round
+
+
+def test_web_brief_extracts_text_and_dedupes_citations():
+    """The librarian returns the synthesized brief + its web sources, pulled from the text blocks' citations and
+    de-duplicated by URL."""
+    class _Cit:
+        def __init__(self, url, title): self.url, self.title = url, title
+
+    class _B:
+        type = "text"
+        text = "aaRS KOs deplete charged tRNA and crash by ~gen 3 [1][2]."
+        citations = [_Cit("https://example.org/paper", "Choi & Covert 2023"),
+                     _Cit("https://example.org/paper", "Choi & Covert 2023")]   # dup URL
+
+    class _R:
+        content = [_B()]
+
+    out = council._read_web_brief(_R())
+    assert out["brief"].startswith("aaRS KOs deplete")
+    assert out["sources"] == [{"url": "https://example.org/paper", "title": "Choi & Covert 2023"}]   # deduped
+
+
+def test_sufficiency_gate_challenges_vague_question_scope_only():
+    """Phase 3(b): a too-broad question is parked with SCOPE-ONLY clarifying questions; a specified one passes
+    straight through. The gate never runs the deliberation on a question too vague to yield a decisive test."""
+    vague = council.sufficiency_gate("what happens to the cell?", client=FakeClient(
+        {"gate": [{"sufficient": False, "missing": ["target", "observable"],
+                   "clarifying_questions": ["Which gene or perturbation should we knock out?",
+                                            "Which observable channel should we measure?"]}]}),
+        models={"proposer": "m", "skeptic": "m", "judge": "m"})
+    assert vague["sufficient"] is False and len(vague["clarifying_questions"]) == 2
+
+    ok = council.sufficiency_gate("Is a pfkA knockout viable versus wildtype, by division_rate?",
+        client=FakeClient({"gate": [{"sufficient": True}]}),
+        models={"proposer": "m", "skeptic": "m", "judge": "m"})
+    assert ok["sufficient"] is True and ok["clarifying_questions"] == []
+
+
+def test_sufficiency_prepass_never_parks_a_specified_question():
+    """The over-firing fix. A question naming a runnable MANIPULATION + a measurable OBSERVABLE is sufficient by
+    construction, so the gate short-circuits WITHOUT the model — the LLM (which fires unpredictably) is never even
+    consulted. A client whose .create() explodes proves it: if any of these reached the model, the test would error.
+    This is the battery the gate historically over-parked (lpxC, glycolysis, rRNA)."""
+    class _Boom:
+        class messages:
+            @staticmethod
+            def create(**k):
+                raise AssertionError("a specified question must be short-circuited, never sent to the model")
+
+    specified = [
+        "Is the lpxC knockout's simulated viability consistent with essentiality, vs wildtype?",  # historically PARKED
+        "Do glycolysis knockouts reroute flux or cost growth?",                                    # historically PARKED
+        "Does reducing rRNA operon dosage cap max growth?",                                        # historically PARKED
+        "Does knocking out pfkA reduce growth rate versus wildtype?",
+        "Does argS knockout raise or lower ppGpp?",
+        "Does clamping ppGpp to 2x reduce growth?",
+    ]
+    for q in specified:
+        out = council.sufficiency_gate(q, client=_Boom(), labels={})
+        assert out["sufficient"] is True and out["clarifying_questions"] == [], q
+
+
+def test_sufficiency_prepass_lets_genuinely_open_questions_reach_the_gate():
+    """The pre-pass short-circuits ONLY specified questions; a genuinely open one (no manipulation or no observable)
+    still falls through to the LLM gate, which is the only path that can park. This bounds the firing set."""
+    assert council.looks_specific("does a pfkA knockout stop division?") is True
+    assert council.looks_specific("clamp ppGpp and watch growth") is True
+    # open — no manipulation named -> reaches the model
+    assert council.looks_specific("what happens to the cell?") is False
+    assert council.looks_specific("tell me about metabolism") is False
+    assert council.looks_specific("is the model any good?") is False
+
+
+def test_objection_resolution_is_tracked_per_objection():
+    """Per-objection resolution: the skeptic (who raised it) certifies which prior objections the revision resolves.
+    An objection raised in round 1 that the round-2 skeptic marks resolved must carry resolved_round=2 in the
+    ledger; the UI reads this to show 'Resolved R2' instead of the coarse round-derived 'carried'."""
+    scripts = {
+        "propose_hypothesis": [_candidate(), _candidate(), _candidate()],
+        "raise_objections": [
+            {"objections": [_obj("undefined_term")]},          # round 1 -> objection id r1.1 (substantive, blocks)
+            {"objections": [], "resolved": ["r1.1"]},          # round 2: skeptic certifies r1.1 addressed; clean
+            {"objections": []},
+        ],
+        "rule": [_verdict(new_substantive_objection_this_round=True, open_objections_resolved=False), _verdict(), _verdict()],
+    }
+    h = council.deliberate("q", max_rounds=4, quota=0, client=FakeClient(scripts),
+                           models={"proposer": "m", "skeptic": "m", "judge": "m"}, verbose=False)
+    led = {o["id"]: o for o in h.objection_ledger}
+    assert "r1.1" in led and led["r1.1"]["round"] == 1
+    assert led["r1.1"]["resolved_round"] == 2      # certified resolved by the round-2 skeptic, not just "carried"
+
+
+def test_to_design_clamps_over_specified_scale():
+    """The proposer sometimes asks for 20x20 (~400 sims/design). _to_design clamps to a runnable proposal
+    (seeds<=8, generations<=6) so the human isn't handed an unaffordable falsifier; in-range values pass through."""
+    big = council._to_design({"perturbation": "gene_knockout", "condition": "basal",
+                              "seeds": 20, "generations": 20, "params": {"target_genes": ["alaS"]}})
+    assert big.seeds == 8 and big.generations == 6
+    ok = council._to_design({"perturbation": "gene_knockout", "condition": "basal",
+                             "seeds": 4, "generations": 3, "params": {"target_genes": ["alaS"]}})
+    assert ok.seeds == 4 and ok.generations == 3            # a sane proposal is left untouched
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

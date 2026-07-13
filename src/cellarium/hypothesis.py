@@ -63,6 +63,7 @@ class Hypothesis(BaseModel):
     converged: bool = True                                          # False => returned at the round cap, best-effort
     rounds_used: int = 0                                            # debate rounds actually run (for the ablations)
     substantive_objections: int = 0                                # cumulative substantive objections the skeptic raised
+    objection_ledger: list[dict] = Field(default_factory=list)     # every objection raised + the round that resolved it
 
     def brief(self) -> str:
         """Compact justification brief injected into the grounded agent's context (agent.run)."""

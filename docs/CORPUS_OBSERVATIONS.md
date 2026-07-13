@@ -224,6 +224,190 @@ KO as first-class but `knockout_available == (gene.ko_index > 0)` (a mechanical 
 variant crashes after the fact ("Handle variant failures" commit) — so it knows KOs crash but never predicts it.
 The `scope.py` three-way prior is exactly that missing predictive layer.
 
+## J. Viability re-score — the KO readout that does NOT reroute (2026-07-10)
+Prompted by Gherman et al. 2025 (Literature grounding, below), re-scored every KO run by **division success** —
+the canonical wcEcoli viability signal (a cell that replicated its chromosome, `full_chromosome == 2` over a real
+trajectory, reached DIVISION) — instead of graded growth rate. New `viability` worker mode + `reader.viability`
+aggregate the per-cell division signal (+ FBA-solver health) over seeds × generations into a run-level verdict.
+
+| run (variant idx) | class | cells | division_rate | gens reached | verdict |
+|---|---|---|---|---|---|
+| wildtype (control) | control | 20 | 1.00 | ≤4 | VIABLE |
+| ymgD (397) | inert | 6 | 1.00 | 1 | VIABLE |
+| flgB (2791) | inert | 6 | 1.00 | 1 | VIABLE |
+| pfkA (1594) | metabolic | 6 | 1.00 | 1 | VIABLE |
+| tpiA (1542) | metabolic | 6 | 1.00 | 1 | VIABLE |
+| fabI (425) | metabolic\* | 16 | 1.00 | 4 | VIABLE |
+| glmS (2795) | metabolic\* | 16 | 1.00 | 4 | VIABLE |
+| gltA (2657) | metabolic\* | 16 | 1.00 | 4 | VIABLE |
+| **gltX (2074)** | **machinery/aaRS** | 12 | **0.92** | **3 (of 4 requested)** | **IMPAIRED** |
+
+(\* = essential, sole-catalyst; run 4 generations.)
+
+- **Every metabolic KO is genuinely VIABLE** (divides every generation, rate 1.00) — including the three
+  "essential" sole-catalyst enzymes run to 4 generations. This is a *stronger, cleaner* statement than the earlier
+  "no growth-rate effect": the model doesn't merely fail to register the KO on our chosen channel — it produces a
+  fully dividing lineage. The reroute is real, and viability confirms it without the reroute masking anything.
+- **gltX (aaRS) is the lone outlier**, and viability refines §I's "crash" into a **progressive collapse**: all 4
+  seeds *divide* (slower — median division time 8541 s vs ~5400 s baseline) for exactly 3 generations, then the
+  lineage fails to continue (seed 1's gen-2 cell already fails to divide) while the same-batch essential KOs reach
+  4. This is precisely the lethality a graded growth channel hides and a viability channel exposes.
+- **Method value:** viability is the KO/design readout that does not reroute away — the primitive for future KO
+  and reduced-genome screens, and the natural target for an ML surrogate (Gherman et al.).
+
+## K. The three KO modes and the homeostatic objective (synthesis, 2026-07-10)
+The one fact that explains everything: **the model's metabolism doesn't maximize growth.** Its FBA runs a
+*homeostatic* objective — keep ~173 metabolite concentrations inside target ranges (plus hit soft kinetic
+targets), minimizing deviation. Growth isn't optimized; it *emerges* downstream from all the processes making
+mass. Hold that lens and the three KO modes fall out:
+
+1. **Metabolic KO → reroutes → viable (no phenotype).** Disable an enzyme and the solver finds another flux path
+   that still keeps the pools in range. There's nothing to degrade — the objective only asks "are the pools
+   filled?", and rerouting fills them. Even genuinely essential enzymes (fabI, glmS, gltA) look viable.
+2. **Machinery KO → crashes → not a clean phenotype.** Ribosomes, RNAP, aaRS, the replisome live *outside*
+   metabolism — they turn metabolite pools into biomass, and there is no "reroute" for translation. Remove
+   glutamyl-tRNA synthetase and charging can't keep pace with elongation; a count goes negative and the sim throws
+   `NegativeCountsError`. Documented behavior: Choi & Covert 2023 fit aaRS kcats ~7.6× above in vitro just to grow
+   and call aaRS perturbation "catastrophic" — a full KO is the extreme.
+3. **Non-mechanistic KO → nothing → viable by construction.** Most genes are expressed and counted but do nothing
+   in a modeled process; a null there is model *scope*, not biology.
+
+**How the objective sets this — it decides where a perturbation can show up.** A biomass-maximizing objective
+(classic FBA) would drop the biomass flux when a KO blocks a precursor — you'd *see* essentiality. wcEcoli
+deliberately swapped that for the homeostatic objective (in a whole-cell model, demand is set dynamically by the
+rest of the cell, not a fixed biomass vector). The price of that correct choice: **metabolism can no longer
+register single-KO essentiality — it absorbs the KO by rerouting.** Machinery isn't in the objective at all, so
+its KO isn't absorbed — it breaks the metabolism↔rest-of-cell coupling and, with no graceful failure mode,
+crashes. The only clean, graded phenotypes come from **capacity** perturbations (rRNA-operon dosage, ppGpp clamp),
+which tune the *rate* of biomass production continuously — emergent growth tracks that smoothly. Consequence for
+measurement: "did growth change?" is the wrong KO question (it reroutes away); **"did the cell divide?"** is the
+right one (§J viability). The Baba/Joyce benchmark tells us when the model's "viable" is *wrong* — fabI/glmS/gltA
+are the `model_UNDER_predicts` cases.
+
+### KO mechanism — empirically nailed down (corrects an earlier imprecision)
+The `gene_knockout` variant calls `adjust_final_expression` (reconstruction/ecoli/simulation_data.py), which
+zeroes **only transcription** parameters (`rna_synth_prob`, `rna_expression`, `exp_free/ppgpp`, `basal_prob`,
+`delta_prob`) — it never touches counts directly. But the initial monomer count *derives from expression*, so
+**the KO'd protein is 0 from gen-0 start** — verified: fabI (ENOYL-ACP-REDUCT-NADH-MONOMER), glmS, and gltX
+(GLURS-MONOMER) all read `count = 0` at the first timestep of generation 0, vs ~7,900→15,600 for fabI in WT. So
+the earlier "the enzyme dilutes to ~0 over generations" framing was **imprecise**: the enzyme is absent from t=0;
+there is *no protein-dilution confound*. Metabolic KO viability is therefore the **pure reroute**, full stop.
+
+What *does* carry over is the **inherited downstream state**: `setDaughterInitialConditions` loads the parent
+snapshot (`loadSnapshot(inherited_state['bulk_molecules'])`) — daughters **inherit the partitioned pools, they do
+NOT re-initialize at full value.** So metabolite/charged-tRNA pools halve per division. This is why gltX (aaRS,
+protein 0 from t=0) still runs ~3 generations before crashing: it limps on an inherited charged-Glu-tRNA buffer
+the absent synthetase can't regenerate, which depletes across generations until elongation stalls. The dilution
+that matters is of the *inherited substrate pools*, not the knocked-out protein.
+
+**Metabolic KOs are NOT buffer-limited — the reroute is genuine steady-state (verified).** Per-generation growth
+for fabI/glmS/gltA is FLAT across all 4 generations (~0.00022–0.00025 /s, ≈ WT) with no gen-over-gen decline. Were
+the cell running down an inherited product pool, growth would trend downward each division (the gltX signature);
+it doesn't. So the FBA re-supplies the demand every generation — you would NOT see an effect at 10 generations (or
+ever). Biologically this is the *unrealistic* part: fabI is the sole enoyl-ACP reductase (no bypass in reality),
+yet the homeostatic network finds a feasible flux meeting the target without it — exactly the flexibility that
+makes it a `model_UNDER_predicts` case. No X-zeroing or added generations fixes that; only the objective (biomass-
+max would block it) or the ground-truth benchmark does.
+
+**Flux-level confirmation it's an artifact, not biology.** fabI's monomer expands (via complexation) to 27 FBA
+reactions (the enoyl-ACP reductase steps of fatty-acid elongation). In WT they carry flux (sum|flux| ≈ 0.227); in
+the KO they are **exactly 0** — the enzyme is genuinely off — yet the cell divides steadily. Real E. coli with
+zero enoyl-ACP-reductase flux cannot make fatty acids and dies (FabI is the sole isozyme, no bypass). So the model
+is dividing cells **without the fatty-acid synthesis real division requires** — the soft homeostatic objective
+never hard-requires that flux. That is the mathematical artifact behind `model_UNDER_predicts`, made concrete. The
+method that exposes it — enzyme → reactions → flux-diff (KO vs WT) — is a candidate "reroute-diagnosis" tool
+(needs proper seed normalization; a naive single-seed diff is dominated by reversible-transport noise).
+
+## L. The AMR-efflux phenotype is out of mechanistic scope (biosecurity, 2026-07-10)
+Trying to close the demo's "phenotype biosecurity screen fires on a real run" gap surfaced a scope limitation, not
+a build gap. The screen (`screen_phenotype`) flags a run whose simulated proteome up-regulates the `amr_efflux`
+pathway fraction ≥2× (log2fc ≥ 1). But:
+- **marA/soxS/rob are NOT among the 23 mechanistically-modeled TFs** (verified against
+  `sim_data.tf_to_active_inactive_conditions` — the modeled set is the metabolic/respiratory regulators: FNR,
+  ArcA, NarL, PhoB, …). So the mar-sox-rob regulon has no modeled activation mechanism.
+- **There is no gene-overexpression variant** (`gene_knockout` hardcodes factor 0; no factor>1 path), and we do
+  not modify the model repo.
+- **The efflux genes don't move under any modeled condition:** across indole/nitrate/phosphate/Mg/arabinose/
+  acetate/no-O2, acrA/acrB/tolC stay ~1× vs basal (only low-abundance acrD hits 3.45× under indole — too small to
+  move the aggregate `pw:amr_efflux` fraction). So no real run trips the screen.
+Conclusion: the model **cannot produce** the AMR phenotype the screen guards — the same wall as the KO work. The
+*intent* screen (`screen_design`, design-time, model-independent) does fire and carries the demo; the phenotype
+screen's logic stays unit-tested, a valid safety net for a future model that simulates the regulon. (A crude
+overexpression forced via factor>1 would be a non-mechanistic count bump, not a real regulon activation — it would
+demonstrate nothing honest, so we did not build it.)
+
+## M. Machinery-KO calibration panel (M1) — the machinery→crash rule is subtype/generation-specific (2026-07-10)
+Ran 6 machinery KOs (4 subtypes) × 4 seeds × 4 gens + control to calibrate the viability verdict (was n=1: gltX).
+Result (re-scored by viability from on-disk data, incl. crashed partials):
+
+| KO | subtype | gens_reached | verdict | campaign | truth |
+|---|---|---|---|---|---|
+| rpoB | RNAP | 4/4 | VIABLE | completed | viable at 4 gens |
+| dnaN | replisome | 4/4 | VIABLE | completed | viable at 4 gens |
+| rplB | ribosomal | 1/1 | INVIABLE | crashed | crashed gen-0 |
+| gltX | aaRS | 3/3 | IMPAIRED | (crashed g4) | crashed gen-3 |
+| argS | aaRS | 3/3 | IMPAIRED | crashed | crashed gen-3 |
+| alaS | aaRS | 3/3 | **VIABLE ✗** | crashed | crashed gen-3 |
+| pheS | aaRS | 3/3 | **VIABLE ✗** | crashed | crashed gen-3 |
+
+**Two findings the n=1 (gltX) calibration hid:**
+1. **The machinery→lethal_crash rule is NOT uniform — it is subtype- and generation-dependent.** Crash TIMING
+   tracks the inherited-pool size: ribosomal (rplB) → gen-0; aaRS (gltX/argS/alaS/pheS) → gen-3 (on the inherited
+   charged-tRNA buffer, §K); RNAP (rpoB) + replisome (dnaN) → survive ≥4 gens (large RNAP/clamp reserve; predicted
+   to crash at MORE generations as the pool depletes). So all essential machinery still crashes *eventually*, but
+   `scope.py`'s blanket `lethal_crash` over-states the outcome AT 4 GENS for RNAP/replisome. Refine to a
+   pool-timing statement. (rpoB/dnaN "viable at 4 gens" = `model_UNDER_predicts` via slow depletion, not reroute.)
+2. **The viability verdict has a truncation blind spot.** alaS/pheS scored **VIABLE** despite crashing — all 3
+   completed generations divided (min_dr 1.0), and the metric can't see the lineage TERMINATED at 3 of 4 requested
+   gens. gltX/argS scored IMPAIRED only because a seed happened to fail a division — a stochastic accident, not a
+   real distinction. **The verdict must incorporate `gens_reached < requested_depth` as inviable**, independent of
+   the completed-gen division rate. The 0.9/0.6 thresholds are secondary; the missing truncation signal is the bug.
+
+New clean scale points: VIABLE = rpoB/dnaN (4 gens) + metabolic/graded; INVIABLE = rplB (gen-0 crash) +
+minus_phosphate (§L re-analysis: growth-starvation, div=0.0); crash-at-gen-3 = the aaRS (all four).
+
+## N. Oracle & deep-dive tools — scope and scenarios (2026-07-11, tested)
+The whole-cell model is **metabolism + transcription + translation + replication + regulation**, so essentiality/
+phenotype questions split three ways and the tools are scoped to match.
+
+**`metabolic_essentiality(gene)` — METABOLISM ONLY.** FBA knows only reactions + metabolites, so this oracle
+answers metabolic-gene essentiality and refuses the rest. It returns the authoritative Baba/Joyce benchmark
+verdict (the authority — the whole-cell homeostatic FBA UNDER-predicts by rerouting, §K) + the FBA single-deletion
+structural check (transparently under-sensitive) + the KO prior. *Scenario:* "Is fabI essential?" — the sim says
+viable (reroutes); the oracle returns ESSENTIAL (benchmark), agreement `model_UNDER_predicts`, FBA structural
+`flags_essential=False`. *Tested 2026-07-11: exactly this; rpoB/flgB correctly routed away ("machinery→viability,
+TF→mechanistic_scope").*
+
+**Deep-dive (`read_species`/`list_species`/`top_movers`) — ANY component of the whole cell.** Bulk layer:
+proteins, mRNAs, metabolites, reaction/exchange fluxes. Plus the `unique` layer (added 2026-07-11): the machinery
+beyond bulk — `active_ribosome`, `active_RNAP`, `active_replisome`, `full_chromosome`, `oriC`, `DnaA_box`,
+`promoter` (translation/transcription/replication, NOT metabolism). *Scenarios:* which reactions carried the
+compensating flux for a KO (flux); how charged-Glu-tRNA depleted across gltX's generations (a translation
+component); is AcrB elevated under every stress (cross-design protein). *Tested 2026-07-11:*
+`read_species(active_ribosome, unique)` → 2,516 points, mean ~17,792.
+
+**The split, one line:** metabolic gene → oracle (FBA + benchmark); machinery → viability (crash timing);
+regulator → TF scope. The oracle is metabolism-only; the deep-dive is whole-cell.
+
+## Literature grounding — objective, KO essentiality, viability (2026-07-10; via PubMed)
+Scan of the Covert-lab publications + the user-supplied Cell Systems paper. All three both *validate* our
+characterization and *redirect* the instrument (see DECISIONS.md D4-lit for the plan):
+- **Choi & Covert 2023**, *Whole-cell modeling of E. coli confirms that in vitro tRNA aminoacylation measurements
+  are insufficient to support cell growth…*, Nucleic Acids Research 51(12):5911–5930,
+  doi:10.1093/nar/gkad435. aaRS kcats had to be fit **7.6× above** in vitro to sustain the proteome, and
+  perturbing aaRS activity is *"catastrophic"*. Published backing for the `lethal_crash` / machinery-collapse
+  regime — gltX is an aaRS.
+- **Gherman et al. 2025**, *Accelerated design of E. coli reduced genomes using a whole-cell model and machine
+  learning*, Cell Systems 16(10):101392, doi:10.1016/j.cels.2025.101392. Uses **cell division (viable/inviable)**
+  as the KO readout, an **ML surrogate** (95% less compute), and **multi-gene genome reduction** (40% removed).
+  Direct source of §J's viability re-score and the surrogate direction.
+- **EcoCyc 2025** (Karp et al., EcoSal Plus, doi:10.1128/ecosalplus.esp-0019-2024; wcEcoli team co-authors): ships
+  a steady-state flux model that **predicts KO growth rates** + curated **gene-essentiality** annotations →
+  benchmark/defer to it for metabolic essentiality rather than rebuild (D4 tier-2).
+- **Birch, Udell & Covert 2014**, *Incorporation of flexible objectives and time-linked simulation with FBA*, J
+  Theor Biol 345:12–21, doi:10.1016/j.jtbi.2013.11.028 — lineage of the homeostatic/dynamic `flexible`
+  objective in `modular_fba.py`; the "no biomass-max term" is a deliberate design choice, not a default.
+
 ## References
 [1] [The layered costs and benefits of translational redundancy](https://consensus.app/papers/details/61ecade944645e6da518ff6f0191aae1/?utm_source=claude_code) (Raval et al., 2022, eLife)
 [2] [Life History Implications of rRNA Gene Copy Number in Escherichia coli](https://consensus.app/papers/details/e59ab355fc6257f3a3d5f3122bbd6ed8/?utm_source=claude_code) (Stevenson et al., 2004, Appl. Environ. Microbiol.)

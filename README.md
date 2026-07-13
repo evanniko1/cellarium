@@ -1,8 +1,15 @@
 # Cellarium
 
-**A Claude-backed copilot for reasoning over a whole-cell *E. coli* simulation — grounded, and honest about its own limits.**
+**A glass box over whole-cell reasoning.** Ask a question about *E. coli*; a Socratic Council frames it into a
+**falsifiable hypothesis — blind to the data**; then a grounded agent, *Cellwright*, tests it against **real
+whole-cell simulations** and the **published literature**, and closes the loop by proposing experiments for
+your approval. Every number rides with its provenance. The agent never launches a run on its own.
+
+> Built for **Built with Claude: Life Sciences** (Builder track). Cellarium's own code is MIT; the whole-cell
+> model it runs on is obtained separately under Stanford's academic license (see [License](#license)).
 
 Whole-cell models compute the *dynamic, regulatory, single-cell* behaviour of a living cell from first
+<<<<<<< HEAD
 principles — the regime that steady-state flux-balance analysis and human intuition can't reach. But they are
 locked behind deep expertise, a heavy compute stack, and long run times. Cellarium is a small agentic
 workbench that lets a scientist ask a question in plain English and get back a **grounded** answer — every
@@ -19,14 +26,27 @@ hypothesis* and *how you test it*:
      to simulate (e.g. a mid-run carbon-source switch), and says why.
    - **Output QC** — inspects each simulated generation and withholds any degenerate / non-viable result
      instead of laundering it into a clean-looking number.
+=======
+principles — the regime steady-state flux-balance analysis and human intuition can't reach. But they're locked
+behind deep expertise, a heavy compute stack, and long run times. Cellarium turns one into something you can
+interrogate — honestly.
 
-Built for *Built with Claude: Life Sciences* (Builder track). This is a fresh, from-scratch implementation.
-It runs on the [Covert-lab whole-cell *E. coli* model](https://github.com/CovertLab/wcEcoli) as an external
-backend, which **you obtain separately** under its **Stanford Academic Software License** (non-commercial;
-redistribution requires Stanford's written permission). **Cellarium bundles none of that model** — it is the
-new agent + guardrail + interface layer, and points at your own licensed checkout. See
-[docs/DECISIONS.md](docs/DECISIONS.md) D3 for the licensing/data-distribution constraints.
+## What makes it more than a chatbot
+>>>>>>> origin/main
 
+- **Blind hypothesis generation (the control).** Before any data is read, a Socratic Council — *Proposer →
+  Skeptic → Judge* — operationalizes the question into a falsifiable hypothesis with a single decisive test and
+  its rival-excluding controls. It sees only the instrument's *capabilities*, never a corpus reading. That
+  blindness is the scientific control: the test is a genuine prediction, not a story fit to the answer.
+- **Grounded answers.** Cellwright answers strictly from real simulation runs via ~30 tools; it cannot state a
+  number it did not read from a tool result, and it cannot launch a simulation.
+- **Honest about the model's own limits.** It reconciles simulation against the literature (PubMed, OpenAlex,
+  bioRxiv …) and *flags where the model is wrong* — e.g. an essential gene the metabolic solver reroutes around
+  and wrongly calls viable — rather than papering over the disagreement. Finding the model's limits is the point.
+- **Human-in-the-loop, biosecurity-gated.** New experiments go to an approval airlock; a misuse screen gates
+  every design. The agent proposes; a human runs.
+
+<<<<<<< HEAD
 ## The Socratic Council — from a vague question to a falsifiable hypothesis
 
 *Full design and rationale: [docs/SOCRATIC_COUNCIL.md](docs/SOCRATIC_COUNCIL.md); evaluation:
@@ -121,7 +141,32 @@ paper/           the Socratic Council paper (build + figures)
 ui/index.html    Claude-Science-style demo interface
 data/cache/      cached demo simulation results (reproducible, fast)
 docs/DEMO.md     the demo script
+=======
+## Architecture
+
+Two layers — reasoning agents on top, the data + model substrate below. Full diagram:
+[`docs/COUNCIL_VS_KDENSE.md`](docs/COUNCIL_VS_KDENSE.md) compares the Council to off-the-shelf reasoning skills.
+
 ```
+① REASONING (Claude agents)
+   Socratic Council (BLIND)         →  handoff  →   Cellwright (GROUNDED)      →  Launch airlock (HUMAN)
+   gate · Proposer→Skeptic→Judge                    ~30 corpus tools                approval + biosecurity;
+   · librarian (general biology)                    literature (use_skill/web_get)  the agent never launches
+   sees dial_labels, never readings                 propose_experiments
+
+② SUBSTRATE (data + model)
+   Whole-cell E. coli (wcEcoli, Docker: FBA + txn + translation + replication + regulation)
+        │ simOut indexed
+   Corpus / manifest (DuckDB · Parquet: viability, channels, pathways, QC)  ⇄  Hugging Face dataset (raw simOut)
+   Literature APIs (PubMed · OpenAlex · bioRxiv, via allow-listed web_get)
+   SQLite (data/sessions.db): sessions (Cellwright) + council_runs (Council) — durable persistence
+>>>>>>> origin/main
+```
+
+Key modules: `src/cellarium/council.py` (the Council + blindness invariant), `agent.py` (Cellwright),
+`tools.py` (grounded tools), `skills.py` + `skills/vendor/k-dense/` (literature skills, MIT), `manifest.py` /
+`store.py` (corpus), `instrument.py` (the capability view the Council sees), `launch.py` (the airlock).
+`apps/server.py` serves the SPA; `apps/hypotheses.py` persists Council runs.
 
 ## Setup
 
@@ -129,24 +174,53 @@ docs/DEMO.md     the demo script
 python -m venv .venv && . .venv/Scripts/activate   # (or bin/activate on unix)
 pip install -e .
 cp .env.example .env      # add your ANTHROPIC_API_KEY
-python -m cellarium.cli "Do genetically identical E. coli cells behave differently, and why?"
 ```
 
+<<<<<<< HEAD
 The question runs through the **Socratic Council** first (watch the proposer/skeptic/judge debate print, then
 the operationalized hypothesis brief) and then the grounded agent. Tune the debate with `--rounds` / `--quota`,
 or skip it entirely with `--no-council` to pass the raw question straight to the agent. Reproduce the Council
 evaluation with `python evals/grade.py` (see [evals/README.md](evals/README.md)).
 
 Open `ui/index.html` in a browser for the interface mockup.
+=======
+### Run the web app (the glass box)
+>>>>>>> origin/main
 
-## Scope & honesty
+```bash
+ANTHROPIC_API_KEY=...  python apps/server.py      # -> http://127.0.0.1:8000
+```
+
+Two workspaces: **Investigations** (chat with Cellwright, grounded in the corpus) and **Hypotheses** (convene
+the Socratic Council, then *Open in Cellwright*). The chat, corpus browser, and manifest reasoning work with
+just the API key; deep species reads and running new sims also need Docker + the wcEcoli image
+(`WCECOLI_DOCKER=wcecoli-sim:multiko`) — see **[docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md)** for the full
+setup (clone the model, build the image, ParCa, smoke test). Conversations and deliberations persist locally
+in SQLite (a fresh clone comes up pre-populated from the committed `data/sessions.seed.db`).
+
+Or the CLI:
+
+```bash
+python -m cellarium.cli "Is the aaRS-KO survival spread a real charged-tRNA depletion difference, or a generation-depth artifact?"
+```
+
+## The dataset — "The Well, for the cell"
+
+The raw whole-cell simOut is published as an open Hugging Face dataset
+([`evanniko1/cellarium-corpus`](https://huggingface.co/datasets/evanniko1/cellarium-corpus)). The distilled
+Parquet manifest ships in-repo for fast, download-free reasoning; `download_raw` pulls full-resolution
+trajectories on demand. This turns expensive, expert-only whole-cell runs into a queryable public corpus.
+
+## Scope, honesty & biosecurity
 
 Cellarium's users are **hypothesis generators, not decision-makers**: the model's predictions are hypotheses,
-and the tool prioritizes and explains experiments rather than certifying outcomes. It removes
-*computational* expertise, not scientific judgement. Organism: *E. coli* K-12 MG1655 (a lab strain).
+and the tool prioritizes and explains experiments rather than certifying outcomes. It removes *computational*
+expertise, not scientific judgement. Every new experiment is human-approved and biosecurity-screened; the agent
+cannot run a simulation. Organism: *E. coli* K-12 MG1655 (a lab strain).
 
 ## License
 
+<<<<<<< HEAD
 **Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not**
 MIT: it is under Stanford's academic (non-commercial) license and is obtained/run separately by the user.
 Cellarium redistributes no model code or model-derived data. See [docs/DECISIONS.md](docs/DECISIONS.md) D3.
@@ -172,3 +246,11 @@ paper are in [paper/references.bib](paper/references.bib).
 - Reichenbach, H. (1938). *Experience and Prediction*. University of Chicago Press.
 - Scott, M., Gunderson, C. W., Mateescu, E. M., Zhang, Z., & Hwa, T. (2010). Interdependence of cell growth and gene expression: origins and consequences. *Science* 330(6007): 1099–1102.
 - Vlastos, G. (1983). The Socratic elenchus. *Oxford Studies in Ancient Philosophy* 1: 27–58.
+=======
+**Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not** MIT:
+it is the [Covert-lab wcEcoli model](https://github.com/CovertLab/wcEcoli) under Stanford's academic
+(non-commercial) license, obtained and run separately by the user — Cellarium bundles no model code or
+model-derived data (see [docs/DECISIONS.md](docs/DECISIONS.md) D3). Vendored literature skills under
+`skills/vendor/k-dense/` are MIT, from
+[K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (attribution + license retained).
+>>>>>>> origin/main

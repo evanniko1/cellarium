@@ -1,8 +1,9 @@
 """CLI: run a question through Cellarium end-to-end.
 
-The Socratic Council (upstream, docs/SOCRATIC_COUNCIL.md) first turns the raw question into a falsifiable,
-operationalized hypothesis; the grounded agent then tests it. `--rounds` / `--quota` tune the Council's
-debate; `--no-council` skips it and passes the raw question straight to the agent (the pre-Council behaviour).
+A thin wrapper over orchestrate.investigate() — the same seam the interface calls. The Socratic Council
+(upstream, docs/SOCRATIC_COUNCIL.md) first turns the raw question into a falsifiable, operationalized
+hypothesis; the grounded agent then tests it. `--rounds` / `--quota` tune the Council's debate; `--no-council`
+skips it and hands the raw question straight to the agent (the direct, tool-refinement entrypoint).
 """
 
 from __future__ import annotations
@@ -27,19 +28,17 @@ def main() -> None:
 
     print(f"Q: {question}\n")
 
-    hyp = None
-    if not a.no_council:
-        from .council import deliberate
-
-        print("— Socratic Council —")
-        hyp = deliberate(question, max_rounds=a.rounds, quota=a.quota,
-                         ask_user=lambda q: input(f"\n? {q}\n> "))
+    def _show_hypothesis(hyp) -> None:  # stream the sharpened brief between the two stages
         print("\n" + hyp.brief() + "\n")
         print("— Cellarium agent —")
 
-    from .agent import run  # imported after load_dotenv so ANTHROPIC_API_KEY is present
+    from .orchestrate import investigate  # imported after load_dotenv so ANTHROPIC_API_KEY is present
 
-    print(run(question, hypothesis=hyp))
+    if not a.no_council:
+        print("— Socratic Council —")
+    result = investigate(question, use_council=not a.no_council, rounds=a.rounds, quota=a.quota,
+                         ask_user=lambda q: input(f"\n? {q}\n> "), on_hypothesis=_show_hypothesis)
+    print(result.answer)
 
 
 if __name__ == "__main__":

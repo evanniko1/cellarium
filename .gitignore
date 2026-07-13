@@ -21,11 +21,15 @@ runs/
 out/
 
 # Do NOT ignore data/cache — the cached demo results are committed for reproducibility.
-# EXCEPT model-derived, regenerable, local-only maps (sim_data gene/condition indices + panel resolution):
+# EXCEPT these raw-run reader caches: regenerated on the fly when reading raw simOut, local-only, not needed by
+# the committed-shard read path (the test suite is green without them):
 data/cache/variant_map.json
 data/cache/gene_map.json
-data/cache/gene_scope.json
 src/cellarium/_pathway_resolved.json
+# NOTE: data/cache/gene_scope.json IS committed (NOT ignored). It is model-derived but NOT regenerable without
+# Docker + sim_data, and the KO/launch path (gene symbol -> ko_index) needs it — a fresh clone must ship with it,
+# or test_launch reddens and no knockout can be proposed. The C3 staleness guard (scope.cache_status) rebuilds it
+# only if the model is later recompiled locally.
 # Manifest shards (data/manifest/*.parquet) ARE committed — they are the shareable corpus.
 
 # LaTeX build artifacts
@@ -37,3 +41,6 @@ paper/*.out
 paper/missfont.log
 # scratch campaign scripts
 scratchpad_campaign.py*
+
+# local durable chat sessions (user data)
+data/sessions.db

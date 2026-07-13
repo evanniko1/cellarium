@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Callable
 
 from . import instrument
@@ -62,6 +63,8 @@ _PROPOSER_SYS = (
     "- candidate_designs MUST be STRUCTURED objects (perturbation/condition/timeline/seeds/generations/params) "
     "expressible in the validated envelope (only listed perturbations; a mid-run carbon-source switch is NOT "
     "allowed). Put the experiment HERE, not in prose inside the falsifier.\n"
+    "- Propose a MODEST, runnable scale: seeds 4-8 (replicate power) and generations 1-4 (a KO that crashes does so "
+    "by ~gen 3-4). Each sim is minutes of compute; a human scales up on approval. Do NOT propose 20x20-style runs.\n"
     "- RIGOR (required for a decisive test):\n"
     "  (a) predicted_effect states the quantitative FORM — for a relationship, the functional form + a slope / "
     "intercept or a target R^2; for a difference, the fold-change / CV / effect size as a number; for a "
@@ -74,12 +77,22 @@ _PROPOSER_SYS = (
     "ribosome-allocation claim, a relA/spoT gene_knockout (the 'relaxed' control) to test a ppGpp-dependence "
     "claim, or a matched-mean burst-size change for a noise claim. Say in the rival's distinguishing_result what "
     "that control would show.\n"
+    "  (c-i) PREFER an INTERVENTIONAL control (a background perturbation that BREAKS the rival's mechanism — e.g. a "
+    "relA knockout that abolishes ppGpp production) over an OBSERVATIONAL one (comparing the correlation of two "
+    "channels). When the rival's observable is mechanistically COUPLED to the claim's — ppGpp rises AS charged-tRNA "
+    "falls; ribosome load tracks growth — the two channels are COLLINEAR, so an R^2-comparison between them cannot "
+    "separate cause from co-mover; only an intervention that removes the confounder can. If the ideal interventional "
+    "control is outside the envelope, pick the closest FEASIBLE one (a single background gene_knockout, NOT a "
+    "forbidden combined perturbation like ppgpp_conc+gene_knockout) — never downgrade to an observational-only "
+    "discriminator for a coupled rival.\n"
     "- Enumerate at least TWO rival hypotheses (Chamberlin/Platt), each with the distinguishing_result the sim "
     "would show if THAT rival were true.\n"
     "- List auxiliary (ceteris paribus) assumptions the test rides on (Duhem-Quine). For a concern the "
     "SIMULATOR cannot resolve (deterministic chaos vs stochastic noise; a mutant's confounded basal physiology; "
     "a readout the model does not compute), do NOT chase it forever — record it as an explicit "
     "auxiliary_assumption / scope caveat and move on.\n"
+    "`debate_so_far` is a compact digest of prior rounds (each round's claim + its objections and resolution "
+    "status). Build on what already converged; do NOT re-introduce a framing the skeptic already killed.\n"
     "You have NOT run anything: never assume an experimental result or a corpus value. Emit via the tool."
 )
 
@@ -96,6 +109,11 @@ _SKEPTIC_SYS = (
     "run.\n"
     "- construct_ambiguity: a genuine choice about WHICH observable/reading the user meant that you cannot "
     "resolve from the question alone — set irreducible=true and give a crisp user_question.\n"
+    "COUPLED-RIVAL CHECK: if the falsifier separates a rival ONLY observationally — comparing the correlation (R^2) "
+    "of two channels that are mechanistically COUPLED and therefore co-move (e.g. ppgpp_conc vs fraction_trna_charged "
+    "across aaRS KOs) — that does NOT exclude the rival (rival_not_excluded, SUBSTANTIVE): the channels are "
+    "collinear, so the comparison can't attribute cause. Demand an INTERVENTIONAL control that breaks the coupling "
+    "(a feasible background knockout such as relA), not a correlation contest.\n"
     "DISCIPLINE (critical): raise AT MOST 3 objections — the most decisive. Do NOT re-raise anything already "
     "addressed in previous_candidate, already parked as a stated auxiliary_assumption, or already answered in "
     "resolved_ambiguities. A concern the instrument genuinely cannot resolve is type outruns_instrument, raised "
@@ -111,7 +129,13 @@ _SKEPTIC_SYS = (
     "predicted result does not discriminate the named rivals, or the design is infeasible. A request for an "
     "ADDITIONAL nice-to-have control, more precision, or an ideal-but-unnecessary refinement is 'minor', not "
     "'substantive'. Do not manufacture a fresh substantive objection every round to keep the debate alive — if "
-    "the rubric is met, say so. Emit via the tool."
+    "the rubric is met, say so. Emit via the tool.\n"
+    "RESOLUTION: you are given `open_objections` — YOUR prior objections (each with an id), which the proposer was "
+    "asked to address in this revision. For each, judge whether the CURRENT candidate now adequately addresses it; "
+    "return the ids of the resolved ones in `resolved`. Be honest — only mark an objection resolved if the revision "
+    "genuinely answers it, not merely gestures at it. Then raise any NEW objections as usual. `debate_so_far` shows "
+    "the arc across rounds; do not re-raise an objection already marked resolved there — press only what is still "
+    "open or genuinely new."
 )
 
 _JUDGE_SYS = (
@@ -135,8 +159,9 @@ _JUDGE_SYS = (
     "round that is neither addressed nor parked. Do not demand the impossible: a hypothesis that is falsifiable, "
     "specified, operationalized, discriminating, and feasible, whose remaining objections are refinements or "
     "parked assumptions, MUST converge (open_objections_resolved=true, new_substantive_objection_this_round="
-    "false). A perpetual stream of ever-finer objections is not a reason to withhold convergence. Emit via the "
-    "tool."
+    "false). A perpetual stream of ever-finer objections is not a reason to withhold convergence. `debate_so_far` "
+    "gives the arc — claims and objections with their resolution across rounds — use it to read convergence "
+    "honestly (a claim that keeps drawing NEW rubric-breaking objections has not converged). Emit via the tool."
 )
 
 
@@ -187,6 +212,8 @@ _SKEPTIC_TOOL = {
             "irreducible": {"type": "boolean"},
             "user_question": {"type": "string"},
         }, "required": ["type", "issue", "severity"]}},
+        "resolved": {"type": "array", "items": {"type": "string"},
+                     "description": "ids from open_objections that the CURRENT candidate now adequately addresses"},
         "assessment": {"type": "string"},
     }, "required": ["objections"]},
 }
@@ -240,9 +267,16 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
     empty (a rare truncation/degenerate emit). `temperature` is passed only when set (None => API default),
     so a run can pin it for reproducibility / name the sampling variance source."""
     kw = {} if temperature is None else {"temperature": temperature}
+    # Prompt caching: a role's system prompt + tool schema are IDENTICAL across its ~4 calls in one deliberation, so
+    # cache that (large, static) prefix; the per-round payload is the uncached suffix. Cache read = 0.1x input price,
+    # so after the first (1.25x write) call each repeat pays ~10% for the prompt+schema. Mirrors agent.py. Under the
+    # 1024-token min the API just skips caching — no error. The dynamic `debate_so_far` rides in the payload, so it
+    # never invalidates the cached prefix.
+    system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+    tools = [{**tool, "cache_control": {"type": "ephemeral"}}]
     for _ in range(2):
         resp = client.messages.create(
-            model=model, max_tokens=max_tokens, system=system, tools=[tool],
+            model=model, max_tokens=max_tokens, system=system_blocks, tools=tools,
             tool_choice={"type": "tool", "name": tool["name"]},
             messages=[{"role": "user", "content": json.dumps(payload)}], **kw,
         )
@@ -255,10 +289,11 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
 # --- role calls (compact payloads — no growing transcript) --------------------------------------------------
 
 def _propose(client, models, question, labels, previous_candidate, open_objections, answered,
-             *, temperature=None, leak=None) -> dict:
+             *, temperature=None, leak=None, debate_so_far=None) -> dict:
     payload = {"question": question, "dial_labels": labels,
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
                "previous_candidate": previous_candidate, "open_objections": open_objections,
+               "debate_so_far": debate_so_far or [],
                "instruction": "Revise previous_candidate to resolve open_objections; keep what already works; "
                               "return a COMPLETE hypothesis."}
     if leak is not None:  # quarantine ABLATION only: hand the proposer the answer key it is normally denied
@@ -269,20 +304,24 @@ def _propose(client, models, question, labels, previous_candidate, open_objectio
                  temperature=temperature)
 
 
-def _skeptic(client, models, question, labels, candidate, answered, *, temperature=None, adversarial=False) -> dict:
+def _skeptic(client, models, question, labels, candidate, answered, open_objections=None, *,
+             temperature=None, adversarial=False, debate_so_far=None) -> dict:
     payload = {"question": question, "channels": instrument.channel_names(),
                "perturbations": sorted(labels.get("perturbations", {})),
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
-               "candidate": candidate}
+               "candidate": candidate, "debate_so_far": debate_so_far or [],
+               "open_objections": [{"id": o["id"], "type": o.get("type"), "issue": o.get("issue")}
+                                   for o in (open_objections or [])]}
     system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
     return _emit(client, models["skeptic"], system, _SKEPTIC_TOOL, payload, max_tokens=2048,
                  temperature=temperature)
 
 
 def _judge(client, models, question, candidate, objections, feasible_code, *, temperature=None,
-           judge_mode="rubric") -> dict:
+           judge_mode="rubric", debate_so_far=None) -> dict:
     payload = {"question": question, "candidate": candidate, "objections": objections,
-               "feasible": feasible_code, "channels": instrument.channel_names()}
+               "feasible": feasible_code, "channels": instrument.channel_names(),
+               "debate_so_far": debate_so_far or []}
     if judge_mode == "generic":  # ablation: a plain "is this a good hypothesis?" judge, no falsifiability rubric
         out = _emit(client, models["judge"], _JUDGE_GENERIC_SYS, _JUDGE_GENERIC_TOOL, payload, max_tokens=1024,
                     temperature=temperature)
@@ -305,6 +344,12 @@ def _to_design(d: dict) -> Design | None:
     clean = {k: v for k, v in d.items() if k in _DESIGN_KEYS and v is not None}
     if "params" in clean and not isinstance(clean["params"], dict):
         clean.pop("params")
+    # calibrate scale: the proposer sometimes asks for 20x20 (~400 sims/design). Clamp to a runnable proposal — a
+    # few seeds for replicate power, a few generations (a KO that crashes does so by gen ~3-4). The human scales up.
+    if isinstance(clean.get("seeds"), int):
+        clean["seeds"] = max(1, min(clean["seeds"], 8))
+    if isinstance(clean.get("generations"), int):
+        clean["generations"] = max(1, min(clean["generations"], 6))
     try:
         return Design(**clean)
     except Exception:
@@ -333,8 +378,18 @@ def _feasible(cand: dict) -> bool:
     return any(instrument.check_design(d)["usable"] for d in designs)
 
 
+def _finalize_ledger(ledger: list[dict], at_round: int) -> list[dict]:
+    """On convergence, objections from EARLIER rounds still marked open were addressed by the time the debate went
+    clean (convergence requires open_objections_resolved) — credit them to the converging round. Objections raised
+    IN the converging round that are still open (minor, non-blocking) stay open — they were accepted, not resolved."""
+    for o in ledger or []:
+        if o.get("resolved_round") is None and o.get("round", 0) < at_round:
+            o["resolved_round"] = at_round
+    return ledger
+
+
 def _assemble(question: str, cand: dict, residual: list[str], converged: bool,
-              rounds_used: int = 0, substantive_objections: int = 0) -> Hypothesis:
+              rounds_used: int = 0, substantive_objections: int = 0, ledger: list[dict] | None = None) -> Hypothesis:
     cand = cand or {}
     ods = [OperationalDef(**o) for o in cand.get("operational_defs", []) if isinstance(o, dict)]
     rivals = [Rival(**r) for r in cand.get("rivals", []) if isinstance(r, dict)]
@@ -353,6 +408,7 @@ def _assemble(question: str, cand: dict, residual: list[str], converged: bool,
         rivals=rivals, auxiliary_assumptions=list(cand.get("auxiliary_assumptions", []) or []),
         candidate_designs=designs, residual_ambiguities=residual, converged=converged,
         rounds_used=rounds_used, substantive_objections=substantive_objections,
+        objection_ledger=ledger or [],
     )
 
 
@@ -370,6 +426,183 @@ def _score(cand: dict, feasible: bool, verdict: dict) -> int:
     return (8 if _complete(cand) else 0) + (4 if feasible else 0) + rubric
 
 
+def _debate_digest(debate_log: list[dict], ledger: list[dict]) -> list[dict]:
+    """A compact, BOUNDED memory of the debate so far, for every role. Built ONLY from the debate's own internal
+    artifacts — the proposer's per-round claim (truncated) and the skeptic's objection types/severities with their
+    resolution round — so it stays BLIND by construction: those artifacts are produced by role-LLMs that never saw a
+    corpus reading, so no reading can enter here. Bounded by the round cap (<=4) + claim truncation, so it can't grow
+    unbounded. Lets a role see the arc (what was tried, what was objected to, what got resolved) without the raw
+    transcript: the proposer stops re-introducing killed ideas, the skeptic stops re-raising settled ones, the judge
+    reads convergence honestly."""
+    res = {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")}
+    digest = []
+    for e in debate_log:
+        objs = [{"type": o.get("type"), "severity": o.get("severity"),
+                 "status": (f"resolved@R{res[o['id']]}" if res.get(o.get("id")) else "open")}
+                for o in e.get("objections", [])]
+        digest.append({"round": e["round"], "claim": (e.get("claim") or "")[:200], "objections": objs})
+    return digest
+
+
+# --- Phase 3(b): the scope-only sufficiency gate -----------------------------------------------------------
+
+_SUFFICIENCY_SYS = (
+    "You are the INTAKE gate of a Socratic Council. Before any deliberation you decide ONE thing: is the user's "
+    "question specified enough to become a FALSIFIABLE, decisive hypothesis over this instrument? You see ONLY the "
+    "instrument's CAPABILITIES (dial_labels — the perturbations it can run and the channels it can read) and the "
+    "question. You NEVER see data, results, or any reading, and you must not guess them.\n"
+    "SUFFICIENT if a competent scientist could, from the question ALONE, recover: (i) a manipulation the instrument "
+    "can run (a perturbation / gene / condition), (ii) a measurable observable, and (iii) an implicit comparison or "
+    "contrast. If all three are recoverable, sufficient=true and emit no questions. Be GENEROUS on the observable: a "
+    "PHENOTYPE-level target ('viability', 'growth', 'survival', 'does it still divide') is sufficient — mapping it to "
+    "the exact channel (division_rate, growth_rate) is the Council's operationalization job downstream, NOT a "
+    "precondition you demand at intake. Do not park a question just because it names 'viability' instead of a channel. "
+    "A knockout implies its wildtype comparison, so do not demand the comparison be spelled out either. Example "
+    "(SUFFICIENT): 'Is the lpxC knockout's viability consistent with essentiality, vs wildtype?' — manipulation lpxC "
+    "KO, observable viability, comparison wildtype: all recoverable, sufficient=true.\n"
+    "INSUFFICIENT ONLY if the question is genuinely open ('what happens to the cell?', 'tell me about metabolism'), "
+    "names no manipulation, names no measurable target, or admits many unrelated decisive tests. Then sufficient=false "
+    "and emit 1-2 SCOPE-ONLY clarifying questions. A clarifying "
+    "question asks the user to SPECIFY (which gene or perturbation? which observable channel? compared to what?). It "
+    "is a request for specification, NOT a hint: NEVER suggest what the finding might be, never name the "
+    "'interesting' answer, never steer toward a particular hypothesis. You are choosing the QUESTION's scope, never "
+    "previewing its answer — blindness is absolute. Emit via the tool."
+)
+
+_SUFFICIENCY_TOOL = {
+    "name": "gate",
+    "description": "Rule on whether the question is specified enough to deliberate.",
+    "input_schema": {"type": "object", "properties": {
+        "sufficient": {"type": "boolean"},
+        "missing": {"type": "array", "items": {"type": "string"},
+                    "description": "which of target / observable / comparison is underspecified"},
+        "clarifying_questions": {"type": "array", "items": {"type": "string"},
+                                 "description": "1-2 SCOPE-ONLY questions asking the user to specify — never hinting the answer"},
+        "rationale": {"type": "string"},
+    }, "required": ["sufficient"]},
+}
+
+
+# --- deterministic pre-pass: make the gate PREDICTABLE, not just less strict -------------------------------
+# The over-firing bug was miscalibration: the LLM demanded a manifest CHANNEL name (division_rate) when the
+# question already gave a phenotype-level observable (viability) — the channel is the Council's operationalization
+# job, not an intake precondition. Whitelisting "viability" would only patch one case; worse, an LLM gate fires
+# unpredictably (you never know which legit question it will park next — the real risk to the demo/platform).
+# The fix is a deterministic short-circuit: a question that already names a runnable MANIPULATION and a measurable
+# OBSERVABLE is specified enough BY CONSTRUCTION, so it PASSES here without ever touching the model. Only genuinely
+# open questions (no manipulation, or no observable — "what happens to the cell?") fall through to the LLM. So the
+# gate's firing set is now knowable up-front and testable offline (test_sufficiency_prepass), not a model roll.
+_GENE_RE = re.compile(r"\b[a-z]{2,4}[A-Z][A-Za-z]?\d?\b")   # E. coli gene symbols: pfkA, lpxC, argS, acrB, relA
+_PERTURB_CUES = (
+    "knock", "ko ", " ko", "delete", "deletion", "disrupt", "clamp", "operon", "overexpress",
+    "over-express", "supplement", "starve", "deplete", "anaerobic", "aerobic", "oxygen", "acetate",
+    "glucose", "minimal media", "rich media", "media shift", "condition", "perturb", "mutant", "shift",
+)
+_PHENOTYPE_CUES = (   # phenotype-level observables that map onto channels (the LLM wrongly demanded the channel)
+    "grow", "growth", "divid", "division", "viab", "essential", "surviv", "lethal", "dead", " die",
+    "doubling", "yield", "phenotype", "abundance", "concentration", " level", "flux", " rate", "express",
+)
+
+
+def _channel_stems() -> set[str]:
+    """Observable tokens straight from the instrument's own channels — stays in sync with CHANNELS, so a new
+    channel is recognized without editing a second list. e.g. growth, ppgpp, ribosome, trna, division, mass."""
+    return {tok for name in instrument.channel_names() for tok in name.split("_") if len(tok) >= 3}
+
+
+def looks_specific(question: str) -> bool:
+    """Deterministic sufficiency: does the question already name a runnable MANIPULATION (a gene symbol or a
+    perturbation cue) AND a measurable OBSERVABLE (a channel token or a phenotype word)? If so it is testable by
+    construction and needs no clarification — regardless of whether the exact channel/condition is spelled out."""
+    q = " " + question.lower() + " "
+    has_manip = bool(_GENE_RE.search(question)) or any(c in q for c in _PERTURB_CUES)
+    has_obs = any(c in q for c in _PHENOTYPE_CUES) or any(s in q for s in _channel_stems())
+    return has_manip and has_obs
+
+
+def sufficiency_gate(question: str, *, client=None, models: dict | None = None, labels: dict | None = None) -> dict:
+    """The scope-only sufficiency gate. BEFORE deliberating, decide — blind to the corpus (only the instrument's
+    capabilities + the question) — whether the question is specified enough to yield a decisive, falsifiable
+    hypothesis. If not, return SCOPE-ONLY clarifying questions that ask the user to specify, never a hint at the
+    answer. Same quarantine boundary as the Council (instrument.dial_labels carries capabilities, no readings), so
+    no answer can leak out. Returns {sufficient, missing, clarifying_questions, rationale}."""
+    # Deterministic short-circuit: a question naming a manipulation + an observable is sufficient by construction,
+    # so it never reaches the (nondeterministic) model. This is what makes the gate predictable — the ONLY inputs
+    # that can be parked are those that fail looks_specific, which is a pure, offline-testable function.
+    if looks_specific(question):
+        return {"sufficient": True, "missing": [], "clarifying_questions": [],
+                "rationale": "names a runnable manipulation and a measurable observable (deterministic pre-pass)."}
+    labels = labels if labels is not None else instrument.dial_labels()
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    # ONE cheap classification call (not a deliberation) — pin a small fast model; specification-adequacy + scope-only
+    # clarifying questions don't need a frontier model. Overridable; tests pass their own `models`.
+    model = (models or {}).get("judge") or os.environ.get("CELLARIUM_GATE_MODEL") or "claude-haiku-4-5-20251001"
+    # temperature=0: the residual (genuinely-ambiguous) cases must not flip verdict run-to-run — reproducibility is
+    # part of the predictability contract. The pre-pass already handles every clearly-specified question above.
+    out = _emit(client, model, _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
+                {"question": question, "dial_labels": labels}, max_tokens=1024, temperature=0.0)
+    return {"sufficient": bool(out.get("sufficient", True)),   # fail-open: a degenerate emit must not block a run
+            "missing": [m for m in (out.get("missing") or []) if isinstance(m, str)],
+            "clarifying_questions": [q for q in (out.get("clarifying_questions") or []) if isinstance(q, str)][:2],
+            "rationale": out.get("rationale", "")}
+
+
+# --- Phase 3(a): native web/literature access (the librarian) ----------------------------------------------
+# web_search is on the standard Messages endpoint (no beta). Bump the dated type as newer ones ship.
+_WEB_SEARCH_TOOL = {"type": "web_search_20260318", "name": "web_search", "max_uses": 5}
+
+_LIBRARIAN_SYS = (
+    "You are the LIBRARIAN of a Socratic Council. Given a research QUESTION (and, optionally, the sharpened claim "
+    "the Council is now debating), search the web and primary literature for GENERAL BIOLOGY that bears on FRAMING "
+    "a falsifiable hypothesis: established mechanisms, prior experimental findings, quantitative priors, the leading "
+    "rival explanations, and where whole-cell / FBA models are known to disagree with observation. Return a COMPACT "
+    "CITED brief — a few tight bullets, each with its source. If a sharpened claim is given, say specifically what "
+    "the literature would ASSIST (supports/plausible) or DISCLAIM (contradicts/implausible) about it.\n"
+    "HARD BOUNDARY (the quarantine): this is EXTERNAL published knowledge ONLY. You have NO access to this project's "
+    "simulation corpus and must NEVER state, guess, or imply what THIS corpus / these runs show — report only what "
+    "the literature says, with sources. You inform the FRAMING; you never preview the corpus answer.")
+
+
+def _read_web_brief(resp) -> dict:
+    """Pull the synthesized text + its web citations out of a web_search response (text blocks carry .citations)."""
+    parts: list[str] = []
+    sources: list[dict] = []
+    seen: set = set()
+    for b in getattr(resp, "content", None) or []:
+        if getattr(b, "type", None) == "text":
+            parts.append(getattr(b, "text", "") or "")
+            for c in (getattr(b, "citations", None) or []):
+                url = getattr(c, "url", None)
+                if url and url not in seen:
+                    seen.add(url)
+                    sources.append({"url": url, "title": getattr(c, "title", None)})
+    return {"brief": "".join(parts).strip(), "sources": sources}
+
+
+def web_research(question: str, *, focus: str | None = None, client=None, model: str | None = None,
+                 labels: dict | None = None, max_tokens: int = 1600) -> dict:
+    """The librarian step: a native web_search pass returning a compact, CITED general-biology brief to inform the
+    Council's framing. BLIND to the corpus by construction — it searches the published literature from the QUESTION
+    (and optionally the sharpened claim), never the simulation results. Runs as a SEPARATE call from the structured
+    role emits: web_search needs tool_choice=auto, which the forced-tool _emit cannot use. Returns {brief, sources}."""
+    labels = labels if labels is not None else instrument.dial_labels()
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic()
+    model = model or os.environ.get("CELLARIUM_LIBRARIAN_MODEL") or _default_models()["proposer"]
+    payload = {"question": question,   # capabilities are metadata (what's measurable), never readings — stays blind
+               "instrument_capabilities": {"channels": list(labels.get("channels") or {}),
+                                           "perturbations": sorted(labels.get("perturbations") or {})}}
+    if focus:
+        payload["sharpened_claim"] = focus
+    resp = client.messages.create(model=model, max_tokens=max_tokens, system=_LIBRARIAN_SYS,
+                                  tools=[_WEB_SEARCH_TOOL],
+                                  messages=[{"role": "user", "content": json.dumps(payload)}])
+    return _read_web_brief(resp)
+
+
 # --- the loop ----------------------------------------------------------------------------------------------
 
 def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
@@ -377,7 +610,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                labels: dict | None = None, verbose: bool = True,
                use_skeptic: bool = True, use_judge: bool = True, leak: str | None = None,
                judge_mode: str = "rubric", temperature: float | None = None,
-               adversarial_skeptic: bool = False) -> Hypothesis:
+               adversarial_skeptic: bool = False, on_round: Callable[[dict], None] | None = None) -> Hypothesis:
     """Run the elenchus and return a justification-ready Hypothesis (see module docstring).
 
     Ablation knobs (all default to the full system): `use_skeptic`/`use_judge` disable a role (proposer-only when
@@ -393,6 +626,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     answered: list[tuple[str, str]] = []
     parked: set[str] = set()
     open_objections: list[dict] = []
+    ledger: list[dict] = []   # every objection ever raised + the round that resolved it (per-objection resolution track)
+    debate_log: list[dict] = []   # per-round {claim, objections} → the compact, bounded "debate so far" each role sees
     total_substantive = 0
     previous_candidate: dict | None = None
     best: dict = {}
@@ -402,8 +637,9 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     consecutive_clean = 0
 
     for rnd in range(max_rounds):
+        digest = _debate_digest(debate_log, ledger)   # rounds 1..rnd — a blind, bounded memory for every role
         cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered,
-                        temperature=temperature, leak=leak)
+                        temperature=temperature, leak=leak, debate_so_far=digest)
         if not _complete(cand) and _complete(previous_candidate or {}):
             cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
         previous_candidate = cand
@@ -417,9 +653,18 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                              substantive_objections=0)
 
         if use_skeptic:
-            objs = _skeptic(client, models, question, labels, cand, answered,
-                            temperature=temperature, adversarial=adversarial_skeptic)
+            open_led = [o for o in ledger if o["resolved_round"] is None]
+            objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
+                            temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest)
+            resolved_ids = {r for r in (objs.get("resolved") or []) if isinstance(r, str)}
+            for o in ledger:   # the skeptic (who raised them) certifies which prior objections the revision addressed
+                if o["resolved_round"] is None and o["id"] in resolved_ids:
+                    o["resolved_round"] = rnd + 1
             objections = [o for o in (objs.get("objections") or []) if isinstance(o, dict)]  # guard string emits
+            for i, o in enumerate(objections):   # stable id per objection, and log it as open until later resolved
+                o["id"] = f"r{rnd + 1}.{i + 1}"
+                ledger.append({"id": o["id"], "round": rnd + 1, "type": o.get("type"),
+                               "severity": o.get("severity"), "issue": o.get("issue"), "resolved_round": None})
         else:
             objections = []
         substantive = [o for o in objections if o.get("severity") == "substantive"]
@@ -443,7 +688,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
 
         if use_judge:
             verdict = _judge(client, models, question, cand, objections, feasible_code,
-                             temperature=temperature, judge_mode=judge_mode)
+                             temperature=temperature, judge_mode=judge_mode, debate_so_far=digest)
         else:  # no independent judge: derive adequacy structurally, converge when the skeptic goes quiet
             ok = _structural_ok(cand)
             verdict = {"falsifiable": ok, "specified": ok, "operationalized": ok, "discriminating": ok,
@@ -451,14 +696,34 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                        "open_objections_resolved": not substantive}
         adequate = all([verdict.get("falsifiable"), verdict.get("specified"),
                         verdict.get("operationalized"), verdict.get("discriminating"), feasible_code])
-        converged_signal = (not verdict.get("new_substantive_objection_this_round")
+        # Convergence guard: a SUBSTANTIVE objection raised THIS round blocks convergence regardless of the judge's
+        # own flag. The judge is an LLM and sometimes waves a skeptic-flagged substantive objection through — in the
+        # aaRS-KO run it let a backwards predicted-slope sign converge in the same round the skeptic caught it. So we
+        # also trust the skeptic's own `substantive` label: the proposer must earn a genuinely clean round (skeptic
+        # silent AND judge agrees no new substantive objection AND open objections resolved).
+        converged_signal = (not substantive
+                            and not verdict.get("new_substantive_objection_this_round")
                             and verdict.get("open_objections_resolved"))
         structural = _structural_ok(cand)
         if verbose:
             print(f"    judge -> adequate={adequate} converged={converged_signal} "
                   f"quota={total_substantive}/{quota} feasible={feasible_code}")
 
+        if on_round is not None:   # stream the debate to the interface's Council drawer (roles + this round's verdict)
+            on_round({
+                "round": rnd + 1,
+                "proposer": {"claim": cand.get("claim", ""), "h1": cand.get("h1", ""), "h0": cand.get("h0", "")},
+                "skeptic": [{"id": o.get("id"), "issue": o.get("issue") or o.get("user_question", ""),
+                             "severity": o.get("severity"), "type": o.get("type")} for o in objections],
+                "judge": {"falsifiable": verdict.get("falsifiable"), "specified": verdict.get("specified"),
+                          "operationalized": verdict.get("operationalized"), "discriminating": verdict.get("discriminating"),
+                          "adequate": adequate, "converged": converged_signal},
+            })
+
         open_objections = objections
+        debate_log.append({"round": rnd + 1, "claim": cand.get("claim", ""),   # feeds next round's blind digest
+                           "objections": [{"id": o.get("id"), "type": o.get("type"), "severity": o.get("severity")}
+                                          for o in objections]})
         score = _score(cand, feasible_code, verdict)
         if score > best_score:
             best, best_score = cand, score
@@ -476,14 +741,14 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         # few substantive objections, so 'stable' is the honest convergence signal when the quota is unreachable.
         if clean and (total_substantive >= quota or consecutive_clean >= 2):
             return _assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
-                             substantive_objections=total_substantive)
+                             substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, rnd + 1))
 
     # Round cap. The full debate has run, so the quota's scrutiny has been applied; if any round produced a clean
     # judge-certified candidate, accept it. Otherwise return the best complete candidate, flagged not-converged.
     if converged_cand:
         return _assemble(question, converged_cand, residual=[], converged=True, rounds_used=max_rounds,
-                         substantive_objections=total_substantive)
+                         substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, max_rounds))
     final = best if best else (previous_candidate or {})
     residual = _residual(open_objections, parked) or ["reached round cap without full convergence"]
     return _assemble(question, final, residual=residual, converged=False, rounds_used=max_rounds,
-                     substantive_objections=total_substantive)
+                     substantive_objections=total_substantive, ledger=ledger)

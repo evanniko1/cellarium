@@ -22,6 +22,19 @@ import sys
 import numpy as np
 from wholecell.io.tablereader import TableReader
 
+try:  # shared viability verdict (same rule store uses); this script's dir is on sys.path[0] in the container
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from viability_rules import verdict as _viability_verdict
+except Exception:  # fallback keeps the worker self-contained if the sibling module is unreachable
+    def _viability_verdict(min_dr, all_term, any_term, n_fba_fail):
+        if min_dr is None:
+            return "unknown"
+        if n_fba_fail and n_fba_fail > 0:
+            return "inviable"
+        if min_dr >= 0.9 and all_term:
+            return "viable"
+        return "inviable" if (min_dr < 0.6 or not any_term) else "impaired"
+
 SUMMARY_CHANNELS = {
     "growth_rate": ("Mass", "instantaneous_growth_rate"),
     "cell_mass": ("Mass", "cellMass"),
@@ -41,6 +54,9 @@ SPECIES_SOURCES = {
     "metabolite": ("BulkMolecules", "counts", "objectNames"),
     "reaction_flux": ("FBAResults", "reactionFluxes", "reactionIDs"),
     "exchange_flux": ("FBAResults", "externalExchangeFluxes", "externalMoleculeIDs"),
+    # deep-dive: the WHOLE-CELL components beyond the bulk layer — active ribosomes/RNAP, full chromosomes,
+    # replication forks, active DnaA boxes, etc. (translation/transcription/replication machinery, not metabolism).
+    "unique": ("UniqueMoleculeCounts", "uniqueMoleculeCounts", "uniqueMoleculeIds"),
 }
 SCHEMA_TABLES = ["Main", "Mass", "GrowthLimits", "FBAResults", "RNACounts",
                  "MonomerCounts", "UniqueMoleculeCounts", "BulkMolecules", "RnaSynthProb"]
@@ -156,16 +172,109 @@ def _dynamics(so):
     return stats, series, _media_segments(t, media, cols)
 
 
+def _lineage_viability(gens):
+    """Viability of ONE lineage (a per-seed run_root's generations): does each cell divide? Facts only — no
+    verdict label at this level (a lineage can't see the REQUESTED depth, so 'died early' is a cross-seed
+    signal; roll up with mode_viability or a manifest GROUP BY). See CORPUS_OBSERVATIONS.md §J."""
+    n = len(gens)
+    nd = sum(1 for g in gens if g.get("divided"))
+    nfail = sum(1 for g in gens if not g.get("fba_ok", True))
+    dts = [g.get("division_time_sec") for g in gens if g.get("division_time_sec") is not None]
+    return {"n_cells": n, "n_divided": nd, "division_rate": round(nd / n, 3) if n else 0.0,
+            "gens_reached": n, "terminal_divided": bool(gens[-1].get("divided")) if gens else False,
+            "n_fba_failures": nfail,
+            "median_division_time_sec": (round(float(np.median(dts)), 1) if dts else None)}
+
+
 def mode_run(run_root):
     gs = _gens(run_root)
     if not gs:
-        return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": []}
+        return {"generations": [], "channels": {}, "channel_stats": {}, "series": {}, "media_segments": [],
+                "viability": _lineage_viability([])}
+    panel = _load_panel()
     # headline channels/dynamics from the LAST generation (most-adapted steady state); per-gen trajectory below
     stats, series, segments = _dynamics(gs[-1])
-    return {"generations": [_generation(so, i) for i, so in enumerate(gs)],
+    generations = [_generation(so, i) for i, so in enumerate(gs)]
+    return {"generations": generations,
             "channels": {n: s["mean"] for n, s in stats.items()},  # flat means (compat + easy SQL)
             "channel_stats": stats, "series": series, "media_segments": segments,
-            "pathways": _pathways(gs[-1], _load_panel())}  # per-pathway proteome fractions (P2.1 depth)
+            "viability": _lineage_viability(generations),  # per-lineage division facts (first-class channel, §J)
+            "pathways": _pathways(gs[-1], panel),            # per-pathway proteome fractions (P2.1 depth)
+            "species_panel": _species_panel(gs[-1], panel)}  # per-species terminal + coarse trajectory (scope A)
+
+
+def _cell_viability(so):
+    """Per-cell viability from the canonical wcEcoli division signal: a cell that replicated its chromosome
+    (full_chromosome == 2) over a real trajectory (n_steps > 10) reached DIVISION. Also flag FBA-solver failure
+    (the numerical breakdown mode). This is the readout Gherman et al. 2025 use — viable == the cell divides —
+    which does NOT reroute away like a graded growth channel does."""
+    try:
+        n = int(_col(so, "Main", "time").ravel().size)
+    except Exception:
+        return {"n_steps": 0, "divided": False, "fba_ok": False, "division_time_sec": None,
+                "full_chromosome_end": -1, "readable": False}
+    fc = _full_chrom(so)
+    try:
+        fo = _col(so, "FBAResults", "objectiveValue").ravel()
+        fba_ok = bool(np.isfinite(fo[-1]) and fo[-1] > 0)
+    except Exception:
+        fba_ok = True
+    t = _col(so, "Main", "time").ravel()
+    divided = bool(fc == 2 and n > 10)
+    return {"n_steps": n, "divided": divided, "fba_ok": fba_ok,
+            "division_time_sec": (float(t[-1]) if divided else None),
+            "full_chromosome_end": int(fc), "readable": True}
+
+
+def _parse_lineage(so):
+    parts = so.replace("\\", "/").split("/")
+    for i, p in enumerate(parts):
+        if p.startswith("generation_"):
+            try:
+                return (parts[i - 1] if i > 0 else None), int(p.split("_")[-1])
+            except Exception:
+                return (parts[i - 1] if i > 0 else None), None
+    return None, None
+
+
+def mode_viability(run_root):
+    """Re-score a run by VIABILITY: does each cell in the lineage divide? Aggregates the per-cell division signal
+    over seeds x generations into a run-level verdict. A metabolic KO that 'reroutes' is VIABLE (divides normally);
+    a machinery KO (gltX) is INVIABLE (its terminal cell fails to divide / the FBA solver breaks)."""
+    gs = _gens(run_root)
+    if not gs:
+        return {"error": "no simOut under " + run_root}
+    seeds = {}
+    for so in gs:
+        seed, gen = _parse_lineage(so)
+        v = _cell_viability(so)
+        v["gen"] = gen
+        seeds.setdefault(seed, []).append(v)
+    per_seed, n_cells, n_div, n_fba_fail, div_times = {}, 0, 0, 0, []
+    for seed, cells in seeds.items():
+        cells.sort(key=lambda c: (c["gen"] if c["gen"] is not None else 0))
+        nd = sum(1 for c in cells if c["divided"])
+        n_cells += len(cells); n_div += nd
+        n_fba_fail += sum(1 for c in cells if not c["fba_ok"])
+        div_times += [c["division_time_sec"] for c in cells if c["division_time_sec"] is not None]
+        per_seed[seed] = {"gens_reached": len(cells),
+                          "max_gen": max((c["gen"] for c in cells if c["gen"] is not None), default=None),
+                          "n_divided": nd, "all_divided": nd == len(cells),
+                          "terminal_divided": bool(cells[-1]["divided"]),
+                          "terminal_fba_ok": bool(cells[-1]["fba_ok"])}
+    gens = [s["gens_reached"] for s in per_seed.values()] or [0]
+    rate = (n_div / n_cells) if n_cells else 0.0
+    all_terminal = bool(per_seed) and all(s["terminal_divided"] for s in per_seed.values())
+    any_terminal = any(s["terminal_divided"] for s in per_seed.values())
+    # verdict on MIN per-seed rate (one collapsing seed flags the design), via the shared rule store also uses
+    min_dr = min((s["n_divided"] / s["gens_reached"] for s in per_seed.values() if s["gens_reached"]), default=None)
+    verdict = _viability_verdict(min_dr, all_terminal, any_terminal, n_fba_fail)
+    return {"n_seeds": len(per_seed), "n_cells": n_cells, "n_divided": n_div,
+            "division_rate": round(rate, 3), "min_division_rate": (round(min_dr, 3) if min_dr is not None else None),
+            "n_fba_failures": n_fba_fail,
+            "gens_reached": {"min": min(gens), "max": max(gens), "mean": round(sum(gens) / len(gens), 2)},
+            "median_division_time_sec": (round(float(np.median(div_times)), 1) if div_times else None),
+            "terminal_division_all_seeds": all_terminal, "verdict": verdict, "seeds": per_seed}
 
 
 def mode_schema(run_root):
@@ -240,6 +349,31 @@ def _pathways(so, panel):
     return out
 
 
+def _species_panel(so, panel):
+    """Per-SPECIES (monomer) mean, terminal count, and a coarse k=16 trajectory for the curated panel proteins
+    (the union of monomers across pathways) — scope-A depth at the species level, so read_species/differential
+    answer for panel members straight from the shard (no raw read). Non-panel species stay HF-only. Mirrors
+    mode_species, but batched over the panel from the LAST generation."""
+    monomers = sorted({m for ms in panel.values() for m in ms})
+    if not monomers:
+        return {}
+    try:
+        counts = np.asarray(_col(so, "MonomerCounts", "monomerCounts"), dtype=float)  # (T, nMonomers)
+        ids = _attr(so, "MonomerCounts", "monomerIds")
+        t = _col(so, "Main", "time").ravel()
+    except Exception:
+        return {}
+    idx = {m: i for i, m in enumerate(ids)}
+    out = {}
+    for m in monomers:
+        j = idx.get(m)
+        if j is None:
+            continue
+        s = counts[:, j]
+        out[m] = {"mean": _finite(np.nanmean(s)), "last": _finite(s[-1]), "series": _downsample(t, s)}
+    return out
+
+
 def mode_gene_map(root):
     """Dump {symbol: monomer_id} from sim_data (symbol -> cistron_id -> monomer_id). Opt-in; unpickles kb."""
     import pickle
@@ -256,6 +390,28 @@ def mode_gene_map(root):
         if m:
             symbols[str(gd["symbol"][k])] = m
     return {"symbols": symbols, "n": len(symbols)}
+
+
+def _load_essential_genes():
+    """Ground-truth essential-gene SYMBOLS from wcEcoli's own validation set (Baba 2006 Keio + Joyce 2006,
+    glucose-minimal; 406 genes). Read from the checkout at dump time — NOT vendored into Cellarium (D3 license).
+    Columns: FrameID, rnaID, proteinID, proteinLoc, gene. Returns a set (empty if the file isn't present)."""
+    for p in ("validation/ecoli/flat/essential_genes.tsv",
+              os.path.join(os.environ.get("WCECOLI_DIR", ""), "validation/ecoli/flat/essential_genes.tsv")):
+        try:
+            syms = set()
+            with open(p) as f:
+                for line in f:
+                    if line.startswith("#") or line.startswith("FrameID"):
+                        continue
+                    parts = [x.strip().strip('"') for x in line.rstrip().split("\t")]
+                    if len(parts) >= 5 and parts[4]:
+                        syms.add(parts[4])
+            if syms:
+                return syms
+        except Exception:
+            continue
+    return set()
 
 
 def _cplx_monomers(comp, cat):
@@ -320,6 +476,7 @@ def mode_gene_scope(root):
     add_machinery(list(getattr(mg, "replisome_trimer_subunits", [])) +
                   list(getattr(mg, "replisome_monomer_subunits", [])), "replisome")
     add_machinery(getattr(sd.process.transcription, "synthetase_names", []), "aaRS")
+    essential_ref = _load_essential_genes()  # GROUND TRUTH: Baba 2006 (Keio) + Joyce 2006, glucose-minimal
     genes = {}
     for k in range(len(gd)):
         sym, cis = str(gd["symbol"][k]), str(gd["cistron_id"][k])
@@ -335,25 +492,35 @@ def mode_gene_scope(root):
                       "is_kinetically_constraining": bool(root and root in kin_roots),  # KO can bind a flux
                       "is_machinery": bool(root and root in machinery),  # central-dogma machinery subunit
                       "machinery_role": (machinery.get(root) if root else None),
+                      # ground-truth essentiality (external benchmark, NOT a model output) — lets classify_gene
+                      # compare the model's KO prior against reality. None = not in the reference list at all.
+                      "essential_ref": (sym in essential_ref) if essential_ref else None,
                       "is_tf": sym in tf_syms}
     return {"n": len(genes), "n_metabolic": sum(1 for v in genes.values() if v["is_metabolic"]),
             "n_sole_catalyst": sum(1 for v in genes.values() if v["is_sole_catalyst"]),
             "n_kinetically_constraining": sum(1 for v in genes.values() if v["is_kinetically_constraining"]),
             "n_machinery": sum(1 for v in genes.values() if v["is_machinery"]),
+            "n_essential_ref": (sum(1 for v in genes.values() if v["essential_ref"]) if essential_ref else 0),
+            "essential_ref_source": ("Baba 2006 (Keio) + Joyce 2006, glucose-minimal (wcEcoli validation set)"
+                                     if essential_ref else None),
             "n_tf": len(tf_syms), "genes": genes}
 
 
 def mode_fba_essentiality(root, genes_csv):
-    """FBA single-deletion essentiality (Joyce 2006 style) on the model's OWN network. Instantiate the
-    homeostatic FBA, solve baseline (objective = # of biomass-metabolite concentration targets met), then for
-    each gene disable the reactions it SOLELY catalyses (upper bound -> 0) and re-solve; a dropped objective =
-    a biomass target became unproducible = stoichiometrically essential.
+    """DEPRECATED — under-sensitive; NOT an essentiality oracle. Do not use this to decide essentiality. Use the
+    ground-truth `essential_reference` flag in gene_scope (Baba/Joyce) for the verdict, a GRADED-capacity
+    perturbation for a measurable in-silico effect, or the D4 tier-2 hard-demand/feasibility FBA once built.
 
-    EMPIRICAL LIMITATION (measured): under-sensitive. With unconstrained enzyme bounds and a homeostatic
-    (target-matching, not biomass-maximising) objective, the 9,612-reaction network reroutes to satisfy all 173
-    targets for EVERY single sole-catalyst deletion tested (0/35 essential, including known-essential lpxC/coaA/
-    kdsB/dapA/murC). So this predicts nothing essential and is NOT a usable KO predictor as-is. A sensitive
-    version needs the enzyme-CONSTRAINED, dynamic bounds (i.e. the running sim). Kept as a foundation + finding."""
+    (Mechanism, kept as a finding.) FBA single-deletion (Joyce 2006 style) on the model's OWN network: instantiate
+    the homeostatic FBA, solve baseline (objective = # of biomass-metabolite concentration targets met), then for
+    each gene disable the reactions it SOLELY catalyses (upper bound -> 0) and re-solve; a dropped objective would
+    mean a biomass target became unproducible.
+
+    WHY IT'S UNDER-SENSITIVE (the D4 root cause): the objective is deviation-minimizing over concentration targets
+    with NO growth term, so with unconstrained enzyme bounds the 9,612-reaction network reroutes to satisfy all 173
+    targets for EVERY single sole-catalyst deletion tested (0/35 essential, incl. known-essential lpxC/coaA/kdsB/
+    dapA/murC). A sensitive version needs enzyme-CONSTRAINED dynamic bounds (the running sim) or hard target demands
+    + a feasibility test (D4 tier-2)."""
     import pickle
     from collections import defaultdict
     kb = os.path.join(root, "kb", "simData.cPickle")
@@ -403,7 +570,90 @@ def mode_fba_essentiality(root, genes_csv):
                     "obj_ko": (round(obj, 2) if obj is not None else None),
                     "targets_lost": (round(obj0 - obj, 2) if obj is not None else None),
                     "essential": (obj is None or obj < obj0 - 0.5)}
-    return {"obj_baseline": round(obj0, 2), "n_reactions": len(rxn_ids), "genes": out}
+    return {"deprecated": True,
+            "warning": ("under-sensitive (0/35 essential incl. known-essential genes) — the homeostatic objective "
+                        "has no growth term, so the network reroutes around every single deletion. Use the "
+                        "gene_scope `essential_reference` (Baba/Joyce) benchmark for the verdict."),
+            "obj_baseline": round(obj0, 2), "n_reactions": len(rxn_ids), "genes": out}
+
+
+def mode_reroute_diagnosis(gene, ko_csv, wt_csv):
+    """Diagnose a VIABLE metabolic KO: did the KO actually zero the enzyme's FBA flux, yet the cell stayed viable?
+    If so the 'reroute' is a MATHEMATICAL ARTIFACT — the model bypasses an enzyme real biology can't (the soft
+    homeostatic objective never hard-requires that flux). Maps gene -> monomer -> complex -> reactions, then
+    seed+generation-averages sum|flux| through those reactions in the KO runs vs the WT runs (robust: the enzyme's
+    own reactions going to 0 is deterministic, unlike a whole-network compensating-flux diff which is seed-noisy)."""
+    import pickle
+    ko_roots = [r for r in ko_csv.split(",") if r]
+    wt_roots = [r for r in wt_csv.split(",") if r]
+    if not ko_roots or not wt_roots:
+        return {"error": "need at least one KO run root and one WT run root"}
+    def find_kb(start):  # kb lives at the sim_path root (cellarium/kb); run roots are <root>/<variant>/<seed>
+        d = start.rstrip("/\\")
+        for _ in range(6):
+            cand = os.path.join(d, "kb", "simData.cPickle")
+            if os.path.exists(cand):
+                return cand
+            d = os.path.dirname(d)
+        return None
+
+    kb = find_kb(ko_roots[0])
+    if not kb:
+        return {"error": f"no sim_data (kb) found above {ko_roots[0]}"}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    comp = sd.process.complexation
+    md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
+    cis2mono = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
+    sym2mono = {}
+    for k in range(len(gd)):
+        m = cis2mono.get(str(gd["cistron_id"][k]))
+        if m:
+            sym2mono[str(gd["symbol"][k])] = m.split("[")[0]
+    mono = sym2mono.get(gene)
+    if not mono:
+        return {"error": f"gene '{gene}' has no monomer in the model"}
+
+    def subunits(cid):
+        try:
+            return [str(m).split("[")[0] for m in comp.get_monomers(cid)["subunitIds"]]
+        except Exception:
+            return [str(cid).split("[")[0]]
+
+    rxns = sorted({r for r, cats in sd.process.metabolism.reaction_catalysts.items()
+                   for c in cats if mono in subunits(str(c)) or mono == str(c).split("[")[0]})
+    if not rxns:
+        return {"gene": gene, "monomer": mono, "n_reactions": 0,
+                "note": "gene catalyses no FBA reaction (non-metabolic or absent from the network) — not a reroute case."}
+
+    def mean_flux(roots):
+        vals = []
+        for root in roots:
+            for so in _gens(root):
+                try:
+                    r = TableReader(os.path.join(so, "FBAResults"))
+                    ids = list(r.readAttribute("reactionIDs"))
+                    f = np.nanmean(np.asarray(r.readColumn("reactionFluxes"), dtype=float), axis=0)
+                    r.close()
+                    d = {i: f[j] for j, i in enumerate(ids)}
+                    vals.append(sum(abs(d.get(x, 0.0)) for x in rxns))
+                except Exception:
+                    continue
+        return (float(np.mean(vals)), len(vals)) if vals else (None, 0)
+
+    kf, nk = mean_flux(ko_roots)
+    wf, nw = mean_flux(wt_roots)
+    disabled = kf is not None and kf < 1e-6
+    artifact = bool(disabled and wf and wf > 1e-6)
+    return {"gene": gene, "monomer": mono, "n_reactions": len(rxns),
+            "ko_flux": (round(kf, 5) if kf is not None else None), "ko_cells": nk,
+            "wt_flux": (round(wf, 5) if wf is not None else None), "wt_cells": nw,
+            "enzyme_flux_disabled_in_ko": disabled, "reroute_is_artifact": artifact,
+            "note": ("ARTIFACT: the enzyme carries flux in WT but 0 in the viable KO — the model bypasses it via a "
+                     "feasible-but-unreal flux. Real biology with 0 flux here would die if the enzyme is uniquely "
+                     "essential; cross-check mechanistic_scope's essentiality benchmark (`model_UNDER_predicts`)."
+                     if artifact else
+                     "No artifact signature: the enzyme carried no WT flux, or the KO did not zero it.")}
 
 
 def mode_variant_map(root):
@@ -510,8 +760,12 @@ if __name__ == "__main__":
         out = mode_gene_map(run_root)
     elif mode == "gene_scope":
         out = mode_gene_scope(run_root)
+    elif mode == "viability":
+        out = mode_viability(run_root)
     elif mode == "fba_essentiality":
         out = mode_fba_essentiality(run_root, sys.argv[3])
+    elif mode == "reroute_diagnosis":
+        out = mode_reroute_diagnosis(sys.argv[2], sys.argv[3], sys.argv[4])
     elif mode == "differential":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     else:

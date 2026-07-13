@@ -4,6 +4,13 @@ from cellarium import biosecurity, differential, envelope, qc, rigor, survey
 from cellarium.model import Design, GenerationResult, SimResult
 
 
+def test_empty_result_is_flagged_not_ok():
+    """A run with NO readable generations is EMPTY (never ok) — an empty read must not launder into viable."""
+    overall, _ = qc.check_result(SimResult(id="empty"))
+    assert overall is qc.QCStatus.EMPTY
+    assert not qc.is_reportable(SimResult(id="empty"))
+
+
 def test_carbon_source_switch_is_out_of_envelope():
     v = envelope.check(Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_acetate"))
     assert not v.in_envelope
@@ -97,6 +104,105 @@ def test_coverage_tracks_examined_designs():
 def test_disconfirm_handles_missing_design():
     out = rigor.disconfirm("nonexistent/x", "wildtype/basal", "growth_rate")
     assert "error" in out or "channel" in out
+
+
+def test_viability_verdict_three_regimes():
+    from cellarium import store
+
+    def rows(*specs):  # (division_rate, gens_reached, terminal_divided, n_fba_failures)
+        return [{"seed": i, "division_rate": dr, "gens_reached": g, "terminal_divided": td, "n_fba_failures": ff}
+                for i, (dr, g, td, ff) in enumerate(specs)]
+
+    # metabolic KO — every seed divides fully -> VIABLE
+    assert store._viability_verdict(rows((1.0, 4, True, 0), (1.0, 4, True, 0)))["verdict"] == "viable"
+    # gltX-like — one seed collapses (terminal not divided), no FBA failure -> IMPAIRED via the cross-seed rollup
+    assert store._viability_verdict(rows((1.0, 3, True, 0), (0.67, 3, False, 0)))["verdict"] == "impaired"
+    # hard failure — an FBA-solver break makes it INVIABLE regardless of rate
+    assert store._viability_verdict(rows((1.0, 2, True, 1)))["verdict"] == "inviable"
+    # pre-viability shards (no division_rate) -> UNKNOWN, not a false verdict
+    assert store._viability_verdict([{"seed": 0, "division_rate": None}])["verdict"] == "unknown"
+
+
+def test_viability_verdict_fba_failure_is_inviable():
+    # regression: an FBA-solver crash is inviable even on a dividing lineage (the two former copies diverged here)
+    from cellarium import viability_rules
+    assert viability_rules.verdict(1.0, True, True, 1) == "inviable"
+    assert viability_rules.verdict(1.0, True, True, 0) == "viable"
+    assert viability_rules.verdict(0.67, False, True, 0) == "impaired"
+    assert viability_rules.verdict(None, True, True, 0) == "unknown"
+
+
+def test_t95_ci_wider_than_normal_at_small_n():
+    import statistics
+
+    from cellarium import stats as cstats
+    vals = [1.0, 1.1, 0.9, 1.05]
+    t_hw = cstats.t95_halfwidth(vals)
+    normal_hw = 1.96 * statistics.stdev(vals) / (len(vals) ** 0.5)
+    assert t_hw is not None and t_hw > normal_hw          # t-dist is wider than the normal approx at n=4
+    assert cstats.t95_halfwidth([1.0]) is None            # undefined for n<2
+
+
+def test_design_space_enumerates_and_resolves():
+    from cellarium import tools
+    ds = tools.design_space()
+    assert ds["variant_types"] and "gene_knockout" in ds["variant_types"]  # always available, no cache needed
+    g = tools.design_space(gene="fabI")["gene"]
+    assert ("ko_index" in g) or (g.get("known") is False)  # resolves if scope cached, else graceful
+
+
+def test_viability_truncation_and_crash_override():
+    # §M fix: a lineage that CRASHED or stopped short of the requested depth is inviable even if its completed
+    # generations all divided (the alaS/pheS blind spot).
+    from cellarium import store
+
+    def rows(*specs):  # (division_rate, gens_reached, terminal_divided, n_fba_failures, requested_generations, crashed)
+        return [{"seed": i, "division_rate": dr, "gens_reached": g, "terminal_divided": td, "n_fba_failures": ff,
+                 "requested_generations": req, "crashed": cr}
+                for i, (dr, g, td, ff, req, cr) in enumerate(specs)]
+
+    assert store._viability_verdict(rows((1.0, 3, True, 0, 4, True)))["verdict"] == "inviable"    # crashed at gen-4
+    assert store._viability_verdict(rows((1.0, 3, True, 0, 4, False)))["verdict"] == "inviable"   # truncated (3<4)
+    assert store._viability_verdict(rows((1.0, 4, True, 0, 4, False)))["verdict"] == "viable"     # full depth, ok
+
+
+def test_provenance_distinguishes_fitted_from_derived_conditions():
+    from cellarium import provenance
+    assert provenance.tag("condition", "no_oxygen") == "in_sample"       # measured/TF-fitted (H1)
+    assert provenance.tag("condition", "with_aa") == "in_sample"
+    assert provenance.tag("condition", "minus_magnesium") == "out_of_sample"  # derived, not fitted (H2 boundary)
+    assert provenance.tag("condition", "plus_indole") == "out_of_sample"
+    assert provenance.tag("gene_knockout", "KO:fabI") == "out_of_sample"
+    assert provenance.tag("wildtype", "basal") == "in_sample"
+
+
+def test_vet_hypothesis_gates_safety_only():
+    # THE constraint: only safety blocks. Out-of-sample + out-of-envelope hypotheses stay runnable (H2 lesson).
+    from cellarium import tools
+    oos = tools.vet_hypothesis(perturbation="gene_knockout", condition="KO:fabI")  # out-of-sample, benign
+    assert oos["runnable"] is True and oos["provenance"]["provenance"] == "out_of_sample"
+    boundary = tools.vet_hypothesis(perturbation="timeline", timeline="0 minimal, 1200 minimal_acetate")
+    assert boundary["runnable"] is True and boundary["feasibility"]["in_envelope"] is False  # advisory, not blocked
+    misuse = tools.vet_hypothesis(perturbation="gene_overexpression", condition="marA")
+    assert misuse["runnable"] is False and misuse["safety"]["flagged"] is True  # safety is the ONLY gate
+
+
+def test_model_validation_reports_under_prediction():
+    from cellarium import tools
+    mv = tools.model_validation()
+    if "error" in mv:
+        return  # gene_scope cache not built in this environment
+    assert mv["model_UNDER_predicts"] > mv["consistent_lethal"]   # the model under-predicts essentiality
+    assert 0.0 <= mv["essentiality_recall"] <= 1.0
+
+
+def test_power_check_needs_more_seeds_for_smaller_effect():
+    from cellarium import tools
+    big = tools.power_check(channel="growth_rate", effect_pct=20.0)
+    small = tools.power_check(channel="growth_rate", effect_pct=5.0)
+    if "error" in big or "error" in small:
+        return  # no replicated corpus in this environment
+    assert small["seeds_needed_for_target"] > big["seeds_needed_for_target"]
 
 
 if __name__ == "__main__":

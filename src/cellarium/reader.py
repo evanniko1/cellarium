@@ -52,6 +52,13 @@ def read_run(host_run_root: Path) -> dict:
     return _invoke("run", host_run_root)
 
 
+def viability(host_run_root: Path) -> dict:
+    """Re-score a run by VIABILITY (does the lineage divide?) — the KO readout that doesn't reroute away like a
+    graded growth channel. Aggregates the per-cell division signal (full_chromosome==2 + FBA-solver health) over
+    seeds x generations into a run-level verdict (viable / impaired / inviable)."""
+    return _invoke("viability", host_run_root)
+
+
 def dump_schema(host_run_root: Path) -> dict:
     return _invoke("schema", host_run_root)
 
@@ -83,10 +90,23 @@ def gene_scope(sim_path: str = "cellarium") -> dict:
 
 
 def fba_essentiality(genes: list[str], sim_path: str = "cellarium") -> dict:
-    """FBA single-deletion essentiality on the model's own homeostatic network — the calibrated metabolic
-    KO-effect predictor. Disables each gene's sole-catalyst reactions and re-solves; a dropped objective = a
-    biomass target became unproducible = stoichiometrically essential."""
+    """DEPRECATED — under-sensitive (0/35 essential); NOT an essentiality oracle. The homeostatic FBA objective has
+    no growth term, so it reroutes around every single-deletion. For an essentiality verdict use the ground-truth
+    `essential_reference` flag in gene_scope (Baba/Joyce); for a measurable in-silico effect use a graded-capacity
+    perturbation. Kept for the D4 finding; returns {"deprecated": True, "warning": ...}."""
     return _invoke("fba_essentiality", OUT_ROOT / sim_path, [",".join(genes)])
+
+
+def reroute_diagnosis(gene: str, ko_roots: list[Path], wt_roots: list[Path]) -> dict:
+    """Diagnose a viable metabolic KO: is its 'reroute' a mathematical artifact (enzyme FBA flux = 0 in the KO yet
+    nonzero in WT, on a viable cell)? Seed-averaged over the gene's own reactions, computed in the container."""
+    if WCECOLI_DOCKER:
+        k = ",".join(_container_path(Path(r)) for r in ko_roots)
+        w = ",".join(_container_path(Path(r)) for r in wt_roots)
+        return _run_cmd(_worker_cmd("reroute_diagnosis", [gene, k, w]), None)
+    k = ",".join(str(Path(r).resolve()) for r in ko_roots)
+    w = ",".join(str(Path(r).resolve()) for r in wt_roots)
+    return _run_cmd([PY, str(_WORKER), "reroute_diagnosis", gene, k, w], WCECOLI_DIR or None)
 
 
 def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "protein",

@@ -40,8 +40,11 @@ is a config list, initially minimal.
 **The full problem we uncovered.** The whole-cell model does not yield a clean single-gene-KO phenotype, and
 we traced *why* to the objective, not to any bug. In order of depth:
 - The `gene_knockout` variant is an **expression** knockout (`sim_data.adjust_final_expression([i], [0])`) —
-  it zeroes transcription and the enzyme dilutes to ~0 over generations — **not a stoichiometric deletion**.
-  Hence the defect is generation-paced (the generation-depth lesson).
+  it zeroes transcription. Since initial counts derive from expression, the enzyme is **0 from gen-0** (verified
+  empirically: fabI/glmS/gltX monomers read 0 at the first timestep), so there is **no protein-dilution confound**
+  — metabolic KO viability is the pure reroute. What *does* carry over is inherited downstream state: daughters
+  `loadSnapshot` the parent's partitioned pools (they don't re-init at full value), so metabolite/charged-tRNA
+  buffers halve per division — which is what lets gltX limp ~3 generations before its charged-Glu-tRNA depletes.
 - The metabolism FBA runs `objectiveType = "homeostatic_kinetics_mixed"`: minimize *deviation* from metabolite
   concentration target *ranges* + kinetic flux targets (both soft). **There is no growth/biomass-maximization
   term** — the biomass reaction in `modular_fba.py` is only wired for `objectiveType == "standard"`, which the
@@ -102,3 +105,29 @@ division success**, not growth-rate deltas; (2) prefer **graded-capacity** (rRNA
 and **multi-gene reduced-genome** designs over single metabolic KOs; (3) treat aaRS/ribosome/RNAP KOs as
 **crash-predicted** (scope.py already warns); (4) for a metabolic essentiality *verdict*, call EcoCyc's flux model
 as the oracle; (5) longer term, an **ML surrogate** trained on our corpus to predict division = scale primitive.
+
+## D5 — Two entrypoints into one agent; the Council never reads (orchestrate.py)
+Cellarium exposes ONE grounded agent behind TWO entrypoints — `src/cellarium/orchestrate.py::investigate`, the
+single seam the CLI and the hackathon interface both call:
+- **Top (council-first, `use_council=True`):** the Socratic Council operationalizes an open question into a
+  falsifiable Hypothesis, then hands that brief to the agent.
+- **Direct (Cellarium-first, `use_council=False`):** the raw question goes straight to the agent — for targeted
+  read/analysis and the bottom-up, tool-refinement loop where you already know what to measure.
+
+**Invariant — reads are NEVER routed through the Council, by construction (not policy).** `instrument.py` (the
+only view the Council sees) is quarantined from every result-bearing surface — `test_council.py`'s
+`test_instrument_imports_no_result_bearing_modules` forbids importing survey/differential/scope/store. So the
+Council can only shape the QUESTION; the agent always does the reading, in every flow. "Does analysis have to go
+through the Council?" is therefore answered **No** — it is architecturally impossible for it to.
+
+**Launching sims is a SEPARATE action with downstream, orthogonal gating.** Two paths coexist over the same
+capability; which one is used is independent of the entrypoint:
+- **Gated (agent-facing; default for the interface):** `launch.propose` (the `propose_experiment` tool) queues a
+  vetted design PENDING; a human calls `launch.approve_and_run` (NOT an agent tool). Coli can never launch
+  autonomously — the queue is the airlock.
+- **Ungated (operator/eval; `model.run_live` + `evals/loop_live`):** runs a design immediately for tool-refinement
+  and live eval loops. Still enforces envelope + biosecurity feasibility via `runner.run_one`, but skips the human
+  approval step — appropriate because a developer invokes it directly.
+
+The gate is thus a policy on the launch action, not on the question entrypoint. Reads are never gated; launches
+may be. (Open reconciliation for a later pass: whether `loop_live` should optionally route through the gate.)

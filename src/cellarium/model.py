@@ -54,6 +54,8 @@ class SimResult(BaseModel):
     series: dict = Field(default_factory=dict)           # {channel: [[t_sec, value], ...] downsampled}
     media_segments: list = Field(default_factory=list)   # [{media, t0, t1, means:{channel: mean}}] per media window
     pathways: dict = Field(default_factory=dict)         # {pathway: proteome_fraction} — curated depth (P2.1)
+    species_panel: dict = Field(default_factory=dict)    # {monomer_id: {mean, last, series}} per-species depth (scope A); panel members answer from the shard, others -> HF
+    viability: dict = Field(default_factory=dict)        # {division_rate, gens_reached, terminal_divided, ...} §J
 
 
 class ResultStore:
@@ -92,6 +94,10 @@ def run_live(design: Design, *, seeds: list[int] | None = None, generations: int
     Requires the model to be reachable: set WCECOLI_DOCKER (a local model image) or WCECOLI_DIR (a native
     checkout) — see runner.py / docs/GENERATE.md. Feasibility and biosecurity are enforced inside
     runner.run_one (via envelope.check); an out-of-envelope design raises rather than running.
+
+    GATING (see DECISIONS.md D5): this is the UNGATED, operator/eval launch path — it runs immediately, skipping
+    the human-approval airlock. The gated, agent-facing path is launch.propose -> launch.approve_and_run (a human,
+    not Cellwright, approves). Both enforce the same feasibility/biosecurity screen; they differ only in the human gate.
 
     seeds/generations default to the design's own `seeds`/`generations`. Real runs are slow (~9 min/generation,
     plus a one-time ParCa compile); size accordingly.
