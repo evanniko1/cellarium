@@ -1215,4 +1215,55 @@ $("#scrollDownBtn").onclick = () => { scrollBottom(true); $("#scrollDownBtn").cl
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = closeDrawers));
 document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.dataset.q)));
 
+// ---------------- demo auto-play (?demo=1): a hands-free glass-box walkthrough on the stored argS run ----------
+// Drives the LIVE UI through the pre-registration -> grounding -> falsification arc using ALREADY-STORED data
+// (zero model calls), so a recording is deterministic. Timings live in one array; End demo / Esc stops it.
+async function runDemo() {
+  const cap = el("div", "demo-cap"); const step = el("div", "demo-cap-step"); const txt = el("div", "demo-cap-text");
+  cap.append(step, txt); document.body.appendChild(cap);
+  const stopBtn = el("button", "demo-stop", "End demo ✕"); document.body.appendChild(stopBtn);
+  let stopped = false;
+  const end = () => { stopped = true; cap.remove(); stopBtn.remove(); };
+  stopBtn.onclick = end;
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") end(); });
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const scrollMain = (sel, to) => { const e = $(sel); if (e) e.scrollTo({ top: to === "end" ? e.scrollHeight : 0, behavior: "smooth" }); };
+
+  // resolve the argS runs by CONTENT (robust to id changes across machines/clones)
+  let councilId = null, argsSid = null;
+  try {
+    const runs = (await (await fetch("/api/hypotheses")).json()).runs || [];
+    councilId = (runs.find((r) => /args knockout raise or lower/i.test(r.question || "") && r.status === "done")
+              || runs.find((r) => /args/i.test(r.question || "") && r.status === "done") || {}).id;
+    const sess = (await (await fetch("/api/sessions")).json()).sessions || [];
+    argsSid = (sess.find((s) => /args knockout raise or lower/i.test(s.title || "")) || {}).sid;
+  } catch (e) { /* fall through to whatever resolved */ }
+
+  const BEATS = [
+    { s: "Cellarium", t: "<b>A glass box over whole-cell reasoning.</b> Watch it keep the science honest — every claim grounded, every failure caught.", ms: 7000 },
+    { s: "Step 1 · the Council frames a hypothesis — blind to the data", t: "The Socratic Council never sees a result. It must <b>commit to a falsifiable prediction first.</b>", ms: 8000,
+      go: async () => { if (councilId) { await openHyp(); await viewHypRun(councilId); } } },
+    { s: "Step 1 · a pre-registered falsifier", t: "It commits: <b>argS knockout RAISES ppGpp 2–4×</b> (textbook stringent response). Falsifier: <i>if ppGpp falls below 0.8× wildtype, the model is refuted.</i>", ms: 12000,
+      go: async () => scrollMain("#hypView .corpus-body, #hypMain", "mid") },
+    { s: "Step 1 · the debate that earned it", t: "A skeptic raised typed objections; the proposer repaired them until a judge certified <b>convergence on falsifiability</b> — not mere agreement.", ms: 10000,
+      go: async () => scrollMain("#hypMain", "end") },
+    { s: "Step 2 · Cellwright grounds it in real simulations", t: "The pre-registered hypothesis is handed to <b>Cellwright</b>, which tests it against the whole-cell corpus — reading real runs, not guessing.", ms: 9000,
+      go: async () => { if (argsSid) { closeHyp(); await openServerSession({ sid: argsSid, title: "Does an argS knockout raise or lower ppGpp versus wildtype?" }); } } },
+    { s: "Step 2 · the corpus answers", t: "The simulation: argS ppGpp = <b>6.45 vs 64.70 µM — down 90%, t = −27.85.</b> ppGpp goes <b>DOWN</b>, not up.", ms: 11000,
+      go: async () => scrollMain("#scroll", "end") },
+    { s: "The falsifier fires", t: "The Council's <b>own</b> criterion is met — the whole-cell model <b>contradicts textbook biology, decisively.</b> A sighted agent would only have <i>described</i> this; the blind pre-registration turned it into a <b>falsification.</b>", ms: 13000 },
+    { s: "That's the glass box", t: "Blind hypothesis → grounded test → a decisive, honest result. Every number rides with its provenance. <b>Cellarium.</b>", ms: 9000 },
+  ];
+
+  await wait(500);
+  for (const b of BEATS) {
+    if (stopped) return;
+    step.textContent = b.s; txt.innerHTML = b.t; cap.classList.add("show");
+    try { if (b.go) await b.go(); } catch (e) { /* a beat's nav failing must not abort the reel */ }
+    await wait(b.ms);
+  }
+  if (!stopped) end();
+}
+
 loadModels(); loadInvs(); renderSidebar(); refreshQueue(); updateSend(); loadServerSessions();
+if (/[?&]demo=1/.test(location.search)) setTimeout(runDemo, 700);   // hands-free walkthrough for recording
