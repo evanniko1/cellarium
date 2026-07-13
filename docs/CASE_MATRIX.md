@@ -146,3 +146,74 @@ slide.
    objective), with the fabI flux proof — and the nuance that it catches some (dapA, rplB, argS).
 5. **The instrument sharpening itself** — the truncation blind spot: the eval is improving the tooling, not just
    grading the model.
+
+---
+
+## 7. Cellwright's own top-5 (mined from SQLite — for the extended literature search)
+
+Not my re-derivation — what the **agent itself** surfaced when asked to "survey the corpus and give the five most
+interesting, statistically-supported findings" (session `s_3za8kask`). These are the ones we take to a deeper
+literature search (done *through the chat*, not the app). Effect sizes are Cellwright's, via its own tools.
+
+| # | Cellwright's finding | Stats | Provenance | Its verdict | Lit-search target |
+|---|---|---|---|---|---|
+| CW1 | with_aa → RNA mass **+208%**, growth +131%, ribosome +28%, ppGpp −66% (stringent inversion) | z=4.93, Welch t=47, n=8 | in-sample | ✅ validated | canonical — low priority |
+| CW2 | rRNA_KO 6op **viable** despite ribosome **−55%**; growth −38%; ppGpp does **not** spike | z=−3.3, div=1.0, n=4 | out-of-sample | ⚠️ needs sims | rRNA-operon-KO growth penalty (Asai 1999; Stevenson 2004) — does ppGpp rise? |
+| **CW3** | **relA+spoT+gltX triple KO → ppGpp +475%** despite KO of both synthases | z=5.4, **n=1** | out-of-sample | ❌ contradicts lit | **Svitil 1993: relA/spoT double = ppGpp-null.** Model predicts HIGH — anomaly (needs seeds) |
+| CW4 | no_oxygen → global regulators **−54%**, stringent −51%, but ppGpp **flat** | z=−4.9, Welch t=−45, n=8 | in-sample | ⚠️ questioned | does ppGpp rise under anaerobiosis? (if yes → model_UNDER_predicts) |
+| CW5 | lysS KO → ppGpp +136% but **CI95 ≈ mean** (seeds 101→289 nM); mechanistic prior (crash) vs viability conflict | Welch t=1.9 (ns), n=4 | out-of-sample | ❌ unreliable | aaRS graded-capacity vs full KO; stochastic bifurcation |
+
+**Caveat Cellwright itself flagged:** it examined **7 of 48 designs (15%)**, and CW3/CW5 are n=1/high-variance.
+Treat these as *leads for the lit search + replication*, not settled results. CW3 is the most striking (a clean
+contradiction of a benchmark).
+
+---
+
+## 8. Round-2 deep analysis (Cellarium's own tools) — the stringent-response inversion (breakthrough candidate)
+
+Prompted by the recurring ppGpp anomalies (F1 argS, CW3, CW4), I mapped the whole stringent axis across the aaRS
+knockouts with `disconfirm` (Cellarium's tool, not my stats) — ppgpp_conc, rela_conc, fraction_trna_charged,
+ribosome_conc, each vs wildtype/basal. The result is systematic and decisive.
+
+| aaRS KO | ppgpp_conc | rela_conc | charged-tRNA | ribosome_conc |
+|---|---|---|---|---|
+| argS | **−90%** (t=−27.8) | **−97%** (t=−7.6) | −5% (t=−14.7) | −90% (t=−35.6) |
+| alaS | −90% (t=−31.8) | −96% (t=−7.6) | −3% | −90% (t=−41.5) |
+| pheS | −93% (t=−33.3) | −97% (t=−7.7) | +1% | −92% (t=−47.0) |
+| gltX | −92% (t=−25.4) | −98% (t=−7.7) | −2% | −91% (t=−25.1) |
+
+**The finding (S1 — underrepresented, potentially a breakthrough characterization).** Textbook stringent response:
+aaRS KO → uncharged tRNA → **RelA activates → ppGpp UP → ribosomes DOWN**. The model does the **opposite on the
+sensing arm**: ppGpp and RelA both **collapse ~90–98%**. The charged-tRNA fraction barely moves (−5%), so RelA is
+*never activated by an uncharged-tRNA signal* — it is **diluted away**.
+
+**Mechanism, pinned by a deep-dive (`variance_band` on rpoB's local raw simOut).** The RNAP knockout (rpoB), which
+keeps translation running on an inherited ribosome pool, **maintains** RelA and ppGpp (RelA 0.10→0.25, ppGpp
+58→73 across 7 generations) — the exact opposite of the aaRS KOs. So the inverting variable is **translation
+capacity**: an aaRS KO stalls translation → RelA (a protein) can't be synthesized → RelA and ppGpp collapse. The
+model represents ppGpp as an expression-coupled quantity, so it **cannot mount the fast, allosteric,
+ribosome-stall-triggered stringent response** that the biology requires.
+
+**Why it matters / why it's not just "another failure":**
+- The **downstream** arm is correct — the ppGpp 2.0× clamp gives ribosome −15% (t=−12). So the model's ppGpp→ribosome
+  control works; only the **upstream sensing** (charging deficit → RelA activation) is broken.
+- It is **systematic** (4/4 aaRS KOs, |t| up to 47) and **mechanistically explained** (translation-dependent RelA),
+  not a one-off.
+- It **unifies** F1, CW3, CW4, CW5 into one boundary: the whole-cell model's stringent-response *sensing* is
+  miswired. This is a clean, bounded, publishable statement of a model limitation — and a directly actionable one
+  (it tells you which stringent-response questions the instrument can and can't answer). Choi & Covert 2023 is the
+  nearest literature (aaRS "catastrophic") but does not report this ppGpp/RelA *inversion*.
+
+**S2 (RNAP-KO survival mechanism, characterized).** rpoB survives 7 generations at ~basal growth via slow ribosome
+depletion (ribosome_conc 21.7→19.8, ~−9% over the run) on the inherited RNAP reserve — a whole-cell,
+multi-generation "viable-then-crash" signature FBA cannot express (N3, made concrete on real raw data).
+
+**Deep-dive scope note:** `top_movers`/`read_species` need the design's raw simOut **local**; only rpoB is
+downloaded, so the protein-level top_movers confirmation of RelA depletion for argS awaits its HF pull (a ~24 GB
+download). The summary-channel evidence (rela_conc via `disconfirm`) is already decisive; the raw-level
+confirmation would strengthen the mechanism figure.
+
+**Next deep-dive leads (for when raw is pulled / for the report):** protein-level `top_movers` on argS (confirm
+RelA/RNAP/ribosomal depletion vs any compensatory movers); the FBA `metabolism_kinetic_objective_weight` /
+`secretion_penalty` sweeps (the homeostatic knob itself — currently non-reportable via `disconfirm`; needs a
+raw/`read_series` read) as a probe of how the objective weight sets flux allocation.
