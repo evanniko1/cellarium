@@ -1267,10 +1267,27 @@ async function runDemo() {
   cap.append(step, txt); document.body.appendChild(cap);
   const bar = el("div", "demo-bar"); const barFill = el("div", "demo-bar-fill"); bar.appendChild(barFill); document.body.appendChild(bar);
   const stopBtn = el("button", "demo-stop", "End ✕"); document.body.appendChild(stopBtn);
-  let stopped = false;
-  const end = () => { stopped = true; [slides, cap, bar, stopBtn].forEach((e) => e.remove()); };
+  // player controls: ‹ Prev · Play/Pause · Next › · Voice · beat counter (also: Space, ← →, V, Esc)
+  const ctl = el("div", "demo-controls");
+  const bPrev = el("button", "demo-ctl", "‹ Prev");
+  const bPlay = el("button", "demo-ctl", "⏸ Pause");
+  const bNext = el("button", "demo-ctl", "Next ›");
+  const bVoice = el("button", "demo-ctl", "🔈 Voice");
+  const bBeat = el("span", "demo-ctl beatno", "");
+  ctl.append(bPrev, bPlay, bNext, bVoice, bBeat); document.body.appendChild(ctl);
+  let stopped = false, paused = false, voiceOn = false, idx = 0, timer = null, beatRemaining = 0, beatStartedAt = 0, playToken = 0;
+  const end = () => { stopped = true; clearTimeout(timer); try { speechSynthesis.cancel(); } catch (e) {} [slides, cap, bar, stopBtn, ctl].forEach((e) => e.remove()); };
   stopBtn.onclick = end;
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") end(); });
+  bPrev.onclick = () => prev(); bNext.onclick = () => next();
+  bPlay.onclick = () => (paused ? resume() : pause()); bVoice.onclick = () => toggleVoice();
+  document.addEventListener("keydown", (e) => {
+    if (stopped) return;
+    if (e.key === "Escape") end();
+    else if (e.key === " ") { e.preventDefault(); paused ? resume() : pause(); }
+    else if (e.key === "ArrowRight") next();
+    else if (e.key === "ArrowLeft") prev();
+    else if (e.key === "v" || e.key === "V") toggleVoice();
+  });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const scrollMain = (sel, to) => { const e = $(sel); if (e) e.scrollTo({ top: to === "end" ? e.scrollHeight : 0, behavior: "smooth" }); };
   const showSlide = (html) => { cap.classList.remove("show"); slides.innerHTML = `<div class="demo-slide">${html}</div>`; slides.classList.add("show"); };
@@ -1355,35 +1372,78 @@ async function runDemo() {
     [...slides.querySelectorAll(".ds-arch-item")].forEach((e, i) => setTimeout(() => { if (!stopped) e.classList.add("in"); }, 500 + i * 3200));
   };
 
+  // Each beat carries `v` — the voiceover narration (spoken when Voice is on). ms is the dwell after the beat's
+  // action; keep it >= the spoken length. Narration + timings mirror docs/DEMO_SCRIPT.md.
   const BEATS = [
-    { ms: 24000, go: () => showSlide(PROBLEM) },
-    { ms: 12000, go: () => showSlide(VALUE) },
-    { ms: 30000, go: () => showArch() },
-    { ms: 6500, go: async () => { say("The workspace", "Two surfaces: <b>Investigations</b> — grounded chat — and <b>Hypotheses</b> — the Council. One question, two ways to answer it."); closeHyp(); } },
-    { ms: 8000, go: async () => { say("Mode 1 · the Council frames it — blind", "The Socratic Council must <b>commit to a falsifiable prediction first</b>, never seeing a result."); if (councilId) { await openHyp(); await viewHypRun(councilId); } } },
-    { ms: 9500, go: async () => { say("Mode 1 · a pre-registered falsifier", "It commits: <b>argS raises ppGpp 2–4×</b>. Falsifier: <i>if ppGpp falls below 0.8× wildtype, the model is refuted.</i>"); scrollMain("#hypMain", "end"); } },
-    { ms: 8000, go: async () => { say("Handoff → Cellwright grounds it", "The pre-registered hypothesis is handed to <b>Cellwright</b>, which tests it against real whole-cell runs."); if (argsSid) { closeHyp(); await openServerSession({ sid: argsSid, title: "Does an argS knockout raise or lower ppGpp versus wildtype?" }); } } },
-    { ms: 11000, go: async () => { say("The falsifier fires", "The corpus: argS ppGpp = <b>6.45 vs 64.70 µM — down 90%, t = −27.85.</b> The model is <b>caught contradicting textbook biology, decisively.</b>"); scrollMain("#scroll", "end"); } },
-    { ms: 11000, go: async () => { say("Mode 2 · a direct question, and a control that flips it", "Ask Cellwright straight: does nitrate switch on the nitrate genes? First pass says yes — then it <b>controls for the anaerobic shift</b>, and the answer flips: narGHJI is the anaerobic confound, not a nitrate switch."); if (cwSid) { await openServerSession({ sid: cwSid, title: "Does nitrate switch on the nitrate-reductase genes?" }); scrollMain("#scroll", "end"); } } },
-    { ms: 8500, go: async () => { say("Grounded figures", "Charts are drawn from real simulation output and indexed with their provenance — every number is clickable back to its run."); if (figSid) await openServerSession({ sid: figSid, title: "" }); scrollMain("#scroll", "end"); } },
-    { ms: 9000, go: async () => { say("The corpus", "239 whole-cell runs in <b>DuckDB shards</b>; full-resolution raw simOut streams from <b>Hugging Face</b> on demand — the seed of an open corpus."); closeHyp(); openCorpus(); } },
-    { ms: 8000, go: async () => { say("The launch airlock", "Cellwright <b>proposes</b> experiments as job drafts — nothing simulates without <b>your approval</b>. Safety is a gate, not a footnote."); closeCorpus(); openDrawer("queue"); } },
-    { ms: 8000, go: async () => { say("A queryable record", "Every interaction persists in <b>SQLite</b> — a durable, analyzable record of the model's reasoning, not a disposable chat."); closeDrawers(); } },
-    { ms: 10000, go: async () => { say("Beyond catching failures — a lead", "A direct question — <b>delete rRNA operons</b> — grounds a dose-response and a real plot: ribosome content and growth fall together, the cell stays viable."); if (rrnaSid) { closeDrawers(); await openServerSession({ sid: rrnaSid, title: "Delete rRNA operons: the numbers-vs-efficiency clash" }); scrollMain("#scroll", 0); } } },
-    { ms: 10000, go: async () => { say("The clash, grounded", "The remaining operons compensate (Condon 1993), ppGpp stays flat — then a <b>live literature review</b> reaches the theory of <b>ribosome-limited antibiotic susceptibility</b> [Greulich–Scott 2015] — and the computational gap."); scrollMain("#scroll", "end"); } },
-    { ms: 13000, go: () => showSlide(CLASH) },
-    { ms: 18000, go: () => showSlide(CLOSING) },
+    { ms: 25000, v: "This is a whole-cell model of E. coli — arguably the most complete simulation in biology. From the genome, it computes a single cell's entire molecular life: sixteen thousand species, updated every second across a full cell cycle. It's extraordinary — and almost impossible to ask a question of. Doing that rigorously takes an expert days, and today's AI tools optimize for novelty, not truth.", go: () => showSlide(PROBLEM) },
+    { ms: 14000, v: "Cellarium is a glass box over that model. It turns a vague question into a falsifiable, pre-registered hypothesis — framed blind — then tests it against real simulations and the literature. Every number carries its provenance.", go: () => showSlide(VALUE) },
+    { ms: 33000, v: "Here's how it fits together. A vague question goes to a Socratic Council — Proposer, Skeptic, Judge — that operationalizes it into a falsifiable hypothesis, blind to the data. That hypothesis, with its falsifier, is handed to Cellwright: a grounded, tool-using agent that tests it against real runs — it reads, it never guesses. Behind it, a corpus of whole-cell runs and the live literature. And every verdict comes back with its provenance, and your gate before anything new runs.", go: () => showArch() },
+    { ms: 6500, v: "Two ways in — Investigations, a grounded chat; and Hypotheses, the Council.", go: async () => { say("The workspace", "Two surfaces: <b>Investigations</b> — grounded chat — and <b>Hypotheses</b> — the Council. One question, two ways to answer it."); closeHyp(); } },
+    { ms: 8000, v: "Mode one: the Council. It has to commit to a prediction before it sees any result.", go: async () => { say("Mode 1 · the Council frames it — blind", "The Socratic Council must <b>commit to a falsifiable prediction first</b>, never seeing a result."); if (councilId) { await openHyp(); await viewHypRun(councilId); } } },
+    { ms: 12000, v: "It commits: an aminoacyl-tRNA-synthetase knockout should raise ppGpp two-to-four-fold. And it locks in the falsifier — if ppGpp instead falls below eighty percent of wild type, the model is refuted.", go: async () => { say("Mode 1 · a pre-registered falsifier", "It commits: <b>argS raises ppGpp 2–4×</b>. Falsifier: <i>if ppGpp falls below 0.8× wildtype, the model is refuted.</i>"); scrollMain("#hypMain", "end"); } },
+    { ms: 8000, v: "That pre-registered hypothesis is handed to Cellwright, which tests it against real whole-cell runs.", go: async () => { say("Handoff → Cellwright grounds it", "The pre-registered hypothesis is handed to <b>Cellwright</b>, which tests it against real whole-cell runs."); if (argsSid) { closeHyp(); await openServerSession({ sid: argsSid, title: "Does an argS knockout raise or lower ppGpp versus wildtype?" }); } } },
+    { ms: 13000, v: "And the falsifier fires. In the corpus, ppGpp drops ninety percent — t of minus twenty-eight. The model is caught contradicting textbook biology, decisively — because the prediction was locked in first.", go: async () => { say("The falsifier fires", "The corpus: argS ppGpp = <b>6.45 vs 64.70 µM — down 90%, t = −27.85.</b> The model is <b>caught contradicting textbook biology, decisively.</b>"); scrollMain("#scroll", "end"); } },
+    { ms: 19000, v: "Mode two — ask Cellwright directly: does nitrate switch on the nitrate genes? First pass says yes. But it controls for the fact that nitrate also removes oxygen — and the answer flips. Those genes are the anaerobic response, not a nitrate switch. The control changes the finding.", go: async () => { say("Mode 2 · a direct question, and a control that flips it", "Ask Cellwright straight: does nitrate switch on the nitrate genes? First pass says yes — then it <b>controls for the anaerobic shift</b>, and the answer flips: narGHJI is the anaerobic confound, not a nitrate switch."); if (cwSid) { await openServerSession({ sid: cwSid, title: "Does nitrate switch on the nitrate-reductase genes?" }); scrollMain("#scroll", "end"); } } },
+    { ms: 9000, v: "Every chart is drawn from real simulation output, indexed to its run — every number clicks back to where it came from.", go: async () => { say("Grounded figures", "Charts are drawn from real simulation output and indexed with their provenance — every number is clickable back to its run."); if (figSid) await openServerSession({ sid: figSid, title: "" }); scrollMain("#scroll", "end"); } },
+    { ms: 9000, v: "The corpus: hundreds of whole-cell runs in a lightweight shard, with full-resolution raw traces streaming from Hugging Face on demand.", go: async () => { say("The corpus", "239 whole-cell runs in <b>DuckDB shards</b>; full-resolution raw simOut streams from <b>Hugging Face</b> on demand — the seed of an open corpus."); closeHyp(); openCorpus(); } },
+    { ms: 9000, v: "New experiments? Cellwright only proposes them — as drafts. Nothing simulates without your approval. Safety is a gate, not a footnote.", go: async () => { say("The launch airlock", "Cellwright <b>proposes</b> experiments as job drafts — nothing simulates without <b>your approval</b>. Safety is a gate, not a footnote."); closeCorpus(); openDrawer("queue"); } },
+    { ms: 8000, v: "And every interaction persists — a durable, queryable record of the model's reasoning, not a disposable chat.", go: async () => { say("A queryable record", "Every interaction persists in <b>SQLite</b> — a durable, analyzable record of the model's reasoning, not a disposable chat."); closeDrawers(); } },
+    { ms: 12000, v: "But the method does more than catch failures. Delete ribosomal-RNA operons, and Cellwright grounds a real dose-response: as operons go, ribosomes and growth fall together — and the cell survives.", go: async () => { say("Beyond catching failures — a lead", "A direct question — <b>delete rRNA operons</b> — grounds a dose-response and a real plot: ribosome content and growth fall together, the cell stays viable."); if (rrnaSid) { closeDrawers(); await openServerSession({ sid: rrnaSid, title: "Delete rRNA operons: the numbers-vs-efficiency clash" }); scrollMain("#scroll", 0); } } },
+    { ms: 12000, v: "The remaining operons compensate — exactly as Condon measured — with ppGpp flat. Then a live literature review reaches the theory of ribosome-limited antibiotic susceptibility, and a computational gap.", go: async () => { say("The clash, grounded", "The remaining operons compensate (Condon 1993), ppGpp stays flat — then a <b>live literature review</b> reaches the theory of <b>ribosome-limited antibiotic susceptibility</b> [Greulich–Scott 2015] — and the computational gap."); scrollMain("#scroll", "end"); } },
+    { ms: 26000, v: "Here's the payoff. Cutting ribosome numbers makes ribosomes and growth fall together — the opposite of Scott's second law, where impairing efficiency makes a cell over-build. That clash points to a regime confirmed in the wet lab but never simulated in a whole-cell model — one a colony-scale simulator like Vivarium could finally reach, opening antibiotic-potency prediction. The agent reasoned its way to the frontier.", go: () => showSlide(CLASH) },
+    { ms: 18000, v: "That's the vision — the Well, for the cell. A shareable whole-cell corpus for hypothesis testing and machine learning. And a blueprint: any large mechanistic model — climate, materials, epidemiology — could get the same glass box.", go: () => showSlide(CLOSING) },
   ];
 
-  const total = BEATS.reduce((a, b) => a + b.ms, 0); let elapsed = 0;
-  await wait(400);
-  for (const b of BEATS) {
-    if (stopped) return;
-    try { await b.go(); } catch (e) { /* a beat failing must not abort the reel */ }
-    barFill.style.width = (100 * (elapsed + b.ms) / total) + "%"; elapsed += b.ms;
-    await wait(b.ms);
+  // ---- controllable player (auto-advances; Prev/Next/Pause/Voice + keyboard drive it manually) ----
+  function setBtns() {
+    bPlay.textContent = paused ? "▶ Play" : "⏸ Pause";
+    bVoice.classList.toggle("on", voiceOn); bVoice.textContent = voiceOn ? "🔊 Voice" : "🔈 Voice";
+    bBeat.textContent = (idx + 1) + " / " + BEATS.length;
   }
-  if (!stopped) end();
+  function speak(text) {
+    if (!voiceOn || !text) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(text).replace(/<[^>]+>/g, ""));
+      u.rate = 1.0; u.pitch = 1.0;
+      const vs = speechSynthesis.getVoices();
+      u.voice = vs.find((v) => /en[-_]?US/i.test(v.lang) && /Google|Natural|Aria|Jenny|Samantha/i.test(v.name)) || vs.find((v) => /^en/i.test(v.lang)) || null;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function scheduleAdvance(ms) {
+    clearTimeout(timer); beatRemaining = ms; beatStartedAt = Date.now();
+    if (!paused) timer = setTimeout(() => { if (!stopped && !paused) next(); }, ms);
+  }
+  async function playBeat(i) {
+    const token = ++playToken; clearTimeout(timer); try { speechSynthesis.cancel(); } catch (e) {}
+    idx = i; setBtns();
+    try { await BEATS[i].go(); } catch (e) { /* a beat failing must not abort the reel */ }
+    if (token !== playToken || stopped) return;   // superseded by a newer nav, or ended
+    barFill.style.width = (100 * (i + 1) / BEATS.length) + "%";
+    speak(BEATS[i].v);
+    scheduleAdvance(BEATS[i].ms);
+  }
+  function next() { if (stopped) return; if (idx < BEATS.length - 1) playBeat(idx + 1); else end(); }
+  function prev() { if (stopped) return; playBeat(Math.max(0, idx - 1)); }
+  function pause() {
+    if (paused || stopped) return; paused = true; clearTimeout(timer);
+    beatRemaining = Math.max(300, beatRemaining - (Date.now() - beatStartedAt));
+    try { speechSynthesis.pause(); } catch (e) {} setBtns();
+  }
+  function resume() {
+    if (!paused || stopped) return; paused = false; beatStartedAt = Date.now();
+    timer = setTimeout(() => { if (!stopped && !paused) next(); }, beatRemaining);
+    try { speechSynthesis.resume(); } catch (e) {} setBtns();
+  }
+  function toggleVoice() {
+    voiceOn = !voiceOn;
+    if (voiceOn && !paused) speak(BEATS[idx].v); else { try { speechSynthesis.cancel(); } catch (e) {} }
+    setBtns();
+  }
+
+  await wait(400);
+  playBeat(0);
 }
 
 loadModels(); loadInvs(); renderSidebar(); refreshQueue(); updateSend(); loadServerSessions();

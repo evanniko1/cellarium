@@ -59,6 +59,17 @@ svg{display:block}
 .demo-stop{position:fixed; top:16px; right:16px; z-index:10002; border:1px solid var(--line); background:var(--card);
   color:var(--ink-2); font:inherit; font-size:12px; border-radius:20px; padding:5px 13px; cursor:pointer; opacity:.7}
 .demo-stop:hover{opacity:1}
+/* demo player controls (?demo=1): prev · play/pause · next · voice · beat counter */
+.demo-controls{position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:10002; display:flex;
+  align-items:center; gap:3px; background:var(--card); border:1px solid var(--line); border-radius:22px;
+  padding:4px 6px; box-shadow:0 6px 22px rgba(0,0,0,.16)}
+.demo-ctl{border:none; background:transparent; color:var(--ink-2); font:inherit; font-size:13px; border-radius:16px;
+  padding:5px 12px; cursor:pointer; transition:.12s; white-space:nowrap}
+.demo-ctl:hover{background:var(--line-2); color:var(--ink)}
+.demo-ctl.on{background:var(--clay-tint); color:var(--clay-ink); font-weight:600}
+.demo-ctl.beatno{color:var(--ink-3); font-size:11px; letter-spacing:.04em; padding:5px 8px; cursor:default;
+  font-variant-numeric:tabular-nums}
+.demo-ctl.beatno:hover{background:transparent; color:var(--ink-3)}
 /* demo presentation slides (?demo=1) */
 .demo-bar{position:fixed; top:0; left:0; right:0; height:3px; background:var(--line-2); z-index:10001}
 .demo-bar-fill{height:100%; width:0; background:var(--clay); transition:width .6s ease}
