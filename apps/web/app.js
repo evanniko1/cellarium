@@ -144,9 +144,9 @@ function parseToolOutput(content) {   // a tool_result block's content -> the to
   if (typeof s !== "string") return s;
   try { return JSON.parse(s); } catch { return { text: s }; }
 }
-function messagesToTurns(msgs) {   // agent message history -> the client turn shape {q, tools:[{tool,input,output}], answer}
+function messagesToTurns(msgs) {   // agent message history -> the client turn shape {q, tools:[{tool,input,output,reasoning}], answer}
   const turns = [], byId = {};   // byId: tool_use id -> its tool dict, so a later tool_result fills in .output
-  let cur = null;
+  let cur = null, pending = "";   // pending = assistant text since the last tool: the "why" for the next tool, else the final answer
   (msgs || []).forEach((m) => {
     const content = m.content;
     if (m.role === "user") {
@@ -155,14 +155,18 @@ function messagesToTurns(msgs) {   // agent message history -> the client turn s
         content.forEach((b) => { if (b && b.type === "tool_result" && byId[b.tool_use_id]) byId[b.tool_use_id].output = parseToolOutput(b.content); });
       } else {
         const q = typeof content === "string" ? content : (content || []).filter((b) => b && b.type === "text").map((b) => b.text).join("\n");
-        cur = { q: q, tools: [], answer: null }; turns.push(cur);
+        cur = { q: q, tools: [], answer: null }; turns.push(cur); pending = "";
       }
     } else if (m.role === "assistant") {
-      if (!cur) { cur = { q: "", tools: [], answer: null }; turns.push(cur); }
+      if (!cur) { cur = { q: "", tools: [], answer: null }; turns.push(cur); pending = ""; }
       const blocks = Array.isArray(content) ? content : [{ type: "text", text: String(content) }];
       blocks.forEach((b) => {
-        if (b.type === "text") cur.answer = (cur.answer || "") + (cur.answer ? "\n\n" : "") + b.text;
-        else if (b.type === "tool_use") { const d = { tool: b.name, input: b.input || {}, output: null }; cur.tools.push(d); byId[b.id] = d; }
+        // trailing text (after the last tool) is the answer; text BEFORE a tool is that tool's reasoning
+        if (b.type === "text") { pending += (pending ? "\n\n" : "") + b.text; cur.answer = pending; }
+        else if (b.type === "tool_use") {
+          const d = { tool: b.name, input: b.input || {}, output: null, reasoning: pending.trim() || null };
+          cur.tools.push(d); byId[b.id] = d; pending = ""; cur.answer = null;
+        }
       });
     }
   });
@@ -322,7 +326,7 @@ function assistantTurn(replay) {
   const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span><span class="st-timer"></span>`);
   const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), figSlot = el("div"), ansSlot = el("div");
   root.append(statusEl, noteSlot, hypSlot, trailSlot, figSlot, ansSlot);
-  $("#thread").appendChild(root); let line = null, liveEl = null, liveRaw = "";
+  $("#thread").appendChild(root); let trail = null, liveEl = null, liveRaw = "";
   const scroll = () => { if (root.isConnected) scrollBottom(); };   // a background stream must not scroll the current view
   const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); liveRaw = ""; } return liveEl.querySelector(".answer-body"); };
   const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; liveRaw = ""; } };
@@ -330,7 +334,8 @@ function assistantTurn(replay) {
     root,
     status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scroll(); },
     setTimer(t) { const e = statusEl.querySelector(".st-timer"); if (e) e.textContent = t; },
-    done() { statusEl.remove(); },
+    done() { statusEl.remove(); if (trail) trail.settle(); },
+    settle() { if (trail) trail.settle(); },
     note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
     text(delta) { const b = liveBody(); liveRaw += delta; b.innerHTML = md(liveRaw); scroll(); },   // live markdown as it streams
     hyp(v) {
@@ -339,7 +344,13 @@ function assistantTurn(replay) {
       if (v.claim) c.appendChild(el("div", "hc-claim", `<span class="lbl">Hypothesis</span>${esc(v.claim)}`));
       hypSlot.appendChild(c); scroll();
     },
-    tool(d) { dropLive(); if (!line) { const t = trailScaffold(); trailSlot.append(t.head, t.line); line = t.line; } line.appendChild(toolEl(d)); scroll(); },
+    tool(d) {
+      const why = (d.reasoning != null ? d.reasoning : liveRaw).trim();   // the reasoning that led here — was discarded by dropLive
+      dropLive();
+      if (!trail) { trail = trailScaffold(); trailSlot.appendChild(trail.wrap); }
+      trail.add(toolEl(d, why), d.tool);
+      scroll();
+    },
     figure(out, fid) {   // capture "was the user following?" before the figure grows the thread; re-pin once it lays out
       const stick = root.isConnected && nearBottom();
       figSlot.appendChild(figureEl(out, fid, () => { if (stick) scrollBottom(true); }));
@@ -361,8 +372,35 @@ function replayTurn(t) {
   if (t.hyp) a.hyp(t.hyp);
   (t.tools || []).forEach((d) => { if (isChart(d)) { d.fid = d.fid || nextFid(); a.figure(d.output, d.fid); } else a.tool(d); });
   if (t.answer != null) { a.answer({ answer: t.answer, trust: t.trust || {} }); if (t.model) a.badge(t.model, t.routed); }
+  a.settle();   // collapse a long tool-chain on a replayed/backfilled turn
 }
-function trailScaffold() { return { head: el("div", "trail-head", `<span class="label">Grounded reasoning</span><span class="sub">every number comes from a real run</span>`), line: el("div", "trail-line") }; }
+// A collapsible tool-chain: a wall of tool calls (a deep-dive can be 20+) would clamp the thread, so past 3 it
+// folds under a chevron header that names what ran. The reasoning that led to each call is surfaced (it used to
+// be discarded), so the trail reads as "why → what → result", not a stack of opaque rows. (CHEV_SVG defined below.)
+function trailScaffold() {
+  const wrap = el("div", "trail");
+  const head = el("div", "trail-head");
+  head.append(el("span", "trail-chev", CHEV_SVG), el("span", "label", "Grounded reasoning"), el("span", "trail-meta", ""));
+  const meta = head.querySelector(".trail-meta"), chev = head.querySelector(".trail-chev");
+  const line = el("div", "trail-line");
+  wrap.append(head, line);
+  let n = 0, userSet = false; const tally = new Map();
+  const collapsed = () => wrap.classList.contains("collapsed");
+  // swap the chevron GLYPH (> folded, v open) rather than CSS-rotate it — a DOM fact, immune to transform quirks
+  const applyChev = () => { chev.querySelector("path").setAttribute("d", collapsed() ? "M9 6l6 6-6 6" : "M6 9l6 6 6-6"); };
+  const summarize = () => {
+    const top = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => (v > 1 ? `${k}×${v}` : k));
+    meta.textContent = `${n} step${n === 1 ? "" : "s"}` + (collapsed() && n ? ` · ${top.join(", ")}${tally.size > 3 ? " +" + (tally.size - 3) : ""}` : "");
+  };
+  applyChev();
+  head.onclick = () => { userSet = true; wrap.classList.toggle("collapsed"); applyChev(); summarize(); };
+  const fold = () => { if (n > 3 && !userSet) wrap.classList.add("collapsed"); applyChev(); summarize(); };
+  return {
+    wrap, line,
+    add(elm, name) { line.appendChild(elm); n++; tally.set(name, (tally.get(name) || 0) + 1); fold(); },
+    settle: fold,
+  };
+}
 
 // ---------------- grounded charts: a lightweight Vega-Lite subset renderer (line + bar), no heavy dependency ----------------
 const CHART_COLORS = ["#C96442", "#3E6E9E", "#4F8A5B", "#B27E2A", "#7d5ba6", "#B4483C"];
@@ -534,11 +572,15 @@ function verdictOf(o) {
   if ("status" in o) return String(o.status);
   return "";
 }
-function toolEl(d) {
+function toolEl(d, reasoning) {
+  const entry = el("div", "tool-entry");
+  if (reasoning) entry.appendChild(el("div", "tool-why", inlineMd(trunc(reasoning, 300))));   // the "why", now surfaced
   const t = el("details", "tool"), v = verdictOf(d.output), arg = trunc(JSON.stringify(d.input), 50).replace(/^\{|\}$/g, "");
   if ((d.tool === "propose_experiment" || d.tool === "revise_experiment") && d.output && d.output.request_id) t.id = "job-" + d.output.request_id;   // backlink target for the launch queue
   t.appendChild(el("summary", null, `<span class="tname">${esc(d.tool)}</span><span class="targ">${esc(arg)}</span>` + (v ? `<span class="verdict">${esc(trunc(v, 22))}</span>` : "")));
-  t.appendChild(el("pre", null, esc(JSON.stringify(d.output, null, 2)))); return t;
+  t.appendChild(el("pre", null, esc(JSON.stringify(d.output, null, 2))));
+  entry.appendChild(t);
+  return entry;
 }
 const TRUST_CLASS = (v) => { v = String(v).toLowerCase(); if (/flag/.test(v)) return "bad"; if (/under-powered|challenged|refuted|dead|infeasible/.test(v)) return "warn"; if (/out_of_sample|survived|powered|clear/.test(v)) return "good"; return ""; };
 function trustEl(sig) { const box = el("div", "trust"); Object.keys(sig).forEach((k) => box.appendChild(el("div", "tchip " + TRUST_CLASS(sig[k]), `<span class="k">${esc(k)}</span><span class="v">${esc(trunc(String(sig[k]), 24))}</span>`))); return box; }
