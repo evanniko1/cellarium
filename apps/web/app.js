@@ -1287,7 +1287,7 @@ async function runDemo() {
     argsSid = byTitle(/args knockout raise or lower/i);
     cwSid = byTitle(/well-fed, oxygen-rich|throw away carbon|survey the whole corpus/i);
     figSid = byTitle(/no_oxygen condition|plot how growth/i) || cwSid;
-    rrnaSid = byTitle(/reducing rRNA operon number/i) || byTitle(/ribosomal-RNA o/i);
+    rrnaSid = byTitle(/numbers-vs-efficiency clash/i) || byTitle(/reducing rRNA operon number/i);
   } catch (e) { /* proceed with whatever resolved */ }
 
   const PROBLEM = `<div class="ds-eyebrow">The problem</div>
@@ -1335,19 +1335,14 @@ async function runDemo() {
       regimes unsupported (or absent) in wet-lab literature.</p>
     </div>`;
   const CLASH = `<div class="ds-eyebrow">The success story</div>
-    <div class="ds-title">A clash with theory that led somewhere</div>
-    <div class="ds-body">
-      <p>Delete ribosomal-RNA operons and the model's cell loses ribosomes but stays <b>viable</b> — the remaining
-      operons compensating (per-operon output <b>1.6×→3.3×</b>, ppGpp flat), exactly Condon's feedback
-      [Condon&nbsp;1993]. But this <b>numbers</b> axis clashes with <b>Scott's second law</b>: impair ribosome
-      <i>efficiency</i> (chloramphenicol) and a cell <i>over-builds</i> ribosomes to cope. Cut the <i>numbers</i>
-      and it cannot.</p>
-      <p>The clash frames a wet-lab experiment — cap the numbers <b>and</b> jam the efficiency → a synergistic
-      collapse — and a grounded literature search names it: the <b>Numbers Game</b> [Levin&nbsp;2017].
-      Experimentally confirmed, yet <b>never shown computationally</b>.</p>
-      <p class="ds-next"><b>The lead:</b> reproduce it in a wcEcoli colony via <b>Vivarium</b> [Agmon&nbsp;2022;
-      Skalnik&nbsp;2023] — opening antibiotic-potency prediction from a cell's ribosome-allocation state. The method
-      didn't just catch the model failing; it produced a research lead.</p>
+    <div class="ds-title">A clash that led somewhere</div>
+    <div class="ds-body ds-lead">
+      <p>Cut ribosome <b>numbers</b> and ribosomes and growth fall together — but Scott's second law says impairing
+      <b>efficiency</b> makes a cell <i>over-build</i>. That clash framed an experiment, and a grounded search named
+      it: the <b>Numbers Game</b> [Levin&nbsp;2017].</p>
+      <p class="ds-next"><b>The lead:</b> confirmed in the wet lab, yet <b>never shown computationally</b> — a clean
+      Vivarium validation target [Agmon&nbsp;2022; Skalnik&nbsp;2023], opening antibiotic-potency prediction. The
+      method produced a research lead, not just a verdict.</p>
     </div>`;
 
   const showArch = () => {
@@ -1374,8 +1369,9 @@ async function runDemo() {
     { ms: 9000, go: async () => { say("The corpus", "239 whole-cell runs in <b>DuckDB shards</b>; full-resolution raw simOut streams from <b>Hugging Face</b> on demand — the seed of an open corpus."); closeHyp(); openCorpus(); } },
     { ms: 8000, go: async () => { say("The launch airlock", "Cellwright <b>proposes</b> experiments as job drafts — nothing simulates without <b>your approval</b>. Safety is a gate, not a footnote."); closeCorpus(); openDrawer("queue"); } },
     { ms: 8000, go: async () => { say("A queryable record", "Every interaction persists in <b>SQLite</b> — a durable, analyzable record of the model's reasoning, not a disposable chat."); closeDrawers(); } },
-    { ms: 9000, go: async () => { say("Beyond catching failures — a lead", "Cellwright's standout: delete rRNA operons, ground the numbers in real runs — and a clash with textbook theory emerges."); if (rrnaSid) { closeDrawers(); await openServerSession({ sid: rrnaSid, title: "Does reducing rRNA operon number lower maximum growth rate relative to the 7-operon wildtype?" }); scrollMain("#scroll", "end"); } } },
-    { ms: 28000, go: () => showSlide(CLASH) },
+    { ms: 10000, go: async () => { say("Beyond catching failures — a lead", "A direct question — <b>delete rRNA operons</b> — grounds a dose-response and a real plot: ribosome content and growth fall together, the cell stays viable."); if (rrnaSid) { closeDrawers(); await openServerSession({ sid: rrnaSid, title: "Delete rRNA operons: the numbers-vs-efficiency clash and the Numbers Game" }); scrollMain("#scroll", 0); } } },
+    { ms: 10000, go: async () => { say("The clash, grounded", "The remaining operons compensate (Condon 1993), ppGpp stays flat — then a <b>live literature review</b> names the clash with Scott's law: the <b>Numbers Game</b> [Levin 2017]."); scrollMain("#scroll", "end"); } },
+    { ms: 13000, go: () => showSlide(CLASH) },
     { ms: 18000, go: () => showSlide(CLOSING) },
   ];
 
