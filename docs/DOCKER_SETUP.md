@@ -106,3 +106,64 @@ Most questions are answered by the committed shards with no Docker at all. For f
 already‑run design can be pulled from the HF dataset (`evanniko1/cellarium-corpus`) instead of regenerated —
 Cellwright does this itself via `data_availability` → `download_raw` (gated on size). Docker/ParCa is only for
 runs that are **not** already in the corpus or on HF.
+
+---
+
+## Deep dives on existing raw — the *reader* path (no new sims)
+
+This is the workflow for gene‑level questions on a design that already exists: **`top_movers`**,
+**`regulon_response`**, **`exchange_flux`**, **`read_species`**, **`read_raw_series`**, **`differential`**. These
+read per‑cell listener tables (`MonomerCounts`, `BulkMolecules`, `FBAResults`, …) that the distilled shard does
+not carry, so they need two things — the **raw on disk** and the **model's TableReader** to parse it. Running new
+simulations is *not* required.
+
+**Three tiers of question** (only the third needs this setup):
+
+| Tier | Tools | Needs |
+|---|---|---|
+| Shard | `list_results`, `disconfirm`, `differential` (pathway sectors), `viability`, `fit_relation` | committed Parquet only — **no download, no Docker** |
+| Panel raw | `read_series`, `read_species` on panel species | shard trajectory (often no Docker) |
+| **Full raw** | `top_movers`, `regulon_response`, `exchange_flux`, per‑protein `differential` | **raw simOut local + a reader backend** |
+
+**Step 1 — get the raw local.** For a design that's on HF, pull it (gated on size; ~5 GB/seed):
+
+```bash
+# from Cellwright, or directly:
+python - <<'PY'
+from cellarium import hf
+print(hf.download_plan("condition/plus_nitrate"))          # shows n_to_pull + est_gb, downloads nothing
+print(hf.download_raw("condition/plus_nitrate", confirm=True))  # pulls + extracts into runs/
+PY
+```
+
+> **Only part of the corpus is on HF.** A curated subset of run archives is uploaded (the rest live only as the
+> shard). `download_plan` tells you honestly: `n_to_pull>0` and `not_on_hf=[]` means it's pullable; a non‑empty
+> `not_on_hf` means that design was never uploaded — regenerate it (§1–5) or pick another. **Locality is judged
+> by actual simOut presence** (`hf._full_simout_local` checks `…/simOut/MonomerCounts`), so a half‑extracted or
+> remnant run dir correctly reports as *not* local and is re‑pulled, rather than silently blocking the reader.
+
+**Step 2 — point Cellarium at the reader image.** The listener tables are read *inside* the model image (the
+`wholecell` TableReader lives there, not in Cellarium's venv). Set the same image you'd use for sims:
+
+```bash
+export WCECOLI_DOCKER=wcecoli-sim        # or wcecoli-sim:multiko — either carries the TableReader
+export CELLARIUM_OUT="$(pwd)/runs"       # where the raw was extracted
+```
+
+Without this, the reader tools fail with `reader worker produced no JSON` /
+`ModuleNotFoundError: No module named 'wholecell'` — that's the missing backend, **not** missing data. (Native
+fallback: unset `WCECOLI_DOCKER`, set `WCECOLI_DIR=/path/to/wcEcoli` with `wholecell` importable.)
+
+**Worked example — a regulon prediction on an out‑of‑sample stimulus:**
+
+```bash
+export WCECOLI_DOCKER=wcecoli-sim
+python - <<'PY'
+from cellarium import tools
+# does nitrate drive the nar regulon? control against the anaerobic (no_oxygen) reference
+print(tools.regulon_response("nar_nitrate", "condition/plus_nitrate", "condition/no_oxygen"))
+PY
+```
+
+This is exactly how the report's nitrate and arabinose findings were produced: raw already local, read through
+`wcecoli-sim`, no new simulation.

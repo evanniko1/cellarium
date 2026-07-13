@@ -25,6 +25,23 @@ SHARD_ANSWERS = "panel-species terminal+coarse trajectory, summary channels, via
 NEEDS_RAW = "arbitrary (non-panel) species, full-resolution trajectories, FBA reaction/exchange fluxes"
 
 
+def _full_simout_local(simout_path: str | None) -> bool:
+    """True only when a run's raw simOut is ACTUALLY on disk — it has at least one `.../simOut/MonomerCounts`
+    listener — not merely that the run's top directory exists.
+
+    Why this exists: download_plan / data_availability used a bare `Path.exists()`, which counts a *remnant* run
+    dir (e.g. `design.json` only, or an interrupted extract) as 'local'. That made `download_raw` refuse a
+    legitimate pull (`n_to_pull=0`, "already local") while the gene-level reader tools — which need the listener
+    tables under `simOut/` — failed. MonomerCounts is the table the protein tools (top_movers / regulon_response)
+    read; a run that wrote it is complete enough to deep-dive. This is the honest 'is it readable' check."""
+    if not simout_path:
+        return False
+    root = Path(simout_path)
+    if not root.exists():
+        return False
+    return any((so / "MonomerCounts").is_dir() for so in root.glob("**/simOut"))
+
+
 def _hf_rel(simout_path: str | None) -> str | None:
     """A run's local path -> its PORTABLE path inside the HF dataset. Derived from the '/cellarium/' suffix (the
     sim_path root), so it resolves for cloners and HF regardless of the absolute prefix or output root — NOT
@@ -81,7 +98,7 @@ def download_plan(design: str) -> dict:
     for r in seeds:
         path = store.simout_path(r["id"])
         rel = _hf_rel(path)
-        local = bool(path and Path(path).exists())
+        local = _full_simout_local(path)   # ACTUAL simOut present, not just the run dir (a remnant is NOT local)
         want.append({"result_id": r["id"], "seed": r.get("seed"), "hf_path": rel, "local": local})
     need = [w for w in want if w["hf_path"] and not w["local"]]
     sizes = _repo_sizes([w["hf_path"] for w in need]) if need else {}
@@ -154,7 +171,7 @@ def data_availability(result_id: str) -> dict:
     path = store.simout_path(result_id)
     design = next((r for r in store.list_results() if r.get("id") == result_id), {})
     rel = _hf_rel(path)
-    raw_local = bool(path and Path(path).exists())
+    raw_local = _full_simout_local(path)   # honest: a remnant run dir without simOut is NOT deep-diveable
     available = HF_HAS_RAW and rel is not None      # only 'available' once the raw corpus is actually uploaded
     download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}' --local-dir {OUT_ROOT.parent} && "
                 f"tar xzf '{OUT_ROOT.parent}/{rel}' -C '{OUT_ROOT}'"

@@ -63,3 +63,40 @@ def test_dispatch_routes_data_availability():
     out = tools.dispatch("data_availability", {"result_id": rows[0]["id"]})
     assert out.get("error") != "unknown tool 'data_availability'"       # registered in _DISPATCH
     assert "alternatives" in out
+
+
+def test_full_simout_local_distinguishes_remnant_from_complete(tmp_path):
+    """'local' must mean the raw simOut is actually readable, not that a run DIR merely exists. A remnant dir
+    (design.json / an interrupted extract) is NOT local; a dir carrying .../simOut/MonomerCounts IS. This is what
+    the gene-level reader tools (top_movers / regulon_response) require."""
+    remnant = tmp_path / "cellarium" / "condition_000999" / "000000"
+    (remnant / "generation_000000").mkdir(parents=True)                 # exists, but NO simOut
+    (remnant / "design.json").write_text("{}", encoding="utf-8")
+    assert hf._full_simout_local(str(remnant)) is False
+
+    complete = tmp_path / "cellarium" / "condition_000998" / "000000"
+    (complete / "generation_000000" / "000000" / "simOut" / "MonomerCounts").mkdir(parents=True)
+    assert hf._full_simout_local(str(complete)) is True
+
+    assert hf._full_simout_local(None) is False                         # never crashes on missing input
+    assert hf._full_simout_local(str(tmp_path / "does_not_exist")) is False
+
+
+def test_download_plan_counts_a_remnant_dir_as_pullable(tmp_path, monkeypatch):
+    """The planner bug this fixes: a remnant run dir (no simOut) was called 'local', so download_raw returned
+    n_to_pull=0 ('already local') and refused a legitimate pull while the reader tools failed. With the
+    full-simOut check the remnant is correctly pull-able when on HF — and becomes 'local' only once complete."""
+    remnant = tmp_path / "cellarium" / "gk_x" / "000000"
+    (remnant / "generation_000000").mkdir(parents=True)                 # exists, but NO simOut
+    monkeypatch.setattr(hf, "_design_seeds", lambda d: [{"id": "r0", "seed": 0}])
+    monkeypatch.setattr(hf.store, "simout_path", lambda rid: str(remnant))
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {p: 5_000_000_000 for p in paths})   # on HF, 5 GB
+
+    plan = hf.download_plan("gk/x")
+    assert plan["n_local"] == 0 and plan["n_to_pull"] == 1              # remnant is NOT local -> pull offered
+    assert plan["est_gb"] == 5.0 and plan["not_on_hf"] == []
+
+    # once the simOut is actually present, the planner correctly calls it local and offers no pull
+    (remnant / "generation_000000" / "000000" / "simOut" / "MonomerCounts").mkdir(parents=True)
+    plan2 = hf.download_plan("gk/x")
+    assert plan2["n_local"] == 1 and plan2["n_to_pull"] == 0
