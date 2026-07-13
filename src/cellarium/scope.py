@@ -17,7 +17,8 @@ The three regimes matter for KO experiments (see classify_gene): metabolic singl
 machinery single-KOs CRASH the sim (not a clean phenotype), and only GRADED capacity perturbations
 (rrna_operon_knockout, ppgpp_conc) yield measurable, interpretable dose-responses. Note: the 89 detected genes
 are the core structural machinery; soluble translation factors (EF-Tu/EF-G/IF/RF) have no dedicated molecule
-group and are not flagged. Classification comes from gene_scope.json (dumped via the gene_scope worker; gitignored).
+group and are not flagged. Classification comes from gene_scope.json (dumped via the gene_scope worker; COMMITTED,
+since it is model-derived but not regenerable without Docker + sim_data, and the KO/launch path needs it).
 
 Each gene also carries a GROUND-TRUTH essentiality flag (`essential_reference`) from an external benchmark (Baba
 2006 Keio + Joyce 2006, glucose-minimal — wcEcoli's own validation set), and `classify_gene` reports a `benchmark`
@@ -42,8 +43,9 @@ def _scope() -> dict:
 
 
 def cache_status() -> dict:
-    """C3 staleness guard: gene_scope.json is gitignored and built from sim_data — if the model was recompiled
-    (kb newer than the cache) the classification is STALE and must be rebuilt (gene_scope worker). Cheap mtime check."""
+    """C3 staleness guard: gene_scope.json is committed but built from sim_data — if the model was recompiled
+    (kb newer than the cache) the classification is STALE and must be rebuilt (gene_scope worker). Cheap mtime check.
+    On a fresh clone with no local sim_data the kb is absent, so stale=False — the committed cache is authoritative."""
     if not SCOPE_CACHE.exists():
         return {"cached": False, "stale": True, "note": "no gene_scope cache — build it via the gene_scope worker."}
     out_root = Path(os.environ.get("CELLARIUM_OUT", "runs"))
