@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Callable
 
 from . import instrument
@@ -451,10 +452,17 @@ _SUFFICIENCY_SYS = (
     "instrument's CAPABILITIES (dial_labels — the perturbations it can run and the channels it can read) and the "
     "question. You NEVER see data, results, or any reading, and you must not guess them.\n"
     "SUFFICIENT if a competent scientist could, from the question ALONE, recover: (i) a manipulation the instrument "
-    "can run (a perturbation / gene / condition), (ii) an observable channel to measure, and (iii) an implicit "
-    "comparison or contrast. If all three are recoverable, sufficient=true and emit no questions.\n"
-    "INSUFFICIENT if the question is too broad ('what happens to the cell?'), names no measurable target, or admits "
-    "many unrelated decisive tests. Then sufficient=false and emit 1-2 SCOPE-ONLY clarifying questions. A clarifying "
+    "can run (a perturbation / gene / condition), (ii) a measurable observable, and (iii) an implicit comparison or "
+    "contrast. If all three are recoverable, sufficient=true and emit no questions. Be GENEROUS on the observable: a "
+    "PHENOTYPE-level target ('viability', 'growth', 'survival', 'does it still divide') is sufficient — mapping it to "
+    "the exact channel (division_rate, growth_rate) is the Council's operationalization job downstream, NOT a "
+    "precondition you demand at intake. Do not park a question just because it names 'viability' instead of a channel. "
+    "A knockout implies its wildtype comparison, so do not demand the comparison be spelled out either. Example "
+    "(SUFFICIENT): 'Is the lpxC knockout's viability consistent with essentiality, vs wildtype?' — manipulation lpxC "
+    "KO, observable viability, comparison wildtype: all recoverable, sufficient=true.\n"
+    "INSUFFICIENT ONLY if the question is genuinely open ('what happens to the cell?', 'tell me about metabolism'), "
+    "names no manipulation, names no measurable target, or admits many unrelated decisive tests. Then sufficient=false "
+    "and emit 1-2 SCOPE-ONLY clarifying questions. A clarifying "
     "question asks the user to SPECIFY (which gene or perturbation? which observable channel? compared to what?). It "
     "is a request for specification, NOT a hint: NEVER suggest what the finding might be, never name the "
     "'interesting' answer, never steer toward a particular hypothesis. You are choosing the QUESTION's scope, never "
@@ -475,12 +483,55 @@ _SUFFICIENCY_TOOL = {
 }
 
 
+# --- deterministic pre-pass: make the gate PREDICTABLE, not just less strict -------------------------------
+# The over-firing bug was miscalibration: the LLM demanded a manifest CHANNEL name (division_rate) when the
+# question already gave a phenotype-level observable (viability) — the channel is the Council's operationalization
+# job, not an intake precondition. Whitelisting "viability" would only patch one case; worse, an LLM gate fires
+# unpredictably (you never know which legit question it will park next — the real risk to the demo/platform).
+# The fix is a deterministic short-circuit: a question that already names a runnable MANIPULATION and a measurable
+# OBSERVABLE is specified enough BY CONSTRUCTION, so it PASSES here without ever touching the model. Only genuinely
+# open questions (no manipulation, or no observable — "what happens to the cell?") fall through to the LLM. So the
+# gate's firing set is now knowable up-front and testable offline (test_sufficiency_prepass), not a model roll.
+_GENE_RE = re.compile(r"\b[a-z]{2,4}[A-Z][A-Za-z]?\d?\b")   # E. coli gene symbols: pfkA, lpxC, argS, acrB, relA
+_PERTURB_CUES = (
+    "knock", "ko ", " ko", "delete", "deletion", "disrupt", "clamp", "operon", "overexpress",
+    "over-express", "supplement", "starve", "deplete", "anaerobic", "aerobic", "oxygen", "acetate",
+    "glucose", "minimal media", "rich media", "media shift", "condition", "perturb", "mutant", "shift",
+)
+_PHENOTYPE_CUES = (   # phenotype-level observables that map onto channels (the LLM wrongly demanded the channel)
+    "grow", "growth", "divid", "division", "viab", "essential", "surviv", "lethal", "dead", " die",
+    "doubling", "yield", "phenotype", "abundance", "concentration", " level", "flux", " rate", "express",
+)
+
+
+def _channel_stems() -> set[str]:
+    """Observable tokens straight from the instrument's own channels — stays in sync with CHANNELS, so a new
+    channel is recognized without editing a second list. e.g. growth, ppgpp, ribosome, trna, division, mass."""
+    return {tok for name in instrument.channel_names() for tok in name.split("_") if len(tok) >= 3}
+
+
+def looks_specific(question: str) -> bool:
+    """Deterministic sufficiency: does the question already name a runnable MANIPULATION (a gene symbol or a
+    perturbation cue) AND a measurable OBSERVABLE (a channel token or a phenotype word)? If so it is testable by
+    construction and needs no clarification — regardless of whether the exact channel/condition is spelled out."""
+    q = " " + question.lower() + " "
+    has_manip = bool(_GENE_RE.search(question)) or any(c in q for c in _PERTURB_CUES)
+    has_obs = any(c in q for c in _PHENOTYPE_CUES) or any(s in q for s in _channel_stems())
+    return has_manip and has_obs
+
+
 def sufficiency_gate(question: str, *, client=None, models: dict | None = None, labels: dict | None = None) -> dict:
     """The scope-only sufficiency gate. BEFORE deliberating, decide — blind to the corpus (only the instrument's
     capabilities + the question) — whether the question is specified enough to yield a decisive, falsifiable
     hypothesis. If not, return SCOPE-ONLY clarifying questions that ask the user to specify, never a hint at the
     answer. Same quarantine boundary as the Council (instrument.dial_labels carries capabilities, no readings), so
     no answer can leak out. Returns {sufficient, missing, clarifying_questions, rationale}."""
+    # Deterministic short-circuit: a question naming a manipulation + an observable is sufficient by construction,
+    # so it never reaches the (nondeterministic) model. This is what makes the gate predictable — the ONLY inputs
+    # that can be parked are those that fail looks_specific, which is a pure, offline-testable function.
+    if looks_specific(question):
+        return {"sufficient": True, "missing": [], "clarifying_questions": [],
+                "rationale": "names a runnable manipulation and a measurable observable (deterministic pre-pass)."}
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
         import anthropic
@@ -488,8 +539,10 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
     # ONE cheap classification call (not a deliberation) — pin a small fast model; specification-adequacy + scope-only
     # clarifying questions don't need a frontier model. Overridable; tests pass their own `models`.
     model = (models or {}).get("judge") or os.environ.get("CELLARIUM_GATE_MODEL") or "claude-haiku-4-5-20251001"
+    # temperature=0: the residual (genuinely-ambiguous) cases must not flip verdict run-to-run — reproducibility is
+    # part of the predictability contract. The pre-pass already handles every clearly-specified question above.
     out = _emit(client, model, _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
-                {"question": question, "dial_labels": labels}, max_tokens=1024)
+                {"question": question, "dial_labels": labels}, max_tokens=1024, temperature=0.0)
     return {"sufficient": bool(out.get("sufficient", True)),   # fail-open: a degenerate emit must not block a run
             "missing": [m for m in (out.get("missing") or []) if isinstance(m, str)],
             "clarifying_questions": [q for q in (out.get("clarifying_questions") or []) if isinstance(q, str)][:2],

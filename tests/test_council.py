@@ -309,6 +309,41 @@ def test_sufficiency_gate_challenges_vague_question_scope_only():
     assert ok["sufficient"] is True and ok["clarifying_questions"] == []
 
 
+def test_sufficiency_prepass_never_parks_a_specified_question():
+    """The over-firing fix. A question naming a runnable MANIPULATION + a measurable OBSERVABLE is sufficient by
+    construction, so the gate short-circuits WITHOUT the model — the LLM (which fires unpredictably) is never even
+    consulted. A client whose .create() explodes proves it: if any of these reached the model, the test would error.
+    This is the battery the gate historically over-parked (lpxC, glycolysis, rRNA)."""
+    class _Boom:
+        class messages:
+            @staticmethod
+            def create(**k):
+                raise AssertionError("a specified question must be short-circuited, never sent to the model")
+
+    specified = [
+        "Is the lpxC knockout's simulated viability consistent with essentiality, vs wildtype?",  # historically PARKED
+        "Do glycolysis knockouts reroute flux or cost growth?",                                    # historically PARKED
+        "Does reducing rRNA operon dosage cap max growth?",                                        # historically PARKED
+        "Does knocking out pfkA reduce growth rate versus wildtype?",
+        "Does argS knockout raise or lower ppGpp?",
+        "Does clamping ppGpp to 2x reduce growth?",
+    ]
+    for q in specified:
+        out = council.sufficiency_gate(q, client=_Boom(), labels={})
+        assert out["sufficient"] is True and out["clarifying_questions"] == [], q
+
+
+def test_sufficiency_prepass_lets_genuinely_open_questions_reach_the_gate():
+    """The pre-pass short-circuits ONLY specified questions; a genuinely open one (no manipulation or no observable)
+    still falls through to the LLM gate, which is the only path that can park. This bounds the firing set."""
+    assert council.looks_specific("does a pfkA knockout stop division?") is True
+    assert council.looks_specific("clamp ppGpp and watch growth") is True
+    # open — no manipulation named -> reaches the model
+    assert council.looks_specific("what happens to the cell?") is False
+    assert council.looks_specific("tell me about metabolism") is False
+    assert council.looks_specific("is the model any good?") is False
+
+
 def test_objection_resolution_is_tracked_per_objection():
     """Per-objection resolution: the skeptic (who raised it) certifies which prior objections the revision resolves.
     An objection raised in round 1 that the round-2 skeptic marks resolved must carry resolved_round=2 in the
