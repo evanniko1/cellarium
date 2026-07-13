@@ -1285,8 +1285,8 @@ async function runDemo() {
     const sess = (await (await fetch("/api/sessions")).json()).sessions || [];
     const byTitle = (re) => (sess.find((s) => re.test(s.title || "")) || {}).sid;
     argsSid = byTitle(/args knockout raise or lower/i);
-    cwSid = byTitle(/well-fed, oxygen-rich|throw away carbon|survey the whole corpus/i);
-    figSid = byTitle(/no_oxygen condition|plot how growth/i) || cwSid;
+    cwSid = byTitle(/nitrate-reductase genes/i) || byTitle(/well-fed, oxygen-rich|throw away carbon|survey the whole corpus/i);
+    figSid = byTitle(/no_oxygen condition|plot how growth/i) || byTitle(/numbers-vs-efficiency clash/i);
     rrnaSid = byTitle(/numbers-vs-efficiency clash/i) || byTitle(/reducing rRNA operon number/i);
   } catch (e) { /* proceed with whatever resolved */ }
 
@@ -1364,7 +1364,7 @@ async function runDemo() {
     { ms: 9500, go: async () => { say("Mode 1 · a pre-registered falsifier", "It commits: <b>argS raises ppGpp 2–4×</b>. Falsifier: <i>if ppGpp falls below 0.8× wildtype, the model is refuted.</i>"); scrollMain("#hypMain", "end"); } },
     { ms: 8000, go: async () => { say("Handoff → Cellwright grounds it", "The pre-registered hypothesis is handed to <b>Cellwright</b>, which tests it against real whole-cell runs."); if (argsSid) { closeHyp(); await openServerSession({ sid: argsSid, title: "Does an argS knockout raise or lower ppGpp versus wildtype?" }); } } },
     { ms: 11000, go: async () => { say("The falsifier fires", "The corpus: argS ppGpp = <b>6.45 vs 64.70 µM — down 90%, t = −27.85.</b> The model is <b>caught contradicting textbook biology, decisively.</b>"); scrollMain("#scroll", "end"); } },
-    { ms: 9000, go: async () => { say("Mode 2 · Cellwright, directly", "Skip the Council and ask Cellwright straight. It still <b>grounds every claim in real runs</b> — reading the corpus, not guessing."); if (cwSid) await openServerSession({ sid: cwSid, title: "" }); } },
+    { ms: 11000, go: async () => { say("Mode 2 · a direct question, and a control that flips it", "Ask Cellwright straight: does nitrate switch on the nitrate genes? First pass says yes — then it <b>controls for the anaerobic shift</b>, and the honest answer changes to repression."); if (cwSid) { await openServerSession({ sid: cwSid, title: "Does nitrate switch on the nitrate-reductase genes?" }); scrollMain("#scroll", "end"); } } },
     { ms: 8500, go: async () => { say("Grounded figures", "Charts are drawn from real simulation output and indexed with their provenance — every number is clickable back to its run."); if (figSid) await openServerSession({ sid: figSid, title: "" }); scrollMain("#scroll", "end"); } },
     { ms: 9000, go: async () => { say("The corpus", "239 whole-cell runs in <b>DuckDB shards</b>; full-resolution raw simOut streams from <b>Hugging Face</b> on demand — the seed of an open corpus."); closeHyp(); openCorpus(); } },
     { ms: 8000, go: async () => { say("The launch airlock", "Cellwright <b>proposes</b> experiments as job drafts — nothing simulates without <b>your approval</b>. Safety is a gate, not a footnote."); closeCorpus(); openDrawer("queue"); } },
