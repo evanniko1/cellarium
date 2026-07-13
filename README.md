@@ -9,7 +9,6 @@ your approval. Every number rides with its provenance. The agent never launches 
 > model it runs on is obtained separately under Stanford's academic license (see [License](#license)).
 
 Whole-cell models compute the *dynamic, regulatory, single-cell* behaviour of a living cell from first
-<<<<<<< HEAD
 principles — the regime that steady-state flux-balance analysis and human intuition can't reach. But they are
 locked behind deep expertise, a heavy compute stack, and long run times. Cellarium is a small agentic
 workbench that lets a scientist ask a question in plain English and get back a **grounded** answer — every
@@ -26,13 +25,8 @@ hypothesis* and *how you test it*:
      to simulate (e.g. a mid-run carbon-source switch), and says why.
    - **Output QC** — inspects each simulated generation and withholds any degenerate / non-viable result
      instead of laundering it into a clean-looking number.
-=======
-principles — the regime steady-state flux-balance analysis and human intuition can't reach. But they're locked
-behind deep expertise, a heavy compute stack, and long run times. Cellarium turns one into something you can
-interrogate — honestly.
 
 ## What makes it more than a chatbot
->>>>>>> origin/main
 
 - **Blind hypothesis generation (the control).** Before any data is read, a Socratic Council — *Proposer →
   Skeptic → Judge* — operationalizes the question into a falsifiable hypothesis with a single decisive test and
@@ -46,7 +40,6 @@ interrogate — honestly.
 - **Human-in-the-loop, biosecurity-gated.** New experiments go to an approval airlock; a misuse screen gates
   every design. The agent proposes; a human runs.
 
-<<<<<<< HEAD
 ## The Socratic Council — from a vague question to a falsifiable hypothesis
 
 *Full design and rationale: [docs/SOCRATIC_COUNCIL.md](docs/SOCRATIC_COUNCIL.md); evaluation:
@@ -123,25 +116,6 @@ replication, and grounding *while* testing — **catching the failure modes a sc
 That rigor layer is a specialization of the reviewer-agent pattern applied to systems-biology *modelling* — a
 domain a scientific AI workbench does not yet cover.
 
-## Architecture (minimal vertical slice)
-
-```
-src/cellarium/
-  council.py     the Socratic Council: proposer/skeptic/judge debate loop   (discovery stage)
-  hypothesis.py  first-class Hypothesis type (H1/H0, operational defs, executable falsifier, rivals)
-  instrument.py  "dial labels" adapter — the quarantine boundary (capabilities, never readings)
-  envelope.py    validated-perturbation envelope check    (feasibility guardrail)
-  qc.py          per-generation output QC                  (integrity guardrail)
-  model.py       thin backend adapter (cached + live hook to the public wcEcoli model)
-  tools.py       grounded read tools exposed to the agent
-  agent.py       Claude (Anthropic Messages API) tool-using loop  (justification stage)
-  cli.py         run a question end-to-end (Council -> agent)
-evals/           literature-grounded Council evaluation harness + results
-paper/           the Socratic Council paper (build + figures)
-ui/index.html    Claude-Science-style demo interface
-data/cache/      cached demo simulation results (reproducible, fast)
-docs/DEMO.md     the demo script
-=======
 ## Architecture
 
 Two layers — reasoning agents on top, the data + model substrate below. Full diagram:
@@ -160,7 +134,6 @@ Two layers — reasoning agents on top, the data + model substrate below. Full d
    Corpus / manifest (DuckDB · Parquet: viability, channels, pathways, QC)  ⇄  Hugging Face dataset (raw simOut)
    Literature APIs (PubMed · OpenAlex · bioRxiv, via allow-listed web_get)
    SQLite (data/sessions.db): sessions (Cellwright) + council_runs (Council) — durable persistence
->>>>>>> origin/main
 ```
 
 Key modules: `src/cellarium/council.py` (the Council + blindness invariant), `agent.py` (Cellwright),
@@ -176,16 +149,12 @@ pip install -e .
 cp .env.example .env      # add your ANTHROPIC_API_KEY
 ```
 
-<<<<<<< HEAD
 The question runs through the **Socratic Council** first (watch the proposer/skeptic/judge debate print, then
 the operationalized hypothesis brief) and then the grounded agent. Tune the debate with `--rounds` / `--quota`,
 or skip it entirely with `--no-council` to pass the raw question straight to the agent. Reproduce the Council
 evaluation with `python evals/grade.py` (see [evals/README.md](evals/README.md)).
 
-Open `ui/index.html` in a browser for the interface mockup.
-=======
 ### Run the web app (the glass box)
->>>>>>> origin/main
 
 ```bash
 ANTHROPIC_API_KEY=...  python apps/server.py      # -> http://127.0.0.1:8000
@@ -220,10 +189,12 @@ cannot run a simulation. Organism: *E. coli* K-12 MG1655 (a lab strain).
 
 ## License
 
-<<<<<<< HEAD
-**Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not**
-MIT: it is under Stanford's academic (non-commercial) license and is obtained/run separately by the user.
-Cellarium redistributes no model code or model-derived data. See [docs/DECISIONS.md](docs/DECISIONS.md) D3.
+**Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not** MIT:
+it is the [Covert-lab wcEcoli model](https://github.com/CovertLab/wcEcoli) under Stanford's academic
+(non-commercial) license, obtained and run separately by the user — Cellarium bundles no model code or
+model-derived data (see [docs/DECISIONS.md](docs/DECISIONS.md) D3). Vendored literature skills under
+`skills/vendor/k-dense/` are MIT, from
+[K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (attribution + license retained).
 
 ## References
 
@@ -246,11 +217,3 @@ paper are in [paper/references.bib](paper/references.bib).
 - Reichenbach, H. (1938). *Experience and Prediction*. University of Chicago Press.
 - Scott, M., Gunderson, C. W., Mateescu, E. M., Zhang, Z., & Hwa, T. (2010). Interdependence of cell growth and gene expression: origins and consequences. *Science* 330(6007): 1099–1102.
 - Vlastos, G. (1983). The Socratic elenchus. *Oxford Studies in Ancient Philosophy* 1: 27–58.
-=======
-**Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not** MIT:
-it is the [Covert-lab wcEcoli model](https://github.com/CovertLab/wcEcoli) under Stanford's academic
-(non-commercial) license, obtained and run separately by the user — Cellarium bundles no model code or
-model-derived data (see [docs/DECISIONS.md](docs/DECISIONS.md) D3). Vendored literature skills under
-`skills/vendor/k-dense/` are MIT, from
-[K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (attribution + license retained).
->>>>>>> origin/main
