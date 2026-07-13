@@ -117,3 +117,19 @@ def test_download_gate_never_downloads_without_confirm():
         if out.get("n_to_pull", 0) > 0:
             assert out.get("needs_confirmation") is True
             assert "est_gb" in out and "GB" in out.get("message", "")
+
+
+def test_list_results_filter_answers_are_there_results_for_gene():
+    """Regression for the 'Are there results for pfkA?' failure: the full list is long and gets truncated in
+    context, so a targeted gene filter must return just that KO's runs (never conclude absence from a dump), and
+    read_series must accept the design-label form, not only a raw result id."""
+    ko_genes = sorted({(r.get("condition") or "").replace("KO:", "") for r in tools.list_results()["results"]
+                       if r.get("perturbation") == "gene_knockout" and "KO:" in (r.get("condition") or "")})
+    if not ko_genes:
+        pytest.skip("no gene_knockout runs in the manifest")
+    g = ko_genes[0]
+    hit = tools.list_results(gene=g)
+    assert hit["n"] >= 1 and all(g.lower() in (r.get("label") or "").lower() for r in hit["results"])
+    assert tools.list_results(gene="zzz_not_a_gene")["n"] == 0            # genuinely absent -> n=0, not a blob
+    rs = tools.read_series(f"gene_knockout/KO:{g}", "growth_rate")        # design-label form must resolve
+    assert "error" not in rs or "did_you_mean" in rs

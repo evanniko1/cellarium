@@ -15,8 +15,21 @@ from .model import Design
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux", "unique"]
 
 
-def list_results() -> dict:
-    return {"results": store.list_results()}
+def list_results(gene: str | None = None, perturbation: str | None = None, contains: str | None = None) -> dict:
+    """List simulation results (id, label, QC). FILTER rather than dump the whole corpus: gene='pfkA' returns just
+    that KO's runs, perturbation='gene_knockout' narrows to KOs, contains='<label substring>' is a free search.
+    The full unfiltered list is long and may be truncated in context — so to ask 'are there results for X?', pass
+    gene=X and read `n` (0 = genuinely absent). Reads the same manifest as the Corpus Browser."""
+    rows = store.list_results()
+    if gene:
+        g = gene.strip().lower().replace("ko:", "")
+        rows = [r for r in rows if g in (r.get("label") or "").lower() or g in (r.get("condition") or "").lower()]
+    if perturbation:
+        rows = [r for r in rows if r.get("perturbation") == perturbation]
+    if contains:
+        c = contains.strip().lower()
+        rows = [r for r in rows if c in (r.get("label") or "").lower()]
+    return {"n": len(rows), "results": rows}
 
 
 _VARIANT_TYPES = {
@@ -96,8 +109,15 @@ def screen_phenotype(target: str, reference: str = "wildtype/basal") -> dict:
 
 
 def read_series(result_id: str, channel: str) -> dict:
-    rigor.note_result(result_id)
-    return store.read_channel(result_id, channel)
+    rid = _resolve_result(result_id) or result_id   # accept a design label ('gene_knockout/KO:pfkA') or gene, not just an id
+    rigor.note_result(rid)
+    out = store.read_channel(rid, channel)
+    if isinstance(out, dict) and out.get("error") and "no result" in str(out.get("error")).lower():
+        key = str(result_id).split("/")[-1].replace("KO:", "").strip().lower()
+        hits = sorted({r.get("label") for r in store.list_results() if key and key in (r.get("label") or "").lower()})
+        if hits:
+            out["did_you_mean"] = hits[:8]   # help the agent to the real labels instead of a dead-end 404
+    return out
 
 
 _VL = "https://vega.github.io/schema/vega-lite/v5.json"
@@ -119,6 +139,10 @@ def _resolve_result(x: str) -> str | None:
     pert, _, cond = str(x).partition("/")
     cands = [r for r in rows if r.get("perturbation") == pert
              and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
+    if not cands:   # fall back to a gene/substring match on the label, so 'pfkA' or 'KO:pfkA' also resolves
+        key = str(x).split("/")[-1].replace("KO:", "").strip().lower()
+        if key:
+            cands = [r for r in rows if key in (r.get("label") or "").lower()]
     cands.sort(key=lambda r: (r.get("qc") != "ok", r.get("seed") if r.get("seed") is not None else 99))
     return cands[0]["id"] if cands else None
 
@@ -654,8 +678,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "top": {"type": "integer"}},
                       "required": ["target"]}},
-    {"name": "list_results", "description": "List simulation results in the corpus (id, perturbation, condition, QC).",
-     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "list_results", "description": "List simulation results in the corpus (id, label, QC). FILTER rather than dump: gene='pfkA' returns just that KO's runs; perturbation='gene_knockout' narrows to KOs; contains='<label substring>' is a free search. To answer 'are there results for X?', pass gene=X and read `n` — n=0 means genuinely absent. The unfiltered list is long and can be TRUNCATED in context, so NEVER conclude a design is absent from an unfiltered dump — filter for it. Same manifest the Corpus Browser reads.",
+     "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "a gene symbol, e.g. 'pfkA' — returns its KO runs"}, "perturbation": {"type": "string"}, "contains": {"type": "string", "description": "free substring match on the label"}}}},
     {"name": "design_space", "description": "Enumerate the RUNNABLE design space before proposing an experiment: static conditions (index->label), perturbation/variant types (with which give CLEAN graded phenotypes vs which reroute), and gene-KO resolution. Pass `gene` to get its ko_index PLUS its calibrated KO prior + essentiality benchmark. Use this so a hypothesis proposes a real, correctly-indexed experiment instead of guessing.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene symbol to resolve to its ko_index + KO prior"}}}},
     {"name": "read_series", "description": "Read one summary channel (growth_rate, ppgpp_conc, ...) for a result: overall mean PLUS its downsampled trajectory and per-media-segment means — use this to see transients (e.g. the ppGpp spike after a media downshift) that a single mean hides. This is the COARSE manifest view (~16 points); for the full-resolution raw trajectory use read_raw_series.",
