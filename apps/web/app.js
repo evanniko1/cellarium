@@ -682,17 +682,33 @@ async function refreshQueue() {
     const row = el("div", "q-clear-row");
     if (q.some((r) => ["done", "failed", "rejected", "superseded"].includes(r.status))) {
       const c = el("button", "q-clear", "Clear finished");
-      c.onclick = async () => { await postJSON("/api/queue_clear", {}); refreshQueue(); };
+      c.onclick = () => doClearQueue("/api/queue_clear");
       row.appendChild(c);
     }
     const ca = el("button", "q-clear", `Clear all (${clearable})`);   // wipe piled-up drafts; running jobs are kept
-    ca.onclick = async () => { if (confirm(`Remove ${clearable} queued request(s)? A running job is kept.`)) { await postJSON("/api/queue_clear_all", {}); refreshQueue(); } };
+    ca.onclick = () => {   // inline confirm — no archaic native popup
+      row.innerHTML = "";
+      row.appendChild(el("span", "q-confirm-msg", `Clear ${clearable} queued? (a running job is kept)`));
+      const yes = el("button", "q-clear danger", "Clear all"); yes.onclick = () => doClearQueue("/api/queue_clear_all");
+      const no = el("button", "q-clear", "Cancel"); no.onclick = () => refreshQueue();
+      row.append(yes, no);
+    };
     row.appendChild(ca);
     b.appendChild(row);
   }
   if (!q.length) { b.appendChild(el("div", "empty", "Empty. Cellwright proposes experiments here for your approval — click a proposed job to jump back to the chat that raised it. Nothing runs without your approval.")); return; }
   let running = false; q.forEach((r) => { if (r.status === "running") running = true; b.appendChild(qitem(r)); });
   if (running) { clearTimeout(state.poll); state.poll = setTimeout(refreshQueue, 3000); }
+}
+async function doClearQueue(url) {   // surfaces failures instead of dying silently (e.g. a stale server missing the endpoint)
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+  } catch (e) {
+    const b = $("#queueBody");
+    b.insertBefore(el("div", "q-clear-err", `Couldn't clear: ${e.message}. If this button is new, restart the server.`), b.firstChild);
+  }
+  refreshQueue();
 }
 function relTime(ts) {
   const s = Math.floor(Date.now() / 1000 - ts);

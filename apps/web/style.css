@@ -390,8 +390,12 @@ svg{display:block}
 .q-prov:hover{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
 .q-prov b{font-weight:600}
 .q-clear{display:block; margin:0 0 12px auto; border:1px solid var(--line); background:var(--card); color:var(--ink-3); font:inherit; font-size:12px; border-radius:8px; padding:5px 12px; cursor:pointer}
-.q-clear-row{display:flex; gap:8px; justify-content:flex-end; margin-bottom:12px}
+.q-clear-row{display:flex; gap:8px; justify-content:flex-end; align-items:center; margin-bottom:12px}
 .q-clear-row .q-clear{margin:0}
+.q-clear.danger{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint); font-weight:600}
+.q-clear.danger:hover{background:var(--clay); color:#fff}
+.q-confirm-msg{margin-right:auto; font-size:12px; color:var(--ink-2)}
+.q-clear-err{margin-bottom:10px; padding:8px 11px; border-radius:8px; font-size:12px; background:var(--red-tint); color:var(--red)}
 .q-clear:hover{border-color:var(--clay); color:var(--clay-ink)}
 
 /* ============ Hypothesis Generator redesign ============ */
