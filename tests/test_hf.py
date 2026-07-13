@@ -1,6 +1,38 @@
 """HF-availability tests — the two-alternatives surface (no network). Run: python -m pytest tests/test_hf.py"""
 
+import tarfile
+
 from cellarium import hf, store, tools
+
+
+def test_download_raw_reports_per_archive_progress(monkeypatch):
+    """A confirmed multi-archive pull streams progress (done/total) per archive through the agent's set_progress
+    hook, so a multi-GB HF download shows 'downloading 2/5' instead of hanging silently. Network+extract stubbed."""
+    import huggingface_hub
+    plan = {"design": "x", "repo": hf.HF_REPO, "n_seeds": 3, "n_local": 0, "n_to_pull": 3, "est_gb": 14.0,
+            "files": [{"result_id": f"r{i}", "hf_path": f"runs/cellarium/gk_{i}/000000.tar.gz",
+                       "local": False, "on_hf": True, "seed": i} for i in range(3)]}
+    monkeypatch.setattr(hf, "download_plan", lambda design: plan)
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", lambda repo, path, repo_type=None: "/tmp/x.tar.gz")
+
+    class _FakeTar:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def extractall(self, path, filter=None): pass
+
+    monkeypatch.setattr(tarfile, "open", lambda p, mode="r:gz": _FakeTar())
+
+    events = []
+    tools.set_progress(lambda done, total, label: events.append((done, total)))
+    try:
+        out = tools.download_raw("x", confirm=True)
+    finally:
+        tools.set_progress(None)
+
+    assert out["downloaded"] == ["r0", "r1", "r2"]
+    assert {t for _, t in events} == {3}              # total pinned at the archive count
+    assert events[0][0] == 0 and events[-1][0] == 3   # first tick before any done, last after all done
+    assert len(events) == 6                            # a pre-download + post-extract tick per archive
 
 
 def test_hf_rel_maps_run_path_to_portable_archive_path():

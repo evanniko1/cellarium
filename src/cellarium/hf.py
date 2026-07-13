@@ -97,10 +97,13 @@ def download_plan(design: str) -> dict:
             "files": want}
 
 
-def download_raw(design: str, confirm: bool = False) -> dict:
+def download_raw(design: str, confirm: bool = False, on_progress=None) -> dict:
     """Pull `design`'s missing raw simOut archives from HF into the local runs dir so read_raw_series / variance_band
     can read them. GATED: with confirm=False (default) it only returns the size estimate and asks for approval; it
-    downloads NOTHING. Only call again with confirm=True AFTER the user approves the size."""
+    downloads NOTHING. Only call again with confirm=True AFTER the user approves the size.
+
+    on_progress(done, total, label) is called before each archive downloads and after each extracts, so a caller
+    (the agent's note channel) can stream 'downloading 2/5' instead of a silent multi-GB hang."""
     plan = download_plan(design)
     if "error" in plan:
         return plan
@@ -118,15 +121,25 @@ def download_raw(design: str, confirm: bool = False) -> dict:
     except Exception:
         return {**plan, "error": "huggingface_hub not installed; run the CLI command from data_availability instead."}
     import tarfile
+
+    def _tick(done, label):
+        if on_progress:
+            try:
+                on_progress(done, total, label)
+            except Exception:
+                pass   # progress is best-effort; never let a note-channel error abort the download
+
+    to_pull = [w for w in plan["files"] if w.get("hf_path") and not w["local"] and w.get("on_hf")]
+    total = len(to_pull)
     done, failed = [], []
-    for w in plan["files"]:
-        if not (w.get("hf_path") and not w["local"] and w.get("on_hf")):
-            continue
+    for w in to_pull:
+        _tick(len(done), f"downloading {w['result_id']} (seed {w.get('seed')})")
         try:
             local_tar = hf_hub_download(HF_REPO, w["hf_path"], repo_type="dataset")
             with tarfile.open(local_tar, "r:gz") as tf:
                 tf.extractall(str(OUT_ROOT), filter="data")   # arcname is cellarium/<variant>/<seed> -> lands under runs/
             done.append(w["result_id"])
+            _tick(len(done), f"extracted {w['result_id']}")
         except Exception as e:
             failed.append({"result_id": w["result_id"], "error": str(e)[:160]})
     return {"design": design, "repo": HF_REPO, "downloaded": done, "failed": failed,

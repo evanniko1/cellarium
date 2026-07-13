@@ -202,6 +202,17 @@ def raw_available(design: str) -> dict:
     return rawmod.available(design)
 
 
+# progress sink for long tool calls (currently only download_raw): the agent sets this to route per-archive
+# progress into its note channel, so a multi-GB HF pull streams "downloading 2/5" instead of hanging silently.
+# Single-writer / single-user (matches the local app); the agent re-sets it every turn.
+_PROGRESS = None
+
+
+def set_progress(cb) -> None:
+    global _PROGRESS
+    _PROGRESS = cb
+
+
 def download_raw(design: str, confirm: bool = False) -> dict:
     """Fetch a design's missing raw simOut archives from HF into the local runs dir, so read_raw_series /
     variance_band can then read them. GATED BY SIZE: call it FIRST with confirm=False (default) — it downloads
@@ -209,7 +220,9 @@ def download_raw(design: str, confirm: bool = False) -> dict:
     HF, proceed?') and only call again with confirm=True AFTER they approve. Never pass confirm=True without the
     user's explicit go-ahead. Use only when raw_available shows the design isn't fully local."""
     from . import hf
-    out = hf.download_raw(design, confirm)
+    prog = _PROGRESS
+    on_progress = (lambda done, total, label: prog(done, total, label)) if prog else None
+    out = hf.download_raw(design, confirm, on_progress=on_progress)
     if confirm and out.get("downloaded"):
         for rid in out["downloaded"]:
             rigor.note_result(rid)

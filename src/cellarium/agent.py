@@ -333,6 +333,11 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     from . import rigor
 
     rigor.reset()  # fresh coverage tracking per user turn
+    # route long-tool progress (e.g. a multi-GB download_raw) into the note channel so the chat streams
+    # "downloading 2/5" instead of hanging silently. Re-set every turn (single-user local app); no-op if no on_note.
+    tools.set_progress((lambda done, total, label: on_note(
+        f"Pulling raw simOut from Hugging Face — {done}/{total} archive(s){(' · ' + label) if label else ''}"))
+        if on_note is not None else None)
     client = anthropic.Anthropic(max_retries=4)   # exponential backoff on rate limits / transient 5xx
     mdl = model or MODEL
     system, tool_defs = _system_blocks(), _cached_tools()
