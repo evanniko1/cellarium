@@ -128,8 +128,10 @@ def run_verdict(h: Hypothesis, client, *, sesoi: float | None = None, model: str
 
 
 if __name__ == "__main__":  # quick manual check on a live Council hypothesis for the flagship question
+    from pathlib import Path
+
     from dotenv import load_dotenv
-    load_dotenv("/Users/fmenol/Downloads/cellarium/.env")
+    load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))   # .env at the repo root (was a hardcoded mac path)
     import anthropic
     from cellarium import council
     cl = anthropic.Anthropic()
