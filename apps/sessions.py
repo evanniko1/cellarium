@@ -8,17 +8,29 @@ hosted is a documented known limitation (this store is single-writer, no auth).
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import time
 from pathlib import Path
 
 DB = Path("data/sessions.db")
+SEED = Path("data/sessions.seed.db")   # committed demo snapshot; a fresh clone is bootstrapped from it (see _bootstrap)
+
+
+def _bootstrap(path: Path) -> None:
+    """A fresh DEFAULT DB is seeded from the committed snapshot so a clone comes up POPULATED with the demo
+    investigations + Council runs. The live DB (data/sessions.db) stays gitignored + mutable, so normal use never
+    dirties git; only the frozen seed is tracked. Custom paths (tests) are never seeded."""
+    if str(path) == str(DB) and not path.exists() and SEED.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(SEED, path)
 
 
 class SessionStore:
     def __init__(self, path: Path = DB):
         self.path = Path(path)
         self.mem: dict = {}   # sid -> {messages, model, used_council, title}
+        _bootstrap(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._write("CREATE TABLE IF NOT EXISTS sessions("
                     "sid TEXT PRIMARY KEY, model TEXT, used_council INTEGER, title TEXT, "

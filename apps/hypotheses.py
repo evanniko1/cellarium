@@ -10,17 +10,29 @@ lab-notebook the Council was already producing. See docs/HYPOTHESIS_MODE_PLAN.md
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import time
 import uuid
 from pathlib import Path
 
 DB = Path("data/sessions.db")
+SEED = Path("data/sessions.seed.db")   # committed demo snapshot; shared bootstrap with SessionStore (one DB file)
+
+
+def _bootstrap(path: Path) -> None:
+    """Seed a fresh DEFAULT DB from the committed snapshot (same DB file SessionStore uses) so a clone comes up with
+    the demo Council runs + investigations. Whichever store is constructed first does the copy; the other sees the
+    file and skips. Custom paths (tests) are never seeded. Mirrors apps/sessions._bootstrap."""
+    if str(path) == str(DB) and not path.exists() and SEED.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(SEED, path)
 
 
 class HypothesisStore:
     def __init__(self, path: Path = DB):
         self.path = Path(path)
+        _bootstrap(self.path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._write("CREATE TABLE IF NOT EXISTS council_runs("
                     "id TEXT PRIMARY KEY, question TEXT, status TEXT, model TEXT, "
