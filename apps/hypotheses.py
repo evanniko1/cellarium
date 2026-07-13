@@ -83,8 +83,11 @@ class HypothesisStore:
         return _full(row) if row else None
 
     def list(self, limit: int = 100) -> list[dict]:
+        # exclude 'needs_spec' — a parked gate result is a transient interaction, not a hypothesis; it lives in the
+        # detail pane until the user specifies (or abandons it), and must not clutter the run list with dead-ends.
         rows = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created "
-                          "FROM council_runs ORDER BY created DESC LIMIT ?", (int(limit),), many=True)
+                          "FROM council_runs WHERE status != 'needs_spec' ORDER BY created DESC LIMIT ?",
+                          (int(limit),), many=True)
         return [_summary(r) for r in rows]
 
     def delete(self, run_id: str) -> None:
@@ -107,20 +110,22 @@ def _summary(r) -> dict:
 
 # the sufficiency gate's cached, LLM-free fallback for a REPEATED insufficient reply — no override: the user stays
 # gated until the question names one decisive test. (Revisit when Phase 3(a) web/lit-review lands.)
-_SPEC_EXAMPLE = "Is a pfkA knockout viable versus wildtype, measured by division_rate?"
+_SPEC_EXAMPLE = "Does knocking out pfkA stop the cell from dividing, compared with wildtype?"
 _SPEC_CAP_MSG = ("The Council still can't find a single decisive test in this question. Before re-convening, think "
                  "of ONE specific, testable question — name a perturbation it can run, an observable to measure, and "
                  "what to compare against.")
 
 
 def run_council(store: HypothesisStore, question: str, model: str | None = None, on_round=None,
-                attempt: int = 0) -> dict:
+                attempt: int = 0, reuse_id: str | None = None) -> dict:
     """Run ONE Council deliberation and persist the whole thing (rounds + operationalized hypothesis + falsifier
     designs + convergence meta). Blind by construction — deliberate() never sees corpus results (the paper's
     quarantine control; see docs/HYPOTHESIS_MODE_PLAN.md). Returns the stored run dict."""
     from cellarium import council, ui   # lazy: the store itself stays dependency-free + unit-testable
 
-    run_id = store.new_id()
+    # reuse_id: a re-convene of a parked question overwrites the SAME row (create is INSERT OR REPLACE) instead of
+    # spawning a new one — so one refinement session is one row, not a trail of needs_spec dead-ends.
+    run_id = reuse_id or store.new_id()
     store.create(run_id, question, model)
 
     def _round(payload):

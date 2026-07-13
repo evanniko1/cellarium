@@ -485,8 +485,10 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
     if client is None:
         import anthropic
         client = anthropic.Anthropic()
-    models = models or _default_models()
-    out = _emit(client, models["judge"], _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
+    # ONE cheap classification call (not a deliberation) — pin a small fast model; specification-adequacy + scope-only
+    # clarifying questions don't need a frontier model. Overridable; tests pass their own `models`.
+    model = (models or {}).get("judge") or os.environ.get("CELLARIUM_GATE_MODEL") or "claude-haiku-4-5-20251001"
+    out = _emit(client, model, _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
                 {"question": question, "dial_labels": labels}, max_tokens=1024)
     return {"sufficient": bool(out.get("sufficient", True)),   # fail-open: a degenerate emit must not block a run
             "missing": [m for m in (out.get("missing") or []) if isinstance(m, str)],

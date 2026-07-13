@@ -798,7 +798,7 @@ function renderHypRuns(activeId) {   // the Council run list — lives in the to
   });
 }
 function newHypComposer() {
-  state.hypActive = null; state._specAttempt = 0;   // fresh question — reset the sufficiency-gate attempt counter
+  state.hypActive = null; state._specAttempt = 0; state._specReuseId = null;   // fresh question — reset the gate session
   renderHypRuns(null);
   const m = $("#hypMain"); m.innerHTML = "";
   const box = el("div", "hyp-composer");
@@ -820,7 +820,7 @@ function runHypothesis(question, goBtn) {
   (async () => {
     try {
       const resp = await fetch("/api/hypothesis", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, model: state.model, attempt: state._specAttempt || 0 }) });
+        body: JSON.stringify({ question, model: state.model, attempt: state._specAttempt || 0, reuse_id: state._specReuseId || null }) });
       const reader = resp.body.getReader(), dec = new TextDecoder(); let buf = "";
       while (true) {
         const { value, done } = await reader.read(); if (done) break;
@@ -831,8 +831,11 @@ function runHypothesis(question, goBtn) {
           const { kind, data } = JSON.parse(line);
           if (kind === "round") { live.rounds.push(data); renderHypDetail(live); }
           else if (kind === "done" && data.run) {
-            // sufficiency gate: count consecutive underspecified attempts so a repeat gets the cached firm nudge
-            state._specAttempt = data.run.status === "needs_spec" ? (state._specAttempt || 0) + 1 : 0;
+            // sufficiency gate: count consecutive underspecified attempts (repeat -> cached firm nudge) and reuse the
+            // SAME row on re-convene so parked attempts don't accumulate as dead-end rows in the list.
+            const parked = data.run.status === "needs_spec";
+            state._specAttempt = parked ? (state._specAttempt || 0) + 1 : 0;
+            state._specReuseId = parked ? data.run.id : null;
             state.hypActive = data.run.id; renderHypDetail(data.run); await loadHypRuns(data.run.id);
           }
           else if (kind === "error") { live.status = "error"; live.meta = { error: data.message }; renderHypDetail(live); }

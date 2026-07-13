@@ -99,6 +99,11 @@ def test_run_council_parks_underspecified_question(tmp_path, monkeypatch):
     assert run["status"] == "needs_spec"
     assert run["meta"]["clarifying_questions"] == ["Which gene or perturbation?"]
     assert run["meta"]["example"] and run["meta"]["capped"] is False   # first ask: tailored questions + an example
+    assert s.list() == []                                              # a parked run must NOT clutter the run list
+    # a re-convene reuses the SAME row instead of spawning a dead-end
+    run2 = hypotheses.run_council(s, "still vague", attempt=1, reuse_id=run["id"])
+    assert run2["id"] == run["id"]
+    assert len([r for r in s._read("SELECT id FROM council_runs", (), many=True)]) == 1   # one row, not two
 
 
 def test_sufficiency_gate_caps_repeated_insufficiency(tmp_path, monkeypatch):
