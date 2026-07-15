@@ -15,6 +15,10 @@ work as a unit — not just the output hypothesis.
 
 Status: **P08 done** (below). Next: P01. One case at a time.
 
+**Structured issues registry:** [`docs/council_issues.yaml`](council_issues.yaml) — the machine-gatherable
+list of discrete issues (id / severity / roles / symptom / root cause / per-role fix / status), built to be
+aggregated across all cases for a single architecture-refinement pass. This document is the narrative companion.
+
 ---
 
 ## Cross-cutting defect ledger

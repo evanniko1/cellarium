@@ -1,0 +1,184 @@
+# Socratic Council — architecture issues registry
+#
+# Purpose: a structured, append-only registry of discrete issues found in the Council
+# improvement workstream, so they can be GATHERED LATER (by role, by severity, by case)
+# to drive a single architecture-refinement pass on proposer / skeptic / judge / schema.
+#
+# Narrative analysis + per-case transcripts: docs/COUNCIL_IMPROVEMENT_LEDGER.md
+# One record per issue. Keep `id` stable. Append; do not renumber.
+#
+# Fields:
+#   id           stable short id (D1, D2, ...)
+#   title        one line
+#   severity     high | medium | low
+#   roles        which Council role(s) own the fix: proposer | skeptic | judge | schema
+#   first_seen   case id where first surfaced
+#   also_seen    later cases exhibiting it (append as the workstream proceeds)
+#   symptom      the observable failure
+#   root_cause   why it happens (architectural, not incidental)
+#   proposed_fix per-role concrete change
+#   status       open | in_progress | fixed | wont_fix
+#   related      other issue ids
+
+meta:
+  workstream: socratic-council-improvement
+  narrative_source: docs/COUNCIL_IMPROVEMENT_LEDGER.md
+  method: >
+    Retrospective from evals/results/debate/PXX.md + faithful in-conversation hand-runs
+    of the deliberation under the real role charters and the information quarantine
+    (dial labels only; no API, no council.py). The real per-round transcript is not
+    stored (ablation.json keeps only counts), hence the hand-run.
+  cases_reviewed: [P08]
+  cases_pending: [P01, P02, P03, P04, P05, P06, P07, P09, P10]
+
+issues:
+  - id: D1
+    title: Claim <-> falsifier hypothesis-identity confusion
+    severity: high
+    roles: [proposer, skeptic, judge]
+    first_seen: P08
+    also_seen: []
+    symptom: >
+      The hypothesis never commits to one H1. In P08 three framings coexisted:
+      (A) "a non-trivial fraction is dispensable" vs a ~0% null; (B) "10-20% dispensable"
+      (an interval); (C) "a minority (<50%) are dispensable". The proposer NARRATED C,
+      PREDICTED B, and built the DECISION RULE for A. The single rule "reject if <3/30
+      nonessential" is a coherent test of A only; it is half a test of B and the
+      WRONG-TAILED (inverted) test of C: to falsify "a minority are dispensable" you must
+      observe a MAJORITY (p >= 0.5, >=15/30), yet the rule rejects H1 at p < 0.10 -- deep
+      inside the region where C is true. The rule declares H1 false where H1 is most true.
+    root_cause: >
+      The schema lets claim, predicted_effect, h0, and falsifier.refuting_result be filled
+      INDEPENDENTLY; nothing forces them to describe the same quantity p and the same
+      direction. Anchoring h0 at the bottom (~0%) points all test machinery at the lower
+      tail while the prose drifts to an upper-bounded ("minority") claim.
+    proposed_fix:
+      proposer: >
+        Emit ONE internally-consistent hypothesis: claim, predicted_effect, h0, and
+        falsifier.refuting_result must all describe the same magnitude p and the same
+        direction.
+      skeptic: >
+        Standing claim<->falsifier directional-consistency check (unfalsifiable /
+        conflated_construct): does the refuting region actually negate the claim?
+      judge: >
+        Gate that the refuting region is the logical negation of the claim.
+    status: open
+    related: [D2]
+
+  - id: D2
+    title: Interval claim tested with a one-sided rule (far bound unguarded)
+    severity: high
+    roles: [proposer, judge]
+    first_seen: P08
+    also_seen: []
+    symptom: >
+      H1 claims the bounded interval "10-20%" (= 3-6 of 30) but the rule only rejects from
+      below ("<3/30"). A result of 15/30 (50%) violates "10-20%" yet PASSES the stated
+      rule -- the claim is only half falsifiable. Present in the shipped P08 hypothesis
+      (its falsifier guards "<3/30" and the positive controls -- both lower/validity-facing;
+      no upper guard).
+    root_cause: >
+      Interval/bounded claims have two failure sides; the proposer guards only the
+      null-facing bound. A too-high fraction is also the signature of the model-artifact
+      rival (the simulator can't kill cells), so the omission weakens two things at once.
+    proposed_fix:
+      proposer: >
+        Two-sided rule against the claim: reject H1 if the 95% CI for p excludes the
+        asserted interval [lo, hi]; treat a significantly-high value as also tripping the
+        model-validity/artifact rival. Or rewrite the claim to an explicit one-sided form.
+      judge: >
+        Consistency gate: every bound asserted in the claim must have a corresponding
+        refuting condition.
+    status: open
+    related: [D1]
+
+  - id: D3
+    title: Severity mis-classification -- construct-validity flaw parked as a "concession"
+    severity: high
+    roles: [skeptic, judge]
+    first_seen: P08
+    also_seen: []
+    symptom: >
+      P08 mapped the relational construct "live WITHOUT" onto an ABSOLUTE viability floor
+      (growth_rate > 0.05/h), labelling a strain growing ~12x slower than wildtype
+      "dispensable" -- the decisive defect that lost the case. The Council half-caught it
+      (Concession #1: "the 0.05/h threshold is pragmatic, not canonical ... sensitivity
+      analysis ... is not included") but PARKED it as a caveat instead of a rubric-breaking
+      flaw. The judge's convergence rule lets parked auxiliaries not block convergence, so
+      the weaker hypothesis shipped. A faithful hand-run's skeptic DOES fire
+      conflated_construct at the primary measure and the proposer then fixes it -- so this
+      is a severity-classification failure, not a missing capability.
+    root_cause: >
+      Faithfulness of the PRIMARY measure is treated as parkable/minor; the convergence
+      rule permits parked items to not block convergence.
+    proposed_fix:
+      skeptic: >
+        Faithfulness-first pass: rule on the primary operationalization BEFORE objecting to
+        rivals/feasibility; a faithfulness failure on the primary measure is ALWAYS
+        substantive, never minor.
+      judge: >
+        Add gated rubric item `faithful` (no strictly-more-faithful mapping available, or a
+        sensitivity analysis brackets the threshold) that CANNOT be parked to converge.
+    status: open
+    related: [D4, D6]
+
+  - id: D4
+    title: Relational construct mapped to an absolute measure
+    severity: medium
+    roles: [proposer]
+    first_seen: P08
+    also_seen: []
+    symptom: >
+      For comparative constructs ("live WITHOUT", "NOISIER than", "behave DIFFERENTLY") the
+      proposer reaches for an absolute threshold rather than a wildtype-normalized one.
+      "Without X" is inherently relative to having X.
+    root_cause: >
+      No default that ties comparative language to a normalized/relative observable.
+    proposed_fix:
+      proposer: >
+        For relational constructs, default to a wildtype-normalized measure plus a threshold
+        sensitivity sweep; commit to a single absolute cutoff only with explicit justification.
+    status: open
+    related: [D3]
+
+  - id: D5
+    title: Falsifier schema friction -- pairwise slots cannot express a screen
+    severity: medium
+    roles: [schema]
+    first_seen: P08
+    also_seen: []
+    symptom: >
+      falsifier.target / .reference hold a SINGLE design pair (built for one disconfirm()
+      call), but a genome-wide question needs a LOOP over a panel of >=30 knockouts
+      aggregated into a fraction. The panel is smuggled into decision_rule prose. Schema
+      (pairwise) and question (population-scale) mismatch.
+    root_cause: >
+      The Falsifier type models a single target-vs-reference comparison; there is no
+      first-class representation of a screen over a design set.
+    proposed_fix:
+      schema: >
+        Add a first-class "screen" falsifier that takes a design SET + an aggregation rule
+        (fraction/threshold), so population-scale tests are structured, not prose.
+    status: open
+    related: []
+
+  - id: D6
+    title: Systemic -- over-investment in armor, under-examination of the primary mapping
+    severity: medium
+    roles: [skeptic]
+    first_seen: P08
+    also_seen: []
+    symptom: >
+      The Council spends its effort (and the skeptic's capped <=3 objection budget) on
+      defensive armor -- positive controls, extra rivals, an explicit auxiliary belt --
+      while the decisive flaw sits in the PRIMARY construct mapping (the threshold). Good
+      rigor aimed at the perimeter; the centre goes unchecked.
+    root_cause: >
+      No ordering that forces the skeptic's finite budget onto the primary operationalization
+      before the perimeter.
+    proposed_fix:
+      skeptic: >
+        Faithfulness-first ordering (see D3): the primary operationalization must be ruled on
+        before rivals/feasibility/nice-to-have controls.
+    status: open
+    related: [D3]
