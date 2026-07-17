@@ -157,7 +157,9 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
 
     try:
         broad = not council.looks_specific(question)   # deterministic, no model call — a soft nudge, not a gate
-        hyp = council.deliberate(question, verbose=False, on_round=_round)
+        # a PICKED model drives the Council's roles; model=None (Auto) -> the Council's tuned default
+        cmodels = {"proposer": model, "skeptic": model, "judge": model} if model else None
+        hyp = council.deliberate(question, verbose=False, on_round=_round, models=cmodels)
         hview = ui.hypothesis_view(hyp)
         designs = [ui.design_view(d) for d in (getattr(hyp, "candidate_designs", None) or [])]
         ledger = getattr(hyp, "objection_ledger", None) or []

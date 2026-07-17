@@ -255,7 +255,7 @@ _JUDGE_GENERIC_TOOL = {
 # --- LLM plumbing ------------------------------------------------------------------------------------------
 
 def _default_models() -> dict:
-    base = os.environ.get("CELLARIUM_MODEL") or "claude-sonnet-4-5"
+    base = os.environ.get("CELLARIUM_MODEL") or "claude-sonnet-5"
     return {"proposer": os.environ.get("CELLARIUM_PROPOSER_MODEL") or base,
             "skeptic": os.environ.get("CELLARIUM_SKEPTIC_MODEL") or base,
             "judge": os.environ.get("CELLARIUM_JUDGE_MODEL") or base}

@@ -14,7 +14,7 @@ AI-for-Science direction. Audit IDs (M-/DS-/LLM-/AG-/D-/UX-/H-/SP-) carry over f
 file:line evidence lives in git history (commit `55ed67f`).
 
 ## P1 at a glance (the critical path)
-~~`H-1` CI~~ ✅ · `M-1` falsifier executability · `DS-1` slope inference · `LLM-1` model currency ·
+~~`H-1` CI~~ ✅ · `M-1` falsifier executability · `DS-1` slope inference · ~~`LLM-1` model currency~~ ✅ ·
 ~~`SP-1` loop-closure~~ ✅ · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cross-check (science).
 
 ---
@@ -46,7 +46,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **LLM-1** | P1 | **Model currency + claim** — runtime defaults `claude-sonnet-4-5` lag the eval (`claude-sonnet-5`) and the "Opus 4.8" claim; audit what `"auto"` routes to; bump defaults; make the external claim precise. | A |
+| ~~**LLM-1**~~ | ✅ | **Model currency + selection** — bumped runtime defaults `claude-sonnet-4-5` → `claude-sonnet-5` (agent, Council, server picker, debate eval); a picked model now drives the **Council roles** too (not just the agent), which it silently ignored before; `Auto` keeps the tuned default + per-turn router. **Done** — see Completed. | A |
 | **LLM-2** | P2 | **Observability** — log `resp.usage`, request IDs, a cost/latency meter. *(The Council per-round-transcript slice is Filippo's method gap — coordinate.)* | A |
 | **LLM-3** | P2 | Agent temperature unset (non-deterministic reasoning) — offer temperature=0 / recorded seed. *(Same root as M-2.)* | A |
 | **LLM-4** | P3 | `_estimate_tokens` is `chars//4` — drive the compaction trigger from `resp.usage`/`count_tokens`. | A |
@@ -119,6 +119,13 @@ file:line evidence lives in git history (commit `55ed67f`).
   status badge and **guards the re-run** (no Queue button on an in-flight or done design), and `propose_panel`
   ("Queue all") is now idempotent. Unit-tested (`test_lifecycle_reflects_queue_by_semantic_match`) + verified
   end-to-end in the browser. Remainder tracked as **SP-1b**.
+
+- **LLM-1 · Model currency + selection** (2026-07-14) — updated the stale `claude-sonnet-4-5` default to
+  `claude-sonnet-5` across `agent.py`, `council._default_models`, the `server` model picker (label + id), and the
+  debate eval. Fixed a real gap: the interface model picker reached the agent but **not** the Council —
+  `run_council`/`investigate` called `deliberate()` without `models`, so a picked model was ignored by the
+  proposer/skeptic/judge. Now a specific pick drives the Council's roles; `Auto` keeps the Council's tuned default
+  and the agent's per-turn router (Opus for Council-framed/hard turns). pytest + ruff green.
 
 ## Coordinate with Filippo (separate workstream)
 Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/council_issues.yaml`, branch

@@ -42,11 +42,11 @@ WEB = Path(__file__).resolve().parent / "web"
 
 # user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults). "auto"
 # routes per turn (see route_model); an explicit pick pins that model.
-_OPUS, _SONNET, _HAIKU = "claude-opus-4-8", "claude-sonnet-4-5", "claude-haiku-4-5-20251001"
+_OPUS, _SONNET, _HAIKU = "claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001"
 MODELS = [
     {"id": "auto", "label": "Auto", "note": "routes per question"},
     {"id": _OPUS, "label": "Opus 4.8", "note": "most capable"},
-    {"id": _SONNET, "label": "Sonnet 4.5", "note": "balanced"},
+    {"id": _SONNET, "label": "Sonnet 5", "note": "balanced"},
     {"id": _HAIKU, "label": "Haiku 4.5", "note": "fastest"},
 ]
 DEFAULT_MODEL = "auto"
@@ -173,7 +173,9 @@ async def investigate(request):
             if first_turn:
                 hyp = None
                 if use_council:
-                    hyp = council.deliberate(question, verbose=False,
+                    # a PICKED model drives the Council's roles too; on Auto the Council keeps its tuned default
+                    council_models = None if routed else {"proposer": chosen, "skeptic": chosen, "judge": chosen}
+                    hyp = council.deliberate(question, verbose=False, models=council_models,
                                              on_round=lambda r: ev.put(("council_round", _jsonsafe(r))))
                     view = ui.hypothesis_view(hyp)
                     view["candidate_designs"] = [ui.design_view(d)

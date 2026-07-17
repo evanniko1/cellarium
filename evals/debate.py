@@ -36,7 +36,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evals"))
 sys.path.insert(0, str(ROOT / "src"))
 
-BASE_MODEL = "claude-sonnet-4-5"          # both advocates -- same voice, only the hypothesis differs
+BASE_MODEL = "claude-sonnet-5"            # both advocates -- same voice, only the hypothesis differs
 SYNTH_MODEL = "claude-opus-4-8"           # impartial synthesis paragraph (no temperature; opus rejects it)
 
 # Pairing to the human-pilot packet: which config was "A"/"B" is irrelevant here -- we always name the systems.

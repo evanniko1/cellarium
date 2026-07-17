@@ -13,7 +13,7 @@ import anthropic
 
 from . import tools
 
-MODEL = os.environ.get("CELLARIUM_MODEL", "claude-sonnet-4-5")
+MODEL = os.environ.get("CELLARIUM_MODEL", "claude-sonnet-5")
 
 SYSTEM = (
     "You are Cellwright, the grounded reasoning agent of Cellarium — a whole-cell E. coli (K-12 MG1655) "
