@@ -15,7 +15,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 ## P1 at a glance (the critical path)
 ~~`H-1` CI~~ ✅ · ~~`M-1` falsifier executability~~ ✅ · ~~`DS-1` slope inference~~ ✅ · ~~`LLM-1` model currency~~ ✅ ·
-~~`SP-1` loop-closure~~ ✅ · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cross-check (science).
+~~`SP-1` loop-closure~~ ✅ · `SP-2` receptive field · ~~`UX-1` accessibility~~ ✅ · `SCI-1` FBA cross-check (science).
 
 ---
 
@@ -69,7 +69,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **UX-1** | P1 | **Accessibility** (WCAG 2.2 AA) — ARIA live region for streaming, labels/roles on custom controls, keyboard nav, focus-visible. | A |
+| ~~**UX-1**~~ | ✅ | **Accessibility** (WCAG 2.2 AA) — added a polite ARIA live region (status + completion announced during streaming), accessible names on every icon control, a `main` landmark + labeled `dialog`s + skip link, proper `tablist` roles with roving tabindex + arrow-key nav, keyboard-operable recents, a `:focus-visible` ring, and reduced-motion. Verified via the live a11y tree. **Done** — see Completed. | A |
 | **D-1** | P2 | `innerHTML` escaping is a fragile invariant across 37 sinks — one safe render helper + a lint rule against raw `innerHTML =` with interpolation (audit the dynamic sinks: Council claims/objections, corpus rows, queue `from_question`). | A |
 | **UX-2** | P2 | Standardize loading / empty / error / retry states + `aria-busy`; long ops (download, sim) show determinate progress. | A |
 | **D-2** | P3 | No dark mode in the app (`prefers-color-scheme` unused) though the report is theme-aware — add a theme or state single-theme intent. | A |
@@ -145,6 +145,15 @@ file:line evidence lives in git history (commit `55ed67f`).
   legacy-compatible) AND a structural check — `test_id="other"` (the Council itself declaring no listed test fits)
   files a deterministic `unlisted_test` gap, catching a NOVEL test the curated list never knew (verified with a
   Cox/Schoenfeld example). `ui.hypothesis_view` carries the field so the stored-run sweep sees it. pytest + ruff green.
+- **UX-1 · Accessibility (WCAG 2.2 AA)** (2026-07-18) — an SPA a11y pass across `apps/web/`. `index.html`: a skip
+  link, a polite `#srLive` live region, a `main` landmark + `role="dialog"`/`aria-modal` + labels on the corpus /
+  hypothesis / queue / figures overlays, `tablist` semantics (`aria-controls`/`tabpanel`/roving tabindex), and
+  accessible names on every icon-only control + the textarea, selects, and search. `app.js`: `announce()` speaks
+  status + completion into the live region during streaming (deduped so per-token 'Responding…' isn't spammed), a
+  `clickable()` helper makes the recents rows keyboard-operable, arrow-key + Home/End tab navigation, and focus is
+  moved into overlays on open and restored to the opener on close. `style.css`: a `.sr-only` utility, a
+  `:focus-visible` keyboard ring, and a global `prefers-reduced-motion` block. Verified against the live
+  accessibility tree (every control named/roled, no console errors); frontend-only, so CI is unaffected.
 
 ## X · Capability gaps (auto-filed by the self-harness)
 

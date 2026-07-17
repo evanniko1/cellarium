@@ -3,6 +3,22 @@
 
 const $ = (s, r = document) => r.querySelector(s);
 function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+function announce(msg) {                        // UX-1: speak status + completion into the polite live region
+  msg = String(msg == null ? "" : msg);
+  if (!msg || msg === announce._last) return;   // dedupe: 'Responding…' fires per token — announce it once
+  announce._last = msg;
+  const r = document.getElementById("srLive");
+  if (r) { r.textContent = ""; r.textContent = msg; }
+}
+function clickable(node, handler, label) {      // UX-1: make a non-<button> row keyboard-operable
+  node.setAttribute("role", "button"); node.setAttribute("tabindex", "0");
+  if (label) node.setAttribute("aria-label", label);
+  node.onclick = handler;
+  node.addEventListener("keydown", (e) => {     // e.target===node so a nested rename/delete button doesn't fire this
+    if ((e.key === "Enter" || e.key === " ") && e.target === node) { e.preventDefault(); handler(e); }
+  });
+  return node;
+}
 const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const trunc = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…" : String(s));
 const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
@@ -90,12 +106,12 @@ function renderSidebar() {
     if (inv.running || inv.unread) it.appendChild(el("span", "recent-dot" + (inv.running ? " active" : " unread")));
     const title = el("span", "r-title", esc(inv.title || "New investigation"));
     it.appendChild(title);
-    it.onclick = () => openInv(inv);
+    clickable(it, () => openInv(inv), (inv.title || "New investigation"));
     const menu = el("span", "r-menu");
     const ren = el("button", "r-act", `<svg viewBox="0 0 24 24" width="13" height="13"><path d="M4 20h4L18 10l-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`);
-    ren.title = "Rename"; ren.onclick = (e) => { e.stopPropagation(); renameInv(inv, title); };
+    ren.title = "Rename"; ren.setAttribute("aria-label", "Rename investigation"); ren.onclick = (e) => { e.stopPropagation(); renameInv(inv, title); };
     const del = el("button", "r-act", `<svg viewBox="0 0 24 24" width="13" height="13"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`);
-    del.title = "Delete"; del.onclick = (e) => { e.stopPropagation(); deleteInv(inv); };
+    del.title = "Delete"; del.setAttribute("aria-label", "Delete investigation"); del.onclick = (e) => { e.stopPropagation(); deleteInv(inv); };
     menu.append(ren, del); it.appendChild(menu);
     box.appendChild(it);
   });
@@ -106,7 +122,7 @@ function renderSidebar() {
     srv.forEach((s) => {
       const it = el("div", "recent server" + (s.sid === state.viewingServer ? " active" : ""));
       it.appendChild(el("span", "r-title", esc(s.title || s.sid)));
-      it.onclick = () => openServerSession(s);
+      clickable(it, () => openServerSession(s), (s.title || s.sid));
       box.appendChild(it);
     });
   }
@@ -332,9 +348,9 @@ function assistantTurn(replay) {
   const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; liveRaw = ""; } };
   return {
     root,
-    status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; scroll(); },
+    status(t) { statusEl.classList.remove("hidden"); statusEl.querySelector(".st").textContent = t; announce(t); scroll(); },
     setTimer(t) { const e = statusEl.querySelector(".st-timer"); if (e) e.textContent = t; },
-    done() { statusEl.remove(); if (trail) trail.settle(); },
+    done() { statusEl.remove(); if (trail) trail.settle(); announce("Response ready."); },
     settle() { if (trail) trail.settle(); },
     note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
     text(delta) { const b = liveBody(); liveRaw += delta; b.innerHTML = md(liveRaw); scroll(); },   // live markdown as it streams
@@ -358,8 +374,8 @@ function assistantTurn(replay) {
     },
     answer(d) { dropLive(); ansSlot.appendChild(el("div", "answer", `<div class="answer-body">${md(d.answer)}</div>`)); if (d.trust && Object.keys(d.trust).length) ansSlot.appendChild(trustEl(d.trust)); scroll(); },
     badge(id, routed) { const label = (state.modelLabels && state.modelLabels[id]) || id; ansSlot.appendChild(el("div", "model-badge", (routed ? "Auto → " : "answered by ") + esc(label))); },
-    error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); },
-    stopped() { statusEl.remove(); if (liveEl) liveEl.querySelector(".answer-body").classList.remove("live"); ansSlot.appendChild(el("div", "stopped-note", "Stopped.")); },
+    error(msg) { dropLive(); statusEl.remove(); ansSlot.appendChild(el("div", "errbox", msg)); announce("The response ran into an error."); },
+    stopped() { statusEl.remove(); if (liveEl) liveEl.querySelector(".answer-body").classList.remove("live"); ansSlot.appendChild(el("div", "stopped-note", "Stopped.")); announce("Stopped."); },
     retry(fn) {
       const b = el("button", "retry-btn", `<svg viewBox="0 0 24 24" width="13" height="13"><path d="M4 12a8 8 0 1 1 2.3 5.6M4 12V7m0 5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Retry`);
       b.onclick = () => { b.remove(); fn(); }; ansSlot.appendChild(b); scroll();
@@ -896,8 +912,12 @@ function qitem(r) {
 }
 
 // ---------------- corpus browser ----------------
+let _overlayOpener = null;   // UX-1: the control to return focus to when an overlay/drawer closes
+function _restoreFocus() { if (_overlayOpener && document.contains(_overlayOpener)) _overlayOpener.focus(); _overlayOpener = null; }
 async function openCorpus() {
+  _overlayOpener = document.activeElement;
   $("#corpusView").classList.add("open"); $("#corpusBtn").classList.add("active");
+  $("#corpusSearch").focus();
   if (state.results === null) {
     $("#corpusBody").innerHTML = `<div class="empty">Loading the corpus…</div>`;
     try { const j = await (await fetch("/api/results")).json(); state.results = j.results || []; }
@@ -907,7 +927,7 @@ async function openCorpus() {
   $("#corpusSearch").value = "";
   renderCorpus("");
 }
-function closeCorpus() { $("#corpusView").classList.remove("open"); $("#corpusBtn").classList.remove("active"); }
+function closeCorpus() { const wasOpen = $("#corpusView").classList.contains("open"); $("#corpusView").classList.remove("open"); $("#corpusBtn").classList.remove("active"); if (wasOpen) _restoreFocus(); }
 
 // ---------------- Hypothesis-Generation surface (the Socratic Council, split out + persisted) ----------------
 // top-level Cellarium nav (#1): the Investigations|Hypotheses switch lives in the SIDEBAR — one level up from the
@@ -916,10 +936,13 @@ function closeCorpus() { $("#corpusView").classList.remove("open"); $("#corpusBt
 function _navToggle(hyp) {
   $("#navSegInv").setAttribute("aria-selected", String(!hyp));
   $("#navSegHyp").setAttribute("aria-selected", String(hyp));
+  $("#navSegInv").tabIndex = hyp ? -1 : 0;   // roving tabindex (WAI-ARIA tablist): only the selected tab is a tab stop
+  $("#navSegHyp").tabIndex = hyp ? 0 : -1;
   $("#navSegThumb").className = "nav-seg-thumb " + (hyp ? "r" : "l");
   $("#navInv").hidden = hyp; $("#navHyp").hidden = !hyp;
 }
 async function openHyp() {
+  if (!$("#hypView").classList.contains("open")) _overlayOpener = document.activeElement;
   _navToggle(true);
   $("#hypView").classList.add("open");
   await loadHypRuns();
@@ -928,8 +951,10 @@ async function openHyp() {
   else newHypComposer();                                         // no runs yet — the composer ("+ New hypothesis" also opens it)
 }
 function closeHyp() {
+  const wasOpen = $("#hypView").classList.contains("open");
   _navToggle(false);
   $("#hypView").classList.remove("open");
+  if (wasOpen) _restoreFocus();
 }
 async function loadHypRuns(activeId) {
   try { const j = await (await fetch("/api/hypotheses")).json(); state.hypRuns = j.runs || []; }
@@ -1227,8 +1252,20 @@ function availView(a) {
 
 // ---------------- drawers / models / plumbing ----------------
 const DRAWER_ID = { queue: "#queueDrawer", figures: "#figuresDrawer" };
-function openDrawer(which) { closeDrawers(); $("#scrim").classList.add("show"); $(DRAWER_ID[which] || DRAWER_ID.queue).classList.add("open"); if (which === "council") clearBadge("councilBadge"); }
-function closeDrawers() { $("#scrim").classList.remove("show"); Object.values(DRAWER_ID).forEach((id) => $(id).classList.remove("open")); }
+function openDrawer(which) {
+  const opener = document.activeElement;              // capture before closeDrawers() clears the tracker
+  closeDrawers();
+  _overlayOpener = opener;
+  $("#scrim").classList.add("show");
+  const d = $(DRAWER_ID[which] || DRAWER_ID.queue); d.classList.add("open");
+  if (which === "council") clearBadge("councilBadge");
+  const c = d.querySelector("[data-close]"); if (c) c.focus();   // move focus into the dialog
+}
+function closeDrawers() {
+  const anyOpen = Object.values(DRAWER_ID).some((id) => $(id).classList.contains("open"));
+  $("#scrim").classList.remove("show"); Object.values(DRAWER_ID).forEach((id) => $(id).classList.remove("open"));
+  if (anyOpen) _restoreFocus();
+}
 function bumpBadge(id, n) { const b = $("#" + id); if (!b) return; if (n > 0) { b.textContent = n; b.classList.add("show"); } else b.classList.remove("show"); }
 function clearBadge(id) { const b = $("#" + id); if (b) b.classList.remove("show"); }
 async function postJSON(url, body) { return (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json(); }
@@ -1254,6 +1291,12 @@ $("#corpusClose").onclick = closeCorpus;
 $("#corpusSearch").addEventListener("input", (e) => renderCorpus(e.target.value));
 $("#navSegInv").onclick = closeHyp;                 // top-level workspace switch (sidebar)
 $("#navSegHyp").onclick = openHyp;
+$("#navSeg").addEventListener("keydown", (e) => {   // WAI-ARIA tablist: arrow/Home/End move between + activate tabs
+  const goHyp = e.key === "ArrowRight" || e.key === "End", goInv = e.key === "ArrowLeft" || e.key === "Home";
+  if (!goHyp && !goInv) return;
+  e.preventDefault();
+  if (goHyp) { openHyp(); $("#navSegHyp").focus(); } else { closeHyp(); $("#navSegInv").focus(); }
+});
 $("#hypClose").onclick = closeHyp;
 $("#hypNewBtn").onclick = newHypComposer;
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");

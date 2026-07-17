@@ -21,6 +21,22 @@ body{font-family:var(--sans); color:var(--ink); background:var(--paper); -webkit
 #app{display:flex; height:100vh; overflow:hidden}
 svg{display:block}
 
+/* ---- accessibility (UX-1): skip link, screen-reader utility, keyboard focus ring, reduced motion ---- */
+.sr-only{position:absolute!important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0,0,0,0); white-space:nowrap; border:0}
+.skip-link{position:fixed; top:10px; left:10px; z-index:200; transform:translateY(-160%);
+  background:var(--card); color:var(--ink); border:1px solid var(--line); border-radius:9px;
+  padding:9px 14px; font:inherit; font-weight:600; box-shadow:var(--shadow-lg); transition:transform .15s ease}
+.skip-link:focus{transform:none}
+/* one keyboard-only focus ring for every interactive control; clay on paper stays visible even over a clay
+   button thanks to the offset. Mouse clicks don't trigger :focus-visible, so it never shows on pointer use. */
+:focus-visible{outline:2px solid var(--clay); outline-offset:2px}
+#scroll:focus,#scroll:focus-visible{outline:0}   /* skip-link lands here programmatically — no giant ring */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important; animation-iteration-count:1!important;
+    transition-duration:.001ms!important; scroll-behavior:auto!important}
+}
+
 /* ---------------- sidebar ---------------- */
 .sidebar{width:262px; flex:0 0 262px; padding:20px 16px; border-right:1px solid var(--line);
   background:linear-gradient(180deg,var(--paper-2),var(--paper)); display:flex; flex-direction:column; gap:16px;
