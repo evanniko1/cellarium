@@ -41,3 +41,115 @@ def t95_halfwidth(values: list[float]) -> float | None:
         return None
     se = statistics.stdev(values) / math.sqrt(n)
     return t_critical_95(n - 1) * se
+
+
+# --- t-distribution p-value (scipy-free) -----------------------------------------------------------------
+# A slope/coefficient p-value needs the t CDF, which the t-table above can't give. This is the regularized
+# incomplete beta I_x(a,b) (Numerical Recipes continued fraction) — the standard scipy-free route to the
+# Student-t tail. Used by rigor.fit_relation so a growth "law" carries a slope p-value, not just R² (audit DS-1).
+
+def _betacf(a: float, b: float, x: float) -> float:
+    MAXIT, EPS, FPMIN = 200, 3.0e-12, 1.0e-300
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < FPMIN:
+        d = FPMIN
+    d = 1.0 / d
+    h = d
+    for m in range(1, MAXIT + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < FPMIN:
+            d = FPMIN
+        c = 1.0 + aa / c
+        if abs(c) < FPMIN:
+            c = FPMIN
+        d = 1.0 / d
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < FPMIN:
+            d = FPMIN
+        c = 1.0 + aa / c
+        if abs(c) < FPMIN:
+            c = FPMIN
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+        if abs(delta - 1.0) < EPS:
+            break
+    return h
+
+
+def _betai(a: float, b: float, x: float) -> float:
+    """Regularized incomplete beta I_x(a, b), for x in [0, 1]."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    lbeta = math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+    bt = math.exp(lbeta + a * math.log(x) + b * math.log(1.0 - x))
+    if x < (a + 1.0) / (a + b + 2.0):
+        return bt * _betacf(a, b, x) / a
+    return 1.0 - bt * _betacf(b, a, 1.0 - x) / b
+
+
+def t_two_sided_p(t: float | None, df: int) -> float | None:
+    """Two-sided p-value for a Student-t statistic (scipy-free). None for df<1 or t undefined."""
+    if t is None or df < 1:
+        return None
+    dff = float(df)
+    return _betai(dff / 2.0, 0.5, dff / (dff + float(t) * float(t)))
+
+
+# --- shape statistics + bimodality (scipy-free) ----------------------------------------------------------
+# Sample skewness/kurtosis and Sarle's bimodality coefficient — the executable form of the Council's
+# "test for bimodality" decision rule (audit M-1). BC is a small-n-honest heuristic; Hartigan's dip test is
+# the gold standard but needs a bootstrap null, which we don't carry here.
+
+def _central_moments(values: list[float]) -> tuple[int, float, float, float]:
+    n = len(values)
+    m = statistics.fmean(values)
+    m2 = sum((x - m) ** 2 for x in values) / n
+    m3 = sum((x - m) ** 3 for x in values) / n
+    m4 = sum((x - m) ** 4 for x in values) / n
+    return n, m2, m3, m4
+
+
+def skewness(values: list[float]) -> float | None:
+    """Bias-corrected sample skewness G1. None for n<3 or zero variance."""
+    n, m2, m3, _ = _central_moments(values)
+    if n < 3 or m2 == 0:
+        return None
+    g1 = m3 / m2 ** 1.5
+    return g1 * math.sqrt(n * (n - 1)) / (n - 2)
+
+
+def kurtosis_excess(values: list[float]) -> float | None:
+    """Bias-corrected sample EXCESS kurtosis G2 (normal -> 0). None for n<4 or zero variance."""
+    n, m2, _, m4 = _central_moments(values)
+    if n < 4 or m2 == 0:
+        return None
+    g2 = m4 / m2 ** 2 - 3.0
+    return ((n - 1) / ((n - 2) * (n - 3))) * ((n + 1) * g2 + 6)
+
+
+def bimodality_coefficient(values: list[float]) -> float | None:
+    """Sarle's bimodality coefficient BC = (g1^2 + 1) / (g2 + 3), from POPULATION skewness g1 and excess kurtosis
+    g2 — the form the 5/9 threshold is defined against (uniform=5/9, normal=1/3, two equal modes=1). The
+    bias-corrected sample version shifts the threshold at small n, so BC uses population moments here; the tool
+    still reports the bias-corrected skewness/kurtosis separately. BC in (0, 1]. None for n<4 / zero variance."""
+    n, m2, m3, m4 = _central_moments(values)
+    if n < 4 or m2 == 0:
+        return None
+    g1 = m3 / m2 ** 1.5           # population skewness
+    g2 = m4 / m2 ** 2 - 3.0       # population excess kurtosis (>= -2 always, so denom >= 1)
+    denom = g2 + 3.0
+    if denom <= 0:
+        return None
+    return (g1 * g1 + 1.0) / denom
+
+
+BC_BIMODAL_THRESHOLD = 5.0 / 9.0  # Sarle's rule of thumb: BC above this suggests two modes

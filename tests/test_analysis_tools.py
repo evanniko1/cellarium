@@ -58,3 +58,29 @@ def test_exchange_flux_raw_gated_off_shard():
     # no design has full simOut local in CI -> a clean, actionable gate, not a crash
     out = tools.exchange_flux("condition/acetate", "acetate")
     assert out.get("needs_raw") is True or "error" in out
+
+
+def test_fit_relation_reports_slope_inference():
+    """DS-1: a growth LAW must carry inference on the slope, not just R² — SE, t, two-sided p, a 95% CI, and
+    adj R². The Scott/Hui ribosome-growth law is a strong relationship, so its slope CI should clear 0."""
+    designs = ["wildtype/basal", "condition/with_aa", "condition/no_oxygen",
+               "condition/acetate", "condition/succinate",
+               "ppgpp_conc/basal|ppGpp:0.2x", "ppgpp_conc/basal|ppGpp:2.0x",
+               "rrna_operon_knockout/minimal|rRNA_KO:2op", "rrna_operon_knockout/minimal|rRNA_KO:6op"]
+    fit = tools.fit_relation(designs=designs, x_channel="growth_rate", y_channel="ribosome_conc")["fit_all"]
+    for k in ("slope_se", "slope_t", "slope_p_value", "slope_ci95", "slope_ci_excludes_0", "adj_r_squared"):
+        assert k in fit                                          # inference fields are always present
+    assert isinstance(fit["slope_ci95"], list) and len(fit["slope_ci95"]) == 2
+    assert fit["slope_ci95"][0] <= fit["slope"] <= fit["slope_ci95"][1]   # CI brackets the point estimate
+    assert fit["slope_ci_excludes_0"] is True and fit["slope_p_value"] < 0.05   # strong law -> significant
+
+
+def test_bimodality_runs_on_corpus_and_guards_small_n():
+    """M-1: the Council's 'test for bimodality' is now executable. Whole-corpus growth_rate has enough pooled
+    per-seed values to score; a single-design scope (too few points) must gate cleanly, not crash."""
+    out = tools.bimodality(channel="growth_rate")
+    assert out["n"] >= 4 and isinstance(out["bimodality_coefficient"], float)
+    assert isinstance(out["bimodal_suggested"], bool) and out["best_split"]["separation_sd"] is not None
+    assert abs(out["bc_threshold"] - 5 / 9) < 0.01
+    thin = tools.bimodality(channel="growth_rate", designs=["no_such/design"])
+    assert "error" in thin and thin["n"] < 4                     # too few pooled values -> clean gate, not a crash

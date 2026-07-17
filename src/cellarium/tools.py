@@ -95,12 +95,18 @@ def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "prot
 
 def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
     """Fit a growth LAW across designs: OLS of y_channel on x_channel, each design a cross-seed mean point. Returns
-    slope/intercept/R², SPLIT into fit_all vs fit_out_of_sample_only (the honest predictive test) with every point
+    slope/intercept/R² PLUS slope inference (slope_se, slope_t, slope_p_value, slope_ci95, slope_ci_excludes_0,
+    adj_r_squared), SPLIT into fit_all vs fit_out_of_sample_only (the honest predictive test) with every point
     tagged in_sample/out_of_sample. Use for laws like ribosome_conc vs growth_rate (Scott/Hui) or a dose-response
     across a clamp/dosage series — never hand-regress means."""
     for d in (designs or []):
         rigor.note_design(d)
     return rigor.fit_relation(designs or [], x_channel, y_channel)
+
+
+def bimodality(channel: str, designs: list | None = None) -> dict:
+    """Test whether a channel's distribution is BIMODAL (Sarle's bimodality coefficient + best two-cluster split)."""
+    return rigor.bimodality(channel, designs or None)
 
 
 def _species_mean(ser):
@@ -826,6 +832,8 @@ TOOLS = [
     {"name": "disconfirm", "description": "Before committing to a causal claim, challenge it: given a claimed effect (target vs reference on a channel), returns the per-seed spread (is the effect bigger than replicate noise?), the corpus z-score, and a falsification checklist. Call this on your main claim before concluding.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "channel": {"type": "string"}}, "required": ["target", "reference", "channel"]}},
+    {"name": "bimodality", "description": "Test whether a channel's distribution is BIMODAL (two regimes) — the executable form of a 'dip test / test for bimodality' decision rule. Pools per-seed values across `designs` (or ALL designs if omitted) and returns Sarle's bimodality coefficient (bimodal_suggested when BC>0.555; uniform=0.555, normal~0.33), skew/kurtosis, and the best two-cluster split (where the modes sit + their separation in SDs). A stdlib heuristic, not Hartigan's dip — treat BC as indicative and corroborate with best_split.separation_sd. Needs >=4 pooled values.",
+     "input_schema": {"type": "object", "properties": {"channel": {"type": "string", "description": "e.g. growth_rate, ppgpp_conc, fraction_trna_charged"}, "designs": {"type": "array", "items": {"type": "string"}, "description": "optional design labels to pool over (e.g. an aaRS-KO panel); omit to test the whole corpus"}}, "required": ["channel"]}},
     {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "corpus_audit", "description": "Read-only inventory of the WHOLE corpus: coverage (designs, seeds, generation depth, QC), redundancy (designs replicated beyond a target -> estimated GB prunable), supersession (older/crashed dead-weight rows), and gaps (power-thin designs + the disk-feasibility budget for new runs). Deletes nothing; separates safe-to-prune from irreplaceable. Use to plan pruning under storage pressure and to ground what-to-run-next proposals with the disk budget.",
@@ -875,7 +883,8 @@ TOOLS = [
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
-             "disconfirm": disconfirm, "coverage_check": coverage_check, "corpus_audit": corpus_audit,
+             "disconfirm": disconfirm, "bimodality": bimodality,
+             "coverage_check": coverage_check, "corpus_audit": corpus_audit,
              "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,

@@ -166,8 +166,34 @@ def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
         slope = sxy / sxx
         intercept = my - slope * mx
         r = sxy / math.sqrt(sxx * syy)
-        return {"n": n, "slope": round(slope, 4), "intercept": round(intercept, 4),
-                "r_squared": round(r * r, 3), "pearson_r": round(r, 3)}
+        r2 = r * r
+        out = {"n": n, "slope": round(slope, 4), "intercept": round(intercept, 4),
+               "r_squared": round(r2, 3), "pearson_r": round(r, 3)}
+        # DS-1: INFERENCE on the slope, not just R². Residual-based SE -> t, two-sided p, and a 95% CI, so a
+        # "law" is only asserted when the slope CI excludes 0 (the Council's decision rule, now executable).
+        df = n - 2
+        if df >= 1 and sxx > 0:
+            sse = max(0.0, syy - slope * sxy)              # residual SS = Syy - slope*Sxy
+            se_slope = math.sqrt((sse / df) / sxx)
+            adj_r2 = round(1 - (1 - r2) * (n - 1) / df, 3)
+            if se_slope > 0:
+                t = slope / se_slope
+                hw = stats.t_critical_95(df) * se_slope
+                lo, hi = slope - hw, slope + hw
+                p = stats.t_two_sided_p(t, df)
+                out.update({"slope_se": round(se_slope, 4), "slope_t": round(t, 2),
+                            "slope_p_value": (round(p, 4) if p is not None else None),
+                            "slope_ci95": [round(lo, 4), round(hi, 4)],
+                            "slope_ci_excludes_0": bool(lo > 0 or hi < 0),
+                            "adj_r_squared": adj_r2})
+            else:   # perfect fit (zero residual): slope is exact, CI collapses to the point
+                out.update({"slope_se": 0.0, "slope_t": None, "slope_p_value": 0.0,
+                            "slope_ci95": [round(slope, 4), round(slope, 4)],
+                            "slope_ci_excludes_0": bool(slope != 0), "adj_r_squared": adj_r2})
+        else:   # n==2: slope is determined but has 0 residual df -> no inference possible
+            out.update({"slope_se": None, "slope_t": None, "slope_p_value": None,
+                        "slope_ci95": None, "slope_ci_excludes_0": None, "adj_r_squared": None})
+        return out
 
     oos = [p for p in pts if p["provenance"] == "out_of_sample"]
     return {"x_channel": x_channel, "y_channel": y_channel, "n_designs": len(pts),
@@ -177,4 +203,82 @@ def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
             "points": pts,
             "note": ("A law fitted ACROSS designs. `fit_out_of_sample_only` is the predictive test; `fit_all` mixes "
                      "fitted (in_sample) and predicted points. A high R² driven mainly by in_sample points is "
-                     "CONSISTENCY, not prediction — check n_out_of_sample and the out-of-sample fit before crediting.")}
+                     "CONSISTENCY, not prediction — check n_out_of_sample and the out-of-sample fit before crediting. "
+                     "Assert a relationship only when `slope_ci_excludes_0` is true (slope 95% CI clears 0) and "
+                     "`slope_p_value` is small — R² alone at small n over-claims. `adj_r_squared` penalises the fit "
+                     "for n; n=2 gives no residual df, so inference fields are null there.")}
+
+
+def _best_split(vals: list[float]) -> tuple[float, float, float, int, int] | None:
+    """Cheapest 1-D two-cluster split (minimise within-cluster SS over the sorted cut points) — an
+    interpretable companion to the bimodality coefficient: WHERE the two putative modes sit and how big each is."""
+    s = sorted(vals)
+    n = len(s)
+    if n < 2:
+        return None
+    best = None
+    for k in range(1, n):
+        lo, hi = s[:k], s[k:]
+        wss = (sum((x - statistics.fmean(lo)) ** 2 for x in lo)
+               + sum((x - statistics.fmean(hi)) ** 2 for x in hi))
+        if best is None or wss < best[0]:
+            best = (wss, statistics.fmean(lo), statistics.fmean(hi), len(lo), len(hi))
+    return best
+
+
+def bimodality(channel: str, designs: list | None = None) -> dict:
+    """Is the distribution of `channel` bimodal? Pools the per-seed values (across `designs`, or ALL designs if
+    None) and reports Sarle's bimodality coefficient (BC > 5/9 ~ two modes) plus the best two-cluster split —
+    the executable form of the Council's "test for bimodality" falsifier (audit M-1). A stdlib, small-n-honest
+    heuristic: NOT Hartigan's dip test (which needs a bootstrap null), so treat BC as indicative and corroborate
+    with the split separation. Grounded — values come straight from the manifest, no fabricated spread."""
+    from . import survey
+
+    rows = survey._deduped_rows(survey.CHANNELS)
+    if not rows or "__error__" in rows[0]:
+        return {"error": "corpus unreadable or empty"}
+    for r in rows:
+        try:
+            r["_pw"] = json.loads(r.get("pathways") or "{}")
+        except Exception:
+            r["_pw"] = {}
+
+    def val(r):
+        return r["_pw"].get(channel[3:]) if channel.startswith("pw:") else r.get(channel)
+
+    want = set(designs) if designs else None
+    vals = []
+    for r in rows:
+        label = f'{r.get("perturbation")}/{r.get("condition")}'
+        if want is not None and label not in want:
+            continue
+        v = val(r)
+        if v is not None:
+            vals.append(v)
+    for d in (designs or []):
+        note_design(d)
+    scope = sorted(want) if want else "all designs"
+    if len(vals) < 4:
+        return {"error": f"need >=4 '{channel}' values to test bimodality; got {len(vals)}",
+                "channel": channel, "n": len(vals), "scope": scope}
+
+    bc = stats.bimodality_coefficient(vals)
+    skew = stats.skewness(vals)
+    kurt = stats.kurtosis_excess(vals)
+    split = _best_split(vals)
+    pooled_sd = statistics.pstdev(vals) or 1e-12
+    sep = ((split[2] - split[1]) / pooled_sd) if split else None
+    return {
+        "channel": channel, "scope": scope, "n": len(vals),
+        "bimodality_coefficient": (round(bc, 3) if bc is not None else None),
+        "bc_threshold": round(stats.BC_BIMODAL_THRESHOLD, 3),
+        "bimodal_suggested": bool(bc is not None and bc > stats.BC_BIMODAL_THRESHOLD),
+        "skewness": (round(skew, 3) if skew is not None else None),
+        "excess_kurtosis": (round(kurt, 3) if kurt is not None else None),
+        "best_split": ({"low_mean": round(split[1], 6), "high_mean": round(split[2], 6),
+                        "n_low": split[3], "n_high": split[4],
+                        "separation_sd": (round(sep, 2) if sep is not None else None)} if split else None),
+        "note": ("Sarle's bimodality coefficient: BC>0.555 suggests two modes (uniform=0.555, normal~0.33). A "
+                 "heuristic, NOT Hartigan's dip test — at small n treat as indicative and read best_split.separation_sd "
+                 "(gap between the two cluster means in pooled SDs). Pools per-seed values across scope."),
+    }
