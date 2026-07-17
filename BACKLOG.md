@@ -14,7 +14,7 @@ AI-for-Science direction. Audit IDs (M-/DS-/LLM-/AG-/D-/UX-/H-/SP-) carry over f
 file:line evidence lives in git history (commit `55ed67f`).
 
 ## P1 at a glance (the critical path)
-~~`H-1` CI~~ ✅ · `M-1` falsifier executability · `DS-1` slope inference · ~~`LLM-1` model currency~~ ✅ ·
+~~`H-1` CI~~ ✅ · ~~`M-1` falsifier executability~~ ✅ · ~~`DS-1` slope inference~~ ✅ · ~~`LLM-1` model currency~~ ✅ ·
 ~~`SP-1` loop-closure~~ ✅ · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cross-check (science).
 
 ---
@@ -23,7 +23,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **M-1** | P1 | **Falsifier executability** — the Council prescribes tests the tools can't run (`dip test` unimplemented; `slope 95% CI` not computed). Add a bimodality tool + slope SE/CI/p, or constrain the rubric to executable tests. *Pairs with Filippo's D1/D2 (decision-rule logical consistency) — coordinate: executable + negation-complete are two halves of one falsifier-quality effort.* | A |
+| ~~**M-1**~~ | ✅ | **Falsifier executability** — made the Council's named tests executable (`bimodality` tool + `fit_relation` slope CI, DS-1) AND built a **self-harness**: `test_registry.py` + `harness.py` detect a falsifier naming a test with no tool and auto-file a dev-gated gap into class X below (deterministic, idempotent, human-State-respecting). It already caught a real one — 4 stored hypotheses name Hartigan's dip (we have Sarle's BC). **Done** — see Completed. *Pairs with Filippo's D1/D2 (decision-rule logical consistency).* | A |
+| **M-1b** | P2 | **Structured falsifier test field** — add a `NamedTest{test_id (registry enum) + "other"}` field to `Falsifier` + regenerate the Council schema/prompt, so the self-harness catches a *novel* unexecutable test deterministically (not just the curated known ones v1 matches by alias). Brief step 2 (wf_f7f85832). | N |
 | **M-2** | P2 | **Reproducibility** — Council + agent run at unset temperature. Pin temperature/seed and record in `Hypothesis` provenance. *(Bundle with LLM-3 + H-3.)* | A |
 | **M-3** | P2 | Provenance mis-tag — `wildtype` short-circuits to in-sample regardless of condition; gate on `condition ∈ IN_SAMPLE_CONDITIONS`; add test. | A |
 | **M-4** | P3 | Tie the in-sample condition set to the actual ParCa fit set + a test so it can't silently drift. | A |
@@ -37,7 +38,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **DS-1** | P1 | `fit_relation` reports slope/R² but **no inference** — add t-based slope SE/CI/p + adjusted R²; report n. *(Overlaps M-1.)* | A |
+| ~~**DS-1**~~ | ✅ | `fit_relation` now reports **slope inference** — t-based SE, two-sided p, 95% CI, `slope_ci_excludes_0`, and adj R² (scipy-free incomplete-beta p-value in `stats.py`). A "law" is asserted only when the slope CI clears 0, not from R² alone. **Done** — see Completed. | A |
 | **DS-2** | P2 | `effect_z_vs_corpus` conflates between-design spread with replicate noise — rename "vs corpus spread"; never present as significance. | A |
 | **DS-3** | P3 | Channel-level `differential.summary` has no per-channel significance — attach the Welch-t (or a note) to top channel movers. | A |
 | **DS-4** | P3 | Add a regression test pinning `t_critical_95` (table + Cornish-Fisher branch). | A |
@@ -126,6 +127,30 @@ file:line evidence lives in git history (commit `55ed67f`).
   `run_council`/`investigate` called `deliberate()` without `models`, so a picked model was ignored by the
   proposer/skeptic/judge. Now a specific pick drives the Council's roles; `Auto` keeps the Council's tuned default
   and the agent's per-turn router (Opus for Council-framed/hard turns). pytest + ruff green.
+- **DS-1 · Slope inference** (2026-07-17) — `fit_relation._ols` now carries `slope_se`, `slope_t`, two-sided
+  `slope_p_value`, `slope_ci95`, `slope_ci_excludes_0`, and `adj_r_squared`; the p-value comes from a scipy-free
+  regularized incomplete beta (`stats.t_two_sided_p`). A growth "law" is credited only when the slope CI clears 0.
+- **M-1 · Falsifier executability + the self-harness** (2026-07-17) — two parts. (1) Made the two tests the
+  Council named but couldn't run executable: the `bimodality` tool (Sarle's BC + best 2-cluster split) and the
+  DS-1 slope CI. (2) Built a standing **self-harness** (grounded in the wf_f7f85832 SOTA brief: Gorilla structural
+  match + LLM-Modulo external critic + gateswell/DGM dev gate): `src/cellarium/test_registry.py` (controlled
+  vocabulary of tests → tools, CI-invariant-checked against `TOOLS`) + `src/cellarium/harness.py` (deterministic
+  detector + idempotent, human-State-respecting writer into class X). Wired into `run_council` (non-blocking) and
+  runnable as a sweep (`harness.audit_store`). On the real stored corpus it filed `GAP-7f48ca3f`: 4 hypotheses
+  name Hartigan's dip, which we lack. Follow-up **M-1b** adds a structured falsifier field to catch *novel* gaps.
+
+## X · Capability gaps (auto-filed by the self-harness)
+
+Written by `src/cellarium/harness.py` on every Council run: a falsifier that names a statistical test with no executable tool (see `test_registry.py`) is filed here for a developer to close. **The harness only creates `open` rows and bumps `Seen`; edit the `State` cell by hand — it is respected and never reopened.** Resolve a gap by either implementing the tool (add its `TestSpec`; the gap then stops recurring) or tightening the proposer so the Council stops naming it (set `State` to `wontfix`). Auto-filed at P3 until a dev triages; `Seen >= 3` earns a `⚑` ready-for-triage flag.
+
+<!-- HARNESS-GAPS:BEGIN (managed by harness.py — edit only the State cell) -->
+
+| ID | State | Seen | Missing capability | Suggested resolution |
+|----|-------|------|--------------------|-----------------------|
+| `GAP-7f48ca3f` | open | 4× ⚑ | **hartigan_dip** named, no executable tool. We have Sarle's BC (bimodality_bc), not Hartigan's exact dip + bootstrap unimodal null. | implement the tool (Hartigan & Hartigan dip test with a bootstrap null — not implemented.) OR alias to a supported test + tighten the proposer |
+
+<!--gap GAP-7f48ca3f | test=hartigan_dip family=distribution_shape | seen=h_08a5af46a3,h_bf64f76cdb,h_b8808da134,h_f238624d7c | first=2026-07-17 | q= -->
+<!-- HARNESS-GAPS:END -->
 
 ## Coordinate with Filippo (separate workstream)
 Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/council_issues.yaml`, branch

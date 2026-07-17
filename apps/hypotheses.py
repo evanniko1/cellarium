@@ -172,6 +172,11 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 # soft, non-blocking sharpening nudge (advisory only — the run still completed)
                 "broad_question": broad, "hint": (_BROAD_HINT if broad else None)}
         store.complete(run_id, hview, designs, meta)
+        try:   # self-harness (M-1): file any Council-named test the toolkit can't run. Best-effort — the
+            from cellarium import harness   # detector already swallows its own errors; a gap must never break a run.
+            harness.scan_and_file(hyp, run_id)
+        except Exception:
+            pass
     except Exception as exc:
         store.fail(run_id, f"{type(exc).__name__}: {exc}")
         raise
