@@ -59,7 +59,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 |----|---|------|-----|
 | ~~**SP-1**~~ | ✅ | **Hypothesis lifecycle reflection** — each falsifier design shows its live state (proposed / queued / running / available / failed), derived from the launch queue by semantic match + corpus membership; the re-run is guarded (no re-queue of an in-flight or done design). **Done** — see Completed. | A |
 | **SP-1b** | P2 | **Explicit Cellwright write-back** — when the agent *revises or invalidates* a specific Council design (rather than just running it), record that delta on the Hypothesis and surface the Council-vs-Cellwright diff. Needs a session↔hypothesis link + an agent-side write; the SP-1 queue/corpus derivation already covers the "did it run?" half. | A |
-| **SP-2** | P1 | **Cellwright receptive field** — informative truncation ("k of N dropped"); full-scan anomaly/change-point tools; sub-agent map-reduce over large trajectories; a receptive-field eval (inject a known transient + a mid-rank mover). *Lit-pass warranted first (hierarchical/map-reduce summarization, sub-agent fan-out, change-point detection).* | A |
+| ~~**SP-2**~~ | ✅ core | **Cellwright receptive field** — shipped the host core: `read_raw_series` **extrema-preserving (min–max)** decimation + loss report, a new **`scan_series`** transient/level-shift tool (MAD-prominence + width gate + FDR), and `top_movers` **informative truncation** ("k of N significant dropped"). Verified on real 10k-step trajectories. **Done (core)** — see Completed; remaining pieces → **SP-2b**. | A |
+| **SP-2b** | P2 | **Receptive field — agent level** — the deferred SP-2 pieces (Design notes): an *agent-graded* receptive-field eval in `evals/cases.py` (NoLiMa paraphrased probe + null control + injected transient & mid-rank mover); a **mid-rank stratified sample** in `top_movers` (needs a `_reader_worker` edit); the **gated map-reduce fan-out** (numpy scan pre-filters → LLM workers on flagged segments only, extractive reduce). | A |
 | **AG-1** | P2 | Launch queue is a lock-free JSON read-modify-write at a relative path — file lock (or move into SQLite) + absolute config-rooted path. | A |
 | **AG-2** | P2 | 38 tools + ~4 KB router prompt — consolidate overlapping tools; track tool-selection error rate in the eval. | A |
 | **AG-3** | P3 | Dispatch: explicit unknown-tool guard + semantic input validation test. | A |
@@ -91,7 +92,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **SCI-1** | P1·sci | **cobrapy → FBA tool-wrappers** (`fba_growth` / `fba_gene_knockout` / `fba_flux` / `fba_essentiality_panel` over iML1515) — an *independent* genome-scale essentiality cross-check; where the whole-cell verdict, the FBA call, and the Baba/Keio benchmark disagree is a grounded model limit. The top scientific unlock. *(= roadmap P4.2 "fba_essentiality v2 / EcoCyc oracle".)* | T + R |
+| **SCI-1** | P1·sci | **cobrapy → FBA tool-wrappers** (`fba_growth` / `fba_gene_knockout` / `fba_flux` / `fba_essentiality_panel` over iML1515) — an *independent* genome-scale essentiality cross-check; where the whole-cell verdict, the FBA call, and the Baba/Keio benchmark disagree is a grounded model limit. The top scientific unlock. Lit brief done (`wf_2479258d`) → **plan in Design notes below**. *(= roadmap P4.2.)* | T + R |
 | **SCI-2** | P2·sci | **pydeseq2** — compare the model's simulated expression against real *E. coli* RNA-seq (a complementary model-limits / validation angle). | T |
 | **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. | S |
 | **SCI-4** | P3·sci | Multi-gene / reduced-genome design generator, scored by viability. *(Deprioritized.)* | R |
@@ -167,6 +168,69 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
 
 <!--gap GAP-7f48ca3f | test=hartigan_dip family=distribution_shape | seen=h_08a5af46a3,h_bf64f76cdb,h_b8808da134,h_f238624d7c | first=2026-07-17 | q= -->
 <!-- HARNESS-GAPS:END -->
+
+- **SP-2 (core) · Cellwright receptive field** (2026-07-18) — closed the silent-truncation holes, host-side and
+  scipy-free (numpy). (1) `read_raw_series` swapped stride decimation for **min–max** decimation (a transient can
+  no longer fall between shown points) + a `view` loss report (`extrema_in_view`, `max_abs_error_vs_full`,
+  `detail_between_points` → nudge to scan). (2) New **`scan_series`** tool (`scan.py`) reads the full-resolution
+  `raw.seed_channel` and returns an FDR-controlled transient/level-shift event list: robust binned-median baseline
+  + MAD-prominence, gated by effect-size + min-width, with a normal-tail p × AR(1) effective-N correction and
+  BH-FDR (`stats.bh_qvalues`) — deterministic, no signal-contaminated bootstrap. (3) `top_movers` gained a
+  `truncation` block computing "k of N BH-significant movers dropped below the cut" from the worker's counts.
+  Tests: `test_scan.py` (min–max preserves a stride-missed spike; transient vs level-shift classification; no
+  false positive on clean noise; determinism; truncation block). Verified live on `wildtype/basal` (10,234
+  timesteps). Deferred → **SP-2b**. pytest + ruff green.
+
+## Design notes (scouted plans)
+
+Distilled from the SOTA+pitfalls lit briefs (`wf_2479258d`, full text in that workflow's transcript). These are
+the agreed approach + guardrails for the two open P1s; edit as we build.
+
+### SP-2 · Cellwright receptive field
+
+**Core (this pass — host-only, scipy-free numpy):**
+1. `read_raw_series`: replace stride decimation with **min–max (LTTB) decimation** so extrema/change-points always
+   survive into `series`, plus a **loss report** (`peak_flattened`, `extrema_in_view`, `max_abs_error_vs_full`).
+2. New `scan_series` tool over full-resolution `raw.seed_channel`: robust **MAD-prominence** transient detection +
+   **level-shift** classification (returns-to-baseline test), gated by **effect-size (MAD) + min-width**, with a
+   **block-bootstrap-calibrated p** (fixed seed → deterministic) and **BH-FDR** across events.
+3. `top_movers` **truncation block**: host-computed from `n_significant_fdr10` + shown `q`s — "k of N significant
+   shown, m below the cut" + a raise-`top`/filter hint (kills the silent drop).
+4. Receptive-field **test**: inject a stride-hidden spike → assert `scan_series` + min–max catch it and the old
+   stride view misses it.
+
+**Deferred (SP-2b):** mid-rank stratified sample in `top_movers` (needs a `_reader_worker` edit); `evals/cases.py`
+integration with NoLiMa-style *paraphrased* probes + a **null control**; the **gated map-reduce** — the numpy scan
+pre-filters, LLM workers fan out **only** to flagged segments (cap K), reduce stays **extractive** (set-union +
+dedup + provenance, never abstractive).
+
+**Pitfalls guarded:** FP control via effect-size+width+block-bootstrap+BH-FDR (trajectories are autocorrelated →
+detrend + deterministic seed); binary-seg is greedy, not "optimal"; extractive (not abstractive) reduce or the
+mid-rank item dies; fan-out gated on the scan (multi-agent ≈ 15× tokens).
+
+### SCI-1 · Independent FBA cross-check
+
+**Build:** four cobrapy wrappers over **iML1515** — `fba_growth` (FBA), `fba_flux` (pFBA + **loopless FVA** on
+demand), `fba_gene_knockout` (**FBA + MOMA** side by side), `fba_essentiality_panel` (FBA+MOMA over the 402-gene
+set; essential if growth < 1–5% WT). MOMA is the honest comparator — wcEcoli's homeostatic FBA can't re-route to a
+distant optimum either.
+
+**Reproducibility (load-bearing):** BiGG iML1515 SBML (fbc2); log model **SHA-256 + cobrapy + solver + tolerance +
+medium + objective**; assert `BIOMASS_Ec_iML1515_core_75p37M` + sanity growth ≈ 0.88 h⁻¹ on M9-glucose set via
+`model.medium`; ship a **MEMOTE** report in CI.
+
+**Three-way router:** wcEcoli vs FBA vs Keio → each disagreement cell → a **named diagnostic** (kinetic cap /
+cofactor cross-feeding / OR-isozyme / Keio assay artifact). Report **MCC / PR-AUC + confusion matrix**, never raw
+accuracy (set is ~90% non-essential).
+
+**Compute + deps:** CPU-only LP/QP — growth ~10–50 ms, panel ~seconds (FBA) to ~1–3 min (MOMA), FVA on demand; **no
+Docker/GPU**. Behind an optional **`fba` extra** (cobrapy pulls scipy/pandas/optlang + a solver) to keep the core
+scipy-free.
+
+**Pitfalls guarded:** alternate optima → FVA + pFBA (never a single internal flux); thermodynamic loops →
+`add_loopless` (an FVA bound at the ±1000 cap = loops missing); biomass/GAM/NGAM/medium sensitivity (±20% test);
+GPR AND/OR via `single_gene_deletion` (not hand-toggled bounds); single- vs double-deletion; solver/model-version
+determinism near the essentiality cutoff; **never claim FBA as ground truth** — curation dominates method choice.
 
 ## Coordinate with Filippo (separate workstream)
 Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/council_issues.yaml`, branch

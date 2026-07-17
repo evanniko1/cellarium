@@ -153,3 +153,19 @@ def bimodality_coefficient(values: list[float]) -> float | None:
 
 
 BC_BIMODAL_THRESHOLD = 5.0 / 9.0  # Sarle's rule of thumb: BC above this suggests two modes
+
+
+def bh_qvalues(pvals: list[float]) -> list[float]:
+    """Benjamini-Hochberg adjusted q-values (same order as input) — the multiple-testing control the change-point
+    scan applies across detected events (SP-2). Standard step-up: q_(i) = min over k>=i of p_(k)*n/k, clamped to 1."""
+    n = len(pvals)
+    if n == 0:
+        return []
+    order = sorted(range(n), key=lambda i: pvals[i])   # ascending by p
+    q = [1.0] * n
+    running = 1.0
+    for rank in range(n - 1, -1, -1):
+        i = order[rank]
+        running = min(running, pvals[i] * n / (rank + 1))
+        q[i] = min(running, 1.0)
+    return q

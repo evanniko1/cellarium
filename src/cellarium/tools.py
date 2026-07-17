@@ -84,13 +84,37 @@ def differential(target: str, reference: str = "wildtype/basal") -> dict:
     return _diff.summary(target, reference)
 
 
+def _truncation_block(out: dict, top: int) -> dict | None:
+    """SP-2 informative truncation: `top_movers` returns only the top-N, silently dropping the rest. Compute — from
+    what the worker already reports (`n_significant_fdr10`) and the shown movers' q-values — how many BH-significant
+    movers fell below the cut, so a real MID-RANK mover stops being invisible. None when nothing significant was
+    dropped."""
+    n_sig = out.get("n_significant_fdr10")
+    if n_sig is None:
+        return None
+    shown = (out.get("up") or []) + (out.get("down") or [])
+    shown_sig = sum(1 for m in shown if isinstance(m.get("q"), (int, float)) and m["q"] < 0.1)
+    dropped = int(n_sig) - shown_sig
+    if dropped <= 0:
+        return None
+    return {"n_significant": int(n_sig), "n_shown": len(shown), "n_shown_significant": shown_sig,
+            "n_dropped_significant": dropped,
+            "hint": (f"{dropped} more BH-significant movers are below the top-{top} cut — raise `top`, or narrow "
+                     "with regulon_response / a pathway filter, before concluding these are all that moved.")}
+
+
 def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "protein", top: int = 12) -> dict:
     """Species that moved most between two DESIGNS (seed-averaged, count-floored, reproducibility-flagged)."""
     if kind not in _SPECIES_KINDS:
         return {"error": f"kind must be one of {_SPECIES_KINDS}"}
     rigor.note_design(target)
     rigor.note_design(reference)
-    return _diff.top_movers(target, reference, kind, top)
+    out = _diff.top_movers(target, reference, kind, top)
+    if isinstance(out, dict) and "error" not in out:
+        trunc = _truncation_block(out, top)
+        if trunc:
+            out["truncation"] = trunc
+    return out
 
 
 def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
@@ -273,14 +297,54 @@ def read_raw_series(result_id: str, channel: str = "growth_rate", max_points: in
     if t.size == 0:
         return {"error": f"no readable '{channel}' trajectory in the raw simOut for that seed."}
     rigor.note_result(run["result_id"])
+    from . import scan
+    import numpy as _np
     k = max(2, min(int(max_points), 200))
-    idx = range(t.size) if t.size <= k else (int(round(i * (t.size - 1) / (k - 1))) for i in range(k))
+    # SP-2: EXTREMA-PRESERVING (min-max) decimation, not stride — a transient can no longer fall between the shown
+    # points. Plus a loss report so the agent knows the fidelity of the view and where the extrema sit.
+    idx = scan.minmax_decimate(t, v, k)
     series = [[round(float(t[i]), 1), round(float(v[i]), 8)] for i in idx]
+    argmax, argmin = int(v.argmax()), int(v.argmin())
+    recon = _np.interp(_np.arange(t.size), idx, v[idx]) if t.size > idx.size else v
+    max_err = float(_np.max(_np.abs(v - recon)))
+    rng_v = float(v.max() - v.min()) or 1e-12
+    detail = max_err > 0.02 * rng_v
     return {"result_id": run["result_id"], "seed": run["seed"], "channel": channel, "n_gens": run["n_gens"],
             "n_timesteps": int(t.size), "resolution_sec": round(float(t[-1] - t[-2]), 2) if t.size > 1 else None,
             "stats": {"mean": round(float(v.mean()), 8), "min": round(float(v.min()), 8),
                       "max": round(float(v.max()), 8), "first": round(float(v[0]), 8), "last": round(float(v[-1]), 8)},
-            "series": series, "grounded_from": "raw simOut (local, full-resolution)"}
+            "series": series,
+            "view": {"method": "minmax", "shown": int(idx.size), "of_timesteps": int(t.size),
+                     "t_argmax": round(float(t[argmax]), 1), "t_argmin": round(float(t[argmin]), 1),
+                     "extrema_in_view": True,   # min-max decimation always keeps each bucket's extrema
+                     "max_abs_error_vs_full": round(max_err, 8), "detail_between_points": detail,
+                     "hint": ("structure lives between shown points — call scan_series for a full-scan, "
+                              "FDR-controlled transient/change-point list" if detail else None)},
+            "grounded_from": "raw simOut (local, full-resolution)"}
+
+
+def scan_series(result_id: str, channel: str = "growth_rate", min_effect_mad: float = 4.0,
+                min_width: int = 3, fdr: float = 0.05) -> dict:
+    """FULL-SCAN a channel's raw trajectory for TRANSIENTS + LEVEL SHIFTS the coarse ~16-point view flattens (SP-2).
+    Reads every timestep of one seed's raw simOut (no Docker) and returns an FDR-controlled event list — a ppGpp
+    spike after a media downshift, a growth-rate step — each with its peak time, magnitude (in robust MAD units),
+    direction, and raw timestep range to drill into. Use when a mean/trajectory could be hiding a brief excursion,
+    or when read_raw_series flags `detail_between_points`. Deterministic. Empty events != flat: loosen
+    min_effect_mad to probe weaker signals."""
+    from . import raw as rawmod, scan
+    runs = rawmod.seed_runs(result_id)
+    if not runs:
+        return {"error": f"no local raw simOut for '{result_id}' — see data_availability for the HF/regenerate path."}
+    run = next((r for r in runs if r["result_id"] == result_id), runs[0])
+    try:
+        t, v = rawmod.seed_channel(run["root"], channel)
+    except KeyError:
+        return {"error": f"channel '{channel}' has no raw mapping; try {sorted(rawmod.CHANNELS)}."}
+    if t.size == 0:
+        return {"error": f"no readable '{channel}' trajectory in the raw simOut for that seed."}
+    rigor.note_result(run["result_id"])
+    return scan.scan_channel(t, v, channel, run, min_effect_mad=float(min_effect_mad),
+                             min_width=int(min_width), fdr=float(fdr))
 
 
 def variance_band(design: str, channel: str = "growth_rate", n_points: int = 40) -> dict:
@@ -813,6 +877,8 @@ TOOLS = [
                       "required": ["result_id", "channel"]}},
     {"name": "read_raw_series", "description": "DRILL DOWN into the local raw simOut: the FULL-RESOLUTION trajectory of a channel for ONE seed (every timestep), where read_series/the manifest carry only a ~16-point downsample. Reads wcEcoli listener columns directly from local disk — no Docker. Use when a question needs resolution the shard lacks (a transient, an exact rate at a time). Accepts a result_id or a design label (lowest local seed). Only for designs with raw on local disk — check raw_available first.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string", "description": "a result_id or design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, cell_mass, dry_mass, protein_mass, rna_mass, ppgpp_conc, ribosome_conc, fraction_trna_charged, rela_conc, fba_objective"}, "max_points": {"type": "integer", "description": "downsample the returned series to at most this many points (default 60); stats are over ALL timesteps"}}, "required": ["result_id", "channel"]}},
+    {"name": "scan_series", "description": "FULL-SCAN a channel's raw trajectory for TRANSIENTS + LEVEL SHIFTS that the coarse ~16-point read_series view flattens (e.g. a ppGpp spike after a media downshift, a growth-rate step). Reads every timestep of one seed's local raw simOut and returns an FDR-controlled event list — each event's kind (transient/level_shift), direction, peak time, magnitude in robust MAD units, q-value, and raw timestep range. Call when a mean/trajectory might hide a brief excursion, or when read_raw_series reports detail_between_points. Deterministic; empty events is NOT proof of a flat trajectory (loosen min_effect_mad to probe weaker signals).",
+     "input_schema": {"type": "object", "properties": {"result_id": {"type": "string", "description": "a result_id or design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, ppgpp_conc, fraction_trna_charged, ribosome_conc, rela_conc, …"}, "min_effect_mad": {"type": "number", "description": "min peak height in robust MAD units to flag (default 4.0; lower = more sensitive)"}, "min_width": {"type": "integer", "description": "min event width in timesteps (default 3; rejects single-sample noise)"}, "fdr": {"type": "number", "description": "Benjamini-Hochberg FDR across events (default 0.05)"}}, "required": ["result_id"]}},
     {"name": "variance_band", "description": "The CROSS-SEED variance the coarse shard cannot express: reads EVERY local seed's full-resolution simOut for a channel, resamples onto a common time grid, and returns per-timepoint mean, std, sem and CI95 ACROSS seeds — grounded numbers only, no fabricated spread. Pass a DESIGN label. This is how to honestly answer 'draw the variance over time/generations'. Pair with chart(kind='band') to draw it. Needs >=2 local seeds with the channel (check raw_available).",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, ppgpp_conc, cell_mass, ..."}, "n_points": {"type": "integer", "description": "grid resolution (default 40)"}}, "required": ["design"]}},
     {"name": "raw_available", "description": "What FULL-RESOLUTION raw simOut is reachable on LOCAL DISK right now for a design: which seeds, generations per seed, and which channels are readable. The drill-down discovery step before read_raw_series / variance_band. Distinct from data_availability (which is about the HF download path) — this reports what you can read WITHOUT any download.",
@@ -890,7 +956,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "reroute_diagnosis": reroute_diagnosis,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
-             "read_raw_series": read_raw_series, "variance_band": variance_band, "raw_available": raw_available,
+             "read_raw_series": read_raw_series, "scan_series": scan_series,
+             "variance_band": variance_band, "raw_available": raw_available,
              "download_raw": download_raw,
              "read_species": read_species, "screen_design": screen_design,
              "screen_phenotype": screen_phenotype,
