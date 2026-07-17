@@ -2,13 +2,15 @@
 
 import tarfile
 
+import pytest
+
 from cellarium import hf, store, tools
 
 
 def test_download_raw_reports_per_archive_progress(monkeypatch):
     """A confirmed multi-archive pull streams progress (done/total) per archive through the agent's set_progress
     hook, so a multi-GB HF download shows 'downloading 2/5' instead of hanging silently. Network+extract stubbed."""
-    import huggingface_hub
+    huggingface_hub = pytest.importorskip("huggingface_hub")  # in the optional [hf] extra; skip if absent
     plan = {"design": "x", "repo": hf.HF_REPO, "n_seeds": 3, "n_local": 0, "n_to_pull": 3, "est_gb": 14.0,
             "files": [{"result_id": f"r{i}", "hf_path": f"runs/cellarium/gk_{i}/000000.tar.gz",
                        "local": False, "on_hf": True, "seed": i} for i in range(3)]}
