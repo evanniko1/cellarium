@@ -14,8 +14,8 @@ AI-for-Science direction. Audit IDs (M-/DS-/LLM-/AG-/D-/UX-/H-/SP-) carry over f
 file:line evidence lives in git history (commit `55ed67f`).
 
 ## P1 at a glance (the critical path)
-~~`H-1` CI~~ ✅ · `M-1` falsifier executability · `DS-1` slope inference · `LLM-1` model currency · `SP-1` Hypothesis
-loop-closure · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cross-check (science).
+~~`H-1` CI~~ ✅ · `M-1` falsifier executability · `DS-1` slope inference · `LLM-1` model currency ·
+~~`SP-1` loop-closure~~ ✅ · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cross-check (science).
 
 ---
 
@@ -56,7 +56,8 @@ loop-closure · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cr
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **SP-1** | P1 | **Hypothesis lifecycle loop-closure** — per-`candidate_design` status (`proposed→altered/invalidated→queued→running→done`); reverse write-back from Cellwright revise/invalidate + queue completion; disable stale one-click runs; surface the Council-vs-Cellwright delta. | A |
+| ~~**SP-1**~~ | ✅ | **Hypothesis lifecycle reflection** — each falsifier design shows its live state (proposed / queued / running / available / failed), derived from the launch queue by semantic match + corpus membership; the re-run is guarded (no re-queue of an in-flight or done design). **Done** — see Completed. | A |
+| **SP-1b** | P2 | **Explicit Cellwright write-back** — when the agent *revises or invalidates* a specific Council design (rather than just running it), record that delta on the Hypothesis and surface the Council-vs-Cellwright diff. Needs a session↔hypothesis link + an agent-side write; the SP-1 queue/corpus derivation already covers the "did it run?" half. | A |
 | **SP-2** | P1 | **Cellwright receptive field** — informative truncation ("k of N dropped"); full-scan anomaly/change-point tools; sub-agent map-reduce over large trajectories; a receptive-field eval (inject a known transient + a mid-rank mover). *Lit-pass warranted first (hierarchical/map-reduce summarization, sub-agent fan-out, change-point detection).* | A |
 | **AG-1** | P2 | Launch queue is a lock-free JSON read-modify-write at a relative path — file lock (or move into SQLite) + absolute config-rooted path. | A |
 | **AG-2** | P2 | 38 tools + ~4 KB router prompt — consolidate overlapping tools; track tool-selection error rate in the eval. | A |
@@ -109,6 +110,15 @@ loop-closure · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cr
   config + a `dev` extra to `pyproject.toml`, tuned ruff to the codebase's style (real-bug rules on; semicolon /
   long-line style off), and fixed 13 pyflakes issues (unused imports, empty f-strings, redundant in-function
   imports). Suite: **119 passed, 1 skipped**.
+
+- **SP-1 · Hypothesis lifecycle reflection** (2026-07-14) — a recorded Hypothesis now reflects what actually
+  happened to each falsifier design. `launch.lifecycle_for_designs` matches each design against the launch queue by
+  *semantic identity* (perturbation/condition/gene-set/key-params, ignoring the resolved `variant_index`), so a run
+  submitted from the Council surface **or** proposed by Cellwright is reflected back; `hypothesis_get` merges that
+  with corpus membership into a per-design `state` (proposed/queued/running/available/failed); the frontend shows a
+  status badge and **guards the re-run** (no Queue button on an in-flight or done design), and `propose_panel`
+  ("Queue all") is now idempotent. Unit-tested (`test_lifecycle_reflects_queue_by_semantic_match`) + verified
+  end-to-end in the browser. Remainder tracked as **SP-1b**.
 
 ## Coordinate with Filippo (separate workstream)
 Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/council_issues.yaml`, branch

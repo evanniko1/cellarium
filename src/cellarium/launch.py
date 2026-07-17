@@ -138,6 +138,46 @@ def stamp_provenance(request_id: str, session_id: str | None = None, question: s
     return False
 
 
+# --- SP-1: per-design lifecycle — reflect the launch queue back onto a Hypothesis -------------------------
+_LIFE_RANK = {"done": 6, "running": 5, "pending_approval": 4, "blocked": 3, "failed": 2, "superseded": 1,
+              "rejected": 0, "unresolved": 0}
+
+
+def _match_key(perturbation, condition, timeline, params) -> tuple:
+    """A design's SEMANTIC identity for matching against queued/run jobs — perturbation/condition/timeline + the
+    identifying params (gene set, ppGpp multiplier, operon count, TF targets). It deliberately EXCLUDES the resolved
+    variant_index/ko_indices: a Council falsifier carries the gene SYMBOLS, and the queued job it spawns also carries
+    the resolved index, so keying on the index would wrongly split them. Symbol-level identity matches both."""
+    p = params or {}
+    genes = tuple(sorted(str(g).lower() for g in (p.get("target_genes") or ([p["gene"]] if p.get("gene") else []))))
+    ident = {k: p[k] for k in ("multiplier", "num_operons_to_delete", "direction", "target_tfs") if k in p}
+    return (perturbation or "wildtype", condition or None, timeline or None, genes,
+            json.dumps(ident, sort_keys=True, default=str))
+
+
+def lifecycle_for_designs(designs: list[dict]) -> list[dict]:
+    """For each rendered design (a dict with perturbation/condition/timeline/params), find any launch-queue job of the
+    same semantic identity and return its lifecycle, PARALLEL to `designs`: {status, request_id, shard}. The
+    most-advanced matching job wins (done > running > pending_approval > blocked > failed). status is 'proposed' when
+    nothing matches. Matched by DESIGN, not hyp_id, so a run submitted from the Council surface OR proposed by
+    Cellwright is reflected back onto the Hypothesis. Corpus 'in_corpus' membership is the caller's concern."""
+    q = _load()
+    by_key: dict[tuple, list] = {}
+    for r in q:
+        d = r.get("design") or {}
+        by_key.setdefault(_match_key(d.get("perturbation"), d.get("condition"), d.get("timeline"), d.get("params")),
+                          []).append(r)
+    out = []
+    for dv in designs:
+        jobs = by_key.get(_match_key(dv.get("perturbation"), dv.get("condition"), dv.get("timeline"),
+                                     dv.get("params")), [])
+        job = max(jobs, key=lambda r: _LIFE_RANK.get(r.get("status"), -1), default=None)
+        out.append({"status": (job["status"] if job else "proposed"),
+                    "request_id": (job["id"] if job else None),
+                    "shard": (job.get("shard") if job else None)})
+    return out
+
+
 def reconcile() -> dict:
     """Heal jobs orphaned at 'running' by a server restart/crash. approve_and_run runs the sim in an in-process
     thread, so if the server dies between the sim finishing and the status write, the job is stuck at 'running'

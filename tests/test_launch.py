@@ -121,3 +121,35 @@ def test_revise_supersedes_old_draft_and_requeues(tmp_path, monkeypatch):
     assert new["seeds"] == 10 and new["design"]["params"]["variant_index"] == 1594   # kept pfkA, new seed count
     pending = launch.list_requests(status="pending_approval")           # only the revised draft is live
     assert len(pending) == 1 and pending[0]["id"] == r2["request_id"]
+
+
+def test_lifecycle_reflects_queue_by_semantic_match(tmp_path, monkeypatch):
+    """SP-1: each Council falsifier design's lifecycle is derived from the launch queue by SEMANTIC identity
+    (perturbation / condition / gene set / key params), IGNORING the resolved variant_index — so a job the design
+    spawned is matched regardless of who queued it, and the most-advanced matching job wins."""
+    import json
+
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    q = [
+        # a KO that RAN — carries the RESOLVED variant_index the Council design never had
+        {"id": "req_done", "status": "done", "shard": "shard_7",
+         "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": None,
+                    "params": {"target_genes": ["pfkA"], "variant_index": 1594}}},
+        # an earlier superseded draft of the SAME design — must NOT win over 'done'
+        {"id": "req_old", "status": "superseded",
+         "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": None,
+                    "params": {"target_genes": ["pfkA"]}}},
+        # a ppGpp clamp still awaiting approval, matched by its multiplier
+        {"id": "req_pending", "status": "pending_approval",
+         "design": {"perturbation": "ppgpp_conc", "condition": "basal", "timeline": None, "params": {"multiplier": 2.0}}},
+    ]
+    (tmp_path / "q.json").write_text(json.dumps(q))
+    designs = [
+        {"perturbation": "gene_knockout", "condition": "basal", "timeline": None, "params": {"target_genes": ["pfkA"]}},
+        {"perturbation": "ppgpp_conc", "condition": "basal", "timeline": None, "params": {"multiplier": 2.0}},
+        {"perturbation": "gene_knockout", "condition": "basal", "timeline": None, "params": {"target_genes": ["acrB"]}},
+    ]
+    life = launch.lifecycle_for_designs(designs)
+    assert life[0] == {"status": "done", "request_id": "req_done", "shard": "shard_7"}   # advanced wins, not 'superseded'
+    assert life[1]["status"] == "pending_approval" and life[1]["request_id"] == "req_pending"
+    assert life[2] == {"status": "proposed", "request_id": None, "shard": None}          # no matching job

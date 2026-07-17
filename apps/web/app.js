@@ -729,12 +729,13 @@ function designEl(dv, i) {
   };
   ctr.append(sS, sG, btn); c.appendChild(ctr); return c;
 }
-function designTable(run) {   // the falsifier panel as a scannable table — design · scale · in-corpus? · action (#5)
-  const designs = run.designs, needs = designs.filter((d) => !d.in_corpus);
+function designTable(run) {   // the falsifier panel as a scannable table — design · scale · lifecycle · action (SP-1)
+  const dstate = (d) => d.state || (d.in_corpus ? "available" : "proposed");
+  const designs = run.designs, needs = designs.filter((d) => ["proposed", "failed"].includes(dstate(d)));
   const wrap = el("div", "panel");
   const head = el("div", "panel-head");
   head.appendChild(el("h3", null, `${designs.length} designs`));
-  head.appendChild(el("span", "panel-sum", `${designs.length - needs.length} in corpus · ${needs.length} need running`));
+  head.appendChild(el("span", "panel-sum", `${designs.length - needs.length} handled · ${needs.length} to run`));
   const flab = el("label", "panel-filter"); const fchk = el("input"); fchk.type = "checkbox";
   flab.append(fchk, document.createTextNode(" Needs running only"));
   head.appendChild(flab);
@@ -749,7 +750,7 @@ function designTable(run) {   // the falsifier panel as a scannable table — de
   if (needs.length) head.appendChild(qall);
   wrap.appendChild(head);
   const tbl = el("div", "panel-tbl"), table = el("table");
-  table.appendChild(el("thead", null, `<tr><th>Design</th><th class="num">Scale</th><th>In corpus?</th><th></th></tr>`));
+  table.appendChild(el("thead", null, `<tr><th>Design</th><th class="num">Scale</th><th>Status</th><th></th></tr>`));
   const tb = el("tbody");
   designs.forEach((dv) => tb.appendChild(designRow(dv)));
   table.appendChild(tb); tbl.appendChild(table); wrap.appendChild(tbl);
@@ -763,18 +764,29 @@ function designRow(dv) {
   const label = isKO ? (isMulti ? "multi_ko" : "gene_knockout") + " · KO:" + genes
     : `${dv.perturbation}${dv.condition ? " · " + dv.condition : ""}`;
   const role = dv.perturbation === "wildtype" ? "reference" : isMulti ? "discriminating control" : isKO ? "single knockout" : "perturbation";
-  const tr = el("tr", dv.in_corpus ? "in-yes" : "in-no");
+  // SP-1: per-design lifecycle — proposed / queued / running / available (in corpus) / failed
+  const st = dv.state || (dv.in_corpus ? "available" : "proposed");
+  const BADGE = { proposed: ["◷ needs running", "no"], queued: ["◷ in airlock", "q"], running: ["● running", "q"],
+                  available: ["✓ data available", "yes"], failed: ["✗ run failed", "no"] };
+  const [blab, bcls] = BADGE[st] || BADGE.proposed;
+  const handled = st === "available" || st === "queued" || st === "running";   // no fresh queue needed
+  const tr = el("tr", handled ? "in-yes" : "in-no");
   const dcell = el("td");
   dcell.appendChild(el("div", "d-label", esc(label)));
   dcell.appendChild(el("div", "d-role" + (dv.perturbation === "wildtype" ? " ref" : isMulti ? " ctrl" : ""), role));
   tr.appendChild(dcell);
   tr.appendChild(el("td", "num", `${dv.seeds}×${dv.generations}`));
-  const ic = el("td"); ic.appendChild(el("span", "incorp " + (dv.in_corpus ? "yes" : "no"), dv.in_corpus ? "✓ in corpus" : "◷ needs running")); tr.appendChild(ic);
+  const ic = el("td"); ic.appendChild(el("span", "incorp " + bcls, blab)); tr.appendChild(ic);
   const act = el("td", "act-cell");
-  if (dv.in_corpus) { act.appendChild(el("span", "act-note", "analyze in place")); }
-  else {
-    const q = el("button", "row-q", "Queue");
-    q.onclick = async () => {   // proposes at the Council's scale (dv.seeds×dv.generations), not 1×1
+  if (st === "available") {
+    act.appendChild(el("span", "act-note", "analyze in place"));
+  } else if (st === "queued" || st === "running") {
+    const v = el("button", "row-q ghost", st === "running" ? "running…" : "view in airlock");
+    v.onclick = () => { refreshQueue(); openDrawer("queue"); };   // jump to the live job — never re-queue
+    act.appendChild(v);
+  } else {   // proposed | failed -> queue (or re-queue a failed run), at the Council's scale (not 1×1)
+    const q = el("button", "row-q", st === "failed" ? "Re-queue" : "Queue");
+    q.onclick = async () => {
       if (q.classList.contains("queued")) return;
       q.disabled = true; q.textContent = "…";
       const res = await postJSON("/api/propose", { perturbation: dv.perturbation, condition: dv.condition, timeline: dv.timeline,

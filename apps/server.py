@@ -253,14 +253,29 @@ async def hypotheses_list(request):
 async def hypothesis_get(request):
     rid = request.query_params.get("id")
     run = HYPOTHESES.get(rid) if rid else None
-    if run and run.get("designs"):   # tag each falsifier with whether the corpus already has it (the panel table's badge)
+    if run and run.get("designs"):   # SP-1: reflect each falsifier's LIFECYCLE (queued/running/done) + corpus membership
         try:
-            from cellarium import manifest
+            from cellarium import launch, manifest
             from cellarium.model import Design
-            for dv in run["designs"]:
+            life = launch.lifecycle_for_designs(run["designs"])
+            for dv, lc in zip(run["designs"], life):
                 d = Design(perturbation=dv.get("perturbation", "wildtype"), condition=dv.get("condition"),
                            timeline=dv.get("timeline"), params=dv.get("params") or {})
-                dv["in_corpus"] = manifest.has_run(d)
+                in_corpus = bool(manifest.has_run(d))
+                st = lc["status"]
+                # a live/finished queue job wins; else corpus membership; else still just proposed
+                if st in ("pending_approval", "blocked"):
+                    dv["state"] = "queued"
+                elif st == "running":
+                    dv["state"] = "running"
+                elif st == "done":
+                    dv["state"], in_corpus = "available", True   # the run landed + was indexed
+                elif st == "failed":
+                    dv["state"] = "failed"
+                else:
+                    dv["state"] = "available" if in_corpus else "proposed"
+                dv["in_corpus"] = in_corpus
+                dv["request_id"], dv["shard"] = lc["request_id"], lc["shard"]
         except Exception:
             pass
     return JSONResponse(run if run else {"error": "not found"}, status_code=(200 if run else 404))
@@ -396,6 +411,8 @@ async def propose_panel(request):
     if not designs and hyp_id:                       # resolve the panel from the persisted run
         run = HYPOTHESES.get(hyp_id)
         designs = (run or {}).get("designs") or []
+        life = launch.lifecycle_for_designs(designs)   # SP-1: idempotent — skip designs already queued/running/done
+        designs = [d for d, lc in zip(designs, life) if lc["status"] in ("proposed", "failed", "rejected")]
     res = tools.propose_experiments(designs=designs)
     q = b.get("question")
     for r in res.get("requests") or []:              # provenance -> the originating Hypothesis run
