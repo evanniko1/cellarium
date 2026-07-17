@@ -1,5 +1,7 @@
 # Cellarium roadmap — rigorous result-scanning + guardrails
 
+> ⚠️ **Done-history.** Live/open tasks are unified into [../BACKLOG.md](../BACKLOG.md) (open items migrated: M-8, M-9, H-6, SCI-1/4/5). Retained as the 2026-07-10 harness roadmap record.
+
 Task tracker for the analytical harness. **Why:** Coli reads simulation results, and without structure it
 anchors on the first salient run (primacy / lost-in-the-middle, Liu 2023) and confirms the conversational
 trace (confirmation bias, O'Leary 2025). Anchoring is *not* fixable by prompting — chain-of-thought and

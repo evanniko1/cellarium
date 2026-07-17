@@ -1,5 +1,7 @@
 # Harness audit — code, methodology, conceptual (2026-07-10)
 
+> ⚠️ **Superseded** by the broader 2026-07-14 audit and unified into [../BACKLOG.md](../BACKLOG.md). Retained as the 2026-07-10 harness-audit history.
+
 Empirical audit of the Cellarium harness: 17 agent tools, 19 modules, 16 tests. Stress-test (edge cases across
 every tool) found **no crashes** and **semantically-correct guardrails** (`screen_design` flags marA up-regulation
 but exempts an acrB knockout; `check_feasibility` flags the mid-sim carbon switch; `mechanistic_scope` refuses to
