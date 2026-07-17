@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 hf = ["huggingface_hub>=0.24"]   # only for the corpus upload scripts (scripts/hf_*.py)
+dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
 
 [project.scripts]
 cellarium = "cellarium.cli:main"
@@ -30,3 +31,24 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cellarium"]
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["skills"]   # vendored third-party skills — not ours to lint
+
+[tool.ruff.lint]
+# The codebase deliberately uses compact one-liners (semicolons) and long single-line tool-description strings,
+# so line-length + multi-statement style rules are off; keep the real-bug rules (pyflakes F + core pycodestyle E/W).
+select = ["E", "F", "W"]
+ignore = ["E501", "E702", "E401", "E741"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# tests/parallel needs Docker (opt-in via CELLARIUM_DOCKER_TESTS, skipped otherwise); the raw-simOut drill-down
+# tests skip cleanly when no local raw is present (e.g. on CI).
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# Advisory only for now (CI runs it non-blocking); tightening typing is BACKLOG H-2.

@@ -68,7 +68,7 @@ class Hypothesis(BaseModel):
     def brief(self) -> str:
         """Compact justification brief injected into the grounded agent's context (agent.run)."""
         lines = [
-            f"OPERATIONALIZED HYPOTHESIS (from the Socratic Council):",
+            "OPERATIONALIZED HYPOTHESIS (from the Socratic Council):",
             f"  Question:   {self.question}",
             f"  Claim (H1): {self.claim}",
             f"  H1: {self.h1}",

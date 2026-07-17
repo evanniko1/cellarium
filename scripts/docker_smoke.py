@@ -12,7 +12,6 @@ Docker -> sim -> output loop works. See docs/DOCKER_SETUP.md.
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys

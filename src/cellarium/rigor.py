@@ -73,7 +73,6 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
         return [val(r) for r in rows
                 if f'{r.get("perturbation")}/{r.get("condition")}' == label and val(r) is not None]
 
-    import math
 
     tv, rv = series(target), series(reference)
     if not tv:
@@ -121,7 +120,6 @@ def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
     in_sample / out_of_sample, and the fit is split so a caller can see whether the law holds on GENUINE predictions
     (out_of_sample) vs merely reproduces fitted conditions (in_sample) — the distinction the provenance guard exists
     for. designs: ['perturbation/condition', ...]. Needs >=3 designs carrying BOTH channels."""
-    import math
 
     from . import provenance, survey
 

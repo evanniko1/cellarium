@@ -87,7 +87,7 @@ def main():
             print(f"  Arm B  Council  [{r['id']}]  status={r['status']}  ->  {status}")
         else:
             print("  Arm B  — NOT FOUND (convene it in Hypotheses)")
-        print(f"  MANUAL:  predicted direction  ArmA=____  ArmB=____  |  corpus shows=____  |  ArmB diverges from corpus? ____")
+        print("  MANUAL:  predicted direction  ArmA=____  ArmB=____  |  corpus shows=____  |  ArmB diverges from corpus? ____")
 
     print("\n" + "-" * 74)
     print("Read: Arm A hypotheses are data-informed (it read the corpus first); Arm B's are blind/pre-registered.")

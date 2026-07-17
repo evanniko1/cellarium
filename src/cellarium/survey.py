@@ -73,7 +73,6 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         if r.get("reportable"):
             by_design[(r["perturbation"], r["condition"])].append(r)
 
-    import math
 
     def dmean_ci(rs: list[dict], ch: str):
         vals = [v for v in (val(r, ch) for r in rs) if v is not None]

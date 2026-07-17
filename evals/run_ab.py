@@ -246,8 +246,8 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
          f"app gate pre-pass — the gate over-fires on the Council's own competency")
     _log(f"Arm A (Cellwright): answered {len(a_rows)}   data-informed {a_informed}/{len(a_rows)} "
          f"(blind Arm B = 0/{len(ok_b)} by construction)")
-    _log(f"\n-> evals/results/ab_summary.json   ·   app backfill: Council runs in the Hypotheses surface; "
-         f"Arm A in the sessions table")
+    _log("\n-> evals/results/ab_summary.json   ·   app backfill: Council runs in the Hypotheses surface; "
+         "Arm A in the sessions table")
     _log("   score the HARKing contrast per-case with:  python scripts/ab_score.py")
 
 

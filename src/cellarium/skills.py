@@ -8,7 +8,6 @@ the normal tool dispatch, so every fetch shows up in the glass-box trace). See s
 
 from __future__ import annotations
 
-import json
 import urllib.error
 import urllib.request
 from pathlib import Path

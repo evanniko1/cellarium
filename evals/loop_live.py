@@ -17,7 +17,6 @@ transient/bimodality are v2 (a hypothesis needing them is returned status='unsup
 from __future__ import annotations
 
 import json
-import math
 import statistics
 
 from cellarium import rigor

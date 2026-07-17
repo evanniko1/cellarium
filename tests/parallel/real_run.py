@@ -6,7 +6,6 @@ A background thread samples `docker ps` to prove 8 sim containers are alive simu
 import subprocess, threading, time, json
 from pathlib import Path
 
-import cellarium.reader as reader
 import cellarium.manifest as manifest
 from cellarium.model import Design
 

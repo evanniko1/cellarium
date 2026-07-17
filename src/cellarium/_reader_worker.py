@@ -565,7 +565,7 @@ def mode_fba_essentiality(root, genes_csv):
         try:
             fba.solve(3)
             obj = float(fba.getObjectiveValue())
-        except Exception as exc:
+        except Exception:
             obj = None
         fba.setReactionFluxBounds(rxns, upperBounds=[np.inf] * len(rxns), raiseForReversible=False)  # restore
         out[sym] = {"n_rxn": len(rxns), "obj_baseline": round(obj0, 2),

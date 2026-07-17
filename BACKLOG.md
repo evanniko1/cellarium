@@ -14,7 +14,7 @@ AI-for-Science direction. Audit IDs (M-/DS-/LLM-/AG-/D-/UX-/H-/SP-) carry over f
 file:line evidence lives in git history (commit `55ed67f`).
 
 ## P1 at a glance (the critical path)
-`H-1` CI · `M-1` falsifier executability · `DS-1` slope inference · `LLM-1` model currency · `SP-1` Hypothesis
+~~`H-1` CI~~ ✅ · `M-1` falsifier executability · `DS-1` slope inference · `LLM-1` model currency · `SP-1` Hypothesis
 loop-closure · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cross-check (science).
 
 ---
@@ -78,7 +78,7 @@ loop-closure · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cr
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **H-1** | P1 | **CI** — GitHub Actions running `pytest` + `ruff` + `mypy` on PR; enforce the 119 tests. | A |
+| ~~**H-1**~~ | ✅ | **CI** — GitHub Actions (`ruff` + `pytest` blocking, advisory `mypy`) on PR + push to main. Done — see Completed. | A |
 | **H-2** | P2 | Add `[tool.ruff]` / `[tool.mypy]` / `[tool.pytest]` config to `pyproject.toml`. | A |
 | **H-3** | P2 | Pin deps + lockfile (uv/pip-tools); record model+temp+seed per run. *(Reproducibility bundle with M-2/LLM-3.)* | A |
 | **H-4** | P3 | Add a secret-scan to CI. | A |
@@ -102,6 +102,13 @@ loop-closure · `SP-2` receptive field · `UX-1` accessibility · `SCI-1` FBA cr
 | **PUB-1** | P3 | Adopt the publication K-Dense skills: `scientific-writing` (manuscript), `citation-management`/`pyzotero`, `scientific-visualization`/`schematics`/`slides`/`latex-posters`, `peer-review` (pre-submission self-critique), `uncertainty-quantification`. *(`research-grants` used for the AI-for-Science application.)* | T |
 
 ---
+
+## Completed
+- **H-1 · CI** (2026-07-14) — `.github/workflows/ci.yml` runs `ruff check` + `pytest` (blocking) and `mypy`
+  (advisory) on every PR and push to `main`. Added `[tool.ruff]` / `[tool.pytest.ini_options]` / `[tool.mypy]`
+  config + a `dev` extra to `pyproject.toml`, tuned ruff to the codebase's style (real-bug rules on; semicolon /
+  long-line style off), and fixed 13 pyflakes issues (unused imports, empty f-strings, redundant in-function
+  imports). Suite: **119 passed, 1 skipped**.
 
 ## Coordinate with Filippo (separate workstream)
 Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/council_issues.yaml`, branch
