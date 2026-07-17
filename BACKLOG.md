@@ -1,9 +1,8 @@
 # Cellarium — backlog
 
 The single authoritative task list for Cellarium. Organized by **task class** (A–H); within each class, by
-**priority**. This unifies the audit (`POST_HACKATHON_AUDIT.md`), the deferred-work TODO
-(`POST_HACKATHON_TODO.md`), and the still-open items from `docs/ROADMAP.md` and `docs/AUDIT.md` — all now deprecated
-in favor of this file (see *Supersedes*).
+**priority**. **New tasks, findings, and bugs go here** — under the right class, with an ID, priority, and a
+one-line description; do not spin up separate audit/TODO docs.
 
 **Scope.** These are our items (Evangelos's audit + roadmap + TODO). Filippo's Council-defect ledger (D1–D6, on the
 `operationalization-debate` branch) is a **separate, Filippo-owned** workstream; it is *cross-referenced* where it
@@ -11,8 +10,8 @@ touches an item here, never folded in.
 
 **Priority.** `P1` — before publication / open-source. `P2` — soon. `P3` — polish / later.
 **Source.** `A` audit · `T` TODO · `R` roadmap/old-audit open items · `N` new (surfaced in reconciliation) · `S`
-AI-for-Science direction. Audit IDs (M-/DS-/LLM-/AG-/D-/UX-/H-/SP-) trace to the file:line evidence in
-`POST_HACKATHON_AUDIT.md`.
+AI-for-Science direction. Audit IDs (M-/DS-/LLM-/AG-/D-/UX-/H-/SP-) carry over from the 2026-07-14 audit; its full
+file:line evidence lives in git history (commit `55ed67f`).
 
 ## P1 at a glance (the critical path)
 `H-1` CI · `M-1` falsifier executability · `DS-1` slope inference · `LLM-1` model currency · `SP-1` Hypothesis
@@ -112,10 +111,9 @@ Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/co
 - **LLM-2** (observability) ⟷ his **method gap** (the Council's per-round transcript isn't persisted; `ablation.json`
   keeps only counts) — persisting transcripts enables systematic Council analysis and measuring M-1.
 
-## Supersedes
-Task tracking is unified here. The following are retained but **deprecated as task sources** (they keep their
-evidence / history):
-- `POST_HACKATHON_AUDIT.md` — the file:line **evidence-of-record** behind the M-/DS-/LLM-/AG-/D-/UX-/H-/SP- items.
-- `POST_HACKATHON_TODO.md` — folded into classes A/G/H.
-- `docs/ROADMAP.md` — the 2026-07-10 harness **done-history**; its open items are M-8/M-9/H-6/SCI-1/4/5.
-- `docs/AUDIT.md` — the 2026-07-10 harness audit, superseded by `POST_HACKATHON_AUDIT.md`.
+## Provenance
+This backlog replaced three task docs, now **removed** (recoverable from git history at commit `55ed67f`):
+`POST_HACKATHON_AUDIT.md` (the file:line audit evidence), `POST_HACKATHON_TODO.md` (deferred work), and
+`docs/AUDIT.md` (the 2026-07-10 harness audit). `docs/ROADMAP.md` is **kept** as cited design-history — it is
+referenced by `docs/SOCRATIC_COUNCIL.md` and the code, not a task source; its open items (M-8/M-9/H-6/SCI-1/4/5)
+now live here.

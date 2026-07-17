@@ -1,6 +1,6 @@
 # Cellarium roadmap — rigorous result-scanning + guardrails
 
-> ⚠️ **Done-history.** Live/open tasks are unified into [../BACKLOG.md](../BACKLOG.md) (open items migrated: M-8, M-9, H-6, SCI-1/4/5). Retained as the 2026-07-10 harness roadmap record.
+> **Reference — design-history** (the 2026-07-10 harness roadmap; cited by `SOCRATIC_COUNCIL.md` and the code). **Not a task source** — live tasks are in [../BACKLOG.md](../BACKLOG.md) (open items migrated: M-8, M-9, H-6, SCI-1/4/5).
 
 Task tracker for the analytical harness. **Why:** Coli reads simulation results, and without structure it
 anchors on the first salient run (primacy / lost-in-the-middle, Liu 2023) and confirms the conversational
