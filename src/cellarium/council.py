@@ -25,8 +25,8 @@ import os
 import re
 from typing import Callable
 
-from . import instrument
-from .hypothesis import Falsifier, Hypothesis, OperationalDef, Rival
+from . import instrument, test_registry
+from .hypothesis import Falsifier, Hypothesis, NamedTest, OperationalDef, Rival
 from .model import Design
 
 OBJECTION_TYPES = ["undefined_term", "hidden_auxiliary", "unfalsifiable", "conflated_construct",
@@ -72,6 +72,10 @@ _PROPOSER_SYS = (
     "  (b) falsifier.decision_rule NAMES the statistical test AND the threshold (e.g. 'OLS regression of Y on X "
     "across >=3 conditions; reject H0 if the slope 95% CI excludes 0 and R^2>=0.9'; or 'Welch t on Y "
     "target-vs-reference; reject if |t|>=2'; or 'dip test for bimodality; reject unimodal if p<0.05').\n"
+    "  (b-i) ALSO set falsifier.test.test_id to the EXECUTABLE test you will use, chosen ONLY from: "
+    f"{', '.join(test_registry.supported_ids())}. Use 'other' ONLY if genuinely none of these fits the test your "
+    "decision_rule describes — then name it in decision_rule; the platform logs an 'other' as a capability gap "
+    "for the developers to build. Fill test.statistic and test.threshold to match decision_rule.\n"
     "  (c) include a DISCRIMINATING CONTROL: beyond target+reference, add the in-envelope candidate_design that "
     "ISOLATES H1 from its leading rival — e.g. a ppgpp_conc clamp or rrna_operon_knockout to test causality of a "
     "ribosome-allocation claim, a relA/spoT gene_knockout (the 'relaxed' control) to test a ppGpp-dependence "
@@ -173,12 +177,22 @@ _OD = {"type": "object", "properties": {
 _RIVAL = {"type": "object", "properties": {
     "claim": {"type": "string"}, "distinguishing_result": {"type": "string"}},
     "required": ["claim", "distinguishing_result"]}
+# falsifier.test is the STRUCTURED, harness-checkable test (M-1b): test_id is a closed vocabulary generated from
+# the executable-test registry + the 'other' escape hatch, so a test with no tool is caught deterministically.
+_TEST = {"type": "object", "properties": {
+    "test_id": {"type": "string", "enum": test_registry.supported_ids() + ["other"],
+                "description": "the executable test you will use; 'other' ONLY if none fits (then name it in "
+                               "decision_rule) — an 'other' is logged as a capability gap for the developers"},
+    "statistic": {"type": "string", "description": "the statistic computed, e.g. welch_t, slope_ci, "
+                                                   "bimodality_coefficient"},
+    "threshold": {"type": "string", "description": "the reject threshold, e.g. |t|>=2, CI excludes 0, BC>0.555"}},
+    "required": ["test_id"]}
 _FALSIFIER = {"type": "object", "properties": {
     "target": {"type": "string", "description": "a design label 'perturbation/condition' in candidate_designs"},
     "reference": {"type": "string", "description": "the null/baseline design label"},
     "channel": {"type": "string", "description": "one instrument summary channel"},
-    "decision_rule": {"type": "string"}, "refuting_result": {"type": "string"}},
-    "required": ["target", "reference", "channel", "decision_rule", "refuting_result"]}
+    "decision_rule": {"type": "string"}, "refuting_result": {"type": "string"}, "test": _TEST},
+    "required": ["target", "reference", "channel", "decision_rule", "refuting_result", "test"]}
 _DESIGN = {"type": "object", "properties": {
     "perturbation": {"type": "string"}, "condition": {"type": "string"}, "timeline": {"type": "string"},
     "seeds": {"type": "integer"}, "generations": {"type": "integer"}, "params": {"type": "object"}},
@@ -397,8 +411,12 @@ def _assemble(question: str, cand: dict, residual: list[str], converged: bool,
     falsifier = None
     if isinstance(fal, dict):
         try:
-            falsifier = Falsifier(**{k: fal.get(k, "") for k in
-                                     ("target", "reference", "channel", "decision_rule", "refuting_result")})
+            tst = fal.get("test")
+            named = NamedTest(**{k: tst.get(k, "") for k in ("test_id", "statistic", "threshold")
+                                 if tst.get(k) is not None}) if isinstance(tst, dict) else None
+            falsifier = Falsifier(test=named, **{k: fal.get(k, "") for k in
+                                                 ("target", "reference", "channel", "decision_rule",
+                                                  "refuting_result")})
         except Exception:
             falsifier = None
     designs = [d for d in (_to_design(x) for x in cand.get("candidate_designs", [])) if d]

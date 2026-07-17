@@ -65,6 +65,37 @@ def test_writer_is_idempotent_and_respects_human_state(tmp_path):
     assert s3["unchanged"] is True and "wontfix" in bl.read_text(encoding="utf-8")
 
 
+def _hyp_with_test(test_id, statistic="", decision_rule="reject if the statistic exceeds threshold"):
+    return {"question": "q?", "falsifier": {"target": "a", "reference": "b", "channel": "growth_rate",
+            "decision_rule": decision_rule, "refuting_result": "",
+            "test": {"test_id": test_id, "statistic": statistic, "threshold": ""}}}
+
+
+def test_structured_other_is_flagged_as_a_novel_gap():
+    """M-1b: the structured `test.test_id == 'other'` catches a NOVEL test the curated free-text list never knew
+    about — deterministically. A supported test_id passes; a free-text known gap wins over the generic 'other'."""
+    gaps = harness.scan_hypothesis(_hyp_with_test("other", statistic="Anderson-Darling normality test"), "h_1")
+    assert len(gaps) == 1 and gaps[0].kind == "unlisted_test" and gaps[0].test_id
+    # a supported structured test -> no gap
+    assert harness.scan_hypothesis(_hyp_with_test("welch_disconfirm", "welch_t"), "h_2") == []
+    # 'other' is SUPPRESSED when the free-text already names a specific known-unsupported test
+    g3 = harness.scan_hypothesis(_hyp_with_test("other", "dip", decision_rule="use Hartigan's dip test"), "h_3")
+    assert [g.kind for g in g3] == ["missing_test"] and g3[0].test_id == "hartigan_dip"
+
+
+def test_council_schema_and_assembly_carry_the_test_field():
+    from cellarium import council
+    enum = council._TEST["properties"]["test_id"]["enum"]
+    assert "other" in enum and {"welch_disconfirm", "bimodality_bc"} <= set(enum)
+    cand = {"claim": "c", "falsifier": {"target": "a/b", "reference": "c/d", "channel": "growth_rate",
+            "decision_rule": "welch t", "refuting_result": "",
+            "test": {"test_id": "welch_disconfirm", "statistic": "welch_t"}}}
+    assert council._assemble("q", cand, [], True).falsifier.test.test_id == "welch_disconfirm"
+    # a legacy candidate with no test field still assembles (backward compatible)
+    legacy = {"claim": "c", "falsifier": {k: v for k, v in cand["falsifier"].items() if k != "test"}}
+    assert council._assemble("q", legacy, [], True).falsifier.test is None
+
+
 def test_scan_and_file_never_raises(tmp_path):
     bl = tmp_path / "BACKLOG.md"
     bl.write_text("# Backlog\n", encoding="utf-8")

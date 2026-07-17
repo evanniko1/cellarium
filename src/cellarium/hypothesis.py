@@ -27,6 +27,18 @@ class OperationalDef(BaseModel):
     measure: str                           # the operation on it, e.g. "coefficient of variation across seeds"
 
 
+class NamedTest(BaseModel):
+    """The structured, machine-checkable form of the falsifier's statistical test — an id from the executable
+    test registry (test_registry.py), or the `"other"` escape hatch when none fits. The self-harness reads this
+    to decide {executable | gap} DETERMINISTICALLY, so a NOVEL test the Council invents is caught as a capability
+    gap, not just the curated known-missing ones a free-text scan matches by alias (M-1b). Additive: the prose
+    `decision_rule` stays the human-readable form."""
+
+    test_id: str = "other"   # a supported test_registry id, or 'other' when no listed test fits
+    statistic: str = ""      # the statistic computed, e.g. 'welch_t', 'slope_ci', 'bimodality_coefficient'
+    threshold: str = ""      # the reject threshold, e.g. '|t|>=2', 'CI excludes 0', 'BC>0.555'
+
+
 class Falsifier(BaseModel):
     """What result would refute the hypothesis — a rigor.disconfirm(target, reference, channel) call spec plus
     the decision rule that reads its output. This is Popper's risky prohibition, made executable."""
@@ -36,6 +48,7 @@ class Falsifier(BaseModel):
     channel: str            # the observable tested (a dial label)
     decision_rule: str      # e.g. "reject H0 if welch_t >= 2 AND effect direction is positive"
     refuting_result: str    # the concrete outcome that would falsify H1, e.g. "welch_t < 2 (within replicate noise)"
+    test: NamedTest | None = None   # the structured, harness-checkable test (M-1b); None on legacy runs
 
 
 class Rival(BaseModel):
@@ -79,8 +92,9 @@ class Hypothesis(BaseModel):
             lines.append(f"  Operationalize: '{od.term}' -> {od.observable} ({od.measure})")
         if self.falsifier:
             f = self.falsifier
+            test = f"  [test={f.test.test_id}]" if f.test and f.test.test_id else ""
             lines.append(f"  Falsifier: disconfirm(target='{f.target}', reference='{f.reference}', "
-                         f"channel='{f.channel}'); {f.decision_rule}; refuted if {f.refuting_result}")
+                         f"channel='{f.channel}'); {f.decision_rule}; refuted if {f.refuting_result}{test}")
         for r in self.rivals:
             lines.append(f"  Rival: {r.claim} -> distinguished by: {r.distinguishing_result}")
         for a in self.auxiliary_assumptions:

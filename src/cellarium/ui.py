@@ -54,10 +54,17 @@ def hypothesis_view(hyp) -> dict:
     # (measured channel, reference, decision rule), never the disconfirm() call signature it used to stringify to.
     fals = getattr(hyp, "falsifier", None)
     if fals:
-        view["falsifier"] = fals if isinstance(fals, str) else {
-            "target": getattr(fals, "target", ""), "reference": getattr(fals, "reference", ""),
-            "channel": getattr(fals, "channel", ""), "decision_rule": getattr(fals, "decision_rule", ""),
-            "refuting_result": getattr(fals, "refuting_result", "")}
+        if isinstance(fals, str):
+            view["falsifier"] = fals
+        else:
+            nt = getattr(fals, "test", None)
+            view["falsifier"] = {
+                "target": getattr(fals, "target", ""), "reference": getattr(fals, "reference", ""),
+                "channel": getattr(fals, "channel", ""), "decision_rule": getattr(fals, "decision_rule", ""),
+                "refuting_result": getattr(fals, "refuting_result", ""),
+                # the structured, harness-checkable test (M-1b) — carried so the sweep over stored runs sees it
+                "test": ({"test_id": getattr(nt, "test_id", ""), "statistic": getattr(nt, "statistic", ""),
+                          "threshold": getattr(nt, "threshold", "")} if nt else None)}
     rivals = getattr(hyp, "rivals", None) or []
     if rivals:
         view["rivals"] = rivals if isinstance(rivals, str) else [

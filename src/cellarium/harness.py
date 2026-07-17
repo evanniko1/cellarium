@@ -59,7 +59,8 @@ _lock = threading.Lock()       # in-process guard for the read-modify-write of B
 class GapRecord:
     test_id: str
     family: str
-    matched: str                      # the alias that matched (what the Council actually wrote)
+    matched: str                      # what the Council actually wrote (a matched alias, or an 'other' statistic)
+    kind: str = "missing_test"        # "missing_test" (known-unsupported alias) | "unlisted_test" (structured 'other')
     question: str = ""
     hyp_id: str = ""
     rule: str = ""
@@ -68,18 +69,8 @@ class GapRecord:
     def gap_id(self) -> str:
         # keyed on the CAPABILITY (kind|family|test_id), normalized free of per-hypothesis thresholds/labels, so
         # the same missing test always hashes to the same id regardless of which hypothesis surfaced it.
-        sig = f"missing_test|{self.family}|{self.test_id}"
+        sig = f"{self.kind}|{self.family}|{self.test_id}"
         return "GAP-" + hashlib.sha1(sig.encode()).hexdigest()[:8]
-
-    def describe(self) -> str:
-        spec = test_registry.by_id(self.test_id)
-        cav = f" {spec.caveat}" if spec and spec.caveat else ""
-        return f"**{self.test_id}** named as a falsifier test (\"{self.matched}\"); no executable tool.{cav}"
-
-    def resolution(self) -> str:
-        spec = test_registry.by_id(self.test_id)
-        doc = f" ({spec.doc})" if spec and spec.doc else ""
-        return f"implement the tool{doc} OR add an alias to a supported test + tighten the proposer wording"
 
 
 # --- detection -------------------------------------------------------------------------------------------
@@ -100,10 +91,34 @@ def _question(hyp) -> str:
     return (getattr(hyp, "question", None) or (hyp.get("question") if isinstance(hyp, dict) else "") or "")
 
 
+def _named_test(hyp) -> tuple[str, str] | None:
+    """(test_id, statistic) from the STRUCTURED falsifier.test field (M-1b), on an object or a stored dict; None
+    if the run predates the field."""
+    f = getattr(hyp, "falsifier", None)
+    if f is None and isinstance(hyp, dict):
+        f = hyp.get("falsifier")
+    if not f:
+        return None
+    t = f.get("test") if isinstance(f, dict) else getattr(f, "test", None)
+    if not t:
+        return None
+    if isinstance(t, dict):
+        return (t.get("test_id") or ""), (t.get("statistic") or "")
+    return (getattr(t, "test_id", "") or ""), (getattr(t, "statistic", "") or "")
+
+
+def _slug(text: str) -> str:
+    return (re.sub(r"[^a-z0-9]+", "_", (text or "").lower()).strip("_") or "unspecified")[:40]
+
+
 def scan_hypothesis(hyp, hyp_id: str = "") -> list[GapRecord]:
-    """GapRecords for every UNSUPPORTED test the falsifier names. A match on a supported test is NOT a gap (the
-    unsupported aliases are distinctive, so an unsupported match reliably means the Council asked for THAT missing
-    capability). Empty list = the falsifier is fully executable (the common, healthy case)."""
+    """GapRecords for every test the falsifier names that the toolkit can't run. Two detectors:
+      (1) FREE-TEXT (v1) — a distinctive alias of a known-UNSUPPORTED test in the decision_rule (Hartigan's dip,
+          Mann-Whitney, ...). Reliable for the curated set; works on legacy runs with no structured field.
+      (2) STRUCTURED (M-1b) — the falsifier's `test.test_id` is `"other"` (or not a supported id), i.e. the Council
+          itself declared no listed test fits. This catches a NOVEL test deterministically, even one not in the
+          curated list. Suppressed if (1) already filed a more-specific known gap for this falsifier.
+    Empty list = the falsifier is fully executable (the common, healthy case)."""
     rule, refute = _falsifier_text(hyp)
     text = f"{rule}\n{refute}"
     gaps: dict[str, GapRecord] = {}
@@ -111,9 +126,18 @@ def scan_hypothesis(hyp, hyp_id: str = "") -> list[GapRecord]:
         if spec.supported:
             continue
         alias = next((a for a in spec.aliases if test_registry._norm(a) in test_registry._norm(text)), spec.test_id)
-        rec = GapRecord(test_id=spec.test_id, family=spec.family, matched=alias,
+        rec = GapRecord(test_id=spec.test_id, family=spec.family, matched=alias, kind="missing_test",
                         question=_question(hyp), hyp_id=hyp_id or "", rule=rule)
         gaps.setdefault(rec.gap_id, rec)   # one record per capability even if two aliases hit
+
+    nt = _named_test(hyp)
+    if nt and not gaps:                    # a free-text known gap is more specific -> don't also file 'unlisted'
+        test_id, statistic = nt
+        if test_id == "other" or (test_id and test_id not in test_registry.supported_ids()):
+            label = statistic or rule or "unspecified"
+            rec = GapRecord(test_id=_slug(label), family="unlisted", matched=label, kind="unlisted_test",
+                            question=_question(hyp), hyp_id=hyp_id or "", rule=rule)
+            gaps.setdefault(rec.gap_id, rec)
     return list(gaps.values())
 
 
@@ -152,11 +176,15 @@ def _render(rows: dict[str, _Row]) -> str:
     lines = [_BEGIN, "", _HEADER]
     meta = []
     for gid, r in sorted(rows.items()):
-        spec = test_registry.by_id(r.test_id)
-        cav = f" {spec.caveat}" if spec and spec.caveat else ""
-        doc = f" ({spec.doc})" if spec and spec.doc else ""
-        cap = f"**{r.test_id}** named, no executable tool.{cav}"
-        res = f"implement the tool{doc} OR alias to a supported test + tighten the proposer"
+        if r.family == "unlisted":         # a novel test the Council named via test_id="other" (M-1b)
+            cap = f"**{r.test_id}** — a test named via `test_id=\"other\"`, not in the registry (novel/unlisted)."
+            res = "implement it as a tool + add a `TestSpec`, OR tighten the proposer if it is spurious/redundant"
+        else:
+            spec = test_registry.by_id(r.test_id)
+            cav = f" {spec.caveat}" if spec and spec.caveat else ""
+            doc = f" ({spec.doc})" if spec and spec.doc else ""
+            cap = f"**{r.test_id}** named, no executable tool.{cav}"
+            res = f"implement the tool{doc} OR alias to a supported test + tighten the proposer"
         flag = " ⚑" if len(r.seen) >= _TRIAGE_THRESHOLD else ""
         lines.append(f"| `{gid}` | {r.state} | {len(r.seen)}×{flag} | {cap} | {res} |")
         q = (r.question or "").replace("\n", " ").replace("-->", "->")[:160]

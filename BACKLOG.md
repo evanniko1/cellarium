@@ -24,7 +24,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ID | P | Item | Src |
 |----|---|------|-----|
 | ~~**M-1**~~ | ✅ | **Falsifier executability** — made the Council's named tests executable (`bimodality` tool + `fit_relation` slope CI, DS-1) AND built a **self-harness**: `test_registry.py` + `harness.py` detect a falsifier naming a test with no tool and auto-file a dev-gated gap into class X below (deterministic, idempotent, human-State-respecting). It already caught a real one — 4 stored hypotheses name Hartigan's dip (we have Sarle's BC). **Done** — see Completed. *Pairs with Filippo's D1/D2 (decision-rule logical consistency).* | A |
-| **M-1b** | P2 | **Structured falsifier test field** — add a `NamedTest{test_id (registry enum) + "other"}` field to `Falsifier` + regenerate the Council schema/prompt, so the self-harness catches a *novel* unexecutable test deterministically (not just the curated known ones v1 matches by alias). Brief step 2 (wf_f7f85832). | N |
+| ~~**M-1b**~~ | ✅ | **Structured falsifier test field** — `Falsifier` now carries a `NamedTest{test_id (registry enum) + "other"}`; the Council schema enum + proposer prompt are generated from the registry, and the harness flags `test_id="other"` as a deterministic **novel-gap** catch (not just the curated aliases). **Done** — see Completed. | N |
 | **M-2** | P2 | **Reproducibility** — Council + agent run at unset temperature. Pin temperature/seed and record in `Hypothesis` provenance. *(Bundle with LLM-3 + H-3.)* | A |
 | **M-3** | P2 | Provenance mis-tag — `wildtype` short-circuits to in-sample regardless of condition; gate on `condition ∈ IN_SAMPLE_CONDITIONS`; add test. | A |
 | **M-4** | P3 | Tie the in-sample condition set to the actual ParCa fit set + a test so it can't silently drift. | A |
@@ -138,6 +138,13 @@ file:line evidence lives in git history (commit `55ed67f`).
   detector + idempotent, human-State-respecting writer into class X). Wired into `run_council` (non-blocking) and
   runnable as a sweep (`harness.audit_store`). On the real stored corpus it filed `GAP-7f48ca3f`: 4 hypotheses
   name Hartigan's dip, which we lack. Follow-up **M-1b** adds a structured falsifier field to catch *novel* gaps.
+- **M-1b · Structured falsifier test field** (2026-07-17) — `Falsifier` gained a `NamedTest{test_id, statistic,
+  threshold}` (additive; `decision_rule` stays). The Council's `_FALSIFIER` schema builds `test_id`'s enum from
+  `test_registry.supported_ids() + ["other"]` and the proposer prompt lists the allowed ids, so the vocabulary
+  can't drift from the tools. The harness now has two detectors: the free-text alias scan (known-unsupported,
+  legacy-compatible) AND a structural check — `test_id="other"` (the Council itself declaring no listed test fits)
+  files a deterministic `unlisted_test` gap, catching a NOVEL test the curated list never knew (verified with a
+  Cox/Schoenfeld example). `ui.hypothesis_view` carries the field so the stored-run sweep sees it. pytest + ruff green.
 
 ## X · Capability gaps (auto-filed by the self-harness)
 
