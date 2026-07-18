@@ -25,10 +25,11 @@ _OUT_NOTE = ("The fit did not target this (a perturbation, or a stress/media con
 
 
 def _is_in_sample(perturbation: str, condition: str | None) -> bool:
-    if perturbation == "wildtype":
-        return True
-    if perturbation == "condition":
-        return condition in IN_SAMPLE_CONDITIONS
+    # A wildtype OR `condition` run is in-sample ONLY when its CONDITION is one the fit actually targeted (M-3):
+    # `wildtype` in an unfitted medium (e.g. wildtype/acetate) is a genuine out-of-sample prediction, NOT in-sample
+    # by virtue of being 'wildtype'. condition defaults to 'basal' (the canonical wildtype/basal baseline).
+    if perturbation in ("wildtype", "condition"):
+        return (condition or "basal") in IN_SAMPLE_CONDITIONS
     return False  # gene_knockout / ppgpp_conc / timeline / objective-weight / ... are perturbations the fit didn't target
 
 

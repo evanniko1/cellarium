@@ -182,10 +182,12 @@ async def investigate(request):
                                                  for d in (getattr(hyp, "candidate_designs", None) or [])]
                     ev.put(("hypothesis", view))
                 messages = [{"role": "user", "content": agent.first_user_content(question, hyp)}]
-                sess = {"messages": messages, "model": chosen, "used_council": use_council, "title": question[:80]}
+                sess = {"messages": messages, "model": chosen, "used_council": use_council, "title": question[:80],
+                        "temperature": agent.temperature_for(chosen, thinking=(reasoning != "none"))}   # provenance (LLM-3)
             else:
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
                 sess["model"] = chosen
+                sess["temperature"] = agent.temperature_for(chosen, thinking=(reasoning != "none"))
             answer = agent.converse(sess["messages"], model=chosen, on_tool=on_tool, on_text=on_text,
                                      on_note=on_note, verbose=False, reasoning=reasoning)
             SESSIONS.put(sid, sess)   # write-through so the conversation survives a restart

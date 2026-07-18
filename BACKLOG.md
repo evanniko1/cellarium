@@ -25,8 +25,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 |----|---|------|-----|
 | ~~**M-1**~~ | ✅ | **Falsifier executability** — made the Council's named tests executable (`bimodality` tool + `fit_relation` slope CI, DS-1) AND built a **self-harness**: `test_registry.py` + `harness.py` detect a falsifier naming a test with no tool and auto-file a dev-gated gap into class X below (deterministic, idempotent, human-State-respecting). It already caught a real one — 4 stored hypotheses name Hartigan's dip (we have Sarle's BC). **Done** — see Completed. *Pairs with Filippo's D1/D2 (decision-rule logical consistency).* | A |
 | ~~**M-1b**~~ | ✅ | **Structured falsifier test field** — `Falsifier` now carries a `NamedTest{test_id (registry enum) + "other"}`; the Council schema enum + proposer prompt are generated from the registry, and the harness flags `test_id="other"` as a deterministic **novel-gap** catch (not just the curated aliases). **Done** — see Completed. | N |
-| **M-2** | P2 | **Reproducibility** — Council + agent run at unset temperature. Pin temperature/seed and record in `Hypothesis` provenance. *(Bundle with LLM-3 + H-3.)* | A |
-| **M-3** | P2 | Provenance mis-tag — `wildtype` short-circuits to in-sample regardless of condition; gate on `condition ∈ IN_SAMPLE_CONDITIONS`; add test. | A |
+| ~~**M-2**~~ | ✅ | **Reproducibility** — temperature is now PINNED (`CELLARIUM_TEMPERATURE`, default 0.0) via `agent.temperature_for` (model-aware: omitted for reasoning/opus + when extended thinking is on) and RECORDED in the Hypothesis meta + agent session. Anthropic has no seed, so temperature is the named variance source. **Done** — see Completed. | A |
+| ~~**M-3**~~ | ✅ | Provenance mis-tag — `_is_in_sample` now gates `wildtype` on the condition too (`wildtype/acetate` → out_of_sample), instead of short-circuiting to in_sample. Test added (`test_provenance.py`). **Done** — see Completed. | A |
 | **M-4** | P3 | Tie the in-sample condition set to the actual ParCa fit set + a test so it can't silently drift. | A |
 | **M-5** | P2 | **DOE for falsifier panels** — wrap `experimental-design` (randomization/blocking/factorial + power) beyond seeds×generations. | T |
 | **M-6** | P2 | **Council librarian rewire** (Phase 3a) — wire the pre-/between-round literature step into `deliberate()` over `web_get`; judge stays literature-free; add `library_brief` to `test_blindness` allow-list. | T |
@@ -39,7 +39,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ID | P | Item | Src |
 |----|---|------|-----|
 | ~~**DS-1**~~ | ✅ | `fit_relation` now reports **slope inference** — t-based SE, two-sided p, 95% CI, `slope_ci_excludes_0`, and adj R² (scipy-free incomplete-beta p-value in `stats.py`). A "law" is asserted only when the slope CI clears 0, not from R² alone. **Done** — see Completed. | A |
-| **DS-2** | P2 | `effect_z_vs_corpus` conflates between-design spread with replicate noise — rename "vs corpus spread"; never present as significance. | A |
+| ~~**DS-2**~~ | ✅ | Renamed `effect_z_vs_corpus` → `z_vs_corpus_spread` (disconfirm + instrument) + a checklist line: descriptive positioning within the corpus's between-design spread, NOT a significance test. **Done** — see Completed. | A |
 | **DS-3** | P3 | Channel-level `differential.summary` has no per-channel significance — attach the Welch-t (or a note) to top channel movers. | A |
 | **DS-4** | P3 | Add a regression test pinning `t_critical_95` (table + Cornish-Fisher branch). | A |
 
@@ -49,7 +49,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 |----|---|------|-----|
 | ~~**LLM-1**~~ | ✅ | **Model currency + selection** — bumped runtime defaults `claude-sonnet-4-5` → `claude-sonnet-5` (agent, Council, server picker, debate eval); a picked model now drives the **Council roles** too (not just the agent), which it silently ignored before; `Auto` keeps the tuned default + per-turn router. **Done** — see Completed. | A |
 | **LLM-2** | P2 | **Observability** — log `resp.usage`, request IDs, a cost/latency meter. *(The Council per-round-transcript slice is Filippo's method gap — coordinate.)* | A |
-| **LLM-3** | P2 | Agent temperature unset (non-deterministic reasoning) — offer temperature=0 / recorded seed. *(Same root as M-2.)* | A |
+| ~~**LLM-3**~~ | ✅ | Agent temperature — `agent.converse` now pins `temperature_for(model)` when thinking is off (skips for reasoning models / thinking), recorded per turn. Same fix as M-2. **Done** — see Completed. | A |
 | **LLM-4** | P3 | `_estimate_tokens` is `chars//4` — drive the compaction trigger from `resp.usage`/`count_tokens`. | A |
 | **LLM-5** | P3 | Standardize retry config (agent `max_retries=4` vs Council SDK default 2). | A |
 
@@ -61,7 +61,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | **SP-1b** | P2 | **Explicit Cellwright write-back** — when the agent *revises or invalidates* a specific Council design (rather than just running it), record that delta on the Hypothesis and surface the Council-vs-Cellwright diff. Needs a session↔hypothesis link + an agent-side write; the SP-1 queue/corpus derivation already covers the "did it run?" half. | A |
 | ~~**SP-2**~~ | ✅ core | **Cellwright receptive field** — shipped the host core: `read_raw_series` **extrema-preserving (min–max)** decimation + loss report, a new **`scan_series`** transient/level-shift tool (MAD-prominence + width gate + FDR), and `top_movers` **informative truncation** ("k of N significant dropped"). Verified on real 10k-step trajectories. **Done (core)** — see Completed; remaining pieces → **SP-2b**. | A |
 | ~~**SP-2b**~~ | ✅ | **Receptive field — completion** — shipped the **mid-rank stratified sample** (`_reader_worker` → `top_movers.truncation.mid_rank_examples`), **`scan_overview`** (deterministic anomaly map across a design's channels — the numpy map-reduce, no LLM fan-out), and a deterministic **receptive-field eval** (needle recovered / coarse view misses it / null control / mid-rank surfaced). **Done** — see Completed. Agentic remainder → **SP-2c**. | A |
-| **SP-2c** | P3 | **Receptive field — agentic** — an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; and the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce). Deferred by design: deterministic `scan_overview` covers the common case; fan-out is a ~15× token / architectural cost for the rare over-context query. | A |
+| **SP-2c** | P3 | **Receptive field — agentic** — an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; and the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce). **Plan (after LLM-2):** build both AND a head-to-head **benchmark of deterministic `scan_overview` vs a full fan-out** — recall, token cost, latency — as a paper artifact quantifying *when* fan-out earns its ~15× cost. | A |
 | **AG-1** | P2 | Launch queue is a lock-free JSON read-modify-write at a relative path — file lock (or move into SQLite) + absolute config-rooted path. | A |
 | **AG-2** | P2 | 38 tools + ~4 KB router prompt — consolidate overlapping tools; track tool-selection error rate in the eval. | A |
 | **AG-3** | P3 | Dispatch: explicit unknown-tool guard + semantic input validation test. | A |
@@ -215,8 +215,25 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   conclusion is only credited if it survives the spread (fbaA growth swings 25.6%). (5) **`fba_qc`** — a MEMOTE-lite
   gate: no ATP/biomass producible with uptakes closed (energy-cycle check) + every internal reaction mass-balanced
   (excluding biomass/demand/sink + the generic polymer residue). All under the optional `fba` extra; real-FBA tests
-  skip without cobra so CI is unaffected. Remaining nice-to-haves: quadratic MOMA (QP solver) + full MEMOTE-in-CI.
-  pytest + ruff green.
+  skip without cobra so CI is unaffected. pytest + ruff green.
+  **Scoping decisions (SCI-1b remainder, 2026-07-18):** (1) **Quadratic (L2) MOMA is NOT pursued** — it needs a
+  commercial QP solver (Gurobi/CPLEX + an academic license) for marginal value over the shipped linear (L1) MOMA,
+  which agrees with it on the essential/viable call. (2) **MEMOTE is NOT in CI** — nothing MEMOTE runs in the
+  pipeline; `fba_qc` is an in-house MEMOTE-*style* subset that runs as a tool + in the local (cobra-present) test
+  suite and SKIPS in CI. A full MEMOTE scorecard would be a **separate, opt-in suite/job** (it needs
+  cobra+scipy+the 11 MB model, which the main CI deliberately excludes to stay light + scipy-free) — not a change
+  to the existing CI gate.
+
+- **M-2 + LLM-3 + M-3 + DS-2 · Reproducibility & honesty bundle** (2026-07-18) — (M-2/LLM-3) sampling temperature
+  is pinned instead of the API default: `agent.temperature_for(model, thinking)` returns `CELLARIUM_TEMPERATURE`
+  (0.0) for models that accept an explicit temperature with thinking off, and None (omit) for reasoning models
+  (opus) or when extended thinking is on (the API forces temp=1 there). Wired into `agent.converse` (both the
+  normal + thinking-fallback paths) and `run_council` → `deliberate`, and recorded in the Hypothesis meta + the
+  agent session. Anthropic exposes no seed, so temperature is the named variance source. (M-3)
+  `provenance._is_in_sample` no longer short-circuits `wildtype` to in-sample — it gates on the condition, so
+  `wildtype/acetate` is correctly out-of-sample. (DS-2) `effect_z_vs_corpus` → `z_vs_corpus_spread`, explicitly
+  flagged as descriptive positioning, not significance. Tests: `test_provenance.py` + a `temperature_for` unit test,
+  no regression across council/hypotheses. pytest + ruff green.
 
 ## Design notes (scouted plans)
 
@@ -276,6 +293,11 @@ Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/co
   falsifier-quality effort.
 - **LLM-2** (observability) ⟷ his **method gap** (the Council's per-round transcript isn't persisted; `ablation.json`
   keeps only counts) — persisting transcripts enables systematic Council analysis and measuring M-1.
+  **Highlight to Filippo:** LLM-2 adds ONE instrumentation seam at each SDK call (`council._emit`, `agent.converse`)
+  capturing `resp.usage` (input/output tokens), the response/request id, and per-call latency. When he adds
+  per-round transcript persistence, hook it at the SAME call-sites and store that `{tokens, request_id, latency}`
+  next to each round's messages — so observability and the transcript ledger share one seam, not two, and every
+  persisted round carries its own cost/latency. Agree the record shape (a per-call dict) before either lands.
 
 ## Provenance
 This backlog replaced three task docs, now **removed** (recoverable from git history at commit `55ed67f`):

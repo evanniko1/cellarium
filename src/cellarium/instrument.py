@@ -64,7 +64,7 @@ def dial_labels() -> dict:
         "static_only_carbon": sorted(envelope.STATIC_ONLY_CARBON),  # cannot be a mid-run switch target
         "falsification": {
             "call": "disconfirm(target, reference, channel)",
-            "returns": "welch_t (>=2 => beyond replicate noise), effect_pct, effect_z_vs_corpus, per-seed spread",
+            "returns": "welch_t (>=2 => beyond replicate noise; the significance test), effect_pct, z_vs_corpus_spread (descriptive positioning, NOT significance), per-seed spread",
             "note": "a claim is testable only if it names a target design, a reference, and one of these channels",
         },
         "design_schema": {

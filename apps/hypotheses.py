@@ -145,7 +145,7 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
     Council midwifes it) and only carries a non-blocking sharpening hint; genuine ambiguity is handled by the
     Council's own D3 escalation mid-deliberation, not by refusing up front. `attempt` is vestigial (kept for API
     compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. Returns the stored run."""
-    from cellarium import council, ui   # lazy: the store itself stays dependency-free + unit-testable
+    from cellarium import agent, council, ui   # lazy: the store itself stays dependency-free + unit-testable
 
     run_id = reuse_id or store.new_id()
     store.create(run_id, question, model)
@@ -159,7 +159,8 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
         broad = not council.looks_specific(question)   # deterministic, no model call — a soft nudge, not a gate
         # a PICKED model drives the Council's roles; model=None (Auto) -> the Council's tuned default
         cmodels = {"proposer": model, "skeptic": model, "judge": model} if model else None
-        hyp = council.deliberate(question, verbose=False, on_round=_round, models=cmodels)
+        temperature = agent.temperature_for(model)   # pinned for reproducibility (M-2); None for a picked reasoning model
+        hyp = council.deliberate(question, verbose=False, on_round=_round, models=cmodels, temperature=temperature)
         hview = ui.hypothesis_view(hyp)
         designs = [ui.design_view(d) for d in (getattr(hyp, "candidate_designs", None) or [])]
         ledger = getattr(hyp, "objection_ledger", None) or []
@@ -169,6 +170,8 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 # per-objection resolution: obj id -> the round that resolved it (null if still open) — the surface
                 # renders "resolved in round N" per objection instead of the coarse round-derived "carried".
                 "resolutions": {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")},
+                # reproducibility provenance (M-2): the sampling variance source is now named + recorded
+                "temperature": temperature, "model": (model or "auto"),
                 # soft, non-blocking sharpening nudge (advisory only — the run still completed)
                 "broad_question": broad, "hint": (_BROAD_HINT if broad else None)}
         store.complete(run_id, hview, designs, meta)

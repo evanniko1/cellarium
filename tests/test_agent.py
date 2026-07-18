@@ -40,6 +40,15 @@ def test_converse_configures_sdk_retry_backoff(monkeypatch):
         "converse must construct anthropic.Anthropic(max_retries=...) for 429/5xx backoff"
 
 
+def test_temperature_for_pins_except_reasoning_and_thinking():
+    """M-2/LLM-3: pin temperature for models that accept it with thinking off; omit for reasoning models / thinking."""
+    assert agent.temperature_for("claude-sonnet-5") == agent.TEMPERATURE
+    assert agent.temperature_for("claude-haiku-4-5-20251001") == agent.TEMPERATURE
+    assert agent.temperature_for(None) == agent.TEMPERATURE                     # Auto default -> non-opus -> pinned
+    assert agent.temperature_for("claude-opus-4-8") is None                     # reasoning model rejects it
+    assert agent.temperature_for("claude-sonnet-5", thinking=True) is None      # thinking forces temperature=1
+
+
 # --- max-turns forced synthesis: a turn must ALWAYS end with an answer, never a dangling tool_result ----------
 
 class _Blk:

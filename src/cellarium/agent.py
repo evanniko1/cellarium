@@ -14,6 +14,18 @@ import anthropic
 from . import tools
 
 MODEL = os.environ.get("CELLARIUM_MODEL", "claude-sonnet-5")
+# Reproducibility (M-2/LLM-3): pin sampling temperature instead of the API default. Anthropic exposes no seed, so
+# temperature is the only reproducibility lever — and it's recorded per run so the sampling variance is named.
+TEMPERATURE = float(os.environ.get("CELLARIUM_TEMPERATURE", "0.0"))
+
+
+def temperature_for(model: str | None, *, thinking: bool = False) -> float | None:
+    """The temperature to SEND to the API (None => omit). Pinned to CELLARIUM_TEMPERATURE for models that accept an
+    explicit temperature with thinking OFF; None for reasoning models (opus) and whenever extended thinking is on
+    (the API forces temperature=1 there, so pinning would error)."""
+    if thinking or "opus" in (model or "").lower():
+        return None
+    return TEMPERATURE
 
 SYSTEM = (
     "You are Cellwright, the grounded reasoning agent of Cellarium — a whole-cell E. coli (K-12 MG1655) "
@@ -361,6 +373,9 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             kw["max_tokens"] = budget + 4000
         else:
             kw["max_tokens"] = 4096
+        t = temperature_for(mdl, thinking="thinking" in kw)   # pin temperature when not thinking (reproducibility)
+        if t is not None:
+            kw["temperature"] = t
         try:
             resp = _run_turn(client, kw, on_text)
         except Exception as exc:                      # extended thinking unsupported here -> retry as base model
@@ -368,6 +383,9 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                 budget = 0
                 kw.pop("thinking", None)
                 kw["max_tokens"] = 4096
+                t = temperature_for(mdl, thinking=False)      # thinking fell back -> now we can pin
+                if t is not None:
+                    kw["temperature"] = t
                 resp = _run_turn(client, kw, on_text)
             else:
                 raise

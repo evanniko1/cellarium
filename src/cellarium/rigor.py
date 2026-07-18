@@ -101,15 +101,18 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
         "reference": {"design": reference, "mean": round(rm, 6), "ci95": (round(rci, 6) if rci else None),
                       "n_seeds": len(rv), "values": [round(x, 6) for x in rv]},
         "effect_pct": (round(100 * (tm - rm) / rm, 1) if rm else None),
-        "effect_z_vs_corpus": round((tm - mu) / sd, 2),
+        # DS-2: this positions the target within the corpus's BETWEEN-DESIGN spread (which mixes real differences
+        # with replicate noise) — descriptive only, NOT a significance test. Use welch_t / CIs for significance.
+        "z_vs_corpus_spread": round((tm - mu) / sd, 2),
         "welch_t": welch_t, "significant": significant,   # significant=False => within noise; needs n>=2 both sides
         "checklist": [
             "Is the effect significant (welch_t magnitude >= 2, CIs non-overlapping)? n<2 => underpowered.",
+            "z_vs_corpus_spread is descriptive positioning, NOT significance — never read it as a p-value.",
             "Does another design contradict the implied relationship?",
             "Is the mechanism channel consistent (e.g. ppGpp up AND ribosome_conc down)?",
             "Are all contributing runs qc=ok?",
         ],
-        "note": "Disconfirmation aid — challenge the claimed effect with statistics before concluding.",
+        "note": "Disconfirmation aid — challenge the claimed effect with statistics (welch_t/CIs) before concluding.",
     }
 
 
