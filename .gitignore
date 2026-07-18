@@ -47,3 +47,6 @@ data/sessions.db
 
 # SCI-1: the iML1515 SBML (~11 MB) is fetched on demand from BiGG (fba.fetch_model()), not committed
 data/fba/
+
+# SCI-2: PRECISE-1K RNA-seq (~60 MB counts) is fetched on demand (Zenodo 10.5281/zenodo.8284223), not committed
+data/precise1k/

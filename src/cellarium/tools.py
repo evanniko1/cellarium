@@ -778,6 +778,12 @@ def fba_qc() -> dict:
     return fba.fba_qc()
 
 
+def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/basal") -> dict:
+    """SCI-2: sim vs real E. coli RNA-seq (PRECISE-1K + DESeq2) log2FC concordance for a matched contrast."""
+    from . import sci2
+    return sci2.rnaseq_concordance(design, contrast, reference)
+
+
 def model_validation() -> dict:
     """How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level
     agreement counts + the `model_UNDER_predicts` number, so you know when to trust a KO 'viable' verdict (you
@@ -1016,6 +1022,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene whose essentiality-call robustness to check across the perturbations"}, "delta": {"type": "number", "description": "fractional perturbation (default 0.2 = ±20%)"}}}},
     {"name": "fba_qc", "description": "MEMOTE-style sanity gate on iML1515: with all uptakes closed, nothing should be producible (no ATP → no energy-generating cycle; no biomass → no free growth), and every internal reaction should mass-balance. Run before trusting FBA numbers — a failing gate means the model, not the biology, is talking. SCI-1b.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "rnaseq_concordance", "description": "SCI-2: cross-check the SIMULATED transcriptome against real E. coli RNA-seq (PRECISE-1K, via DESeq2/pydeseq2). For a matched condition contrast it compares the sim's per-gene log2 fold-change to the measured DESeq2 log2FC — Pearson/Spearman/Deming slope/sign-concordance, always AGAINST a null baseline — and flags divergent genes as model-limit hypotheses. RNA-seq is a cross-check, NOT ground truth. Optional (needs the `rnaseq` extra + PRECISE-1K data + the sim reader); returns setup instructions when unavailable.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "the sim design label, e.g. 'condition/no_oxygen'"}, "contrast": {"type": "object", "description": "the matched PRECISE-1K contrast, e.g. {\"column\":\"condition\",\"cond_B\":\"anaerobic\",\"cond_A\":\"wt_glc_aerobic_exponential\"}"}, "reference": {"type": "string", "description": "the sim reference design (default wildtype/basal)"}}, "required": ["design", "contrast"]}},
     {"name": "metabolic_essentiality", "description": "Metabolic-essentiality ORACLE for a gene — METABOLISM ONLY. Returns the authoritative Baba/Joyce benchmark verdict (the authority; the whole-cell homeostatic FBA under-predicts by rerouting) + the model's FBA structural check + KO prior. For a non-metabolic gene it says the FBA doesn't apply and points to the right axis (machinery->viability, TF->mechanistic_scope). Use for 'is this METABOLIC gene essential?'.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
@@ -1050,6 +1058,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "fba_growth": fba_growth, "fba_gene_knockout": fba_gene_knockout,
              "fba_flux": fba_flux, "fba_essentiality_panel": fba_essentiality_panel,
              "fba_synthetic_lethal": fba_synthetic_lethal, "fba_sensitivity": fba_sensitivity, "fba_qc": fba_qc,
+             "rnaseq_concordance": rnaseq_concordance,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
              "read_raw_series": read_raw_series, "scan_series": scan_series, "scan_overview": scan_overview,

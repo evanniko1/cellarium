@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 hf = ["huggingface_hub>=0.24"]   # only for the corpus upload scripts (scripts/hf_*.py)
 fba = ["cobra>=0.29"]            # SCI-1: the independent genome-scale FBA cross-check over iML1515 (opt-in; pulls scipy/pandas/optlang + a solver). Keeps the core scipy-free.
+rnaseq = ["pydeseq2>=0.4"]       # SCI-2: sim-vs-real RNA-seq (PRECISE-1K) concordance (opt-in; pulls scipy/pandas/anndata). DESeq2 runs on the DATA side only.
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
 
 [project.scripts]

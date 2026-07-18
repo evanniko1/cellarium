@@ -95,7 +95,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 |----|---|------|-----|
 | ~~**SCI-1**~~ | ✅ core | **cobrapy → FBA cross-check over iML1515** — shipped `fba_growth`, `fba_gene_knockout`, `fba_flux` (pFBA + loopless FVA), `fba_essentiality_panel` (FBA-vs-Keio MCC + named-diagnostic disagreements). Optional `fba` extra; graceful gating; reproducibility pins (model SHA-256 + solver + medium + objective). Verified: WT growth 0.82 h⁻¹, `fbaA` → `fba_false_viable`, panel MCC 0.75. **Done (core)** — see Completed; remaining → **SCI-1b**. | T + R |
 | ~~**SCI-1b**~~ | ✅ | **FBA cross-check — deepening** — shipped **linear MOMA** (GLPK-compatible pre-adaptation comparator; quadratic MOMA still needs a QP solver), the **3-way** join (wcEcoli prior beside FBA + Keio + a "which model catches each Keio-essential" tally), **`fba_synthetic_lethal`** (pairwise double-KO), **`fba_sensitivity`** (±20% medium/NGAM/GAM), and **`fba_qc`** (MEMOTE-lite: energy/biomass-from-nothing + mass balance). **Done** — see Completed. | R |
-| **SCI-2** | P2·sci | **pydeseq2** — compare the model's simulated expression against real *E. coli* RNA-seq (a complementary model-limits / validation angle). | T |
+| ~~**SCI-2**~~ | ✅ core | **Sim-vs-real RNA-seq cross-check** (PRECISE-1K + pydeseq2) — shipped `sci2.py`: the log2FC **concordance engine** (Pearson/Spearman/**Deming**/sign-concordance vs a null baseline + a model-limit verdict), `build_reference` (DESeq2 **unshrunk** LFC on the DATA side only), gating + provenance, and the `rnaseq_concordance` tool. Optional `[rnaseq]` extra; grounded in `wf_eeea2f6c`. **Done (core)** — see Completed; end-to-end → **SCI-2b**. | T |
+| **SCI-2b** | P2·sci | **RNA-seq cross-check — end-to-end** — fetch PRECISE-1K (~60 MB, gitignored) + pin its SHA; an **all-gene** sim-mRNA reader mode (the current `differential` returns only significant movers → range-restricted); a **symbol→b-number** map for the join; validate one real contrast (e.g. anaerobic vs aerobic). Guard the compositional trap (flag total-mRNA-shift contrasts) + short-gene zeros. | R |
 | **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. | S |
 | **SCI-4** | P3·sci | Multi-gene / reduced-genome design generator, scored by viability. *(Deprioritized.)* | R |
 | **SCI-5** | P3·sci | ML surrogate for viability/division trained on the corpus (compute reduction) — a "Well for the Cell" artifact. | R |
@@ -234,6 +235,19 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `wildtype/acetate` is correctly out-of-sample. (DS-2) `effect_z_vs_corpus` → `z_vs_corpus_spread`, explicitly
   flagged as descriptive positioning, not significance. Tests: `test_provenance.py` + a `temperature_for` unit test,
   no regression across council/hypotheses. pytest + ruff green.
+
+- **SCI-2 (core) · Sim-vs-real RNA-seq cross-check** (2026-07-18) — a second external oracle beside SCI-1, from the
+  `wf_eeea2f6c` SOTA brief. New `src/cellarium/sci2.py` — the scientific core is a pure **log2FC concordance
+  engine**: join the sim's per-gene log2FC to a DESeq2 reference on b-number, then score Pearson / Spearman /
+  **Deming** slope (TLS — both axes noisy) / sign-concordance on the confidently-resolved genes, always against a
+  **null baseline** (a high r is nearly free from the shared housekeeping backbone), ending in a model-limit
+  verdict (CONCORDANT / DIVERGENT-model-limit / INDETERMINATE). `build_reference` runs **pydeseq2 on the DATA side
+  only** (real replicates → NB-GLM Wald, **unshrunk** LFC to match the unshrunk seed-mean sim LFC); the sim side is
+  the seed-mean log-ratio (seeds are NOT replicates — never fed to DESeq2, never a p-value). Optional **`rnaseq`
+  extra** (pydeseq2); PRECISE-1K (~60 MB) fetched on demand + gitignored; `available()`/`provenance()` gates like
+  `fba.py`. Verified: the pure engine on synthetic vectors (concordant → r 0.99, Deming slope ≈1, null ≈0;
+  divergent → flagged). Tests: engine + Deming/Spearman + gating everywhere; real pydeseq2/data path is opt-in so
+  CI is unaffected. End-to-end (fetch + all-gene sim reader + b-number map) → **SCI-2b**. pytest + ruff green.
 
 ## Design notes (scouted plans)
 
