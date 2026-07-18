@@ -754,10 +754,28 @@ def fba_flux(reactions: list | None = None, fraction_of_optimum: float = 1.0) ->
     return fba.fba_flux(reactions, fraction_of_optimum)
 
 
-def fba_essentiality_panel(genes: list | None = None, max_genes: int | None = None) -> dict:
-    """FBA-vs-Keio essentiality concordance (MCC + named-diagnostic disagreements) over iML1515 (SCI-1)."""
+def fba_essentiality_panel(genes: list | None = None, max_genes: int | None = None, moma: bool = False) -> dict:
+    """FBA-vs-Keio essentiality concordance (MCC + 3-way tally + named-diagnostic disagreements) over iML1515 (SCI-1)."""
     from . import fba
-    return fba.fba_essentiality_panel(genes, max_genes)
+    return fba.fba_essentiality_panel(genes, max_genes, moma)
+
+
+def fba_synthetic_lethal(genes, medium: dict | None = None) -> dict:
+    """Pairwise gene deletion over iML1515 — find synthetic-lethal pairs single-deletion FBA misses (SCI-1b)."""
+    from . import fba
+    return fba.fba_synthetic_lethal(genes, medium)
+
+
+def fba_sensitivity(gene: str | None = None, delta: float = 0.2) -> dict:
+    """How much the FBA growth/essentiality call moves under +-delta on medium, NGAM, and GAM (SCI-1b robustness)."""
+    from . import fba
+    return fba.fba_sensitivity(gene, delta)
+
+
+def fba_qc() -> dict:
+    """MEMOTE-style sanity gate on iML1515 (energy/biomass from nothing, mass balance) — run before trusting FBA (SCI-1b)."""
+    from . import fba
+    return fba.fba_qc()
 
 
 def model_validation() -> dict:
@@ -992,6 +1010,12 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"reactions": {"type": "array", "items": {"type": "string"}, "description": "iML1515 reaction IDs, e.g. ['EX_ac_e','PFK']; omit for a default biomass+exchange set"}, "fraction_of_optimum": {"type": "number", "description": "FVA constraint on the objective (default 1.0 = at the optimum)"}}}},
     {"name": "fba_essentiality_panel", "description": "The SCI-1 cross-check at scale: FBA single-deletion essentiality across iML1515 metabolic genes vs the Keio benchmark — a confusion matrix + MCC (NOT accuracy; the set is ~90% non-essential) + the named-diagnostic disagreements (the scientific payoff — each is a model-limit hypothesis, not a bug). Pass `genes` for a subset or `max_genes` to cap runtime; omit both for the full metabolic benchmark set.",
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "optional gene-symbol subset; omit for the full iML1515∩Keio metabolic set"}, "max_genes": {"type": "integer", "description": "optional cap on the number of genes scored (runtime is one LP per gene)"}}}},
+    {"name": "fba_synthetic_lethal", "description": "Pairwise gene deletion over iML1515 (cobrapy): find SYNTHETIC-LETHAL pairs — both genes viable singly but the double abolishes growth — which single-deletion FBA and the essentiality panel miss by construction (~2/3 of epistasis is pairwise). Tests all pairs of the given genes. Use to probe redundancy / backup pathways (e.g. isozyme pairs). SCI-1b.",
+     "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "gene symbols to test pairwise, e.g. ['pfkA','pfkB','tpiA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
+    {"name": "fba_sensitivity", "description": "ROBUSTNESS check: how much does the iML1515 FBA growth prediction (and, for a given gene, its essentiality call) move under ±delta on the levers that dominate it — medium uptake (glucose, O2), NGAM (maintenance ATP), and GAM (biomass ATP)? A conclusion is only safe if it survives the spread (the growth number is set by BOF/GAM/NGAM/medium far more than by the network). SCI-1b.",
+     "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene whose essentiality-call robustness to check across the perturbations"}, "delta": {"type": "number", "description": "fractional perturbation (default 0.2 = ±20%)"}}}},
+    {"name": "fba_qc", "description": "MEMOTE-style sanity gate on iML1515: with all uptakes closed, nothing should be producible (no ATP → no energy-generating cycle; no biomass → no free growth), and every internal reaction should mass-balance. Run before trusting FBA numbers — a failing gate means the model, not the biology, is talking. SCI-1b.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "metabolic_essentiality", "description": "Metabolic-essentiality ORACLE for a gene — METABOLISM ONLY. Returns the authoritative Baba/Joyce benchmark verdict (the authority; the whole-cell homeostatic FBA under-predicts by rerouting) + the model's FBA structural check + KO prior. For a non-metabolic gene it says the FBA doesn't apply and points to the right axis (machinery->viability, TF->mechanistic_scope). Use for 'is this METABOLIC gene essential?'.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
@@ -1025,6 +1049,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "reroute_diagnosis": reroute_diagnosis,
              "fba_growth": fba_growth, "fba_gene_knockout": fba_gene_knockout,
              "fba_flux": fba_flux, "fba_essentiality_panel": fba_essentiality_panel,
+             "fba_synthetic_lethal": fba_synthetic_lethal, "fba_sensitivity": fba_sensitivity, "fba_qc": fba_qc,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
              "read_raw_series": read_raw_series, "scan_series": scan_series, "scan_overview": scan_overview,

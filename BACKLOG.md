@@ -94,7 +94,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ID | P | Item | Src |
 |----|---|------|-----|
 | ~~**SCI-1**~~ | ✅ core | **cobrapy → FBA cross-check over iML1515** — shipped `fba_growth`, `fba_gene_knockout`, `fba_flux` (pFBA + loopless FVA), `fba_essentiality_panel` (FBA-vs-Keio MCC + named-diagnostic disagreements). Optional `fba` extra; graceful gating; reproducibility pins (model SHA-256 + solver + medium + objective). Verified: WT growth 0.82 h⁻¹, `fbaA` → `fba_false_viable`, panel MCC 0.75. **Done (core)** — see Completed; remaining → **SCI-1b**. | T + R |
-| **SCI-1b** | P2·sci | **FBA cross-check — deepening** — MOMA (needs a QP solver: gurobi/cplex) for the pre-adaptation comparator; the full **3-way** per-gene join (add the wcEcoli KO verdict beside FBA + Keio); **double-gene deletion** (synthetic lethals); medium/GAM/NGAM ±20% sensitivity; a **MEMOTE** report as a CI artifact. See Design notes. | R |
+| ~~**SCI-1b**~~ | ✅ | **FBA cross-check — deepening** — shipped **linear MOMA** (GLPK-compatible pre-adaptation comparator; quadratic MOMA still needs a QP solver), the **3-way** join (wcEcoli prior beside FBA + Keio + a "which model catches each Keio-essential" tally), **`fba_synthetic_lethal`** (pairwise double-KO), **`fba_sensitivity`** (±20% medium/NGAM/GAM), and **`fba_qc`** (MEMOTE-lite: energy/biomass-from-nothing + mass balance). **Done** — see Completed. | R |
 | **SCI-2** | P2·sci | **pydeseq2** — compare the model's simulated expression against real *E. coli* RNA-seq (a complementary model-limits / validation angle). | T |
 | **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. | S |
 | **SCI-4** | P3·sci | Multi-gene / reduced-genome design generator, scored by viability. *(Deprioritized.)* | R |
@@ -204,6 +204,19 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   **receptive-field eval** (`test_receptive_field.py`): a known needle the coarse stride view flattens is recovered
   by min-max decimation + `scan_series`, a clean trajectory yields nothing (null control), and a mid-rank mover is
   surfaced. The agent-in-the-loop graded run + the LLM-worker fan-out are deferred to **SP-2c**. pytest + ruff green.
+
+- **SCI-1b · FBA cross-check deepening** (2026-07-18) — five additions to `fba.py`. (1) **Linear MOMA** (L1
+  distance to WT flux) as the pre-adaptation comparator — runs on GLPK (quadratic MOMA needs a QP solver); where
+  MOMA also stays viable the reroute is a real isozyme/pathway, not an FBA optimality artifact. (2) The **3-way
+  join**: `fba_gene_knockout` + `fba_essentiality_panel` now carry the wcEcoli KO prior beside FBA + Keio (uniformly
+  "viable" for metabolic genes — its documented under-prediction) plus a tally of which model catches each
+  Keio-essential gene. (3) **`fba_synthetic_lethal`** — pairwise double-KO to find synthetic lethals single-deletion
+  misses. (4) **`fba_sensitivity`** — growth (and a gene's essentiality call) under ±20% on medium/NGAM/GAM, so a
+  conclusion is only credited if it survives the spread (fbaA growth swings 25.6%). (5) **`fba_qc`** — a MEMOTE-lite
+  gate: no ATP/biomass producible with uptakes closed (energy-cycle check) + every internal reaction mass-balanced
+  (excluding biomass/demand/sink + the generic polymer residue). All under the optional `fba` extra; real-FBA tests
+  skip without cobra so CI is unaffected. Remaining nice-to-haves: quadratic MOMA (QP solver) + full MEMOTE-in-CI.
+  pytest + ruff green.
 
 ## Design notes (scouted plans)
 

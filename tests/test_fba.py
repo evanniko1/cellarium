@@ -69,5 +69,50 @@ def test_essentiality_panel_reports_mcc_and_disagreements():
     c = p["concordance_fba_vs_keio"]
     assert c["n"] > 0 and -1.0 <= c["mcc"] <= 1.0
     assert p["provenance"]["model"] == "iML1515" and p["provenance"]["model_sha256"]
+    assert p["three_way"]["n_keio_essential"] >= 0 and p["three_way"]["caught_by_wcecoli_prior"] == 0  # under-predicts
     assert all(r["diagnosis"] in ("consistent_lethal", "consistent_viable",
                                   "fba_false_essential", "fba_false_viable", "no_reference") for r in p["disagreements"])
+
+
+# ---- SCI-1b: MOMA, the 3-way join, synthetic lethality, sensitivity, QC ----
+
+def test_wcecoli_prior_is_viable_for_metabolic_genes():
+    # host-side (no cobra needed): the homeostatic whole-cell FBA under-predicts, so its metabolic KO prior is viable
+    wce = fba._wcecoli_map()
+    assert wce.get("fbaA") is False and wce.get("pfkA") is False
+
+
+@realfba
+def test_moma_and_three_way_in_knockout():
+    fba._reset_model()
+    ko = fba.fba_gene_knockout(["fbaA", "pfkA"])
+    by = {r["gene"]: r for r in ko["results"]}
+    assert by["fbaA"]["moma_growth_frac"] is not None                 # linear MOMA runs on GLPK
+    assert by["fbaA"]["wcecoli_essential"] is False                   # metabolic prior = viable
+    assert by["fbaA"]["keio_essential"] is True and by["fbaA"]["diagnosis"] == "fba_false_viable"
+
+
+@realfba
+def test_synthetic_lethal_is_wellformed():
+    fba._reset_model()
+    out = fba.fba_synthetic_lethal(["pfkA", "pfkB", "tpiA"])
+    assert out["n_pairs"] == 3
+    assert all(isinstance(p["synthetic_lethal"], bool) and "double_growth_frac" in p for p in out["pairs"])
+    assert "error" in fba.fba_synthetic_lethal(["pfkA"])              # needs >=2 genes
+
+
+@realfba
+def test_sensitivity_reports_spread():
+    fba._reset_model()
+    s = fba.fba_sensitivity(gene="fbaA")
+    lo, hi = s["wt_growth_range"]
+    assert lo <= hi and s["wt_growth_spread_pct"] > 0                 # ±20% levers move growth
+    assert s["essentiality_robust"] in (True, False)
+
+
+@realfba
+def test_qc_passes_on_curated_model():
+    fba._reset_model()
+    qc = fba.fba_qc()
+    assert qc["energy_from_nothing"]["ok"] and qc["biomass_from_nothing"]["ok"]
+    assert qc["mass_balance"]["ok"] and qc["passed"] is True          # clean after excluding pseudo-reactions

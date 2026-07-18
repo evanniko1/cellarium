@@ -177,7 +177,40 @@ def _ko_growth(m, gene) -> float:
     return 0.0 if (s is None or math.isnan(s)) else float(s)
 
 
-# --- the four tools ----------------------------------------------------------------------------------------
+def _moma_growth(m, gene, wt_solution) -> float | None:
+    """KO growth under LINEAR MOMA (L1 distance to the WT flux vector) — the pre-adaptation mutant, GLPK-compatible
+    (quadratic MOMA needs a QP solver). None if MOMA is unavailable. wt_solution is a WT cobra Solution."""
+    from cobra.flux_analysis import moma
+    try:
+        with m:
+            gene.knock_out()
+            sol = moma(m, solution=wt_solution, linear=True)
+        if sol.status != "optimal":
+            return 0.0
+        g = float(sol.fluxes[OBJECTIVE])
+        return 0.0 if math.isnan(g) else g
+    except Exception:
+        return None
+
+
+def _wcecoli_map() -> dict:
+    """{gene_symbol: wcEcoli KO-prior essential (bool)} derived ONCE from the scope cache — replicating
+    scope.classify_gene's prior: only ribosomal/aaRS machinery is 'predicts lethal'; a metabolic KO is the model's
+    'predicts viable' reroute (its documented under-prediction). So for METABOLIC genes this is uniformly viable —
+    that flatness IS the finding: the homeostatic whole-cell FBA has no growth term and reroutes."""
+    from . import scope
+    out = {}
+    for sym, g in scope._scope().items():
+        if g.get("is_machinery"):
+            out[sym] = g.get("machinery_role") in ("ribosomal", "aaRS")   # lethal_crash prior
+        elif g.get("is_metabolic") or g.get("is_tf"):
+            out[sym] = False                                              # reroute / TF -> predicts viable
+        else:
+            out[sym] = None                                              # inert / unknown
+    return out
+
+
+# --- the tools ---------------------------------------------------------------------------------------------
 
 def fba_growth(medium: dict | None = None) -> dict:
     """Genome-scale FBA growth-rate prediction over iML1515 (default aerobic M9 glucose)."""
@@ -196,41 +229,43 @@ def fba_growth(medium: dict | None = None) -> dict:
 
 
 def fba_gene_knockout(genes, medium: dict | None = None) -> dict:
-    """Single-gene KO growth over iML1515 via the GPR — FBA, and MOMA where a QP solver is present (MOMA is the
-    honest comparator to wcEcoli's kinetic model, which also can't instantly re-route to a distant optimum)."""
+    """Single-gene KO over iML1515 via the GPR as a THREE-WAY cross-check: the wcEcoli KO prior, FBA (growth-max),
+    and LINEAR MOMA (pre-adaptation, minimal flux change from WT) — each vs the Keio experiment. MOMA where it also
+    stays viable means the reroute is a real isozyme/pathway, not just an FBA optimality artifact."""
     ok, msg = available()
     if not ok:
         return {"error": msg}
     if isinstance(genes, str):
         genes = [genes]
     m = load_model()
+    bench, wce = _keio_benchmark(), _wcecoli_map()
     with m:
         _set_medium(m, medium)
         resolved, unknown = _resolve_genes(m, genes)
         if not resolved:
             return {"error": f"no iML1515 gene matched {genes}", "unknown_genes": unknown}
-        wt = float(m.slim_optimize())
+        wt_sol = m.optimize()
+        wt = float(wt_sol.objective_value)
         rows = []
-        moma_note = None
-        try:
-            from cobra.flux_analysis import moma as _moma_mod  # noqa: F401
-            moma_ok = m.solver.interface.__name__.split(".")[-1] in ("gurobi_interface", "cplex_interface")
-        except Exception:
-            moma_ok = False
-        if not moma_ok:
-            moma_note = "MOMA needs a QP solver (gurobi/cplex); GLPK does LP only — reporting FBA calls."
-        bench = _keio_benchmark()
         for g in resolved:
-            kg = _ko_growth(m, g)
-            frac = round(kg / wt, 4) if wt else 0.0
+            frac = round(_ko_growth(m, g) / wt, 4) if wt else 0.0
+            mg = _moma_growth(m, g, wt_sol)
+            moma_frac = (round(mg / wt, 4) if (mg is not None and wt) else None)
             fba_ess = frac < ESSENTIAL_FRAC
             keio = bench.get(g.name)
-            rows.append({"gene": g.name, "b_number": g.id, "ko_growth_frac": frac,
-                         "fba_essential": fba_ess, "keio_essential": keio,
+            rows.append({"gene": g.name, "b_number": g.id,
+                         "fba_growth_frac": frac, "fba_essential": fba_ess,
+                         "moma_growth_frac": moma_frac,
+                         "moma_essential": (moma_frac < ESSENTIAL_FRAC if moma_frac is not None else None),
+                         "wcecoli_essential": wce.get(g.name), "keio_essential": keio,
                          "diagnosis": diagnose(fba_ess, keio)["class"]})
     return {"wt_growth": round(wt, 4), "essential_frac_cutoff": ESSENTIAL_FRAC, "results": rows,
-            "unknown_genes": unknown, "moma_note": moma_note, "provenance": provenance(),
-            "note": "FBA single-deletion + Keio benchmark join. A disagreement is a model-limit hypothesis (diagnosis), not a bug."}
+            "unknown_genes": unknown, "moma": "linear MOMA (L1) — pre-adaptation comparator (GLPK-compatible)",
+            "provenance": provenance(),
+            "note": ("Three model verdicts (wcEcoli prior / FBA / linear MOMA) vs the Keio experiment. For metabolic "
+                     "genes the wcEcoli prior is 'viable' by construction (homeostatic FBA, no growth term). Where "
+                     "MOMA ALSO stays viable the reroute is a real isozyme/pathway; where MOMA drops the reroute was "
+                     "an FBA optimality artifact. A disagreement is a model-limit hypothesis (diagnosis), not a bug.")}
 
 
 def fba_flux(reactions: list[str] | None = None, fraction_of_optimum: float = 1.0) -> dict:
@@ -266,35 +301,203 @@ def fba_flux(reactions: list[str] | None = None, fraction_of_optimum: float = 1.
             "note": "pFBA point + FVA range. Trust the RANGE, not the point — a reaction with a wide FVA range is unidentified across equal optima."}
 
 
-def fba_essentiality_panel(genes: list[str] | None = None, max_genes: int | None = None) -> dict:
-    """FBA single-deletion essentiality across iML1515 metabolic genes, cross-checked against the Baba/Joyce Keio
-    benchmark: a confusion matrix + MCC + the named-diagnostic disagreements (the scientific payoff)."""
+def fba_essentiality_panel(genes: list[str] | None = None, max_genes: int | None = None,
+                           moma: bool = False) -> dict:
+    """FBA single-deletion essentiality across iML1515 metabolic genes vs the Keio benchmark: a confusion matrix +
+    MCC + named-diagnostic disagreements, PLUS a three-way tally of how many Keio-essential genes each model catches
+    (FBA / wcEcoli prior / optional MOMA). MOMA is opt-in (one extra LP per gene)."""
     ok, msg = available()
     if not ok:
         return {"error": msg}
     m = load_model()
-    bench = _keio_benchmark()
+    bench, wce = _keio_benchmark(), _wcecoli_map()
     resolved, unknown = _resolve_genes(m, sorted(genes) if genes else sorted(bench))
     if max_genes:
         resolved = resolved[:int(max_genes)]
     rows, pairs = [], []
     with m:
         _set_medium(m, None)
-        wt = float(m.slim_optimize())
+        wt_sol = m.optimize()
+        wt = float(wt_sol.objective_value)
         for g in resolved:
             frac = round(_ko_growth(m, g) / wt, 4) if wt else 0.0
             fba_ess = frac < ESSENTIAL_FRAC
             keio = bench.get(g.name)
+            moma_ess = None
+            if moma:
+                mg = _moma_growth(m, g, wt_sol)
+                moma_ess = ((mg / wt) < ESSENTIAL_FRAC if (mg is not None and wt) else None)
             pairs.append((fba_ess, keio))
             rows.append({"gene": g.name, "b_number": g.id, "ko_growth_frac": frac,
-                         "fba_essential": fba_ess, "keio_essential": keio,
+                         "fba_essential": fba_ess, "moma_essential": moma_ess,
+                         "wcecoli_essential": wce.get(g.name), "keio_essential": keio,
                          "diagnosis": diagnose(fba_ess, keio)["class"]})
     conc = concordance([(f, k) for f, k in pairs if k is not None])
+    keio_ess = [r for r in rows if r["keio_essential"]]
+    three_way = {"n_keio_essential": len(keio_ess),
+                 "caught_by_fba": sum(1 for r in keio_ess if r["fba_essential"]),
+                 "caught_by_moma": (sum(1 for r in keio_ess if r["moma_essential"]) if moma else None),
+                 "caught_by_wcecoli_prior": sum(1 for r in keio_ess if r["wcecoli_essential"]),
+                 "note": ("Of the Keio-essential metabolic genes, how many each model flags. wcEcoli's prior catches "
+                          "~0 (homeostatic FBA under-predicts by construction); growth-max FBA catches the ones a "
+                          "distant reroute can't rescue; the rest need kinetics/regulation neither model has.")}
     disagree = [r for r in rows if r["diagnosis"] in ("fba_false_essential", "fba_false_viable")]
     return {"n_genes": len(rows), "wt_growth": round(wt, 4), "essential_frac_cutoff": ESSENTIAL_FRAC,
-            "concordance_fba_vs_keio": conc, "n_disagreements": len(disagree), "disagreements": disagree[:40],
+            "concordance_fba_vs_keio": conc, "three_way": three_way,
+            "n_disagreements": len(disagree), "disagreements": disagree[:40],
             "genes": (rows if len(rows) <= 60 else None), "provenance": provenance(),
-            "note": ("FBA vs the Keio benchmark over iML1515 metabolic genes. Each disagreement is a mechanistic "
-                     "hypothesis (diagnosis), not a bug — FBA is a cross-check, never ground truth. The wcEcoli "
-                     "verdict is the third leg: join per-gene via metabolic_essentiality / the corpus KO.")}
+            "note": ("FBA vs Keio over iML1515 metabolic genes, with the wcEcoli prior + optional MOMA as extra "
+                     "legs. Each disagreement is a mechanistic hypothesis (diagnosis), not a bug — FBA is a "
+                     "cross-check, never ground truth.")}
 
+
+
+def fba_synthetic_lethal(genes, medium: dict | None = None) -> dict:
+    """Pairwise gene deletion over iML1515: find SYNTHETIC-LETHAL pairs — both viable singly, lethal together —
+    which single-deletion FBA misses (~2/3 of measured epistasis is pairwise). Tests all pairs of `genes`."""
+    ok, msg = available()
+    if not ok:
+        return {"error": msg}
+    import itertools
+
+    if isinstance(genes, str):
+        genes = [genes]
+    m = load_model()
+    with m:
+        _set_medium(m, medium)
+        resolved, unknown = _resolve_genes(m, genes)
+        if len(resolved) < 2:
+            return {"error": "need >=2 resolvable iML1515 genes for pairwise deletion", "unknown_genes": unknown}
+        wt = float(m.slim_optimize())
+        single = {g.name: (round(_ko_growth(m, g) / wt, 4) if wt else 0.0) for g in resolved}
+        pairs = []
+        for a, b in itertools.combinations(resolved, 2):
+            with m:
+                a.knock_out()
+                b.knock_out()
+                s = m.slim_optimize()
+            dbl = round((0.0 if (s is None or math.isnan(s)) else float(s)) / wt, 4) if wt else 0.0
+            both_viable = single[a.name] >= ESSENTIAL_FRAC and single[b.name] >= ESSENTIAL_FRAC
+            pairs.append({"pair": [a.name, b.name], "single_a": single[a.name], "single_b": single[b.name],
+                          "double_growth_frac": dbl, "synthetic_lethal": bool(both_viable and dbl < ESSENTIAL_FRAC)})
+    sl = [p for p in pairs if p["synthetic_lethal"]]
+    return {"wt_growth": round(wt, 4), "n_pairs": len(pairs), "n_synthetic_lethal": len(sl),
+            "synthetic_lethals": sl, "pairs": (pairs if len(pairs) <= 40 else None),
+            "unknown_genes": unknown, "provenance": provenance(),
+            "note": ("A pair is synthetic-lethal when both singles are viable but the double abolishes growth — "
+                     "single-deletion essentiality (and the panel) misses these by construction.")}
+
+
+def _gam_scaled_growth(m, factor: float) -> float:
+    """WT growth with the biomass growth-associated-maintenance ATP terms scaled by `factor` (explicit restore —
+    metabolite-coefficient edits aren't tracked by the model context)."""
+    bio = m.reactions.get_by_id(OBJECTIVE)
+    terms = {met: bio.metabolites[met] for met in bio.metabolites
+             if met.id in ("atp_c", "adp_c", "pi_c", "h2o_c", "h_c")}
+    add = {met: terms[met] * (factor - 1.0) for met in terms}
+    bio.add_metabolites(add, combine=True)
+    try:
+        with m:
+            _set_medium(m, None)
+            g = m.slim_optimize()
+        return 0.0 if (g is None or math.isnan(g)) else float(g)
+    finally:
+        bio.add_metabolites({met: -add[met] for met in add}, combine=True)   # restore exactly
+
+
+def fba_sensitivity(gene: str | None = None, delta: float = 0.2) -> dict:
+    """How sensitive is the FBA growth prediction (and, for `gene`, its essentiality call) to +-delta on the levers
+    that dominate it — medium uptake (glucose, O2), NGAM (ATPM), and GAM (biomass ATP)? Trust only conclusions
+    robust across these; the growth number is set by BOF/GAM/NGAM/medium far more than by the network."""
+    ok, msg = available()
+    if not ok:
+        return {"error": msg}
+    m = load_model()
+    ngam0 = m.reactions.ATPM.lower_bound if "ATPM" in {r.id for r in m.reactions} else None
+    target = None
+    if gene:
+        with m:
+            resolved, _ = _resolve_genes(m, [gene])
+        target = resolved[0] if resolved else None
+
+    results = []
+
+    def _record(label, growth, apply_ko):
+        rec = {"perturbation": label, "wt_growth": round(growth, 4)}
+        if apply_ko is not None:
+            rec["gene_ko_frac"] = round(apply_ko / growth, 4) if growth else 0.0
+            rec["gene_essential"] = rec["gene_ko_frac"] < ESSENTIAL_FRAC
+        results.append(rec)
+
+    lo, hi = 1.0 - delta, 1.0 + delta
+    specs = [("baseline", None, 1.0)]
+    for f, tag in ((lo, "-"), (hi, "+")):
+        specs += [(f"glucose x{f:.2f}", "glc", f), (f"o2 x{f:.2f}", "o2", f),
+                  (f"NGAM x{f:.2f}", "ngam", f), (f"GAM x{f:.2f}", "gam", f)]
+    for label, lever, f in specs:
+        if lever == "gam":
+            _record(label, _gam_scaled_growth(m, f), None)   # GAM change: report growth (gene-KO axis omitted here)
+            continue
+        with m:
+            med = dict(M9_GLUCOSE)
+            if lever == "glc":
+                med["EX_glc__D_e"] = M9_GLUCOSE["EX_glc__D_e"] * f
+            elif lever == "o2":
+                med["EX_o2_e"] = M9_GLUCOSE["EX_o2_e"] * f
+            _set_medium(m, med)
+            if lever == "ngam" and ngam0 is not None:
+                m.reactions.ATPM.lower_bound = ngam0 * f
+            g = m.slim_optimize()
+            growth = 0.0 if (g is None or math.isnan(g)) else float(g)
+            ko = (_ko_growth(m, target) if (target is not None and growth > 0) else None)
+        _record(label, growth, ko)
+
+    growths = [r["wt_growth"] for r in results]
+    out = {"gene": gene, "delta": delta, "results": results,
+           "wt_growth_range": [round(min(growths), 4), round(max(growths), 4)],
+           "wt_growth_spread_pct": round(100 * (max(growths) - min(growths)) / (max(growths) or 1e-9), 1),
+           "provenance": provenance(),
+           "note": ("Growth (and, for a gene, its essentiality call) under +-delta on medium uptake, NGAM (ATPM) and "
+                    "GAM (biomass ATP). A conclusion is only safe if it survives the spread.")}
+    calls = {r["gene_essential"] for r in results if "gene_essential" in r}
+    if gene and calls:
+        out["essentiality_robust"] = (len(calls) == 1)
+    return out
+
+
+def fba_qc() -> dict:
+    """A lightweight MEMOTE-style sanity gate on iML1515: with ALL uptakes closed, nothing should be producible
+    (no ATP -> no energy-generating cycle; no biomass -> no free growth), and every internal reaction should be
+    mass-balanced. Run before trusting FBA numbers; a fail means the model, not the biology, is talking."""
+    ok, msg = available()
+    if not ok:
+        return {"error": msg}
+    m = load_model()
+    rxn_ids = {r.id for r in m.reactions}
+    with m:
+        for ex in m.exchanges:
+            ex.lower_bound = 0.0                       # close every uptake
+        if "ATPM" in rxn_ids:
+            m.reactions.ATPM.lower_bound = 0.0         # don't force maintenance (would be trivially infeasible)
+            m.objective = "ATPM"
+            a = m.slim_optimize()
+            atp = 0.0 if (a is None or math.isnan(a)) else float(a)
+        else:
+            atp = 0.0
+        m.objective = OBJECTIVE
+        b = m.slim_optimize()
+        bio = 0.0 if (b is None or math.isnan(b)) else float(b)
+    def _real_imbalance(r):   # ignore the generic polymer-residue placeholders ('R'/'*'), a benign modeling choice
+        return {k: v for k, v in r.check_mass_balance().items() if k not in ("R", "*")}
+
+    imbalanced = [r.id for r in m.reactions   # skip exchange/demand/sink + both biomass pseudo-reactions
+                  if not r.boundary and "BIOMASS" not in r.id and not r.id.startswith(("DM_", "SK_"))
+                  and _real_imbalance(r)]
+    return {"energy_from_nothing": {"atpm_flux": round(atp, 4), "ok": atp < 1e-6},
+            "biomass_from_nothing": {"growth": round(bio, 4), "ok": bio < 1e-6},
+            "mass_balance": {"n_imbalanced_internal": len(imbalanced), "examples": imbalanced[:10],
+                             "ok": len(imbalanced) == 0},
+            "passed": bool(atp < 1e-6 and bio < 1e-6 and len(imbalanced) == 0),
+            "provenance": provenance(),
+            "note": ("No ATP or biomass may be produced with all uptakes closed (else an energy-generating cycle), "
+                     "and every internal reaction must mass-balance. A failing gate invalidates downstream FBA.")}
