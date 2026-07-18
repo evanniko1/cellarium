@@ -19,7 +19,14 @@ function clickable(node, handler, label) {      // UX-1: make a non-<button> row
   });
   return node;
 }
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// escape for BOTH text and attribute contexts (D-1): quotes too, so a value interpolated into class="…"/title="…"
+// can't break out of the attribute. Use esc() on every dynamic value inside an innerHTML / el() html string.
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+// safe-HTML tagged template (D-1): auto-escapes EVERY ${interpolation}, so a dynamic value can't inject markup.
+// Prefer for new content — el("div", "c", safe`… ${userValue} …`); a static prefix/suffix passes through verbatim.
+const safe = (strings, ...values) =>
+  strings.reduce((out, s, i) => out + s + (i < values.length ? esc(values[i]) : ""), "");
 const trunc = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…" : String(s));
 const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
 const fmtElapsed = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -730,7 +737,7 @@ function designEl(dv, i) {
   const isKO = String(dv.perturbation || "").includes("gene_knockout") && genes;
   const tag = isKO ? ("KO:" + genes + (dv.condition && dv.condition !== "basal" ? " · " + dv.condition : "")) : dv.condition;
   c.appendChild(el("div", "d-name", `<span class="pert">${esc(dv.perturbation)}</span>${tag ? " · " + esc(tag) : ""}`));
-  c.appendChild(el("div", "d-meta", `${isKO ? "" : (genes || "control") + " · "}Council proposed ${dv.seeds}×${dv.generations} — override below`));
+  c.appendChild(el("div", "d-meta", `${isKO ? "" : esc(genes || "control") + " · "}Council proposed ${dv.seeds}×${dv.generations} — override below`));
   const ctr = el("div", "d-controls");
   // default to the scale the Council PROPOSED (not 1×1) — a one-click queue must not silently underpower the test
   const sS = el("div", "stepper", `<label>seeds</label>`), iS = el("input"); iS.type = "number"; iS.min = 1; iS.value = dv.seeds || 1; sS.appendChild(iS);
@@ -852,7 +859,7 @@ async function doClearQueue(url) {   // surfaces failures instead of dying silen
     if (!r.ok) throw new Error("HTTP " + r.status);
   } catch (e) {
     const b = $("#queueBody");
-    b.insertBefore(el("div", "q-clear-err", `Couldn't clear: ${e.message}. If this button is new, restart the server.`), b.firstChild);
+    b.insertBefore(el("div", "q-clear-err", `Couldn't clear: ${esc(e.message)}. If this button is new, restart the server.`), b.firstChild);
   }
   refreshQueue();
 }

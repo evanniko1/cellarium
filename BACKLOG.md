@@ -72,7 +72,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ID | P | Item | Src |
 |----|---|------|-----|
 | ~~**UX-1**~~ | ✅ | **Accessibility** (WCAG 2.2 AA) — added a polite ARIA live region (status + completion announced during streaming), accessible names on every icon control, a `main` landmark + labeled `dialog`s + skip link, proper `tablist` roles with roving tabindex + arrow-key nav, keyboard-operable recents, a `:focus-visible` ring, and reduced-motion. Verified via the live a11y tree. **Done** — see Completed. | A |
-| **D-1** | P2 | `innerHTML` escaping is a fragile invariant across 37 sinks — one safe render helper + a lint rule against raw `innerHTML =` with interpolation (audit the dynamic sinks: Council claims/objections, corpus rows, queue `from_question`). | A |
+| ~~**D-1**~~ | ✅ | `innerHTML` escaping — hardened `esc()` to also escape quotes (attribute-safe), added a `safe`-tagged auto-escaping template helper, fixed the two genuine unescaped-data sinks (design `genes`, a clear-queue error), and added a **CI lint** (`test_frontend_safety.py`) that fails on any new raw data interpolation into an HTML string. Audit confirmed the named sinks (Council falsifier, corpus rows, queue `from_question`) were already escaped. **Done** — see Completed. | A |
 | **UX-2** | P2 | Standardize loading / empty / error / retry states + `aria-busy`; long ops (download, sim) show determinate progress. | A |
 | **D-2** | P3 | No dark mode in the app (`prefers-color-scheme` unused) though the report is theme-aware — add a theme or state single-theme intent. | A |
 | **D-3** | P3 | Split the monolithic `app.js` (1447 ln) / `style.css` when it grows. | A |
@@ -248,6 +248,15 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `fba.py`. Verified: the pure engine on synthetic vectors (concordant → r 0.99, Deming slope ≈1, null ≈0;
   divergent → flagged). Tests: engine + Deming/Spearman + gating everywhere; real pydeseq2/data path is opt-in so
   CI is unaffected. End-to-end (fetch + all-gene sim reader + b-number map) → **SCI-2b**. pytest + ruff green.
+
+- **D-1 · innerHTML escaping invariant** (2026-07-18) — hardened the SPA's XSS surface. `esc()` now escapes quotes
+  too (`&quot;`/`&#39;`), closing an attribute-injection gap (a value in `class="…"`/`title="…"` could previously
+  break out). Added a `safe`-tagged template helper that auto-escapes every interpolation (the go-forward pattern).
+  An audit of the ~200 el()/innerHTML sinks found the named risky ones (the Council falsifier, corpus rows, the
+  queue's `from_question`) already `esc()`'d; fixed the two genuine misses (a design's `genes` string, the
+  clear-queue error message). Added `test_frontend_safety.py` — a CI lint that scans HTML template strings and
+  FAILS on any new unescaped data interpolation (short reviewed allowlist + a not-vacuous meta-test), so the
+  invariant is enforced automatically instead of hand-maintained. pytest + ruff green.
 
 ## Design notes (scouted plans)
 
