@@ -701,6 +701,30 @@ def metabolic_essentiality(gene: str) -> dict:
             "scope": "METABOLISM ONLY. The benchmark is the authority here; the whole-cell sim under-predicts."}
 
 
+def fba_growth(medium: dict | None = None) -> dict:
+    """Independent genome-scale FBA growth prediction over iML1515 (SCI-1)."""
+    from . import fba
+    return fba.fba_growth(medium)
+
+
+def fba_gene_knockout(genes, medium: dict | None = None) -> dict:
+    """Independent FBA single-gene KO over iML1515 + Keio-benchmark join (SCI-1)."""
+    from . import fba
+    return fba.fba_gene_knockout(genes, medium)
+
+
+def fba_flux(reactions: list | None = None, fraction_of_optimum: float = 1.0) -> dict:
+    """pFBA point flux + FVA range per reaction over iML1515 (SCI-1)."""
+    from . import fba
+    return fba.fba_flux(reactions, fraction_of_optimum)
+
+
+def fba_essentiality_panel(genes: list | None = None, max_genes: int | None = None) -> dict:
+    """FBA-vs-Keio essentiality concordance (MCC + named-diagnostic disagreements) over iML1515 (SCI-1)."""
+    from . import fba
+    return fba.fba_essentiality_panel(genes, max_genes)
+
+
 def model_validation() -> dict:
     """How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level
     agreement counts + the `model_UNDER_predicts` number, so you know when to trust a KO 'viable' verdict (you
@@ -923,6 +947,14 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "optional: the KO'd gene, to add its scope prior + benchmark"}}}},
     {"name": "model_validation", "description": "How well does the model predict gene essentiality vs the 402-gene ground-truth benchmark? Corpus-level agreement counts + the model_UNDER_predicts number, so you know when to trust a KO 'viable' verdict (mostly you can't, for essential-gene candidates). Call to calibrate trust before generalising a KO result.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "fba_growth", "description": "INDEPENDENT genome-scale FBA growth-rate prediction over the standard E. coli model iML1515 (cobrapy) — a second opinion distinct from the whole-cell sim. Default medium is aerobic M9 glucose (the Keio condition). Returns growth h⁻¹ + a sanity flag + full provenance (model hash, solver, medium, objective). FBA is a cross-check, NOT ground truth. Optional: needs the `fba` extra + the iML1515 file (the tool says how if absent).",
+     "input_schema": {"type": "object", "properties": {"medium": {"type": "object", "description": "optional {exchange_id: uptake} override, e.g. {\"EX_glc__D_e\": 10, \"EX_o2_e\": 20}; omit for aerobic M9 glucose"}}}},
+    {"name": "fba_gene_knockout", "description": "INDEPENDENT FBA single-gene knockout over iML1515 via the gene's GPR (cobrapy), JOINED to the Baba/Joyce Keio benchmark. Per gene: KO growth fraction, FBA essential call, Keio verdict, and a NAMED diagnosis of any disagreement (consistent / fba_false_essential = cofactor cross-feeding or medium mismatch / fba_false_viable = permissive OR-isozyme reroute). Use to triangulate the wcEcoli KO verdict against a genome-scale model + experiment. MOMA is reported where a QP solver is present.",
+     "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "gene SYMBOLS, e.g. ['pfkA','fbaA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
+    {"name": "fba_flux", "description": "pFBA point flux PLUS an FVA [min,max] range for each named iML1515 reaction (cobrapy) — because a single internal flux is an arbitrary optimum vertex. FVA is loopless where feasible. Reads `variable_across_optima` to know if a flux is identified. Use for a grounded metabolic-flux claim; never report a single internal flux without its FVA range.",
+     "input_schema": {"type": "object", "properties": {"reactions": {"type": "array", "items": {"type": "string"}, "description": "iML1515 reaction IDs, e.g. ['EX_ac_e','PFK']; omit for a default biomass+exchange set"}, "fraction_of_optimum": {"type": "number", "description": "FVA constraint on the objective (default 1.0 = at the optimum)"}}}},
+    {"name": "fba_essentiality_panel", "description": "The SCI-1 cross-check at scale: FBA single-deletion essentiality across iML1515 metabolic genes vs the Keio benchmark — a confusion matrix + MCC (NOT accuracy; the set is ~90% non-essential) + the named-diagnostic disagreements (the scientific payoff — each is a model-limit hypothesis, not a bug). Pass `genes` for a subset or `max_genes` to cap runtime; omit both for the full metabolic benchmark set.",
+     "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "optional gene-symbol subset; omit for the full iML1515∩Keio metabolic set"}, "max_genes": {"type": "integer", "description": "optional cap on the number of genes scored (runtime is one LP per gene)"}}}},
     {"name": "metabolic_essentiality", "description": "Metabolic-essentiality ORACLE for a gene — METABOLISM ONLY. Returns the authoritative Baba/Joyce benchmark verdict (the authority; the whole-cell homeostatic FBA under-predicts by rerouting) + the model's FBA structural check + KO prior. For a non-metabolic gene it says the FBA doesn't apply and points to the right axis (machinery->viability, TF->mechanistic_scope). Use for 'is this METABOLIC gene essential?'.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
@@ -954,6 +986,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,
+             "fba_growth": fba_growth, "fba_gene_knockout": fba_gene_knockout,
+             "fba_flux": fba_flux, "fba_essentiality_panel": fba_essentiality_panel,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
              "read_raw_series": read_raw_series, "scan_series": scan_series,

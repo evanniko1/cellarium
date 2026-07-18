@@ -44,3 +44,6 @@ scratchpad_campaign.py*
 
 # local durable chat sessions (user data)
 data/sessions.db
+
+# SCI-1: the iML1515 SBML (~11 MB) is fetched on demand from BiGG (fba.fetch_model()), not committed
+data/fba/

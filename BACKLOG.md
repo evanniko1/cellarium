@@ -92,7 +92,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **SCI-1** | P1·sci | **cobrapy → FBA tool-wrappers** (`fba_growth` / `fba_gene_knockout` / `fba_flux` / `fba_essentiality_panel` over iML1515) — an *independent* genome-scale essentiality cross-check; where the whole-cell verdict, the FBA call, and the Baba/Keio benchmark disagree is a grounded model limit. The top scientific unlock. Lit brief done (`wf_2479258d`) → **plan in Design notes below**. *(= roadmap P4.2.)* | T + R |
+| ~~**SCI-1**~~ | ✅ core | **cobrapy → FBA cross-check over iML1515** — shipped `fba_growth`, `fba_gene_knockout`, `fba_flux` (pFBA + loopless FVA), `fba_essentiality_panel` (FBA-vs-Keio MCC + named-diagnostic disagreements). Optional `fba` extra; graceful gating; reproducibility pins (model SHA-256 + solver + medium + objective). Verified: WT growth 0.82 h⁻¹, `fbaA` → `fba_false_viable`, panel MCC 0.75. **Done (core)** — see Completed; remaining → **SCI-1b**. | T + R |
+| **SCI-1b** | P2·sci | **FBA cross-check — deepening** — MOMA (needs a QP solver: gurobi/cplex) for the pre-adaptation comparator; the full **3-way** per-gene join (add the wcEcoli KO verdict beside FBA + Keio); **double-gene deletion** (synthetic lethals); medium/GAM/NGAM ±20% sensitivity; a **MEMOTE** report as a CI artifact. See Design notes. | R |
 | **SCI-2** | P2·sci | **pydeseq2** — compare the model's simulated expression against real *E. coli* RNA-seq (a complementary model-limits / validation angle). | T |
 | **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. | S |
 | **SCI-4** | P3·sci | Multi-gene / reduced-genome design generator, scored by viability. *(Deprioritized.)* | R |
@@ -180,6 +181,18 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   Tests: `test_scan.py` (min–max preserves a stride-missed spike; transient vs level-shift classification; no
   false positive on clean noise; determinism; truncation block). Verified live on `wildtype/basal` (10,234
   timesteps). Deferred → **SP-2b**. pytest + ruff green.
+
+- **SCI-1 (core) · Independent FBA cross-check over iML1515** (2026-07-18) — a second, genome-scale opinion beside
+  the whole-cell sim, from the SOTA brief (`wf_2479258d`). New `src/cellarium/fba.py` (cobrapy over iML1515) +
+  four tools: `fba_growth` (FBA), `fba_gene_knockout` (FBA single-deletion via the GPR + Keio-benchmark join +
+  named diagnosis), `fba_flux` (pFBA point + loopless FVA range — never a bare internal flux), and
+  `fba_essentiality_panel` (FBA-vs-Keio **confusion matrix + MCC**, not accuracy, + the disagreements as
+  mechanistic hypotheses). Optional **`fba` extra** (keeps the core scipy-free); every tool degrades to a clear
+  message when cobra/model absent; the 11 MB iML1515 SBML is fetched on demand from BiGG (gitignored).
+  Reproducibility pinned in `provenance()` (model SHA-256, cobra + solver versions, medium, objective, cutoff).
+  Verified live: WT growth 0.82 h⁻¹, `fbaA` → `fba_false_viable` (FBA reroutes through its isozyme; Keio-essential),
+  40-gene panel MCC 0.75. Tests: pure logic (diagnosis, MCC) + gating everywhere; real FBA opt-in (skips without
+  cobra/model, like `hf`), so CI is unaffected. Deferred → **SCI-1b**. pytest + ruff green.
 
 ## Design notes (scouted plans)
 
