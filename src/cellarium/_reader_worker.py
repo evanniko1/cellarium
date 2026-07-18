@@ -729,10 +729,21 @@ def mode_differential(target_csv, ref_csv, kind, top, floor):
     def clean(r):
         return {"id": r["id"], "target": r["target"], "reference": r["reference"], "log2fc": r["log2fc"], "q": r["q"]}
 
+    up = [clean(r) for r in sig if r["log2fc"] > 0][:top]
+    down = [clean(r) for r in sig if r["log2fc"] < 0][:top]
+    # SP-2b informative truncation: a stratified sample of the SIGNIFICANT movers dropped below the top cut, so a
+    # real mid-rank mover is at least visible (the agent can raise `top` to see the rest). Evenly spaced by rank.
+    shown_ids = {m["id"] for m in up + down}
+    dropped = [r for r in sig if r["id"] not in shown_ids]
+    if len(dropped) <= 3:
+        mid = dropped
+    else:
+        picks = sorted({round(i * (len(dropped) - 1) / 2) for i in range(3)})   # ~first / middle / last dropped
+        mid = [dropped[i] for i in picks]
+
     return {"kind": kind, "n_compared": len(recs), "n_significant_fdr10": len(sig), "count_floor": floor,
-            "n_target_runs": len(t_runs),
-            "up": [clean(r) for r in sig if r["log2fc"] > 0][:top],
-            "down": [clean(r) for r in sig if r["log2fc"] < 0][:top]}
+            "n_target_runs": len(t_runs), "up": up, "down": down,
+            "mid_rank_sample": [clean(r) for r in mid]}
 
 
 def mode_list_species(run_root, kind, search=""):

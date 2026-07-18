@@ -123,8 +123,8 @@ def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", t
     if not r_roots:
         return {"error": f"no local runs for reference '{reference}'."}
     out = reader.differential(t_roots, r_roots, kind, top)
-    if kind == "protein" and "up" in out:  # annotate monomer IDs with gene symbols
+    if kind == "protein" and "up" in out:  # annotate monomer IDs with gene symbols (incl. the mid-rank sample)
         rev = _reverse_gene_map()
-        for m in out.get("up", []) + out.get("down", []):
+        for m in out.get("up", []) + out.get("down", []) + out.get("mid_rank_sample", []):
             m["symbol"] = rev.get(m["id"])
     return out

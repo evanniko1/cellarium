@@ -60,7 +60,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**SP-1**~~ | ✅ | **Hypothesis lifecycle reflection** — each falsifier design shows its live state (proposed / queued / running / available / failed), derived from the launch queue by semantic match + corpus membership; the re-run is guarded (no re-queue of an in-flight or done design). **Done** — see Completed. | A |
 | **SP-1b** | P2 | **Explicit Cellwright write-back** — when the agent *revises or invalidates* a specific Council design (rather than just running it), record that delta on the Hypothesis and surface the Council-vs-Cellwright diff. Needs a session↔hypothesis link + an agent-side write; the SP-1 queue/corpus derivation already covers the "did it run?" half. | A |
 | ~~**SP-2**~~ | ✅ core | **Cellwright receptive field** — shipped the host core: `read_raw_series` **extrema-preserving (min–max)** decimation + loss report, a new **`scan_series`** transient/level-shift tool (MAD-prominence + width gate + FDR), and `top_movers` **informative truncation** ("k of N significant dropped"). Verified on real 10k-step trajectories. **Done (core)** — see Completed; remaining pieces → **SP-2b**. | A |
-| **SP-2b** | P2 | **Receptive field — agent level** — the deferred SP-2 pieces (Design notes): an *agent-graded* receptive-field eval in `evals/cases.py` (NoLiMa paraphrased probe + null control + injected transient & mid-rank mover); a **mid-rank stratified sample** in `top_movers` (needs a `_reader_worker` edit); the **gated map-reduce fan-out** (numpy scan pre-filters → LLM workers on flagged segments only, extractive reduce). | A |
+| ~~**SP-2b**~~ | ✅ | **Receptive field — completion** — shipped the **mid-rank stratified sample** (`_reader_worker` → `top_movers.truncation.mid_rank_examples`), **`scan_overview`** (deterministic anomaly map across a design's channels — the numpy map-reduce, no LLM fan-out), and a deterministic **receptive-field eval** (needle recovered / coarse view misses it / null control / mid-rank surfaced). **Done** — see Completed. Agentic remainder → **SP-2c**. | A |
+| **SP-2c** | P3 | **Receptive field — agentic** — an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; and the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce). Deferred by design: deterministic `scan_overview` covers the common case; fan-out is a ~15× token / architectural cost for the rare over-context query. | A |
 | **AG-1** | P2 | Launch queue is a lock-free JSON read-modify-write at a relative path — file lock (or move into SQLite) + absolute config-rooted path. | A |
 | **AG-2** | P2 | 38 tools + ~4 KB router prompt — consolidate overlapping tools; track tool-selection error rate in the eval. | A |
 | **AG-3** | P3 | Dispatch: explicit unknown-tool guard + semantic input validation test. | A |
@@ -193,6 +194,16 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   Verified live: WT growth 0.82 h⁻¹, `fbaA` → `fba_false_viable` (FBA reroutes through its isozyme; Keio-essential),
   40-gene panel MCC 0.75. Tests: pure logic (diagnosis, MCC) + gating everywhere; real FBA opt-in (skips without
   cobra/model, like `hf`), so CI is unaffected. Deferred → **SCI-1b**. pytest + ruff green.
+
+- **SP-2b · Receptive field completion** (2026-07-18) — finished the deferred SP-2 pieces (host + worker). (1)
+  **Mid-rank stratified sample**: `_reader_worker.mode_differential` now returns a stratified `mid_rank_sample` of
+  the BH-significant movers dropped below the top-N cut; `differential.top_movers` annotates its symbols and
+  `tools.top_movers` folds it into `truncation.mid_rank_examples` — so a real mid-rank mover is visible, not just
+  counted. (2) **`scan_overview`** tool: the deterministic map-reduce — full-scans a design's channel panel in one
+  call and ranks them by strongest event (no LLM fan-out; verified on `wildtype/basal`). (3) A deterministic
+  **receptive-field eval** (`test_receptive_field.py`): a known needle the coarse stride view flattens is recovered
+  by min-max decimation + `scan_series`, a clean trajectory yields nothing (null control), and a mid-rank mover is
+  surfaced. The agent-in-the-loop graded run + the LLM-worker fan-out are deferred to **SP-2c**. pytest + ruff green.
 
 ## Design notes (scouted plans)
 

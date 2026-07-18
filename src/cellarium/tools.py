@@ -99,8 +99,10 @@ def _truncation_block(out: dict, top: int) -> dict | None:
         return None
     return {"n_significant": int(n_sig), "n_shown": len(shown), "n_shown_significant": shown_sig,
             "n_dropped_significant": dropped,
-            "hint": (f"{dropped} more BH-significant movers are below the top-{top} cut — raise `top`, or narrow "
-                     "with regulon_response / a pathway filter, before concluding these are all that moved.")}
+            "mid_rank_examples": out.get("mid_rank_sample") or [],   # a stratified peek at the dropped movers
+            "hint": (f"{dropped} more BH-significant movers are below the top-{top} cut (mid_rank_examples shows a "
+                     "few) — raise `top`, or narrow with regulon_response / a pathway filter, before concluding "
+                     "these are all that moved.")}
 
 
 def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "protein", top: int = 12) -> dict:
@@ -112,6 +114,7 @@ def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "prot
     out = _diff.top_movers(target, reference, kind, top)
     if isinstance(out, dict) and "error" not in out:
         trunc = _truncation_block(out, top)
+        out.pop("mid_rank_sample", None)   # now surfaced inside truncation.mid_rank_examples
         if trunc:
             out["truncation"] = trunc
     return out
@@ -345,6 +348,38 @@ def scan_series(result_id: str, channel: str = "growth_rate", min_effect_mad: fl
     rigor.note_result(run["result_id"])
     return scan.scan_channel(t, v, channel, run, min_effect_mad=float(min_effect_mad),
                              min_width=int(min_width), fdr=float(fdr))
+
+
+_OVERVIEW_CHANNELS = ["growth_rate", "ppgpp_conc", "fraction_trna_charged", "ribosome_conc", "rela_conc"]
+
+
+def scan_overview(design: str, channels: list | None = None, min_effect_mad: float = 4.0) -> dict:
+    """Deterministic anomaly MAP across channels (SP-2b): full-scan each channel of one design and rank which carry
+    the strongest transient/level-shift — full coverage in ONE call, so a signal isn't missed for want of asking
+    channel-by-channel. Then drill with scan_series on a flagged channel. No LLM fan-out; grounded, no fabrication."""
+    from . import raw as rawmod, scan
+    runs = rawmod.seed_runs(design)
+    if not runs:
+        return {"error": f"no local raw simOut for '{design}' — see data_availability for the HF/regenerate path."}
+    run = next((r for r in runs if r["result_id"] == design), runs[0])
+    rigor.note_result(run["result_id"])
+    by_channel = []
+    for ch in (channels or _OVERVIEW_CHANNELS):
+        try:
+            t, v = rawmod.seed_channel(run["root"], ch)
+        except KeyError:
+            continue
+        if t.size == 0:
+            continue
+        res = scan.scan_channel(t, v, ch, run, min_effect_mad=float(min_effect_mad))
+        top = max(res["events"], key=lambda e: e["magnitude_mad"]) if res["events"] else None
+        by_channel.append({"channel": ch, "n_events": res["n_events"],
+                           "max_magnitude_mad": (top["magnitude_mad"] if top else 0.0), "top_event": top})
+    by_channel.sort(key=lambda x: x["max_magnitude_mad"], reverse=True)
+    return {"design": design, "result_id": run["result_id"], "seed": run["seed"],
+            "channels_scanned": len(by_channel), "by_channel": by_channel,
+            "note": ("Anomaly map across channels, ranked by the strongest event per channel — call scan_series on a "
+                     "channel for its full FDR-controlled event list. Empty everywhere != flat (loosen min_effect_mad).")}
 
 
 def variance_band(design: str, channel: str = "growth_rate", n_points: int = 40) -> dict:
@@ -903,6 +938,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string", "description": "a result_id or design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, cell_mass, dry_mass, protein_mass, rna_mass, ppgpp_conc, ribosome_conc, fraction_trna_charged, rela_conc, fba_objective"}, "max_points": {"type": "integer", "description": "downsample the returned series to at most this many points (default 60); stats are over ALL timesteps"}}, "required": ["result_id", "channel"]}},
     {"name": "scan_series", "description": "FULL-SCAN a channel's raw trajectory for TRANSIENTS + LEVEL SHIFTS that the coarse ~16-point read_series view flattens (e.g. a ppGpp spike after a media downshift, a growth-rate step). Reads every timestep of one seed's local raw simOut and returns an FDR-controlled event list — each event's kind (transient/level_shift), direction, peak time, magnitude in robust MAD units, q-value, and raw timestep range. Call when a mean/trajectory might hide a brief excursion, or when read_raw_series reports detail_between_points. Deterministic; empty events is NOT proof of a flat trajectory (loosen min_effect_mad to probe weaker signals).",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string", "description": "a result_id or design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, ppgpp_conc, fraction_trna_charged, ribosome_conc, rela_conc, …"}, "min_effect_mad": {"type": "number", "description": "min peak height in robust MAD units to flag (default 4.0; lower = more sensitive)"}, "min_width": {"type": "integer", "description": "min event width in timesteps (default 3; rejects single-sample noise)"}, "fdr": {"type": "number", "description": "Benjamini-Hochberg FDR across events (default 0.05)"}}, "required": ["result_id"]}},
+    {"name": "scan_overview", "description": "Deterministic anomaly MAP across a design's channels in ONE call: full-scans growth_rate, ppgpp_conc, fraction_trna_charged, ribosome_conc, rela_conc (or a given list) and ranks which carry the strongest transient/level-shift, so you don't have to probe channel-by-channel and miss one. Returns per-channel n_events + the strongest event. Then call scan_series on a flagged channel for its full event list. Use for 'is anything unusual in this run?' before drilling.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a result_id or design label like 'condition/no_oxygen'"}, "channels": {"type": "array", "items": {"type": "string"}, "description": "optional channel list; omit for the default physiology panel"}, "min_effect_mad": {"type": "number", "description": "min peak height in robust MAD units (default 4.0)"}}, "required": ["design"]}},
     {"name": "variance_band", "description": "The CROSS-SEED variance the coarse shard cannot express: reads EVERY local seed's full-resolution simOut for a channel, resamples onto a common time grid, and returns per-timepoint mean, std, sem and CI95 ACROSS seeds — grounded numbers only, no fabricated spread. Pass a DESIGN label. This is how to honestly answer 'draw the variance over time/generations'. Pair with chart(kind='band') to draw it. Needs >=2 local seeds with the channel (check raw_available).",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen'"}, "channel": {"type": "string", "description": "growth_rate, ppgpp_conc, cell_mass, ..."}, "n_points": {"type": "integer", "description": "grid resolution (default 40)"}}, "required": ["design"]}},
     {"name": "raw_available", "description": "What FULL-RESOLUTION raw simOut is reachable on LOCAL DISK right now for a design: which seeds, generations per seed, and which channels are readable. The drill-down discovery step before read_raw_series / variance_band. Distinct from data_availability (which is about the HF download path) — this reports what you can read WITHOUT any download.",
@@ -990,7 +1027,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "fba_flux": fba_flux, "fba_essentiality_panel": fba_essentiality_panel,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
-             "read_raw_series": read_raw_series, "scan_series": scan_series,
+             "read_raw_series": read_raw_series, "scan_series": scan_series, "scan_overview": scan_overview,
              "variance_band": variance_band, "raw_available": raw_available,
              "download_raw": download_raw,
              "read_species": read_species, "screen_design": screen_design,
