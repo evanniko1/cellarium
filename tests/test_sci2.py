@@ -6,6 +6,7 @@ import os
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -58,6 +59,38 @@ def test_gates_cleanly_without_pydeseq2(monkeypatch):
 
 
 def test_provenance_names_the_reference_and_caveat():
-    p = sci2.provenance({"cond_B": "anaerobic"})
+    p = sci2.provenance({"cond_B": "wt_ph5"})
     assert p["reference"] == "PRECISE-1K" and p["zenodo_doi"] == sci2.ZENODO_DOI
     assert "NOT ground truth" in p["caveat"] and p["lfc"].startswith("UNSHRUNK")
+
+
+def test_bnumber_map_is_present_and_correct():
+    bmap = sci2._bnumber_map()
+    assert len(bmap) > 4000                                   # committed EcoCyc-derived map
+    assert bmap.get("pfkA") == "b3916" and bmap.get("fbaA") == "b2925"   # match iML1515 (SCI-1)
+
+
+# ---- real PRECISE-1K + pydeseq2 (opt-in): needs the `rnaseq` extra + the fetched data ----
+
+def _rnaseq_ready():
+    try:
+        import pydeseq2  # noqa: F401
+    except Exception:
+        return False
+    return sci2.COUNTS.exists() and sci2.METADATA.exists()
+
+
+realrnaseq = pytest.mark.skipif(not _rnaseq_ready(), reason="rnaseq extra (pydeseq2) + PRECISE-1K data not present")
+
+
+@realrnaseq
+def test_build_reference_on_a_real_contrast():
+    """The DATA side end-to-end: a real DESeq2 run on PRECISE-1K (wt_ph5 vs wt_glc, MG1655) yields unshrunk per-gene
+    log2FC keyed by b-number, with real DE at padj<0.05."""
+    ref = sci2.build_reference({"column": "condition", "cond_A": "wt_glc", "cond_B": "wt_ph5"})
+    assert "error" not in ref and ref["n_genes"] > 3000
+    assert ref["n_replicates"]["A"] >= 4 and ref["n_replicates"]["B"] >= 4
+    rl = ref["reference_lfc"]
+    assert all(k.startswith("b") for k in list(rl)[:20])       # b-number keys
+    assert any(v["padj"] is not None and v["padj"] < 0.05 and abs(v["log2FC"]) > 2 for v in rl.values())
+    assert ref["provenance"]["counts_sha256"] and ref["provenance"]["ref_strain"] == "MG1655"

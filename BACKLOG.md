@@ -96,7 +96,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**SCI-1**~~ | ✅ core | **cobrapy → FBA cross-check over iML1515** — shipped `fba_growth`, `fba_gene_knockout`, `fba_flux` (pFBA + loopless FVA), `fba_essentiality_panel` (FBA-vs-Keio MCC + named-diagnostic disagreements). Optional `fba` extra; graceful gating; reproducibility pins (model SHA-256 + solver + medium + objective). Verified: WT growth 0.82 h⁻¹, `fbaA` → `fba_false_viable`, panel MCC 0.75. **Done (core)** — see Completed; remaining → **SCI-1b**. | T + R |
 | ~~**SCI-1b**~~ | ✅ | **FBA cross-check — deepening** — shipped **linear MOMA** (GLPK-compatible pre-adaptation comparator; quadratic MOMA still needs a QP solver), the **3-way** join (wcEcoli prior beside FBA + Keio + a "which model catches each Keio-essential" tally), **`fba_synthetic_lethal`** (pairwise double-KO), **`fba_sensitivity`** (±20% medium/NGAM/GAM), and **`fba_qc`** (MEMOTE-lite: energy/biomass-from-nothing + mass balance). **Done** — see Completed. | R |
 | ~~**SCI-2**~~ | ✅ core | **Sim-vs-real RNA-seq cross-check** (PRECISE-1K + pydeseq2) — shipped `sci2.py`: the log2FC **concordance engine** (Pearson/Spearman/**Deming**/sign-concordance vs a null baseline + a model-limit verdict), `build_reference` (DESeq2 **unshrunk** LFC on the DATA side only), gating + provenance, and the `rnaseq_concordance` tool. Optional `[rnaseq]` extra; grounded in `wf_eeea2f6c`. **Done (core)** — see Completed; end-to-end → **SCI-2b**. | T |
-| **SCI-2b** | P2·sci | **RNA-seq cross-check — end-to-end** — fetch PRECISE-1K (~60 MB, gitignored) + pin its SHA; an **all-gene** sim-mRNA reader mode (the current `differential` returns only significant movers → range-restricted); a **symbol→b-number** map for the join; validate one real contrast (e.g. anaerobic vs aerobic). Guard the compositional trap (flag total-mRNA-shift contrasts) + short-gene zeros. | R |
+| ~~**SCI-2b**~~ | ✅ | **RNA-seq cross-check — data side** — fetched PRECISE-1K (17 MB raw counts + metadata, gitignored, SHA-pinned via `fetch_precise1k`), **validated a real DESeq2 run** (`wt_ph5` vs `wt_glc`, MG1655-filtered → 4,345 genes, real acid-stress DE at padj≈0), added the committed **symbol→b-number** map (4,675 genes) wired into `sim_lfc`, + a strain-fidelity filter. **Done** — see Completed. Sim side → **SCI-2c**. | R |
+| **SCI-2c** | P3·sci | **RNA-seq cross-check — sim side + live run** — an **all-gene** sim-mRNA reader mode in `_reader_worker` (today's `differential` returns only significant movers → range-restricted), then the live end-to-end concordance for a Cellarium-matched contrast (needs the wcEcoli worker). NB: PRECISE-1K is aerobic-glucose-heavy — anaerobic/N-limitation contrasts need reprocessed gap-filler series. Guard the compositional trap + short-gene zeros. | R |
 | **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. | S |
 | **SCI-4** | P3·sci | Multi-gene / reduced-genome design generator, scored by viability. *(Deprioritized.)* | R |
 | **SCI-5** | P3·sci | ML surrogate for viability/division trained on the corpus (compute reduction) — a "Well for the Cell" artifact. | R |
@@ -257,6 +258,17 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   clear-queue error message). Added `test_frontend_safety.py` — a CI lint that scans HTML template strings and
   FAILS on any new unescaped data interpolation (short reviewed allowlist + a not-vacuous meta-test), so the
   invariant is enforced automatically instead of hand-maintained. pytest + ruff green.
+
+- **SCI-2b · RNA-seq cross-check, data side** (2026-07-18) — made the DESeq2 reference REAL. `fetch_precise1k()`
+  pulls PRECISE-1K raw counts (17 MB, b-number-indexed) + metadata (gitignored, SHA-pinned); `build_reference`
+  gained a strain-fidelity filter (default MG1655) and the correct `wt_glc` reference label. Validated end-to-end
+  on a real contrast — `wt_ph5` vs `wt_glc` (19 + 4 MG1655 reps) → 4,345 genes with real acid-stress DE at padj≈0,
+  unshrunk log2FC keyed by b-number. Added the committed **symbol→b-number** map (`data/cache/bnumber_map.json`,
+  4,675 genes, EcoCyc-derived; pfkA→b3916 matches iML1515) and wired it into `sim_lfc` so the sim side joins the
+  reference. Tests: a real-data `build_reference` (skips without the `rnaseq` extra + data, like `realfba`) + the
+  b-number map. Remaining (**SCI-2c**): an all-gene sim-mRNA reader mode (worker) for an unbiased concordance, and
+  the live run — NB PRECISE-1K's MG1655 contrasts are aerobic/stress, so a clean anaerobic/±AA sim-matched contrast
+  needs gap-filler datasets. pytest + ruff green.
 
 ## Design notes (scouted plans)
 

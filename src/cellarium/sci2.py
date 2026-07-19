@@ -20,8 +20,10 @@ Grounded in the wf_eeea2f6c SOTA brief; mirrors fba.py (available()/provenance()
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import os
+import urllib.request
 from pathlib import Path
 
 import numpy as np
@@ -29,8 +31,13 @@ import numpy as np
 DATA_DIR = Path(os.environ.get("CELLARIUM_PRECISE1K_DIR") or "data/precise1k")
 COUNTS = DATA_DIR / "counts.csv"                       # raw read counts (genes x samples), b-number index
 METADATA = DATA_DIR / "metadata.csv"                   # sample -> condition/project columns
+BMAP_PATH = Path("data/cache/bnumber_map.json")        # gene symbol -> b-number (EcoCyc-derived; committed)
+PRECISE1K_URLS = {
+    "counts.csv": "https://raw.githubusercontent.com/SBRG/precise1k/main/data/precise1k/counts.csv",
+    "metadata.csv": "https://raw.githubusercontent.com/SBRG/precise1k/main/data/precise1k/metadata.csv"}
 ZENODO_DOI = "10.5281/zenodo.8284223"                  # PRECISE-1K citable snapshot (pin this)
-REF_CONDITION = "wt_glc_aerobic_exponential"           # the model's basal condition = every contrast's control arm
+REF_CONDITION = "wt_glc"                               # PRECISE-1K WT M9-glucose aerobic = the model's basal control arm
+REF_STRAIN = "MG1655"                                  # strain fidelity: compare only same-strain samples (the brief)
 MIN_COUNT = 10.0                                        # independent-filter floor before correlating (both sides)
 PADJ_SIG = 0.1                                          # DESeq2 padj threshold for "confidently resolved" genes
 DEG_SIG = 1.0                                           # |log2FC| a DE call must clear
@@ -55,6 +62,20 @@ def available() -> tuple[bool, str]:
     return True, ""
 
 
+def fetch_precise1k() -> dict:
+    """One-time download of the PRECISE-1K raw counts (~17 MB) + metadata into DATA_DIR (GitHub-mirrored Zenodo
+    snapshot). Explicit — not auto-run inside a tool."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    for name, url in PRECISE1K_URLS.items():
+        urllib.request.urlretrieve(url, DATA_DIR / name)   # noqa: S310 — fixed academic host
+    return {"dir": str(DATA_DIR), "counts_sha256": _sha256(COUNTS), "metadata_bytes": METADATA.stat().st_size}
+
+
+def _bnumber_map() -> dict:
+    """{gene_symbol: b-number} for the sim-side join (EcoCyc/wcEcoli genes.tsv-derived; committed to data/cache)."""
+    return json.loads(BMAP_PATH.read_text(encoding="utf-8")) if BMAP_PATH.exists() else {}
+
+
 def _sha256(path: Path) -> str | None:
     if not path.exists():
         return None
@@ -71,7 +92,8 @@ def provenance(contrast: dict | None = None) -> dict:
     except Exception:
         pass
     return {"reference": "PRECISE-1K", "zenodo_doi": ZENODO_DOI, "counts_sha256": _sha256(COUNTS),
-            "pydeseq2_version": ver, "ref_condition": REF_CONDITION, "contrast": contrast,
+            "pydeseq2_version": ver, "ref_condition": REF_CONDITION, "ref_strain": REF_STRAIN,
+            "n_bnumber_map": len(_bnumber_map()), "contrast": contrast,
             "lfc": "UNSHRUNK (MLE) — matched to the unshrunk seed-mean sim LFC",
             "caveat": ("RNA-seq is a cross-check, NOT ground truth. The sim = absolute molecules/cell, RNA-seq = "
                        "compositional fraction; compared only as log2FC of a matched contrast. Seeds are not "
@@ -184,12 +206,15 @@ def build_reference(contrast: dict) -> dict:
     from pydeseq2.ds import DeseqStats
 
     counts = pd.read_csv(COUNTS, index_col=0)          # genes (b-number) x samples
-    meta = pd.read_csv(METADATA, index_col=0)
+    meta = pd.read_csv(METADATA, index_col=0, low_memory=False)
+    strain = contrast.get("strain", REF_STRAIN)        # strain fidelity — same strain both arms (default MG1655)
+    if strain and "Strain Description" in meta.columns:
+        meta = meta[meta["Strain Description"].astype(str).str.contains(strain, na=False)]
     col = contrast.get("column", "condition")
     a, b = contrast.get("cond_A", REF_CONDITION), contrast["cond_B"]
     samples = meta.index[meta[col].isin([a, b])]
     if len(samples) < 4:
-        return {"error": f"contrast {a} vs {b} has <4 replicates in PRECISE-1K — underpowered; pick another."}
+        return {"error": f"contrast {a} vs {b} (strain {strain}) has <4 replicates in PRECISE-1K — underpowered."}
     cnt = counts[samples].T.round().astype(int)        # pydeseq2 wants samples x genes, integer counts
     design = meta.loc[samples, [col]]
     dds = DeseqDataSet(counts=cnt, metadata=design, design_factors=col, quiet=True)
@@ -217,16 +242,20 @@ def pd_isna(x) -> bool:
 # --- the sim side + the end-to-end orchestrator (gated) ---------------------------------------------------
 
 def sim_lfc(design: str, reference: str = "wildtype/basal") -> dict:
-    """Sim mRNA log2FC per gene for a design vs reference, from the corpus reader (kind='mrna'). Reuses the seed-mean
-    machinery (differential). NOTE: the current reader returns only the SIGNIFICANT movers — an unbiased full-gene
-    concordance needs the all-gene reader mode + a symbol->b-number map (SCI-2b). Returns {gene_key: log2fc}."""
+    """Sim mRNA log2FC per gene (keyed by b-number, to join PRECISE-1K) for a design vs reference, from the corpus
+    reader (kind='mrna') via differential's seed-mean machinery. NOTE: the current reader returns only the
+    SIGNIFICANT movers — an UNBIASED full-gene concordance needs an all-gene reader mode (SCI-2c). Empty if no data."""
     from . import tools
     out = tools.top_movers(design, reference, kind="mrna", top=100000)
     if not isinstance(out, dict) or "error" in out:
         return {}
-    return {(m.get("symbol") or m.get("id")): m["log2fc"]
-            for m in (out.get("up") or []) + (out.get("down") or [])
-            if (m.get("symbol") or m.get("id")) is not None and m.get("log2fc") is not None}
+    bmap = _bnumber_map()
+    lfc = {}
+    for m in (out.get("up") or []) + (out.get("down") or []):
+        sym = m.get("symbol") or m.get("id")
+        if sym is not None and m.get("log2fc") is not None:
+            lfc[bmap.get(sym, sym)] = m["log2fc"]      # map symbol -> b-number so it joins the DESeq2 reference
+    return lfc
 
 
 def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/basal") -> dict:
