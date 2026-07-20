@@ -56,6 +56,15 @@ def cache_status() -> dict:
                      if stale else "cache is fresh (built after the current sim_data).")}
 
 
+@lru_cache(maxsize=1)
+def benchmark_available() -> bool:
+    """C4: was the Baba/Joyce essentiality benchmark actually built into the scope cache? If the validation file was
+    absent at gene_scope build time EVERY gene gets essential_ref=None — indistinguishable, per-gene, from a gene that
+    is simply not in the reference set. This corpus-level check lets callers say 'benchmark disabled' instead of the
+    misleading per-gene 'not in the set'. True iff at least one gene carries a non-None essential_ref."""
+    return any(g.get("essential_ref") is not None for g in _scope().values())
+
+
 def classify_gene(symbol: str) -> dict:
     g = _scope().get(symbol)
     if not g:

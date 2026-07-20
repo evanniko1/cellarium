@@ -731,7 +731,20 @@ def metabolic_essentiality(gene: str) -> dict:
                           "timing); TF -> mechanistic_scope; inert -> no modeled function.")}
     fba = (reader.fba_essentiality([gene]).get("genes", {}) or {}).get(gene, {})
     ess = b.get("essential_reference")
-    return {"gene": gene, "role": "metabolic_enzyme",
+    # C4: distinguish "gene not in the reference set" from "benchmark not built at all" — otherwise a missing
+    # validation file silently degrades every gene to a bare "unknown" that reads like a real not-in-set result.
+    benchmark_up = scope.benchmark_available()
+    if ess is None and not benchmark_up:
+        return {"gene": gene, "role": "metabolic_enzyme", "verdict": "benchmark unavailable",
+                "benchmark_essential": None, "benchmark_available": False,
+                "warning": ("The Baba/Joyce essentiality benchmark is NOT loaded (validation file absent at gene_scope "
+                            "build time), so there is no authoritative essentiality call here — the FBA structural "
+                            "check below is under-sensitive and cannot substitute for it. Rebuild gene_scope with the "
+                            "validation set present to re-enable the oracle."),
+                "fba_structural": {"n_reactions": fba.get("n_rxn"), "flags_essential": fba.get("essential"),
+                                   "caveat": "under-sensitive — the homeostatic FBA has no growth term and reroutes"},
+                "scope": "METABOLISM ONLY. Benchmark disabled — do not treat the FBA check as an essentiality verdict."}
+    return {"gene": gene, "role": "metabolic_enzyme", "benchmark_available": benchmark_up,
             "verdict": ("ESSENTIAL (benchmark)" if ess else "non-essential (benchmark)" if ess is False
                         else "unknown (not in the Baba/Joyce set)"),
             "benchmark_essential": ess, "benchmark_agreement": b.get("agreement"),
