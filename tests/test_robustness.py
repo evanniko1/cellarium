@@ -120,14 +120,29 @@ def test_consistency_panel_runs_all_jurors_and_orders():
 
 
 def test_robustness_check_builds_bundle_and_gates_on_evidence(monkeypatch):
-    from cellarium import rigor
+    from cellarium import rigor, tools
     monkeypatch.setattr(rigor, "disconfirm", lambda t, r, c: dict(_BUNDLE))
+    monkeypatch.setattr(tools, "power_check", lambda *a, **k: {"min_detectable_effect_pct_at_n": 5.0})  # 5% < 20% -> powered
     client = FakeClient([{"verdict": "supported"}, {"verdict": "supported"},
                          {"verdict": "supported"}, {"verdict": "supported"},
                          {"verdict": "refuted"}, {"verdict": "refuted"}])
     out = robustness.robustness_check("gene_knockout/KO:pfkA", "wildtype/basal", "growth_rate",
                                       claim="pfkA KO slows growth", client=client, n_orders=2)
-    assert out["verdict"] == "refuted"                      # the skeptic refuted on both orders
+    assert out["verdict"] == "refuted"                      # the skeptic refuted on both orders (effect is above MDE)
+    assert out["power"]["underpowered"] is False and "adequately powered" in out["power_ruling"]
+
+
+def test_robustness_check_underpowered_ruling_overrides_the_panel(monkeypatch):
+    """DD-MTH-1: a FIXED, always-run power floor — when the observed effect is below the MDE, that's the verdict
+    regardless of what the jurors reasoned (the panel here votes 'supported' unanimously)."""
+    from cellarium import rigor, tools
+    monkeypatch.setattr(rigor, "disconfirm", lambda t, r, c: dict(_BUNDLE))       # observed effect_pct = -20 (abs 20)
+    monkeypatch.setattr(tools, "power_check", lambda *a, **k: {"min_detectable_effect_pct_at_n": 30.0})  # 20% < 30% MDE
+    client = FakeClient([{"verdict": "supported"}] * 6)      # jurors would say robust...
+    out = robustness.robustness_check("gene_knockout/KO:pfkA", "wildtype/basal", "growth_rate",
+                                      claim="pfkA KO slows growth", client=client, n_orders=2)
+    assert out["verdict"] == "underpowered" and out["stable"] is False            # ...but the MDE ruling overrides
+    assert out["power"]["underpowered"] is True and "within the replicate-noise" in out["power_ruling"]
 
 
 def test_robustness_check_errors_cleanly_without_evidence(monkeypatch):

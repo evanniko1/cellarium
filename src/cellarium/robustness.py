@@ -186,11 +186,34 @@ def robustness_check(target: str, reference: str, channel: str, claim: str | Non
     (the SAME numbers rigor.disconfirm reads — no new sims), then run the adversarial, order-randomized juror panel
     on the CLAIM. GATED: call this only on a HIGH-STAKES conclusion (an essentiality/viability verdict, a claim that
     will drive a decision) — it spawns a juror panel and is token-costly. Returns the robustness verdict + votes."""
-    from . import rigor
+    from . import rigor, tools
 
     bundle = rigor.disconfirm(target, reference, channel)
     if bundle.get("error"):
         return {"error": bundle["error"], "note": "no grounded evidence for this contrast — cannot run the panel."}
+
+    # DD-MTH-1: a FIXED, always-run, escalation-BLIND deterministic power floor. 'Underpowered' becomes an MDE ruling,
+    # not a juror's feel: power_check reads the corpus's real replicate CV to get the minimum effect n seeds can
+    # resolve; if the observed effect is below it, the effect is within the noise floor and CANNOT be called robust —
+    # so the deterministic ruling overrides the panel. NOT verdict-triggered (that would be the optional-stopping trap).
+    n = min((bundle.get("target") or {}).get("n_seeds", 0), (bundle.get("reference") or {}).get("n_seeds", 0))
+    effect = abs(bundle.get("effect_pct") or 0.0)
+    try:
+        mde = tools.power_check(channel, effect_pct=(effect or 10.0), n_seeds=max(n, 2)).get("min_detectable_effect_pct_at_n")
+    except Exception:
+        mde = None
+    underpowered = mde is not None and effect < mde
+    bundle["power"] = {"min_detectable_effect_pct_at_n": mde, "observed_effect_pct": effect,
+                       "n_seeds": n, "underpowered": underpowered}
+
     claim = claim or (f"{target} differs from {reference} on {channel} "
                       f"(effect {bundle.get('effect_pct')}%, Welch t={bundle.get('welch_t')}).")
-    return consistency_panel(claim, bundle, client=client, models=models, n_orders=n_orders)
+    result = consistency_panel(claim, bundle, client=client, models=models, n_orders=n_orders)
+    result["power"] = bundle["power"]
+    if underpowered:                                   # the deterministic ruling overrides a below-noise verdict
+        result["verdict"], result["stable"] = "underpowered", False
+        result["power_ruling"] = (f"observed effect {effect}% < MDE {mde}% at n={n} — within the replicate-noise "
+                                  "floor; deterministic power ruling overrides the panel.")
+    elif mde is not None:
+        result["power_ruling"] = f"observed effect {effect}% >= MDE {mde}% at n={n} — adequately powered."
+    return result

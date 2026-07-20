@@ -84,13 +84,14 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     def ci95(x):
         return stats.t95_halfwidth(x)  # t-distribution 95% CI (audit M2)
 
-    # Welch's t (unequal variance) — the proper 2-sample test the audit demanded, replacing the noise heuristic
-    welch_t, significant = None, None
-    if len(tv) > 1 and len(rv) > 1:
-        va, vb = statistics.variance(tv), statistics.variance(rv)
-        se = math.sqrt(va / len(tv) + vb / len(rv)) or 1e-12
-        welch_t = round((tm - rm) / se, 2)
-        significant = abs(welch_t) >= 2.0
+    # Welch's t (unequal variance) with a df-AWARE significance threshold (DD-MTH-1): the flat |welch_t|>=2 cutoff was
+    # wrong at small df (t-crit at df=2 is ~4.3) and contradicted the t-distribution CIs computed just below.
+    # stats.welch_t returns the Welch–Satterthwaite df + a two-sided p; significance is p<0.05, consistent with the CIs.
+    welch_t, welch_df, welch_p, significant = None, None, None, None
+    wt = stats.welch_t(tv, rv)
+    if wt:
+        welch_t, welch_df, welch_p = wt["t"], wt["df"], wt["p"]
+        significant = (welch_p is not None and welch_p < 0.05)
     allv = [val(r) for r in rows if val(r) is not None]
     mu, sd = statistics.fmean(allv), (statistics.pstdev(allv) or 1e-12)
     tci, rci = ci95(tv), ci95(rv)
@@ -104,9 +105,11 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
         # DS-2: this positions the target within the corpus's BETWEEN-DESIGN spread (which mixes real differences
         # with replicate noise) — descriptive only, NOT a significance test. Use welch_t / CIs for significance.
         "z_vs_corpus_spread": round((tm - mu) / sd, 2),
-        "welch_t": welch_t, "significant": significant,   # significant=False => within noise; needs n>=2 both sides
+        # significant=False => within noise; needs n>=2 both sides. welch_p is the two-sided p at the Welch df.
+        "welch_t": welch_t, "welch_df": welch_df, "welch_p": welch_p, "significant": significant,
         "checklist": [
-            "Is the effect significant (welch_t magnitude >= 2, CIs non-overlapping)? n<2 => underpowered.",
+            "Is the effect significant (welch_p < 0.05 at the Welch–Satterthwaite df, CIs non-overlapping)? "
+            "n<2 => underpowered.",
             "z_vs_corpus_spread is descriptive positioning, NOT significance — never read it as a p-value.",
             "Does another design contradict the implied relationship?",
             "Is the mechanism channel consistent (e.g. ppGpp up AND ribosome_conc down)?",
