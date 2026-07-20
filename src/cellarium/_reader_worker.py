@@ -746,6 +746,44 @@ def mode_differential(target_csv, ref_csv, kind, top, floor):
             "mid_rank_sample": [clean(r) for r in mid]}
 
 
+def _gene_lfc_map(t_runs, r_runs, floor):
+    """Pure: per-gene seed-mean log2fc for EVERY gene present in >=1 target AND >=1 reference run above the count
+    floor — the FULL distribution SCI-2's concordance needs. mode_differential returns only the FDR-significant
+    tail, which range-restricts Pearson/Deming (you can't estimate a slope from the movers alone). Returns
+    {id: {log2fc, target, reference, n_target, n_reference}}. Factored out so it is unit-testable off the sim."""
+    if not t_runs or not r_runs:
+        return {}
+    ids = set().union(*[set(d) for d in t_runs + r_runs])
+    out = {}
+    for i in ids:
+        tvals = [d[i] for d in t_runs if i in d]
+        rvals = [d[i] for d in r_runs if i in d]
+        if not tvals or not rvals:                     # a gene must appear on BOTH sides to have a ratio
+            continue
+        tm, rm = float(np.mean(tvals)), float(np.mean(rvals))
+        if max(tm, rm) < floor:                        # count floor — very low counts give an unstable ratio
+            continue
+        out[i] = {"log2fc": round(math.log2((tm + 1.0) / (rm + 1.0)), 4),
+                  "target": round(tm, 1), "reference": round(rm, 1),
+                  "n_target": len(tvals), "n_reference": len(rvals)}
+    return out
+
+
+def mode_gene_lfc(target_csv, ref_csv, kind, floor):
+    """All-gene seed-mean log2fc (SCI-2c) — the UNBIASED full-distribution reader for the sim-vs-RNA-seq concordance.
+    Unlike mode_differential it applies NO significance filter (that range-restricts the correlation); it returns the
+    seed-mean log2fc for every gene above the count floor. Concordance uses the seed-mean (seeds are not replicates),
+    so no per-gene test — the across-seed spread rides along as n_target/n_reference for an optional weight."""
+    table, column, idattr = SPECIES_SOURCES[kind]
+    t_runs = _run_species_means(target_csv.split(","), table, column, idattr)
+    r_runs = _run_species_means(ref_csv.split(","), table, column, idattr)
+    if not t_runs or not r_runs:
+        return {"error": "missing simOut (target or reference)"}
+    lfc = _gene_lfc_map(t_runs, r_runs, floor)
+    return {"kind": kind, "n_genes": len(lfc), "count_floor": floor,
+            "n_target_runs": len(t_runs), "n_reference_runs": len(r_runs), "lfc": lfc}
+
+
 def mode_list_species(run_root, kind, search=""):
     gs = _gens(run_root)
     if not gs:
@@ -781,6 +819,8 @@ if __name__ == "__main__":
         out = mode_reroute_diagnosis(sys.argv[2], sys.argv[3], sys.argv[4])
     elif mode == "differential":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
+    elif mode == "gene_lfc":
+        out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

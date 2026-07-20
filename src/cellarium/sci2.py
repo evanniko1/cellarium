@@ -242,19 +242,20 @@ def pd_isna(x) -> bool:
 # --- the sim side + the end-to-end orchestrator (gated) ---------------------------------------------------
 
 def sim_lfc(design: str, reference: str = "wildtype/basal") -> dict:
-    """Sim mRNA log2FC per gene (keyed by b-number, to join PRECISE-1K) for a design vs reference, from the corpus
-    reader (kind='mrna') via differential's seed-mean machinery. NOTE: the current reader returns only the
-    SIGNIFICANT movers — an UNBIASED full-gene concordance needs an all-gene reader mode (SCI-2c). Empty if no data."""
-    from . import tools
-    out = tools.top_movers(design, reference, kind="mrna", top=100000)
-    if not isinstance(out, dict) or "error" in out:
+    """Sim mRNA log2FC per gene (keyed by b-number, to join PRECISE-1K) for a design vs reference, from the ALL-GENE
+    reader mode (SCI-2c: `differential.all_gene_lfc`, kind='mrna'). Uses the FULL gene distribution — NOT just the
+    significant movers, which range-restricts the concordance's Pearson/Deming. Empty if no local sim data."""
+    from . import differential
+    out = differential.all_gene_lfc(design, reference, kind="mrna")
+    if not isinstance(out, dict) or not isinstance(out.get("lfc"), dict):
         return {}
     bmap = _bnumber_map()
     lfc = {}
-    for m in (out.get("up") or []) + (out.get("down") or []):
-        sym = m.get("symbol") or m.get("id")
-        if sym is not None and m.get("log2fc") is not None:
-            lfc[bmap.get(sym, sym)] = m["log2fc"]      # map symbol -> b-number so it joins the DESeq2 reference
+    for gid, v in out["lfc"].items():
+        sym = v.get("symbol") or gid
+        val = v.get("log2fc")
+        if val is not None:
+            lfc[bmap.get(sym, sym)] = val              # map symbol -> b-number so it joins the DESeq2 reference
     return lfc
 
 
@@ -270,8 +271,8 @@ def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/b
         return ref
     sim = sim_lfc(design, reference)
     if not sim:
-        return {"error": (f"no sim mRNA log2FC for '{design}' vs '{reference}' — needs local raw / the wcEcoli "
-                          "worker, and (for the b-number join) the all-gene reader mode + symbol->b-number map (SCI-2b).")}
+        return {"error": (f"no sim mRNA log2FC for '{design}' vs '{reference}' — the all-gene reader (SCI-2c) found "
+                          "no local runs for the design/reference. Run or fetch the matched-contrast sims first.")}
     ref_flat = {g: v["log2FC"] for g, v in ref["reference_lfc"].items()}
     ref_sig = {g for g, v in ref["reference_lfc"].items()
                if v.get("padj") is not None and v["padj"] < PADJ_SIG and abs(v["log2FC"]) >= DEG_SIG}

@@ -70,6 +70,43 @@ def test_bnumber_map_is_present_and_correct():
     assert bmap.get("pfkA") == "b3916" and bmap.get("fbaA") == "b2925"   # match iML1515 (SCI-1)
 
 
+# ---- SCI-2c: the all-gene sim-mRNA reader mode (host side; the worker runs only in the model image) ----
+
+def test_all_gene_lfc_annotates_symbols_and_guards_no_runs(monkeypatch):
+    """`differential.all_gene_lfc` errors cleanly when a design has no local runs, and otherwise symbol-annotates
+    every gene the worker returned (None where the gene map doesn't cover the id)."""
+    from cellarium import differential, reader
+
+    monkeypatch.setattr(differential, "_design_run_roots", lambda label: [])          # no local runs
+    assert "error" in differential.all_gene_lfc("d", "ref", kind="mrna")
+
+    monkeypatch.setattr(differential, "_design_run_roots", lambda label: ["/fake/root"])
+    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind: {
+        "kind": kind, "n_genes": 2, "lfc": {"EG10001": {"log2fc": 1.5}, "EG10002": {"log2fc": -0.3}}})
+    monkeypatch.setattr(differential, "_reverse_gene_map", lambda: {"EG10001": "pfkA"})
+    out = differential.all_gene_lfc("d", "ref", kind="mrna")
+    assert out["lfc"]["EG10001"]["symbol"] == "pfkA"          # annotated from the gene map
+    assert out["lfc"]["EG10002"]["symbol"] is None            # gracefully None when the id isn't covered
+
+
+def test_sim_lfc_uses_full_distribution_and_joins_bnumbers(monkeypatch):
+    """SCI-2c: sim_lfc reads the ALL-GENE reader (so a NON-significant gene is still included — the fix for the
+    range-restricted concordance) and keys every gene by b-number for the DESeq2 join; unmapped ids pass through."""
+    from cellarium import differential
+
+    monkeypatch.setattr(differential, "all_gene_lfc", lambda design, reference, kind="mrna": {"kind": "mrna", "lfc": {
+        "EG_pfkA": {"log2fc": 2.1, "symbol": "pfkA"},
+        "EG_flat": {"log2fc": 0.02, "symbol": "fbaA"},        # a NON-significant gene — must still be present
+        "EG_nosym": {"log2fc": -1.0, "symbol": None}}})       # no symbol -> keyed by its raw id (graceful)
+    bmap = sci2._bnumber_map()
+    lfc = sci2.sim_lfc("gene_knockout/KO:acrB")
+    assert lfc[bmap["pfkA"]] == 2.1 and lfc[bmap["fbaA"]] == 0.02   # full distribution, joined by b-number
+    assert lfc["EG_nosym"] == -1.0 and len(lfc) == 3
+
+    monkeypatch.setattr(differential, "all_gene_lfc", lambda *a, **k: {"error": "no local runs"})
+    assert sci2.sim_lfc("x") == {}                            # no data / error -> empty, not a crash
+
+
 # ---- real PRECISE-1K + pydeseq2 (opt-in): needs the `rnaseq` extra + the fetched data ----
 
 def _rnaseq_ready():

@@ -128,3 +128,21 @@ def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", t
         for m in out.get("up", []) + out.get("down", []) + out.get("mid_rank_sample", []):
             m["symbol"] = rev.get(m["id"])
     return out
+
+
+def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna") -> dict:
+    """EVERY gene's seed-averaged log2fc of target vs reference — the unbiased FULL distribution (SCI-2c), not just
+    the FDR-significant movers `top_movers` returns (which range-restricts the sim-vs-RNA-seq concordance). Each
+    entry is symbol-annotated via the gene map so the caller can join it to a b-number reference."""
+    from . import reader
+
+    t_roots, r_roots = _design_run_roots(target), _design_run_roots(reference)
+    if not t_roots:
+        return {"error": f"no local runs for design '{target}'."}
+    if not r_roots:
+        return {"error": f"no local runs for reference '{reference}'."}
+    out = reader.gene_lfc(t_roots, r_roots, kind)
+    if isinstance(out, dict) and isinstance(out.get("lfc"), dict):
+        rev = _reverse_gene_map()   # id -> gene symbol (the gene map; graceful None when an id isn't covered)
+        out["lfc"] = {gid: {**v, "symbol": rev.get(gid)} for gid, v in out["lfc"].items()}
+    return out

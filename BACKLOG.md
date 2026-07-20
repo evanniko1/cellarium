@@ -32,7 +32,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | **M-6** | P2 | **Council librarian rewire** (Phase 3a) — wire the pre-/between-round literature step into `deliberate()` over `web_get`; judge stays literature-free; add `library_brief` to `test_blindness` allow-list. | T |
 | **M-7** | P3 | Sufficiency-gate progressive narrowing — thread prior attempts; ask only the still-missing of {target, observable, comparison}; stay blind. | T |
 | **M-8** | P3 | Analyst robustness — order-randomization + self-consistency; heterogeneous adversarial (analyst/verifier/skeptic) pass. Token-costly; gate to high-stakes conclusions. | R |
-| **M-9** | P2 | Calibrate the viability verdict thresholds (0.9/0.6, set on n=1 machinery) against a machinery + graded-KO panel. *Needs sims.* | R |
+| **M-9** | P2 | Calibrate the viability verdict thresholds (0.9/0.6, set on n=1 machinery) against a machinery + graded-KO panel. **Ours** — the panel is a sim campaign Cellarium runs itself (`manifest.campaign` / `approve_and_run`, its own Docker pipeline) and the calibration is our own logic; sequenced behind that self-run sim campaign, not blocked on another workstream. | R |
 
 ## B · Data science & statistics
 
@@ -98,8 +98,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**SCI-1b**~~ | ✅ | **FBA cross-check — deepening** — shipped **linear MOMA** (GLPK-compatible pre-adaptation comparator; quadratic MOMA still needs a QP solver), the **3-way** join (wcEcoli prior beside FBA + Keio + a "which model catches each Keio-essential" tally), **`fba_synthetic_lethal`** (pairwise double-KO), **`fba_sensitivity`** (±20% medium/NGAM/GAM), and **`fba_qc`** (MEMOTE-lite: energy/biomass-from-nothing + mass balance). **Done** — see Completed. | R |
 | ~~**SCI-2**~~ | ✅ core | **Sim-vs-real RNA-seq cross-check** (PRECISE-1K + pydeseq2) — shipped `sci2.py`: the log2FC **concordance engine** (Pearson/Spearman/**Deming**/sign-concordance vs a null baseline + a model-limit verdict), `build_reference` (DESeq2 **unshrunk** LFC on the DATA side only), gating + provenance, and the `rnaseq_concordance` tool. Optional `[rnaseq]` extra; grounded in `wf_eeea2f6c`. **Done (core)** — see Completed; end-to-end → **SCI-2b**. | T |
 | ~~**SCI-2b**~~ | ✅ | **RNA-seq cross-check — data side** — fetched PRECISE-1K (17 MB raw counts + metadata, gitignored, SHA-pinned via `fetch_precise1k`), **validated a real DESeq2 run** (`wt_ph5` vs `wt_glc`, MG1655-filtered → 4,345 genes, real acid-stress DE at padj≈0), added the committed **symbol→b-number** map (4,675 genes) wired into `sim_lfc`, + a strain-fidelity filter. **Done** — see Completed. Sim side → **SCI-2c**. | R |
-| **SCI-2c** | P3·sci | **RNA-seq cross-check — sim side + live run** — an **all-gene** sim-mRNA reader mode in `_reader_worker` (today's `differential` returns only significant movers → range-restricted), then the live end-to-end concordance for a Cellarium-matched contrast (needs the wcEcoli worker). NB: PRECISE-1K is aerobic-glucose-heavy — anaerobic/N-limitation contrasts need reprocessed gap-filler series. Guard the compositional trap + short-gene zeros. | R |
-| **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. | S |
+| **SCI-2c** | P3·sci · *sim-run* | **RNA-seq cross-check — live run** — **Ours.** ✅ (1) the **all-gene sim-mRNA reader mode** shipped: `_reader_worker.mode_gene_lfc` (full per-gene seed-mean log2fc, NO significance filter → no range restriction) → `reader.gene_lfc` bridge → `differential.all_gene_lfc` (symbol-annotated) → rewired `sci2.sim_lfc` to the full distribution — see Completed. ⏳ (2) the live end-to-end concordance still needs a Cellarium-matched contrast: a sim campaign we run (`manifest.campaign`) + a gap-filler RNA-seq series we fetch (PRECISE-1K is aerobic-glucose-heavy → anaerobic/N-limitation contrasts need reprocessed series). Guard the compositional trap + short-gene zeros. | R |
+| **SCI-3** | future·sci | **Colony-scale via Vivarium** (Agmon 2022; the whole-colony model runs wcEcoli cells as agents) — the vehicle for the growth-dependent, ribosome-limited antibiotic-susceptibility regime the platform surfaced. **Ours** — a future Cellarium integration (a larger scope decision), not a dependency on another workstream. | S |
 | **SCI-4** | P3·sci | Multi-gene / reduced-genome design generator, scored by viability. *(Deprioritized.)* | R |
 | **SCI-5** | P3·sci | ML surrogate for viability/division trained on the corpus (compute reduction) — a "Well for the Cell" artifact. | R |
 
@@ -289,6 +289,19 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **SCI-2c (reader mode) · All-gene sim-mRNA reader** (2026-07-20) — the unblocked, our-code half of SCI-2c. The
+  sim side of the RNA-seq cross-check previously reused `top_movers`, which returns only the FDR-significant movers
+  — so the sim log2FC vector fed to the concordance was **range-restricted**, biasing Pearson/Deming (you can't
+  estimate a slope from the tail alone). New **all-gene reader**: `_reader_worker.mode_gene_lfc` computes the
+  seed-mean log2FC for EVERY gene above the count floor with no significance filter (pure `_gene_lfc_map` factored
+  out; the worker runs only in the model image so it's validated on the opt-in real path); `reader.gene_lfc` bridges
+  it (Docker + local, mirroring `differential`); `differential.all_gene_lfc` resolves the design's run roots, calls
+  the bridge, and symbol-annotates each id via the gene map; `sci2.sim_lfc` now reads that FULL distribution and
+  keys every gene by b-number for the DESeq2 join. Host-side tests (worker is container-only): `all_gene_lfc`
+  symbol-annotation + no-runs guard, and `sim_lfc` including a non-significant gene + the b-number join + graceful
+  empty. The live end-to-end run stays open (**SCI-2c** part 2) — it needs a matched-contrast sim campaign we run +
+  a gap-filler RNA-seq series, both ours to produce. pytest + ruff green.
 
 - **AG-1 · Launch-queue hardening** (2026-07-20) — the launch airlock's queue was a lock-free JSON read-modify-write
   at a CWD-relative path. Three fixes in `launch.py`: (1) the path is now **absolute + config-rooted**

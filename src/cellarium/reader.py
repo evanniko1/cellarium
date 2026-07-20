@@ -122,6 +122,18 @@ def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "p
     return _run_cmd([PY, str(_WORKER), "differential", t, r, kind, str(top), str(floor)], WCECOLI_DIR or None)
 
 
+def gene_lfc(target_roots: list[Path], ref_roots: list[Path], kind: str = "mrna", floor: float = 20.0) -> dict:
+    """All-gene seed-mean log2fc (SCI-2c): the FULL-distribution reader (every gene, not just the significant
+    movers) for the sim-vs-RNA-seq concordance, computed in the container. Mirrors differential()."""
+    if WCECOLI_DOCKER:
+        t = ",".join(_container_path(Path(r)) for r in target_roots)
+        r = ",".join(_container_path(Path(r)) for r in ref_roots)
+        return _run_cmd(_worker_cmd("gene_lfc", [t, r, kind, str(floor)]), None)
+    t = ",".join(str(Path(r).resolve()) for r in target_roots)
+    r = ",".join(str(Path(r).resolve()) for r in ref_roots)
+    return _run_cmd([PY, str(_WORKER), "gene_lfc", t, r, kind, str(floor)], WCECOLI_DIR or None)
+
+
 if __name__ == "__main__":  # schema dump (default) or `--variant-map` to derive + cache the KO/condition map
     import argparse
 
