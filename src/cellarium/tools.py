@@ -885,6 +885,15 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     return rigor.disconfirm(target, reference, channel)
 
 
+def robustness_check(target: str, reference: str, channel: str, claim: str | None = None,
+                     n_orders: int = 2) -> dict:
+    """M-8: stress-test a HIGH-STAKES conclusion with an adversarial, order-randomized juror panel."""
+    from . import robustness
+    rigor.note_design(target)
+    rigor.note_design(reference)
+    return robustness.robustness_check(target, reference, channel, claim, n_orders=n_orders)
+
+
 def check_feasibility(perturbation: str = "wildtype", condition: str | None = None,
                       timeline: str | None = None, seeds: int = 1, generations: int = 1,
                       params: dict | None = None) -> dict:
@@ -1022,6 +1031,11 @@ TOOLS = [
     {"name": "disconfirm", "description": "Before committing to a causal claim, challenge it: given a claimed effect (target vs reference on a channel), returns the per-seed spread (is the effect bigger than replicate noise?), the corpus z-score, and a falsification checklist. Call this on your main claim before concluding.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "channel": {"type": "string"}}, "required": ["target", "reference", "channel"]}},
+    {"name": "robustness_check", "description": "HIGH-STAKES ONLY, token-costly: stress-test a conclusion you are about to commit to (an essentiality/viability verdict, a claim that will drive a wet-lab decision) with a heterogeneous adversarial panel — an analyst, a verifier (re-derives the stats), and a skeptic (tries to refute) — each seeing the grounded per-seed evidence in a DIFFERENT order. Returns one robustness verdict: `robust` (unanimous, order-invariant), `order_sensitive` (a juror flipped when the evidence was reordered — the conclusion is fragile), `refuted`, `underpowered`, or `contested`, plus the per-role votes. Uses the SAME grounded numbers as disconfirm (no new sims). Do NOT call on every read — reserve it for the one or two conclusions the answer actually rests on.",
+     "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
+                      "channel": {"type": "string"}, "claim": {"type": "string", "description": "the exact conclusion to stress-test; omit to auto-phrase from the effect"},
+                      "n_orders": {"type": "integer", "description": "evidence orderings per juror (default 2, max 3) — more orders = a stronger order-sensitivity check but more cost"}},
+                      "required": ["target", "reference", "channel"]}},
     {"name": "bimodality", "description": "Test whether a channel's distribution is BIMODAL (two regimes) — the executable form of a 'dip test / test for bimodality' decision rule. Pools per-seed values across `designs` (or ALL designs if omitted) and returns Sarle's bimodality coefficient (bimodal_suggested when BC>0.555; uniform=0.555, normal~0.33), skew/kurtosis, and the best two-cluster split (where the modes sit + their separation in SDs). A stdlib heuristic, not Hartigan's dip — treat BC as indicative and corroborate with best_split.separation_sd. Needs >=4 pooled values.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string", "description": "e.g. growth_rate, ppgpp_conc, fraction_trna_charged"}, "designs": {"type": "array", "items": {"type": "string"}, "description": "optional design labels to pool over (e.g. an aaRS-KO panel); omit to test the whole corpus"}}, "required": ["channel"]}},
     {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
@@ -1091,7 +1105,7 @@ TOOLS = [
 
 _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
-             "disconfirm": disconfirm, "bimodality": bimodality,
+             "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
              "coverage_check": coverage_check, "corpus_audit": corpus_audit,
              "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
