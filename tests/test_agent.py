@@ -183,3 +183,45 @@ def test_converse_circuit_breaker_stops_on_repeated_identical_tool_call(monkeypa
     agent.converse([{"role": "user", "content": "hi"}], model="claude-haiku-4-5-20251001", max_turns=30)
     # 3 identical rounds trip the breaker, then ONE forced-synthesis call — far below the 30-turn budget
     assert calls["n"] <= agent._REPEAT_CAP + 2
+
+
+def _msgs_with_tool_call():
+    """A message history with an OLD turn whose tool_result carries grounded numbers + provenance, then recent turns
+    so compaction actually triggers (>keep_recent+1 turns)."""
+    tr = json.dumps({"channel": "growth_rate", "target": {"mean": 0.81, "n_seeds": 4}, "welch_t": 3.1,
+                     "significant": True, "effect_pct": -20.0, "provenance": {"runs": ["r0", "r1"], "grounded_from": "manifest"}})
+    msgs = [
+        {"role": "user", "content": "does pfkA slow growth?"},
+        {"role": "assistant", "content": [{"type": "tool_use", "id": "tu1", "name": "disconfirm",
+                                           "input": {"target": "gene_knockout/KO:pfkA", "reference": "wildtype/basal", "channel": "growth_rate"}}]},
+        {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "tu1", "content": tr}]},
+        {"role": "assistant", "content": [{"type": "text", "text": "pfkA KO slows growth ~20%."}]},
+    ]
+    for i in range(4):   # extra recent turns so len(turns) > keep_recent+1
+        msgs.append({"role": "user", "content": f"follow-up {i}"})
+        msgs.append({"role": "assistant", "content": [{"type": "text", "text": f"answer {i}"}]})
+    return msgs
+
+
+def test_provenance_ledger_extracts_numbers_and_source():
+    led = agent._provenance_ledger(agent._split_turns(_msgs_with_tool_call()))
+    assert "disconfirm" in led                          # the tool
+    assert "welch_t" in led and "3.1" in led            # a headline number survives
+    assert "target.mean" in led and "0.81" in led       # a nested grounded number survives
+    assert "manifest" in led or "r0" in led             # the source (run ids / grounded_from) survives
+
+
+def test_compaction_preserves_provenance_ledger(monkeypatch):
+    """DD-ENG-2b: after compaction, the grounded numbers still trace to their tool+source via the ledger — even though
+    _summarize is lossy (here it returns a paraphrase that drops the numbers)."""
+    monkeypatch.setattr(agent, "_summarize", lambda old, model: "Earlier: user asked about pfkA. (numbers omitted.)")
+    out = agent.compact_history(_msgs_with_tool_call(), keep_recent_turns=2)
+    head_text = out[0]["content"]
+    assert "Provenance ledger" in head_text and "disconfirm" in head_text and "welch_t" in head_text
+
+    # the LLM-unavailable fallback path also carries the ledger
+    def _boom(old, model):
+        raise RuntimeError("summarizer offline")
+    monkeypatch.setattr(agent, "_summarize", _boom)
+    out2 = agent.compact_history(_msgs_with_tool_call(), keep_recent_turns=2)
+    assert any("Provenance ledger" in (m.get("content") if isinstance(m.get("content"), str) else "") for m in out2)

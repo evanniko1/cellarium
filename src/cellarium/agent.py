@@ -360,19 +360,93 @@ def _strip_tool_results(old_turns: list) -> list:
     return out
 
 
+def _bget(b, k):
+    return b.get(k) if isinstance(b, dict) else getattr(b, k, None)
+
+
+def _num_digest(out) -> str:
+    """DD-ENG-2b: a compact, PROVENANCE-preserving digest of a tool output — its top-level + one-level-nested scalar
+    numbers/verdicts plus explicit source fields (run/result ids, provenance, grounded_from). Bounded. This is the
+    part that must SURVIVE compaction so a number the agent later cites still traces to its tool + run."""
+    if not isinstance(out, dict):
+        return ""
+    keep: dict = {}
+
+    def add(k, v):
+        if len(keep) >= 14:
+            return
+        if isinstance(v, bool):
+            keep[k] = v
+        elif isinstance(v, (int, float)):
+            keep[k] = round(v, 4) if isinstance(v, float) else v
+        elif isinstance(v, str) and len(v) <= 48:
+            keep[k] = v
+
+    for k, v in out.items():
+        if k in ("provenance", "run_ids", "runs", "result_id", "result_ids", "grounded_from"):
+            keep[k] = json.dumps(v, default=str)[:100]                 # the source — always kept (that's the point)
+        elif isinstance(v, dict):                                      # one level down: e.g. target.mean, target.n_seeds
+            for k2, v2 in v.items():
+                if isinstance(v2, (int, float, bool)):
+                    add(f"{k}.{k2}", v2)
+        else:
+            add(k, v)
+    return json.dumps(keep, default=str)[:400]
+
+
+def _provenance_ledger(old_turns: list) -> str:
+    """DD-ENG-2b: pair each tool_use with its tool_result across the OLD turns and emit one compact
+    `tool(args) -> {numbers + source}` line — extracted BEFORE _summarize drops the raw results. Preserved verbatim
+    in the compacted head so the number->tool->run chain the project depends on isn't severed by the lossy summary."""
+    calls: dict = {}
+    lines: list = []
+    for t in old_turns:
+        for m in t:
+            c = m.get("content")
+            if not isinstance(c, list):
+                continue
+            for b in c:
+                bt = _btype(b)
+                if bt == "tool_use":
+                    calls[_bget(b, "id")] = (_bget(b, "name"), _bget(b, "input"))
+                elif bt == "tool_result":
+                    name, args = calls.get(_bget(b, "tool_use_id"), (None, None))
+                    if not name:
+                        continue
+                    raw = _bget(b, "content")
+                    try:
+                        out = json.loads(raw) if isinstance(raw, str) else raw
+                    except Exception:
+                        out = None
+                    dig = _num_digest(out)
+                    if dig and dig != "{}":
+                        arg_s = json.dumps(args, default=str)[:80] if args else ""
+                        lines.append(f"- {name}({arg_s}) -> {dig}")
+    return "\n".join(lines[-40:])   # bound to the most recent grounded reads
+
+
 def compact_history(messages: list, *, model: str | None = None, keep_recent_turns: int = _KEEP_RECENT_TURNS) -> list:
     """Return a compacted copy: OLD turns rolled into a summary (LLM; falls back to stubbing tool_results),
-    recent turns kept verbatim. Alternation-safe: head is user(summary)->assistant(ack), then whole recent turns."""
+    recent turns kept verbatim. Alternation-safe: head is user(summary)->assistant(ack), then whole recent turns.
+    DD-ENG-2b: a provenance ledger of the old tool calls' grounded numbers is preserved verbatim alongside the
+    summary, so a figure the agent cites after compaction still traces to its tool + run (the summary is lossy)."""
     turns = _split_turns(messages)
     if len(turns) <= keep_recent_turns + 1:
         return messages
     old, recent = turns[:-keep_recent_turns], turns[-keep_recent_turns:]
+    ledger = _provenance_ledger(old)
+    ledger_block = (("\n\n[Provenance ledger — grounded numbers from earlier tool calls, preserved verbatim so any "
+                     "figure you cite still traces to its tool + source. Do NOT state a number absent from here or "
+                     "the recent turns as if you read it.]\n" + ledger) if ledger else "")
     try:
         summary = _summarize(old, model or _SUMMARY_MODEL)
-        head = [{"role": "user", "content": "[Summary of the earlier conversation]\n" + summary},
-                {"role": "assistant", "content": "Understood — I'll continue with that context."}]
+        head = [{"role": "user", "content": "[Summary of the earlier conversation]\n" + summary + ledger_block},
+                {"role": "assistant", "content": "Understood — I'll continue with that context, citing the ledger for earlier numbers."}]
     except Exception:
         head = _strip_tool_results(old)
+        if ledger:   # the no-LLM fallback also stubs results -> prepend the ledger so numbers still trace to a source
+            head = [{"role": "user", "content": "[Provenance ledger — earlier grounded numbers + their tool/source.]\n" + ledger},
+                    {"role": "assistant", "content": "Noted the provenance ledger."}] + head
     return head + [m for t in recent for m in t]
 
 
