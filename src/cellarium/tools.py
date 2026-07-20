@@ -822,6 +822,26 @@ def power_check(channel: str = "growth_rate", effect_pct: float = 10.0, n_seeds:
                      "growth effect below this is UNDER-powered, not proven equivalent.")}
 
 
+def design_panel(factors: dict, channel: str = "growth_rate", effect_pct: float = 10.0,
+                 seeds: int = 4, generations: int = 4, block_by: str | None = None) -> dict:
+    """DESIGN a falsifier PANEL as a proper design-of-experiments (M-5), not an ad-hoc seeds×generations guess. Give
+    the FACTORS to vary as {name: [levels]} and get the full-factorial cells, a randomized run order, optional
+    blocking, the sim budget, and whether the panel is adequately POWERED to resolve `effect_pct` — grounded in the
+    corpus's real per-design replicate CV for `channel`. Each cell is one factor-combination to map onto a Design,
+    then queue with propose_experiments."""
+    from . import doe
+    if not isinstance(factors, dict) or not factors:
+        return {"error": "factors must be a non-empty {name: [levels]} map, e.g. "
+                         "{'gene': ['pfkA','pfkB'], 'condition': ['basal','acetate']}"}
+    pc = power_check(channel=channel, effect_pct=effect_pct, n_seeds=seeds)   # ground the CV in real replicate noise
+    cv = pc.get("observed_replicate_cv")   # None when the channel has no replicated design -> power stays unestimated
+    out = doe.panel(factors, seeds=seeds, generations=generations, cv=cv, effect_pct=effect_pct, block_by=block_by)
+    out["power_channel"] = channel
+    if cv is None:
+        out["power_note"] = pc.get("error", "no replicate CV for this channel — power not estimated")
+    return out
+
+
 def reroute_diagnosis(gene: str, target: str, reference: str = "wildtype/basal") -> dict:
     """For a VIABLE metabolic KO, is the 'no phenotype' a genuine biological reroute or a MATHEMATICAL ARTIFACT?
     Checks whether the KO'd enzyme's FBA flux is 0 in the KO yet nonzero in WT on a dividing cell — the model
@@ -1028,6 +1048,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
+    {"name": "design_panel", "description": "DESIGN a falsifier PANEL as a proper design-of-experiments — not an ad-hoc seeds×generations guess. Give the FACTORS to cross as {name:[levels]} (e.g. {'gene':['pfkA','pfkB'], 'condition':['basal','acetate']}) and get the full-factorial cells, a randomized run order, optional blocking, the sim budget, and whether the panel is adequately POWERED to resolve effect_pct (grounded in the corpus's real replicate CV for `channel`). Use to lay out a multi-factor falsifier panel; map each cell onto a Design and queue with propose_experiments.",
+     "input_schema": {"type": "object", "properties": {"factors": {"type": "object", "description": "{factor_name: [levels]} to cross, e.g. {'gene': ['pfkA','pfkB']}"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number"}, "seeds": {"type": "integer"}, "generations": {"type": "integer"}, "block_by": {"type": "string", "description": "optional factor name to block on"}}, "required": ["factors"]}},
     {"name": "use_skill", "description": "Load a vendored scientific Agent Skill (literature, MIT/K-Dense) to answer a LITERATURE question the corpus can't: 'paper-lookup' (10 APIs — PubMed/OpenAlex/bioRxiv/… with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality). Returns the skill's instructions + endpoint reference docs; then execute it with web_get. Use to check what's PUBLISHED, whether a grounded sim result agrees with the literature, and whether a finding is novel / wet-lab-worthy — the corpus stays the source of primary numbers; the literature is comparison only, always cited.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "paper-lookup | literature-review | bgpt-paper-search"}}, "required": ["name"]}},
     {"name": "web_get", "description": "HTTP GET for the literature skills — allow-listed scientific hosts only (eutils.ncbi/PubMed, api.openalex.org, api.crossref.org, api.semanticscholar.org, export.arxiv.org, rest.uniprot.org, ...). Read the skill's reference doc (use_skill) for the exact endpoint + params first. Refuses any non-allow-listed host.",
@@ -1068,6 +1090,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
              "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
+             "design_panel": design_panel,
              "use_skill": use_skill, "web_get": web_get,
              "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
              "revise_experiment": revise_experiment,

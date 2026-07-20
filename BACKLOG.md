@@ -28,7 +28,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**M-2**~~ | ✅ | **Reproducibility** — temperature is now PINNED (`CELLARIUM_TEMPERATURE`, default 0.0) via `agent.temperature_for` (model-aware: omitted for reasoning/opus + when extended thinking is on) and RECORDED in the Hypothesis meta + agent session. Anthropic has no seed, so temperature is the named variance source. **Done** — see Completed. | A |
 | ~~**M-3**~~ | ✅ | Provenance mis-tag — `_is_in_sample` now gates `wildtype` on the condition too (`wildtype/acetate` → out_of_sample), instead of short-circuiting to in_sample. Test added (`test_provenance.py`). **Done** — see Completed. | A |
 | **M-4** | P3 | Tie the in-sample condition set to the actual ParCa fit set + a test so it can't silently drift. | A |
-| **M-5** | P2 | **DOE for falsifier panels** — wrap `experimental-design` (randomization/blocking/factorial + power) beyond seeds×generations. | T |
+| ~~**M-5**~~ | ✅ | **DOE for falsifier panels** — new `doe.py` (pure): full-factorial layout, deterministic randomized run order, blocking by a nuisance factor, a screening subsample past a cap, and a power annotation (MDE / seeds-needed, mirroring `power_check`). New `design_panel` tool crosses `{factor:[levels]}` into a proper factorial panel + sim budget + adequately-powered verdict, grounded in the corpus's real replicate CV — beyond ad-hoc seeds×generations. **Done** — see Completed. | T |
 | **M-6** | P2 | **Council librarian rewire** (Phase 3a) — wire the pre-/between-round literature step into `deliberate()` over `web_get`; judge stays literature-free; add `library_brief` to `test_blindness` allow-list. | T |
 | **M-7** | P3 | Sufficiency-gate progressive narrowing — thread prior attempts; ask only the still-missing of {target, observable, comparison}; stay blind. | T |
 | **M-8** | P3 | Analyst robustness — order-randomization + self-consistency; heterogeneous adversarial (analyst/verifier/skeptic) pass. Token-costly; gate to high-stakes conclusions. | R |
@@ -289,6 +289,20 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **M-5 · DOE for falsifier panels** (2026-07-20) — a Council/agent panel was an ad-hoc "run these at N seeds × M
+  generations". New `src/cellarium/doe.py` (pure, scipy-free) gives the design-of-experiments primitives:
+  `full_factorial` (cross every factor level), `screening_subsample` (a deterministic random subsample past a cap —
+  honest that it does NOT control aliasing, so it's a screening design not a resolution-defined fraction),
+  `randomize` (a seeded, reproducible run order guarding an order/time confound), `block` (partition by a nuisance
+  factor for within-block comparison), and the power math (`seeds_needed` / `mde_pct` / `power_annotation`) that
+  mirrors `tools.power_check`'s constants so the two never drift. New `design_panel` tool crosses `{factor:[levels]}`
+  into the factorial cells + randomized run order + optional blocking + the sim budget + an adequately-powered
+  verdict, with the CV grounded in the corpus's real per-design replicate noise for the chosen channel (unestimated,
+  with a note, when no replicated design exists — never a crash). Registered in TOOLS + `_DISPATCH`. Tests
+  (`test_doe.py`): factorial/subsample/randomize/block, the power math vs `power_check`'s shape, the panel
+  orchestration (layout + power + blocks + subsample note), and the tool grounding the CV (mocked, offline). pytest +
+  ruff green.
 
 - **AG-3 · Dispatch hardening** (2026-07-20) — `tools.dispatch` gave an LLM a raw TypeError when it mis-called a
   tool. Now: an unknown tool returns an explicit error with a `difflib` nearest-name suggestion ("did you mean
