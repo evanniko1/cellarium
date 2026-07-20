@@ -36,6 +36,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "apps"))
 
 from dotenv import load_dotenv  # noqa: E402
+
 load_dotenv(ROOT / ".env")      # ANTHROPIC_API_KEY
 
 # Prompts crafted to steer each direct-mode investigation toward the report's arc. The agent still does the work
@@ -78,8 +79,9 @@ JOBS = {
 
 
 def record(job: dict, model: str | None, write_seed: bool) -> None:
+    from sessions import DB, SEED, SessionStore
+
     from cellarium import agent
-    from sessions import SessionStore, DB, SEED
 
     print(f"\n=== recording {job['sid']} — {job['title']} ===")
     messages = [{"role": "user", "content": agent.first_user_content(job["prompt"])}]
