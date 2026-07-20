@@ -45,6 +45,39 @@ def _skill_dir(name: str) -> Path | None:
     return None
 
 
+def _summary(md_text: str, name: str) -> str:
+    """One-line summary from a SKILL.md, bounded so the palette stays compact. Vendored K-Dense skills carry a YAML
+    'description:' in frontmatter; the Cellarium-authored ones are '# name — summary'. Handle both."""
+    lines = md_text.splitlines()
+    if lines and lines[0].strip() == "---":                       # YAML frontmatter (K-Dense)
+        for ln in lines[1:]:
+            if ln.strip() == "---":
+                break
+            if ln.lower().startswith("description:"):
+                first = ln.split(":", 1)[1].strip().split(". ")[0]   # first sentence only
+                return first[:160].rstrip(".") + "."
+    heading = next((ln for ln in lines if ln.startswith("# ")), "")  # '# name — summary' (Cellarium)
+    for sep in ("—", " - ", "–"):
+        if sep in heading:
+            return heading.split(sep, 1)[1].strip()[:160]
+    body = next((ln.strip() for ln in lines if ln.strip() and not ln.startswith(("#", "---"))), "")
+    return (body[:160] or name)
+
+
+def skills_manifest() -> list[dict]:
+    """The available skills as presentation-ready metadata — the SSOT the surface reads so its palette never drifts
+    from what's actually vendored/authored. group: 'publication' (Cellarium-authored) vs 'literature' (vendored)."""
+    out = []
+    for name in list_skills():
+        root = _skill_dir(name)
+        if root is None:
+            continue
+        group = "publication" if root.parent == CELLARIUM_SKILLS_DIR else "literature"
+        out.append({"name": name, "group": group,
+                    "summary": _summary((root / "SKILL.md").read_text(encoding="utf-8", errors="replace"), name)})
+    return out
+
+
 def load_skill(name: str, include_references: bool = True) -> dict:
     """Return a skill's SKILL.md (and, by default, its reference docs) so the agent has the instructions in context,
     then runs them (literature skills fetch with web_get; publication skills point at the toolkit's own tools).

@@ -1340,6 +1340,100 @@ function autosize() { const t = $("#q"); t.style.height = "auto"; t.style.height
 $("#send").onclick = () => (isRunning() ? stopCurrent() : send());
 $("#q").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 $("#q").addEventListener("input", autosize);
+
+// ---------------- skills discovery: a proactive contextual chip + a reveal-on-demand palette ----------------
+// Skills are AGENT-invoked (the Cellwright agent calls the use_skill tool). These two affordances just help the
+// user DISCOVER + request them without a persistent menu or a blind slash-trigger: the chip surfaces the relevant
+// skill when the draft matches its domain; the palette lists all skills (from /api/skills — the backend SSOT, so a
+// newly vendored/authored skill appears automatically). Both inject a plain-language directive the agent honours.
+const SKILL_ICONS = {
+  write: '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M4 20h4L18 10l-4-4L4 16z M14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  review: '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 3l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V6z M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  stats: '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M4 4v16h16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="14" r="1.4" fill="currentColor"/><circle cx="13" cy="10" r="1.4" fill="currentColor"/><circle cx="18" cy="7" r="1.4" fill="currentColor"/></svg>',
+  lit: '<svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 5a2 2 0 0 1 2-2h11v15H7a2 2 0 0 0-2 2z M18 15H7a2 2 0 0 0-2 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+  dot: '<svg viewBox="0 0 24 24" width="15" height="15"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg>',
+};
+const X_SVG = '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const SKILL_UI = {
+  "peer-review": { icon: "review", action: "Run a peer-review self-critique", why: "catches the viable-KO-as-biology trap", triggers: ["review", "critique", "is this solid", "is this claim", "is my claim", "referee", "hold up", "poke holes", "overclaim", "how rigorous", "is this sound", "sanity check", "before i submit", "before submitting"] },
+  "scientific-writing": { icon: "write", action: "Draft with the writing conventions", why: "provenance + in/out-of-sample", triggers: ["write up", "write-up", "draft", "manuscript", "a paragraph", "the abstract", "methods section", "results section", "phrase this", "word this", "help me write"] },
+  "uncertainty-quantification": { icon: "stats", action: "Quantify the uncertainty", why: "CI / p / power via grounded stats", triggers: ["uncertainty", "is it significant", "confidence interval", "p-value", "p value", "statistical power", "underpowered", "error bar", "how sure", "how confident", "is this real", "within noise"] },
+  "literature-review": { icon: "lit", action: "Check the literature", why: "cited brief, blind to the corpus", triggers: ["the literature", "published", "prior work", "cite", "is this novel", "known in the field", "papers on", "what does the literature"] },
+  "paper-lookup": { icon: "lit", action: "Look up a paper", why: "10 literature APIs with provenance", triggers: ["look up paper", "find papers", "this doi", "a pmid", "on pubmed", "the preprint", "who cites"] },
+  "bgpt-paper-search": { icon: "lit" },
+  "experimental-design": { icon: "dot" },
+  "cobrapy": { icon: "dot" },
+};
+const _CHIP_ORDER = ["peer-review", "uncertainty-quantification", "scientific-writing", "literature-review", "paper-lookup"];
+const _skillDismissed = new Set();
+let _skillMatchTimer = null;
+
+async function loadSkills() {
+  try { state.skills = (await (await fetch("/api/skills")).json()).skills || []; }
+  catch { state.skills = []; }
+  renderPalette();
+}
+function skillIcon(name) { return SKILL_ICONS[(SKILL_UI[name] || {}).icon] || SKILL_ICONS.dot; }
+function renderPalette() {
+  const p = $("#skillsPalette"); if (!p) return;
+  p.innerHTML = "";
+  [["publication", "Publication"], ["literature", "Literature"]].forEach(([g, label]) => {
+    const items = (state.skills || []).filter((s) => s.group === g);
+    if (!items.length) return;
+    p.appendChild(el("div", "sk-group", label));
+    items.forEach((s) => {
+      const b = el("button", "sk-item"); b.type = "button"; b.setAttribute("role", "menuitem");
+      b.innerHTML = `<span class="sk-ic">${skillIcon(s.name)}</span>`
+        + `<span style="flex:1;min-width:0"><span class="sk-nm">${esc(s.name)}</span>`
+        + `<span class="sk-ds">${esc(s.summary || "")}</span></span>`
+        + `<span class="sk-go"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+      b.onclick = () => attachSkill(s.name);
+      p.appendChild(b);
+    });
+  });
+}
+function togglePalette(force) {
+  const p = $("#skillsPalette"), b = $("#skillsBtn"); if (!p) return;
+  const open = force !== undefined ? force : p.hidden;
+  p.hidden = !open; b.classList.toggle("on", open); b.setAttribute("aria-expanded", open ? "true" : "false");
+}
+function attachSkill(name) {
+  const q = $("#q");
+  const stripped = q.value.replace(/^\s*Using the [\w-]+ skill:\s*/i, "");   // don't stack directives
+  q.value = `Using the ${name} skill: ` + stripped;
+  togglePalette(false); hideSkillChip(); q.focus(); autosize();
+  try { q.setSelectionRange(q.value.length, q.value.length); } catch { /* noop */ }
+}
+function hideSkillChip() { const c = $("#skillChip"); if (c) { c.hidden = true; c.innerHTML = ""; } }
+function showSkillChip(s) {
+  const c = $("#skillChip"), ui = SKILL_UI[s.name] || {};
+  c.innerHTML = `<span style="display:grid;place-items:center;color:inherit">${skillIcon(s.name)}</span>`
+    + `<span class="sc-txt"><span class="sc-lab">${esc(ui.action || ("Use " + s.name))}</span>`
+    + (ui.why ? `<span class="sc-sub"> · ${esc(ui.why)}</span>` : "")
+    + `</span><button class="sc-x" type="button" aria-label="Dismiss suggestion">${X_SVG}</button>`;
+  c.querySelector(".sc-txt").onclick = () => attachSkill(s.name);
+  c.querySelector(".sc-x").onclick = (e) => { e.stopPropagation(); _skillDismissed.add(s.name); hideSkillChip(); };
+  c.hidden = false;
+}
+function matchSkillFromInput() {
+  const q = $("#q"); if (!q) return;
+  const txt = (q.value || "").toLowerCase();
+  if (txt.length < 12 || /^\s*using the [\w-]+ skill:/i.test(q.value)) { hideSkillChip(); return; }
+  const avail = new Set((state.skills || []).map((s) => s.name));
+  for (const name of _CHIP_ORDER) {
+    if (!avail.has(name) || _skillDismissed.has(name)) continue;
+    if (((SKILL_UI[name] || {}).triggers || []).some((t) => txt.includes(t))) {
+      showSkillChip((state.skills || []).find((s) => s.name === name)); return;
+    }
+  }
+  hideSkillChip();
+}
+$("#skillsBtn").onclick = (e) => { e.stopPropagation(); togglePalette(); };
+$("#q").addEventListener("input", () => { clearTimeout(_skillMatchTimer); _skillMatchTimer = setTimeout(matchSkillFromInput, 200); });
+document.addEventListener("click", (e) => {
+  const p = $("#skillsPalette");
+  if (p && !p.hidden && !p.contains(e.target) && !e.target.closest("#skillsBtn")) togglePalette(false);
+});
 $("#newBtn").onclick = resetToHero;
 $("#corpusBtn").onclick = () => ($("#corpusView").classList.contains("open") ? closeCorpus() : openCorpus());
 $("#corpusClose").onclick = closeCorpus;
@@ -1370,7 +1464,7 @@ $("#themeBtn").onclick = () => {
 };
 $("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeHyp(); closeDrawers(); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeHyp(); closeDrawers(); togglePalette(false); } });
 $("#scroll").addEventListener("scroll", () => {
   const s = $("#scroll"); $("#scrollDownBtn").classList.toggle("show", s.scrollHeight - s.scrollTop - s.clientHeight > 140);
 });
@@ -1564,5 +1658,5 @@ async function runDemo() {
   playBeat(0);
 }
 
-loadModels(); loadInvs(); renderSidebar(); refreshQueue(); updateSend(); loadServerSessions();
+loadModels(); loadSkills(); loadInvs(); renderSidebar(); refreshQueue(); updateSend(); loadServerSessions();
 if (/[?&]demo=1/.test(location.search)) setTimeout(runDemo, 700);   // hands-free walkthrough for recording

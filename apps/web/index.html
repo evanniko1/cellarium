@@ -99,11 +99,17 @@
       <button class="scroll-down" id="scrollDownBtn" title="Scroll to latest" aria-label="Scroll to latest">
         <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
+      <div class="skills-palette" id="skillsPalette" role="menu" aria-label="Skills" hidden></div>
       <div class="composer">
+        <div class="skill-chip" id="skillChip" hidden></div>
         <textarea id="q" rows="1" aria-label="Ask a whole-cell question" placeholder="Ask a whole-cell question — e.g. Is pfkA essential in E. coli?"></textarea>
         <div class="composer-row">
           <span class="composer-hint">Grounded whole-cell chat · frame a hypothesis in the Council surface ↗</span>
           <div class="composer-controls">
+            <button class="skills-btn" id="skillsBtn" type="button" title="Skills — writing, review, uncertainty" aria-label="Skills" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z" fill="currentColor"/></svg>
+              Skills
+            </button>
             <select id="model" class="mini-select" title="Model" aria-label="Model"></select>
             <select id="reasoning" class="mini-select" title="Reasoning strength (extended thinking)" aria-label="Reasoning strength"></select>
             <button class="send" id="send" title="Send" aria-label="Send message">

@@ -314,6 +314,16 @@ def models_list(request):
                          "reasoning": REASONING, "reasoning_default": "none"})
 
 
+def skills_list(request):
+    """The available Agent Skills (name + group + one-line summary) — the SSOT the composer's skills palette reads,
+    so a newly vendored/authored skill appears in the UI automatically. Skills are agent-invoked via `use_skill`."""
+    from cellarium import skills
+    try:
+        return JSONResponse({"skills": skills.skills_manifest()})
+    except Exception as exc:
+        return JSONResponse({"skills": [], "error": f"{type(exc).__name__}: {exc}"})
+
+
 def sessions_list(request):
     """The server-side session index (Investigations). The client keeps its own localStorage list of live chats;
     this surfaces every PERSISTED session — including ones written by another process (the eval A/B runner) or
@@ -471,6 +481,7 @@ routes = [
     Route("/api/hypothesis_delete", hypothesis_delete, methods=["POST"]),
     Route("/api/hypothesis_rename", hypothesis_rename, methods=["POST"]),
     Route("/api/models", models_list, methods=["GET"]),
+    Route("/api/skills", skills_list, methods=["GET"]),              # skills palette SSOT (agent-invoked via use_skill)
     Route("/api/sessions", sessions_list, methods=["GET"]),          # server-side session index (Investigations)
     Route("/api/session_get", session_get, methods=["GET"]),         # one session's messages for a read-only render
     Route("/api/session_delete", session_delete, methods=["POST"]),

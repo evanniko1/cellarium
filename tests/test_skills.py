@@ -13,6 +13,21 @@ def test_vendored_skills_present_and_loadable():
     assert any("pubmed" in k for k in lit["references"])          # the PubMed endpoint doc is there
 
 
+def test_skills_manifest_groups_and_summaries():
+    """The composer-palette SSOT: every skill has a group + a non-empty one-line summary, parsed from BOTH the
+    vendored K-Dense YAML-frontmatter format and the Cellarium '# name — summary' format."""
+    man = skills.skills_manifest()
+    by_name = {s["name"]: s for s in man}
+    assert {"peer-review", "scientific-writing", "uncertainty-quantification"} <= set(by_name)
+    assert by_name["peer-review"]["group"] == "publication"          # Cellarium-authored
+    assert by_name["paper-lookup"]["group"] == "literature"          # vendored K-Dense
+    for s in man:
+        assert s["summary"] and s["summary"] != "---"                # both formats parsed, no frontmatter leak
+        assert len(s["summary"]) <= 161
+    # the Cellarium em-dash summary is the post-dash text, not the bare name
+    assert by_name["peer-review"]["summary"].lower().startswith("pre-submission")
+
+
 def test_publication_skills_present_and_loadable():
     """PUB-1: the Cellarium-authored publication skills load through the SAME loader as the vendored ones."""
     have = skills.list_skills()

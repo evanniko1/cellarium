@@ -215,7 +215,7 @@ svg{display:block}
 .app-chatting .thread{min-height:100%}
 
 /* ---------------- composer (docked bottom) ---------------- */
-.composer-dock{flex:0 0 auto; padding:10px 24px 16px; display:flex; flex-direction:column; align-items:center; gap:7px;
+.composer-dock{flex:0 0 auto; position:relative; padding:10px 24px 16px; display:flex; flex-direction:column; align-items:center; gap:7px;
   background:linear-gradient(180deg,rgba(244,242,236,0),var(--paper) 22%)}
 .composer{width:100%; max-width:768px; background:var(--card); border:1px solid var(--line); border-radius:18px;
   box-shadow:var(--shadow); padding:12px 14px 10px; transition:.15s}
@@ -225,6 +225,31 @@ svg{display:block}
 .composer textarea::placeholder{color:var(--ink-3)}
 .composer-row{display:flex; align-items:center; justify-content:space-between; margin-top:8px; gap:12px}
 .composer-hint{font-size:12px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+/* ---- skills discovery (contextual chip + reveal-on-demand palette; skills are agent-invoked via use_skill) ---- */
+.skills-btn{display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); background:var(--paper-2);
+  color:var(--ink-2); border-radius:9px; padding:5px 9px; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; transition:.14s}
+.skills-btn:hover,.skills-btn.on{border-color:var(--clay); color:var(--clay-ink); background:var(--clay-tint)}
+.skills-btn svg{color:var(--clay)}
+.skill-chip{align-items:center; gap:9px; background:var(--clay-tint); border:1px solid transparent; color:var(--clay-ink);
+  border-radius:11px; padding:7px 8px 7px 11px; font-size:13px; margin-bottom:9px}
+.skill-chip:not([hidden]){display:flex}
+.skill-chip .sc-txt{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.skill-chip .sc-lab{font-weight:600} .skill-chip .sc-sub{color:var(--ink-2)}
+.skill-chip .sc-x{border:0; background:none; color:var(--clay-ink); cursor:pointer; display:grid; place-items:center; padding:3px; border-radius:6px; flex:0 0 auto}
+.skill-chip .sc-x:hover{background:var(--overlay)}
+.skills-palette{position:absolute; left:50%; transform:translateX(-50%); bottom:100%; margin-bottom:8px;
+  width:min(768px,calc(100vw - 48px)); max-height:56vh; overflow-y:auto; background:var(--card); border:1px solid var(--line);
+  border-radius:14px; box-shadow:var(--shadow-lg); padding:8px; z-index:30}
+.sk-group{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); font-weight:700; padding:8px 10px 4px}
+.sk-item{display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border-radius:10px; cursor:pointer; border:0;
+  background:none; width:100%; text-align:left; font:inherit; color:var(--ink)}
+.sk-item:hover{background:var(--clay-tint)}
+.sk-item .sk-ic{width:26px; height:26px; flex:0 0 auto; border-radius:7px; display:grid; place-items:center; background:var(--line-2); color:var(--ink-2); margin-top:1px}
+.sk-item:hover .sk-ic{color:var(--clay-ink)}
+.sk-item .sk-nm{display:block; font-size:13.5px; font-weight:600}
+.sk-item .sk-ds{display:block; font-size:12px; color:var(--ink-2); line-height:1.45; margin-top:1px}
+.sk-item .sk-go{margin-left:auto; align-self:center; color:var(--ink-3)}
+.sk-item:hover .sk-go{color:var(--clay-ink)}
 .toggle{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink-2); cursor:pointer; user-select:none}
 .toggle input{display:none}
 .toggle .track{width:34px; height:20px; border-radius:20px; background:#D9D5CB; position:relative; transition:.18s; flex:0 0 auto}

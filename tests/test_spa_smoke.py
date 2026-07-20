@@ -25,11 +25,21 @@ def test_spa_shell_and_assets_serve():
 
     assert 'id="themeBtn"' in html                       # D-2: the theme toggle mount point
     assert "cellarium-theme" in html                     # D-2: the no-flash head init reads the saved theme
+    for mount in ('id="skillsBtn"', 'id="skillsPalette"', 'id="skillChip"'):   # skills-discovery mount points
+        assert mount in html, f"index.html is missing {mount} — the skills UX won't mount"
 
     js = client.get("/static/app.js")
     assert js.status_code == 200
     assert "function stream" in js.text and "function handle" in js.text   # the SPA's entry points still exist
     assert "cellarium-theme" in js.text                  # D-2: the toggle persists the choice
+    for fn in ("function loadSkills", "function matchSkillFromInput", "function attachSkill"):
+        assert fn in js.text, f"skills-discovery entry point {fn} missing"
+
+    # the skills palette SSOT endpoint the composer reads on boot
+    sk = client.get("/api/skills")
+    assert sk.status_code == 200
+    body = sk.json()
+    assert "skills" in body and any(s["name"] == "peer-review" for s in body["skills"])
 
     css = client.get("/static/style.css")
     assert css.status_code == 200 and ".inline-err" in css.text            # UX-2's standardized error style present
