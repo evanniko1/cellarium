@@ -1074,10 +1074,53 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "metabolic_essentiality": metabolic_essentiality}
 
 
+# AG-3: schema for each dispatchable tool, for a semantic pre-check before the call (a clear message beats a raw
+# TypeError deep in a tool). Also guards the invariant that every TOOLS entry has a dispatch target and vice versa.
+_TOOL_SCHEMA = {t["name"]: (t.get("input_schema") or {}) for t in TOOLS}
+
+
+def _closest_tool(name: str) -> str | None:
+    import difflib
+    hits = difflib.get_close_matches(str(name), list(_DISPATCH), n=1, cutoff=0.6)
+    return hits[0] if hits else None
+
+
+def _validate_args(name: str, args: dict) -> str | None:
+    """Semantic pre-validation of a tool call (AG-3). Catches the two mistakes an LLM tool call actually makes and
+    names the exact field, instead of letting them surface as an opaque TypeError deep in the tool:
+      * MISSING required argument — from the tool's declared schema (the contract the agent was given), and
+      * UNKNOWN argument — checked against the tool function's ACTUAL signature (not the schema, which can
+        under-declare properties), so this only ever flags a kwarg the call would have TypeError'd on anyway.
+    Deliberately does NOT type-check (many tools accept int-as-float or symbol-or-list — an over-strict type guard
+    would reject valid calls). Returns an error string, or None when the args are structurally acceptable."""
+    import inspect
+
+    args = args or {}
+    required = (_TOOL_SCHEMA.get(name) or {}).get("required") or []
+    missing = [k for k in required if k not in args]
+    if missing:
+        return f"missing required argument(s) for '{name}': {', '.join(missing)} (schema requires {required})"
+    fn = _DISPATCH.get(name)
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return None
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+        return None   # the tool takes **kwargs — it accepts arbitrary names, nothing to flag
+    unknown = [k for k in args if k not in sig.parameters]
+    if unknown:
+        return f"unknown argument(s) for '{name}': {', '.join(unknown)} — accepts {sorted(sig.parameters)}"
+    return None
+
+
 def dispatch(name: str, args: dict) -> dict:
     fn = _DISPATCH.get(name)
-    if not fn:
-        return {"error": f"unknown tool '{name}'"}
+    if not fn:                                        # explicit unknown-tool guard, with a nearest-name suggestion
+        suggestion = _closest_tool(name)
+        return {"error": f"unknown tool '{name}'" + (f" — did you mean '{suggestion}'?" if suggestion else "")}
+    err = _validate_args(name, args or {})            # semantic pre-check (missing required / unknown arg)
+    if err:
+        return {"error": err}
     try:
         return fn(**(args or {}))
     except TypeError as exc:

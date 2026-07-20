@@ -84,3 +84,21 @@ def test_bimodality_runs_on_corpus_and_guards_small_n():
     assert abs(out["bc_threshold"] - 5 / 9) < 0.01
     thin = tools.bimodality(channel="growth_rate", designs=["no_such/design"])
     assert "error" in thin and thin["n"] < 4                     # too few pooled values -> clean gate, not a crash
+
+
+def test_dispatch_unknown_tool_and_semantic_validation():
+    """AG-3: dispatch guards unknown tools (with a nearest-name suggestion) and pre-validates a call against the
+    tool's schema/signature — a clear message for a missing-required or unknown argument, not an opaque TypeError,
+    and never a false rejection of a valid call."""
+    out = tools.dispatch("survey_corpuss", {})                     # typo'd tool name
+    assert "error" in out and "unknown tool" in out["error"] and "survey_corpus" in out["error"]   # difflib suggestion
+
+    out = tools.dispatch("mechanistic_scope", {})                  # schema requires 'symbol'
+    assert "error" in out and "missing required" in out["error"] and "symbol" in out["error"]
+
+    out = tools.dispatch("mechanistic_scope", {"symbol": "pfkA", "bogus": 1})   # not in the signature
+    assert "error" in out and "unknown argument" in out["error"] and "bogus" in out["error"]
+
+    out = tools.dispatch("mechanistic_scope", {"symbol": "pfkA"})   # valid -> dispatches (no validation error)
+    assert isinstance(out, dict)
+    assert "missing required" not in str(out) and "unknown argument" not in str(out)

@@ -65,7 +65,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | **SP-2c** | P3 · **▶ ready** | **Receptive field — agentic** — **UNBLOCKED: its only dependency, LLM-2, landed 2026-07-20** (and **LLM-6** already wired the observability meter into the A/B sweep, so the per-call token/cost/latency records this needs are now produced by `evals/run_ab.py`). Build (1) an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; (2) the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce); and (3) a head-to-head **benchmark of deterministic `scan_overview` vs a full fan-out** — recall, token cost, latency (from the LLM-2 records) — as a paper artifact quantifying *when* fan-out earns its ~15× cost. | A |
 | ~~**AG-1**~~ | ✅ | **Launch queue hardened** — absolute config-rooted path (env override, else repo-root — no more CWD-relative stray queue), every read-modify-write serialized through a re-entrant lock (`_txn` / `_LOCK`; `approve_and_run` releases it across the long sim), and atomic `temp + os.replace` writes (no half-written queue, even cross-process). **Done** — see Completed. | A |
 | **AG-2** | P2 · *half* | **Tool-selection instrument shipped; consolidation now data-driven.** ✅ The measurement half: `evals/run_ab.py` Arm A now tracks the **tool-selection error rate** (per run + per-arm roll-up: total tool calls, error results, and a per-tool error histogram of which tools the agent mis-selects/mis-calls, via `_tool_rollup`). ⏳ Remaining: the **consolidation** of the 50-tool surface — deliberately data-gated, since the tools have no pure duplicates (7 FBA ops, several read granularities, distinct rigor tools are all genuinely distinct); merge/drop the high-error or never-selected tools **after** running the instrumented sweep, not by blind static guesswork. | A |
-| **AG-3** | P3 | Dispatch: explicit unknown-tool guard + semantic input validation test. | A |
+| ~~**AG-3**~~ | ✅ | **Dispatch hardening** — `dispatch` now guards an unknown tool with a `difflib` nearest-name suggestion, and pre-validates each call (`_validate_args`): a missing **required** arg (from the schema contract) or an **unknown** arg (checked against the tool's actual signature, so it only flags what would `TypeError` anyway) returns a clear message naming the field — no opaque TypeError, no false rejection of a valid call. **Done** — see Completed. | A |
 | **AG-4** | P3 | `approve_and_run` is synchronous in a request thread with no cancellation — move to a job runner for multi-user. | A |
 
 ## E · Frontend: design & UX
@@ -289,6 +289,15 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **AG-3 · Dispatch hardening** (2026-07-20) — `tools.dispatch` gave an LLM a raw TypeError when it mis-called a
+  tool. Now: an unknown tool returns an explicit error with a `difflib` nearest-name suggestion ("did you mean
+  'survey_corpus'?"), and `_validate_args` pre-checks the call — a **missing required** arg (from the tool's declared
+  schema, the contract the agent was given) or an **unknown** arg (checked against the tool function's ACTUAL
+  signature, so it only flags a kwarg that would have `TypeError`'d anyway) returns a message naming the exact field.
+  No type-checking (many tools accept int-as-float / symbol-or-list — an over-strict guard would reject valid calls),
+  so no false rejection. Test: unknown-tool + suggestion, missing-required, unknown-arg, and a valid call still
+  dispatches. pytest + ruff green.
 
 - **SCI-2c (reader mode) · All-gene sim-mRNA reader** (2026-07-20) — the unblocked, our-code half of SCI-2c. The
   sim side of the RNA-seq cross-check previously reused `top_movers`, which returns only the FDR-significant movers
