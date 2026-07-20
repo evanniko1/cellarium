@@ -153,3 +153,43 @@ def test_lifecycle_reflects_queue_by_semantic_match(tmp_path, monkeypatch):
     assert life[0] == {"status": "done", "request_id": "req_done", "shard": "shard_7"}   # advanced wins, not 'superseded'
     assert life[1]["status"] == "pending_approval" and life[1]["request_id"] == "req_pending"
     assert life[2] == {"status": "proposed", "request_id": None, "shard": None}          # no matching job
+
+
+# --- AG-1: absolute config-rooted path + lock-serialized, atomic read-modify-write ---------------------------
+
+def test_queue_path_is_absolute():
+    """The queue must not be a CWD-relative path (a job launched from a different directory wrote a stray queue)."""
+    assert launch.QUEUE.is_absolute()
+
+
+def test_txn_serializes_concurrent_writes_no_lost_update(tmp_path, monkeypatch):
+    """The old lock-free load->mutate->save lost updates under concurrency. `_txn` holds `_LOCK` across each RMW, so
+    N threads each appending land ALL N entries (a lost-update race would drop some)."""
+    import threading
+
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    launch._save([])
+    ready = threading.Barrier(40)
+
+    def worker(i):
+        ready.wait()                                   # release all threads at once to maximize contention
+        with launch._txn() as q:
+            q.append({"id": f"r{i}"})
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(40)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    ids = {r["id"] for r in launch._load()}
+    assert len(ids) == 40                              # every append survived — no lost update
+
+
+def test_save_is_atomic_leaves_no_partial_file(tmp_path, monkeypatch):
+    """`_save` writes a temp file then os.replace, so the queue is never half-written; the temp is gone afterward."""
+    import json
+
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    launch._save([{"id": "a"}, {"id": "b"}])
+    assert json.loads((tmp_path / "q.json").read_text()) == [{"id": "a"}, {"id": "b"}]
+    assert not (tmp_path / "q.json.tmp").exists()      # no leftover temp

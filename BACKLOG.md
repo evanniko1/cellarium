@@ -63,8 +63,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**SP-2**~~ | ✅ core | **Cellwright receptive field** — shipped the host core: `read_raw_series` **extrema-preserving (min–max)** decimation + loss report, a new **`scan_series`** transient/level-shift tool (MAD-prominence + width gate + FDR), and `top_movers` **informative truncation** ("k of N significant dropped"). Verified on real 10k-step trajectories. **Done (core)** — see Completed; remaining pieces → **SP-2b**. | A |
 | ~~**SP-2b**~~ | ✅ | **Receptive field — completion** — shipped the **mid-rank stratified sample** (`_reader_worker` → `top_movers.truncation.mid_rank_examples`), **`scan_overview`** (deterministic anomaly map across a design's channels — the numpy map-reduce, no LLM fan-out), and a deterministic **receptive-field eval** (needle recovered / coarse view misses it / null control / mid-rank surfaced). **Done** — see Completed. Agentic remainder → **SP-2c**. | A |
 | **SP-2c** | P3 · **▶ ready** | **Receptive field — agentic** — **UNBLOCKED: its only dependency, LLM-2, landed 2026-07-20** (and **LLM-6** already wired the observability meter into the A/B sweep, so the per-call token/cost/latency records this needs are now produced by `evals/run_ab.py`). Build (1) an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; (2) the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce); and (3) a head-to-head **benchmark of deterministic `scan_overview` vs a full fan-out** — recall, token cost, latency (from the LLM-2 records) — as a paper artifact quantifying *when* fan-out earns its ~15× cost. | A |
-| **AG-1** | P2 | Launch queue is a lock-free JSON read-modify-write at a relative path — file lock (or move into SQLite) + absolute config-rooted path. | A |
-| **AG-2** | P2 | 38 tools + ~4 KB router prompt — consolidate overlapping tools; track tool-selection error rate in the eval. | A |
+| ~~**AG-1**~~ | ✅ | **Launch queue hardened** — absolute config-rooted path (env override, else repo-root — no more CWD-relative stray queue), every read-modify-write serialized through a re-entrant lock (`_txn` / `_LOCK`; `approve_and_run` releases it across the long sim), and atomic `temp + os.replace` writes (no half-written queue, even cross-process). **Done** — see Completed. | A |
+| **AG-2** | P2 · *half* | **Tool-selection instrument shipped; consolidation now data-driven.** ✅ The measurement half: `evals/run_ab.py` Arm A now tracks the **tool-selection error rate** (per run + per-arm roll-up: total tool calls, error results, and a per-tool error histogram of which tools the agent mis-selects/mis-calls, via `_tool_rollup`). ⏳ Remaining: the **consolidation** of the 50-tool surface — deliberately data-gated, since the tools have no pure duplicates (7 FBA ops, several read granularities, distinct rigor tools are all genuinely distinct); merge/drop the high-error or never-selected tools **after** running the instrumented sweep, not by blind static guesswork. | A |
 | **AG-3** | P3 | Dispatch: explicit unknown-tool guard + semantic input validation test. | A |
 | **AG-4** | P3 | `approve_and_run` is synchronous in a request thread with no cancellation — move to a job runner for multi-user. | A |
 
@@ -289,6 +289,31 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **AG-1 · Launch-queue hardening** (2026-07-20) — the launch airlock's queue was a lock-free JSON read-modify-write
+  at a CWD-relative path. Three fixes in `launch.py`: (1) the path is now **absolute + config-rooted**
+  (`CELLARIUM_QUEUE` env override, else the repo root derived from `__file__`) — a job proposed from a script run in
+  another directory used to write a stray queue the server never saw; (2) every mutation goes through a re-entrant
+  **`_LOCK`** (`_txn` context manager for single-step mutators; `revise` holds it across its multi-step flow;
+  `approve_and_run` claims the job under the lock, **releases it across the minutes-long sim**, then re-acquires to
+  write the terminal status — so a long run never blocks propose/list/stamp on other server threads); (3) `_save`
+  writes **atomically** (`temp + os.replace`), so a crash mid-write — or a stray second process — can never leave a
+  half-written queue (worst case last-writer-wins, never corruption), and reads stay lock-free (os.replace means a
+  reader always sees a complete file). Tests: absolute-path assertion, a 40-thread concurrent-append race that lands
+  all 40 (a lost-update race would drop some), and the atomic-write/no-leftover-temp check. The single-writer server
+  process makes an OS file-lock unnecessary — noted for the SQLite path if multi-process writing ever becomes real.
+  pytest + ruff green.
+
+- **AG-2 (measurement) · Tool-selection error rate** (2026-07-20) — shipped the instrument that makes tool
+  consolidation data-driven instead of guesswork. `evals/run_ab.py` Arm A now records, per run, every tool call and
+  how many returned an `{"error": ...}` result (unknown tool / bad args / tool-level failure): `tool_calls`,
+  `tool_errors`, `tool_error_rate`, and `errored_tools` (a per-tool histogram). `_tool_rollup` sums these across the
+  sweep into `ab_summary.json` (`arm_a_cellwright.tools`) — the ranked list of which of the 50 tools the agent
+  mis-selects most — and the sweep log prints the rate + top mis-selected tools live. The **consolidation** half of
+  AG-2 stays open on purpose: the surface has no pure duplicates (the FBA/reader/rigor clusters are all genuinely
+  distinct), so merging should follow the instrumented sweep's data (high-error or never-selected tools), not a
+  static guess made without the ability to validate. Pure `_tool_rollup` smoke-tested; ruff green; eval harness not
+  in the pytest suite so CI is unaffected.
 
 - **LLM-4 · Compaction trigger on real tokens** (2026-07-20) — the mid-conversation compaction decision no longer
   rides on the `chars//4` heuristic (which mis-sizes JSON tool results). `converse` now calls `_context_tokens`,

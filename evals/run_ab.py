@@ -34,6 +34,7 @@ import os
 import sys
 import time
 import traceback
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -110,6 +111,20 @@ def _llm_rollup(rows: list) -> dict:
     return agg
 
 
+def _tool_rollup(rows: list) -> dict:
+    """Sum the Arm-A tool-selection metric across runs (AG-2): total tool calls, total error results, the overall
+    error rate, and a per-tool error histogram — the ranked list of which tools the agent mis-selects/mis-calls,
+    which is the DATA that should drive tool consolidation (merge/drop the high-error or never-selected ones)."""
+    calls = sum(int(r.get("tool_calls") or 0) for r in rows)
+    errs = sum(int(r.get("tool_errors") or 0) for r in rows)
+    hist: Counter = Counter()
+    for r in rows:
+        hist.update(r.get("errored_tools") or {})
+    return {"tool_calls": calls, "tool_errors": errs,
+            "tool_error_rate": round(errs / calls, 3) if calls else None,
+            "errored_tools": dict(hist.most_common())}
+
+
 # --- Arm B: the blind Socratic Council, persisted + graded --------------------------------------------------
 
 def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int, grader_model: str) -> dict:
@@ -171,19 +186,32 @@ def run_arm_a(case: dict, agent_model: str | None) -> dict:
     from sessions import SessionStore
 
     messages = [{"role": "user", "content": case["question"]}]
+    # AG-2: track the tool-selection error rate — every tool call, and how many returned an {"error": ...} result
+    # (unknown tool / bad arguments / tool-level failure). This is the measurement that makes tool consolidation
+    # DATA-DRIVEN: high-error or never-selected tools across the sweep are the ones worth merging or dropping.
+    tool_events: list[tuple[str, bool]] = []
+
+    def _on_tool(name, inp, out):
+        tool_events.append((name, isinstance(out, dict) and "error" in out))
+
     # 20 (vs the app default 12): eval questions are broad and tool-heavy, and ~half the first sweep hit the 12-turn
     # cap mid-investigation. converse now forces a final synthesis at the cap either way, but a higher budget lets
     # the harder cases actually finish exploring before wrapping.
     with observability.meter() as _m:   # LLM-6: meter every model call this arm makes (agent turns + synthesis)
-        final = agent.converse(messages, model=agent_model, max_turns=20)   # mutates messages in place
+        final = agent.converse(messages, model=agent_model, max_turns=20, on_tool=_on_tool)   # mutates messages
     reads = sum(1 for m in messages if isinstance(m.get("content"), list)
                 for b in m["content"] if isinstance(b, dict)
                 and b.get("type") == "tool_use" and b.get("name") in READ_TOOLS)
+    n_tool = len(tool_events)
+    n_err = sum(1 for _, e in tool_events if e)
+    errored = dict(Counter(name for name, e in tool_events if e))   # which tools errored, and how often
     sid = "s_eval_" + case["id"].replace(".", "_")
     SessionStore().put(sid, {"model": agent_model, "used_council": False,
                              "title": f"[eval {case['id']}] {case['question'][:48]}", "messages": messages})
     return {"id": case["id"], "sid": sid, "corpus_reads": reads,
-            "data_informed": reads > 0, "answer_chars": len(final or ""), "llm": _m.summary()}   # LLM-6 telemetry
+            "data_informed": reads > 0, "answer_chars": len(final or ""), "llm": _m.summary(),   # LLM-6 telemetry
+            "tool_calls": n_tool, "tool_errors": n_err,                                          # AG-2 tool-selection
+            "tool_error_rate": round(n_err / n_tool, 3) if n_tool else None, "errored_tools": errored}
 
 
 # --- sweep -------------------------------------------------------------------------------------------------
@@ -239,6 +267,7 @@ def main():
                 slot["a"] = run_arm_a(case, a.agent_model)
                 r = slot["a"]
                 _log(f"    Arm A  Cellwright [{r.get('sid')}]  corpus-reads={r.get('corpus_reads')}  "
+                     f"tool-err={r.get('tool_errors')}/{r.get('tool_calls')}  "
                      f"-> {'data-informed' if r.get('data_informed') else 'no corpus read'}{_cost_tag(r.get('llm'))}")
             except Exception as exc:
                 slot["a"] = {"id": cid, "status": "error", "error": f"{type(exc).__name__}: {exc}"}
@@ -274,7 +303,8 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
         "arm_a_cellwright": {
             "n_answered": len(a_rows), "n_data_informed": a_informed,
             "note": "Arm A reads the corpus before committing (HARKing-prone); Arm B is blind by construction.",
-            "llm": _llm_rollup(a_rows)},               # LLM-6: this arm's total model-call cost/latency (est.)
+            "llm": _llm_rollup(a_rows),                # LLM-6: this arm's total model-call cost/latency (est.)
+            "tools": _tool_rollup(a_rows)},            # AG-2: tool-call error rate + which tools mis-select most
         "ledger": led,
     }
     (RESULTS / "ab_summary.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
@@ -287,6 +317,10 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
          f"(blind Arm B = 0/{len(ok_b)} by construction)")
     rb, ra = summary["arm_b_council"]["llm"], summary["arm_a_cellwright"]["llm"]   # LLM-6 cost/latency roll-up
     _log(f"LLM spend (est., list price): Arm B{_cost_tag(rb)}   |   Arm A{_cost_tag(ra)}")
+    tr = summary["arm_a_cellwright"]["tools"]   # AG-2 tool-selection error rate + the consolidation signal
+    top_err = list(tr["errored_tools"].items())[:5]
+    _log(f"Arm A tool selection: {tr['tool_errors']}/{tr['tool_calls']} errored (rate {tr['tool_error_rate']})"
+         + (f"   most mis-selected: {', '.join(f'{n}×{c}' for n, c in top_err)}" if top_err else ""))
     _log("\n-> evals/results/ab_summary.json   ·   app backfill: Council runs in the Hypotheses surface; "
          "Arm A in the sessions table")
     _log("   score the HARKing contrast per-case with:  python scripts/ab_score.py")

@@ -8,14 +8,29 @@ Cellwright can never launch autonomously: the queue is the airlock.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import threading
 import time
 import uuid
 from pathlib import Path
 
 from .model import Design
 
-QUEUE = Path("data/launch_queue.json")
+# AG-1: root the queue at an ABSOLUTE, config-rooted path (env override, else the repo root derived from this file),
+# not a CWD-relative 'data/...' — a job launched from a script run in a different directory used to write a stray
+# queue the server never saw. src/cellarium/launch.py -> parents[2] is the repo root.
+_ROOT = Path(__file__).resolve().parents[2]
+QUEUE = Path(os.environ.get("CELLARIUM_QUEUE") or (_ROOT / "data" / "launch_queue.json"))
+
+# AG-1: the queue was a LOCK-FREE read-modify-write — the server handles requests on threads (propose/revise/stamp/
+# approve) and reconcile() runs at boot, so two concurrent load->mutate->save cycles could lose an update. A
+# re-entrant lock serializes every mutation in-process (the only writer process); `_save` writes atomically
+# (temp + os.replace), so even a crash mid-write, or a stray second process, can never leave a half-written queue
+# (worst case is last-writer-wins, never corruption). Reads stay lock-free — os.replace means a reader always sees
+# a complete file, old or new.
+_LOCK = threading.RLock()
 
 
 def _load() -> list[dict]:
@@ -24,7 +39,20 @@ def _load() -> list[dict]:
 
 def _save(q: list[dict]) -> None:
     QUEUE.parent.mkdir(parents=True, exist_ok=True)
-    QUEUE.write_text(json.dumps(q, indent=2), encoding="utf-8")
+    tmp = QUEUE.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(q, indent=2), encoding="utf-8")
+    os.replace(tmp, QUEUE)   # atomic on POSIX + Windows — no half-written queue, ever
+
+
+@contextlib.contextmanager
+def _txn():
+    """One atomic read-modify-write of the queue: hold the lock, load, hand the caller the list to mutate IN PLACE,
+    then save. Serializes concurrent mutators so no update is lost. Use for single-step mutations; multi-step flows
+    (revise, approve_and_run) hold `_LOCK` explicitly so they can release it around a long sim."""
+    with _LOCK:
+        q = _load()
+        yield q
+        _save(q)
 
 
 def _resolve_ko(perturbation: str, params: dict | None, gene: str | None) -> tuple[dict, str | None]:
@@ -70,7 +98,8 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
            "status": "blocked" if not vet.get("runnable") else "pending_approval",
            "design": {"perturbation": perturbation, "condition": condition, "timeline": timeline, "params": params or {}},
            "seeds": seeds, "generations": generations, "vet": vet, "ts": time.time()}
-    q = _load(); q.append(req); _save(q)
+    with _txn() as q:
+        q.append(req)
     return {"request_id": req["id"], "status": req["status"], "runnable": vet.get("runnable"),
             "recommendation": vet.get("recommendation"), "vet": vet,
             "note": ("SAFETY-BLOCKED — will not run without human override." if req["status"] == "blocked"
@@ -83,29 +112,29 @@ def revise(request_id: str, *, perturbation: str | None = None, condition: str |
     """REVISE a PENDING draft: mark the old one 'superseded' and queue a re-vetted new draft with the changed
     arg(s) merged over the old design. Keeps the human-approval airlock — only an UN-approved draft can be
     revised; a human still approves the result. Returns the new request (linked back via `revised_from`)."""
-    q = _load()
-    old = next((r for r in q if r["id"] == request_id), None)
-    if not old:
-        return {"error": f"no request '{request_id}'"}
-    if old["status"] not in ("pending_approval", "blocked"):
-        return {"error": f"request '{request_id}' is '{old['status']}' — only a pending draft can be revised."}
-    d = old["design"]
-    merged = dict(params) if params is not None else dict(d.get("params") or {})
-    if genes:   # a gene-set change: drop stale indices so the new symbols are re-resolved
-        merged["target_genes"] = list(genes)
-        merged.pop("ko_indices", None); merged.pop("variant_index", None)
-    old["status"] = "superseded"; _save(q)                       # withdraw the old draft (no duplicate left)
-    res = propose(perturbation or d["perturbation"],
-                  condition if condition is not None else d.get("condition"),
-                  timeline if timeline is not None else d.get("timeline"),
-                  merged,
-                  seeds if seeds is not None else old["seeds"],
-                  generations if generations is not None else old["generations"], gene)
-    q = _load()                                                  # link old -> new for traceability
-    for r in q:
-        if r["id"] == request_id:
-            r["superseded_by"] = res.get("request_id")
-    _save(q)
+    with _LOCK:   # hold across the whole (fast, no-sim) revise so it can't interleave with another mutator
+        q = _load()
+        old = next((r for r in q if r["id"] == request_id), None)
+        if not old:
+            return {"error": f"no request '{request_id}'"}
+        if old["status"] not in ("pending_approval", "blocked"):
+            return {"error": f"request '{request_id}' is '{old['status']}' — only a pending draft can be revised."}
+        d = old["design"]
+        merged = dict(params) if params is not None else dict(d.get("params") or {})
+        if genes:   # a gene-set change: drop stale indices so the new symbols are re-resolved
+            merged["target_genes"] = list(genes)
+            merged.pop("ko_indices", None); merged.pop("variant_index", None)
+        old["status"] = "superseded"; _save(q)                       # withdraw the old draft (no duplicate left)
+        res = propose(perturbation or d["perturbation"],             # re-acquires _LOCK (re-entrant); sees the save above
+                      condition if condition is not None else d.get("condition"),
+                      timeline if timeline is not None else d.get("timeline"),
+                      merged,
+                      seeds if seeds is not None else old["seeds"],
+                      generations if generations is not None else old["generations"], gene)
+        with _txn() as q:                                            # link old -> new for traceability
+            for r in q:
+                if r["id"] == request_id:
+                    r["superseded_by"] = res.get("request_id")
     return {**res, "revised_from": request_id}
 
 
@@ -124,17 +153,16 @@ def stamp_provenance(request_id: str, session_id: str | None = None, question: s
     """Record WHERE a queued job came from — an agent chat (session_id) or a Council/Hypothesis run (hyp_id) — plus
     the framing question. Powers the queue's click-to-jump-back-to-context (the agent stamps the sid; a Council
     falsifier queued from the surface stamps the hyp_id)."""
-    q = _load()
-    for r in q:
-        if r["id"] == request_id:
-            if session_id:
-                r["session_id"] = session_id
-            if hyp_id:
-                r["hyp_id"] = hyp_id
-            if question:
-                r["from_question"] = question[:200]
-            _save(q)
-            return True
+    with _txn() as q:
+        for r in q:
+            if r["id"] == request_id:
+                if session_id:
+                    r["session_id"] = session_id
+                if hyp_id:
+                    r["hyp_id"] = hyp_id
+                if question:
+                    r["from_question"] = question[:200]
+                return True
     return False
 
 
@@ -188,45 +216,45 @@ def reconcile() -> dict:
     from . import manifest
     from .model import Design
 
-    q = _load()
     healed = 0
-    for r in q:
-        if r.get("status") != "running":
-            continue
-        d = r.get("design") or {}
-        landed = False
-        try:
-            design = Design(perturbation=d["perturbation"], condition=d.get("condition"),
-                            timeline=d.get("timeline"), params=d.get("params") or {})
-            landed = manifest.has_run(design)
-        except Exception:
+    with _txn() as q:
+        for r in q:
+            if r.get("status") != "running":
+                continue
+            d = r.get("design") or {}
             landed = False
-        r["status"] = "done" if landed else "failed"
-        if not landed:
-            r["error"] = "orphaned at 'running' (server restart/crash mid-run); no indexed run found"
-        healed += 1
-    if healed:
-        _save(q)
+            try:
+                design = Design(perturbation=d["perturbation"], condition=d.get("condition"),
+                                timeline=d.get("timeline"), params=d.get("params") or {})
+                landed = manifest.has_run(design)
+            except Exception:
+                landed = False
+            r["status"] = "done" if landed else "failed"
+            if not landed:
+                r["error"] = "orphaned at 'running' (server restart/crash mid-run); no indexed run found"
+            healed += 1
     return {"reconciled": healed}
 
 
 def clear_finished() -> dict:
     """The queue's 'Clear': drop FINISHED/dismissed requests (done, failed, rejected, superseded) from the airlock,
     keeping live work (pending_approval, running, blocked). Called after the user has seen the results."""
-    q = _load()
-    keep = [r for r in q if r["status"] in ("pending_approval", "running", "blocked")]
-    n = len(q) - len(keep)
-    _save(keep)
+    with _LOCK:
+        q = _load()
+        keep = [r for r in q if r["status"] in ("pending_approval", "running", "blocked")]
+        n = len(q) - len(keep)
+        _save(keep)
     return {"cleared": n, "remaining": len(keep)}
 
 
 def clear_all() -> dict:
     """The queue's 'Clear ALL': drop every request EXCEPT one that is actively running (never orphan a live sim).
     For wiping a pile of accumulated pending drafts in one go."""
-    q = _load()
-    keep = [r for r in q if r["status"] == "running"]
-    n = len(q) - len(keep)
-    _save(keep)
+    with _LOCK:
+        q = _load()
+        keep = [r for r in q if r["status"] == "running"]
+        n = len(q) - len(keep)
+        _save(keep)
     return {"cleared": n, "remaining": len(keep)}
 
 
@@ -234,38 +262,51 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
     """HUMAN APPROVAL — launches the vetted design. NOT an agent tool (the interface / a human calls it). Refuses a
     safety-blocked request. Indexes the result so Cellwright can then reason over it."""
     from . import manifest
-    q = _load()
-    req = next((r for r in q if r["id"] == request_id), None)
-    if not req:
-        return {"error": f"no request '{request_id}'"}
-    if req["status"] == "blocked":
-        return {"error": "request is SAFETY-BLOCKED — refusing to run (override requires editing the queue by hand)."}
-    if req["status"] != "pending_approval":
-        return {"error": f"request is '{req['status']}', not pending_approval."}
-    d = req["design"]
+    with _LOCK:   # claim the job (validate + flip to 'running') atomically, then RELEASE before the long sim
+        q = _load()
+        req = next((r for r in q if r["id"] == request_id), None)
+        if not req:
+            return {"error": f"no request '{request_id}'"}
+        if req["status"] == "blocked":
+            return {"error": "request is SAFETY-BLOCKED — refusing to run (override requires editing the queue by hand)."}
+        if req["status"] != "pending_approval":
+            return {"error": f"request is '{req['status']}', not pending_approval."}
+        d = req["design"]
+        seeds, generations = req["seeds"], req["generations"]
+        req["status"] = "running"; _save(q)
     design = Design(perturbation=d["perturbation"], condition=d["condition"], timeline=d["timeline"], params=d["params"])
-    req["status"] = "running"; _save(q)
+    shard: str | None = None
+    error: str | None = None
     try:
         # campaign runs the sim AND indexes the new run into its own shard (one reader container per run) — that
         # alone makes it agent-visible. Then compact() consolidates shards WITHOUT re-reading every run on disk
         # (record_existing did, which spun a container per corpus run — the "blinking + seems-stuck" churn, and it
-        # deleted the shard we then referenced). compact leaves ONE surviving shard, so point `shard` at it.
-        shard = manifest.campaign([design], list(range(req["seeds"])), req["generations"], parallel)
+        # deleted the shard we then referenced). compact leaves ONE surviving shard, so point `shard` at it. Run OUTSIDE
+        # the lock — a sim takes minutes and must not block propose/list/stamp on other threads.
+        s = manifest.campaign([design], list(range(seeds)), generations, parallel)
         if index:
             res = manifest.compact()
-            shard = res.get("shard") or shard
-        req["status"], req["shard"] = "done", str(shard)
+            s = res.get("shard") or s
+        shard, status = str(s), "done"
     except Exception as exc:
-        req["status"], req["error"] = "failed", str(exc)[:200]
-    _save(q)
-    return {"request_id": request_id, "status": req["status"], "shard": req.get("shard"), "error": req.get("error")}
+        status, error = "failed", str(exc)[:200]
+    with _LOCK:   # re-acquire to write the terminal status (re-find the job — the queue may have changed under us)
+        q = _load()
+        req = next((r for r in q if r["id"] == request_id), None)
+        if req is not None:
+            req["status"] = status
+            if error is None:
+                req["shard"] = shard
+            else:
+                req["error"] = error
+        _save(q)
+    return {"request_id": request_id, "status": status, "shard": shard, "error": error}
 
 
 def reject(request_id: str) -> dict:
-    q = _load()
     hit = False
-    for r in q:
-        if r["id"] == request_id and r["status"] in ("pending_approval", "blocked"):
-            r["status"], hit = "rejected", True
-    _save(q)
+    with _txn() as q:
+        for r in q:
+            if r["id"] == request_id and r["status"] in ("pending_approval", "blocked"):
+                r["status"], hit = "rejected", True
     return {"request_id": request_id, "status": "rejected" if hit else "not_found_or_not_pending"}
