@@ -306,7 +306,7 @@ def _summarize(old_turns: list, model: str) -> str:
                     elif bt == "tool_result":
                         parts.append("[tool result]")
     transcript = "\n".join(parts)[:20000]
-    client = anthropic.Anthropic(max_retries=2)
+    client = anthropic.Anthropic(max_retries=4)   # LLM-5: same backoff as the main loop + Council (SDK default is 2)
     resp = client.messages.create(
         model=model, max_tokens=900,
         system=("Summarize this whole-cell reasoning conversation into a compact brief that will REPLACE the raw "

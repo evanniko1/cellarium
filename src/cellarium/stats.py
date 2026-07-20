@@ -104,6 +104,26 @@ def t_two_sided_p(t: float | None, df: int) -> float | None:
     return _betai(dff / 2.0, 0.5, dff / (dff + float(t) * float(t)))
 
 
+def welch_t(a: list[float], b: list[float]) -> dict | None:
+    """Two-sample Welch (unequal-variance) t-test between samples a and b — the right test for two designs' seed
+    replicates, which have different spreads. Returns {t, df, p, mean_a, mean_b, n_a, n_b} with the two-sided p from
+    the incomplete-beta t CDF and the Welch–Satterthwaite (fractional) df. None when either n<2 (df undefined) or
+    both samples are constant (no variance to test)."""
+    na, nb = len(a), len(b)
+    if na < 2 or nb < 2:
+        return None
+    ma, mb = statistics.fmean(a), statistics.fmean(b)
+    sa, sb = statistics.variance(a) / na, statistics.variance(b) / nb   # squared standard errors
+    denom = sa + sb
+    if denom <= 0:
+        return None
+    t = (ma - mb) / math.sqrt(denom)
+    df = denom * denom / (sa * sa / (na - 1) + sb * sb / (nb - 1))       # Welch–Satterthwaite
+    p = t_two_sided_p(t, max(1, int(round(df))))
+    return {"t": round(t, 3), "df": round(df, 1), "p": (round(p, 4) if p is not None else None),
+            "mean_a": round(ma, 4), "mean_b": round(mb, 4), "n_a": na, "n_b": nb}
+
+
 # --- shape statistics + bimodality (scipy-free) ----------------------------------------------------------
 # Sample skewness/kurtosis and Sarle's bimodality coefficient — the executable form of the Council's
 # "test for bimodality" decision rule (audit M-1). BC is a small-n-honest heuristic; Hartigan's dip test is

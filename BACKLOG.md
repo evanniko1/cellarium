@@ -27,7 +27,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**M-1b**~~ | ✅ | **Structured falsifier test field** — `Falsifier` now carries a `NamedTest{test_id (registry enum) + "other"}`; the Council schema enum + proposer prompt are generated from the registry, and the harness flags `test_id="other"` as a deterministic **novel-gap** catch (not just the curated aliases). **Done** — see Completed. | N |
 | ~~**M-2**~~ | ✅ | **Reproducibility** — temperature is now PINNED (`CELLARIUM_TEMPERATURE`, default 0.0) via `agent.temperature_for` (model-aware: omitted for reasoning/opus + when extended thinking is on) and RECORDED in the Hypothesis meta + agent session. Anthropic has no seed, so temperature is the named variance source. **Done** — see Completed. | A |
 | ~~**M-3**~~ | ✅ | Provenance mis-tag — `_is_in_sample` now gates `wildtype` on the condition too (`wildtype/acetate` → out_of_sample), instead of short-circuiting to in_sample. Test added (`test_provenance.py`). **Done** — see Completed. | A |
-| **M-4** | P3 | Tie the in-sample condition set to the actual ParCa fit set + a test so it can't silently drift. | A |
+| ~~**M-4**~~ | ✅ | **In-sample set pinned** — `provenance.IN_SAMPLE_CONDITIONS` is now documented as the source of truth (the media ParCa fits measured RNA-seq to; deliberately conservative) and **pinned by a test** (`test_in_sample_set_is_pinned_against_silent_drift`) so any edit trips CI and forces a conscious update — no silent drift out of sync with the fit set. **Done** — see Completed. | A |
 | ~~**M-5**~~ | ✅ | **DOE for falsifier panels** — new `doe.py` (pure): full-factorial layout, deterministic randomized run order, blocking by a nuisance factor, a screening subsample past a cap, and a power annotation (MDE / seeds-needed, mirroring `power_check`). New `design_panel` tool crosses `{factor:[levels]}` into a proper factorial panel + sim budget + adequately-powered verdict, grounded in the corpus's real replicate CV — beyond ad-hoc seeds×generations. **Done** — see Completed. | T |
 | ~~**M-6**~~ | ✅ | **Council librarian rewire** (Phase 3a) — `deliberate(use_librarian=True)` now runs a PRE-round librarian pass (`web_research`, blind to the corpus by construction) and threads its CITED `library_brief` to the **proposer + skeptic** for FRAMING (mechanisms/rivals/priors), while the **judge stays literature-free**; best-effort (a failed search proceeds without it). `library_brief` added to the `test_blindness` allow-list; new tests assert proposer/skeptic get it, judge doesn't, it's off by default, and a librarian failure is non-fatal. **Done** — see Completed. | T |
 | **M-7** | P3 | Sufficiency-gate progressive narrowing — thread prior attempts; ask only the still-missing of {target, observable, comparison}; stay blind. | T |
@@ -40,8 +40,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 |----|---|------|-----|
 | ~~**DS-1**~~ | ✅ | `fit_relation` now reports **slope inference** — t-based SE, two-sided p, 95% CI, `slope_ci_excludes_0`, and adj R² (scipy-free incomplete-beta p-value in `stats.py`). A "law" is asserted only when the slope CI clears 0, not from R² alone. **Done** — see Completed. | A |
 | ~~**DS-2**~~ | ✅ | Renamed `effect_z_vs_corpus` → `z_vs_corpus_spread` (disconfirm + instrument) + a checklist line: descriptive positioning within the corpus's between-design spread, NOT a significance test. **Done** — see Completed. | A |
-| **DS-3** | P3 | Channel-level `differential.summary` has no per-channel significance — attach the Welch-t (or a note) to top channel movers. | A |
-| **DS-4** | P3 | Add a regression test pinning `t_critical_95` (table + Cornish-Fisher branch). | A |
+| ~~**DS-3**~~ | ✅ | **Per-channel significance** — `differential.summary` now attaches a Welch t-test on the seed replicates to each shown mover (`welch_t`/`p_value`/`significant_p05`, via new `stats.welch_t` + `_design_seed_values`), or a descriptive-only note when a design has <2 seeds — so a big fold-change that doesn't clear seed noise is flagged. **Done** — see Completed. | A |
+| ~~**DS-4**~~ | ✅ | Regression test pinning `t_critical_95` — the exact small-n table (df 1–30) + the Cornish-Fisher branch (df>30 → true t values → the normal quantile), monotonicity, and the df≤0 nan. **Done** — see Completed. | A |
 
 ## C · LLM engineering
 
@@ -51,7 +51,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**LLM-2**~~ | ✅ | **Observability seam** — one shared `observability` module: every SDK call (`council._emit`, `agent._run_turn`, librarian) publishes a role-tagged per-call record (usage, request-id, wall-clock latency, temperature, list-price cost estimate) to a pub/sub bus; the shipped consumer is a `CostMeter` that aggregates per **Council run** (→ `run_council` meta `llm`) and per **agent turn** (→ `converse(on_usage=…)` → server `usage` SSE event). **Standalone seam commit** so Filippo rebases onto it and adds his per-round-transcript store as a SECOND subscriber (no edit to the call sites). **Done** — see Completed. | A |
 | ~~**LLM-3**~~ | ✅ | Agent temperature — `agent.converse` now pins `temperature_for(model)` when thinking is off (skips for reasoning models / thinking), recorded per turn. Same fix as M-2. **Done** — see Completed. | A |
 | ~~**LLM-4**~~ | ✅ | **Compaction trigger on real tokens** — `converse` now decides compaction from `_context_tokens` (the API's exact `count_tokens`, gated behind the char//4 estimate as a cheap pre-filter, with a safe fallback), not the `chars//4` heuristic. **Done** — see Completed. | A |
-| **LLM-5** | P3 | Standardize retry config (agent `max_retries=4` vs Council SDK default 2). | A |
+| ~~**LLM-5**~~ | ✅ | **Retry config standardized** — every runtime client now uses `max_retries=4` (the Council's fallback clients used the SDK default of 2; the compaction-summary client used 2). The router's `max_retries=1` (fast, keyword-fallback) and the eval sweeps' `6` (concurrency) are intentionally left. **Done** — see Completed. | A |
 | ~~**LLM-6**~~ | ✅ | **A/B sweep cost/latency capture** — `evals/run_ab.py` now meters both arms via `observability.meter()`: each run's `llm` aggregate (tokens, est. USD, wall-time, per-role/model) is written into its `ab_ledger.json` row, summed per-arm into `ab_summary.json` (`_llm_rollup`, lower-bound flagged when a run is unpriced or pre-LLM-6), and shown live in the sweep log (`_cost_tag`). **Done** — see Completed. | A |
 
 ## D · Agentic systems
@@ -86,8 +86,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**H-1**~~ | ✅ | **CI** — GitHub Actions (`ruff` + `pytest` blocking, advisory `mypy`) on PR + push to main. Done — see Completed. | A |
 | ~~**H-2**~~ | ✅ | **Tooling config** — the base `[tool.ruff]` / `[tool.mypy]` / `[tool.pytest]` config shipped with **H-1**; this tightens it by adding **import-sorting (`I`)** to the ruff select so import order is consistent + CI-enforced (24 spots auto-fixed, 1 hand-fixed). **Done** — see Completed. | A |
 | ~~**H-3**~~ | ✅ | **Deps pin + run provenance** — committed **`requirements.lock`** (exact pins of the full env: core + hf/fba/rnaseq/dev extras + transitives, via `pip freeze`), and `provenance.run_environment()` (interpreter + git commit + pinned dep versions) now recorded in every Council run's meta alongside model + temperature (M-2/LLM-3) — the reproducibility bundle. **Done** — see Completed. | A |
-| **H-4** | P3 | Add a secret-scan to CI. | A |
-| **H-5** | P3 | Reconcile / remove the stray `package-lock.json` (no-build vanilla-JS app). | A |
+| ~~**H-4**~~ | ✅ | **Secret scan in CI** — a `Secret scan` step (`ci.yml`, before lint) fails the build on high-signal committed secrets (Anthropic `sk-ant-` / AWS `AKIA` / GitHub `ghp_` / Slack `xox…` tokens + private keys); dependency-free `git grep`, verified green on the current tree. **Done** — see Completed. | A |
+| ~~**H-5**~~ | ✅ N/A | No tracked `package-lock.json` in this repo (`git ls-files` = 0) — the stray file was in the *other* (`wcEcoli`) repo, out of scope for Cellarium. Nothing to remove. | A |
 | **H-6** | P3 | Code hygiene — `gene_scope.json` staleness/hash guard (C3); warn when `essential_ref` is disabled (C4); move `_reader_worker.py` pure aggregation host-side for unit-testing (C2). | R |
 
 ## G · Scientific capability (research features)
@@ -169,7 +169,7 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
 
 | ID | State | Seen | Missing capability | Suggested resolution |
 |----|-------|------|--------------------|-----------------------|
-| `GAP-7f48ca3f` | open | 4× ⚑ | **hartigan_dip** named, no executable tool. We have Sarle's BC (bimodality_bc), not Hartigan's exact dip + bootstrap unimodal null. | implement the tool (Hartigan & Hartigan dip test with a bootstrap null — not implemented.) OR alias to a supported test + tighten the proposer |
+| `GAP-7f48ca3f` | wontfix | 4× ⚑ | **hartigan_dip** named, no executable tool. We have Sarle's BC (bimodality_bc), not Hartigan's exact dip + bootstrap unimodal null. | **wontfix (2026-07-20):** the exact Hartigan dip (GCM/LCM iteration + bootstrap null) is a numerically fiddly algorithm we can't cross-validate against a reference in this env — shipping an un-validated statistic on a publication platform is the wrong risk. Instead **tightened the proposer** (`council._PROPOSER_SYS`) to use the bimodality-COEFFICIENT test we DO have and to NOT specify Hartigan's dip. Revisit only if a reviewer specifically requires the exact dip over Sarle's BC, with a validated implementation. |
 
 <!--gap GAP-7f48ca3f | test=hartigan_dip family=distribution_shape | seen=h_08a5af46a3,h_bf64f76cdb,h_b8808da134,h_f238624d7c | first=2026-07-17 | q= -->
 <!-- HARNESS-GAPS:END -->
@@ -289,6 +289,21 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **Phase 1 · Rigor + hygiene batch** (2026-07-20) — seven cheap, deck-clearing items before the science push.
+  **DS-3**: `differential.summary` now attaches a Welch t-test on the seed replicates to each shown mover
+  (`stats.welch_t` + a per-seed `_design_seed_values`, from which `_design_means` is now derived) — a large
+  fold-change that doesn't clear seed noise (p>0.05) is flagged, and a channel with <2 seeds gets a descriptive-only
+  note. **DS-4**: a regression test pins `t_critical_95` (the small-n table + the Cornish-Fisher branch converging to
+  the normal quantile). **M-4**: `IN_SAMPLE_CONDITIONS` is documented as the source of truth and pinned by a test, so
+  the fit set can't silently drift. **LLM-5**: every runtime client uses `max_retries=4` (the Council's fallback
+  clients + the compaction summary used the SDK default of 2); the router's `1` and the eval sweeps' `6` are left by
+  intent. **H-4**: a dependency-free `Secret scan` CI step fails on high-signal committed tokens/keys (verified green
+  on the tree). **H-5**: no-op — there is no tracked `package-lock.json` in this repo (the stray one was in the other
+  repo). **GAP-7f48ca3f (Hartigan's dip)**: resolved **wontfix** — rather than hand-roll the numerically-fiddly exact
+  dip (GCM/LCM + bootstrap null) we can't cross-validate here (a rigor risk on a publication platform), the proposer
+  prompt was tightened to use the bimodality-COEFFICIENT test we have and NOT specify Hartigan's dip. Tests: DS-3
+  significance attachment, `t_critical_95` pin, the in-sample drift guard. pytest + ruff green.
 
 - **UX-2 · Standardized loading / error / progress states** (2026-07-20) — the SPA's streaming chat already had good
   states (status / error / retry / a polite live region from UX-1); this standardized the rest. (1) A single

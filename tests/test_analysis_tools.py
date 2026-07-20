@@ -102,3 +102,22 @@ def test_dispatch_unknown_tool_and_semantic_validation():
     out = tools.dispatch("mechanistic_scope", {"symbol": "pfkA"})   # valid -> dispatches (no validation error)
     assert isinstance(out, dict)
     assert "missing required" not in str(out) and "unknown argument" not in str(out)
+
+
+def test_summary_attaches_per_channel_welch_significance(monkeypatch):
+    """DS-3: each shown differential mover carries a Welch t-test on the seed replicates — a well-separated channel
+    is flagged significant, an overlapping one is not, and a channel with <2 seeds on one side gets a descriptive
+    note instead of a bogus p-value."""
+    from cellarium import differential
+
+    seed = {
+        "gene_knockout/KO:x": {"growth_rate": [0.30, 0.31, 0.29, 0.30], "noise_ch": [1.0, 1.4, 0.6, 1.1], "solo": [2.0]},
+        "wildtype/basal":     {"growth_rate": [0.60, 0.61, 0.59, 0.60], "noise_ch": [1.05, 0.9, 1.2, 0.85], "solo": [1.0, 1.0]},
+    }
+    monkeypatch.setattr(differential, "_design_seed_values", lambda: (seed, ["growth_rate", "noise_ch", "solo"]))
+    out = differential.summary("gene_knockout/KO:x", "wildtype/basal", top=10)
+    ranked = {m["quantity"]: m for m in out["ranked"]}
+    assert ranked["growth_rate"]["significant_p05"] is True and ranked["growth_rate"]["p_value"] < 0.05
+    assert ranked["growth_rate"]["n_seeds"] == [4, 4]
+    assert ranked["noise_ch"]["significant_p05"] is False        # heavy overlap -> within seed noise
+    assert "significance" in ranked["solo"] and "welch_t" not in ranked["solo"]   # <2 seeds -> descriptive only

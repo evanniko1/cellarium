@@ -15,6 +15,13 @@ from __future__ import annotations
 # from the media definition, so they are OUT-of-sample (e.g. minus_magnesium: H2's Mg->ribosome boundary). The
 # old rule tagged every `condition` in-sample and OVER-credited these. We classify conservatively — in-sample only
 # for the clearly-fitted conditions; when unsure, out-of-sample (under-crediting is the safe error here).
+# M-4: this set is the SOURCE OF TRUTH for the in/out-of-sample tag, so it is PINNED by a test
+# (test_provenance.test_in_sample_set_is_pinned) — any edit here must consciously update that test with a
+# justification, so the fit set can't SILENTLY DRIFT out of sync with what ParCa actually fits. The authoritative
+# set is the media wcEcoli's ParCa calibrates measured RNA-seq against (M9 glucose at the fitted concentrations,
+# ±amino acids, anaerobic via the FNR/ArcA regulon); it's deliberately CONSERVATIVE — a condition whose expression
+# is network-derived rather than fit to data stays OUT-of-sample (under-crediting is the safe error). If the model's
+# fit set changes, re-derive from its condition definitions and update both this set and the pinning test.
 IN_SAMPLE_CONDITIONS = {"basal", "glc_20mM", "glc_5mM", "glc_2mM", "with_aa", "no_oxygen"}
 
 _IN_NOTE = ("A ParCa-fitted condition (measured RNA-seq or a modeled-TF regulon) — the model was calibrated to "

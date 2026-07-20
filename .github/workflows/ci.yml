@@ -20,6 +20,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,hf]"
 
+      # H-4: fail fast on a committed secret (high-signal, known-prefix patterns — Anthropic / AWS / GitHub / Slack
+      # tokens + private keys). Dependency-free; gitleaks can be layered on later for entropy-based coverage.
+      - name: Secret scan
+        run: |
+          if git grep -nIE 'sk-ant-[A-Za-z0-9_-]{24,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[baprs]-[0-9A-Za-z-]{10,}' -- .; then
+            echo "::error::A potential secret was found in tracked files — remove it from git history and rotate the key."
+            exit 1
+          fi
+          echo "No high-signal secrets in tracked files."
+
       - name: Lint — ruff
         run: ruff check .
 

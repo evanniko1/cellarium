@@ -71,7 +71,9 @@ _PROPOSER_SYS = (
     "distribution, the shape (e.g. bimodal) + the fraction.\n"
     "  (b) falsifier.decision_rule NAMES the statistical test AND the threshold (e.g. 'OLS regression of Y on X "
     "across >=3 conditions; reject H0 if the slope 95% CI excludes 0 and R^2>=0.9'; or 'Welch t on Y "
-    "target-vs-reference; reject if |t|>=2'; or 'dip test for bimodality; reject unimodal if p<0.05').\n"
+    "target-vs-reference; reject if |t|>=2'; or 'Sarle's bimodality coefficient; reject unimodal if BC>0.555'). For "
+    "bimodality use the bimodality-COEFFICIENT test the platform provides — do NOT specify Hartigan's dip (it is not "
+    "an available tool).\n"
     "  (b-i) ALSO set falsifier.test.test_id to the EXECUTABLE test you will use, chosen ONLY from: "
     f"{', '.join(test_registry.supported_ids())}. Use 'other' ONLY if genuinely none of these fits the test your "
     "decision_rule describes — then name it in decision_rule; the platform logs an 'other' as a capability gap "
@@ -564,7 +566,7 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
         import anthropic
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     # ONE cheap classification call (not a deliberation) — pin a small fast model; specification-adequacy + scope-only
     # clarifying questions don't need a frontier model. Overridable; tests pass their own `models`.
     model = (models or {}).get("judge") or os.environ.get("CELLARIUM_GATE_MODEL") or "claude-haiku-4-5-20251001"
@@ -619,7 +621,7 @@ def web_research(question: str, *, focus: str | None = None, client=None, model:
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
         import anthropic
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     model = model or os.environ.get("CELLARIUM_LIBRARIAN_MODEL") or _default_models()["proposer"]
     payload = {"question": question,   # capabilities are metadata (what's measurable), never readings — stays blind
                "instrument_capabilities": {"channels": list(labels.get("channels") or {}),
@@ -652,7 +654,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
         import anthropic
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     models = models or _default_models()
 
     # M-6: an optional PRE-round literature step. The librarian searches EXTERNAL published literature — blind to the

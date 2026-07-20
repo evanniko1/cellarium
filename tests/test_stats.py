@@ -36,3 +36,21 @@ def test_bimodality_coefficient_separates_uni_from_bimodal():
     assert 0.0 < bc_uni <= 1.0 and 0.0 < bc_bi <= 1.0
     assert stats.bimodality_coefficient([1, 2, 3]) is None          # n<4
     assert stats.bimodality_coefficient([5, 5, 5, 5]) is None       # zero variance
+
+
+def test_t_critical_95_pins_table_and_cornish_fisher():
+    """DS-4: pin the two-sided 95% t critical values — the exact small-n table (our seed-count regime, where 1.96
+    is far too narrow) and the Cornish-Fisher branch above df=30 (accurate, converging to the normal quantile)."""
+    import math
+
+    assert stats.t_critical_95(1) == 12.706          # exact table
+    assert stats.t_critical_95(3) == 3.182           # n=4 seeds -> 3.18, NOT 1.96
+    assert stats.t_critical_95(8) == 2.306
+    assert stats.t_critical_95(30) == 2.042
+    assert abs(stats.t_critical_95(60) - 2.000) < 0.005     # Cornish-Fisher vs true t(60)=2.000
+    assert abs(stats.t_critical_95(120) - 1.980) < 0.005    # vs true t(120)=1.980
+    assert abs(stats.t_critical_95(10**7) - stats._Z975) < 1e-3   # -> the normal quantile
+    seq = [stats.t_critical_95(d) for d in (1, 2, 5, 10, 30, 60, 120, 1000)]
+    assert all(a > b for a, b in zip(seq, seq[1:]))  # strictly decreasing in df
+    assert stats.t_critical_95(10**9) >= stats._Z975 - 1e-6   # never below the normal quantile
+    assert math.isnan(stats.t_critical_95(0))        # df<=0 undefined

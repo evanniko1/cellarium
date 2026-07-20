@@ -15,13 +15,15 @@ import math
 from collections import defaultdict
 from pathlib import Path
 
-from . import survey
+from . import stats, survey
 
 REFERENCE = "wildtype/basal"
 
 
-def _design_means() -> tuple[dict, list[str]]:
-    """{ 'perturbation/condition': {channel|pw: mean across seeds} }, and the channel list (incl. pathways)."""
+def _design_seed_values() -> tuple[dict, list[str]]:
+    """{ 'perturbation/condition': {channel: [per-seed values]} } + the channel list (incl. pathways). Keeps the
+    UN-aggregated replicates behind each design/channel, so a per-channel two-sample test (DS-3) can run on the real
+    seed spread rather than a single mean. The means view (`_design_means`) is derived from this."""
     rows = survey._deduped_rows(survey.CHANNELS)
     if not rows or "__error__" in rows[0]:
         return {}, []
@@ -37,41 +39,62 @@ def _design_means() -> tuple[dict, list[str]]:
     def val(r, ch):
         return r["_pw"].get(ch[3:]) if ch.startswith("pw:") else r.get(ch)
 
-    by: dict[str, list[dict]] = defaultdict(list)
+    out: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
-        by[f'{r["perturbation"]}/{r["condition"]}'].append(r)
+        d = out[f'{r["perturbation"]}/{r["condition"]}']
+        for ch in channels:
+            v = val(r, ch)
+            if v is not None:
+                d[ch].append(float(v))
+    return {d: dict(chv) for d, chv in out.items()}, channels
 
-    def dmean(rs, ch):
-        vals = [v for v in (val(r, ch) for r in rs) if v is not None]
-        return sum(vals) / len(vals) if vals else None
 
-    return {d: {ch: dmean(rs, ch) for ch in channels} for d, rs in by.items()}, channels
+def _design_means() -> tuple[dict, list[str]]:
+    """{ 'perturbation/condition': {channel|pw: mean across seeds} }, and the channel list (incl. pathways)."""
+    vals, channels = _design_seed_values()
+    means = {d: {ch: (sum(chv[ch]) / len(chv[ch]) if chv.get(ch) else None) for ch in channels}
+             for d, chv in vals.items()}
+    return means, channels
 
 
 def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
-    """Channels + pathways ranked by |log2 fold-change| of `target` vs `reference` — what moved most."""
-    means, channels = _design_means()
-    if not means:
+    """Channels + pathways ranked by |log2 fold-change| of `target` vs `reference` — what moved most, each shown
+    mover carrying a per-channel Welch t-test on the seed replicates (DS-3) so a fold-change isn't read as real
+    without checking it clears the seed noise."""
+    vals, channels = _design_seed_values()
+    if not vals:
         return {"error": "corpus empty or unreadable."}
-    t, r = means.get(target), means.get(reference)
+    t, r = vals.get(target), vals.get(reference)
     if t is None:
-        return {"error": f"no design '{target}'.", "available": sorted(means)}
+        return {"error": f"no design '{target}'.", "available": sorted(vals)}
     if r is None:
-        return {"error": f"no reference '{reference}'.", "available": sorted(means)}
+        return {"error": f"no reference '{reference}'.", "available": sorted(vals)}
     movers = []
     for ch in channels:
-        tv, rv = t.get(ch), r.get(ch)
-        if tv is None or rv in (None, 0):
+        ta, ra = t.get(ch), r.get(ch)
+        if not ta or not ra:
+            continue
+        tv, rv = sum(ta) / len(ta), sum(ra) / len(ra)
+        if rv == 0:
             continue
         log2fc = round(math.log2(tv / rv), 2) if (tv > 0 and rv > 0) else None
         movers.append({"quantity": ch, "target": round(tv, 4), "reference": round(rv, 4),
-                       "pct": round(100 * (tv - rv) / rv, 1), "log2fc": log2fc})
+                       "pct": round(100 * (tv - rv) / rv, 1), "log2fc": log2fc, "_ta": ta, "_ra": ra})
     movers.sort(key=lambda m: abs(m["log2fc"]) if m["log2fc"] is not None else abs(m["pct"]) / 100, reverse=True)
-    return {"target": target, "reference": reference, "ranked": movers[:top],
+    ranked = movers[:top]
+    for m in ranked:   # DS-3: a two-sample Welch t-test on the seed replicates behind each shown mover (or a note)
+        w = stats.welch_t(m.pop("_ta"), m.pop("_ra"))
+        if w is None:
+            m["significance"] = "descriptive only — <2 seeds on one side; use disconfirm / top_movers for a tested claim"
+        else:
+            m["welch_t"], m["p_value"], m["n_seeds"] = w["t"], w["p"], [w["n_a"], w["n_b"]]
+            m["significant_p05"] = (w["p"] is not None and w["p"] < 0.05)
+    return {"target": target, "reference": reference, "ranked": ranked,
             "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
-            "note": "Channels + pathways ranked by |log2 fold-change| (else |%|) vs the reference — what moved most. "
-                    "Check `viability`: flat channels on a VIABLE KO = reroute (no phenotype); on an INVIABLE one the "
-                    "fold-changes are pre-crash garbage."}
+            "note": "Channels + pathways ranked by |log2 fold-change| (else |%|), each shown mover carrying a Welch "
+                    "t-test on the seed replicates (`welch_t`/`p_value`/`significant_p05`) — a large fold-change with "
+                    "p>0.05 is within seed noise, not a real move. Check `viability`: flat channels on a VIABLE KO = "
+                    "reroute (no phenotype); on an INVIABLE one the fold-changes are pre-crash garbage."}
 
 
 def _viability_for(label: str) -> dict:

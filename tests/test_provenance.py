@@ -42,3 +42,13 @@ def test_git_commit_is_non_fatal_when_git_absent(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError("no git")))
     assert provenance._git_commit() is None
+
+
+def test_in_sample_set_is_pinned_against_silent_drift():
+    """M-4: the in-sample condition set is the source of truth for the in/out-of-sample tag, so it's pinned here —
+    a change to provenance.IN_SAMPLE_CONDITIONS trips this test, forcing a conscious update + justification instead
+    of silently drifting out of sync with what ParCa actually fits."""
+    assert provenance.IN_SAMPLE_CONDITIONS == {"basal", "glc_20mM", "glc_5mM", "glc_2mM", "with_aa", "no_oxygen"}
+    # and the tag reflects it: a fitted condition is in-sample; a network-derived one (or any perturbation) is not
+    assert provenance.tag("wildtype", "with_aa") == "in_sample"
+    assert provenance.tag("wildtype", "minus_magnesium") == "out_of_sample"   # network-derived -> conservative
