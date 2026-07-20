@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cellarium</title>
   <link rel="stylesheet" href="/static/style.css">
+  <!-- D-2: set the saved theme BEFORE first paint so there's no flash of the wrong palette. With no saved
+       preference the attribute is absent and the @media(prefers-color-scheme) default in style.css takes over. -->
+  <script>(function(){try{var t=localStorage.getItem("cellarium-theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
 </head>
 <body>
 <a class="skip-link" href="#scroll">Skip to conversation</a>
@@ -57,6 +60,10 @@
       </button>
       <div class="convo-title" id="convoTitle"></div>
       <div class="topbar-right">
+        <button class="icon-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+          <svg class="theme-sun" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12H5M19 12h2.4M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <svg class="theme-moon" viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </button>
         <button class="icon-btn" id="corpusBtn" title="Browse the corpus — every run + its data" aria-label="Browse the corpus">
           <svg viewBox="0 0 24 24" width="18" height="18"><ellipse cx="12" cy="6" rx="7" ry="2.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 6v12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 12c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>

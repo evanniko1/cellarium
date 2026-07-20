@@ -548,19 +548,28 @@ function renderChart(spec) {
   }
   return svg;
 }
-// vega config that matches the app palette so the interactive chart looks native (and matches the SVG fallback)
-const VEGA_CONFIG = {
-  background: "transparent", font: '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif',
-  view: { stroke: "transparent" }, range: { category: CHART_COLORS },
-  axis: { labelColor: "#6B6862", titleColor: "#20201D", gridColor: "#EFEDE6", domainColor: "#E7E4DB", tickColor: "#E7E4DB", labelFontSize: 11, titleFontSize: 12, titleFontWeight: 600 },
-  legend: { labelColor: "#6B6862", titleColor: "#20201D", labelFontSize: 11, titleFontSize: 11 },
-  title: { color: "#20201D", fontSize: 14, fontWeight: 600, anchor: "start", font: '"Iowan Old Style",Palatino,Georgia,serif' },
-  line: { strokeWidth: 2 }, point: { size: 24, filled: true }, bar: { color: "#C96442" },
-};
+// vega config that matches the app palette so the interactive chart looks native (and matches the SVG fallback).
+// D-2: read the LIVE theme tokens at render time (getComputedStyle), so the interactive chart's axes/legend/title
+// track light↔dark like the SVG fallback (whose .vl-* classes already use the tokens). The data-mark palette stays
+// the fixed saturated CHART_COLORS — those read on either ground.
+function vegaConfig() {
+  const cs = getComputedStyle(document.documentElement);
+  const tok = (n, fb) => (cs.getPropertyValue(n).trim() || fb);
+  const ink = tok("--ink", "#20201D"), ink2 = tok("--ink-2", "#6B6862"), line = tok("--line", "#E7E4DB"),
+    line2 = tok("--line-2", "#EFEDE6"), clay = tok("--clay", "#C96442");
+  return {
+    background: "transparent", font: '-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif',
+    view: { stroke: "transparent" }, range: { category: CHART_COLORS },
+    axis: { labelColor: ink2, titleColor: ink, gridColor: line2, domainColor: line, tickColor: line, labelFontSize: 11, titleFontSize: 12, titleFontWeight: 600 },
+    legend: { labelColor: ink2, titleColor: ink, labelFontSize: 11, titleFontSize: 11 },
+    title: { color: ink, fontSize: 14, fontWeight: 600, anchor: "start", font: '"Iowan Old Style",Palatino,Georgia,serif' },
+    line: { strokeWidth: 2 }, point: { size: 24, filled: true }, bar: { color: clay },
+  };
+}
 function renderInto(container, spec, onDone) {   // interactive vega-embed when the vendored libs loaded; SVG fallback otherwise
   const done = () => onDone && onDone();          // fires AFTER layout so a streaming view can re-follow the taller content
   if (window.vegaEmbed) {
-    const s = Object.assign({ width: "container", height: 280, autosize: { type: "fit", contains: "padding" }, config: VEGA_CONFIG }, spec);
+    const s = Object.assign({ width: "container", height: 280, autosize: { type: "fit", contains: "padding" }, config: vegaConfig() }, spec);
     window.vegaEmbed(container, s, { actions: { export: true, source: true, compiled: false, editor: false }, tooltip: true, renderer: "svg" })
       .then(done).catch(() => { container.textContent = ""; container.appendChild(renderChart(spec)); done(); });
     return;
@@ -1348,6 +1357,17 @@ $("#hypNewBtn").onclick = newHypComposer;
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");
 $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapsed");
 $("#queueBtn").onclick = () => openDrawer("queue");
+// D-2: theme toggle. Resolve the CURRENT effective theme (explicit attribute, else the system preference), flip it,
+// and persist. Setting data-theme wins over the @media default in both directions; the head script re-applies it
+// before paint on the next load, so there's no flash.
+$("#themeBtn").onclick = () => {
+  const root = document.documentElement;
+  const explicit = root.getAttribute("data-theme");
+  const effective = explicit || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = effective === "dark" ? "light" : "dark";
+  root.setAttribute("data-theme", next);
+  try { localStorage.setItem("cellarium-theme", next); } catch (e) { /* private mode — session-only toggle */ }
+};
 $("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeHyp(); closeDrawers(); } });

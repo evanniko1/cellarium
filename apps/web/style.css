@@ -14,6 +14,42 @@
   --mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,"Liberation Mono",monospace;
   --shadow:0 1px 2px rgba(30,28,24,.04),0 8px 24px rgba(30,28,24,.05);
   --shadow-lg:0 10px 40px rgba(30,28,24,.14);
+  --overlay:rgba(0,0,0,.06); --zebra:rgba(0,0,0,.015);   /* theme-flipping hover / table-zebra tints */
+  color-scheme:light;
+}
+/* ---- D-2: dark theme. Token-only override — every rule reads var(--…), so redefining the palette here themes the
+   whole app. A warm charcoal ground keeps the clay/paper character (not a cold invert); accents brighten and their
+   -ink variants lighten so text-on-tint contrast holds, while tints darken so they read as surfaces, not glare.
+   The @media block is the system default; :root[data-theme] (set by the toggle) wins over it in BOTH directions. */
+:root[data-theme="dark"]{
+  --paper:#1C1B18; --paper-2:#232120; --card:#2A2825;
+  --ink:#ECEAE3; --ink-2:#B4B0A6; --ink-3:#847F74;
+  --line:#38352F; --line-2:#302E29;
+  --clay:#D9755A; --clay-ink:#EC9C80; --clay-tint:#3A2A22;
+  --green:#6FB07C; --green-tint:#243026;
+  --amber:#D6A54E; --amber-tint:#332A17;
+  --red:#DB6E62; --red-tint:#38211E;
+  --blue:#6E9BC9; --blue-tint:#1F2A36;
+  --shadow:0 1px 2px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.36);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.52);
+  --overlay:rgba(255,255,255,.07); --zebra:rgba(255,255,255,.025);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#1C1B18; --paper-2:#232120; --card:#2A2825;
+    --ink:#ECEAE3; --ink-2:#B4B0A6; --ink-3:#847F74;
+    --line:#38352F; --line-2:#302E29;
+    --clay:#D9755A; --clay-ink:#EC9C80; --clay-tint:#3A2A22;
+    --green:#6FB07C; --green-tint:#243026;
+    --amber:#D6A54E; --amber-tint:#332A17;
+    --red:#DB6E62; --red-tint:#38211E;
+    --blue:#6E9BC9; --blue-tint:#1F2A36;
+    --shadow:0 1px 2px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.36);
+    --shadow-lg:0 10px 40px rgba(0,0,0,.52);
+    --overlay:rgba(255,255,255,.07); --zebra:rgba(255,255,255,.025);
+    color-scheme:dark;
+  }
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
@@ -125,11 +161,11 @@ svg{display:block}
 }
 @media (prefers-reduced-motion:reduce){ .recent-dot.active{animation:none; box-shadow:0 0 0 2px rgba(201,100,66,.35)} }
 .recent .r-title{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.recent .r-title input{width:100%; font:inherit; font-size:13.5px; border:1px solid var(--clay); border-radius:6px; padding:2px 5px; background:#fff; color:var(--ink)}
+.recent .r-title input{width:100%; font:inherit; font-size:13.5px; border:1px solid var(--clay); border-radius:6px; padding:2px 5px; background:var(--card); color:var(--ink)}
 .recent .r-menu{display:none; gap:2px; flex:0 0 auto}
 .recent:hover .r-menu{display:flex}
 .r-act{width:22px; height:22px; border:0; background:none; color:var(--ink-3); border-radius:6px; display:grid; place-items:center; cursor:pointer}
-.r-act:hover{background:rgba(0,0,0,.06); color:var(--ink)}
+.r-act:hover{background:var(--overlay); color:var(--ink)}
 .recents-divider{display:flex; align-items:center; gap:6px; margin:12px 8px 3px; font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
 .recents-divider .rd-count{margin-left:auto; font-weight:500; letter-spacing:0; opacity:.8}
 .recent.server{color:var(--ink-3); font-style:italic}
@@ -155,6 +191,15 @@ svg{display:block}
 .icon-btn .badge{position:absolute; top:-6px; right:-6px; min-width:17px; height:17px; padding:0 4px; border-radius:9px;
   background:var(--clay); color:#fff; font-size:10.5px; font-weight:700; display:none; align-items:center; justify-content:center; line-height:1}
 .icon-btn .badge.show{display:flex}
+/* D-2: the theme toggle shows the palette you'll switch TO — moon in light mode, sun in dark. The icon-btn grid
+   overlaps both SVGs in one cell; only the relevant one is shown. Default (light) = show moon; dark = show sun. */
+#themeBtn .theme-sun{display:none}
+:root[data-theme="dark"] #themeBtn .theme-moon{display:none}
+:root[data-theme="dark"] #themeBtn .theme-sun{display:block}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) #themeBtn .theme-moon{display:none}
+  :root:not([data-theme="light"]) #themeBtn .theme-sun{display:block}
+}
 
 /* scroll area: hero centered when empty, thread when chatting */
 .scroll{flex:1; overflow-y:auto; display:flex; flex-direction:column; align-items:center}
@@ -347,7 +392,7 @@ svg{display:block}
 
 /* answer */
 .answer{background:var(--card); border:1px solid #E4DED2; border-radius:var(--radius); box-shadow:var(--shadow);
-  padding:16px 20px; background:linear-gradient(180deg,#fff,#FDFCF9)}
+  padding:16px 20px; background:linear-gradient(180deg,var(--card),var(--paper-2))}
 .answer .answer-body{font-size:15.5px; line-height:1.65; color:var(--ink)}
 .answer-body h3,.answer-body h4{font-family:var(--serif); font-weight:600; margin:14px 0 6px; line-height:1.25}
 .answer-body h3{font-size:18px} .answer-body h4{font-size:15.5px}
@@ -361,7 +406,7 @@ svg{display:block}
 .answer-body table{border-collapse:collapse; margin:10px 0; font-size:13.5px; display:block; max-width:100%; overflow-x:auto}
 .answer-body th,.answer-body td{border:1px solid var(--line); padding:6px 11px; text-align:left; vertical-align:top}
 .answer-body th{background:var(--paper-2); font-weight:700; white-space:nowrap}
-.answer-body tbody tr:nth-child(even),.answer-body tbody tr:nth-child(even){background:rgba(0,0,0,.015)}
+.answer-body tbody tr:nth-child(even),.answer-body tbody tr:nth-child(even){background:var(--zebra)}
 /* grounded figures (charts) */
 .figure{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:12px 14px; margin:4px 0}
 .fig-chart{position:relative; width:100%; min-height:40px}
