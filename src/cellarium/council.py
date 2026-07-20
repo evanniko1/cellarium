@@ -277,6 +277,29 @@ def _default_models() -> dict:
             "judge": os.environ.get("CELLARIUM_JUDGE_MODEL") or base}
 
 
+# DD-MTH-2: the Council pins its OWN sampling temperature — reproducible run-to-run, but NOT Cellwright's 0.0. The
+# Council is a blind hypothesis GENERATOR; exploration across operationalizations is its FUNCTION, so it runs WARM
+# (default 1.0 = the API-default regime it already used in the eval, now fixed so a run reproduces). Cellwright is a
+# faithful grounded ANALYST and pins 0.0 (agent.temperature_for) — the two are asymmetric BY PURPOSE, not by accident,
+# so the Council must NOT be routed through Cellwright's helper. The right operating point is an empirical question
+# (a temperature sweep, DD-MTH-3), so this default is a recorded knob, not a claim.
+#
+# Reasoning-vs-non-reasoning caveat (recorded, DD-MTH-note): temperature is a lever ONLY on non-reasoning models.
+# On a reasoning model (opus) or with extended thinking, the API FORCES temperature=1 and rejects an explicit value,
+# so we return None (omit it). Hence a Council on opus is exploratory-by-force but NON-reproducible (no pin, no seed);
+# a Council on sonnet can be pinned warm -> reproducible AND tuned. The sweep can therefore only run on a non-reasoning
+# model, and this is the fact that governs which model the paper's control should use.
+COUNCIL_TEMPERATURE = float(os.environ.get("CELLARIUM_COUNCIL_TEMPERATURE", "1.0"))
+
+
+def _council_temperature(model: str | None, *, thinking: bool = False) -> float | None:
+    """The temperature to SEND for a Council role (None => omit, i.e. let the API force its default). Pinned to
+    COUNCIL_TEMPERATURE for a non-reasoning model with thinking off; None for a reasoning model / thinking on."""
+    if thinking or "opus" in (model or "").lower():
+        return None
+    return COUNCIL_TEMPERATURE
+
+
 def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 3072,
           temperature: float | None = None, role: str = "council") -> dict:
     """One forced-tool call -> the validated structured input dict. Retries once if the tool input comes back
@@ -724,6 +747,11 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         import anthropic
         client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     models = models or _default_models()
+    # DD-MTH-2: pin the Council's warm temperature BY CONSTRUCTION when the caller didn't specify one — so the eval
+    # A/B (run_ab passes none), tests, and any bare call all reproduce, without routing through Cellwright's 0.0. An
+    # explicit float still wins (the temperature-sweep eval passes its own); explicit 0.0 is honoured for an ablation.
+    if temperature is None:
+        temperature = _council_temperature(models.get("proposer"))
 
     # M-6: an optional PRE-round literature step. The librarian searches EXTERNAL published literature — blind to the
     # corpus by construction (see web_research + test_web_research_input_is_blind) — and hands the proposer + skeptic

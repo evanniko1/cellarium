@@ -29,10 +29,12 @@ class FakeMessages:
     def __init__(self, scripts):
         self.scripts = scripts           # {tool_name: [dict, dict, ...]} popped FIFO
         self.calls = []                  # (tool_name) log
+        self.temps = []                  # the `temperature` each call received (None => omitted) — DD-MTH-2 check
 
     def create(self, **kwargs):
         name = kwargs["tool_choice"]["name"]
         self.calls.append(name)
+        self.temps.append(kwargs.get("temperature", "OMITTED"))
         queue = self.scripts.get(name)
         assert queue, f"no scripted response left for tool {name!r} (call #{len(self.calls)})"
         return _Resp(queue.pop(0))
@@ -143,6 +145,41 @@ def test_clean_convergence_returns_falsifiable_hypothesis():
     assert h.falsifier and h.falsifier.channel == "protein_mass"
     assert len(h.rivals) >= 2
     assert h.candidate_designs and h.candidate_designs[0].perturbation == "wildtype"
+
+
+def test_council_temperature_is_warm_and_reasoning_aware(monkeypatch):
+    """DD-MTH-2: the Council pins its OWN warm temperature (not Cellwright's 0.0), and omits it on a reasoning model
+    (the API forces temperature=1 there)."""
+    assert council._council_temperature("claude-sonnet-5") == council.COUNCIL_TEMPERATURE
+    assert council.COUNCIL_TEMPERATURE > 0.0                       # warm — exploration is the Council's function
+    assert council._council_temperature("claude-opus-4-8") is None  # reasoning model -> omit (API forces 1)
+    assert council._council_temperature("claude-sonnet-5", thinking=True) is None
+    monkeypatch.setattr(council, "COUNCIL_TEMPERATURE", 0.3)       # it's a recorded knob (the sweep tunes it)
+    assert council._council_temperature("claude-sonnet-5") == 0.3
+
+
+def test_deliberate_pins_council_temperature_by_construction():
+    """DD-MTH-2: a deliberate() the caller didn't hand a temperature (the eval A/B path) still pins the warm value on
+    every role call — reproducibility no longer depends on the caller remembering."""
+    scripts = {
+        "propose_hypothesis": [_candidate()],
+        "raise_objections": [{"objections": []}],
+        "rule": [_verdict()],
+    }
+    client = FakeClient(scripts)
+    council.deliberate("q", max_rounds=1, quota=3, client=client,
+                       models={"proposer": "claude-sonnet-5", "skeptic": "claude-sonnet-5", "judge": "claude-sonnet-5"},
+                       verbose=False)
+    sent = [t for t in client.messages.temps if t != "OMITTED"]
+    assert sent and all(t == council.COUNCIL_TEMPERATURE for t in sent)   # every role call carried the warm pin
+
+    # an explicit temperature still wins (the sweep eval passes its own point)
+    client2 = FakeClient({"propose_hypothesis": [_candidate()], "raise_objections": [{"objections": []}],
+                          "rule": [_verdict()]})
+    council.deliberate("q", max_rounds=1, quota=3, client=client2, temperature=0.2,
+                       models={"proposer": "claude-sonnet-5", "skeptic": "claude-sonnet-5", "judge": "claude-sonnet-5"},
+                       verbose=False)
+    assert all(t == 0.2 for t in client2.messages.temps if t != "OMITTED")
 
 
 # --- D3 escalation on irreducible construct ambiguity ------------------------------------------------------

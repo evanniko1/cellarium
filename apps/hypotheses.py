@@ -146,7 +146,7 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
     compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. `prior_question` (M-7) is
     the previous attempt's text, so the nudge narrows progressively; if omitted it is recovered from `reuse_id`'s row
     BEFORE it is overwritten. Returns the stored run."""
-    from cellarium import agent, council, observability, provenance, ui  # lazy: store stays dependency-free/testable
+    from cellarium import council, observability, provenance, ui  # lazy: store stays dependency-free/testable
 
     # M-7: capture the prior question before create() overwrites the reused row, so the nudge can ask only what's new.
     if prior_question is None and reuse_id:
@@ -166,7 +166,9 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
         nudge = council.sharpening_hint(question, prior_question)   # M-7: axis-targeted, progressive, blind, optional
         # a PICKED model drives the Council's roles; model=None (Auto) -> the Council's tuned default
         cmodels = {"proposer": model, "skeptic": model, "judge": model} if model else None
-        temperature = agent.temperature_for(model)   # pinned for reproducibility (M-2); None for a picked reasoning model
+        # DD-MTH-2: the Council pins its OWN warm temperature (NOT Cellwright's 0.0 — the Council is a hypothesis
+        # generator; exploration is its function). Reproducible run-to-run; None on a reasoning model (API forces 1).
+        temperature = council._council_temperature(model)
         # LLM-2: meter this deliberation's proposer/skeptic/judge calls (tokens, est. USD, wall-time, per-role split)
         with observability.meter() as _meter:
             hyp = council.deliberate(question, verbose=False, on_round=_round, models=cmodels, temperature=temperature)
