@@ -7,12 +7,21 @@ trajectory's full simOut is local (else deferred to HF sharing, DECISIONS D1). N
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from . import biosecurity, envelope, rigor, store, survey
 from . import differential as _diff
 from . import provenance as _prov
 from .model import Design
+
+_log = logging.getLogger("cellarium.tools")
+
+# DD-ENG-1: exception types that almost always mean a PROGRAMMER DEFECT (not bad input / a transient data failure).
+# A tool raising one of these is a bug to fix, so dispatch logs its full traceback at ERROR; everything else is
+# treated as a runtime/data failure (logged terse) — the tag lets the model, and the developer reading the logs,
+# tell "the tool is broken" apart from "that design has no data".
+_INTERNAL_DEFECT = (AttributeError, NameError, UnboundLocalError, IndexError, AssertionError, NotImplementedError)
 
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux", "unique"]
 
@@ -1198,5 +1207,19 @@ def dispatch(name: str, args: dict) -> dict:
         return {"error": err}
     try:
         return fn(**(args or {}))
-    except TypeError as exc:
-        return {"error": f"bad arguments for {name}: {exc}"}
+    except Exception as exc:
+        # DD-ENG-1: isolate EVERY tool-body failure into a structured, model-readable error. Before this, only
+        # TypeError was caught, so any KeyError/ValueError/OSError/DuckDB/cobra/pydeseq2/… propagated past the
+        # unguarded call site, unwound the whole converse() turn, and discarded the in-progress answer with nothing
+        # the model could read, retry, or report. Now the model sees the error and can fall back or say what broke.
+        kind = ("arguments" if isinstance(exc, TypeError)
+                else "internal_defect" if isinstance(exc, _INTERNAL_DEFECT) else "runtime")
+        # never HIDE a real defect: log a likely-bug with its full traceback (ERROR); log an expected argument/data
+        # failure terse (INFO) so normal misuse doesn't drown the logs.
+        if kind == "internal_defect":
+            _log.error("tool %r raised %s", name, type(exc).__name__, exc_info=True)
+        else:
+            _log.info("tool %r %s failure: %s", name, kind, exc)
+        if kind == "arguments":                       # preserve the existing, arg-focused message for a call mismatch
+            return {"error": f"bad arguments for {name}: {exc}"}
+        return {"error": f"{name} failed: {type(exc).__name__}: {exc}", "error_kind": kind}

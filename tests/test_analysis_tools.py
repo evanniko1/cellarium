@@ -104,6 +104,37 @@ def test_dispatch_unknown_tool_and_semantic_validation():
     assert "missing required" not in str(out) and "unknown argument" not in str(out)
 
 
+def test_dispatch_isolates_tool_body_exceptions(monkeypatch):
+    """DD-ENG-1: a tool that RAISES (beyond a TypeError arg-mismatch) must become a structured, model-readable error
+    — never propagate and unwind the whole turn. The kind separates a likely programmer defect from a data/runtime
+    failure, and dispatch NEVER raises."""
+    def boom_runtime(**kw):
+        raise ValueError("no data for that design")
+
+    def boom_defect(**kw):
+        raise AttributeError("'NoneType' object has no attribute 'x'")
+
+    def boom_type(**kw):
+        raise TypeError("bad type")
+
+    monkeypatch.setitem(tools._DISPATCH, "boom_runtime", boom_runtime)
+    monkeypatch.setitem(tools._DISPATCH, "boom_defect", boom_defect)
+    monkeypatch.setitem(tools._DISPATCH, "boom_type", boom_type)
+
+    r = tools.dispatch("boom_runtime", {})
+    assert r["error_kind"] == "runtime" and "boom_runtime failed" in r["error"] and "ValueError" in r["error"]
+
+    d = tools.dispatch("boom_defect", {})
+    assert d["error_kind"] == "internal_defect" and "AttributeError" in d["error"]
+
+    t = tools.dispatch("boom_type", {})                            # TypeError keeps the arg-focused message + no crash
+    assert "bad arguments for boom_type" in t["error"]
+
+    # the contract: whatever a tool throws, dispatch returns a dict with an 'error' — it does not raise
+    for nm in ("boom_runtime", "boom_defect", "boom_type"):
+        assert "error" in tools.dispatch(nm, {})
+
+
 def test_summary_attaches_per_channel_welch_significance(monkeypatch):
     """DS-3: each shown differential mover carries a Welch t-test on the seed replicates — a well-separated channel
     is flagged significant, an overlapping one is not, and a channel with <2 seeds on one side gets a descriptive
