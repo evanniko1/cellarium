@@ -22,7 +22,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cases as cases_mod  # noqa: E402
-
 from dotenv import load_dotenv  # noqa: E402
 
 DEFECT_TYPES = ["falsifier_cannot_fail", "rival_not_actually_discriminating", "internal_contradiction",

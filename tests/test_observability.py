@@ -9,7 +9,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cellarium import agent, council, observability  # noqa: E402
 
-
 # --- fakes: an Anthropic response carries .usage / .model / ._request_id ------------------------------------
 
 class _Usage:

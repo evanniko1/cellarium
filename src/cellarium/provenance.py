@@ -41,3 +41,36 @@ def classify(perturbation: str, condition: str | None = None) -> dict:
 def tag(perturbation: str, condition: str | None = None) -> str:
     """Just the label, for annotating list rows."""
     return "in_sample" if _is_in_sample(perturbation, condition) else "out_of_sample"
+
+
+# --- H-3: per-run environment provenance (the reproducibility bundle) ---------------------------------------
+
+def _git_commit() -> str | None:
+    """The repo's current short commit, run in the repo root (not the process CWD) so it's correct regardless of
+    where the app was launched. None when git is absent, this isn't a checkout, or the call errors/times out."""
+    import subprocess
+    from pathlib import Path
+    try:
+        root = Path(__file__).resolve().parents[2]
+        r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=str(root),
+                           capture_output=True, text=True, timeout=3)
+        return (r.stdout.strip() or None) if r.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def run_environment() -> dict:
+    """The reproducibility bundle for a run (H-3): the interpreter, the repo's git commit, and the pinned versions of
+    the load-bearing dependencies — recorded per Council run alongside the model + temperature (M-2/LLM-3) so a result
+    can be reproduced against the exact code + library stack (see requirements.lock for the full pin set). Best-effort:
+    any lookup that fails degrades to None, never raising."""
+    import platform
+    from importlib import metadata as _md
+
+    packages: dict = {}
+    for pkg in ("anthropic", "pydantic", "numpy", "duckdb", "pyarrow"):
+        try:
+            packages[pkg] = _md.version(pkg)
+        except Exception:
+            packages[pkg] = None
+    return {"python": platform.python_version(), "git_commit": _git_commit(), "packages": packages}

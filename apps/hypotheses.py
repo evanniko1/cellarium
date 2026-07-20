@@ -145,7 +145,7 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
     Council midwifes it) and only carries a non-blocking sharpening hint; genuine ambiguity is handled by the
     Council's own D3 escalation mid-deliberation, not by refusing up front. `attempt` is vestigial (kept for API
     compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. Returns the stored run."""
-    from cellarium import agent, council, observability, ui   # lazy: the store stays dependency-free + unit-testable
+    from cellarium import agent, council, observability, provenance, ui  # lazy: store stays dependency-free/testable
 
     run_id = reuse_id or store.new_id()
     store.create(run_id, question, model)
@@ -174,13 +174,16 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 "resolutions": {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")},
                 # reproducibility provenance (M-2): the sampling variance source is now named + recorded
                 "temperature": temperature, "model": (model or "auto"),
+                # environment provenance (H-3): interpreter + git commit + pinned dep versions, so a run reproduces
+                # against the exact code + stack (full pin set in requirements.lock)
+                "environment": provenance.run_environment(),
                 # observability (LLM-2): this run's model-call cost/latency aggregate (tokens, est. USD, per-role)
                 "llm": _meter.summary(),
                 # soft, non-blocking sharpening nudge (advisory only — the run still completed)
                 "broad_question": broad, "hint": (_BROAD_HINT if broad else None)}
         store.complete(run_id, hview, designs, meta)
         try:   # self-harness (M-1): file any Council-named test the toolkit can't run. Best-effort — the
-            from cellarium import harness   # detector already swallows its own errors; a gap must never break a run.
+            from cellarium import harness  # detector already swallows its own errors; a gap must never break a run.
             harness.scan_and_file(hyp, run_id)
         except Exception:
             pass

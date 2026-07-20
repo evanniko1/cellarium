@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import biosecurity, differential as _diff, envelope, provenance as _prov, rigor, store, survey
+from . import biosecurity, envelope, rigor, store, survey
+from . import differential as _diff
+from . import provenance as _prov
 from .model import Design
 
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux", "unique"]
@@ -300,8 +302,9 @@ def read_raw_series(result_id: str, channel: str = "growth_rate", max_points: in
     if t.size == 0:
         return {"error": f"no readable '{channel}' trajectory in the raw simOut for that seed."}
     rigor.note_result(run["result_id"])
-    from . import scan
     import numpy as _np
+
+    from . import scan
     k = max(2, min(int(max_points), 200))
     # SP-2: EXTREMA-PRESERVING (min-max) decimation, not stride — a transient can no longer fall between the shown
     # points. Plus a loss report so the agent knows the fidelity of the view and where the extrema sit.
@@ -334,7 +337,8 @@ def scan_series(result_id: str, channel: str = "growth_rate", min_effect_mad: fl
     direction, and raw timestep range to drill into. Use when a mean/trajectory could be hiding a brief excursion,
     or when read_raw_series flags `detail_between_points`. Deterministic. Empty events != flat: loosen
     min_effect_mad to probe weaker signals."""
-    from . import raw as rawmod, scan
+    from . import raw as rawmod
+    from . import scan
     runs = rawmod.seed_runs(result_id)
     if not runs:
         return {"error": f"no local raw simOut for '{result_id}' — see data_availability for the HF/regenerate path."}
@@ -357,7 +361,8 @@ def scan_overview(design: str, channels: list | None = None, min_effect_mad: flo
     """Deterministic anomaly MAP across channels (SP-2b): full-scan each channel of one design and rank which carry
     the strongest transient/level-shift — full coverage in ONE call, so a signal isn't missed for want of asking
     channel-by-channel. Then drill with scan_series on a flagged channel. No LLM fan-out; grounded, no fabrication."""
-    from . import raw as rawmod, scan
+    from . import raw as rawmod
+    from . import scan
     runs = rawmod.seed_runs(design)
     if not runs:
         return {"error": f"no local raw simOut for '{design}' — see data_availability for the HF/regenerate path."}
@@ -847,7 +852,8 @@ def reroute_diagnosis(gene: str, target: str, reference: str = "wildtype/basal")
     Checks whether the KO'd enzyme's FBA flux is 0 in the KO yet nonzero in WT on a dividing cell — the model
     bypassing an enzyme real biology can't (the soft homeostatic objective never hard-requires that flux). Pair
     with mechanistic_scope's essentiality benchmark: an artifact reroute on an essential gene = model_UNDER_predicts."""
-    from . import differential as _d, reader
+    from . import differential as _d
+    from . import reader
 
     ko = _d._design_run_roots(target)
     wt = _d._design_run_roots(reference)

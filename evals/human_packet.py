@@ -48,8 +48,9 @@ def main():
     outdir = Path(a.out); outdir.mkdir(parents=True, exist_ok=True)
 
     recs = json.loads(Path(a.src).read_text())["results"]
+    import sys
+    sys.path.insert(0, str(ROOT / "evals"))   # cases lives here
     from cases import CASES  # question text
-    import sys; sys.path.insert(0, str(ROOT / "evals"))
     qtext = {c["id"]: c["question"] for c in CASES}
 
     def pick(cid, cfg):

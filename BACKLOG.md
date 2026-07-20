@@ -84,8 +84,8 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ID | P | Item | Src |
 |----|---|------|-----|
 | ~~**H-1**~~ | ✅ | **CI** — GitHub Actions (`ruff` + `pytest` blocking, advisory `mypy`) on PR + push to main. Done — see Completed. | A |
-| **H-2** | P2 | Add `[tool.ruff]` / `[tool.mypy]` / `[tool.pytest]` config to `pyproject.toml`. | A |
-| **H-3** | P2 | Pin deps + lockfile (uv/pip-tools); record model+temp+seed per run. *(Reproducibility bundle with M-2/LLM-3.)* | A |
+| ~~**H-2**~~ | ✅ | **Tooling config** — the base `[tool.ruff]` / `[tool.mypy]` / `[tool.pytest]` config shipped with **H-1**; this tightens it by adding **import-sorting (`I`)** to the ruff select so import order is consistent + CI-enforced (24 spots auto-fixed, 1 hand-fixed). **Done** — see Completed. | A |
+| ~~**H-3**~~ | ✅ | **Deps pin + run provenance** — committed **`requirements.lock`** (exact pins of the full env: core + hf/fba/rnaseq/dev extras + transitives, via `pip freeze`), and `provenance.run_environment()` (interpreter + git commit + pinned dep versions) now recorded in every Council run's meta alongside model + temperature (M-2/LLM-3) — the reproducibility bundle. **Done** — see Completed. | A |
 | **H-4** | P3 | Add a secret-scan to CI. | A |
 | **H-5** | P3 | Reconcile / remove the stray `package-lock.json` (no-build vanilla-JS app). | A |
 | **H-6** | P3 | Code hygiene — `gene_scope.json` staleness/hash guard (C3); warn when `essential_ref` is disabled (C4); move `_reader_worker.py` pure aggregation host-side for unit-testing (C2). | R |
@@ -289,6 +289,22 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **H-2 · Import-sort hygiene** (2026-07-20) — the base `[tool.ruff]` / `[tool.mypy]` / `[tool.pytest]` config was
+  already in `pyproject.toml` (shipped with H-1), so this tightened it: added **import-sorting (`I`)** to the ruff
+  lint select (alongside the real-bug E/F/W rules; the deliberate one-liner/long-string style stays off) so import
+  order is consistent and CI-enforced. Auto-fixed 23 spots + hand-fixed 1 (a load-bearing `sys.path.insert` before a
+  `from cases import` in `evals/human_packet.py`). Full suite green after the reorder (imports are idempotent).
+
+- **H-3 · Deps pin + run provenance** (2026-07-20) — the reproducibility bundle, completing M-2/LLM-3. Committed
+  **`requirements.lock`** — exact `pip freeze` pins of the full dev environment (core + hf/fba/rnaseq/dev extras +
+  all transitives, on Python 3.12.8), with a header on how to recreate/regenerate it (no `uv` available; the
+  project's own editable install is excluded). Added `provenance.run_environment()` — the interpreter version, the
+  repo's git commit (run in the repo root, non-fatal when git is absent), and the pinned versions of the load-bearing
+  deps (anthropic/pydantic/numpy/duckdb/pyarrow) — now recorded in every Council run's meta under `environment`,
+  beside the already-recorded model + temperature (M-2/LLM-3). So a stored run carries the exact code + stack it ran
+  against. Model + temperature are the LLM-run reproducibility levers (Anthropic exposes no seed — M-2); sim seeds
+  ride on the design. Tests: the bundle shape + graceful git-absent degradation. pytest + ruff green.
 
 - **SP-2c (benchmark) · Receptive-field fan-out vs deterministic scan** (2026-07-20) — the paper artifact quantifying
   *when* an LLM-worker fan-out earns its ~N× cost over the deterministic scan. New `src/cellarium/receptive_field.py`:

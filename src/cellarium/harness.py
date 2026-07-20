@@ -281,6 +281,6 @@ if __name__ == "__main__":   # manual batch audit: `python -m cellarium.harness`
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps"))
-    from hypotheses import HypothesisStore   # type: ignore
+    from hypotheses import HypothesisStore  # type: ignore
 
     print(audit_store(HypothesisStore()))

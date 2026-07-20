@@ -12,7 +12,6 @@ import sys
 from cellarium import council, instrument
 from cellarium.hypothesis import Hypothesis
 
-
 # --- scripted fake client ----------------------------------------------------------------------------------
 
 class _Block:

@@ -40,8 +40,9 @@ extend-exclude = ["skills"]   # vendored third-party skills — not ours to lint
 
 [tool.ruff.lint]
 # The codebase deliberately uses compact one-liners (semicolons) and long single-line tool-description strings,
-# so line-length + multi-statement style rules are off; keep the real-bug rules (pyflakes F + core pycodestyle E/W).
-select = ["E", "F", "W"]
+# so line-length + multi-statement style rules are off; keep the real-bug rules (pyflakes F + core pycodestyle E/W)
+# plus import sorting (I) so import order is consistent + CI-enforced (H-2).
+select = ["E", "F", "W", "I"]
 ignore = ["E501", "E702", "E401", "E741"]
 
 [tool.pytest.ini_options]

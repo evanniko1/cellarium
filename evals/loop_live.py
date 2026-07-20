@@ -132,6 +132,7 @@ if __name__ == "__main__":  # quick manual check on a live Council hypothesis fo
     from dotenv import load_dotenv
     load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))   # .env at the repo root (was a hardcoded mac path)
     import anthropic
+
     from cellarium import council
     cl = anthropic.Anthropic()
     hyp = council.deliberate("Do genetically identical E. coli cells behave differently, and why?",

@@ -12,8 +12,11 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
 
-from cellarium import raw, store  # noqa: E402
-from cellarium import tools  # noqa: E402
+from cellarium import (  # noqa: E402
+    raw,
+    store,
+    tools,  # noqa: E402
+)
 
 
 def _a_design_with_local_raw():

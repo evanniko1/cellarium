@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Stand-in for wcEcoli runscripts/manual/runParca.py — writes a sim_data marker and exits."""
-import argparse, socket
+import argparse
+import socket
 from pathlib import Path
 
 ap = argparse.ArgumentParser()

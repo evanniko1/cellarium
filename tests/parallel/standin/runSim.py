@@ -8,7 +8,11 @@ It does NOT simulate biology. It (a) proves it is its own isolated container by 
 (b) sleeps to create an overlap window so concurrency is observable, and (c) writes a simOut-shaped
 output dir at exactly the path cellarium's runner expects, so the "distinct dir per sim" claim is real.
 """
-import argparse, os, socket, sys, time
+import argparse
+import os
+import socket
+import sys
+import time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()

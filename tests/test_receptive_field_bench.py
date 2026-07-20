@@ -9,7 +9,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from cellarium import observability, receptive_field as rf  # noqa: E402
+from cellarium import observability  # noqa: E402
+from cellarium import receptive_field as rf
 
 
 def _raw_reader_worker(channel, start, values):

@@ -3,7 +3,10 @@
 No stubs. Real image (wcecoli-sim), real ParCa sim_data, real runSim, real container reader + QC.
 A background thread samples `docker ps` to prove 8 sim containers are alive simultaneously.
 """
-import subprocess, threading, time, json
+import json
+import subprocess
+import threading
+import time
 from pathlib import Path
 
 import cellarium.manifest as manifest

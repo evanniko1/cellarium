@@ -35,8 +35,8 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # for the sibling `sessions` module
+import hypotheses  # dedicated Hypothesis-Generation surface — persisted Council runs (docs/HYPOTHESIS_MODE_PLAN.md)
 from sessions import SessionStore
-import hypotheses   # dedicated Hypothesis-Generation surface — persisted Council runs (docs/HYPOTHESIS_MODE_PLAN.md)
 
 WEB = Path(__file__).resolve().parent / "web"
 

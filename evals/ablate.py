@@ -22,7 +22,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cases as cases_mod  # noqa: E402
-
 from dotenv import load_dotenv  # noqa: E402
 
 from cellarium import council, instrument  # noqa: E402

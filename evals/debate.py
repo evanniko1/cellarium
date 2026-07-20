@@ -295,6 +295,7 @@ def main():
     p.add_argument("--out", default=str(ROOT / "evals" / "results" / "debate"))
     a = p.parse_args()
     import anthropic
+
     from cellarium import instrument
     client = anthropic.Anthropic(max_retries=6)
     labels = instrument.dial_labels()

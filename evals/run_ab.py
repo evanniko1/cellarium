@@ -129,8 +129,9 @@ def _tool_rollup(rows: list) -> dict:
 
 def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int, grader_model: str) -> dict:
     """Deliberate blind, persist to council_runs (app-visible), grade against the rubric. Returns a result row."""
-    from cellarium import council, observability, ui
     from hypotheses import HypothesisStore
+
+    from cellarium import council, observability, ui
 
     hstore = HypothesisStore()
     run_id = hstore.new_id()
@@ -182,8 +183,9 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
 
 def run_arm_a(case: dict, agent_model: str | None) -> dict:
     """Answer the question directly with the grounded agent; persist to the sessions table; count corpus reads."""
-    from cellarium import agent, observability
     from sessions import SessionStore
+
+    from cellarium import agent, observability
 
     messages = [{"role": "user", "content": case["question"]}]
     # AG-2: track the tool-selection error rate — every tool call, and how many returned an {"error": ...} result

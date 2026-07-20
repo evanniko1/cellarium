@@ -24,3 +24,21 @@ def test_condition_and_perturbations_unchanged():
     assert provenance.tag("gene_knockout", "basal") == "out_of_sample"
     assert provenance.tag("ppgpp_conc", "basal") == "out_of_sample"
     assert provenance.classify("wildtype", "acetate")["provenance"] == "out_of_sample"
+
+
+def test_run_environment_reproducibility_bundle():
+    """H-3: the per-run environment bundle carries the interpreter, git commit, and pinned dep versions — recorded
+    so a run reproduces against the exact code + stack. Best-effort: every field degrades gracefully, never raises."""
+    env = provenance.run_environment()
+    assert isinstance(env["python"], str) and env["python"].count(".") >= 2
+    assert set(env["packages"]) == {"anthropic", "pydantic", "numpy", "duckdb", "pyarrow"}
+    assert all((v is None or isinstance(v, str)) for v in env["packages"].values())
+    assert env["git_commit"] is None or isinstance(env["git_commit"], str)   # a short sha in a checkout, or None
+
+
+def test_git_commit_is_non_fatal_when_git_absent(monkeypatch):
+    """A missing git / non-checkout must not break a run — _git_commit swallows it and returns None."""
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError("no git")))
+    assert provenance._git_commit() is None
