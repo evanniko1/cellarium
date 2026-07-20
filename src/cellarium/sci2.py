@@ -277,6 +277,15 @@ def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/b
     ref_sig = {g for g, v in ref["reference_lfc"].items()
                if v.get("padj") is not None and v["padj"] < PADJ_SIG and abs(v["log2FC"]) >= DEG_SIG}
     result = concordance(sim, ref_flat, ref_sig=ref_sig)
+    qc = result.get("join_qc", {})
+    if qc.get("n_joined", 0) == 0 and qc.get("n_sim", 0) > 0 and qc.get("n_ref", 0) > 0:
+        # NAMESPACE mismatch, not data scarcity: the sim ids didn't resolve to b-numbers (they're still cistron ids
+        # because data/cache/cistron_map.json is missing). Fail LOUD — a silent INDETERMINATE here masked the SCI-2c
+        # annotation bug once already. The sim vector must be b-number-keyed to join the DESeq2 reference.
+        return {"error": (f"sim and reference gene ids do not intersect (n_sim={qc['n_sim']}, n_ref={qc['n_ref']}, "
+                          "n_joined=0) — a NAMESPACE mismatch, not too few genes. The sim mRNA ids need the "
+                          "cistron→symbol map: regenerate data/cache/cistron_map.json (reader.gene_map, in the model "
+                          "image), then the symbol→b-number map completes the join."), "join_qc": qc}
     result["contrast"] = ref["contrast"]
     result["provenance"] = ref["provenance"]
     return result

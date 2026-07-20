@@ -99,6 +99,30 @@ def _reverse_gene_map() -> dict[str, str]:
     return {v: k for k, v in json.loads(p.read_text(encoding="utf-8")).items()}
 
 
+_CISTRON_MAP_CACHE = Path("data/cache/cistron_map.json")
+
+
+def _cistron_symbol_map() -> dict[str, str]:
+    """cistron_id -> gene symbol — the id space the mRNA reader returns (`mRNA_cistron_ids`, e.g. 'EG10016_RNA[c]').
+    This is NOT the monomer-keyed `_reverse_gene_map` (monomer ids like '6PFK-1-MONOMER[c]' don't share a base with
+    cistron ids, so that map annotates every mRNA gene as None). Lazily dumped from sim_data via the worker's
+    gene-map mode (needs the model image); returns {} when unavailable — the concordance's namespace diagnostic then
+    tells the user to regenerate it."""
+    if not _CISTRON_MAP_CACHE.exists():
+        try:
+            from . import reader
+            gm = reader.gene_map()
+            if isinstance(gm, dict) and gm.get("cistron_symbols"):
+                _CISTRON_MAP_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                _CISTRON_MAP_CACHE.write_text(json.dumps(gm["cistron_symbols"]), encoding="utf-8")
+        except Exception:
+            return {}
+    try:
+        return json.loads(_CISTRON_MAP_CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 def _design_run_roots(label: str) -> list[Path]:
     """All local run roots for a design label 'perturbation/condition' (one per seed)."""
     from . import store
@@ -143,6 +167,8 @@ def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna") ->
         return {"error": f"no local runs for reference '{reference}'."}
     out = reader.gene_lfc(t_roots, r_roots, kind)
     if isinstance(out, dict) and isinstance(out.get("lfc"), dict):
-        rev = _reverse_gene_map()   # id -> gene symbol (the gene map; graceful None when an id isn't covered)
-        out["lfc"] = {gid: {**v, "symbol": rev.get(gid)} for gid, v in out["lfc"].items()}
+        # annotate per-kind by the id space the worker returns: mRNA ids are cistron_ids (cistron->symbol map),
+        # protein ids are monomer_ids (the monomer reverse map). Using the wrong one annotates every gene as None.
+        annot = _cistron_symbol_map() if kind == "mrna" else _reverse_gene_map()
+        out["lfc"] = {gid: {**v, "symbol": annot.get(gid)} for gid, v in out["lfc"].items()}
     return out

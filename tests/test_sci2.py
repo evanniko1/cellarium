@@ -72,21 +72,31 @@ def test_bnumber_map_is_present_and_correct():
 
 # ---- SCI-2c: the all-gene sim-mRNA reader mode (host side; the worker runs only in the model image) ----
 
-def test_all_gene_lfc_annotates_symbols_and_guards_no_runs(monkeypatch):
-    """`differential.all_gene_lfc` errors cleanly when a design has no local runs, and otherwise symbol-annotates
-    every gene the worker returned (None where the gene map doesn't cover the id)."""
+def test_all_gene_lfc_annotates_by_the_right_id_space_per_kind(monkeypatch):
+    """Regression (the SCI-2c blocker): mRNA ids are cistron_ids ('EG10016_RNA[c]'), so they must be annotated by
+    the CISTRON map — NOT the monomer-keyed `_reverse_gene_map`, which annotates every mRNA gene as None and
+    collapses the b-number join. Protein ids are monomer_ids and use the monomer reverse map (parity with
+    top_movers)."""
     from cellarium import differential, reader
 
-    monkeypatch.setattr(differential, "_design_run_roots", lambda label: [])          # no local runs
+    monkeypatch.setattr(differential, "_design_run_roots", lambda label: [])          # no local runs -> clean error
     assert "error" in differential.all_gene_lfc("d", "ref", kind="mrna")
 
     monkeypatch.setattr(differential, "_design_run_roots", lambda label: ["/fake/root"])
-    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind: {
-        "kind": kind, "n_genes": 2, "lfc": {"EG10001": {"log2fc": 1.5}, "EG10002": {"log2fc": -0.3}}})
-    monkeypatch.setattr(differential, "_reverse_gene_map", lambda: {"EG10001": "pfkA"})
+    # a MONOMER map that must NOT be used for mRNA (it can't cover cistron ids) — the bug used exactly this
+    monkeypatch.setattr(differential, "_reverse_gene_map", lambda: {"6PFK-1-MONOMER[c]": "wrong"})
+
+    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind: {"kind": kind,
+        "lfc": {"EG10016_RNA[c]": {"log2fc": 1.2}, "G6543_RNA[c]": {"log2fc": -0.4}}})
+    monkeypatch.setattr(differential, "_cistron_symbol_map", lambda: {"EG10016_RNA[c]": "aceB"})
     out = differential.all_gene_lfc("d", "ref", kind="mrna")
-    assert out["lfc"]["EG10001"]["symbol"] == "pfkA"          # annotated from the gene map
-    assert out["lfc"]["EG10002"]["symbol"] is None            # gracefully None when the id isn't covered
+    assert out["lfc"]["EG10016_RNA[c]"]["symbol"] == "aceB"   # mRNA annotated from the CISTRON map
+    assert out["lfc"]["G6543_RNA[c]"]["symbol"] is None       # gracefully None when the cistron map misses it
+
+    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind: {"kind": kind,
+        "lfc": {"6PFK-1-MONOMER[c]": {"log2fc": 0.5}}})
+    out = differential.all_gene_lfc("d", "ref", kind="protein")
+    assert out["lfc"]["6PFK-1-MONOMER[c]"]["symbol"] == "wrong"   # protein uses the monomer reverse map
 
 
 def test_sim_lfc_uses_full_distribution_and_joins_bnumbers(monkeypatch):
@@ -105,6 +115,21 @@ def test_sim_lfc_uses_full_distribution_and_joins_bnumbers(monkeypatch):
 
     monkeypatch.setattr(differential, "all_gene_lfc", lambda *a, **k: {"error": "no local runs"})
     assert sci2.sim_lfc("x") == {}                            # no data / error -> empty, not a crash
+
+
+def test_rnaseq_concordance_fails_loud_on_namespace_mismatch(monkeypatch):
+    """The silent trap the review flagged: if sim ids never intersect the b-number reference (both sides sizable,
+    zero joined), that's a NAMESPACE mismatch, not data scarcity — rnaseq_concordance must say so, not return a
+    bare INDETERMINATE that hides a broken annotation."""
+    monkeypatch.setattr(sci2, "available", lambda: (True, "ok"))
+    monkeypatch.setattr(sci2, "build_reference", lambda contrast: {
+        "contrast": "x", "provenance": {},
+        "reference_lfc": {f"b{i:04d}": {"log2FC": 0.5, "padj": 0.01} for i in range(50)}})
+    # sim ids in the WRONG namespace (raw cistron ids, not b-numbers) -> empty join despite 50 genes each side
+    monkeypatch.setattr(sci2, "sim_lfc", lambda design, reference: {f"EG{i:05d}_RNA[c]": 0.5 for i in range(50)})
+    out = sci2.rnaseq_concordance("d", {"cond_B": "x"})
+    assert "error" in out and "namespace" in out["error"].lower()
+    assert out["join_qc"]["n_joined"] == 0 and out["join_qc"]["n_sim"] == 50   # the diagnostic carries the counts
 
 
 # ---- real PRECISE-1K + pydeseq2 (opt-in): needs the `rnaseq` extra + the fetched data ----

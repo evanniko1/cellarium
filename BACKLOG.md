@@ -297,11 +297,20 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   seed-mean log2FC for EVERY gene above the count floor with no significance filter (pure `_gene_lfc_map` factored
   out; the worker runs only in the model image so it's validated on the opt-in real path); `reader.gene_lfc` bridges
   it (Docker + local, mirroring `differential`); `differential.all_gene_lfc` resolves the design's run roots, calls
-  the bridge, and symbol-annotates each id via the gene map; `sci2.sim_lfc` now reads that FULL distribution and
-  keys every gene by b-number for the DESeq2 join. Host-side tests (worker is container-only): `all_gene_lfc`
-  symbol-annotation + no-runs guard, and `sim_lfc` including a non-significant gene + the b-number join + graceful
-  empty. The live end-to-end run stays open (**SCI-2c** part 2) — it needs a matched-contrast sim campaign we run +
-  a gap-filler RNA-seq series, both ours to produce. pytest + ruff green.
+  the bridge, and symbol-annotates each id **per kind**; `sci2.sim_lfc` now reads that FULL distribution and keys
+  every gene by b-number for the DESeq2 join. **Adversarial review caught a blocker** the mocked test missed: the
+  mRNA path was annotating **cistron_ids** (`EG10016_RNA[c]`) with the **monomer**-keyed `_reverse_gene_map`, so
+  every symbol resolved to None → the b-number join was empty → the concordance silently returned INDETERMINATE for
+  every real run. Fixed: annotate mRNA via a **cistron→symbol map** (`_cistron_symbol_map`, dumped from `gene_data`
+  by the worker's gene-map mode, now emitting `cistron_symbols`) and protein via the monomer map (parity with
+  `top_movers`); `rnaseq_concordance` now **fails loud** on a namespace mismatch (both sides sizable, zero joined)
+  instead of a silent INDETERMINATE; regression test feeds realistic cistron ids through the per-kind annotation +
+  the b-number join. Host-side tests (worker is container-only): per-kind annotation, `sim_lfc` full-distribution
+  join + graceful empty, and the namespace diagnostic. **Caveat:** the mRNA join needs `data/cache/cistron_map.json`
+  generated in the model image (lazily dumped via `reader.gene_map`) — bundled with the live run, and now
+  surfaced loudly if absent rather than silently degrading. The live end-to-end run stays open (**SCI-2c** part 2)
+  — it needs a matched-contrast sim campaign we run + a gap-filler RNA-seq series, both ours to produce. pytest +
+  ruff green.
 
 - **AG-1 · Launch-queue hardening** (2026-07-20) — the launch airlock's queue was a lock-free JSON read-modify-write
   at a CWD-relative path. Three fixes in `launch.py`: (1) the path is now **absolute + config-rooted**

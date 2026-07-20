@@ -387,11 +387,14 @@ def mode_gene_map(root):
     md, gd = sd.process.translation.monomer_data, sd.process.replication.gene_data
     c2m = dict(zip((str(x) for x in md["cistron_id"]), (str(x) for x in md["id"])))
     symbols = {}
+    cistron_symbols = {}          # cistron_id -> symbol: the id space the mrna reader returns (SCI-2c annotation)
     for k in range(len(gd)):
-        m = c2m.get(str(gd["cistron_id"][k]))
+        sym, cis = str(gd["symbol"][k]), str(gd["cistron_id"][k])
+        cistron_symbols[cis] = sym
+        m = c2m.get(cis)
         if m:
-            symbols[str(gd["symbol"][k])] = m
-    return {"symbols": symbols, "n": len(symbols)}
+            symbols[sym] = m
+    return {"symbols": symbols, "cistron_symbols": cistron_symbols, "n": len(symbols)}
 
 
 def _load_essential_genes():
