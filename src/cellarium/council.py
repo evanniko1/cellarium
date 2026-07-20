@@ -535,20 +535,88 @@ _PHENOTYPE_CUES = (   # phenotype-level observables that map onto channels (the 
 )
 
 
+# stems too generic to signal an observable — 'cell' is the domain's universal subject noun ("what happens to the
+# cell?"), so matching it would falsely read an observable into every question. Excluded from the observable cue set.
+_STEM_STOP = {"cell"}
+
+
 def _channel_stems() -> set[str]:
     """Observable tokens straight from the instrument's own channels — stays in sync with CHANNELS, so a new
     channel is recognized without editing a second list. e.g. growth, ppgpp, ribosome, trna, division, mass."""
-    return {tok for name in instrument.channel_names() for tok in name.split("_") if len(tok) >= 3}
+    return {tok for name in instrument.channel_names() for tok in name.split("_")
+            if len(tok) >= 3 and tok not in _STEM_STOP}
+
+
+# M-7: comparison/contrast cues — the third specification axis alongside manipulation and observable. A hypothesis
+# is decisive only against a reference, so the progressive nudge tracks this too (but it is NOT part of looks_specific,
+# to preserve the pre-pass firing set: a manipulation+observable question stays testable-by-construction).
+_COMPARISON_CUES = (
+    " vs ", " vs.", "versus", "compared", "relative to", "baseline", "wildtype", "wild-type", "wild type",
+    " control", " than ", "against", "reference", "compare", "difference between", " wt ", " wt,",
+)
+_AXIS_ORDER = ("manipulation", "observable", "comparison")
+
+
+def _axes_present(question: str) -> dict:
+    """The three specification axes, each a pure deterministic cue check (no model). Single source of truth for both
+    looks_specific (manipulation AND observable) and missing_axes (all three) — so they can never drift apart."""
+    q = " " + question.lower() + " "
+    return {
+        "manipulation": bool(_GENE_RE.search(question)) or any(c in q for c in _PERTURB_CUES),
+        "observable": any(c in q for c in _PHENOTYPE_CUES) or any(s in q for s in _channel_stems()),
+        "comparison": any(c in q for c in _COMPARISON_CUES),
+    }
 
 
 def looks_specific(question: str) -> bool:
     """Deterministic sufficiency: does the question already name a runnable MANIPULATION (a gene symbol or a
     perturbation cue) AND a measurable OBSERVABLE (a channel token or a phenotype word)? If so it is testable by
     construction and needs no clarification — regardless of whether the exact channel/condition is spelled out."""
-    q = " " + question.lower() + " "
-    has_manip = bool(_GENE_RE.search(question)) or any(c in q for c in _PERTURB_CUES)
-    has_obs = any(c in q for c in _PHENOTYPE_CUES) or any(s in q for s in _channel_stems())
-    return has_manip and has_obs
+    a = _axes_present(question)
+    return a["manipulation"] and a["observable"]
+
+
+def missing_axes(question: str) -> list[str]:
+    """M-7: which of {manipulation, observable, comparison} the question does NOT already name — the still-missing
+    set the progressive nudge asks about. Pure and offline-testable, reusing the exact cues behind looks_specific."""
+    a = _axes_present(question)
+    return [ax for ax in _AXIS_ORDER if not a[ax]]
+
+
+_AXIS_ASK = {
+    "manipulation": "a perturbation it can run (a gene to knock out, an operon to clamp, a medium or condition to shift)",
+    "observable": "an observable to measure (growth, division, viability, a protein or metabolite level, a flux)",
+    "comparison": "what to compare against (a reference — e.g. wildtype, or a different medium)",
+}
+
+
+def _oxford(items: list[str]) -> str:
+    items = list(items)
+    if len(items) <= 1:
+        return items[0] if items else ""
+    if len(items) == 2:
+        return items[0] + " and " + items[1]
+    return ", ".join(items[:-1]) + ", and " + items[-1]
+
+
+def sharpening_hint(question: str, prior_question: str | None = None) -> dict | None:
+    """M-7 progressive narrowing: a NON-BLOCKING, blind advisory naming ONLY the still-missing of {manipulation,
+    observable, comparison}. On a re-convene (prior_question given) it acknowledges what the refinement supplied and
+    asks only for what's left — the user is never re-asked what they just specified. Returns None when the question
+    already names all three axes. Scope-only: it never previews the answer (same quarantine as the Council)."""
+    missing = missing_axes(question)
+    if not missing:
+        return None
+    text = ("To sharpen this into a more targeted test you can name " + _oxford([_AXIS_ASK[ax] for ax in missing]) +
+            ". (The Council still deliberated the question as posed — this is optional.)")
+    progress = None
+    if prior_question:
+        resolved = [ax for ax in missing_axes(prior_question) if ax not in missing]
+        if resolved:
+            progress = ("You've narrowed it — " + _oxford(resolved) + " now specified; still helpful: "
+                        + _oxford(missing) + ".")
+            text = progress + " " + text
+    return {"missing": missing, "text": text, "progress": progress}
 
 
 def sufficiency_gate(question: str, *, client=None, models: dict | None = None, labels: dict | None = None) -> dict:

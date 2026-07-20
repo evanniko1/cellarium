@@ -130,22 +130,28 @@ def _summary(r) -> dict:
 
 # Soft-nudge design (never block): the Council's job is to MIDWIFE a vague scientific question into a falsifiable
 # hypothesis (Socratic maieutics), and it has its own D3 escalation for irreducible ambiguity — so we never refuse
-# to deliberate. When the question is broad (a deterministic pre-pass, no model call) we carry this advisory hint
-# the surface can show; the run still completes. The old blocking gate parked ~23/25 canonical questions — exactly
-# the Council's own competency (see evals/run_ab.py gate diagnostic) — so a hard block was the wrong tool.
-_BROAD_HINT = ("This was a broad question — the Council operationalized it as best it could. For a more targeted "
-               "test, you can name a perturbation it can run, an observable to measure, and what to compare against.")
+# to deliberate. When the question is under-specified we carry a NON-BLOCKING advisory hint (council.sharpening_hint,
+# a deterministic pre-pass, no model call) that names only the still-missing axes; the run still completes. The old
+# blocking gate parked ~23/25 canonical questions — exactly the Council's own competency (evals/run_ab.py) — so a
+# hard block was the wrong tool. M-7: on a re-convene the hint narrows progressively (asks only what's still missing).
 
 
 def run_council(store: HypothesisStore, question: str, model: str | None = None, on_round=None,
-                attempt: int = 0, reuse_id: str | None = None) -> dict:
+                attempt: int = 0, reuse_id: str | None = None, prior_question: str | None = None) -> dict:
     """Run ONE Council deliberation and persist the whole thing (rounds + operationalized hypothesis + falsifier
     designs + convergence meta). Blind by construction — deliberate() never sees corpus results (the paper's
     quarantine control; see docs/HYPOTHESIS_MODE_PLAN.md). NEVER blocks: a broad question is still deliberated (the
     Council midwifes it) and only carries a non-blocking sharpening hint; genuine ambiguity is handled by the
     Council's own D3 escalation mid-deliberation, not by refusing up front. `attempt` is vestigial (kept for API
-    compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. Returns the stored run."""
+    compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. `prior_question` (M-7) is
+    the previous attempt's text, so the nudge narrows progressively; if omitted it is recovered from `reuse_id`'s row
+    BEFORE it is overwritten. Returns the stored run."""
     from cellarium import agent, council, observability, provenance, ui  # lazy: store stays dependency-free/testable
+
+    # M-7: capture the prior question before create() overwrites the reused row, so the nudge can ask only what's new.
+    if prior_question is None and reuse_id:
+        prev = store.get(reuse_id)
+        prior_question = prev.get("question") if prev else None
 
     run_id = reuse_id or store.new_id()
     store.create(run_id, question, model)
@@ -157,6 +163,7 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
 
     try:
         broad = not council.looks_specific(question)   # deterministic, no model call — a soft nudge, not a gate
+        nudge = council.sharpening_hint(question, prior_question)   # M-7: axis-targeted, progressive, blind, optional
         # a PICKED model drives the Council's roles; model=None (Auto) -> the Council's tuned default
         cmodels = {"proposer": model, "skeptic": model, "judge": model} if model else None
         temperature = agent.temperature_for(model)   # pinned for reproducibility (M-2); None for a picked reasoning model
@@ -179,8 +186,11 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 "environment": provenance.run_environment(),
                 # observability (LLM-2): this run's model-call cost/latency aggregate (tokens, est. USD, per-role)
                 "llm": _meter.summary(),
-                # soft, non-blocking sharpening nudge (advisory only — the run still completed)
-                "broad_question": broad, "hint": (_BROAD_HINT if broad else None)}
+                # soft, non-blocking sharpening nudge (advisory only — the run still completed). M-7: the hint names
+                # only the still-missing axes and, on a re-convene, acknowledges what the refinement already supplied.
+                "broad_question": broad, "hint": (nudge["text"] if nudge else None),
+                "missing_axes": (nudge["missing"] if nudge else []),
+                "narrowing": (nudge["progress"] if nudge else None)}
         store.complete(run_id, hview, designs, meta)
         try:   # self-harness (M-1): file any Council-named test the toolkit can't run. Best-effort — the
             from cellarium import harness  # detector already swallows its own errors; a gap must never break a run.
