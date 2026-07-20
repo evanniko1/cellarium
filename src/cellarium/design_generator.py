@@ -68,8 +68,13 @@ def synthetic_lethal_check(genes: list[str]) -> dict:
     if out.get("error"):
         return {"available": False, "note": out["error"]}
     sl = out.get("synthetic_lethals") or []
+    all_pairs = out.get("pairs") or sl                     # `pairs` carries every pair's double-KO growth (<=40 pairs)
+    dgfs = [p.get("double_growth_frac") for p in all_pairs
+            if isinstance(p, dict) and p.get("double_growth_frac") is not None]
     return {"available": True, "synthetic_lethal": bool(sl), "n_synthetic_lethal": len(sl),
-            "pairs": [p["pair"] for p in sl], "detail": sl, "wt_growth": out.get("wt_growth")}
+            "pairs": [p["pair"] for p in sl], "detail": sl, "wt_growth": out.get("wt_growth"),
+            # DD-SCI-4a(b): the weakest double-KO growth (closest to lethal) — a fragility signal for active learning
+            "min_double_growth_frac": (round(min(dgfs), 4) if dgfs else None)}
 
 
 def _fold_epistasis(s: dict) -> dict:
@@ -153,13 +158,48 @@ def _rank_key(s: dict) -> tuple:
     return (band, -(s["viability_prior"] if s["viability_prior"] is not None else -1.0), s["n_genes"])
 
 
+def information_gain(s: dict) -> dict:
+    """DD-SCI-4a(b): the expected-SURPRISE / active-learning score — how much would running this set TEACH, given
+    what we already predicted? A set the safe-viability ranking buries can be the most informative run. Highest where
+    our TWO oracles are confident but DISAGREE (the single-gene prior says viable, FBA says the double is synthetic-
+    lethal — the reroute-blocker), or where either oracle sits near its decision boundary. Returns the headline +
+    components (glass-box), built from signals already computed — no extra sim, no extra LP.
+
+      * oracle_disagreement — prior-viability × (FBA says synthetic-lethal): the sharpest surprise (max when the
+        surrogate is CONFIDENT the KO survives yet the second oracle says the pair is lethal);
+      * prior_uncertainty — 1 - 2·|p-0.5|: the surrogate itself is unsure (peaks at p=0.5);
+      * fba_fragility — the double GROWS but weakly (a reroute the whole-cell sim might break) even when not a clean
+        synthetic lethal — 1 - min_double_growth_frac.
+    Disagreement dominates by construction (its weight exceeds the others' maxima), so a predicted-viable-yet-FBA-
+    lethal set always outranks a merely-uncertain one — 'propose the runs that teach the most'."""
+    p = s.get("viability_prior")
+    p = p if p is not None else 0.5
+    slc = s.get("synthetic_lethal_check") or {}
+    sl = bool(slc.get("synthetic_lethal"))
+    disagreement = round(p * (1.0 if sl else 0.0), 3)
+    uncertainty = round(1.0 - 2.0 * abs(p - 0.5), 3)
+    mdgf = slc.get("min_double_growth_frac")
+    fragility = round(1.0 - mdgf, 3) if (slc.get("available") and mdgf is not None and not sl) else 0.0
+    gain = round(min(1.0, 0.7 * disagreement + 0.3 * uncertainty + 0.25 * fragility), 3)
+    return {"information_gain": gain, "oracle_disagreement": disagreement,
+            "prior_uncertainty": uncertainty, "fba_fragility": fragility,
+            "why": ("predicted viable yet FBA-lethal (reroute-blocker)" if disagreement > 0
+                    else "surrogate near its decision boundary" if uncertainty >= 0.6
+                    else "fragile double-KO growth" if fragility >= 0.5 else "low expected surprise")}
+
+
 def generate(pool: list[str] | None = None, k: int = 2, max_candidates: int = 12,
-             *, use_surrogate: bool = True, use_fba: bool = True) -> dict:
-    """Enumerate size-`k` multi-KO candidates from the dispensable pool, score + rank each, and return the top
+             *, use_surrogate: bool = True, use_fba: bool = True, objective: str = "viability") -> dict:
+    """Enumerate size-`k` multi-KO candidates from the dispensable pool, score each, and return the top
     `max_candidates` as runnable multi_gene_knockout Designs. Proposes only biosecurity-clean, non-essential sets.
-    DD-SCI-4a: with `use_fba`, the FBA synthetic-lethal check is run on the top candidates the prior calls VIABLE
-    (exactly where it's blind) — a hit downgrades the recommendation + surfaces the reroute-blocker. Graceful if no FBA."""
+    DD-SCI-4a: (a) with `use_fba`, the FBA synthetic-lethal check folds in the pairwise epistasis the single-gene
+    prior can't see — a hit demotes propose->flag + surfaces the reroute-blocker. (b) `objective` picks the ranking
+    goal: 'viability' (default — safest reduced-genome builds first) or 'information' (active learning — rank by
+    EXPECTED SURPRISE, so the runs that TEACH the most surface first: a predicted-viable-yet-FBA-lethal set, or one
+    the surrogate is unsure about)."""
     from . import scope
+    if objective not in ("viability", "information"):
+        return {"error": f"objective must be 'viability' or 'information', got {objective!r}"}
     if pool is None:
         dp = dispensable_pool()
         if dp.get("error"):
@@ -169,22 +209,35 @@ def generate(pool: list[str] | None = None, k: int = 2, max_candidates: int = 12
     if len(pool) < k:
         return {"error": f"pool has {len(pool)} genes; need >= k ({k}) to form a set", "pool": pool}
 
-    # Stage 1 — the fast prior-only score over EVERY combo (no FBA), then rank + take the top.
+    # Stage 1 — the fast prior-only score over EVERY combo (no FBA), ranked by viability. The working set is a
+    # SUPERSET of max_candidates for the information objective, so the surprise re-rank can promote a high-information
+    # set the viability rank buried (e.g. a p=0.6 reroute-blocker).
     scored = [score_set(list(combo), use_surrogate=use_surrogate) for combo in combinations(pool, k)]
     scored.sort(key=_rank_key)
-    top = scored[:max_candidates]
+    work = scored[:(max_candidates * 2 if objective == "information" else max_candidates)]
 
-    # Stage 2 (DD-SCI-4a) — fold the FBA epistasis check into ONLY the top candidates the prior would PROPOSE (an LP
-    # per pair is costly, and 'propose' is exactly where the single-gene prior is blind: it called them viable). A
-    # synthetic-lethal hit demotes propose->flag. Then re-rank so the epistasis-demoted sets settle correctly.
+    # Stage 2 (DD-SCI-4a a) — fold the FBA epistasis check into the working set's PROPOSE candidates (an LP per pair
+    # is costly, and 'propose' is exactly where the single-gene prior is blind: it called them viable).
     fba_available = None
     if use_fba:
-        for s in top:
+        for s in work:
             if s["recommend"] == _PROPOSE:
                 _fold_epistasis(s)
                 avail = (s.get("synthetic_lethal_check") or {}).get("available")
                 fba_available = avail if fba_available is None else (fba_available or avail)
-        top.sort(key=_rank_key)
+
+    # Stage 3 (DD-SCI-4a b) — the active-learning score for every candidate (cheap; reuses the prior + FBA signals).
+    for s in work:
+        s["active_learning"] = information_gain(s)
+
+    # Stage 4 — order by the chosen objective. 'information' never proposes an AVOID set (categorically wrong
+    # regardless of surprise); ties break by the viability rank.
+    if objective == "information":
+        ordered = sorted((s for s in work if s["recommend"] != _AVOID),
+                         key=lambda s: (-s["active_learning"]["information_gain"], _rank_key(s)))
+    else:
+        ordered = sorted(work, key=_rank_key)
+    top = ordered[:max_candidates]
 
     designs = []
     for s in top:
@@ -199,15 +252,17 @@ def generate(pool: list[str] | None = None, k: int = 2, max_candidates: int = 12
             designs.append({"perturbation": "multi_gene_knockout", "condition": "KO:" + "+".join(labels),
                             "params": {"ko_indices": idxs}, "score": s})
     return {
-        "k": k, "pool": pool, "n_pool": len(pool), "n_candidates_scored": len(scored),
+        "k": k, "objective": objective, "pool": pool, "n_pool": len(pool), "n_candidates_scored": len(scored),
         "n_proposed": len(designs), "designs": designs,
         "fba_epistasis_checked": bool(use_fba), "fba_available": fba_available,
         "ranking": [{"genes": s["genes"], "recommend": s["recommend"], "viability_prior": s["viability_prior"],
-                     "synthetic_lethal": bool((s.get("synthetic_lethal_check") or {}).get("synthetic_lethal"))}
+                     "synthetic_lethal": bool((s.get("synthetic_lethal_check") or {}).get("synthetic_lethal")),
+                     "information_gain": s["active_learning"]["information_gain"],
+                     "surprise_why": s["active_learning"]["why"]}
                     for s in top],
-        "note": ("Ranked reduced-genome / multi-KO candidates. 'designs' are biosecurity-clean, non-essential sets, "
-                 "runnable via propose_experiments. The viability_prior is a single-gene prior; the FBA synthetic-"
-                 "lethal check (DD-SCI-4a) folds in the pairwise epistasis it can't see — a 'flag' with an `epistasis` "
-                 "note is a reroute-blocker FBA predicts inviable (the informative case), to CONFIRM in the sim. When "
-                 "fba_available is false, install the `fba` extra to enable the epistasis check."),
+        "note": ("Ranked multi-KO candidates. objective='viability' = safest reduced-genome builds first; "
+                 "'information' = ACTIVE LEARNING, the runs that teach the most first (expected surprise: a "
+                 "predicted-viable-yet-FBA-synthetic-lethal reroute-blocker, or a set the surrogate is unsure about). "
+                 "The viability_prior is a single-gene prior; the FBA synthetic-lethal check (DD-SCI-4a) folds in the "
+                 "pairwise epistasis it can't see. Set fba_available=false -> install the `fba` extra. Confirm in the sim."),
     }

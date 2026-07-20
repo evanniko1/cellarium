@@ -148,3 +148,68 @@ def test_generate_is_graceful_when_fba_unavailable(monkeypatch):
     out = dg.generate(k=2, max_candidates=5, use_fba=True)
     assert out["fba_available"] is False
     assert out["designs"][0]["score"]["recommend"] == "propose"          # prior-only ranking preserved
+
+
+# --- DD-SCI-4a(b): active-learning / expected-surprise objective ----------------------------------------------
+def test_information_gain_disagreement_dominates():
+    """A predicted-viable set the FBA calls synthetic-lethal is the sharpest surprise — it must outrank a merely
+    boundary-uncertain set."""
+    disagree = dg.information_gain({"viability_prior": 0.9,
+                                    "synthetic_lethal_check": {"available": True, "synthetic_lethal": True}})
+    uncertain = dg.information_gain({"viability_prior": 0.5,
+                                     "synthetic_lethal_check": {"available": True, "synthetic_lethal": False,
+                                                                "min_double_growth_frac": 0.9}})
+    assert disagree["oracle_disagreement"] == 0.9 and "reroute-blocker" in disagree["why"]
+    assert uncertain["prior_uncertainty"] == 1.0                         # p=0.5 -> max uncertainty
+    assert disagree["information_gain"] > uncertain["information_gain"]  # disagreement dominates by construction
+
+
+def test_information_gain_fragility_signal():
+    """A double-KO that GROWS but weakly (a reroute the sim might break) carries surprise even without a clean SL."""
+    frag = dg.information_gain({"viability_prior": 0.85,
+                                "synthetic_lethal_check": {"available": True, "synthetic_lethal": False,
+                                                           "min_double_growth_frac": 0.05}})
+    robust = dg.information_gain({"viability_prior": 0.85,
+                                  "synthetic_lethal_check": {"available": True, "synthetic_lethal": False,
+                                                             "min_double_growth_frac": 0.98}})
+    assert frag["fba_fragility"] > robust["fba_fragility"]
+    assert frag["information_gain"] > robust["information_gain"]
+
+
+def test_generate_information_objective_ranks_the_reroute_blocker_first(monkeypatch):
+    """objective='information': a predicted-viable pair the FBA calls synthetic-lethal outranks a safe-but-boring
+    pair — the run that teaches the most surfaces first, even though the viability objective would bury it as 'flag'."""
+    from cellarium import scope, store
+    # 3 dispensable genes -> pairs (aaa,bbb), (aaa,ccc), (bbb,ccc)
+    _s = dict(_SCOPE)
+    _s["ccc"] = {"known": True, "is_machinery": False, "essential_reference": False, "ko_index": 15, "role": "metabolic_enzyme"}
+    monkeypatch.setattr(scope, "classify_gene", lambda g: _s.get(g, {"known": False}))
+    monkeypatch.setattr(store, "viability", lambda p, c: {"designs": [
+        {"condition": "KO:aaa", "verdict": "viable"}, {"condition": "KO:bbb", "verdict": "viable"},
+        {"condition": "KO:ccc", "verdict": "viable"}]})
+    from cellarium import surrogate
+    monkeypatch.setattr(surrogate, "build_dataset", lambda *a, **k: {"synthetic": True})
+    monkeypatch.setattr(surrogate, "predict", lambda g, ds=None: {"viability_probability": 0.9})   # all high prior
+    # ONLY (aaa,bbb) is FBA synthetic-lethal
+    from cellarium import tools
+
+    def _fake_sl(genes, medium=None):
+        if set(genes) == {"aaa", "bbb"}:
+            return {"wt_growth": 0.8, "synthetic_lethals": [{"pair": ["aaa", "bbb"], "synthetic_lethal": True}],
+                    "pairs": [{"pair": ["aaa", "bbb"], "double_growth_frac": 0.0, "synthetic_lethal": True}]}
+        return {"wt_growth": 0.8, "synthetic_lethals": [], "pairs": [{"pair": genes, "double_growth_frac": 0.95}]}
+    monkeypatch.setattr(tools, "fba_synthetic_lethal", _fake_sl)
+
+    info = dg.generate(k=2, max_candidates=3, objective="information")
+    assert info["objective"] == "information"
+    assert info["ranking"][0]["synthetic_lethal"] is True                # the reroute-blocker ranks FIRST
+    assert info["ranking"][0]["information_gain"] >= info["ranking"][-1]["information_gain"]
+
+    # under the viability objective the same set is demoted to 'flag' and does NOT lead
+    viab = dg.generate(k=2, max_candidates=3, objective="viability")
+    assert viab["ranking"][0]["recommend"] == "propose"                  # a clean viable pair leads viability
+
+
+def test_generate_rejects_bad_objective():
+    out = dg.generate(pool=["aaa", "bbb"], k=2, objective="bogus")
+    assert "error" in out and "objective" in out["error"]
