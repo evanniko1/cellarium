@@ -96,6 +96,52 @@ TEST_REGISTRY: tuple[TestSpec, ...] = (
 )
 
 
+# --- tool ACCOUNTING: the reverse invariant (every tool is classified, so Council-visibility can't drift) --------
+# The Council's operationalization vocabulary is exactly the SUPPORTED TestSpecs above (a falsifier may NAME one; the
+# proposer prompt + the falsifier schema enum are both built from supported_ids(), so a new TestSpec auto-exposes to
+# the Council). Every OTHER tool in tools.TOOLS is a Cellwright-side analysis / read / action tool the Council never
+# names — and MUST NOT, because the Council is BLIND to grounded results: tools that operate on real per-seed
+# evidence (disconfirm-family verification like robustness_check, the viability_surrogate prediction, the
+# generate_designs enumeration) are things Cellwright runs AFTER the Council, not vocabulary the blind Council picks.
+#
+# forward invariant (validate_against_tools): every named test points at a real tool — catches a TestSpec drifting.
+# REVERSE invariant (unclassified_tools): every real tool is accounted for — either a TestSpec's `tool`, or listed
+# here. A newly-added tool that is NEITHER trips the CI exhaustiveness check (tests/test_harness.py), forcing a
+# conscious one-line classification at add-time: "is this a new falsifier test the Council should NAME (-> a
+# TestSpec), or a Cellwright analysis tool (-> here)?" So Council-visibility is settled when a tool lands, not when
+# someone remembers to ask.
+ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
+    # corpus survey / read / drill-down
+    "survey_corpus", "differential", "list_results", "design_space", "read_series", "read_raw_series",
+    "scan_series", "scan_overview", "variance_band", "raw_available", "download_raw", "list_species", "read_species",
+    "exchange_flux", "regulon_response", "data_availability", "chart",
+    # grounded verdicts / diagnostics / verification (operate on real evidence -> Cellwright-side, Council is blind)
+    "viability", "mechanistic_scope", "metabolic_essentiality", "model_validation", "reroute_diagnosis",
+    "provenance", "coverage_check", "corpus_audit", "prune_candidates", "robustness_check", "viability_surrogate",
+    # independent FBA cross-check family
+    "fba_growth", "fba_gene_knockout", "fba_flux", "fba_essentiality_panel", "fba_synthetic_lethal",
+    "fba_sensitivity", "fba_qc", "rnaseq_concordance",
+    # design / experiment proposal + guardrails (act on the world, not falsifier tests)
+    "design_panel", "generate_designs", "check_feasibility", "vet_hypothesis", "screen_design", "screen_phenotype",
+    "run_experiment", "propose_experiment", "propose_experiments", "revise_experiment",
+    # literature / publication skills bridge
+    "use_skill", "web_get",
+})
+
+
+def registered_tool_names() -> set[str]:
+    """The tools a SUPPORTED TestSpec executes — the Council-nameable set."""
+    return {t.tool for t in TEST_REGISTRY if t.tool}
+
+
+def unclassified_tools(tool_names) -> list[str]:
+    """CI exhaustiveness invariant (reverse of validate_against_tools): every tool must be either a Council-nameable
+    test (a TestSpec's tool) or explicitly ANALYSIS_ONLY. Returns tools that are NEITHER — a non-empty result means a
+    new tool was added without deciding whether the Council should see it. Empty = ok."""
+    known = registered_tool_names() | ANALYSIS_ONLY_TOOLS
+    return sorted(n for n in set(tool_names) if n not in known)
+
+
 def by_id(test_id: str) -> TestSpec | None:
     return next((t for t in TEST_REGISTRY if t.test_id == test_id), None)
 

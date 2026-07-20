@@ -24,6 +24,19 @@ def test_registry_stays_in_sync_with_tools():
     assert {"bimodality_bc", "slope_ci"} <= set(test_registry.supported_ids())
 
 
+def test_every_tool_is_classified_for_council_visibility():
+    """REVERSE invariant: every tool in TOOLS is EITHER a Council-nameable test (a TestSpec's tool) OR explicitly
+    ANALYSIS_ONLY. A new tool that is neither trips here — so whether the Council should see it is decided when the
+    tool lands, not by remembering to ask. To fix a failure: add the tool to test_registry.ANALYSIS_ONLY_TOOLS
+    (Cellwright-only) or add a TestSpec for it (a falsifier test the blind Council may name)."""
+    tool_names = {t["name"] for t in tools.TOOLS}
+    missing = test_registry.unclassified_tools(tool_names)
+    assert missing == [], (f"unclassified tools (decide Council-visibility): {missing} — add each to "
+                           "test_registry.ANALYSIS_ONLY_TOOLS or give it a TestSpec.")
+    # the classification partitions cleanly: nothing is both a named test and analysis-only
+    assert test_registry.registered_tool_names().isdisjoint(test_registry.ANALYSIS_ONLY_TOOLS)
+
+
 def test_detector_flags_unsupported_and_passes_executable():
     # a KNOWN-unsupported test -> one gap, keyed to that capability
     gaps = harness.scan_hypothesis(_fake_hyp("reject H0 by Hartigan's dip test, p<0.05"), "h_1")

@@ -111,6 +111,28 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 ---
 
+## Deep-Dive Register — ship-then-deepen
+
+Functionality that **ships working** but that we deliberately want to **revisit and harden later** across seven
+rigor axes: **`SCI`** scientific validity · **`MTH`** methodology · **`DS`** data science / statistics ·
+**`ML`** machine learning · **`AGT`** agentic reasoning · **`TCV`** toolchain validity · **`ENG`** engineering.
+This is *not* a bug list — each item works today; the register records the honest next depth so the shipped-fast
+version doesn't quietly become the final word. When an item is deepened, strike it and note the outcome.
+
+| ID | Axis | Feature | The deeper dive we owe it |
+|----|------|---------|---------------------------|
+| **DD-SCI-5a** | ML · DS · SCI | Viability surrogate (`surrogate.py`) | n≈20 is a toy: (a) **grow the labelled set** via Phase-2 sweeps, then re-fit; (b) move beyond LOO to **nested CV** + a held-out test once n allows; (c) **calibration** (reliability curve / Brier), not just accuracy/MCC — a "0.72 probability" must mean 0.72; (d) **richer features** (pathway membership, TU co-regulation, FBA single-KO flux) with regularization tuned to avoid overfitting; (e) honest **uncertainty on each prediction** (conformal / bootstrap interval), not a bare probability; (f) compare against the deterministic scope-rule baseline to prove the ML earns its keep. |
+| **DD-SCI-5b** | ML · SCI | Surrogate **target** | Today it predicts the *sim's* viability verdict (which under-predicts essentiality). Revisit whether the honest target is the **benchmark** (Baba/Joyce) or a *disagreement* label (where sim and benchmark diverge) — arguably the more scientific object. Decide + document. |
+| **DD-SCI-4a** | SCI · AGT · MTH | Multi-KO / reduced-genome generator (`design_generator.py`) | The weakest-link single-gene prior **cannot see epistasis** — the whole point of a multi-KO. Deepen by: (a) folding **`fba_synthetic_lethal`** into the score (the pairwise-lethality signal the prior misses) rather than leaving it a manual follow-up; (b) an **information-gain / active-learning** objective (rank by *expected surprise* = predicted-viable-yet-mechanistically-fragile, not just predicted-viable) so it proposes the runs that teach the most; (c) k>2 combinatorics with a principled search (beam / greedy submodular) instead of full enumeration; (d) close the **corpus→surrogate→generator→sim→corpus loop** so each round's runs retrain the scorer. |
+| **DD-TCV-1** | TCV · AGT · ENG | Council ↔ tool-vocabulary coupling | Reverse-exhaustiveness invariant now forces every tool to be classified (nameable-test vs analysis-only) — **done**. Deeper: (a) decide whether a **grounded verification test** (e.g. the robustness panel) should ever become Council-nameable, or stays Cellwright-only by the blindness rule; (b) audit the hardcoded `_PROPOSER_SYS` example text (Sarle/Hartigan) against the registry so *prompt* examples can't drift from the *enum*; (c) consider generating the proposer's "available tests" prose directly from `test_registry` docs. |
+| **DD-AGT-1** | AGT · MTH | Loop architecture (Cellwright / Council / rigor) | Pending the agentic-loop literature review + audit (this turn). Record its ranked recommendations here as concrete DD items once synthesized. |
+| **DD-DS-1** | DS · MTH | Surrogate + generator **evaluation harness** | Neither has a standing eval that tracks quality *as the corpus grows*. Owe: a small `evals/` harness that re-fits the surrogate and re-scores the generator on each corpus snapshot and logs calibration/MCC/coverage over time (so "it sharpens as data grows" is measured, not asserted). |
+
+- Add new deep-dive items here as functionality ships fast-but-shallow. Keep each honest about *what works now* vs
+  *what depth remains* — the register is a rigor ledger, not a TODO dump.
+
+---
+
 ## Completed
 - **H-1 · CI** (2026-07-14) — `.github/workflows/ci.yml` runs `ruff check` + `pytest` (blocking) and `mypy`
   (advisory) on every PR and push to `main`. Added `[tool.ruff]` / `[tool.pytest.ini_options]` / `[tool.mypy]`
