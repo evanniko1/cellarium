@@ -76,11 +76,45 @@ def _log(msg: str) -> None:
     print(msg, flush=True)   # flush so `tail -f` shows progress live in an unattended run
 
 
+def _cost_tag(s: dict | None) -> str:
+    """Compact per-arm cost/latency suffix for the live log (LLM-6). '' when a row carries no telemetry."""
+    if not s:
+        return ""
+    c = s.get("cost_usd")
+    cost = (f"${c:.4f}" + ("+" if s.get("cost_partial") else "")) if c is not None else "$?"
+    return f"  · {cost} / {s.get('n_calls', 0)} calls / {(s.get('latency_ms', 0) / 1000):.1f}s"
+
+
+def _llm_rollup(rows: list) -> dict:
+    """Sum each arm's per-run `llm` aggregates into an arm-level cost/latency total (LLM-6). `cost_partial` is set
+    when ANY run was unpriced or carried no telemetry (a resumed pre-LLM-6 ledger row), so the total reads as a
+    lower bound rather than a false exact figure."""
+    keys = ("n_calls", "input_tokens", "output_tokens", "cache_read_tokens", "cache_creation_tokens", "latency_ms")
+    agg = {k: 0 for k in keys}
+    cost, have_cost, partial = 0.0, False, False
+    for r in rows:
+        s = r.get("llm")
+        if not s:
+            partial = True   # e.g. a run recorded before LLM-6 -> no telemetry -> total is a lower bound
+            continue
+        for k in keys:
+            agg[k] += int(s.get(k) or 0)
+        c = s.get("cost_usd")
+        if c is None or s.get("cost_partial"):
+            partial = True
+        if c is not None:
+            cost += c
+            have_cost = True
+    agg["cost_usd"] = round(cost, 4) if have_cost else None
+    agg["cost_partial"] = partial
+    return agg
+
+
 # --- Arm B: the blind Socratic Council, persisted + graded --------------------------------------------------
 
 def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int, grader_model: str) -> dict:
     """Deliberate blind, persist to council_runs (app-visible), grade against the rubric. Returns a result row."""
-    from cellarium import council, ui
+    from cellarium import council, observability, ui
     from hypotheses import HypothesisStore
 
     hstore = HypothesisStore()
@@ -98,9 +132,11 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
     def _round(payload):
         hstore.append_round(run_id, payload)
 
-    h = council.deliberate(case["question"], max_rounds=rounds, quota=quota,
-                           ask_user=lambda q: grade_mod._ASK_POLICY, client=client,
-                           models=council_models, on_round=_round, verbose=False)
+    # LLM-6: meter this deliberation's proposer/skeptic/judge model calls (tokens, est. USD, wall-time)
+    with observability.meter() as _m:
+        h = council.deliberate(case["question"], max_rounds=rounds, quota=quota,
+                               ask_user=lambda q: grade_mod._ASK_POLICY, client=client,
+                               models=council_models, on_round=_round, verbose=False)
 
     # persist the finished run exactly like apps/hypotheses.run_council, so the Hypotheses surface renders it
     hview = ui.hypothesis_view(h)
@@ -124,21 +160,22 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
             "gate_prepass_specific": gate_prepass_specific,   # diagnostic: would the APP gate have let this through?
             "deterministic_floor": det["_floor_pass"], "min_bar_pass": min_bar,
             "stringent_bar_pass": stringent_bar, "min_criteria": min_c, "stringent_criteria": str_c,
-            "comment": g.get("comment", ""), "hypothesis": hview}
+            "comment": g.get("comment", ""), "hypothesis": hview, "llm": _m.summary()}   # LLM-6 telemetry
 
 
 # --- Arm A: Cellwright answers directly, persisted (sighted) ------------------------------------------------
 
 def run_arm_a(case: dict, agent_model: str | None) -> dict:
     """Answer the question directly with the grounded agent; persist to the sessions table; count corpus reads."""
-    from cellarium import agent
+    from cellarium import agent, observability
     from sessions import SessionStore
 
     messages = [{"role": "user", "content": case["question"]}]
     # 20 (vs the app default 12): eval questions are broad and tool-heavy, and ~half the first sweep hit the 12-turn
     # cap mid-investigation. converse now forces a final synthesis at the cap either way, but a higher budget lets
     # the harder cases actually finish exploring before wrapping.
-    final = agent.converse(messages, model=agent_model, max_turns=20)   # mutates messages in place
+    with observability.meter() as _m:   # LLM-6: meter every model call this arm makes (agent turns + synthesis)
+        final = agent.converse(messages, model=agent_model, max_turns=20)   # mutates messages in place
     reads = sum(1 for m in messages if isinstance(m.get("content"), list)
                 for b in m["content"] if isinstance(b, dict)
                 and b.get("type") == "tool_use" and b.get("name") in READ_TOOLS)
@@ -146,7 +183,7 @@ def run_arm_a(case: dict, agent_model: str | None) -> dict:
     SessionStore().put(sid, {"model": agent_model, "used_council": False,
                              "title": f"[eval {case['id']}] {case['question'][:48]}", "messages": messages})
     return {"id": case["id"], "sid": sid, "corpus_reads": reads,
-            "data_informed": reads > 0, "answer_chars": len(final or "")}
+            "data_informed": reads > 0, "answer_chars": len(final or ""), "llm": _m.summary()}   # LLM-6 telemetry
 
 
 # --- sweep -------------------------------------------------------------------------------------------------
@@ -190,7 +227,7 @@ def main():
                 r = slot["b"]
                 _log(f"    Arm B  Council [{r.get('run_id')}]  status={r['status']}  "
                      f"converged={r.get('converged')}  min={'Y' if r.get('min_bar_pass') else 'n'} "
-                     f"stringent={'Y' if r.get('stringent_bar_pass') else 'n'}")
+                     f"stringent={'Y' if r.get('stringent_bar_pass') else 'n'}{_cost_tag(r.get('llm'))}")
             except Exception as exc:
                 slot["b"] = {"id": cid, "status": "error", "error": f"{type(exc).__name__}: {exc}"}
                 _log(f"    Arm B  !! {type(exc).__name__}: {exc}")
@@ -202,7 +239,7 @@ def main():
                 slot["a"] = run_arm_a(case, a.agent_model)
                 r = slot["a"]
                 _log(f"    Arm A  Cellwright [{r.get('sid')}]  corpus-reads={r.get('corpus_reads')}  "
-                     f"-> {'data-informed' if r.get('data_informed') else 'no corpus read'}")
+                     f"-> {'data-informed' if r.get('data_informed') else 'no corpus read'}{_cost_tag(r.get('llm'))}")
             except Exception as exc:
                 slot["a"] = {"id": cid, "status": "error", "error": f"{type(exc).__name__}: {exc}"}
                 _log(f"    Arm A  !! {type(exc).__name__}: {exc}")
@@ -232,10 +269,12 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
             "n_min_bar": n_min, "n_stringent_bar": n_str,
             "gate_diagnostic": {"n_gate_prepass_pass": len(gate_pass),
                                 "note": "the eval deliberates all cases directly; this counts how many the APP "
-                                        "sufficiency-gate pre-pass would have let through unblocked."}},
+                                        "sufficiency-gate pre-pass would have let through unblocked."},
+            "llm": _llm_rollup(ok_b)},                 # LLM-6: this arm's total model-call cost/latency (est.)
         "arm_a_cellwright": {
             "n_answered": len(a_rows), "n_data_informed": a_informed,
-            "note": "Arm A reads the corpus before committing (HARKing-prone); Arm B is blind by construction."},
+            "note": "Arm A reads the corpus before committing (HARKing-prone); Arm B is blind by construction.",
+            "llm": _llm_rollup(a_rows)},               # LLM-6: this arm's total model-call cost/latency (est.)
         "ledger": led,
     }
     (RESULTS / "ab_summary.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
@@ -246,6 +285,8 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
          f"app gate pre-pass — the gate over-fires on the Council's own competency")
     _log(f"Arm A (Cellwright): answered {len(a_rows)}   data-informed {a_informed}/{len(a_rows)} "
          f"(blind Arm B = 0/{len(ok_b)} by construction)")
+    rb, ra = summary["arm_b_council"]["llm"], summary["arm_a_cellwright"]["llm"]   # LLM-6 cost/latency roll-up
+    _log(f"LLM spend (est., list price): Arm B{_cost_tag(rb)}   |   Arm A{_cost_tag(ra)}")
     _log("\n-> evals/results/ab_summary.json   ·   app backfill: Council runs in the Hypotheses surface; "
          "Arm A in the sessions table")
     _log("   score the HARKing contrast per-case with:  python scripts/ab_score.py")

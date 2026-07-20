@@ -52,7 +52,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**LLM-3**~~ | ✅ | Agent temperature — `agent.converse` now pins `temperature_for(model)` when thinking is off (skips for reasoning models / thinking), recorded per turn. Same fix as M-2. **Done** — see Completed. | A |
 | **LLM-4** | P3 | `_estimate_tokens` is `chars//4` — drive the compaction trigger from `resp.usage`/`count_tokens`. *(More actionable post-**LLM-2**: `usage_record` already publishes each call's real `resp.usage.input_tokens` on the observability bus + `converse` surfaces it per turn via `on_usage`; compare the last call's observed `input_tokens` (≈ peak context) against `_COMPACT_TRIGGER` instead of the char estimate.)* | A |
 | **LLM-5** | P3 | Standardize retry config (agent `max_retries=4` vs Council SDK default 2). | A |
-| **LLM-6** | P3 | **A/B sweep captures no cost/latency** — `evals/run_ab.py` runs the billable A/B sweep (~25 cases × 2 arms × many model calls) through the **LLM-2** seam but records nothing: `run_arm_a` calls `agent.converse` without `on_usage`, and `run_arm_b` calls `council.deliberate` directly, bypassing the `observability.meter()` that `run_council` uses to persist an `llm` aggregate. Wrap each arm in `observability.meter()` (arm A can instead pass `converse(on_usage=…)`) and write `meter.summary()` into each `ab_ledger.json` row + the `ab_summary.json` roll-up. | A |
+| ~~**LLM-6**~~ | ✅ | **A/B sweep cost/latency capture** — `evals/run_ab.py` now meters both arms via `observability.meter()`: each run's `llm` aggregate (tokens, est. USD, wall-time, per-role/model) is written into its `ab_ledger.json` row, summed per-arm into `ab_summary.json` (`_llm_rollup`, lower-bound flagged when a run is unpriced or pre-LLM-6), and shown live in the sweep log (`_cost_tag`). **Done** — see Completed. | A |
 
 ## D · Agentic systems
 
@@ -289,6 +289,19 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **LLM-6 · A/B sweep cost/latency capture** (2026-07-20) — the first consumer of the LLM-2 seam beyond the app.
+  `evals/run_ab.py` runs the billable Council-vs-Cellwright sweep (~25 cases × 2 arms × many model calls) but
+  recorded no spend. Now each arm's model calls are scoped in `observability.meter()` — Arm B around
+  `council.deliberate`, Arm A around `agent.converse` — and the meter's `summary()` (tokens, est. USD, wall-time,
+  per-role/model) is written into that run's `ab_ledger.json` row. `_llm_rollup` sums each arm's runs into
+  `ab_summary.json` (`arm_b_council.llm` / `arm_a_cellwright.llm`), setting `cost_partial` when any run was
+  unpriced **or** predates LLM-6 (a resumed ledger row with no telemetry), so the total reads as a lower bound not
+  a false exact figure; `_cost_tag` shows per-run and per-arm spend live in the sweep log. Additive to the ledger
+  schema (older rows without `llm` are handled), so a resumed sweep doesn't break. Pure helpers (`_cost_tag`,
+  `_llm_rollup`) smoke-tested; ruff green. The eval harness isn't in the pytest suite (operational tooling, like the
+  rest of `evals/`), so CI is unaffected. This makes the SP-2c fan-out-vs-deterministic benchmark measurable — it's
+  the same per-call token/latency records that benchmark needs.
 
 ## Design notes (scouted plans)
 
