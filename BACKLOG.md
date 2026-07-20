@@ -50,8 +50,9 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**LLM-1**~~ | ✅ | **Model currency + selection** — bumped runtime defaults `claude-sonnet-4-5` → `claude-sonnet-5` (agent, Council, server picker, debate eval); a picked model now drives the **Council roles** too (not just the agent), which it silently ignored before; `Auto` keeps the tuned default + per-turn router. **Done** — see Completed. | A |
 | ~~**LLM-2**~~ | ✅ | **Observability seam** — one shared `observability` module: every SDK call (`council._emit`, `agent._run_turn`, librarian) publishes a role-tagged per-call record (usage, request-id, wall-clock latency, temperature, list-price cost estimate) to a pub/sub bus; the shipped consumer is a `CostMeter` that aggregates per **Council run** (→ `run_council` meta `llm`) and per **agent turn** (→ `converse(on_usage=…)` → server `usage` SSE event). **Standalone seam commit** so Filippo rebases onto it and adds his per-round-transcript store as a SECOND subscriber (no edit to the call sites). **Done** — see Completed. | A |
 | ~~**LLM-3**~~ | ✅ | Agent temperature — `agent.converse` now pins `temperature_for(model)` when thinking is off (skips for reasoning models / thinking), recorded per turn. Same fix as M-2. **Done** — see Completed. | A |
-| **LLM-4** | P3 | `_estimate_tokens` is `chars//4` — drive the compaction trigger from `resp.usage`/`count_tokens`. | A |
+| **LLM-4** | P3 | `_estimate_tokens` is `chars//4` — drive the compaction trigger from `resp.usage`/`count_tokens`. *(More actionable post-**LLM-2**: `usage_record` already publishes each call's real `resp.usage.input_tokens` on the observability bus + `converse` surfaces it per turn via `on_usage`; compare the last call's observed `input_tokens` (≈ peak context) against `_COMPACT_TRIGGER` instead of the char estimate.)* | A |
 | **LLM-5** | P3 | Standardize retry config (agent `max_retries=4` vs Council SDK default 2). | A |
+| **LLM-6** | P3 | **A/B sweep captures no cost/latency** — `evals/run_ab.py` runs the billable A/B sweep (~25 cases × 2 arms × many model calls) through the **LLM-2** seam but records nothing: `run_arm_a` calls `agent.converse` without `on_usage`, and `run_arm_b` calls `council.deliberate` directly, bypassing the `observability.meter()` that `run_council` uses to persist an `llm` aggregate. Wrap each arm in `observability.meter()` (arm A can instead pass `converse(on_usage=…)`) and write `meter.summary()` into each `ab_ledger.json` row + the `ab_summary.json` roll-up. | A |
 
 ## D · Agentic systems
 
@@ -61,7 +62,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | **SP-1b** | P2 | **Explicit Cellwright write-back** — when the agent *revises or invalidates* a specific Council design (rather than just running it), record that delta on the Hypothesis and surface the Council-vs-Cellwright diff. Needs a session↔hypothesis link + an agent-side write; the SP-1 queue/corpus derivation already covers the "did it run?" half. | A |
 | ~~**SP-2**~~ | ✅ core | **Cellwright receptive field** — shipped the host core: `read_raw_series` **extrema-preserving (min–max)** decimation + loss report, a new **`scan_series`** transient/level-shift tool (MAD-prominence + width gate + FDR), and `top_movers` **informative truncation** ("k of N significant dropped"). Verified on real 10k-step trajectories. **Done (core)** — see Completed; remaining pieces → **SP-2b**. | A |
 | ~~**SP-2b**~~ | ✅ | **Receptive field — completion** — shipped the **mid-rank stratified sample** (`_reader_worker` → `top_movers.truncation.mid_rank_examples`), **`scan_overview`** (deterministic anomaly map across a design's channels — the numpy map-reduce, no LLM fan-out), and a deterministic **receptive-field eval** (needle recovered / coarse view misses it / null control / mid-rank surfaced). **Done** — see Completed. Agentic remainder → **SP-2c**. | A |
-| **SP-2c** | P3 | **Receptive field — agentic** — an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; and the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce). **Plan (after LLM-2):** build both AND a head-to-head **benchmark of deterministic `scan_overview` vs a full fan-out** — recall, token cost, latency — as a paper artifact quantifying *when* fan-out earns its ~15× cost. | A |
+| **SP-2c** | P3 | **Receptive field — agentic** — an *agent-graded* run eval (does Cellwright choose to scan + report the needle; NoLiMa paraphrased probe) — needs an agent-tool-use harness beyond the Council-grading `evals/cases.py`; and the true **LLM-worker map-reduce** (sub-agents on scan-flagged segments, extractive reduce). **Ready (LLM-2 landed 2026-07-20):** build both AND a head-to-head **benchmark of deterministic `scan_overview` vs a full fan-out** — recall, token cost, latency — as a paper artifact quantifying *when* fan-out earns its ~15× cost; the per-call token/cost/latency records from **LLM-2** (`observability`) now supply the token/latency measurements this benchmark needs. | A |
 | **AG-1** | P2 | Launch queue is a lock-free JSON read-modify-write at a relative path — file lock (or move into SQLite) + absolute config-rooted path. | A |
 | **AG-2** | P2 | 38 tools + ~4 KB router prompt — consolidate overlapping tools; track tool-selection error rate in the eval. | A |
 | **AG-3** | P3 | Dispatch: explicit unknown-tool guard + semantic input validation test. | A |
@@ -283,7 +284,7 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   unpriced model. Wired at both real call sites: `council._emit` (role `proposer`/`skeptic`/`judge`/`gate`) + the
   librarian web call, and `agent._run_turn` (role `agent`/`summary`). Surfaced two aggregates: **per Council run** →
   `run_council` meta `llm`; **per agent turn** → `agent.converse(on_usage=…)` → server `usage` SSE event. Tests
-  (`test_observability.py`, 12): record shape + graceful degradation, cost math + cache multipliers + prefix/unknown
+  (`test_observability.py`, 9): record shape + graceful degradation, cost math + cache multipliers + prefix/unknown
   pricing, meter scoping/unsubscribe + `cost_partial`, faulty-subscriber isolation, and two integration checks that
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
@@ -354,9 +355,11 @@ Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/co
   temperature, cost_usd}`.
   **For Filippo:** `git rebase origin/main` (you're docs-only, zero code overlap with the seam files), then add
   your per-round transcript store as a SECOND consumer — `observability.subscribe(fn)` where `fn(record)` writes
-  `{tokens, request_id, latency}` next to each round's messages. You do NOT touch `council._emit` / `agent.converse`
-  — one publish point, two subscribers. The record `role` is already `proposer`/`skeptic`/`judge`/`gate`, so you can
-  key transcript rows by role directly. The shipped consumer is `CostMeter` (`meter()` context manager); mirror it.
+  `{tokens, request_id, latency}` next to each round's messages. You do NOT touch `council._emit` / `agent._run_turn`
+  — one publish point, two subscribers. **Join key: `request_id`** (unique per call). `role` is
+  `proposer`/`skeptic`/`judge`/`gate` but REPEATS across the up-to-4 rounds, so role alone collides — match each
+  record to the exact call you stored by `request_id` (records also arrive in call order within a subscription
+  scope if you need sequencing). The shipped consumer is `CostMeter` (`meter()` context manager); mirror it.
 
 ## Provenance
 This backlog replaced three task docs, now **removed** (recoverable from git history at commit `55ed67f`):

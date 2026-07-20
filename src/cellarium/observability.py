@@ -106,10 +106,11 @@ def usage_record(role: str, model: str | None, resp, latency_ms: float, *,
 
 
 # --- publish / subscribe: one publish point, pluggable consumers -------------------------------------------
-# emit() fans each record to every registered subscriber. council._emit and agent._run_turn are the ONLY
-# publishers; LLM-2's CostMeter is the one shipped consumer; a transcript-persistence layer can be a second by
-# calling subscribe() — no edit to the two call sites. A lock keeps the subscriber list coherent (the agent and
-# Council never truly run concurrently in the single-user app, but the invariant is cheap to hold).
+# emit() fans each record to every registered subscriber. The publishers are council._emit (the Council roles +
+# the sufficiency gate), council.web_research (the librarian web_search call), and agent._run_turn (the agent
+# turns + the forced synthesis); LLM-2's CostMeter is the one shipped consumer; a transcript-persistence layer can
+# be a second by calling subscribe() — no edit to the call sites. A lock keeps the subscriber list coherent (the
+# agent and Council never truly run concurrently in the single-user app, but the invariant is cheap to hold).
 _subscribers: list = []
 _lock = threading.Lock()
 
