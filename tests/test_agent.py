@@ -40,6 +40,42 @@ def test_converse_configures_sdk_retry_backoff(monkeypatch):
         "converse must construct anthropic.Anthropic(max_retries=...) for 429/5xx backoff"
 
 
+def test_context_tokens_prefilters_then_counts_exact():
+    """LLM-4: below the pre-filter band -> the cheap char estimate (count_tokens NOT called); above the band -> the
+    API's exact count_tokens; a count_tokens failure falls back to the estimate so a turn is never blocked."""
+    small = [{"role": "user", "content": "hi"}]
+
+    class _NoCount:                                    # count_tokens must NOT be reached below the band
+        class messages:
+            @staticmethod
+            def count_tokens(**kw):
+                raise AssertionError("count_tokens called below the pre-filter band")
+
+    below = agent._estimate_tokens(small) + agent._prompt_overhead_est("sys", [])
+    assert agent._context_tokens(_NoCount(), "m", "sys", [], small) == below   # whole-prompt estimate, no API call
+
+    big = [{"role": "user", "content": "x" * 200_000}]   # est ~50k >> 0.75*trigger -> the exact-count path
+
+    class _Count:
+        class messages:
+            @staticmethod
+            def count_tokens(**kw):
+                class _R:
+                    input_tokens = 12345
+                return _R()
+
+    assert agent._context_tokens(_Count(), "m", "sys", [], big) == 12345   # uses the exact API count
+
+    class _Boom:
+        class messages:
+            @staticmethod
+            def count_tokens(**kw):
+                raise RuntimeError("no network")
+
+    fallback = agent._estimate_tokens(big) + agent._prompt_overhead_est("sys", [])
+    assert agent._context_tokens(_Boom(), "m", "sys", [], big) == fallback   # safe fallback to the whole-prompt est
+
+
 def test_temperature_for_pins_except_reasoning_and_thinking():
     """M-2/LLM-3: pin temperature for models that accept it with thinking off; omit for reasoning models / thinking."""
     assert agent.temperature_for("claude-sonnet-5") == agent.TEMPERATURE

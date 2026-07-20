@@ -226,7 +226,7 @@ def _is_thinking_error(exc) -> bool:
 # turns verbatim) so token cost + latency stay flat and we never hit the context window. Compaction happens only
 # at a turn boundary (start of converse), never mid-tool-loop, so tool_use/tool_result pairing is never broken.
 _SUMMARY_MODEL = os.environ.get("CELLARIUM_SUMMARY_MODEL", "claude-haiku-4-5-20251001")
-_COMPACT_TRIGGER = int(os.environ.get("CELLARIUM_COMPACT_TOKENS", "24000"))  # ~est input tokens
+_COMPACT_TRIGGER = int(os.environ.get("CELLARIUM_COMPACT_TOKENS", "24000"))  # real input tokens (see _context_tokens)
 _KEEP_RECENT_TURNS = 3
 
 
@@ -240,6 +240,33 @@ def _estimate_tokens(messages: list) -> int:
             for b in c:
                 total += len(json.dumps(b, default=str)) if isinstance(b, dict) else len(str(getattr(b, "text", "") or "")) + 40
     return total // 4
+
+
+def _prompt_overhead_est(system, tools) -> int:
+    """Cheap char//4 estimate of the FIXED prompt overhead — the system prompt + tool schemas — that `count_tokens`
+    counts but `_estimate_tokens(messages)` omits (~11k tokens here: ~2.7k system + ~9k tool defs). Folding it into
+    the estimate makes both the pre-filter band and the count_tokens-unavailable fallback comparable to
+    `_COMPACT_TRIGGER`, which counts the whole prompt — otherwise the trigger effectively fires ~overhead late."""
+    n = len(system) if isinstance(system, str) else len(json.dumps(system, default=str))
+    n += len(json.dumps(list(tools), default=str))
+    return n // 4
+
+
+def _context_tokens(client, model, system, tools, messages) -> int:
+    """The prompt token count that drives the compaction decision (LLM-4). The char//4 heuristic is only a cheap
+    PRE-FILTER over the WHOLE prompt (messages + the fixed system+tools overhead): once it says we're within ~25% of
+    the trigger, we get the EXACT count from the API's own tokenizer via `count_tokens` — which the heuristic
+    mis-sizes for JSON tool results, and which counts system + tools + history (cache markers add no tokens, so the
+    raw `SYSTEM`/`tools.TOOLS`/`messages` we pass are token-equal to the cache-marked prompt actually sent).
+    count_tokens failing (offline / a mock client / a transient error) falls back to the estimate, so this never
+    blocks a turn. The trigger is therefore compared against real tokens, not char//4 proxy-tokens."""
+    est = _estimate_tokens(messages) + _prompt_overhead_est(system, tools)
+    if est < int(_COMPACT_TRIGGER * 0.75):   # whole-prompt estimate comfortably below the trigger -> estimate decides
+        return est
+    try:
+        return int(client.messages.count_tokens(model=model, system=system, tools=tools, messages=messages).input_tokens)
+    except Exception:
+        return est   # count_tokens unavailable / errored -> fall back to the (whole-prompt) estimate, never block
 
 
 def _split_turns(messages: list) -> list:
@@ -364,7 +391,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
 
     _sanitize(messages)   # repair any output-only fields from a session saved before the input-field whitelist
 
-    if _estimate_tokens(messages) > _COMPACT_TRIGGER:   # bound the growing context at the turn boundary
+    # bound the growing context at the turn boundary — decide on the REAL token count (LLM-4), not the char estimate
+    if _context_tokens(client, mdl, SYSTEM, tools.TOOLS, messages) > _COMPACT_TRIGGER:
         before = len(messages)
         messages[:] = compact_history(messages, model=_SUMMARY_MODEL)
         if on_note is not None and len(messages) < before:
