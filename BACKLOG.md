@@ -361,6 +361,27 @@ Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/co
   record to the exact call you stored by `request_id` (records also arrive in call order within a subscription
   scope if you need sequencing). The shipped consumer is `CostMeter` (`meter()` context manager); mirror it.
 
+  **Scope boundary (be aware):** the record is **metadata-only** — tokens/ids/latency/cost, NO message content and
+  NO round index. So "no call-site edit" is fully true for the **cost/latency sidecar**, but the *transcript
+  content* (your actual method gap) comes from elsewhere: cheapest is to persist what `deliberate`'s existing
+  `on_round(...)` callback already emits per round (`{round, proposer:{claim,h1,h0}, skeptic:[objections],
+  judge:{verdict}}` — already streamed + stored by `run_council` via `store.append_round`, zero new instrumentation);
+  raw message-level transcripts (exact system+payload+tool response per call) live inside `_emit` and would need a
+  small capture hook there. Also note `_emit` retries up to 2× on a degenerate emit and publishes a record EACH
+  attempt — so one round's proposer can yield two records with the same `role`, distinguished only by `request_id`.
+
+  **Two paths to attribute a record to its round** (pick per how much of `deliberate` you're already editing):
+  1. **Scope-based (recommended — no id juggling):** open a nested `with observability.meter() as m:` around each
+     round's calls inside `deliberate`'s loop. Fan-out means that per-round meter captures *exactly* that round's
+     2–3 calls, so `m.summary()` IS the round's cost/latency directly — no `request_id` correlation needed. Cost:
+     one tiny edit inside the loop (your territory, since you're editing `deliberate` for the transcript anyway).
+  2. **Pure-subscribe (no edit to `deliberate`):** subscribe globally and join records to rounds by `request_id`.
+     The bus doesn't tag records with a round, so you need the round↔`request_id` map from somewhere — thread
+     `resp._request_id` into the `on_round` payload (one line in `deliberate`), or read `resp._request_id` at your
+     own content-capture point so both sides share the id. Do NOT rely on call **ordering** to infer round
+     membership: it holds only on the full-system happy path and breaks under ablations (skeptic/judge off) or a D3
+     `continue` (re-propose). `request_id`, not position, is the robust correlator.
+
 ## Provenance
 This backlog replaced three task docs, now **removed** (recoverable from git history at commit `55ed67f`):
 `POST_HACKATHON_AUDIT.md` (the file:line audit evidence), `POST_HACKATHON_TODO.md` (deferred work), and
