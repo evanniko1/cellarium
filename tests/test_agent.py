@@ -10,6 +10,7 @@ the agent CAUGHT the error and returned a friendly "rate limit / retry" string. 
 retries and the exception propagates — so the assertion is rewritten to main's actual behavior.)
 """
 
+import json
 import os
 import sys
 
@@ -134,3 +135,51 @@ def test_converse_forces_final_synthesis_when_tool_budget_exhausted(monkeypatch)
     assert any(b.get("type") == "text" for b in messages[-1]["content"])
     # 3 in-loop turns leave tool_choice unset, then ONE wrap call forbids tools via tool_choice=none
     assert client.messages.tool_choices == [None, None, None, "none"]
+
+
+def test_truncate_tool_result_shrinks_lists_and_stays_valid_json():
+    """DD-ENG-2: a bulky tool result is trimmed by dropping list ROWS (keeping scalars + provenance), not by a blind
+    char-slice that would cut JSON mid-structure. The result must still parse and carry an honest drop-marker."""
+    big = {"channel": "growth_rate", "provenance": "manifest",
+           "rows": [{"i": i, "v": round(i * 1.5, 2)} for i in range(400)]}
+    s = agent._truncate_tool_result(big, 800)
+    assert len(s) <= 800
+    parsed = json.loads(s)                                  # still VALID json (not severed) — the whole point
+    assert parsed["channel"] == "growth_rate" and parsed["provenance"] == "manifest"   # scalars/provenance survive
+    assert len(parsed["rows"]) < 400 and "dropped to fit context" in json.dumps(parsed["rows"][-1])
+
+
+def test_truncate_tool_result_passes_small_and_falls_back_on_non_dict():
+    small = {"ok": True, "n": 3}
+    assert json.loads(agent._truncate_tool_result(small, 800)) == small     # small -> unchanged
+    big_list = list(range(5000))                                            # non-dict -> char-slice fallback, bounded
+    out = agent._truncate_tool_result(big_list, 200)
+    assert len(out) <= 200 + len(" …[truncated]") and out.endswith("…[truncated]")
+
+
+def test_converse_circuit_breaker_stops_on_repeated_identical_tool_call(monkeypatch):
+    """DD-ENG-3: an identical (tool, args) call repeated _REPEAT_CAP times means the agent is stuck — converse must
+    break out and force a synthesis instead of burning all max_turns spinning on the same call."""
+    from cellarium import tools
+
+    class _Blk:
+        type = "tool_use"; id = "t1"; name = "viability"; input = {"perturbation": "gene_knockout"}
+
+        def model_dump(self):
+            return {"type": "tool_use", "id": "t1", "name": "viability", "input": {"perturbation": "gene_knockout"}}
+
+    class _Resp:
+        stop_reason = "tool_use"; content = [_Blk()]
+
+    calls = {"n": 0}
+
+    def fake_run_turn(client, kw, on_text, role="agent"):
+        calls["n"] += 1
+        return _Resp()
+
+    monkeypatch.setattr(agent, "_run_turn", fake_run_turn)
+    monkeypatch.setattr(agent.anthropic, "Anthropic", lambda **k: object())
+    monkeypatch.setattr(tools, "dispatch", lambda n, a: {"value": 1})     # always succeeds, always identical
+    agent.converse([{"role": "user", "content": "hi"}], model="claude-haiku-4-5-20251001", max_turns=30)
+    # 3 identical rounds trip the breaker, then ONE forced-synthesis call — far below the 30-turn budget
+    assert calls["n"] <= agent._REPEAT_CAP + 2

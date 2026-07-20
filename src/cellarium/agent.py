@@ -118,8 +118,8 @@ SYSTEM = (
     "- You are CELLWRIGHT, the grounded agent. CELLARIUM is the platform: a corpus of whole-cell E. coli "
     "(K-12 MG1655) simulations with a reasoning layer. A Socratic Council first operationalizes a question into a "
     "falsifiable hypothesis BLIND to the data; then you (Cellwright) answer it strictly from real simulation runs "
-    "via ~25 tools; you cannot state a number you did not read from a tool, and you cannot launch a simulation — a "
-    "human approves every new run.\n"
+    f"via {len(tools.TOOLS)} grounded tools; you cannot state a number you did not read from a tool, and you cannot "
+    "launch a simulation — a human approves every new run.\n"
     "- THE MODEL is the Covert-lab whole-cell model (wcEcoli): a mechanistic single-cell simulation integrating "
     "metabolism (FBA), transcription, translation, replication and regulation over a cell cycle. Its regime is "
     "dynamic/regulatory/single-cell, complementary to steady-state FBA. Its known boundary: the FBA objective is "
@@ -214,6 +214,35 @@ def _prefix_cached(messages: list) -> list:
 # extended-thinking budgets (reasoning strength). budget_tokens must be >=1024 and < max_tokens.
 _REASON = {"none": 0, "low": 2048, "high": 8000}
 _TOOL_CAP = 6000   # trim a bulky tool_result before it re-enters the growing context (e.g. species panels)
+_REPEAT_CAP = 3    # DD-ENG-3: identical (tool, args) calls this many times in a turn -> the agent is stuck (no progress)
+_ERR_CAP = 3       # DD-ENG-3: this many consecutive rounds where EVERY tool call errored -> stuck
+
+
+def _truncate_tool_result(out: dict, cap: int) -> str:
+    """DD-ENG-2: bound a tool result WITHOUT a blind char-slice that could cut JSON mid-structure and silently drop
+    the tail of a list (a severed survey/panel/top_movers is a provenance hole — the number→tool chain the project
+    exists to preserve). Keep the JSON valid and the scalar/provenance fields intact; shrink the biggest LIST fields
+    (rows) instead, recording how many items were dropped so the trim is honest, not hidden."""
+    s = json.dumps(out)
+    if len(s) <= cap:
+        return s
+    if not isinstance(out, dict):
+        return s[:cap] + " …[truncated]"                     # non-dict -> nothing to shrink structurally
+    out = dict(out)
+    reserve = 120                                            # leave room for the drop-marker so we stay under `cap`
+    list_keys = sorted((k for k, v in out.items() if isinstance(v, list) and v),
+                       key=lambda k: -len(json.dumps(out[k])))
+    for k in list_keys:
+        n_full = len(out[k])
+        while len(json.dumps(out)) > cap - reserve and out[k]:
+            out[k] = out[k][:max(0, len(out[k]) - max(1, len(out[k]) // 4))]
+        dropped = n_full - len(out[k])
+        if dropped:
+            out[k] = out[k] + [f"…[{dropped} more '{k}' item(s) dropped to fit context — refine the query to see them]"]
+        if len(json.dumps(out)) <= cap:
+            break
+    s = json.dumps(out)
+    return s if len(s) <= cap else s[:cap] + " …[truncated]"  # last resort: scalars alone exceed cap
 
 
 def _is_thinking_error(exc) -> bool:
@@ -403,6 +432,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     # guarantees we unsubscribe (no leaked subscription) and hand the aggregate to on_usage on EVERY exit path.
     meter = observability.CostMeter()
     unsubscribe = observability.subscribe(meter)
+    _call_counts: dict = {}        # DD-ENG-3: (tool, args) -> count across the turn, for the no-progress breaker
+    consec_error_rounds = 0
     try:
         for _ in range(max_turns):
             kw = dict(model=mdl, system=system, tools=tool_defs, messages=_prefix_cached(messages))
@@ -437,17 +468,25 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                 return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
 
             results = []
+            round_all_errors = True
             for tu in tool_uses:
                 out = tools.dispatch(tu.name, tu.input)
+                if not (isinstance(out, dict) and out.get("error")):
+                    round_all_errors = False
+                sig = (tu.name, json.dumps(tu.input, sort_keys=True, default=str))   # DD-ENG-3 no-progress signature
+                _call_counts[sig] = _call_counts.get(sig, 0) + 1
                 if verbose:
                     print(f"  tool {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
                 if on_tool is not None:
                     on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
-                content = json.dumps(out)
-                if len(content) > _TOOL_CAP:              # keep the growing context lean
-                    content = content[:_TOOL_CAP] + ' …[truncated]'
-                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": content})
+                results.append({"type": "tool_result", "tool_use_id": tu.id,
+                                "content": _truncate_tool_result(out, _TOOL_CAP)})   # DD-ENG-2: structure-aware trim
             messages.append({"role": "user", "content": results})
+            # DD-ENG-3 circuit breaker: an identical call repeated, or several all-error rounds, means the agent is
+            # stuck — stop looping and fall through to the forced synthesis rather than burn the whole budget spinning.
+            consec_error_rounds = consec_error_rounds + 1 if round_all_errors else 0
+            if max(_call_counts.values(), default=0) >= _REPEAT_CAP or consec_error_rounds >= _ERR_CAP:
+                break
 
         # Tool budget exhausted while the agent was still calling tools: force ONE final synthesis with tools
         # DISABLED, so a turn ALWAYS ends with a real answer instead of a dangling tool_result. Without this a
@@ -475,8 +514,11 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             on_usage(meter.summary())
 
 
-def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True, on_tool=None,
+def run(question: str, *, hypothesis=None, max_turns: int | None = None, verbose: bool = True, on_tool=None,
         model: str | None = None) -> str:
-    """One-shot convenience: seed a fresh conversation and run it to an answer (used by the CLI / orchestrate)."""
+    """One-shot convenience: seed a fresh conversation and run it to an answer (used by the CLI / orchestrate).
+    max_turns=None inherits converse()'s default — DD-ENG-3 made converse the single source of the budget (was a
+    stale 8 here vs converse's 12)."""
     messages: list = [{"role": "user", "content": first_user_content(question, hypothesis)}]
-    return converse(messages, model=model, on_tool=on_tool, max_turns=max_turns, verbose=verbose)
+    kw = {} if max_turns is None else {"max_turns": max_turns}
+    return converse(messages, model=model, on_tool=on_tool, verbose=verbose, **kw)
