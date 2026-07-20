@@ -30,6 +30,23 @@ const safe = (strings, ...values) =>
 const trunc = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…" : String(s));
 const newSid = () => "s_" + Math.random().toString(36).slice(2, 10);
 const fmtElapsed = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+// UX-2: one standardized, accessible inline error placed next to the control that failed — replaces the jarring,
+// unstyled browser alert()s. role="alert" so it's announced; a Retry re-runs the failed action; dismissable; only
+// one per control (a fresh error replaces the prior one).
+function inlineError(anchor, message, onRetry) {
+  const nx = anchor.nextElementSibling;
+  if (nx && nx.classList && nx.classList.contains("inline-err")) nx.remove();
+  const box = el("div", "inline-err"); box.setAttribute("role", "alert");
+  box.appendChild(el("span", "ie-msg", safe`${message}`));
+  if (onRetry) { const b = el("button", "ie-retry", "Retry"); b.onclick = () => { box.remove(); onRetry(); }; box.appendChild(b); }
+  const x = el("button", "ie-x", "✕"); x.setAttribute("aria-label", "Dismiss error"); x.onclick = () => box.remove();
+  box.appendChild(x);
+  anchor.insertAdjacentElement("afterend", box);
+  announce("Error: " + String(message));
+  return box;
+}
+// UX-2: mark the conversation region busy for assistive tech while a turn streams (aria-busy).
+function setThreadBusy(busy) { const t = $("#thread"); if (t) t.setAttribute("aria-busy", busy ? "true" : "false"); }
 const KEY = "cellarium.invs";
 
 const state = { invs: [], cur: null, model: null, reasoning: "none", poll: null, results: null,
@@ -86,7 +103,7 @@ function saveInvs() {
 function curCouncil() { return state.cur ? state.cur.council : { rounds: [], hyp: null, designs: [] }; }
 
 function resetToHero() {
-  state.cur = null; state.viewingServer = null; $("#thread").innerHTML = ""; $("#app").classList.remove("app-chatting");
+  state.cur = null; state.viewingServer = null; $("#thread").innerHTML = ""; setThreadBusy(false); $("#app").classList.remove("app-chatting");
   $("#convoTitle").textContent = ""; clearTimeout(state.poll);
   renderFigures(null); closeDrawers(); renderSidebar(); updateSend(); $("#q").focus();
 }
@@ -94,6 +111,7 @@ function openInv(inv) {
   state.cur = inv; state.viewingServer = null; inv.unread = false; $("#thread").innerHTML = "";
   (inv.turns || []).forEach(replayTurn);
   if (inv.running && inv._live) $("#thread").appendChild(inv._live.root);   // re-attach the still-streaming turn (keeps updating live)
+  setThreadBusy(!!inv.running);   // UX-2: aria-busy tracks the opened conversation's running state
   $("#app").classList.toggle("app-chatting", (inv.turns || []).length > 0 || !!inv.running);
   $("#convoTitle").textContent = inv.title || "";
   renderFigures(inv);
@@ -289,6 +307,7 @@ function stream(question) {
   const ac = new AbortController(); inv._abort = ac;   // so a Stop click can cancel this stream
   inv.running = true; updateSend(); renderSidebar();   // show the pulsing activity bullet immediately (incl. backgrounded chats)
   const turn = assistantTurn();
+  if (state.cur === inv) setThreadBusy(true);   // UX-2: the viewed conversation is busy while its turn streams
   inv._live = turn;   // remember the in-flight turn's DOM so we can re-attach it after navigating away and back
   const ct = { q: question, hyp: null, tools: [], answer: null, trust: null, model: null, routed: false };
   inv._ct = ct;   // expose the in-flight turn so the Figures panel can index charts before the turn is committed
@@ -313,6 +332,7 @@ function stream(question) {
     finally {
       clearInterval(timer);
       inv.running = false; inv._live = null; inv._abort = null; inv._ct = null;
+      if (state.cur === inv) setThreadBusy(false);   // UX-2: turn finished -> the viewed conversation is idle
       if (ct.answer != null) { inv.turns.push(ct); saveInvs(); }   // persist only completed turns; failed/stopped stay retryable
       if (state.cur !== inv && ct.answer != null) inv.unread = true;   // finished in the background -> mark unread
       renderSidebar();   // flip the bullet from pulsing (active) to a solid unread dot (or clear it) on this row
@@ -334,7 +354,7 @@ function handle(kind, data, turn, ct, inv) {
     turn.status(`Calling ${data.tool}…`);
   }
   else if (kind === "text") { turn.text(data.delta); turn.status("Responding…"); }
-  else if (kind === "note") { turn.note(data.message); }
+  else if (kind === "note") { turn.progress(data.message); }   // UX-2: "done/total" notes -> a determinate bar
   else if (kind === "answer") {
     ct.answer = data.answer; ct.trust = data.trust || {}; ct.model = data.model; ct.routed = !!data.routed;
     turn.answer(data); turn.badge(data.model, data.routed); if (viewing) refreshQueue();
@@ -349,7 +369,7 @@ function assistantTurn(replay) {
   const statusEl = el("div", "status-line hidden", `<span class="dot-pulse"></span><span class="st"></span><span class="st-timer"></span>`);
   const noteSlot = el("div"), hypSlot = el("div"), trailSlot = el("div"), figSlot = el("div"), ansSlot = el("div");
   root.append(statusEl, noteSlot, hypSlot, trailSlot, figSlot, ansSlot);
-  $("#thread").appendChild(root); let trail = null, liveEl = null, liveRaw = "";
+  $("#thread").appendChild(root); let trail = null, liveEl = null, liveRaw = "", progBar = null;
   const scroll = () => { if (root.isConnected) scrollBottom(); };   // a background stream must not scroll the current view
   const liveBody = () => { if (!liveEl) { liveEl = el("div", "answer"); liveEl.appendChild(el("div", "answer-body live", "")); ansSlot.appendChild(liveEl); liveRaw = ""; } return liveEl.querySelector(".answer-body"); };
   const dropLive = () => { if (liveEl) { liveEl.remove(); liveEl = null; liveRaw = ""; } };
@@ -360,6 +380,25 @@ function assistantTurn(replay) {
     done() { statusEl.remove(); if (trail) trail.settle(); announce("Response ready."); },
     settle() { if (trail) trail.settle(); },
     note(msg) { noteSlot.appendChild(el("div", "compact-note", esc(msg))); scroll(); },
+    // UX-2: a long op that reports "done/total" (e.g. the raw-simOut download) renders a DETERMINATE progress bar
+    // that updates in place, instead of stacking one text note per tick. Non-count notes fall back to a text note.
+    progress(msg) {
+      const m = /(\d+)\s*\/\s*(\d+)/.exec(String(msg));
+      if (!m) { this.note(msg); return; }
+      const done = +m[1], total = +m[2], label = String(msg).split("—")[0].trim() || "Working";
+      if (!progBar) {
+        progBar = el("div", "op-progress");
+        progBar.appendChild(el("div", "op-label", esc(label)));
+        const p = el("progress", "op-bar"); p.setAttribute("aria-label", label);
+        const cnt = el("div", "op-count");
+        progBar._p = p; progBar._cnt = cnt; progBar.append(p, cnt);
+        noteSlot.appendChild(progBar);
+      }
+      progBar._p.max = total; progBar._p.value = done;
+      progBar._cnt.textContent = done + " / " + total;
+      announce(label + " — " + done + " of " + total);
+      scroll();
+    },
     text(delta) { const b = liveBody(); liveRaw += delta; b.innerHTML = md(liveRaw); scroll(); },   // live markdown as it streams
     hyp(v) {
       const c = el("div", "hyp-chip");   // legacy: only fires when replaying an old investigation that used the in-chat Council
@@ -747,7 +786,7 @@ function designEl(dv, i) {
     btn.disabled = true; btn.textContent = "Queuing…";
     const res = await postJSON("/api/propose", { perturbation: dv.perturbation, condition: dv.condition, timeline: dv.timeline, params: dv.params || {}, gene: (dv.genes && dv.genes[0]) || null, seeds: +iS.value, generations: +iG.value, source: state._hypSource || {} });
     btn.disabled = false; btn.textContent = "Queue →";
-    if (res.error) { alert(res.error); return; }
+    if (res.error) { inlineError(btn, res.error, () => btn.onclick()); return; }
     await refreshQueue(); openDrawer("queue");
   };
   ctr.append(sS, sG, btn); c.appendChild(ctr); return c;
@@ -766,7 +805,7 @@ function designTable(run) {   // the falsifier panel as a scannable table — de
   qall.onclick = async () => {   // one atomic call — the whole panel at the Council's proposed scale, controls included
     qall.disabled = true; qall.textContent = "Queuing panel…";
     const res = await postJSON("/api/propose_panel", { hyp_id: run.id, question: run.question });
-    if (res.error) { qall.disabled = false; qall.textContent = `Queue all ${needs.length} → airlock`; alert(res.error); return; }
+    if (res.error) { qall.disabled = false; qall.textContent = `Queue all ${needs.length} → airlock`; inlineError(qall, res.error, () => qall.onclick()); return; }
     qall.textContent = "Panel queued ✓";
     await refreshQueue(); openDrawer("queue");
   };
@@ -814,7 +853,7 @@ function designRow(dv) {
       q.disabled = true; q.textContent = "…";
       const res = await postJSON("/api/propose", { perturbation: dv.perturbation, condition: dv.condition, timeline: dv.timeline,
         params: dv.params || {}, gene: (dv.genes && dv.genes[0]) || null, seeds: dv.seeds || 1, generations: dv.generations || 1, source: state._hypSource || {} });
-      if (res.error) { q.disabled = false; q.textContent = "Queue"; alert(res.error); return; }
+      if (res.error) { q.disabled = false; q.textContent = "Queue"; inlineError(q, res.error, () => q.onclick()); return; }
       q.classList.add("queued"); q.textContent = "✓ Queued"; await refreshQueue();
     };
     act.appendChild(q);

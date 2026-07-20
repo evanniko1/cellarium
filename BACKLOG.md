@@ -74,7 +74,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 |----|---|------|-----|
 | ~~**UX-1**~~ | ✅ | **Accessibility** (WCAG 2.2 AA) — added a polite ARIA live region (status + completion announced during streaming), accessible names on every icon control, a `main` landmark + labeled `dialog`s + skip link, proper `tablist` roles with roving tabindex + arrow-key nav, keyboard-operable recents, a `:focus-visible` ring, and reduced-motion. Verified via the live a11y tree. **Done** — see Completed. | A |
 | ~~**D-1**~~ | ✅ | `innerHTML` escaping — hardened `esc()` to also escape quotes (attribute-safe), added a `safe`-tagged auto-escaping template helper, fixed the two genuine unescaped-data sinks (design `genes`, a clear-queue error), and added a **CI lint** (`test_frontend_safety.py`) that fails on any new raw data interpolation into an HTML string. Audit confirmed the named sinks (Council falsifier, corpus rows, queue `from_question`) were already escaped. **Done** — see Completed. | A |
-| **UX-2** | P2 | Standardize loading / empty / error / retry states + `aria-busy`; long ops (download, sim) show determinate progress. | A |
+| ~~**UX-2**~~ | ✅ | **Standardized states** — one accessible `inlineError(anchor, msg, onRetry)` (`role="alert"` + a Retry that re-runs the failed action + dismiss) replaces the three jarring `alert()`s on the propose/queue paths; `aria-busy` on `#thread` tracks the viewed conversation's streaming state (`setThreadBusy`, wired through stream start/finally + open + reset); and long ops that report `done/total` (the raw-simOut download) now render a **determinate `<progress>` bar** that updates in place instead of stacking text notes. **Done** — see Completed. | A |
 | **D-2** | P3 | No dark mode in the app (`prefers-color-scheme` unused) though the report is theme-aware — add a theme or state single-theme intent. | A |
 | **D-3** | P3 | Split the monolithic `app.js` (1447 ln) / `style.css` when it grows. | A |
 | **UX-3** | P3 | Add a minimal Playwright/DOM smoke test for the SPA. | A |
@@ -289,6 +289,19 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **UX-2 · Standardized loading / error / progress states** (2026-07-20) — the SPA's streaming chat already had good
+  states (status / error / retry / a polite live region from UX-1); this standardized the rest. (1) A single
+  accessible `inlineError(anchor, message, onRetry)` helper — `role="alert"` so it's announced, a **Retry** that
+  re-runs the exact failed action, and a dismiss — replaces the three jarring browser `alert()`s on the propose /
+  queue-panel / per-design-queue error paths (they now show a styled inline error next to the control, matching the
+  design tokens). (2) **`aria-busy`** on `#thread` now tracks the viewed conversation's streaming state via
+  `setThreadBusy`, wired through the stream start + `finally`, `openInv`, and `resetToHero`, so assistive tech knows
+  when a turn is in flight. (3) A long op that reports `done/total` — the raw-simOut Hugging Face download — renders
+  a **determinate `<progress>` bar** (`turn.progress` parses the count and updates one bar in place) instead of
+  stacking a text note per tick, announced for AT. Frontend-only: the XSS-escaping lint (`test_frontend_safety`)
+  passes, node confirms valid JS, and the new components + ARIA roles were verified rendering live in the browser
+  (no console errors). CI unaffected (no Python changed).
 
 - **H-2 · Import-sort hygiene** (2026-07-20) — the base `[tool.ruff]` / `[tool.mypy]` / `[tool.pytest]` config was
   already in `pyproject.toml` (shipped with H-1), so this tightened it: added **import-sorting (`I`)** to the ruff

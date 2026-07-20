@@ -402,6 +402,24 @@ svg{display:block}
 
 .errbox{background:var(--red-tint); border:1px solid #E9C9C3; color:#7d3128; border-radius:12px; padding:13px 15px; font-size:13.5px}
 
+/* UX-2: standardized inline error (replaces alert()) — compact, sits next to the control that failed */
+.inline-err{display:flex; align-items:center; gap:8px; margin-top:8px; padding:8px 10px; font-size:12.5px;
+  background:var(--red-tint); border:1px solid #E9C9C3; color:#7d3128; border-radius:var(--radius-sm)}
+.inline-err .ie-msg{flex:1; min-width:0; word-break:break-word}
+.inline-err .ie-retry{border:1px solid #E0B9B1; background:var(--card); color:#7d3128; border-radius:8px;
+  padding:3px 9px; font:inherit; font-size:11.5px; font-weight:600; cursor:pointer; transition:.14s}
+.inline-err .ie-retry:hover{border-color:var(--clay); color:var(--clay-ink)}
+.inline-err .ie-x{border:0; background:none; color:#a06258; cursor:pointer; font-size:13px; line-height:1; padding:2px 4px}
+.inline-err .ie-x:hover{color:#7d3128}
+/* UX-2: determinate progress for a long op (raw-simOut download) — a single bar that updates in place */
+.op-progress{margin-top:6px; padding:8px 11px; background:var(--line-2); border-radius:8px; font-size:11.5px; color:var(--ink-2)}
+.op-progress .op-label{margin-bottom:5px}
+.op-progress .op-count{margin-top:4px; color:var(--ink-3); font-variant-numeric:tabular-nums}
+progress.op-bar{width:100%; height:6px; appearance:none; -webkit-appearance:none; border:0; border-radius:99px; background:var(--line)}
+progress.op-bar::-webkit-progress-bar{background:var(--line); border-radius:99px}
+progress.op-bar::-webkit-progress-value{background:var(--clay); border-radius:99px; transition:width .25s ease}
+progress.op-bar::-moz-progress-bar{background:var(--clay); border-radius:99px}
+
 /* ---------------- drawers ---------------- */
 .scrim{position:fixed; inset:0; background:rgba(30,28,24,.28); opacity:0; pointer-events:none; transition:.2s; z-index:40}
 .scrim.show{opacity:1; pointer-events:auto}
