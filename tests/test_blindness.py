@@ -20,6 +20,7 @@ _ALLOWED_KEYS = {
     "question", "dial_labels", "channels", "perturbations", "candidate", "objections", "feasible",
     "answered", "resolved_ambiguities", "previous_candidate", "open_objections", "instruction",
     "debate_so_far",   # the bounded cross-round digest — built from the debate's own claims/objections, never readings
+    "library_brief",   # M-6: EXTERNAL cited literature (the librarian) — allowed; its INPUT is separately blind-tested
 }
 
 
@@ -164,3 +165,60 @@ def test_dial_labels_carry_no_readings():
     blob = json.dumps(labels)
     for marker in ("simout_path", "/cellarium/", "gene_knockout_0_", "condition_0_"):   # run ids / paths = readings
         assert marker not in blob, f"a run reference leaked into dial_labels: {marker}"
+
+
+def test_librarian_brief_reaches_proposer_and_skeptic_but_not_judge(monkeypatch):
+    """M-6: with `use_librarian` on, the librarian's EXTERNAL cited brief informs the proposer + skeptic FRAMING,
+    but the JUDGE stays literature-free — it assesses falsifiability structure, not agreement with the literature."""
+    seen: dict[str, list[bool]] = {}
+
+    def fake_emit(client, model, system, tool, payload, *, role="council", **kw):
+        seen.setdefault(role, []).append("library_brief" in payload)
+        if role == "proposer":                                   # a schema-valid candidate so the round assembles
+            return {"claim": "c", "h1": "h1", "h0": "h0", "predicted_effect": "up ~10%",
+                    "operational_defs": [{"construct": "growth", "observable": "growth_rate",
+                                          "measure": "seed-mean over the cell cycle"}],
+                    "rivals": [{"claim": "rival A", "distinguishing_result": "X differs"},
+                               {"claim": "rival B", "distinguishing_result": "Y differs"}],
+                    "falsifier": {"target": "gene_knockout/KO:pfkA", "reference": "wildtype/basal",
+                                  "channel": "growth_rate", "decision_rule": "reject H0 if welch_t >= 2",
+                                  "refuting_result": "no change"},
+                    "candidate_designs": [{"perturbation": "gene_knockout", "condition": "basal",
+                                           "params": {"target_genes": ["pfkA"]}, "seeds": 4, "generations": 4}]}
+        if role == "skeptic":
+            return {"objections": []}
+        if role == "judge":
+            return {"falsifiable": True, "specified": True, "operationalized": True, "discriminating": True,
+                    "new_substantive_objection_this_round": False, "open_objections_resolved": True}
+        return {}
+
+    monkeypatch.setattr(council, "web_research", lambda q, **kw: {"brief": "CITED LITERATURE", "sources": []})
+    monkeypatch.setattr(council, "_emit", fake_emit)
+    council.deliberate("a framing-worthy question", max_rounds=1, use_librarian=True, client=object(), verbose=False)
+
+    assert seen.get("proposer") and all(seen["proposer"]), "proposer must receive the library_brief"
+    assert seen.get("skeptic") and all(seen["skeptic"]), "skeptic must receive the library_brief"
+    assert seen.get("judge") and not any(seen["judge"]), "judge must stay literature-free"
+
+
+def test_librarian_is_off_by_default_and_failure_is_non_fatal(monkeypatch):
+    """Default deliberation is librarian-free (no library_brief anywhere), and if the librarian is on but the search
+    fails, deliberation proceeds without a brief rather than crashing."""
+    seen: dict[str, list[bool]] = {}
+
+    def fake_emit(client, model, system, tool, payload, *, role="council", **kw):
+        seen.setdefault(role, []).append("library_brief" in payload)
+        if role == "proposer":
+            return {"claim": "c"}
+        return {"objections": []} if role == "skeptic" else {"falsifiable": True}
+
+    monkeypatch.setattr(council, "_emit", fake_emit)
+    council.deliberate("q", max_rounds=1, client=object(), verbose=False)            # default: librarian OFF
+    assert not any(v for vs in seen.values() for v in vs)                             # no role saw a brief
+
+    seen.clear()
+    def boom(*a, **k):
+        raise RuntimeError("web search down")
+    monkeypatch.setattr(council, "web_research", boom)
+    council.deliberate("q", max_rounds=1, use_librarian=True, client=object(), verbose=False)   # librarian errors
+    assert "proposer" in seen and not any(seen["proposer"])                           # proceeded, no brief, no crash

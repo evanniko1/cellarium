@@ -29,7 +29,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**M-3**~~ | ✅ | Provenance mis-tag — `_is_in_sample` now gates `wildtype` on the condition too (`wildtype/acetate` → out_of_sample), instead of short-circuiting to in_sample. Test added (`test_provenance.py`). **Done** — see Completed. | A |
 | **M-4** | P3 | Tie the in-sample condition set to the actual ParCa fit set + a test so it can't silently drift. | A |
 | ~~**M-5**~~ | ✅ | **DOE for falsifier panels** — new `doe.py` (pure): full-factorial layout, deterministic randomized run order, blocking by a nuisance factor, a screening subsample past a cap, and a power annotation (MDE / seeds-needed, mirroring `power_check`). New `design_panel` tool crosses `{factor:[levels]}` into a proper factorial panel + sim budget + adequately-powered verdict, grounded in the corpus's real replicate CV — beyond ad-hoc seeds×generations. **Done** — see Completed. | T |
-| **M-6** | P2 | **Council librarian rewire** (Phase 3a) — wire the pre-/between-round literature step into `deliberate()` over `web_get`; judge stays literature-free; add `library_brief` to `test_blindness` allow-list. | T |
+| ~~**M-6**~~ | ✅ | **Council librarian rewire** (Phase 3a) — `deliberate(use_librarian=True)` now runs a PRE-round librarian pass (`web_research`, blind to the corpus by construction) and threads its CITED `library_brief` to the **proposer + skeptic** for FRAMING (mechanisms/rivals/priors), while the **judge stays literature-free**; best-effort (a failed search proceeds without it). `library_brief` added to the `test_blindness` allow-list; new tests assert proposer/skeptic get it, judge doesn't, it's off by default, and a librarian failure is non-fatal. **Done** — see Completed. | T |
 | **M-7** | P3 | Sufficiency-gate progressive narrowing — thread prior attempts; ask only the still-missing of {target, observable, comparison}; stay blind. | T |
 | **M-8** | P3 | Analyst robustness — order-randomization + self-consistency; heterogeneous adversarial (analyst/verifier/skeptic) pass. Token-costly; gate to high-stakes conclusions. | R |
 | **M-9** | P2 | Calibrate the viability verdict thresholds (0.9/0.6, set on n=1 machinery) against a machinery + graded-KO panel. **Ours** — the panel is a sim campaign Cellarium runs itself (`manifest.campaign` / `approve_and_run`, its own Docker pipeline) and the calibration is our own logic; sequenced behind that self-run sim campaign, not blocked on another workstream. | R |
@@ -289,6 +289,18 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
   1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
   sites (see *Coordinate with Filippo*).
+
+- **M-6 · Council librarian rewire** (2026-07-20) — the librarian (`web_research`, a native web-search pass over
+  EXTERNAL published literature, blind to the corpus by construction) existed but was never wired into the debate.
+  `deliberate(use_librarian=True)` now runs it ONCE pre-round and threads the resulting CITED `library_brief` into
+  the **proposer** and **skeptic** payloads to inform FRAMING — mechanisms, rival explanations, quantitative priors,
+  where whole-cell/FBA models are known to disagree with reality — with an instruction that it is external knowledge,
+  never a result of this corpus. The **judge never receives it**: it assesses falsifiability STRUCTURE, not agreement
+  with the literature (so the librarian can't bias the gate). Best-effort — a failed/empty search leaves
+  `library_brief=None` and deliberation is unchanged; opt-in (default off) so the paper's blind A/B control stays
+  pure. `library_brief` added to the `test_blindness` `_ALLOWED_KEYS` (it's external cited literature; the librarian's
+  INPUT is separately blind-tested). Tests: proposer+skeptic receive the brief while the judge does not, librarian is
+  off by default (no brief anywhere), and a librarian exception is non-fatal. pytest + ruff green.
 
 - **M-5 · DOE for falsifier panels** (2026-07-20) — a Council/agent panel was an ad-hoc "run these at N seeds × M
   generations". New `src/cellarium/doe.py` (pure, scipy-free) gives the design-of-experiments primitives:

@@ -307,13 +307,18 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
 # --- role calls (compact payloads — no growing transcript) --------------------------------------------------
 
 def _propose(client, models, question, labels, previous_candidate, open_objections, answered,
-             *, temperature=None, leak=None, debate_so_far=None) -> dict:
+             *, temperature=None, leak=None, debate_so_far=None, library_brief=None) -> dict:
     payload = {"question": question, "dial_labels": labels,
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
                "previous_candidate": previous_candidate, "open_objections": open_objections,
                "debate_so_far": debate_so_far or [],
                "instruction": "Revise previous_candidate to resolve open_objections; keep what already works; "
                               "return a COMPLETE hypothesis."}
+    if library_brief:  # M-6: EXTERNAL cited literature to inform FRAMING (mechanisms/rivals/priors) — NOT this corpus
+        payload["library_brief"] = library_brief
+        payload["instruction"] += (" A cited literature brief is in 'library_brief' (EXTERNAL published knowledge, "
+                                    "not this simulation corpus): use it to sharpen the mechanism, name rival "
+                                    "explanations, and set quantitative priors — never as a result of this corpus.")
     if leak is not None:  # quarantine ABLATION only: hand the proposer the answer key it is normally denied
         payload["leaked_reference_answer"] = leak
         payload["instruction"] += (" A reference answer for this question is provided in "
@@ -323,13 +328,15 @@ def _propose(client, models, question, labels, previous_candidate, open_objectio
 
 
 def _skeptic(client, models, question, labels, candidate, answered, open_objections=None, *,
-             temperature=None, adversarial=False, debate_so_far=None) -> dict:
+             temperature=None, adversarial=False, debate_so_far=None, library_brief=None) -> dict:
     payload = {"question": question, "channels": instrument.channel_names(),
                "perturbations": sorted(labels.get("perturbations", {})),
                "resolved_ambiguities": [{"question": q, "answer": a} for q, a in answered],
                "candidate": candidate, "debate_so_far": debate_so_far or [],
                "open_objections": [{"id": o["id"], "type": o.get("type"), "issue": o.get("issue")}
                                    for o in (open_objections or [])]}
+    if library_brief:  # M-6: the same EXTERNAL cited brief — so the skeptic can flag a claim the literature disputes
+        payload["library_brief"] = library_brief
     system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
     return _emit(client, models["skeptic"], system, _SKEPTIC_TOOL, payload, max_tokens=2048,
                  temperature=temperature, role="skeptic")
@@ -634,7 +641,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                labels: dict | None = None, verbose: bool = True,
                use_skeptic: bool = True, use_judge: bool = True, leak: str | None = None,
                judge_mode: str = "rubric", temperature: float | None = None,
-               adversarial_skeptic: bool = False, on_round: Callable[[dict], None] | None = None) -> Hypothesis:
+               adversarial_skeptic: bool = False, use_librarian: bool = False,
+               on_round: Callable[[dict], None] | None = None) -> Hypothesis:
     """Run the elenchus and return a justification-ready Hypothesis (see module docstring).
 
     Ablation knobs (all default to the full system): `use_skeptic`/`use_judge` disable a role (proposer-only when
@@ -646,6 +654,19 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         import anthropic
         client = anthropic.Anthropic()
     models = models or _default_models()
+
+    # M-6: an optional PRE-round literature step. The librarian searches EXTERNAL published literature — blind to the
+    # corpus by construction (see web_research + test_web_research_input_is_blind) — and hands the proposer + skeptic
+    # a CITED brief to inform FRAMING (mechanisms, rival explanations, quantitative priors, where models are known to
+    # disagree with reality). The JUDGE never receives it: it assesses falsifiability STRUCTURE, not agreement with
+    # the literature. Best-effort — a failed/empty search leaves library_brief=None and deliberation is unchanged.
+    library_brief = None
+    if use_librarian:
+        try:
+            lib = web_research(question, client=client, labels=labels)
+            library_brief = (lib.get("brief") or None) if isinstance(lib, dict) else None
+        except Exception:
+            library_brief = None
 
     answered: list[tuple[str, str]] = []
     parked: set[str] = set()
@@ -663,7 +684,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     for rnd in range(max_rounds):
         digest = _debate_digest(debate_log, ledger)   # rounds 1..rnd — a blind, bounded memory for every role
         cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered,
-                        temperature=temperature, leak=leak, debate_so_far=digest)
+                        temperature=temperature, leak=leak, debate_so_far=digest, library_brief=library_brief)
         if not _complete(cand) and _complete(previous_candidate or {}):
             cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
         previous_candidate = cand
@@ -679,7 +700,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         if use_skeptic:
             open_led = [o for o in ledger if o["resolved_round"] is None]
             objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
-                            temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest)
+                            temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest,
+                            library_brief=library_brief)
             resolved_ids = {r for r in (objs.get("resolved") or []) if isinstance(r, str)}
             for o in ledger:   # the skeptic (who raised them) certifies which prior objections the revision addressed
                 if o["resolved_round"] is None and o["id"] in resolved_ids:
