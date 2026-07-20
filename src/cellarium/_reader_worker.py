@@ -37,6 +37,11 @@ except Exception:  # fallback keeps the worker self-contained if the sibling mod
             return "viable"
         return "inviable" if (min_dr < 0.6 or not any_term) else "impaired"
 
+# H-6: the pure numeric aggregation lives host-side in _reader_agg (numpy-only, no wholecell) so it's unit-testable
+# off the sim; here it's a sibling import (the worker dir is on sys.path, set above). Runs only in the container —
+# the host never imports this module (the wholecell import above fails first).
+from _reader_agg import gene_lfc_map  # noqa: E402
+
 SUMMARY_CHANNELS = {
     "growth_rate": ("Mass", "instantaneous_growth_rate"),
     "cell_mass": ("Mass", "cellMass"),
@@ -749,29 +754,6 @@ def mode_differential(target_csv, ref_csv, kind, top, floor):
             "mid_rank_sample": [clean(r) for r in mid]}
 
 
-def _gene_lfc_map(t_runs, r_runs, floor):
-    """Pure: per-gene seed-mean log2fc for EVERY gene present in >=1 target AND >=1 reference run above the count
-    floor — the FULL distribution SCI-2's concordance needs. mode_differential returns only the FDR-significant
-    tail, which range-restricts Pearson/Deming (you can't estimate a slope from the movers alone). Returns
-    {id: {log2fc, target, reference, n_target, n_reference}}. Factored out so it is unit-testable off the sim."""
-    if not t_runs or not r_runs:
-        return {}
-    ids = set().union(*[set(d) for d in t_runs + r_runs])
-    out = {}
-    for i in ids:
-        tvals = [d[i] for d in t_runs if i in d]
-        rvals = [d[i] for d in r_runs if i in d]
-        if not tvals or not rvals:                     # a gene must appear on BOTH sides to have a ratio
-            continue
-        tm, rm = float(np.mean(tvals)), float(np.mean(rvals))
-        if max(tm, rm) < floor:                        # count floor — very low counts give an unstable ratio
-            continue
-        out[i] = {"log2fc": round(math.log2((tm + 1.0) / (rm + 1.0)), 4),
-                  "target": round(tm, 1), "reference": round(rm, 1),
-                  "n_target": len(tvals), "n_reference": len(rvals)}
-    return out
-
-
 def mode_gene_lfc(target_csv, ref_csv, kind, floor):
     """All-gene seed-mean log2fc (SCI-2c) — the UNBIASED full-distribution reader for the sim-vs-RNA-seq concordance.
     Unlike mode_differential it applies NO significance filter (that range-restricts the correlation); it returns the
@@ -782,7 +764,7 @@ def mode_gene_lfc(target_csv, ref_csv, kind, floor):
     r_runs = _run_species_means(ref_csv.split(","), table, column, idattr)
     if not t_runs or not r_runs:
         return {"error": "missing simOut (target or reference)"}
-    lfc = _gene_lfc_map(t_runs, r_runs, floor)
+    lfc = gene_lfc_map(t_runs, r_runs, floor)   # H-6: pure aggregation lives host-side in _reader_agg (testable)
     return {"kind": kind, "n_genes": len(lfc), "count_floor": floor,
             "n_target_runs": len(t_runs), "n_reference_runs": len(r_runs), "lfc": lfc}
 

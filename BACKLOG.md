@@ -77,7 +77,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**UX-2**~~ | ✅ | **Standardized states** — one accessible `inlineError(anchor, msg, onRetry)` (`role="alert"` + a Retry that re-runs the failed action + dismiss) replaces the three jarring `alert()`s on the propose/queue paths; `aria-busy` on `#thread` tracks the viewed conversation's streaming state (`setThreadBusy`, wired through stream start/finally + open + reset); and long ops that report `done/total` (the raw-simOut download) now render a **determinate `<progress>` bar** that updates in place instead of stacking text notes. **Done** — see Completed. | A |
 | **D-2** | P3 | No dark mode in the app (`prefers-color-scheme` unused) though the report is theme-aware — add a theme or state single-theme intent. | A |
 | **D-3** | P3 | Split the monolithic `app.js` (1447 ln) / `style.css` when it grows. | A |
-| **UX-3** | P3 | Add a minimal Playwright/DOM smoke test for the SPA. | A |
+| ~~**UX-3**~~ | ✅ | **SPA smoke test** — a CI-runnable Starlette-`TestClient` test (`test_spa_smoke.py`, no browser) boots the ASGI app, serves the shell + `/static/app.js`/`style.css`, and asserts the DOM mount points app.js queries + its entry points still exist — a removed mount / missing asset / renamed function fails CI. **Done** — see Completed. (A full Playwright interaction test needs a browser in CI — layer on later.) | A |
 
 ## F · Infrastructure & hygiene
 
@@ -88,7 +88,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ~~**H-3**~~ | ✅ | **Deps pin + run provenance** — committed **`requirements.lock`** (exact pins of the full env: core + hf/fba/rnaseq/dev extras + transitives, via `pip freeze`), and `provenance.run_environment()` (interpreter + git commit + pinned dep versions) now recorded in every Council run's meta alongside model + temperature (M-2/LLM-3) — the reproducibility bundle. **Done** — see Completed. | A |
 | ~~**H-4**~~ | ✅ | **Secret scan in CI** — a `Secret scan` step (`ci.yml`, before lint) fails the build on high-signal committed secrets (Anthropic `sk-ant-` / AWS `AKIA` / GitHub `ghp_` / Slack `xox…` tokens + private keys); dependency-free `git grep`, verified green on the current tree. **Done** — see Completed. | A |
 | ~~**H-5**~~ | ✅ N/A | No tracked `package-lock.json` in this repo (`git ls-files` = 0) — the stray file was in the *other* (`wcEcoli`) repo, out of scope for Cellarium. Nothing to remove. | A |
-| **H-6** | P3 | Code hygiene — `gene_scope.json` staleness/hash guard (C3); warn when `essential_ref` is disabled (C4); move `_reader_worker.py` pure aggregation host-side for unit-testing (C2). | R |
+| **H-6** | P3 · *2 left* | Code hygiene — ✅ (C2) moved the reader worker's pure aggregation host-side (`_reader_agg.gene_lfc_map`, numpy-only, unit-tested — the seam the SCI-2c review flagged). ⏳ (C3) `gene_scope.json` staleness/hash guard; (C4) warn when `essential_ref` is disabled. | R |
 
 ## G · Scientific capability (research features)
 
