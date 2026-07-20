@@ -900,6 +900,12 @@ def viability_surrogate(gene: str | None = None) -> dict:
     return surrogate.surrogate_report(gene)
 
 
+def generate_designs(k: int = 2, max_candidates: int = 8) -> dict:
+    """SCI-4: generate + rank reduced-genome / multi-KO candidate designs, scored by predicted viability."""
+    from . import design_generator
+    return design_generator.generate(k=k, max_candidates=max_candidates)
+
+
 def check_feasibility(perturbation: str = "wildtype", condition: str | None = None,
                       timeline: str | None = None, seeds: int = 1, generations: int = 1,
                       params: dict | None = None) -> dict:
@@ -1087,6 +1093,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string"}}, "required": ["gene"]}},
     {"name": "viability_surrogate", "description": "SCI-5: an ML surrogate that predicts a single-gene KO's viability verdict from CHEAP a-priori gene properties (machinery/metabolic role, sole-catalyst + kinetic flags, the Baba/Joyce essentiality benchmark, TU count) — the 'Well for the Cell' compute-reduction artifact: TRIAGE which KOs are worth the ~hours of sim time before running them. Returns the surrogate's leave-one-out CV accuracy vs the majority-class BASELINE, its MCC (read this, not accuracy — the corpus leans 'viable'), the confusion matrix, and per-feature importance; pass `gene` to also get that gene's viability probability + nearest corpus KOs. HONEST BY DESIGN: a small-n proof-of-concept triage PRIOR, not a validated predictor — it predicts the sim's own behavior (which under-predicts essentiality), so for essential-gene candidates the benchmark overrides it. Needs scikit-learn (says how to install if absent).",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional: a gene to predict + ground in nearest corpus KOs; omit for the model-quality report only"}}}},
+    {"name": "generate_designs", "description": "SCI-4: GENERATE + rank candidate reduced-genome / multi-gene-KO designs, scored by predicted viability — instead of hand-listing sets. Draws a dispensable-gene pool from the corpus (genes observed to tolerate a single KO, minus machinery + benchmark-essential genes), enumerates size-k combinations, and ranks each by a composite: the SCI-5 surrogate's weakest-link viability prior, essentiality/machinery guards, and a biosecurity screen (flagged sets are dropped). Returns runnable multi_gene_knockout Designs (queue via propose_experiments). HONEST: the prior is SINGLE-gene, so epistasis is NOT captured — a 'propose' is a weak prior, most informative when a set is predicted viable yet the sim disagrees; vet pairwise lethality with fba_synthetic_lethal before spending sim budget. `k` = genes per set (default 2).",
+     "input_schema": {"type": "object", "properties": {"k": {"type": "integer", "description": "genes knocked out per candidate set (default 2)"}, "max_candidates": {"type": "integer", "description": "how many top-ranked designs to return (default 8)"}}}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
     {"name": "design_panel", "description": "DESIGN a falsifier PANEL as a proper design-of-experiments — not an ad-hoc seeds×generations guess. Give the FACTORS to cross as {name:[levels]} (e.g. {'gene':['pfkA','pfkB'], 'condition':['basal','acetate']}) and get the full-factorial cells, a randomized run order, optional blocking, the sim budget, and whether the panel is adequately POWERED to resolve effect_pct (grounded in the corpus's real replicate CV for `channel`). Use to lay out a multi-factor falsifier panel; map each cell onto a Design and queue with propose_experiments.",
@@ -1131,7 +1139,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "screen_phenotype": screen_phenotype,
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
              "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
-             "viability_surrogate": viability_surrogate,
+             "viability_surrogate": viability_surrogate, "generate_designs": generate_designs,
              "design_panel": design_panel,
              "use_skill": use_skill, "web_get": web_get,
              "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
