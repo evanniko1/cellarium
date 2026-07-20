@@ -66,8 +66,11 @@ def recall(needles: list, events: list, *, tol: int = 8) -> dict:
     """A needle is recovered if a claimed event is on the same channel within `tol` steps of its location."""
     recovered = [n for n in needles if _recovered(n, events, tol)]
     missed = [n for n in needles if not _recovered(n, events, tol)]
+    # n_claims is the RAW count of flagged events — NOT deduplicated across overlapping windows (a fan-out window
+    # stride < size, so a claim in the overlap is listed twice). Recall iterates NEEDLES so it's dedup-agnostic and
+    # correct; this count is diagnostic only, hence the honest name (not "n_events").
     return {"recall": round(len(recovered) / len(needles), 3) if needles else None,
-            "recovered": recovered, "missed": missed, "n_events": len(events)}
+            "recovered": recovered, "missed": missed, "n_claims": len(events)}
 
 
 # --- the two arms ------------------------------------------------------------------------------------------
