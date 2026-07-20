@@ -8,11 +8,12 @@ signals the toolkit already grounds — it invents no new number:
     Baba/Joyce benchmark and not core machinery (removing an essential or a machinery gene guarantees inviability);
   - single-gene viability prior: the SCI-5 surrogate's per-gene probability, combined weakest-link (a set is only as
     viable as its most fragile member);
-  - epistasis (DD-SCI-4a, now FOLDED IN): single-gene priors DO NOT capture it, so a prior-only 'viable' over-predicts.
-    `fba_synthetic_lethal` (a second oracle over iML1515) is run on the candidates the prior calls viable — exactly
-    where it's blind — to catch the reroute-blocking synthetic lethals that make a multi-KO interesting: both genes
-    tolerate a single KO but the double abolishes growth. A hit downgrades the recommendation (predicted inviable via
-    epistasis) and surfaces it as the informative case to confirm in the sim. Graceful: no FBA -> prior-only ranking;
+  - epistasis (DD-SCI-4a, FOLDED IN): single-gene priors DO NOT capture it, so a prior-only 'viable' over-predicts.
+    Two FBA checks (a second oracle over iML1515) run on the candidates the prior calls viable — where it's blind:
+    (a) the PAIRWISE `fba_synthetic_lethal` scan (reroute-blocking pairs); (c) at k>=3, the FULL k-way `fba_gene_
+    deletion` (knock out the whole set at once) — the direct 'does this set survive?' test that catches HIGHER-ORDER
+    lethality no pair shows. A hit from either downgrades the recommendation + surfaces the informative case to
+    confirm in the sim. Graceful: no FBA -> prior-only ranking;
   - biosecurity: every candidate is screened; a flagged design is dropped, never proposed.
 Returns runnable `multi_gene_knockout` Designs, ranked, each with its score + why.
 """
@@ -77,18 +78,45 @@ def synthetic_lethal_check(genes: list[str]) -> dict:
             "min_double_growth_frac": (round(min(dgfs), 4) if dgfs else None)}
 
 
+def deletion_check(genes: list[str]) -> dict:
+    """DD-SCI-4a(c): the FULL k-way FBA deletion — knock out the WHOLE set at once (1 LP) to catch the higher-order
+    lethality the pairwise synthetic-lethal scan misses at k>=3 (a set lethal though no PAIR is). Returns
+    {available, lethal, growth_frac, ...}; graceful when cobra/iML1515 is absent or no gene is metabolic."""
+    from . import tools
+    try:
+        out = tools.fba_gene_deletion(list(genes))
+    except Exception as exc:
+        return {"available": False, "note": f"FBA unavailable: {type(exc).__name__}"}
+    if out.get("error"):
+        return {"available": False, "note": out["error"]}
+    return {"available": True, "lethal": bool(out.get("lethal")),
+            "growth_frac": out.get("deletion_growth_frac"), "n_deleted": out.get("n_deleted")}
+
+
 def _fold_epistasis(s: dict) -> dict:
-    """Fold the FBA synthetic-lethal signal into a prior-only score. If the set has an FBA synthetic-lethal pair, the
-    single-gene prior over-predicted viability (epistasis it can't see) -> downgrade propose->flag and attach the
-    evidence + the informative-case framing. Mutates + returns `s`. No-op when FBA is unavailable/not-applicable."""
-    slc = synthetic_lethal_check(s["genes"])
+    """Fold the FBA epistasis signals into a prior-only score. Two checks: the PAIRWISE synthetic-lethal scan, and
+    (at k>=3) the FULL k-way deletion — the direct 'does the whole set survive?' test the pairwise scan misses. If
+    EITHER says inviable, the single-gene prior over-predicted -> downgrade propose->flag + attach the evidence.
+    Mutates + returns `s`. No-op when FBA is unavailable. (At k=2 the pair IS the full deletion, so it's skipped.)"""
+    genes = s["genes"]
+    slc = synthetic_lethal_check(genes)
     s["synthetic_lethal_check"] = slc
-    if slc.get("available") and slc.get("synthetic_lethal"):
+    dele = None
+    if len(genes) >= 3:
+        dele = deletion_check(genes)
+        s["deletion_check"] = dele
+    sl_pair = bool(slc.get("available") and slc.get("synthetic_lethal"))
+    kway_lethal = bool(dele and dele.get("available") and dele.get("lethal"))
+    if sl_pair or kway_lethal:
         if s["recommend"] == _PROPOSE:
             s["recommend"] = _FLAG
-        s["epistasis"] = ("FBA predicts SYNTHETIC LETHALITY (" + ", ".join("+".join(p) for p in slc["pairs"]) +
-                          "): both genes tolerate a single KO but the double abolishes growth — the reroute-blocking "
-                          "case the single-gene prior missed. Informative to confirm in the sim; NOT a viable "
+        reasons = []
+        if sl_pair:
+            reasons.append("a synthetic-lethal PAIR (" + ", ".join("+".join(p) for p in slc["pairs"]) + ")")
+        if kway_lethal:
+            reasons.append(f"the FULL {len(genes)}-way deletion abolishes growth (frac {dele.get('growth_frac')})")
+        s["epistasis"] = ("FBA predicts inviability via " + " and ".join(reasons) + " — the set the single-gene prior "
+                          "called viable does not survive. Informative to confirm in the sim; NOT a viable "
                           "reduced-genome design.")
     return s
 
@@ -175,11 +203,15 @@ def information_gain(s: dict) -> dict:
     p = s.get("viability_prior")
     p = p if p is not None else 0.5
     slc = s.get("synthetic_lethal_check") or {}
-    sl = bool(slc.get("synthetic_lethal"))
-    disagreement = round(p * (1.0 if sl else 0.0), 3)
+    dele = s.get("deletion_check") or {}
+    # the second oracle says inviable via a pairwise synthetic-lethal OR the full k-way deletion (higher-order)
+    fba_lethal = bool(slc.get("synthetic_lethal")) or bool(dele.get("available") and dele.get("lethal"))
+    disagreement = round(p * (1.0 if fba_lethal else 0.0), 3)
     uncertainty = round(1.0 - 2.0 * abs(p - 0.5), 3)
-    mdgf = slc.get("min_double_growth_frac")
-    fragility = round(1.0 - mdgf, 3) if (slc.get("available") and mdgf is not None and not sl) else 0.0
+    # fragility: prefer the FULL k-way growth (the actual set's growth) when we have it; else the weakest pair
+    kway = dele.get("growth_frac") if dele.get("available") else None
+    mdgf = kway if kway is not None else slc.get("min_double_growth_frac")
+    fragility = round(1.0 - mdgf, 3) if (mdgf is not None and not fba_lethal) else 0.0
     gain = round(min(1.0, 0.7 * disagreement + 0.3 * uncertainty + 0.25 * fragility), 3)
     return {"information_gain": gain, "oracle_disagreement": disagreement,
             "prior_uncertainty": uncertainty, "fba_fragility": fragility,

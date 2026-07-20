@@ -119,7 +119,7 @@ def test_score_set_use_fba_demotes_a_synthetic_lethal_pair(monkeypatch):
     _patch(monkeypatch, surrogate_probs={"aaa": 0.9, "bbb": 0.8})     # prior says propose...
     _patch_sl(monkeypatch, synthetic_lethal_pairs=[["aaa", "bbb"]])   # ...but FBA says synthetic-lethal
     s = dg.score_set(["aaa", "bbb"], use_fba=True)
-    assert s["recommend"] == "flag" and "SYNTHETIC LETHALITY" in s["epistasis"]
+    assert s["recommend"] == "flag" and "synthetic-lethal PAIR" in s["epistasis"]
     assert s["synthetic_lethal_check"]["synthetic_lethal"] is True
     # without the fold-in it would have stayed propose
     _patch_sl(monkeypatch, synthetic_lethal_pairs=[])
@@ -213,3 +213,62 @@ def test_generate_information_objective_ranks_the_reroute_blocker_first(monkeypa
 def test_generate_rejects_bad_objective():
     out = dg.generate(pool=["aaa", "bbb"], k=2, objective="bogus")
     assert "error" in out and "objective" in out["error"]
+
+
+# --- DD-SCI-4a(c): full k-way deletion (higher-order epistasis the pairwise scan misses) -----------------------
+def _patch_del(monkeypatch, lethal=False, growth_frac=0.5, error=None):
+    from cellarium import tools
+    if error is not None:
+        monkeypatch.setattr(tools, "fba_gene_deletion", lambda genes, medium=None: {"error": error})
+        return
+    monkeypatch.setattr(tools, "fba_gene_deletion",
+                        lambda genes, medium=None: {"n_deleted": len(genes), "deletion_growth_frac": growth_frac,
+                                                    "lethal": lethal, "wt_growth": 0.8})
+
+
+def test_fold_epistasis_catches_higher_order_when_no_pair_is_lethal(monkeypatch):
+    """DD-SCI-4a(c): a TRIPLE where NO pair is synthetic-lethal but the FULL 3-way deletion abolishes growth — the
+    pairwise scan would miss it; the k-way deletion catches it and demotes the set."""
+    _patch(monkeypatch, surrogate_probs={"aaa": 0.9, "bbb": 0.9, "ccc": 0.9})
+    _patch_sl(monkeypatch, synthetic_lethal_pairs=[])        # NO pair is synthetic-lethal
+    _patch_del(monkeypatch, lethal=True, growth_frac=0.0)    # ...but the full triple is lethal
+    s = {"genes": ["aaa", "bbb", "ccc"], "recommend": "propose"}
+    dg._fold_epistasis(s)
+    assert s["recommend"] == "flag" and "3-way deletion" in s["epistasis"]
+    assert s["deletion_check"]["lethal"] is True
+
+
+def test_fold_epistasis_skips_kway_deletion_at_k2(monkeypatch):
+    """At k=2 the pair IS the full deletion — the separate k-way call is skipped (no redundant LP)."""
+    _patch(monkeypatch, surrogate_probs={"aaa": 0.9, "bbb": 0.9})
+    _patch_sl(monkeypatch, synthetic_lethal_pairs=[])
+    called = {"n": 0}
+    from cellarium import tools
+
+    def _spy(genes, medium=None):
+        called["n"] += 1
+        return {"lethal": False, "deletion_growth_frac": 0.9}
+    monkeypatch.setattr(tools, "fba_gene_deletion", _spy)
+    s = {"genes": ["aaa", "bbb"], "recommend": "propose"}
+    dg._fold_epistasis(s)
+    assert called["n"] == 0 and "deletion_check" not in s      # k=2 -> no k-way call
+
+
+def test_information_gain_uses_kway_lethal_and_growth(monkeypatch):
+    """The active-learning score reads the full k-way signal: a k-way-lethal set is a max-disagreement surprise, and
+    fragility prefers the actual set growth over the weakest pair."""
+    lethal = dg.information_gain({"viability_prior": 0.9,
+                                  "synthetic_lethal_check": {"available": True, "synthetic_lethal": False},
+                                  "deletion_check": {"available": True, "lethal": True, "growth_frac": 0.0}})
+    assert lethal["oracle_disagreement"] == 0.9               # k-way lethality drives disagreement, not just pairs
+    frag = dg.information_gain({"viability_prior": 0.9,
+                               "synthetic_lethal_check": {"available": True, "synthetic_lethal": False, "min_double_growth_frac": 0.95},
+                               "deletion_check": {"available": True, "lethal": False, "growth_frac": 0.1}})
+    assert frag["fba_fragility"] == round(1.0 - 0.1, 3)        # uses the k-way growth (0.1), not the weakest pair (0.95)
+
+
+def test_fba_gene_deletion_is_wired_as_an_agent_tool():
+    from cellarium import test_registry, tools
+    assert "fba_gene_deletion" in tools._DISPATCH
+    assert any(t["name"] == "fba_gene_deletion" for t in tools.TOOLS)
+    assert test_registry.unclassified_tools({t["name"] for t in tools.TOOLS}) == []   # reverse invariant still holds

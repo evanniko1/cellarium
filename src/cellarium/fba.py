@@ -388,6 +388,36 @@ def fba_synthetic_lethal(genes, medium: dict | None = None) -> dict:
                      "single-deletion essentiality (and the panel) misses these by construction.")}
 
 
+def fba_gene_deletion(genes, medium: dict | None = None) -> dict:
+    """FULL k-way gene deletion over iML1515: knock out ALL `genes` at once and report the set's growth fraction —
+    the DIRECT 'does this whole reduced-genome set survive?' test. One LP. Complements the pairwise synthetic-lethal
+    scan: that decomposes a set into pairs (catching pair-level reroute-blockers) but never tests the whole set, so
+    it misses HIGHER-ORDER lethality (a triple lethal though no pair is). For a 2-gene set this equals the double
+    deletion; its value is at k>=3."""
+    ok, msg = available()
+    if not ok:
+        return {"error": msg}
+    if isinstance(genes, str):
+        genes = [genes]
+    m = load_model()
+    with m:
+        _set_medium(m, medium)
+        resolved, unknown = _resolve_genes(m, genes)
+        if not resolved:
+            return {"error": "no resolvable iML1515 genes for the deletion", "unknown_genes": unknown}
+        wt = float(m.slim_optimize())
+        for g in resolved:                                   # simultaneous deletion of the WHOLE set (reverts on exit)
+            g.knock_out()
+        s = m.slim_optimize()
+        frac = round((0.0 if (s is None or math.isnan(s)) else float(s)) / wt, 4) if wt else 0.0
+    return {"n_requested": len(genes), "n_deleted": len(resolved), "deleted": [g.name for g in resolved],
+            "unknown_genes": unknown, "wt_growth": round(wt, 4), "deletion_growth_frac": frac,
+            "lethal": bool(frac < ESSENTIAL_FRAC), "essential_frac": ESSENTIAL_FRAC, "provenance": provenance(),
+            "note": ("Simultaneous deletion of the whole set — the direct viability test. 'lethal' when the full set "
+                     "abolishes growth (< essential_frac of WT). Catches higher-order lethality the pairwise "
+                     "synthetic-lethal scan misses; the whole-cell sim is the decisive arbiter.")}
+
+
 def _gam_scaled_growth(m, factor: float) -> float:
     """WT growth with the biomass growth-associated-maintenance ATP terms scaled by `factor` (explicit restore —
     metabolite-coefficient edits aren't tracked by the model context)."""

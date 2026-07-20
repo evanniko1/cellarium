@@ -120,7 +120,7 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     "provenance", "coverage_check", "corpus_audit", "prune_candidates", "robustness_check", "viability_surrogate",
     # independent FBA cross-check family
     "fba_growth", "fba_gene_knockout", "fba_flux", "fba_essentiality_panel", "fba_synthetic_lethal",
-    "fba_sensitivity", "fba_qc", "rnaseq_concordance",
+    "fba_gene_deletion", "fba_sensitivity", "fba_qc", "rnaseq_concordance",
     # design / experiment proposal + guardrails (act on the world, not falsifier tests)
     "design_panel", "generate_designs", "check_feasibility", "vet_hypothesis", "screen_design", "screen_phenotype",
     "run_experiment", "propose_experiment", "propose_experiments", "revise_experiment",

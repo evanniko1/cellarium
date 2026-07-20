@@ -793,6 +793,13 @@ def fba_synthetic_lethal(genes, medium: dict | None = None) -> dict:
     return fba.fba_synthetic_lethal(genes, medium)
 
 
+def fba_gene_deletion(genes, medium: dict | None = None) -> dict:
+    """FULL k-way deletion over iML1515 — knock out ALL genes at once + report the set's growth (the direct 'does the
+    whole reduced-genome set survive?' test the pairwise synthetic-lethal scan misses at k>=3)."""
+    from . import fba
+    return fba.fba_gene_deletion(genes, medium)
+
+
 def fba_sensitivity(gene: str | None = None, delta: float = 0.2) -> dict:
     """How much the FBA growth/essentiality call moves under +-delta on medium, NGAM, and GAM (SCI-1b robustness)."""
     from . import fba
@@ -1095,6 +1102,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "optional gene-symbol subset; omit for the full iML1515∩Keio metabolic set"}, "max_genes": {"type": "integer", "description": "optional cap on the number of genes scored (runtime is one LP per gene)"}}}},
     {"name": "fba_synthetic_lethal", "description": "Pairwise gene deletion over iML1515 (cobrapy): find SYNTHETIC-LETHAL pairs — both genes viable singly but the double abolishes growth — which single-deletion FBA and the essentiality panel miss by construction (~2/3 of epistasis is pairwise). Tests all pairs of the given genes. Use to probe redundancy / backup pathways (e.g. isozyme pairs). SCI-1b.",
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "gene symbols to test pairwise, e.g. ['pfkA','pfkB','tpiA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
+    {"name": "fba_gene_deletion", "description": "FULL k-way gene deletion over iML1515 (cobrapy): knock out ALL the given genes AT ONCE and report the whole set's growth fraction + a 'lethal' flag — the DIRECT 'does this reduced-genome set survive?' test. This is what the pairwise synthetic-lethal scan misses at k>=3: a set can be lethal even though no single PAIR is (higher-order epistasis). For 2 genes it equals the double deletion; use it for triples+ / reduced-genome candidates. The whole-cell sim is the decisive arbiter.",
+     "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "the full gene SET to delete together, e.g. ['pfkA','tpiA','gapA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
     {"name": "fba_sensitivity", "description": "ROBUSTNESS check: how much does the iML1515 FBA growth prediction (and, for a given gene, its essentiality call) move under ±delta on the levers that dominate it — medium uptake (glucose, O2), NGAM (maintenance ATP), and GAM (biomass ATP)? A conclusion is only safe if it survives the spread (the growth number is set by BOF/GAM/NGAM/medium far more than by the network). SCI-1b.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene whose essentiality-call robustness to check across the perturbations"}, "delta": {"type": "number", "description": "fractional perturbation (default 0.2 = ±20%)"}}}},
     {"name": "fba_qc", "description": "MEMOTE-style sanity gate on iML1515: with all uptakes closed, nothing should be producible (no ATP → no energy-generating cycle; no biomass → no free growth), and every internal reaction should mass-balance. Run before trusting FBA numbers — a failing gate means the model, not the biology, is talking. SCI-1b.",
@@ -1140,7 +1149,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "reroute_diagnosis": reroute_diagnosis,
              "fba_growth": fba_growth, "fba_gene_knockout": fba_gene_knockout,
              "fba_flux": fba_flux, "fba_essentiality_panel": fba_essentiality_panel,
-             "fba_synthetic_lethal": fba_synthetic_lethal, "fba_sensitivity": fba_sensitivity, "fba_qc": fba_qc,
+             "fba_synthetic_lethal": fba_synthetic_lethal, "fba_gene_deletion": fba_gene_deletion,
+             "fba_sensitivity": fba_sensitivity, "fba_qc": fba_qc,
              "rnaseq_concordance": rnaseq_concordance,
              "list_results": list_results, "design_space": design_space,
              "read_series": read_series, "chart": chart, "list_species": list_species,
