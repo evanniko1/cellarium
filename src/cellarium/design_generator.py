@@ -220,55 +220,60 @@ def information_gain(s: dict) -> dict:
                     else "fragile double-KO growth" if fragility >= 0.5 else "low expected surprise")}
 
 
-def generate(pool: list[str] | None = None, k: int = 2, max_candidates: int = 12,
-             *, use_surrogate: bool = True, use_fba: bool = True, objective: str = "viability") -> dict:
-    """Enumerate size-`k` multi-KO candidates from the dispensable pool, score each, and return the top
-    `max_candidates` as runnable multi_gene_knockout Designs. Proposes only biosecurity-clean, non-essential sets.
-    DD-SCI-4a: (a) with `use_fba`, the FBA synthetic-lethal check folds in the pairwise epistasis the single-gene
-    prior can't see — a hit demotes propose->flag + surfaces the reroute-blocker. (b) `objective` picks the ranking
-    goal: 'viability' (default — safest reduced-genome builds first) or 'information' (active learning — rank by
-    EXPECTED SURPRISE, so the runs that TEACH the most surface first: a predicted-viable-yet-FBA-lethal set, or one
-    the surrogate is unsure about)."""
-    from . import scope
-    if objective not in ("viability", "information"):
-        return {"error": f"objective must be 'viability' or 'information', got {objective!r}"}
-    if pool is None:
-        dp = dispensable_pool()
-        if dp.get("error"):
-            return {"error": dp["error"]}
-        pool = dp["pool"]
-    pool = sorted(set(pool))
-    if len(pool) < k:
-        return {"error": f"pool has {len(pool)} genes; need >= k ({k}) to form a set", "pool": pool}
-
-    # Stage 1 — the fast prior-only score over EVERY combo (no FBA), ranked by viability. The working set is a
-    # SUPERSET of max_candidates for the information objective, so the surprise re-rank can promote a high-information
-    # set the viability rank buried (e.g. a p=0.6 reroute-blocker).
-    scored = [score_set(list(combo), use_surrogate=use_surrogate) for combo in combinations(pool, k)]
-    scored.sort(key=_rank_key)
-    work = scored[:(max_candidates * 2 if objective == "information" else max_candidates)]
-
-    # Stage 2 (DD-SCI-4a a) — fold the FBA epistasis check into the working set's PROPOSE candidates (an LP per pair
-    # is costly, and 'propose' is exactly where the single-gene prior is blind: it called them viable).
-    fba_available = None
-    if use_fba:
-        for s in work:
-            if s["recommend"] == _PROPOSE:
-                _fold_epistasis(s)
-                avail = (s.get("synthetic_lethal_check") or {}).get("available")
-                fba_available = avail if fba_available is None else (fba_available or avail)
-
-    # Stage 3 (DD-SCI-4a b) — the active-learning score for every candidate (cheap; reuses the prior + FBA signals).
-    for s in work:
-        s["active_learning"] = information_gain(s)
-
-    # Stage 4 — order by the chosen objective. 'information' never proposes an AVOID set (categorically wrong
-    # regardless of surprise); ties break by the viability rank.
+def _value_of(s: dict, objective: str) -> float:
+    """The scalar the SEARCH maximizes for a scored set; AVOID -> -inf so it can never be chosen."""
+    if s.get("recommend") == _AVOID:
+        return float("-inf")
     if objective == "information":
-        ordered = sorted((s for s in work if s["recommend"] != _AVOID),
+        return (s.get("active_learning") or {}).get("information_gain", 0.0)
+    band = 1.0 if s.get("recommend") == _PROPOSE else 0.0        # propose > flag
+    return band + (s.get("viability_prior") or 0.0)
+
+
+def _score_candidate(genes, *, use_surrogate: bool, use_fba: bool) -> dict:
+    """Fully score a set for the search: prior + (use_fba) the FBA epistasis fold-in + the active-learning score."""
+    s = score_set(list(genes), use_surrogate=use_surrogate, use_fba=use_fba)
+    s["active_learning"] = information_gain(s)
+    return s
+
+
+def _beam_search(pool: list[str], k: int, width: int, *, use_surrogate: bool, use_fba: bool,
+                 objective: str) -> tuple[list[dict], int]:
+    """DD-SCI-4a(c-ii): build size-`k` sets incrementally, keeping the top-`width` PARTIAL sets at each step
+    (greedy = width 1; beam = width>1, which recovers from a bad greedy step). Scores only O(width·k·|pool|) sets
+    instead of C(|pool|,k) — what makes the FBA-heavy objective tractable at large pools / large k. Deduped by
+    gene-set (so {a,b} and {b,a} are one candidate). Returns (final size-k scored sets, n_evaluations)."""
+    beam: list[tuple] = [((), None)]                            # (genes_tuple, score_dict); start from the empty set
+    n_eval = 0
+    for _ in range(k):
+        seen: dict = {}                                         # sorted-gene-tuple -> score (dedup across the beam)
+        for chosen, _sc in beam:
+            for g in pool:
+                if g in chosen:
+                    continue
+                key = tuple(sorted(chosen + (g,)))
+                if key not in seen:
+                    seen[key] = _score_candidate(list(key), use_surrogate=use_surrogate, use_fba=use_fba)
+                    n_eval += 1
+        if not seen:
+            break
+        ranked = sorted(seen.items(), key=lambda kv: -_value_of(kv[1], objective))
+        beam = ranked[:max(1, width)]
+    finals = [sc for genes, sc in beam if sc is not None and len(genes) == k]   # drop the empty-set sentinel
+    finals.sort(key=lambda sc: -_value_of(sc, objective))
+    return finals, n_eval
+
+
+def _finalize(candidates: list[dict], *, k: int, objective: str, max_candidates: int, pool: list[str],
+              n_scored: int, fba_available, use_fba: bool, search: str) -> dict:
+    """Order the scored candidates by the objective, build the runnable Designs (dropping AVOID), assemble the
+    result. Shared by the enumerate + search paths."""
+    from . import scope
+    if objective == "information":
+        ordered = sorted((s for s in candidates if s["recommend"] != _AVOID),
                          key=lambda s: (-s["active_learning"]["information_gain"], _rank_key(s)))
     else:
-        ordered = sorted(work, key=_rank_key)
+        ordered = sorted(candidates, key=_rank_key)
     top = ordered[:max_candidates]
 
     designs = []
@@ -284,17 +289,73 @@ def generate(pool: list[str] | None = None, k: int = 2, max_candidates: int = 12
             designs.append({"perturbation": "multi_gene_knockout", "condition": "KO:" + "+".join(labels),
                             "params": {"ko_indices": idxs}, "score": s})
     return {
-        "k": k, "objective": objective, "pool": pool, "n_pool": len(pool), "n_candidates_scored": len(scored),
-        "n_proposed": len(designs), "designs": designs,
+        "k": k, "objective": objective, "search": search, "pool": pool, "n_pool": len(pool),
+        "n_candidates_scored": n_scored, "n_proposed": len(designs), "designs": designs,
         "fba_epistasis_checked": bool(use_fba), "fba_available": fba_available,
         "ranking": [{"genes": s["genes"], "recommend": s["recommend"], "viability_prior": s["viability_prior"],
                      "synthetic_lethal": bool((s.get("synthetic_lethal_check") or {}).get("synthetic_lethal")),
                      "information_gain": s["active_learning"]["information_gain"],
                      "surprise_why": s["active_learning"]["why"]}
                     for s in top],
-        "note": ("Ranked multi-KO candidates. objective='viability' = safest reduced-genome builds first; "
-                 "'information' = ACTIVE LEARNING, the runs that teach the most first (expected surprise: a "
-                 "predicted-viable-yet-FBA-synthetic-lethal reroute-blocker, or a set the surrogate is unsure about). "
-                 "The viability_prior is a single-gene prior; the FBA synthetic-lethal check (DD-SCI-4a) folds in the "
-                 "pairwise epistasis it can't see. Set fba_available=false -> install the `fba` extra. Confirm in the sim."),
+        "note": ("Ranked multi-KO candidates. objective='viability' = safest first; 'information' = active learning "
+                 "(the runs that teach the most first). search='enumerate' scores every size-k subset (exact, but "
+                 "C(n,k) blows up); 'greedy'/'beam' build sets incrementally (O(width·k·|pool|)) so the FBA-heavy "
+                 "scoring stays tractable at large pools / k — n_candidates_scored shows how many sets were "
+                 "evaluated. The FBA synthetic-lethal + k-way checks fold in the epistasis the prior can't see. "
+                 "fba_available=false -> install the `fba` extra. The sim is the decisive arbiter."),
     }
+
+
+def generate(pool: list[str] | None = None, k: int = 2, max_candidates: int = 12,
+             *, use_surrogate: bool = True, use_fba: bool = True, objective: str = "viability",
+             search: str = "enumerate", beam_width: int | None = None) -> dict:
+    """Generate + rank size-`k` multi-KO candidates from the dispensable pool as runnable multi_gene_knockout Designs
+    (biosecurity-clean, non-essential only). DD-SCI-4a: (a) `use_fba` folds in the FBA synthetic-lethal + (c-i) k-way
+    epistasis the single-gene prior can't see; (b) `objective` = 'viability' (safest first) or 'information' (active
+    learning — expected surprise first); (c-ii) `search` = 'enumerate' (score every subset — exact, but C(n,k) blows
+    up), 'greedy' (build one set incrementally), or 'beam' (keep the top-`beam_width` partial sets, recovering from a
+    bad greedy step). greedy/beam score only O(width·k·|pool|) sets — what makes large pools / k tractable."""
+    if objective not in ("viability", "information"):
+        return {"error": f"objective must be 'viability' or 'information', got {objective!r}"}
+    if search not in ("enumerate", "greedy", "beam"):
+        return {"error": f"search must be 'enumerate', 'greedy', or 'beam', got {search!r}"}
+    if k < 2:   # a multi-KO set needs >=2 genes; also guards a k=0 crash on the greedy/beam path (empty sentinel set)
+        return {"error": f"k must be >= 2 (a multi-KO set needs at least 2 genes), got {k}"}
+    if pool is None:
+        dp = dispensable_pool()
+        if dp.get("error"):
+            return {"error": dp["error"]}
+        pool = dp["pool"]
+    pool = sorted(set(pool))
+    if len(pool) < k:
+        return {"error": f"pool has {len(pool)} genes; need >= k ({k}) to form a set", "pool": pool}
+
+    if search == "enumerate":
+        # score every size-k subset with the fast prior, rank, FBA-fold the top PROPOSE candidates, then AL-score. The
+        # working set is a superset of max_candidates for 'information' so the surprise re-rank can promote a buried set.
+        scored = [score_set(list(combo), use_surrogate=use_surrogate) for combo in combinations(pool, k)]
+        scored.sort(key=_rank_key)
+        work = scored[:(max_candidates * 2 if objective == "information" else max_candidates)]
+        fba_available = None
+        if use_fba:
+            for s in work:
+                if s["recommend"] == _PROPOSE:
+                    _fold_epistasis(s)
+                    avail = (s.get("synthetic_lethal_check") or {}).get("available")
+                    fba_available = avail if fba_available is None else (fba_available or avail)
+        for s in work:
+            s["active_learning"] = information_gain(s)
+        candidates, n_scored = work, len(scored)
+    else:
+        # greedy (width 1) / beam (width beam_width|max_candidates): each candidate is FBA-scored DURING the search.
+        width = 1 if search == "greedy" else (beam_width or max_candidates)
+        candidates, n_scored = _beam_search(pool, k, width, use_surrogate=use_surrogate, use_fba=use_fba,
+                                            objective=objective)
+        # OR availability across ALL finals (not just the top one) to match the enumerate path: FBA "ran" if ANY
+        # candidate was checkable — a non-metabolic top set must not make the whole run report fba_available=False.
+        avails = [a for a in ((c.get("synthetic_lethal_check") or {}).get("available") for c in candidates)
+                  if a is not None]
+        fba_available = (any(avails) if avails else None)
+
+    return _finalize(candidates, k=k, objective=objective, max_candidates=max_candidates, pool=pool,
+                     n_scored=n_scored, fba_available=fba_available, use_fba=use_fba, search=search)

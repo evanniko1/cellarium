@@ -272,3 +272,127 @@ def test_fba_gene_deletion_is_wired_as_an_agent_tool():
     assert "fba_gene_deletion" in tools._DISPATCH
     assert any(t["name"] == "fba_gene_deletion" for t in tools.TOOLS)
     assert test_registry.unclassified_tools({t["name"] for t in tools.TOOLS}) == []   # reverse invariant still holds
+
+
+# --- DD-SCI-4a(c-ii): greedy / beam search, validated against brute-force enumeration --------------------------
+from itertools import combinations as _combos  # noqa: E402
+
+# a planted value landscape over gene sets, with a TRAP: c+d together is the global optimum, but neither c nor d is a
+# strong single — so greedy (which commits to the best single first) misses it, while a wide beam finds it.
+_W = {"a": 10.0, "b": 9.0, "c": 1.0, "d": 1.0, "e": 2.0}
+_GEM = frozenset({"c", "d"})
+
+
+def _landscape(genes) -> float:
+    fs = frozenset(genes)
+    return sum(_W[g] for g in fs) + (100.0 if fs >= _GEM else 0.0)
+
+
+def _mock_score(genes, **kw):
+    """A fully-formed score whose objective value is the planted landscape (read via active_learning.information_gain)."""
+    return {"genes": sorted(genes), "n_genes": len(genes), "recommend": "propose", "viability_prior": 0.9,
+            "synthetic_lethal_check": {"available": True, "synthetic_lethal": False},
+            "active_learning": {"information_gain": _landscape(genes), "why": "test"}}
+
+
+def _brute_force_best(pool, k):
+    best, bv = None, float("-inf")
+    for combo in _combos(pool, k):
+        v = _landscape(combo)
+        if v > bv:
+            bv, best = v, frozenset(combo)
+    return best, bv
+
+
+def test_beam_wide_matches_brute_force_enumeration(monkeypatch):
+    """A wide beam must find the SAME global optimum as exhaustive enumeration — the oracle test for the search."""
+    monkeypatch.setattr(dg, "_score_candidate", _mock_score)
+    pool = ["a", "b", "c", "d", "e"]
+    best_fs, best_v = _brute_force_best(pool, 2)
+    assert best_fs == _GEM and best_v == 102.0                       # the trap is the true optimum
+    finals, _n = dg._beam_search(pool, 2, width=99, use_surrogate=False, use_fba=False, objective="information")
+    assert frozenset(finals[0]["genes"]) == best_fs                  # beam(wide) == brute force
+    assert dg._value_of(finals[0], "information") == best_v
+
+
+def test_greedy_misses_the_trap_that_beam_finds(monkeypatch):
+    """Greedy (width 1) commits to the best single gene and misses the c+d gem; beam recovers it — beam > greedy."""
+    monkeypatch.setattr(dg, "_score_candidate", _mock_score)
+    pool = ["a", "b", "c", "d", "e"]
+    greedy, _ = dg._beam_search(pool, 2, width=1, use_surrogate=False, use_fba=False, objective="information")
+    beam, _ = dg._beam_search(pool, 2, width=99, use_surrogate=False, use_fba=False, objective="information")
+    assert frozenset(greedy[0]["genes"]) == frozenset({"a", "b"})   # greedy: best single a, then a+b
+    assert dg._value_of(greedy[0], "information") < dg._value_of(beam[0], "information")   # greedy strictly worse
+
+
+def test_greedy_is_optimal_on_a_decomposable_landscape(monkeypatch):
+    """With NO pairwise trap (a modular objective), greedy IS optimal — it matches brute-force enumeration."""
+    monkeypatch.setattr(dg, "_score_candidate",
+                        lambda genes, **kw: {"genes": sorted(genes), "n_genes": len(genes), "recommend": "propose",
+                                             "viability_prior": 0.9, "synthetic_lethal_check": {"available": True},
+                                             "active_learning": {"information_gain": sum(_W[g] for g in genes), "why": "t"}})
+    pool = ["a", "b", "c", "d", "e"]
+    greedy, _ = dg._beam_search(pool, 2, width=1, use_surrogate=False, use_fba=False, objective="information")
+    assert frozenset(greedy[0]["genes"]) == frozenset({"a", "b"})   # the 2 highest weights = the modular optimum
+
+
+def test_beam_search_dedups_and_counts_evaluations(monkeypatch):
+    """{a,b} and {b,a} are one candidate (dedup); n_evaluations is far below what re-scoring permutations would give."""
+    monkeypatch.setattr(dg, "_score_candidate", _mock_score)
+    finals, n_eval = dg._beam_search(["a", "b", "c"], 2, width=99, use_surrogate=False, use_fba=False,
+                                     objective="information")
+    assert len(finals) == 3 and n_eval == 3 + 3                      # 3 singles + 3 unique pairs (no dup permutations)
+
+
+def test_generate_beam_integration_and_rejects_bad_search(monkeypatch):
+    from cellarium import scope, store
+    _s = dict(_SCOPE)
+    for g, i in (("ccc", 15), ("ddd", 16)):
+        _s[g] = {"known": True, "is_machinery": False, "essential_reference": False, "ko_index": i, "role": "metabolic_enzyme"}
+    monkeypatch.setattr(scope, "classify_gene", lambda g: _s.get(g, {"known": False}))
+    monkeypatch.setattr(store, "viability", lambda p, c: {"designs": [
+        {"condition": f"KO:{g}", "verdict": "viable"} for g in ("aaa", "bbb", "ccc", "ddd")]})
+    monkeypatch.setattr(dg, "_score_candidate",
+                        lambda genes, **kw: {"genes": sorted(genes), "n_genes": len(genes), "recommend": "propose",
+                                             "viability_prior": 0.9, "synthetic_lethal_check": {"available": True, "synthetic_lethal": False},
+                                             "active_learning": {"information_gain": float(len(genes)), "why": "t"}})
+    out = dg.generate(pool=["aaa", "bbb", "ccc", "ddd"], k=2, max_candidates=3, search="beam", objective="information")
+    assert out["search"] == "beam" and out["n_proposed"] >= 1
+    assert out["designs"][0]["perturbation"] == "multi_gene_knockout"
+    assert "error" in dg.generate(pool=["aaa", "bbb"], k=2, search="bogus")   # bad search rejected
+
+
+# --- DD-SCI-4a(c-ii) review fixes: k<2 guard + fba_available OR across finals -----------------------------------
+def test_generate_guards_k_below_2_on_every_search(monkeypatch):
+    """Review bug 1: k=0 crashed the greedy/beam path (empty-set sentinel -> _value_of(None)). All paths now guard
+    k>=2 (a multi-KO needs >=2 genes) and return a clean error, never raise."""
+    for search in ("enumerate", "greedy", "beam"):
+        for k in (0, 1):
+            out = dg.generate(pool=["aaa", "bbb", "ccc"], k=k, search=search)
+            assert "error" in out and "k must be >= 2" in out["error"]
+    # and _beam_search itself no longer returns a None sentinel at k=0
+    monkeypatch.setattr(dg, "_score_candidate", _mock_score)
+    finals, _ = dg._beam_search(["a", "b", "c"], 0, 5, use_surrogate=False, use_fba=False, objective="information")
+    assert finals == []
+
+
+def test_search_fba_available_ors_across_all_finals(monkeypatch):
+    """Review bug 2: fba_available read only the TOP final, so a non-metabolic best set could report False even when
+    FBA ran on others. It now ORs across all finals, matching the enumerate path."""
+    from cellarium import scope, store
+    _s = dict(_SCOPE)
+    _s["ccc"] = {"known": True, "is_machinery": False, "essential_reference": False, "ko_index": 15, "role": "metabolic_enzyme"}
+    monkeypatch.setattr(scope, "classify_gene", lambda g: _s.get(g, {"known": False}))
+    monkeypatch.setattr(store, "viability", lambda p, c: {"designs": [
+        {"condition": f"KO:{g}", "verdict": "viable"} for g in ("aaa", "bbb", "ccc")]})
+
+    def _mixed_score(genes, **kw):
+        # the top-value set (aaa+bbb) is "non-metabolic" -> available False; another (aaa+ccc) had FBA run -> True
+        avail = not (set(genes) == {"aaa", "bbb"})
+        return {"genes": sorted(genes), "n_genes": len(genes), "recommend": "propose", "viability_prior": 0.9,
+                "synthetic_lethal_check": {"available": avail, "synthetic_lethal": False},
+                "active_learning": {"information_gain": (2.0 if set(genes) == {"aaa", "bbb"} else 1.0), "why": "t"}}
+    monkeypatch.setattr(dg, "_score_candidate", _mixed_score)
+    out = dg.generate(pool=["aaa", "bbb", "ccc"], k=2, max_candidates=5, search="beam", objective="information")
+    assert out["ranking"][0]["genes"] == ["aaa", "bbb"]      # the available=False set ranks first...
+    assert out["fba_available"] is True                       # ...but FBA is still reported available (OR across finals)
