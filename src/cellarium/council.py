@@ -25,7 +25,7 @@ import os
 import re
 from typing import Callable
 
-from . import instrument, test_registry
+from . import instrument, observability, test_registry
 from .hypothesis import Falsifier, Hypothesis, NamedTest, OperationalDef, Rival
 from .model import Design
 
@@ -276,10 +276,11 @@ def _default_models() -> dict:
 
 
 def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 3072,
-          temperature: float | None = None) -> dict:
+          temperature: float | None = None, role: str = "council") -> dict:
     """One forced-tool call -> the validated structured input dict. Retries once if the tool input comes back
     empty (a rare truncation/degenerate emit). `temperature` is passed only when set (None => API default),
-    so a run can pin it for reproducibility / name the sampling variance source."""
+    so a run can pin it for reproducibility / name the sampling variance source. Every real API call publishes a
+    per-call observability record (LLM-2 seam) tagged with `role` — proposer/skeptic/judge/gate/librarian."""
     kw = {} if temperature is None else {"temperature": temperature}
     # Prompt caching: a role's system prompt + tool schema are IDENTICAL across its ~4 calls in one deliberation, so
     # cache that (large, static) prefix; the per-round payload is the uncached suffix. Cache read = 0.1x input price,
@@ -289,11 +290,14 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
     system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
     tools = [{**tool, "cache_control": {"type": "ephemeral"}}]
     for _ in range(2):
+        t0 = observability.now()
         resp = client.messages.create(
             model=model, max_tokens=max_tokens, system=system_blocks, tools=tools,
             tool_choice={"type": "tool", "name": tool["name"]},
             messages=[{"role": "user", "content": json.dumps(payload)}], **kw,
         )
+        observability.emit(observability.usage_record(
+            role, model, resp, (observability.now() - t0) * 1000, temperature=temperature))
         for block in resp.content:
             if getattr(block, "type", None) == "tool_use" and block.input:
                 return dict(block.input)
@@ -315,7 +319,7 @@ def _propose(client, models, question, labels, previous_candidate, open_objectio
         payload["instruction"] += (" A reference answer for this question is provided in "
                                     "'leaked_reference_answer'; use it to inform your hypothesis.")
     return _emit(client, models["proposer"], _PROPOSER_SYS, _PROPOSE_TOOL, payload, max_tokens=4096,
-                 temperature=temperature)
+                 temperature=temperature, role="proposer")
 
 
 def _skeptic(client, models, question, labels, candidate, answered, open_objections=None, *,
@@ -328,7 +332,7 @@ def _skeptic(client, models, question, labels, candidate, answered, open_objecti
                                    for o in (open_objections or [])]}
     system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
     return _emit(client, models["skeptic"], system, _SKEPTIC_TOOL, payload, max_tokens=2048,
-                 temperature=temperature)
+                 temperature=temperature, role="skeptic")
 
 
 def _judge(client, models, question, candidate, objections, feasible_code, *, temperature=None,
@@ -338,13 +342,13 @@ def _judge(client, models, question, candidate, objections, feasible_code, *, te
                "debate_so_far": debate_so_far or []}
     if judge_mode == "generic":  # ablation: a plain "is this a good hypothesis?" judge, no falsifiability rubric
         out = _emit(client, models["judge"], _JUDGE_GENERIC_SYS, _JUDGE_GENERIC_TOOL, payload, max_tokens=1024,
-                    temperature=temperature)
+                    temperature=temperature, role="judge")
         good = bool(out.get("adequate"))
         return {"falsifiable": good, "specified": good, "operationalized": good, "discriminating": good,
                 "new_substantive_objection_this_round": not good, "open_objections_resolved": good,
                 "rationale": out.get("rationale", "")}
     return _emit(client, models["judge"], _JUDGE_SYS, _JUDGE_TOOL, payload, max_tokens=1536,
-                 temperature=temperature)
+                 temperature=temperature, role="judge")
 
 
 # --- assembly + gates --------------------------------------------------------------------------------------
@@ -560,7 +564,7 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
     # temperature=0: the residual (genuinely-ambiguous) cases must not flip verdict run-to-run — reproducibility is
     # part of the predictability contract. The pre-pass already handles every clearly-specified question above.
     out = _emit(client, model, _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
-                {"question": question, "dial_labels": labels}, max_tokens=1024, temperature=0.0)
+                {"question": question, "dial_labels": labels}, max_tokens=1024, temperature=0.0, role="gate")
     return {"sufficient": bool(out.get("sufficient", True)),   # fail-open: a degenerate emit must not block a run
             "missing": [m for m in (out.get("missing") or []) if isinstance(m, str)],
             "clarifying_questions": [q for q in (out.get("clarifying_questions") or []) if isinstance(q, str)][:2],
@@ -615,9 +619,11 @@ def web_research(question: str, *, focus: str | None = None, client=None, model:
                                            "perturbations": sorted(labels.get("perturbations") or {})}}
     if focus:
         payload["sharpened_claim"] = focus
+    t0 = observability.now()
     resp = client.messages.create(model=model, max_tokens=max_tokens, system=_LIBRARIAN_SYS,
                                   tools=[_WEB_SEARCH_TOOL],
                                   messages=[{"role": "user", "content": json.dumps(payload)}])
+    observability.emit(observability.usage_record("librarian", model, resp, (observability.now() - t0) * 1000))
     return _read_web_brief(resp)
 
 

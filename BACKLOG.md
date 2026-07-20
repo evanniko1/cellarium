@@ -48,7 +48,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 | ID | P | Item | Src |
 |----|---|------|-----|
 | ~~**LLM-1**~~ | ✅ | **Model currency + selection** — bumped runtime defaults `claude-sonnet-4-5` → `claude-sonnet-5` (agent, Council, server picker, debate eval); a picked model now drives the **Council roles** too (not just the agent), which it silently ignored before; `Auto` keeps the tuned default + per-turn router. **Done** — see Completed. | A |
-| **LLM-2** | P2 | **Observability** — log `resp.usage`, request IDs, a cost/latency meter. *(The Council per-round-transcript slice is Filippo's method gap — coordinate.)* | A |
+| ~~**LLM-2**~~ | ✅ | **Observability seam** — one shared `observability` module: every SDK call (`council._emit`, `agent._run_turn`, librarian) publishes a role-tagged per-call record (usage, request-id, wall-clock latency, temperature, list-price cost estimate) to a pub/sub bus; the shipped consumer is a `CostMeter` that aggregates per **Council run** (→ `run_council` meta `llm`) and per **agent turn** (→ `converse(on_usage=…)` → server `usage` SSE event). **Standalone seam commit** so Filippo rebases onto it and adds his per-round-transcript store as a SECOND subscriber (no edit to the call sites). **Done** — see Completed. | A |
 | ~~**LLM-3**~~ | ✅ | Agent temperature — `agent.converse` now pins `temperature_for(model)` when thinking is off (skips for reasoning models / thinking), recorded per turn. Same fix as M-2. **Done** — see Completed. | A |
 | **LLM-4** | P3 | `_estimate_tokens` is `chars//4` — drive the compaction trigger from `resp.usage`/`count_tokens`. | A |
 | **LLM-5** | P3 | Standardize retry config (agent `max_retries=4` vs Council SDK default 2). | A |
@@ -270,6 +270,25 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   the live run — NB PRECISE-1K's MG1655 contrasts are aerobic/stress, so a clean anaerobic/±AA sim-matched contrast
   needs gap-filler datasets. pytest + ruff green.
 
+- **LLM-2 · Observability seam** (2026-07-20) — one shared instrumentation seam for every Anthropic Messages call
+  the platform makes, landed as a **standalone commit** so Filippo's per-round-transcript store can rebase onto it
+  and consume the same records. New `src/cellarium/observability.py`: `usage_record(role, model, resp, latency_ms,
+  temperature)` builds a per-call dict — `{role, model, request_id, input_tokens, output_tokens, cache_read_tokens,
+  cache_creation_tokens, latency_ms, temperature, cost_usd}` — degrading gracefully (no `usage`/`_request_id` → 0/None,
+  so a mock never raises). Cost is a **list-price ESTIMATE** (`estimate_cost_usd`, per-model table from the claude-api
+  skill, cache-read ×0.1 / cache-write ×1.25, longest-prefix match so date-suffixed ids resolve; unknown model →
+  `None`, never a wrong $). A **pub/sub bus** (`subscribe`/`emit`, lock-guarded, faulty-consumer-isolated so a broken
+  sink can't break a live call) is the ONE publish point; the shipped consumer is `CostMeter` (`meter()` context
+  manager) aggregating tokens / est. USD / wall-time / per-role / per-model, with `cost_partial` when any call used an
+  unpriced model. Wired at both real call sites: `council._emit` (role `proposer`/`skeptic`/`judge`/`gate`) + the
+  librarian web call, and `agent._run_turn` (role `agent`/`summary`). Surfaced two aggregates: **per Council run** →
+  `run_council` meta `llm`; **per agent turn** → `agent.converse(on_usage=…)` → server `usage` SSE event. Tests
+  (`test_observability.py`, 12): record shape + graceful degradation, cost math + cache multipliers + prefix/unknown
+  pricing, meter scoping/unsubscribe + `cost_partial`, faulty-subscriber isolation, and two integration checks that
+  `council._emit` and `agent.converse` actually publish role-tagged records — all offline (no network). **174 passed,
+  1 skipped**; ruff green. Filippo hooks his transcript store via `observability.subscribe(fn)` — no edit to the call
+  sites (see *Coordinate with Filippo*).
+
 ## Design notes (scouted plans)
 
 Distilled from the SOTA+pitfalls lit briefs (`wf_2479258d`, full text in that workflow's transcript). These are
@@ -328,11 +347,16 @@ Filippo's Council-defect ledger (`docs/COUNCIL_IMPROVEMENT_LEDGER.md` + `docs/co
   falsifier-quality effort.
 - **LLM-2** (observability) ⟷ his **method gap** (the Council's per-round transcript isn't persisted; `ablation.json`
   keeps only counts) — persisting transcripts enables systematic Council analysis and measuring M-1.
-  **Highlight to Filippo:** LLM-2 adds ONE instrumentation seam at each SDK call (`council._emit`, `agent.converse`)
-  capturing `resp.usage` (input/output tokens), the response/request id, and per-call latency. When he adds
-  per-round transcript persistence, hook it at the SAME call-sites and store that `{tokens, request_id, latency}`
-  next to each round's messages — so observability and the transcript ledger share one seam, not two, and every
-  persisted round carries its own cost/latency. Agree the record shape (a per-call dict) before either lands.
+  **✅ LANDED on main as a standalone seam** (`src/cellarium/observability.py`): every SDK call (`council._emit`,
+  `agent._run_turn`, librarian) `emit()`s a per-call record to a pub/sub bus. The record shape (the contract —
+  additions must be backward-additive):
+  `{role, model, request_id, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, latency_ms,
+  temperature, cost_usd}`.
+  **For Filippo:** `git rebase origin/main` (you're docs-only, zero code overlap with the seam files), then add
+  your per-round transcript store as a SECOND consumer — `observability.subscribe(fn)` where `fn(record)` writes
+  `{tokens, request_id, latency}` next to each round's messages. You do NOT touch `council._emit` / `agent.converse`
+  — one publish point, two subscribers. The record `role` is already `proposer`/`skeptic`/`judge`/`gate`, so you can
+  key transcript rows by role directly. The shipped consumer is `CostMeter` (`meter()` context manager); mirror it.
 
 ## Provenance
 This backlog replaced three task docs, now **removed** (recoverable from git history at commit `55ed67f`):

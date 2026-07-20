@@ -11,7 +11,7 @@ import os
 
 import anthropic
 
-from . import tools
+from . import observability, tools
 
 MODEL = os.environ.get("CELLARIUM_MODEL", "claude-sonnet-5")
 # Reproducibility (M-2/LLM-3): pin sampling temperature instead of the API default. Anthropic exposes no seed, so
@@ -320,28 +320,35 @@ def compact_history(messages: list, *, model: str | None = None, keep_recent_tur
     return head + [m for t in recent for m in t]
 
 
-def _run_turn(client, kw: dict, on_text):
+def _run_turn(client, kw: dict, on_text, *, role: str = "agent"):
     """One model turn, STREAMED. Forwards text deltas to on_text (token streaming) and returns the final message
-    (with any tool_use / thinking blocks intact for the loop + history)."""
+    (with any tool_use / thinking blocks intact for the loop + history). Publishes a per-call observability record
+    (LLM-2 seam) tagged `role` — 'agent' for a tool-loop turn, 'summary' for the forced final synthesis."""
+    t0 = observability.now()
     with client.messages.stream(**kw) as stream:
         if on_text is not None:
             for delta in stream.text_stream:
                 on_text(delta)
         else:
             stream.until_done()
-        return stream.get_final_message()
+        final = stream.get_final_message()
+    observability.emit(observability.usage_record(
+        role, kw.get("model"), final, (observability.now() - t0) * 1000, temperature=kw.get("temperature")))
+    return final
 
 
 def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, on_note=None,
-             max_turns: int = 12, verbose: bool = False, reasoning: str = "none") -> str:
+             on_usage=None, max_turns: int = 12, verbose: bool = False, reasoning: str = "none") -> str:
     """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
     in place — appending the assistant + tool_result turns — so the caller can persist it for a MULTI-TURN
     conversation. Returns the final assistant text. This is what makes the chat remember: the same messages list
     carries prior turns, and prompt caching (system + tools) keeps the growing prefix cheap.
 
-    on_text, if given, receives streamed answer-text deltas (token streaming). reasoning ('none'|'low'|'high')
-    enables extended thinking on models that support it (falls back to the base model otherwise). The SDK retries
-    429/5xx with exponential backoff; bulky tool results are trimmed."""
+    on_text, if given, receives streamed answer-text deltas (token streaming). on_usage, if given, receives the
+    per-turn cost/latency aggregate (LLM-2) once the turn ends — tokens, estimated USD, wall-time, per-role/model
+    breakdown across every model call this turn made. reasoning ('none'|'low'|'high') enables extended thinking on
+    models that support it (falls back to the base model otherwise). The SDK retries 429/5xx with exponential
+    backoff; bulky tool results are trimmed."""
     from . import rigor
 
     rigor.reset()  # fresh coverage tracking per user turn
@@ -363,70 +370,81 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
         if on_note is not None and len(messages) < before:
             on_note(f"Compacted {before - len(messages)} earlier messages into a summary to keep the context lean.")
 
-    for _ in range(max_turns):
-        kw = dict(model=mdl, system=system, tools=tool_defs, messages=_prefix_cached(messages))
-        # max_tokens is a CAP, not a target — the model stops when done, so a generous cap costs nothing on short
-        # answers but stops a synthesis ('top 5 findings …') being truncated mid-item. With thinking, leave room for
-        # the answer AFTER the reasoning budget.
-        if budget:
-            kw["thinking"] = {"type": "enabled", "budget_tokens": budget}
-            kw["max_tokens"] = budget + 4000
-        else:
-            kw["max_tokens"] = 4096
-        t = temperature_for(mdl, thinking="thinking" in kw)   # pin temperature when not thinking (reproducibility)
-        if t is not None:
-            kw["temperature"] = t
-        try:
-            resp = _run_turn(client, kw, on_text)
-        except Exception as exc:                      # extended thinking unsupported here -> retry as base model
-            if budget and _is_thinking_error(exc):
-                budget = 0
-                kw.pop("thinking", None)
-                kw["max_tokens"] = 4096
-                t = temperature_for(mdl, thinking=False)      # thinking fell back -> now we can pin
-                if t is not None:
-                    kw["temperature"] = t
-                resp = _run_turn(client, kw, on_text)
-            else:
-                raise
-        messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
-        tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
-
-        if resp.stop_reason != "tool_use" or not tool_uses:
-            return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
-
-        results = []
-        for tu in tool_uses:
-            out = tools.dispatch(tu.name, tu.input)
-            if verbose:
-                print(f"  tool {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
-            if on_tool is not None:
-                on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
-            content = json.dumps(out)
-            if len(content) > _TOOL_CAP:              # keep the growing context lean
-                content = content[:_TOOL_CAP] + ' …[truncated]'
-            results.append({"type": "tool_result", "tool_use_id": tu.id, "content": content})
-        messages.append({"role": "user", "content": results})
-
-    # Tool budget exhausted while the agent was still calling tools: force ONE final synthesis with tools DISABLED,
-    # so a turn ALWAYS ends with a real answer instead of a dangling tool_result. Without this a hard/broad question
-    # truncates with no conclusion (seen in ~1/3 of the eval Arm A sweep — 25-message sessions ending on tool_result).
-    wrap_system = system + [{"type": "text", "text": (
-        "You have reached the tool-call budget for this turn — do NOT request any more tools. Synthesize your FINAL "
-        "answer now from the evidence already gathered, and state plainly what is still uncertain or was left "
-        "unfinished. Do not fabricate results you did not read.")}]
+    # LLM-2: scope a cost/latency meter over this whole user turn — every model call (agent turns, the thinking
+    # fallback, the final synthesis, and the compaction/summary above) publishes a record it aggregates. finally
+    # guarantees we unsubscribe (no leaked subscription) and hand the aggregate to on_usage on EVERY exit path.
+    meter = observability.CostMeter()
+    unsubscribe = observability.subscribe(meter)
     try:
-        # tool_choice=none forbids further tool calls WITHOUT dropping the tool definitions — dropping them 400s
-        # because the history contains tool_use blocks (tools must stay defined once used). Keeping tool_defs also
-        # preserves the cached prefix. This is the path that produces the final answer when the budget is spent.
-        resp = _run_turn(client, dict(model=mdl, system=wrap_system, tools=tool_defs,
-                                      tool_choice={"type": "none"}, messages=_prefix_cached(messages),
-                                      max_tokens=(budget + 4000 if budget else 4096)), on_text)
-        messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
-        text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
-        return text or "(stopped: reached max turns without a synthesis)"
-    except Exception:
-        return "(stopped: reached max turns)"
+        for _ in range(max_turns):
+            kw = dict(model=mdl, system=system, tools=tool_defs, messages=_prefix_cached(messages))
+            # max_tokens is a CAP, not a target — the model stops when done, so a generous cap costs nothing on short
+            # answers but stops a synthesis ('top 5 findings …') being truncated mid-item. With thinking, leave room
+            # for the answer AFTER the reasoning budget.
+            if budget:
+                kw["thinking"] = {"type": "enabled", "budget_tokens": budget}
+                kw["max_tokens"] = budget + 4000
+            else:
+                kw["max_tokens"] = 4096
+            t = temperature_for(mdl, thinking="thinking" in kw)   # pin temperature when not thinking (reproducibility)
+            if t is not None:
+                kw["temperature"] = t
+            try:
+                resp = _run_turn(client, kw, on_text)
+            except Exception as exc:                      # extended thinking unsupported here -> retry as base model
+                if budget and _is_thinking_error(exc):
+                    budget = 0
+                    kw.pop("thinking", None)
+                    kw["max_tokens"] = 4096
+                    t = temperature_for(mdl, thinking=False)      # thinking fell back -> now we can pin
+                    if t is not None:
+                        kw["temperature"] = t
+                    resp = _run_turn(client, kw, on_text)
+                else:
+                    raise
+            messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
+            tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
+
+            if resp.stop_reason != "tool_use" or not tool_uses:
+                return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+
+            results = []
+            for tu in tool_uses:
+                out = tools.dispatch(tu.name, tu.input)
+                if verbose:
+                    print(f"  tool {tu.name}({json.dumps(tu.input)}) -> {json.dumps(out)[:160]}")
+                if on_tool is not None:
+                    on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
+                content = json.dumps(out)
+                if len(content) > _TOOL_CAP:              # keep the growing context lean
+                    content = content[:_TOOL_CAP] + ' …[truncated]'
+                results.append({"type": "tool_result", "tool_use_id": tu.id, "content": content})
+            messages.append({"role": "user", "content": results})
+
+        # Tool budget exhausted while the agent was still calling tools: force ONE final synthesis with tools
+        # DISABLED, so a turn ALWAYS ends with a real answer instead of a dangling tool_result. Without this a
+        # hard/broad question truncates with no conclusion (seen in ~1/3 of the eval Arm A sweep — 25-message
+        # sessions ending on tool_result).
+        wrap_system = system + [{"type": "text", "text": (
+            "You have reached the tool-call budget for this turn — do NOT request any more tools. Synthesize your "
+            "FINAL answer now from the evidence already gathered, and state plainly what is still uncertain or was "
+            "left unfinished. Do not fabricate results you did not read.")}]
+        try:
+            # tool_choice=none forbids further tool calls WITHOUT dropping the tool definitions — dropping them 400s
+            # because the history contains tool_use blocks (tools must stay defined once used). Keeping tool_defs
+            # also preserves the cached prefix. This is the path that produces the final answer when budget is spent.
+            resp = _run_turn(client, dict(model=mdl, system=wrap_system, tools=tool_defs,
+                                          tool_choice={"type": "none"}, messages=_prefix_cached(messages),
+                                          max_tokens=(budget + 4000 if budget else 4096)), on_text, role="summary")
+            messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
+            text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+            return text or "(stopped: reached max turns without a synthesis)"
+        except Exception:
+            return "(stopped: reached max turns)"
+    finally:
+        unsubscribe()
+        if on_usage is not None:
+            on_usage(meter.summary())
 
 
 def run(question: str, *, hypothesis=None, max_turns: int = 8, verbose: bool = True, on_tool=None,

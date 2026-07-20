@@ -145,7 +145,7 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
     Council midwifes it) and only carries a non-blocking sharpening hint; genuine ambiguity is handled by the
     Council's own D3 escalation mid-deliberation, not by refusing up front. `attempt` is vestigial (kept for API
     compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. Returns the stored run."""
-    from cellarium import agent, council, ui   # lazy: the store itself stays dependency-free + unit-testable
+    from cellarium import agent, council, observability, ui   # lazy: the store stays dependency-free + unit-testable
 
     run_id = reuse_id or store.new_id()
     store.create(run_id, question, model)
@@ -160,7 +160,9 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
         # a PICKED model drives the Council's roles; model=None (Auto) -> the Council's tuned default
         cmodels = {"proposer": model, "skeptic": model, "judge": model} if model else None
         temperature = agent.temperature_for(model)   # pinned for reproducibility (M-2); None for a picked reasoning model
-        hyp = council.deliberate(question, verbose=False, on_round=_round, models=cmodels, temperature=temperature)
+        # LLM-2: meter this deliberation's proposer/skeptic/judge calls (tokens, est. USD, wall-time, per-role split)
+        with observability.meter() as _meter:
+            hyp = council.deliberate(question, verbose=False, on_round=_round, models=cmodels, temperature=temperature)
         hview = ui.hypothesis_view(hyp)
         designs = [ui.design_view(d) for d in (getattr(hyp, "candidate_designs", None) or [])]
         ledger = getattr(hyp, "objection_ledger", None) or []
@@ -172,6 +174,8 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 "resolutions": {o["id"]: o.get("resolved_round") for o in ledger if o.get("id")},
                 # reproducibility provenance (M-2): the sampling variance source is now named + recorded
                 "temperature": temperature, "model": (model or "auto"),
+                # observability (LLM-2): this run's model-call cost/latency aggregate (tokens, est. USD, per-role)
+                "llm": _meter.summary(),
                 # soft, non-blocking sharpening nudge (advisory only — the run still completed)
                 "broad_question": broad, "hint": (_BROAD_HINT if broad else None)}
         store.complete(run_id, hview, designs, meta)

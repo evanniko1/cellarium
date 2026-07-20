@@ -169,6 +169,9 @@ async def investigate(request):
         def on_note(msg):
             ev.put(("note", {"message": msg}))    # transparency: e.g. context compaction happened
 
+        def on_usage(summary):
+            ev.put(("usage", summary))    # observability (LLM-2): this turn's model-call cost/latency aggregate
+
         try:
             if first_turn:
                 hyp = None
@@ -189,7 +192,7 @@ async def investigate(request):
                 sess["model"] = chosen
                 sess["temperature"] = agent.temperature_for(chosen, thinking=(reasoning != "none"))
             answer = agent.converse(sess["messages"], model=chosen, on_tool=on_tool, on_text=on_text,
-                                     on_note=on_note, verbose=False, reasoning=reasoning)
+                                     on_note=on_note, on_usage=on_usage, verbose=False, reasoning=reasoning)
             SESSIONS.put(sid, sess)   # write-through so the conversation survives a restart
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace), "session_id": sid,
                               "model": chosen, "routed": routed, "first_turn": first_turn}))
