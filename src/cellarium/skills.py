@@ -12,7 +12,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "skills" / "vendor" / "k-dense"
+_SKILLS_ROOT = Path(__file__).resolve().parent.parent.parent / "skills"
+SKILLS_DIR = _SKILLS_ROOT / "vendor" / "k-dense"           # vendored, MIT/K-Dense (literature + bioinformatics)
+CELLARIUM_SKILLS_DIR = _SKILLS_ROOT / "cellarium"          # PUB-1: Cellarium-authored publication/rigor skills
+# collections searched, in order, by list_skills/load_skill — vendored first, then this project's own.
+_ROOTS = (SKILLS_DIR, CELLARIUM_SKILLS_DIR)
 
 # only scientific literature / bioinformatics endpoints the vendored skills actually call — a GET allow-list so the
 # agent's web access can't be turned into an SSRF (no internal hosts, no arbitrary browsing).
@@ -26,18 +30,29 @@ _MAX_BYTES = 200_000
 
 
 def list_skills() -> list[str]:
-    if not SKILLS_DIR.exists():
-        return []
-    return sorted(p.name for p in SKILLS_DIR.iterdir() if p.is_dir())
+    names: set[str] = set()
+    for root in _ROOTS:
+        if root.exists():
+            names.update(p.name for p in root.iterdir() if p.is_dir() and (p / "SKILL.md").exists())
+    return sorted(names)
+
+
+def _skill_dir(name: str) -> Path | None:
+    """First root (vendored, then Cellarium-authored) that carries this skill's SKILL.md."""
+    for root in _ROOTS:
+        if (root / name / "SKILL.md").exists():
+            return root / name
+    return None
 
 
 def load_skill(name: str, include_references: bool = True) -> dict:
-    """Return a vendored skill's SKILL.md (and, by default, its reference docs) so the agent has the instructions +
-    endpoint details in context, then runs them with web_get. Bounded so a large skill can't blow the context."""
-    root = SKILLS_DIR / name
-    md = root / "SKILL.md"
-    if not md.exists():
+    """Return a skill's SKILL.md (and, by default, its reference docs) so the agent has the instructions in context,
+    then runs them (literature skills fetch with web_get; publication skills point at the toolkit's own tools).
+    Bounded so a large skill can't blow the context. Searches the vendored K-Dense set and the Cellarium set."""
+    root = _skill_dir(name)
+    if root is None:
         return {"error": f"unknown skill '{name}'. available: {list_skills()}"}
+    md = root / "SKILL.md"
     out = {"name": name, "skill": md.read_text(encoding="utf-8", errors="replace")}
     refs = root / "references"
     if include_references and refs.exists():

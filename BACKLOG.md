@@ -107,7 +107,7 @@ file:line evidence lives in git history (commit `55ed67f`).
 
 | ID | P | Item | Src |
 |----|---|------|-----|
-| **PUB-1** | P3 | Adopt the publication K-Dense skills: `scientific-writing` (manuscript), `citation-management`/`pyzotero`, `scientific-visualization`/`schematics`/`slides`/`latex-posters`, `peer-review` (pre-submission self-critique), `uncertainty-quantification`. *(`research-grants` used for the AI-for-Science application.)* | T |
+| ~~**PUB-1**~~ | ✅ | Publication skills adopted — the `skills.load_skill`/`use_skill` loader now searches a Cellarium-authored namespace (`skills/cellarium/`) alongside the vendored K-Dense set, and three publication skills are wired in: `scientific-writing` (manuscript prose with the provenance + in/out-of-sample conventions), `peer-review` (pre-submission adversarial self-critique tuned to the project's failure modes; pairs with `robustness_check`), `uncertainty-quantification` (routes every CI/p/power/robustness question to the toolkit's OWN grounded stats — `disconfirm`/`fit_relation`/`power_check`/`robustness_check`/`stats`). Authored (not fabricated-as-K-Dense — clear `ATTRIBUTION.md`); host-tested (`test_skills.py`). The generic K-Dense variants (`citation-management`/`pyzotero`, `scientific-visualization`/`slides`/`latex-posters`) can be vendored later when their sources are on hand; `research-grants` already used for the AI-for-Science application. **Done** — see Completed. | T |
 
 ---
 

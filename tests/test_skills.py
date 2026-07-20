@@ -13,6 +13,20 @@ def test_vendored_skills_present_and_loadable():
     assert any("pubmed" in k for k in lit["references"])          # the PubMed endpoint doc is there
 
 
+def test_publication_skills_present_and_loadable():
+    """PUB-1: the Cellarium-authored publication skills load through the SAME loader as the vendored ones."""
+    have = skills.list_skills()
+    for s in ("scientific-writing", "peer-review", "uncertainty-quantification"):
+        assert s in have, f"publication skill missing: {s}"
+        out = skills.load_skill(s)
+        assert "skill" in out and len(out["skill"]) > 400, f"{s} SKILL.md too thin / missing"
+    # they must point at the project's OWN rigor tools (grounded), not fetch anything
+    uq = skills.load_skill("uncertainty-quantification")["skill"]
+    assert "disconfirm" in uq and "power_check" in uq and "robustness_check" in uq
+    pr = skills.load_skill("peer-review")["skill"]
+    assert "in-sample" in pr.lower() and "model_under_predicts" in pr.lower()
+
+
 def test_load_skill_unknown_returns_error():
     out = skills.load_skill("not-a-skill")
     assert "error" in out and "available" in out["error"]

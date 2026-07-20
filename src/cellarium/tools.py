@@ -966,12 +966,14 @@ def read_species(result_id: str, species_id: str, kind: str = "protein") -> dict
 
 
 def use_skill(name: str) -> dict:
-    """Load a vendored scientific Agent Skill (K-Dense, MIT) — its instructions + endpoint reference docs — so you
-    can execute it with web_get. Use for LITERATURE questions the corpus can't answer: 'paper-lookup' (10 literature
-    APIs with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured
-    fields: methods/results/sample sizes/quality). This is how you check what's already PUBLISHED, whether a sim
-    result agrees with the literature, and whether a finding is novel/wet-lab-worthy — NEVER for the primary numbers
-    (those stay grounded in a run)."""
+    """Load a scientific Agent Skill — its instructions (+ endpoint reference docs) — into context. Two families:
+    LITERATURE (vendored K-Dense, run over web_get): 'paper-lookup' (10 literature APIs with provenance),
+    'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality)
+    — for what's PUBLISHED / whether a sim result agrees / novelty, NEVER for primary numbers (those stay grounded).
+    PUBLICATION (Cellarium-authored, PUB-1): 'scientific-writing' (manuscript prose with the provenance + in/out-of-
+    sample conventions), 'peer-review' (pre-submission adversarial self-critique of a claim — pairs with
+    robustness_check), 'uncertainty-quantification' (routes each CI/p-value/power/robustness question to the toolkit's
+    own grounded stats). Use these when drafting/reviewing manuscript claims."""
     from . import skills
     return skills.load_skill(name)
 
@@ -1099,8 +1101,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
     {"name": "design_panel", "description": "DESIGN a falsifier PANEL as a proper design-of-experiments — not an ad-hoc seeds×generations guess. Give the FACTORS to cross as {name:[levels]} (e.g. {'gene':['pfkA','pfkB'], 'condition':['basal','acetate']}) and get the full-factorial cells, a randomized run order, optional blocking, the sim budget, and whether the panel is adequately POWERED to resolve effect_pct (grounded in the corpus's real replicate CV for `channel`). Use to lay out a multi-factor falsifier panel; map each cell onto a Design and queue with propose_experiments.",
      "input_schema": {"type": "object", "properties": {"factors": {"type": "object", "description": "{factor_name: [levels]} to cross, e.g. {'gene': ['pfkA','pfkB']}"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number"}, "seeds": {"type": "integer"}, "generations": {"type": "integer"}, "block_by": {"type": "string", "description": "optional factor name to block on"}}, "required": ["factors"]}},
-    {"name": "use_skill", "description": "Load a vendored scientific Agent Skill (literature, MIT/K-Dense) to answer a LITERATURE question the corpus can't: 'paper-lookup' (10 APIs — PubMed/OpenAlex/bioRxiv/… with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality). Returns the skill's instructions + endpoint reference docs; then execute it with web_get. Use to check what's PUBLISHED, whether a grounded sim result agrees with the literature, and whether a finding is novel / wet-lab-worthy — the corpus stays the source of primary numbers; the literature is comparison only, always cited.",
-     "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "paper-lookup | literature-review | bgpt-paper-search"}}, "required": ["name"]}},
+    {"name": "use_skill", "description": "Load a scientific Agent Skill's instructions into context. LITERATURE (vendored K-Dense, run over web_get): 'paper-lookup' (10 APIs — PubMed/OpenAlex/bioRxiv/… with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality) — check what's PUBLISHED / agreement / novelty; the corpus stays the source of primary numbers, literature is cited comparison only. PUBLICATION (Cellarium-authored): 'scientific-writing' (manuscript prose with the provenance + in/out-of-sample conventions), 'peer-review' (pre-submission adversarial self-critique; pairs with robustness_check), 'uncertainty-quantification' (routes each CI/p/power/robustness question to the toolkit's own grounded stats). Use these when drafting or reviewing a manuscript claim.",
+     "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "literature: paper-lookup | literature-review | bgpt-paper-search · publication: scientific-writing | peer-review | uncertainty-quantification"}}, "required": ["name"]}},
     {"name": "web_get", "description": "HTTP GET for the literature skills — allow-listed scientific hosts only (eutils.ncbi/PubMed, api.openalex.org, api.crossref.org, api.semanticscholar.org, export.arxiv.org, rest.uniprot.org, ...). Read the skill's reference doc (use_skill) for the exact endpoint + params first. Refuses any non-allow-listed host.",
      "input_schema": {"type": "object", "properties": {"url": {"type": "string"}, "headers": {"type": "object"}}, "required": ["url"]}},
     {"name": "screen_design", "description": "Biosecurity screen for a SINGLE proposed design (INTENT): flags engineering toward a misuse signature (AMR efflux up-regulation, toxin over-expression, virulence). Call for a one-off design before proposing it; for a PANEL, skip it — propose_experiments biosecurity-screens every design for you (it will block a flagged one).",
