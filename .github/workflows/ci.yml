@@ -18,7 +18,7 @@ jobs:
       - name: Install (package + dev tools)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,hf]"
+          pip install -e ".[dev,hf,surrogate]"   # surrogate (scikit-learn) is light enough to test in CI, unlike fba/rnaseq
 
       # H-4: fail fast on a committed secret (high-signal, known-prefix patterns — Anthropic / AWS / GitHub / Slack
       # tokens + private keys). Dependency-free; gitleaks can be layered on later for entropy-based coverage.
