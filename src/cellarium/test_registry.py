@@ -28,6 +28,7 @@ class TestSpec:
     aliases: tuple[str, ...] = ()    # phrases the Council uses for this test (matched case/punctuation-insensitively)
     precondition: str = ""           # human-readable executability precondition
     caveat: str = ""                 # e.g. "Sarle's BC, not Hartigan's dip"
+    example: str = ""                # DD-TCV-1(c): a decision-rule FORM the proposer prompt shows (SUPPORTED specs)
     doc: str = ""
 
     @property
@@ -42,27 +43,32 @@ TEST_REGISTRY: tuple[TestSpec, ...] = (
              aliases=("welch", "welch t", "welch's t", "two-sample t", "two sample t", "t-test", "t test",
                       "difference of means", "unpaired t", "student t"),
              precondition=">=2 replicates per side",
-             doc="Welch's t across seeds; |t|>=2 rejects H0 (rigor.disconfirm)."),
+             example="Welch t of the channel, target vs reference across seeds; reject H0 if the two-sided p<0.05 at the Welch df",
+             doc="Welch's t across seeds; two-sided p<0.05 at the Welch–Satterthwaite df rejects H0 (rigor.disconfirm)."),
     TestSpec("slope_ci", "linear_relation", "fit_relation", "slope_ci_excludes_0",
              aliases=("ols slope", "regression slope", "slope 95% ci", "slope ci", "slope confidence interval",
                       "slope excludes 0", "linear regression", "regression coefficient", "slope inference"),
              precondition=">=3 designs carrying both channels",
+             example="OLS slope of Y on X across >=3 conditions; reject H0 if the slope 95% CI excludes 0",
              doc="OLS slope with t-based 95% CI + p (rigor.fit_relation, DS-1)."),
     TestSpec("bimodality_bc", "distribution_shape", "bimodality", "bimodal_suggested",
              aliases=("bimodality", "bimodal", "two modes", "two regimes", "sarle", "bimodality coefficient",
                       "dip test", "test for bimodality", "multimodal"),
              precondition=">=4 pooled values",
              caveat="Sarle's bimodality coefficient (BC>0.555), NOT Hartigan's exact dip test.",
+             example="Sarle's bimodality coefficient over the pooled per-seed values; reject unimodal if BC>0.555",
              doc="tools.bimodality; a stdlib BC heuristic + best 2-cluster split (M-1)."),
     TestSpec("bh_fdr_movers", "multiple_testing", "top_movers", "n_significant_fdr10",
              aliases=("bh-fdr", "benjamini", "benjamini-hochberg", "false discovery rate", "fdr correction",
                       "multiple testing correction", "adjusted p-value", "q-value threshold"),
              precondition="two designs with proteome/mRNA layers",
+             example="Benjamini-Hochberg FDR over per-species log2FC; a real response needs n_significant_fdr10 > 0",
              doc="Benjamini-Hochberg FDR over per-species log2FC (top_movers)."),
     TestSpec("power_mde", "power_analysis", "power_check", "min_detectable_effect",
              aliases=("power analysis", "statistical power", "minimum detectable effect", "underpowered",
                       "power calculation", "sample size calculation", "seeds needed"),
              precondition="a channel with observed replicate CV in the corpus",
+             example="power_check: read a null as equivalence only if the effect exceeds the min detectable effect at n",
              doc="Corpus-CV-based min detectable effect / seeds-needed (power_check)."),
 
     # --- known-UNSUPPORTED: recognized tests we deliberately don't have a tool for (tool=None => GAP) ---------
@@ -150,6 +156,24 @@ def supported_ids() -> list[str]:
     """The controlled vocabulary the Council is ALLOWED to name (executable tests) — used to build the enum a
     future structured falsifier field selects from (brief step 2)."""
     return [t.test_id for t in TEST_REGISTRY if t.supported]
+
+
+def proposer_guidance() -> str:
+    """DD-TCV-1(c): the proposer prompt's decision-rule EXAMPLES + 'not available' note, GENERATED from this registry
+    so the prompt can't drift from the enum (the hardcoded prose used to encode thresholds + which tests are absent
+    as a second, un-synced copy — e.g. it kept coaching '|t|>=2' after disconfirm went df-aware). Example forms come
+    from each SUPPORTED spec's `example`; the avoid-note is the caveat on each recognized-but-UNSUPPORTED (tool=None)
+    spec, which already names the supported alternative."""
+    examples = [t.example for t in TEST_REGISTRY if t.supported and t.example]
+    caveats = [t.caveat for t in TEST_REGISTRY if not t.supported and t.caveat]
+    parts = []
+    if examples:
+        parts.append("Example decision-rule FORMS (bind one to your channels): "
+                     + "; or ".join(f"'{e}'" for e in examples) + ".")
+    if caveats:
+        parts.append("Name ONLY a test the platform provides; recognized but NOT available (do not name these): "
+                     + " ".join(caveats))
+    return " ".join(parts)
 
 
 def _norm(s: str) -> str:

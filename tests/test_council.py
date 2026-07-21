@@ -415,3 +415,13 @@ if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):
             fn(); print("ok:", name)
+
+
+def test_proposer_prompt_uses_registry_guidance_no_stale_threshold():
+    """DD-TCV-1: the proposer prompt embeds the registry-GENERATED guidance (so its examples + 'not available' note
+    can't drift from the enum), and no longer coaches the pre-DD-MTH-1 flat |t|>=2 threshold — disconfirm is now
+    df-aware (p<0.05 at the Welch df)."""
+    from cellarium import test_registry
+    assert test_registry.proposer_guidance() in council._PROPOSER_SYS   # the prompt uses the generated block
+    assert "|t|>=2" not in council._PROPOSER_SYS and "|t| >= 2" not in council._PROPOSER_SYS   # stale threshold gone
+    assert ", ".join(test_registry.supported_ids()) in council._PROPOSER_SYS   # the enforced enum is still the registry

@@ -117,3 +117,18 @@ def test_scan_and_file_never_raises(tmp_path):
     # a clean executable falsifier files nothing
     out = harness.scan_and_file(_fake_hyp("welch_t >= 2"), "h_y", bl)
     assert out.get("gaps") == []
+
+
+def test_proposer_guidance_generated_from_registry():
+    """DD-TCV-1(b/c): the proposer's decision-rule examples + 'not available' note are GENERATED from the registry,
+    so the prompt can't drift from the enum — every supported spec's example AND every unsupported spec's caveat is
+    surfaced, and no unsupported spec carries an `example` (which would present it as usable)."""
+    g = test_registry.proposer_guidance()
+    for t in test_registry.TEST_REGISTRY:
+        if t.supported and t.example:
+            assert t.example in g, f"supported test {t.test_id} example missing from proposer guidance"
+        if not t.supported and t.caveat:
+            assert t.caveat in g, f"unsupported test {t.test_id} not flagged as unavailable in proposer guidance"
+    assert all(not t.example for t in test_registry.TEST_REGISTRY if not t.supported)   # avoid-only, never an example
+    # a spot-check the generator actually reflects the registry state: a supported test is shown, an unsupported named
+    assert "BC>0.555" in g and "Hartigan" in g

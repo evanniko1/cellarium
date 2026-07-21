@@ -69,11 +69,9 @@ _PROPOSER_SYS = (
     "  (a) predicted_effect states the quantitative FORM — for a relationship, the functional form + a slope / "
     "intercept or a target R^2; for a difference, the fold-change / CV / effect size as a number; for a "
     "distribution, the shape (e.g. bimodal) + the fraction.\n"
-    "  (b) falsifier.decision_rule NAMES the statistical test AND the threshold (e.g. 'OLS regression of Y on X "
-    "across >=3 conditions; reject H0 if the slope 95% CI excludes 0 and R^2>=0.9'; or 'Welch t on Y "
-    "target-vs-reference; reject if |t|>=2'; or 'Sarle's bimodality coefficient; reject unimodal if BC>0.555'). For "
-    "bimodality use the bimodality-COEFFICIENT test the platform provides — do NOT specify Hartigan's dip (it is not "
-    "an available tool).\n"
+    "  (b) falsifier.decision_rule NAMES the statistical test AND the threshold. "   # DD-TCV-1: examples + the
+    + test_registry.proposer_guidance() + "\n"   # 'not available' note are GENERATED from the registry (no drift)
+
     "  (b-i) ALSO set falsifier.test.test_id to the EXECUTABLE test you will use, chosen ONLY from: "
     f"{', '.join(test_registry.supported_ids())}. Use 'other' ONLY if genuinely none of these fits the test your "
     "decision_rule describes — then name it in decision_rule; the platform logs an 'other' as a capability gap "
