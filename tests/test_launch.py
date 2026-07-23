@@ -76,31 +76,33 @@ def test_propose_experiments_queues_a_whole_panel_in_one_call(tmp_path, monkeypa
 
 
 def test_reconcile_heals_orphaned_running_jobs(tmp_path, monkeypatch):
-    """A server restart mid-run leaves approve_and_run's in-process job stuck at 'running'. On boot, reconcile
-    flips it by what actually landed: a run indexed in the manifest -> 'done'; nothing indexed -> 'failed'. Live
-    drafts (pending_approval) are untouched, and a re-run is a no-op (idempotent)."""
+    """A server restart mid-run leaves approve_and_run's in-process job stuck at 'running'. On boot, reconcile flips
+    it by what actually landed vs what was REQUESTED: ALL seeds indexed -> 'done'; SOME but not all -> 'partial' (the
+    false-'done' fix — a crash mid-campaign no longer hides behind a green status); nothing -> 'failed'. Live drafts
+    (pending_approval) are untouched, and a re-run is a no-op (idempotent)."""
     import json
 
     from cellarium import manifest
     monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
-    q = [
-        {"id": "req_landed", "status": "running",
-         "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": "",
-                    "params": {"target_genes": ["pfkA"]}}},
-        {"id": "req_orphan", "status": "running",
-         "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": "",
-                    "params": {"target_genes": ["ghostZ"]}}},
-        {"id": "req_pending", "status": "pending_approval",
-         "design": {"perturbation": "wildtype", "condition": "basal", "timeline": "", "params": {}}},
-    ]
+
+    def _job(rid, gene, seeds=4):
+        return {"id": rid, "status": "running", "seeds": seeds,
+                "design": {"perturbation": "gene_knockout", "condition": "basal", "timeline": "",
+                           "params": {"target_genes": [gene]}}}
+    q = [_job("req_done", "pfkA"), _job("req_partial", "tpiA"), _job("req_orphan", "ghostZ"),
+         {"id": "req_pending", "status": "pending_approval",
+          "design": {"perturbation": "wildtype", "condition": "basal", "timeline": "", "params": {}}}]
     (tmp_path / "q.json").write_text(json.dumps(q))
-    # stand in for the manifest: pfkA's run landed, ghostZ's did not
-    monkeypatch.setattr(manifest, "has_run", lambda d: "pfkA" in (d.params or {}).get("target_genes", []))
+    # stand in for the manifest: pfkA landed all 4 seeds, tpiA only 1 (crashed mid-campaign), ghostZ none
+    landed = {"pfkA": 4, "tpiA": 1, "ghostZ": 0}
+    monkeypatch.setattr(manifest, "count_runs",
+                        lambda d: next((landed[g] for g in (d.params or {}).get("target_genes", []) if g in landed), 0))
 
     res = launch.reconcile()
-    assert res["reconciled"] == 2                                    # only the two 'running' jobs are touched
+    assert res["reconciled"] == 3                                    # only the three 'running' jobs are touched
     by_id = {r["id"]: r for r in launch._load()}
-    assert by_id["req_landed"]["status"] == "done"                  # indexed -> done
+    assert by_id["req_done"]["status"] == "done"                    # 4/4 seeds indexed -> done
+    assert by_id["req_partial"]["status"] == "partial" and "1/4" in by_id["req_partial"]["error"]   # 1/4 -> partial
     assert by_id["req_orphan"]["status"] == "failed" and by_id["req_orphan"]["error"]   # nothing indexed -> failed
     assert by_id["req_pending"]["status"] == "pending_approval"     # live draft left alone
     assert launch.reconcile()["reconciled"] == 0                    # idempotent

@@ -102,3 +102,35 @@ def test_download_plan_counts_a_remnant_dir_as_pullable(tmp_path, monkeypatch):
     (remnant / "generation_000000" / "000000" / "simOut" / "MonomerCounts").mkdir(parents=True)
     plan2 = hf.download_plan("gk/x")
     assert plan2["n_local"] == 1 and plan2["n_to_pull"] == 0
+
+
+def test_data_availability_verifies_real_hf_existence(monkeypatch):
+    """Integrity fix: data_availability must VERIFY the archive is actually on HF (the same check download_raw uses),
+    never fabricate available=True from the HF_HAS_RAW flag + a string transform. hf_exists True/False/None ->
+    available + a copy-paste command ONLY when presence is confirmed."""
+    from cellarium import hf, store
+    p = "/x/cellarium/gene_knockout/KO_pfkA/s0/simOut"
+    monkeypatch.setattr(store, "simout_path", lambda rid: p)
+    monkeypatch.setattr(store, "list_results",
+                        lambda: [{"id": "r1", "perturbation": "gene_knockout", "condition": "KO:pfkA", "seed": 0}])
+    monkeypatch.setattr(hf, "_full_simout_local", lambda path: False)
+    monkeypatch.setattr(hf, "HF_HAS_RAW", True)
+    rel = hf._hf_rel(p)
+
+    def _hf(rid):
+        return hf.data_availability(rid)["alternatives"]["1_download_from_hf"]
+
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {rel: 12345})          # (1) confirmed present
+    a = _hf("r1")
+    assert a["available"] is True and a["verified"] is True and a["command"]
+
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {"runs/cellarium/other/s0/simOut.tar.gz": 1})  # (2) absent
+    b = _hf("r1")
+    assert b["available"] is False and b["verified"] is True and b["command"] is None and "NOT on HF" in b["status"]
+
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {})                     # (3) API error / offline
+    c = _hf("r1")
+    assert c["available"] is False and c["verified"] is False and c["command"] is None and "could not verify" in c["status"]
+
+    monkeypatch.setattr(hf, "HF_HAS_RAW", False)                                 # (4) flag off -> never available
+    assert _hf("r1")["available"] is False

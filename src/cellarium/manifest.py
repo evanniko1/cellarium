@@ -181,22 +181,30 @@ def has_run(design: Design) -> bool:
     ('{perturbation}·{tag}·s{seed}'), so match on that prefix — robust to WHERE the raw output landed on disk
     (out/ vs runs/) and to variant-index recomputation, both of which make a run-dir probe unreliable. Used by
     launch.reconcile to decide whether an orphaned 'running' job actually produced agent-visible data."""
+    return count_runs(design) > 0
+
+
+def count_runs(design: Design) -> int:
+    """How many DISTINCT indexed runs (seed-labels) exist for this design. `has_run` (>=1) can't tell a COMPLETE
+    campaign (all requested seeds landed) from a PARTIAL one (a crash left only some) — `launch.reconcile` uses this
+    count vs the requested seed count for that distinction. NB: labels are seed-scoped but NOT campaign-scoped, so a
+    design re-run across campaigns pools their seeds (an over-count that can still mask a partial RE-run) — a residual
+    manifest limitation, not fixed here."""
     import glob
 
     import duckdb
 
-    glob_pat = "data/manifest/*.parquet"
     if not glob.glob(str(MANIFEST_DIR / "*.parquet")):
-        return False
+        return 0
     prefix = f"{design.perturbation}·{_design_tag(design)}·"
     con = duckdb.connect()
     try:
         n = con.execute(
-            f"SELECT count(*) FROM read_parquet('{glob_pat}', union_by_name=true) WHERE starts_with(label, ?)",
-            [prefix]).fetchone()[0]
+            "SELECT count(DISTINCT label) FROM read_parquet('data/manifest/*.parquet', union_by_name=true) "
+            "WHERE starts_with(label, ?)", [prefix]).fetchone()[0]
     finally:
         con.close()
-    return n > 0
+    return int(n)
 
 
 def _label(design: Design, seed: int) -> str:

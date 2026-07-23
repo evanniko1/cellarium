@@ -172,13 +172,29 @@ def data_availability(result_id: str) -> dict:
     design = next((r for r in store.list_results() if r.get("id") == result_id), {})
     rel = _hf_rel(path)
     raw_local = _full_simout_local(path)   # honest: a remnant run dir without simOut is NOT deep-diveable
-    available = HF_HAS_RAW and rel is not None      # only 'available' once the raw corpus is actually uploaded
+    # HONEST availability — do NOT trust the HF_HAS_RAW flag + a string transform. VERIFY the archive is actually on
+    # HF (the same HfApi existence check download_plan/download_raw use), so we never hand out a copy-paste `hf
+    # download` for a run that isn't uploaded. hf_exists: True=confirmed present, False=confirmed absent, None=could-
+    # not-verify (offline / no hub client). A download command is emitted ONLY when presence is confirmed.
+    hf_exists = None
+    if HF_HAS_RAW and rel is not None:
+        sizes = _repo_sizes([rel])          # {} on any API/network error -> stays unverified, never a false 'present'
+        if sizes:
+            hf_exists = rel in sizes
+    available = hf_exists is True
     download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}' --local-dir {OUT_ROOT.parent} && "
                 f"tar xzf '{OUT_ROOT.parent}/{rel}' -C '{OUT_ROOT}'"
                 if available else None)
-    hf_alt = {"repo": HF_REPO, "path": rel, "available": available, "command": download}
+    hf_alt = {"repo": HF_REPO, "path": rel, "available": available, "verified": hf_exists is not None,
+              "command": download}
     if not HF_HAS_RAW:
         hf_alt["status"] = "raw corpus not uploaded to HF yet — use alternative 2 (regenerate) for now"
+    elif rel is None:
+        hf_alt["status"] = "no packaged HF archive path for this run — use alternative 2 (regenerate)"
+    elif hf_exists is False:
+        hf_alt["status"] = "this run's raw archive is NOT on HF — use alternative 2 (regenerate)"
+    elif hf_exists is None:
+        hf_alt["status"] = "could not verify HF availability (offline / no hub client) — use alternative 2 (regenerate) to be safe"
     return {"result_id": result_id,
             "shard_answers": SHARD_ANSWERS, "needs_raw": NEEDS_RAW,
             "raw_local": raw_local, "raw_local_path": (path if raw_local else None),

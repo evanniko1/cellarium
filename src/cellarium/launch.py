@@ -222,16 +222,24 @@ def reconcile() -> dict:
             if r.get("status") != "running":
                 continue
             d = r.get("design") or {}
-            landed = False
+            landed = 0
             try:
                 design = Design(perturbation=d["perturbation"], condition=d.get("condition"),
                                 timeline=d.get("timeline"), params=d.get("params") or {})
-                landed = manifest.has_run(design)
+                landed = manifest.count_runs(design)   # DISTINCT seeds indexed — not just ">=1" (the false-'done' bug)
             except Exception:
-                landed = False
-            r["status"] = "done" if landed else "failed"
-            if not landed:
+                landed = 0
+            requested = int(r.get("seeds") or 0)
+            # a multi-seed campaign that crashed after seed 0 must NOT report 'done' — that hid an incomplete run and
+            # a null shard behind a green status. 'done' only when every requested seed landed; 'partial' otherwise.
+            if landed <= 0:
+                r["status"] = "failed"
                 r["error"] = "orphaned at 'running' (server restart/crash mid-run); no indexed run found"
+            elif requested and landed < requested:
+                r["status"] = "partial"
+                r["error"] = f"orphaned mid-campaign: only {landed}/{requested} seeds indexed (crash before completion)"
+            else:
+                r["status"] = "done"
             healed += 1
     return {"reconciled": healed}
 
