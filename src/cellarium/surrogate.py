@@ -16,6 +16,17 @@ Prediction target is BINARY viable(1) vs non-viable(0) — the triage question (
 survive?"); the 3-class verdict (viable/impaired/inviable) is reported descriptively. The verdict predicted is the
 MODEL's behavior, NOT ground truth — an essential gene the whole-cell FBA under-predicts as viable stays viable here
 too (same limitation as the sim), so for essential-gene candidates defer to the Baba/Joyce benchmark, as everywhere.
+
+DD-SCI-5b — TARGET DECISION (recorded 2026-07-21): the target STAYS the sim's verdict; the surrogate is an EMULATOR of
+the simulator (compute reduction), NOT a predictor of biology. Two alternatives were weighed and rejected on their
+merits: (B) predicting the Baba/Joyce benchmark directly is redundant and weaker — FBA (`fba_gene_knockout`) predicts
+metabolic essentiality with the whole stoichiometry, and making the benchmark the label forfeits `essential_ref` as
+the dominant feature; (C) predicting the sim-vs-benchmark DISAGREEMENT is a category error — `model_UNDER_predicts` is
+a near-deterministic function of (essential_ref, mechanism-class) that `scope.classify_gene` / `model_validation`
+already compute in closed form, so there is nothing stochastic to learn (and its positive class is n~3-5). The honest
+object is A + the benchmark as a feature + the override caveat. PARKED until the corpus is large enough: at n~20 the
+fit is not statistically distinguishable from the majority baseline (see `train`'s `significance` field) — the
+plumbing is ready so the artifact can be resumed once the labels justify it, but pursuing it now is premature.
 """
 
 from __future__ import annotations
@@ -107,9 +118,34 @@ _SETUP = ("ML surrogate needs scikit-learn. Install the extra: `pip install scik
           "tools answer the same question per-gene without it.")
 
 
-def train(dataset: dict | None = None) -> dict:
-    """Fit + leave-one-out cross-validate the surrogate; report accuracy vs the majority baseline, MCC, the confusion
-    matrix, and per-feature importance (standardized logistic coefficients). Honest about n and imbalance."""
+def _wilson_ci(k: int, n: int, z: float = 1.96) -> list:
+    """Closed-form Wilson 95% CI for a proportion k/n (no scipy) — honest at the small n where a normal approx isn't."""
+    if n == 0:
+        return [0.0, 1.0]
+    p = k / n
+    d = 1.0 + z * z / n
+    centre = (p + z * z / (2 * n)) / d
+    half = (z / d) * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return [round(max(0.0, centre - half), 3), round(min(1.0, centre + half), 3)]
+
+
+def _loo_preds(X, y_arr, sk):
+    """Leave-one-out predictions; a degenerate single-class fold falls back to the majority guess."""
+    import numpy as np
+    preds = np.empty(len(y_arr), dtype=int)
+    for tr, te in sk["LeaveOneOut"]().split(X):
+        if len(set(y_arr[tr])) < 2:
+            preds[te] = int(round(y_arr[tr].mean()))
+        else:
+            preds[te] = _model(sk).fit(X[tr], y_arr[tr]).predict(X[te])
+    return preds
+
+
+def train(dataset: dict | None = None, *, n_permutations: int = 200) -> dict:
+    """Fit + leave-one-out cross-validate the surrogate; report accuracy vs the majority baseline (with a Wilson CI),
+    MCC, the confusion matrix, per-feature importance, and a SIGNIFICANCE flag — a label-permutation test (DD-SCI-5b)
+    that machine-checks whether the fit is distinguishable from chance. At n~20 it should say NO; that's the honest
+    parked state. `n_permutations=0` skips the (reproducible, fixed-seed) permutation test."""
     sk = _sklearn()
     if sk is None:
         return {"error": "scikit-learn not installed", "setup": _SETUP}
@@ -125,37 +161,51 @@ def train(dataset: dict | None = None) -> dict:
     import numpy as np
     X = np.array(ds["X"], dtype=float)
     y_arr = np.array(y, dtype=int)
-    model = _model(sk)
 
-    # leave-one-out CV predictions — the honest estimator at this n (no held-out set to spare)
-    loo = sk["LeaveOneOut"]()
-    preds = np.empty(n, dtype=int)
-    for tr, te in loo.split(X):
-        if len(set(y_arr[tr])) < 2:            # degenerate fold (all one class) -> fall back to majority guess
-            preds[te] = int(round(y_arr[tr].mean()))
-            continue
-        preds[te] = _model(sk).fit(X[tr], y_arr[tr]).predict(X[te])
+    preds = _loo_preds(X, y_arr, sk)             # leave-one-out — the honest estimator at this n (no held-out to spare)
     acc = round(float(sk["accuracy_score"](y_arr, preds)), 3)
     mcc = round(float(sk["matthews_corrcoef"](y_arr, preds)), 3)
     cm = sk["confusion_matrix"](y_arr, preds, labels=[0, 1]).tolist()
+    ci = _wilson_ci(int((preds == y_arr).sum()), n)
 
-    model.fit(X, y_arr)                          # full-data fit for the reported coefficients
+    # SIGNIFICANCE (DD-SCI-5b): a label-permutation test — is the LOO MCC beyond what shuffled labels (no real feature
+    # -> outcome link) produce? The rigorous small-n significance measure; reproducible (fixed rng). At n~20 it should
+    # be NON-significant — the machine-checked statement that the surrogate is a parked proof-of-concept, not yet a
+    # validated predictor. The baseline stays inside the accuracy CI here for the same reason.
+    significance = {"tested": False, "note": "pass n_permutations>0 to run the permutation test."}
+    if n_permutations > 0:
+        rng = np.random.default_rng(0)
+        null = []
+        for _ in range(int(n_permutations)):
+            yp = rng.permutation(y_arr)
+            if len(set(yp)) < 2:
+                continue
+            null.append(float(sk["matthews_corrcoef"](yp, _loo_preds(X, yp, sk))))
+        perm_p = round((sum(1 for m in null if m >= mcc) + 1) / (len(null) + 1), 4) if null else None
+        significance = {"tested": True, "test": "label-permutation (LOO MCC)", "n_permutations": len(null),
+                        "mcc_p_value": perm_p,
+                        "significant_vs_chance": bool(perm_p is not None and perm_p < 0.05)}
+
+    model = _model(sk).fit(X, y_arr)             # full-data fit for the reported coefficients
     coefs = model.named_steps["logisticregression"].coef_[0]
     importance = sorted(({"feature": f, "weight": round(float(w), 3)} for f, w in zip(ds["features"], coefs)),
                         key=lambda d: -abs(d["weight"]))
     baseline = ds["majority_baseline"]
-    beats = acc > baseline
     return {
         "trained": True, "n": n, "class_balance": ds.get("class_balance"),
         "cv": "leave-one-out",
-        "loo_accuracy": acc, "majority_baseline": baseline, "beats_baseline": beats,
+        "loo_accuracy": acc, "accuracy_ci95": ci, "majority_baseline": baseline,
+        "beats_baseline_point_estimate": acc > baseline,   # POINT estimate only — read `significance`, not this
+        "baseline_inside_ci": bool(ci[0] <= baseline <= ci[1]),   # True => not distinguishable from majority-guessing
         "mcc": mcc,                              # -1..1; 0 = no better than chance given the imbalance
+        "significance": significance,
         "confusion_matrix": {"labels": ["non_viable(0)", "viable(1)"], "rows_true_cols_pred": cm},
         "feature_importance": importance,
-        "note": ("Leave-one-out CV. Read MCC, NOT accuracy — the class imbalance inflates accuracy (the baseline is "
-                 f"already {baseline}). A proof-of-concept TRIAGE prior at this n, not a validated predictor; the "
-                 "predicted verdict is the sim's behavior, not ground truth (defer to the Baba/Joyce benchmark for "
-                 "essential-gene candidates). Positive weight => pushes toward 'viable'."),
+        "note": ("Leave-one-out CV. Read `significance` + MCC, NOT the raw accuracy — the imbalance inflates accuracy "
+                 f"(baseline already {baseline}, and it sits inside the accuracy CI at this n). A proof-of-concept "
+                 "EMULATOR of the sim (DD-SCI-5b), not a validated predictor; the predicted verdict is the sim's "
+                 "behavior, not ground truth (defer to the Baba/Joyce benchmark for essential-gene candidates). "
+                 "Positive weight => pushes toward 'viable'."),
     }
 
 

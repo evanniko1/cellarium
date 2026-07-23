@@ -56,11 +56,27 @@ def test_gene_features_none_for_unknown(monkeypatch):
 
 @needs_sklearn
 def test_train_beats_baseline_on_separable_data():
-    out = surrogate.train(_separable_dataset())
+    out = surrogate.train(_separable_dataset(), n_permutations=0)   # skip the perm test here (speed) — see below
     assert out["trained"] is True and out["cv"] == "leave-one-out"
     assert out["loo_accuracy"] >= out["majority_baseline"]     # a separable set must not lose to the baseline
-    assert out["beats_baseline"] is True and out["mcc"] > 0.5
+    assert out["beats_baseline_point_estimate"] is True and out["mcc"] > 0.5
     assert out["feature_importance"] and "confusion_matrix" in out
+    assert len(out["accuracy_ci95"]) == 2 and out["accuracy_ci95"][0] <= out["loo_accuracy"] <= out["accuracy_ci95"][1]
+
+
+@needs_sklearn
+def test_significance_flag_permutation_test():
+    """DD-SCI-5b: the label-permutation test machine-checks significance — a genuinely separable set is significant vs
+    chance; a label-shuffled (signal-free) set is NOT. This is the honesty flag that stays False on the parked n~20."""
+    import random
+    sig = surrogate.train(_separable_dataset(n_each=14), n_permutations=100)["significance"]
+    assert sig["tested"] is True and sig["mcc_p_value"] is not None
+    assert sig["significant_vs_chance"] is True                # real feature->label link -> significant
+
+    ds = _separable_dataset(n_each=14)
+    random.Random(0).shuffle(ds["y"])                          # break the link: labels now random wrt features
+    noise = surrogate.train(ds, n_permutations=100)["significance"]
+    assert noise["significant_vs_chance"] is False             # no signal -> not distinguishable from chance
 
 
 @needs_sklearn
