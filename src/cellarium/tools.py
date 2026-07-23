@@ -958,6 +958,18 @@ def run_experiment(perturbation: str = "wildtype", condition: str | None = None,
             "note": "Valid, but not yet in the corpus. Generation happens offline via a campaign, not per query."}
 
 
+def system_resources() -> dict:
+    """Free RAM / disk / CPU + Docker status + the corpus footprint — what's available before a heavy sweep."""
+    from . import resources
+    return resources.system_resources()
+
+
+def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int = 4) -> dict:
+    """Would a proposed sim sweep FIT in RAM/disk? Verdict + a safe parallel/chunk plan — WARN the user before queuing."""
+    from . import resources
+    return resources.estimate_sim_resources(n_runs=n_runs, parallel=parallel, generations=generations)
+
+
 def _run_root(result_id: str) -> Path | None:
     root = store.simout_path(result_id)
     return Path(root) if root and Path(root).exists() else None
@@ -1073,6 +1085,10 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string", "description": "e.g. growth_rate, ppgpp_conc, fraction_trna_charged"}, "designs": {"type": "array", "items": {"type": "string"}, "description": "optional design labels to pool over (e.g. an aaRS-KO panel); omit to test the whole corpus"}}, "required": ["channel"]}},
     {"name": "coverage_check", "description": "How much of the corpus you have deep-read this session vs the full design grid. Call before generalising a conclusion; do not claim beyond the examined set.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "system_resources", "description": "What's FREE on this machine RIGHT NOW: RAM (total/free), disk (on the sim-output drive), CPU count, whether the Docker daemon is up, and the corpus footprint (GB + avg GB/run). Read-only. A wcEcoli sim is ~1 GB raw on disk + ~1-2 GB RAM, and a parallel campaign multiplies both — so before proposing or queuing a MULTI-RUN sweep, check this and estimate_sim_resources so you can WARN the user instead of exhausting their machine.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "estimate_sim_resources", "description": "Would a proposed sim sweep FIT? Estimates the RAM (parallel × per-sim) and disk (n_runs × the corpus's real avg GB/run, scaled by generations) it needs vs what's free, and returns a verdict ('block' = Docker down; 'warn' = won't fit within headroom; 'ok') + a SAFE recommended_parallel / recommended_chunk_runs. Call this BEFORE queuing a multi-run experiment; if the verdict isn't 'ok', tell the user in plain terms (what it needs vs what's free) and offer the chunked plan — a sweep that fills the disk or thrashes RAM is worse than a slower chunked run. n_runs = designs × seeds.",
+     "input_schema": {"type": "object", "properties": {"n_runs": {"type": "integer", "description": "total runs = designs × seeds"}, "parallel": {"type": "integer", "description": "concurrent sim workers"}, "generations": {"type": "integer", "description": "generations per run (default 4)"}}}},
     {"name": "corpus_audit", "description": "Read-only inventory of the WHOLE corpus: coverage (designs, seeds, generation depth, QC), redundancy (designs replicated beyond a target -> estimated GB prunable), supersession (older/crashed dead-weight rows), and gaps (power-thin designs + the disk-feasibility budget for new runs). Deletes nothing; separates safe-to-prune from irreplaceable. Use to plan pruning under storage pressure and to ground what-to-run-next proposals with the disk budget.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "data_availability", "description": "For data BEYOND the distilled shard (an arbitrary non-panel species, a full-resolution trajectory, or FBA fluxes), tells the user the TWO ways to get it: (1) download the run's raw simOut from the HF dataset, or (2) regenerate it locally. The shard already answers panel-species + summary questions with no download; only use this when the question needs a species/resolution the shard doesn't carry, and present both alternatives.",
@@ -1146,6 +1162,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
              "coverage_check": coverage_check, "corpus_audit": corpus_audit,
+             "system_resources": system_resources, "estimate_sim_resources": estimate_sim_resources,
              "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
              "reroute_diagnosis": reroute_diagnosis,

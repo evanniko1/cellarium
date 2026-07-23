@@ -124,6 +124,7 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     # grounded verdicts / diagnostics / verification (operate on real evidence -> Cellwright-side, Council is blind)
     "viability", "mechanistic_scope", "metabolic_essentiality", "model_validation", "reroute_diagnosis",
     "provenance", "coverage_check", "corpus_audit", "prune_candidates", "robustness_check", "viability_surrogate",
+    "system_resources", "estimate_sim_resources",
     # independent FBA cross-check family
     "fba_growth", "fba_gene_knockout", "fba_flux", "fba_essentiality_panel", "fba_synthetic_lethal",
     "fba_gene_deletion", "fba_sensitivity", "fba_qc", "rnaseq_concordance",
