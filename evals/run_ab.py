@@ -228,7 +228,13 @@ def main():
     p.add_argument("--rounds", type=int, default=4)
     p.add_argument("--quota", type=int, default=3)
     p.add_argument("--force", action="store_true", help="re-run arms already in the ledger")
+    p.add_argument("--reps", type=int, default=1,
+                   help="PUB-A1: replicates per case per arm (>1 for a powered, error-barred comparison)")
+    p.add_argument("--out", default=None, help="ledger path (default evals/results/ab_ledger.json)")
     a = p.parse_args()
+    if a.out:
+        global LEDGER
+        LEDGER = Path(a.out)
 
     load_dotenv(str(ROOT / ".env"))
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -246,10 +252,13 @@ def main():
          f"grader={a.grader_model}, agent={a.agent_model or 'default'}\n")
 
     t0 = time.time()
-    for i, case in enumerate(selected, 1):
+    for rep in range(max(1, a.reps)):
+      for i, case in enumerate(selected, 1):          # noqa: E111 (2-space inner indent keeps the diff minimal)
         cid = case["id"]
-        slot = led.setdefault(cid, {})
-        _log(f"[{i}/{len(selected)}] {cid}  {case['question'][:66]}")
+        key = cid if a.reps == 1 else f"{cid}#r{rep}"  # reps=1 keeps the flat key (back-compat); else per-rep cells
+        slot = led.setdefault(key, {})
+        slot["_case"], slot["_rep"] = cid, rep          # so aggregate_ab can group replicate cells by case
+        _log(f"[{i}/{len(selected)}]{'' if a.reps == 1 else f' rep {rep + 1}/{a.reps}'} {cid}  {case['question'][:60]}")
 
         if a.arm in ("b", "both") and (a.force or "b" not in slot):
             try:
@@ -277,7 +286,11 @@ def main():
                 traceback.print_exc()
             _save_ledger(led)
 
-    _aggregate(led, selected, a, time.time() - t0)
+    if a.reps == 1:
+        _aggregate(led, selected, a, time.time() - t0)   # the n=1 scorecard (keyed by cid) — unchanged
+    else:
+        _log(f"\nwrote {a.reps}×{len(selected)} replicate cell(s) in {round(time.time() - t0, 1)}s → run the powered "
+             f"comparison:\n    python evals/aggregate_ab.py {LEDGER} --metric <shared-both-arm-metric>")
 
 
 def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:

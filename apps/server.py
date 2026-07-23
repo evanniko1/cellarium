@@ -449,10 +449,17 @@ async def approve(request):
     rid = b.get("request_id")
     if not rid:
         return JSONResponse({"error": "no request_id"}, status_code=400)
+    # `parallel` is a HUMAN decision at approval — the agent is walled off from this endpoint (containment), so it can
+    # only RECOMMEND (via estimate_sim_resources) and the human sets it here. Default 1 (safe), clamped to [1,8] so an
+    # over-eager value can't thrash the machine even if sent directly.
+    try:
+        parallel = max(1, min(int(b.get("parallel")), 8)) if b.get("parallel") is not None else 1
+    except (TypeError, ValueError):
+        parallel = 1
 
     def run():
         try:
-            launch.approve_and_run(rid)               # sets status running -> done/failed on disk
+            launch.approve_and_run(rid, parallel=parallel)   # sets status running -> done/failed on disk
         except Exception:
             pass
 

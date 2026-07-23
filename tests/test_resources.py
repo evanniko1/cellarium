@@ -55,3 +55,26 @@ def test_resource_tools_wired_and_classified():
     for name in ("system_resources", "estimate_sim_resources"):
         assert name in tools._DISPATCH and any(t["name"] == name for t in tools.TOOLS)
     assert test_registry.unclassified_tools({t["name"] for t in tools.TOOLS}) == []   # reverse invariant holds
+
+
+def test_effective_ram_is_capped_by_the_docker_vm(monkeypatch):
+    """The lit-review bug: host free RAM over-schedules on Win/Mac because the sim runs in the Docker VM (capped well
+    below host). system_resources must report the container-visible ceiling, and estimate must size against it."""
+    monkeypatch.setattr(R, "_ram_gb", lambda: (32.0, 20.0))            # host says 20 GB free...
+    monkeypatch.setattr(R, "_docker_info",
+                        lambda: {"running": True, "vm_mem_gb": 8.0, "vm_cpu": 4, "data_root": "/var/lib/docker"})
+    monkeypatch.setattr(R, "_tightest_disk_free_gb", lambda: (100.0, "output"))
+    monkeypatch.setattr(R, "_corpus_footprint", lambda: {"runs": 10, "raw_gb": 11.0, "avg_gb_per_run": 1.1})
+    sr = R.system_resources()
+    assert sr["effective_ram_free_gb"] == 6.5                          # ...but min(20, 8-1.5) = 6.5 is what a container gets
+    assert sr["docker_vm_mem_gb"] == 8.0 and sr["docker_vm_cpu"] == 4
+    est = R.estimate_sim_resources(n_runs=6, parallel=6, res=sr)       # would have looked fine vs host 20 GB
+    assert est["verdict"] == "warn" and any("VM" in w for w in est["warnings"])   # now correctly warns vs the VM cap
+    assert est["recommended_parallel"] < 6
+
+
+def test_wall_clock_warns_on_a_multi_day_sweep():
+    res = {"docker_running": True, "effective_ram_free_gb": 12.0, "disk_free_gb": 500.0, "cpu_logical": 16,
+           "docker_vm_cpu": 8, "corpus": {"avg_gb_per_run": 1.1}}
+    est = R.estimate_sim_resources(n_runs=200, parallel=4, generations=8, res=res)
+    assert est["estimated_wall_hours"] > 10 and any("wall-clock" in w for w in est["warnings"])
