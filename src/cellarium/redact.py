@@ -28,9 +28,12 @@ MARK = "[redacted]"
 
 # Environment variables stripped before handing an environment to a child process (see child_env). Names, not
 # shapes — a credential's variable name is the reliable signal here, and the list is identical on every OS.
-_SECRET_ENV = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "HF_TOKEN",
-               "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACEHUB_API_TOKEN", "AWS_SECRET_ACCESS_KEY",
-               "AWS_SESSION_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
+_SECRET_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "OPENROUTER_API_KEY",
+               "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACEHUB_API_TOKEN", "AWS_ACCESS_KEY_ID",
+               "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
+# ANTHROPIC_AUTH_TOKEN is the SDK's gateway/proxy bearer variable — and exactly the shape-less token class that
+# no pattern can recognise, so leaving it out was the one real gap in this list. Windows normalises environment
+# names to uppercase and POSIX is case-sensitive, so an uppercase list matches correctly on both.
 
 # High-signal, known-prefix token shapes — the same family CI's secret scan looks for, plus the generic Bearer
 # header. Deliberately NOT entropy-based: a false positive here silently corrupts scientific output, so this only

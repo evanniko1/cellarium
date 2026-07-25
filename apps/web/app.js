@@ -1433,7 +1433,10 @@ function closeDrawers() {
 }
 function bumpBadge(id, n) { const b = $("#" + id); if (!b) return; if (n > 0) { b.textContent = n; b.classList.add("show"); } else b.classList.remove("show"); }
 function clearBadge(id) { const b = $("#" + id); if (b) b.classList.remove("show"); }
-async function postJSON(url, body) { return (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })).json(); }
+// the per-process page token from index.html — the credential endpoints require it on every mutating call, which
+// is what makes them safe on browsers too old to send Sec-Fetch-Site. Harmless on the other endpoints.
+const CSRF = (document.querySelector('meta[name="cellarium-csrf"]') || {}).content || "";
+async function postJSON(url, body) { return (await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Cellarium-CSRF": CSRF }, body: JSON.stringify(body) })).json(); }
 async function loadModels() {
   try {
     const j = await (await fetch("/api/models")).json();

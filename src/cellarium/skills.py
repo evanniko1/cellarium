@@ -150,6 +150,10 @@ def web_get(url: str, headers: dict | None = None) -> dict:
             body = raw[:_MAX_BYTES].decode("utf-8", errors="replace")
             return {"status": r.status, "truncated": len(raw) > _MAX_BYTES, "body": body}
     except urllib.error.HTTPError as e:
+        # a refusal raised by _AllowListRedirects arrives here as an HTTPError too — keep ITS message, otherwise a
+        # blocked redirect reads as a plain "HTTP 302" and neither the agent nor the user learns why.
+        if "non-allow-listed" in str(getattr(e, "msg", "") or ""):
+            return {"error": f"refused to follow a redirect: {e.msg}"}
         return {"error": f"HTTP {e.code}", "body": (e.read()[:2000].decode("utf-8", errors="replace") if e.fp else "")}
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}

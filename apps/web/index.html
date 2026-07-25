@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cellarium</title>
+  <!-- per-process page token, substituted by apps/server.py::index. The credential endpoints require it on any
+       mutating call; a cross-origin page can't read this document, so it can't forge one. -->
+  <meta name="cellarium-csrf" content="__CSRF__">
   <link rel="stylesheet" href="/static/style.css">
   <!-- D-2: set the saved theme BEFORE first paint so there's no flash of the wrong palette. With no saved
        preference the attribute is absent and the @media(prefers-color-scheme) default in style.css takes over. -->

@@ -213,10 +213,31 @@ def test_credentials_is_not_reachable_from_the_agent_module():
 
 
 # ---------------------------------------------------------------- the HTTP surface
-def _client():
+def _client(csrf: bool = True):
     import server
     from starlette.testclient import TestClient
-    return TestClient(server.app, **LOCAL)
+    c = TestClient(server.app, **LOCAL)
+    if csrf:
+        c.headers.update({"x-cellarium-csrf": server._CSRF})   # what the SPA reads out of index.html
+    return c
+
+
+def test_a_mutating_call_without_the_page_token_is_refused():
+    """Sec-Fetch-Site fails open when absent (old Safari, embedded WebViews) and a legacy form POST can omit
+    Origin too, so the write path additionally demands proof the caller actually loaded our page."""
+    c = _client(csrf=False)
+    assert c.get("/api/settings").status_code == 200                       # reads stay open
+    for path in ("/api/settings_key", "/api/settings_key_delete", "/api/settings_key_test"):
+        r = c.post(path, json={"key": FAKE})
+        assert r.status_code == 403 and "page token" in r.json()["error"], path
+    assert c.post("/api/settings_key", json={"key": FAKE},
+                  headers={"x-cellarium-csrf": "wrong"}).status_code == 403
+
+
+def test_the_page_token_is_stamped_into_the_shell():
+    import server
+    html = _client().get("/").text
+    assert "__CSRF__" not in html and server._CSRF in html                 # substituted, not left as a placeholder
 
 
 def test_endpoints_never_echo_the_key_in_any_response(monkeypatch):

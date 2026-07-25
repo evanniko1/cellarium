@@ -32,7 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from starlette.applications import Starlette
-from starlette.responses import FileResponse, JSONResponse, StreamingResponse
+from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -52,9 +52,19 @@ try:
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")   # does NOT override an already-exported value
     from cellarium import credentials
 
-    _cred = credentials.load_into_env()
-    print(f"[startup] API key: {_cred['source'] or 'not configured'}"
-          f"{'' if _cred['configured'] else ' — set one in Settings or a .env'}", file=sys.stderr)
+    # Run the keychain read in a thread we only WAIT on for a few seconds. `import keyring` can hang on WSL2 when
+    # DISPLAY is set with no X server (D-Bus autolaunch waits out its timeout, jaraco/keyring#531) — a hang, not
+    # an exception, so try/except would not save us and the server would simply never finish booting. A timeout
+    # turns the worst case into "no key configured", which the UI already handles.
+    _cred: dict = {}
+    _t = threading.Thread(target=lambda: _cred.update(credentials.load_into_env()), daemon=True)
+    _t.start()
+    _t.join(timeout=8.0)
+    if _t.is_alive():
+        print("[startup] keychain probe timed out (WSL2/D-Bus?) — use a .env or an exported key", file=sys.stderr)
+    else:
+        print(f"[startup] API key: {_cred.get('source') or 'not configured'}"
+              f"{'' if _cred.get('configured') else ' — set one in Settings or a .env'}", file=sys.stderr)
 except Exception as _exc:
     print(f"[startup] credential load skipped: {type(_exc).__name__}", file=sys.stderr)   # never the message
 
@@ -510,6 +520,11 @@ async def reject(request):
 # The agent is NOT wired to any of this (no tool, no dispatch entry) — the key is the one piece of state
 # Cellwright can neither read nor write. See src/cellarium/credentials.py for the four invariants.
 _LOOPBACK = ("127.0.0.1", "localhost", "::1")
+# A per-process token stamped into index.html. A cross-origin page cannot READ index.html (no CORS, and
+# cross-origin DOM access is blocked), so it cannot learn this value — which makes it the only CSRF defence here
+# that does not depend on the visitor's browser being new enough to send Sec-Fetch-Site. It is deliberately NOT a
+# secret from the local user: anyone who can curl 127.0.0.1 can read it, and they already have the .env anyway.
+_CSRF = __import__("secrets").token_urlsafe(32)
 
 
 def _local_only(request):
@@ -523,6 +538,11 @@ def _local_only(request):
         return "not a loopback host"
     if (request.headers.get("sec-fetch-site") or "same-origin") != "same-origin":
         return "cross-site request"
+    # A MUTATING call must carry the token. Sec-Fetch-Site above fails open when absent (old Safari, embedded
+    # WebViews), and a legacy form POST can omit Origin too — so on the write path we require proof the caller
+    # actually loaded our page. A local curl user can read the token out of `/` if they need to script this.
+    if request.method != "GET" and request.headers.get("x-cellarium-csrf") != _CSRF:
+        return "missing or stale page token — reload the app"
     origin = request.headers.get("origin")
     if origin:
         # PARSE it — a prefix match is not a host check. `http://localhost.evil.example` startswith
@@ -575,7 +595,10 @@ async def settings_key_test(request):
 
 
 def index(request):
-    return FileResponse(WEB / "index.html")
+    """Served with the per-process CSRF token stamped in, so the SPA can prove to the credential endpoints that it
+    came from this page. Rendered per request rather than as a static FileResponse for that one substitution."""
+    from starlette.responses import HTMLResponse
+    return HTMLResponse((WEB / "index.html").read_text(encoding="utf-8").replace("__CSRF__", _CSRF))
 
 
 routes = [
