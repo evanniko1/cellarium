@@ -17,6 +17,10 @@ file:line evidence lives in git history (commit `55ed67f`).
 ~~`H-1` CI~~ ✅ · ~~`M-1` falsifier executability~~ ✅ · ~~`DS-1` slope inference~~ ✅ · ~~`LLM-1` model currency~~ ✅ ·
 ~~`SP-1` loop-closure~~ ✅ · `SP-2` receptive field · ~~`UX-1` accessibility~~ ✅ · `SCI-1` FBA cross-check (science).
 
+**▶ Next action:** the **live PUB-A1 sweep** — the last step in the publication's headline comparison, and the only
+one that needs an API key. Everything offline is built and green. See
+[⏳ TODO — the live PUB-A1 sweep](#-todo--the-live-pub-a1-sweep-the-last-step-that-needs-a-key).
+
 ---
 
 ## A · Methodology & scientific rigor
@@ -179,7 +183,9 @@ produced results in `evals/results/`; **⚙ ready** = script works + tested, awa
 
 | Script | What it measures | Status |
 |--------|------------------|--------|
-| `run_ab.py` | The **Council-vs-Cellwright A/B** at scale — Arm A (grounded Cellwright, sighted) vs Arm B (blind Council), persisted to the app's `sessions.db`. The paper's headline comparison. | ✅ run *(n=1, see [[hark-ab-result]] — a methodological pre-registration, not a sweep)* |
+| `run_ab.py` | The **Council-vs-Cellwright A/B** at scale — Arm A (grounded Cellwright, sighted) vs Arm B (blind Council), persisted to the app's `sessions.db`. The paper's headline comparison. | ⚙ **ready — the live sweep is the last open PUB-A1 step (see TODO below)**; the existing result is *n=1* ([[hark-ab-result]] — a methodological pre-registration, not a sweep) |
+| `shared_metric.py` | **PUB-A1: the one rubric both arms are scored on** — `quality_score`, arm-blind, format-neutral. Data + judge call; no runner. | ⚙ ready *(unit-tested pure; awaiting the live sweep)* |
+| `aggregate_ab.py` | Replicated-ledger roll-up: per-cell mean±CI + the **case-clustered paired** arm comparison (sign-test fallback on zero variance). | ⚙ ready *(unit-tested on synthetic rows)* |
 | `ablate.py` | **Role/gate ablation + baselines** (full / no_skeptic / proposer_only / generic_judge / leaked) × cases × reps, graded on the 6-criterion operationalization rubric (Claude + cross-family GPT judge). | ✅ run |
 | `aggregate.py` | Rolls up the ablation records → per-config operationalization-quality (mean ± 95% CI), convergence, feasibility. | ✅ run |
 | `audit.py` | **Adversarial residual-defect audit** of ablation hypotheses — the sensitive mechanism metric once the binary rubric saturates. | ✅ run |
@@ -189,6 +195,35 @@ produced results in `evals/results/`; **⚙ ready** = script works + tested, awa
 | `loop_live.py` | **Closed-loop verdict engine** — turns a Council `Hypothesis` into an EXECUTED test on fresh sim output → confirm/refute (Workstream A1/D1). | ⚙ ready *(needs sim output)* |
 | `cases.py` | The machine-readable **case corpus** + literature-derived rubrics (data, not a runner). | — |
 | **`temperature_sweep.py`** *(DD-MTH-3, new)* | **Council temperature sweep** — canonical questions × a temperature grid × replicates, on a non-reasoning model, reporting per-temperature operationalization quality, convergence, and cross-replicate **diversity** (reuses `ablate.py`'s grading). Chooses `COUNCIL_TEMPERATURE` empirically (currently a placeholder 1.0). Pure metric layer host-tested (`test_temperature_sweep.py`). | ⚙ ready — **run it** to set the value |
+
+### ⏳ TODO — the live PUB-A1 sweep (the last step that needs a key)
+
+**The only remaining PUB-A1 work.** Everything offline is built, tested and green; this is a billable, hours-long
+run on Evangelos's machine. It is **API-bound, not memory-bound** — it reads the existing corpus and makes model
+calls, and launches **no** simulations, so Docker is not needed and the resource preflight does not apply.
+
+Run it **twice** — with and without `--matched-framing` — because the gap between them *is* the size of the
+task-framing confound, and reporting either number without naming the mode is the easiest way to overclaim:
+
+```bash
+# clean comparison (both arms asked for the same artifact shape)
+python evals/run_ab.py 1.1 4.1 4.2 --reps 5 --matched-framing --out evals/results/ab_matched.json
+python evals/run_ab.py 5.2 5.3 5.5 --reps 5 --matched-framing --out evals/results/ab_matched.json   # append
+# ...batches of ~3 cases; resumable — a rate-limit or a sleeping laptop never loses work
+python evals/aggregate_ab.py evals/results/ab_matched.json --metric quality_score
+
+# framing-confounded baseline (Arm A answers the question as a user would ask it)
+python evals/run_ab.py <same batches> --reps 5 --out evals/results/ab_baseline.json
+```
+
+**Design to pre-register before spending anything:** k=5 reps (k=8–10 if budget allows) × ~14 canonical cases ×
+2 arms ≈ 140 arm-runs, order 2–4k model calls. **Checklist:** ① timestamp-lock the rubric (commit+tag `cases.py`
+*before* the first run — PUB-A4); ② decide the case list up front and do not revise it after seeing results;
+③ record `reps_per_cell` + `n_paired_cases` as the design in the paper; ④ report effect size + CI, never p alone;
+⑤ scope the claim to the genuinely out-of-sample cases (argS etc.), not the ~23/25 the model knows in-weights.
+**Do not** fold `grade.deterministic()` into the comparison — it is Arm-B-only by construction.
+Blocked-on afterwards: PUB-A2's cross-family judge panel + IRR (`shared_metric.grade()` already takes
+client+model, and its payload is arm-blind, so a panel is a loop over judges plus an agreement statistic).
 
 ---
 
