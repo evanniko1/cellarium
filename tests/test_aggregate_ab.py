@@ -41,6 +41,22 @@ def test_paired_comparison_detects_a_real_arm_difference():
     assert pt["mean_diff_b_minus_a"] == 2.0 and pt["significant"] is True and pt["p_value"] < 0.05
 
 
+def test_a_uniform_difference_falls_back_to_a_sign_test_instead_of_faking_infinite_significance():
+    """quality_score is a fraction over ~3-6 criteria, so "arm B passes exactly one more criterion on every case"
+    is a REACHABLE outcome — and it has zero variance, which makes the paired t undefined. The old `or 1e-12`
+    epsilon would have reported p≈0 (infinite confidence from a degenerate sample); the exact sign test reports
+    the most those data can honestly support."""
+    a = {f"c{i}": [3, 3, 3] for i in range(6)}
+    b = {f"c{i}": [4, 4, 4] for i in range(6)}       # every case differs by exactly +1
+    pt = agg.aggregate(_ledger(a, b))["paired_test"]
+    assert "sign test" in pt["test"] and "t" not in pt
+    assert pt["mean_diff_b_minus_a"] == 1.0
+    assert pt["p_value"] == round(2 * 0.5 ** 6, 4) and pt["significant"] is True   # ~0.031, not ~0
+    # with too few cases the same uniform difference must NOT reach significance
+    few = agg.aggregate(_ledger({f"c{i}": [3] for i in range(3)}, {f"c{i}": [4] for i in range(3)}))["paired_test"]
+    assert few["p_value"] == 0.25 and few["significant"] is False
+
+
 def test_paired_comparison_null_when_arms_equal():
     a = {f"c{i}": [4, 5, 3] for i in range(6)}
     b = {f"c{i}": [4, 5, 3] for i in range(6)}      # identical -> zero difference

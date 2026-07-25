@@ -44,6 +44,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # sibling `cases`, `gr
 
 import cases as cases_mod  # noqa: E402
 import grade as grade_mod  # noqa: E402  (reuse the deterministic floor + the independent LLM judge)
+import shared_metric  # noqa: E402  (PUB-A1: the ONE rubric both arms are scored on, blind to the arm)
 from dotenv import load_dotenv  # noqa: E402
 
 RESULTS = Path(__file__).resolve().parent / "results"
@@ -127,7 +128,8 @@ def _tool_rollup(rows: list) -> dict:
 
 # --- Arm B: the blind Socratic Council, persisted + graded --------------------------------------------------
 
-def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int, grader_model: str) -> dict:
+def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int, grader_model: str,
+              judge_model: str | None = None) -> dict:
     """Deliberate blind, persist to council_runs (app-visible), grade against the rubric. Returns a result row."""
     from hypotheses import HypothesisStore
 
@@ -172,22 +174,31 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
     str_judge = bool(str_c) and all(x.get("passed") for x in str_c)
     min_bar = det["_floor_pass"] and min_judge
     stringent_bar = min_bar and str_judge and bool(h.converged)
+    # PUB-A1: the SHARED metric — same rubric, same judge, arm-blind. Kept separate from the Arm-B-only grade
+    # above (which sees the structured Hypothesis); `shared` is the only number Arm A can also have.
+    shared = shared_metric.grade(case, shared_metric.from_council(h), client, judge_model or grader_model)
     return {"id": case["id"], "run_id": run_id, "status": "done", "converged": bool(h.converged),
             "gate_prepass_specific": gate_prepass_specific,   # diagnostic: would the APP gate have let this through?
             "deterministic_floor": det["_floor_pass"], "min_bar_pass": min_bar,
             "stringent_bar_pass": stringent_bar, "min_criteria": min_c, "stringent_criteria": str_c,
-            "comment": g.get("comment", ""), "hypothesis": hview, "llm": _m.summary()}   # LLM-6 telemetry
+            "comment": g.get("comment", ""), "hypothesis": hview, "llm": _m.summary(),   # LLM-6 telemetry
+            "quality_score": shared["quality_score"], "shared": shared}
 
 
 # --- Arm A: Cellwright answers directly, persisted (sighted) ------------------------------------------------
 
-def run_arm_a(case: dict, agent_model: str | None) -> dict:
+def run_arm_a(case: dict, agent_model: str | None, client=None, judge_model: str | None = None,
+              matched_framing: bool = False) -> dict:
     """Answer the question directly with the grounded agent; persist to the sessions table; count corpus reads."""
     from sessions import SessionStore
 
     from cellarium import agent, observability
 
-    messages = [{"role": "user", "content": case["question"]}]
+    # --matched-framing asks Cellwright for the same ARTIFACT SHAPE the Council is asked for, so the shared
+    # rubric measures capability rather than task framing. Off by default: the unmatched run is the honest,
+    # framing-confounded baseline, and which one a number came from must be stated when it is reported.
+    question = case["question"] + (shared_metric.MATCHED_FRAMING if matched_framing else "")
+    messages = [{"role": "user", "content": question}]
     # AG-2: track the tool-selection error rate — every tool call, and how many returned an {"error": ...} result
     # (unknown tool / bad arguments / tool-level failure). This is the measurement that makes tool consolidation
     # DATA-DRIVEN: high-error or never-selected tools across the sweep are the ones worth merging or dropping.
@@ -210,7 +221,10 @@ def run_arm_a(case: dict, agent_model: str | None) -> dict:
     sid = "s_eval_" + case["id"].replace(".", "_")
     SessionStore().put(sid, {"model": agent_model, "used_council": False,
                              "title": f"[eval {case['id']}] {case['question'][:48]}", "messages": messages})
+    shared = (shared_metric.grade(case, shared_metric.from_agent(final), client, judge_model)
+              if client and judge_model else dict(shared_metric.score_from([], []), comment="not graded", judged=False))
     return {"id": case["id"], "sid": sid, "corpus_reads": reads,
+            "quality_score": shared["quality_score"], "shared": shared, "matched_framing": matched_framing,
             "data_informed": reads > 0, "answer_chars": len(final or ""), "llm": _m.summary(),   # LLM-6 telemetry
             "tool_calls": n_tool, "tool_errors": n_err,                                          # AG-2 tool-selection
             "tool_error_rate": round(n_err / n_tool, 3) if n_tool else None, "errored_tools": errored}
@@ -231,6 +245,11 @@ def main():
     p.add_argument("--reps", type=int, default=1,
                    help="PUB-A1: replicates per case per arm (>1 for a powered, error-barred comparison)")
     p.add_argument("--out", default=None, help="ledger path (default evals/results/ab_ledger.json)")
+    p.add_argument("--judge-model", default=None,
+                   help="PUB-A1: judge for the SHARED both-arm rubric (default: --grader-model)")
+    p.add_argument("--matched-framing", action="store_true",
+                   help="PUB-A1: ask Arm A for the same artifact SHAPE as the Council, so the shared rubric "
+                        "measures capability rather than task framing. Quote which mode a number came from.")
     a = p.parse_args()
     if a.out:
         global LEDGER
@@ -262,10 +281,12 @@ def main():
 
         if a.arm in ("b", "both") and (a.force or "b" not in slot):
             try:
-                slot["b"] = run_arm_b(case, client, council_models, a.rounds, a.quota, a.grader_model)
+                slot["b"] = run_arm_b(case, client, council_models, a.rounds, a.quota, a.grader_model,
+                                      judge_model=a.judge_model or a.grader_model)
                 r = slot["b"]
                 _log(f"    Arm B  Council [{r.get('run_id')}]  status={r['status']}  "
-                     f"converged={r.get('converged')}  min={'Y' if r.get('min_bar_pass') else 'n'} "
+                     f"q={r.get('quality_score')}  converged={r.get('converged')}  "
+                     f"min={'Y' if r.get('min_bar_pass') else 'n'} "
                      f"stringent={'Y' if r.get('stringent_bar_pass') else 'n'}{_cost_tag(r.get('llm'))}")
             except Exception as exc:
                 slot["b"] = {"id": cid, "status": "error", "error": f"{type(exc).__name__}: {exc}"}
@@ -275,9 +296,12 @@ def main():
 
         if a.arm in ("a", "both") and (a.force or "a" not in slot):
             try:
-                slot["a"] = run_arm_a(case, a.agent_model)
+                slot["a"] = run_arm_a(case, a.agent_model, client=client,
+                                      judge_model=a.judge_model or a.grader_model,
+                                      matched_framing=a.matched_framing)
                 r = slot["a"]
-                _log(f"    Arm A  Cellwright [{r.get('sid')}]  corpus-reads={r.get('corpus_reads')}  "
+                _log(f"    Arm A  Cellwright [{r.get('sid')}]  q={r.get('quality_score')}  "
+                     f"corpus-reads={r.get('corpus_reads')}  "
                      f"tool-err={r.get('tool_errors')}/{r.get('tool_calls')}  "
                      f"-> {'data-informed' if r.get('data_informed') else 'no corpus read'}{_cost_tag(r.get('llm'))}")
             except Exception as exc:
@@ -290,7 +314,7 @@ def main():
         _aggregate(led, selected, a, time.time() - t0)   # the n=1 scorecard (keyed by cid) — unchanged
     else:
         _log(f"\nwrote {a.reps}×{len(selected)} replicate cell(s) in {round(time.time() - t0, 1)}s → run the powered "
-             f"comparison:\n    python evals/aggregate_ab.py {LEDGER} --metric <shared-both-arm-metric>")
+             f"comparison:\n    python evals/aggregate_ab.py {LEDGER} --metric quality_score")
 
 
 def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:

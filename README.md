@@ -157,14 +157,20 @@ cp .env.example .env        # add ANTHROPIC_API_KEY=sk-ant-...   (get one at htt
 python apps/server.py
 ```
 
-The Settings panel stores the key in your **OS keychain** (Windows Credential Manager / macOS Keychain / Linux
-Secret Service) via the optional `keyring` extra — `pip install -e ".[keyvault]"`. Precedence at startup is an
-exported shell variable, then a repo-root `.env`, then the keychain. If no *secure* keychain backend is present
-the panel says so and keeps the key in memory for that server session only: Cellarium never writes a credential
-to disk in plaintext, and never silently downgrades a "saved to your keychain" promise into an unencrypted file.
-The key stays on your machine, is sent only to Anthropic's API, and **never enters the assistant's context** —
-there is deliberately no tool through which Cellwright can read or change it (`src/cellarium/credentials.py`;
-invariants are pinned in `tests/test_credentials.py`).
+The Settings panel stores the key in your **OS keychain** via the optional `keyring` extra
+(`pip install -e ".[keyvault]"`). Precedence at startup is an exported shell variable, then a repo-root `.env`,
+then the keychain. The key stays on your machine, is sent only to Anthropic's API, and **never enters the
+assistant's context** — there is deliberately no tool through which Cellwright can read or change it.
+
+Keychain persistence works on **Windows** (Credential Manager), **macOS** (Keychain), and a **Linux desktop**
+with an unlocked GNOME/KDE keyring. On **headless Linux, SSH, systemd, Docker, WSL2 and BSD** there is no
+reachable keychain, so the panel degrades honestly — the button reads *"Use for this session"*, a note explains
+why, and the key lives in memory until you stop the server. Cellarium never writes a credential to disk in
+plaintext and never silently downgrades a "saved to your keychain" promise into an unencrypted file; on those
+platforms use a `.env`, which takes precedence anyway.
+
+→ **[docs/CREDENTIALS.md](docs/CREDENTIALS.md)** is the full specification: the per-OS matrix (CI-enforced), the
+four invariants, the three-layer guard on the credential endpoints, and the known per-platform quirks.
 
 Now **new Cellwright investigations** and **fresh Council deliberations** run live. Two workspaces: *Investigations*
 (chat with Cellwright, grounded in the corpus) and *Hypotheses* (convene the Council, then *Open in Cellwright*).

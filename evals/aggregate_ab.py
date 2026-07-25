@@ -44,14 +44,29 @@ def _paired_t(diffs: list) -> dict:
     if n < 2:
         return {"n_pairs": n, "note": "need >=2 paired cases for a paired test"}
     md = statistics.fmean(diffs)
-    se = (statistics.stdev(diffs) / math.sqrt(n)) or 1e-12
+    sd = statistics.stdev(diffs)
+    if sd == 0:
+        # Every case moved by the SAME amount, so the t is undefined (se = 0). Substituting a tiny epsilon — the
+        # obvious hack — manufactures an enormous t and reports p≈0, i.e. infinite confidence from a degenerate
+        # sample. And this case is REACHABLE, not pathological: quality_score is a fraction over ~3-6 criteria, so
+        # "arm B passes exactly one more criterion on every case" lands here. Fall back to the exact two-sided
+        # SIGN test, which is valid on identical differences and cannot overclaim: with 6 cases the floor is
+        # p = 2·0.5^6 ≈ 0.031, which is the most those data can honestly support.
+        if md == 0:
+            return {"n_pairs": n, "mean_diff_b_minus_a": 0.0, "ci95": [0.0, 0.0], "df": n - 1,
+                    "p_value": 1.0, "significant": False, "test": "sign test (all differences zero)"}
+        p = min(1.0, 2 * 0.5 ** n)
+        return {"n_pairs": n, "mean_diff_b_minus_a": round(md, 4), "ci95": [round(md, 4), round(md, 4)],
+                "df": n - 1, "p_value": round(p, 4), "significant": p < 0.05,
+                "test": "exact two-sided sign test (zero variance across cases — the paired t is undefined)"}
+    se = sd / math.sqrt(n)
     t = md / se
     df = n - 1
     p = stats.t_two_sided_p(t, df)
     hw = stats.t_critical_95(df) * se
     return {"n_pairs": n, "mean_diff_b_minus_a": round(md, 4), "ci95": [round(md - hw, 4), round(md + hw, 4)],
             "t": round(t, 3), "df": df, "p_value": (round(p, 4) if p is not None else None),
-            "significant": bool(p is not None and p < 0.05)}
+            "significant": bool(p is not None and p < 0.05), "test": "paired t"}
 
 
 def aggregate(ledger: dict, metric: str = "quality_score") -> dict:
