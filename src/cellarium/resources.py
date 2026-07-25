@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import redact
+
 _RAM_HEADROOM_GB = 2.0       # keep this much RAM free beyond the sweep's need
 _DISK_HEADROOM_GB = 10.0     # keep this much disk free beyond the sweep's raw output
 _PER_SIM_RAM_GB = 2.0        # conservative per-parallel-worker RAM for a wcEcoli sim
@@ -64,7 +66,7 @@ def _docker_info() -> dict:
     try:
         r = subprocess.run(
             ["docker", "info", "--format", "{{.ServerVersion}}|{{.MemTotal}}|{{.NCPU}}|{{.DockerRootDir}}"],
-            capture_output=True, text=True, timeout=6)
+            capture_output=True, text=True, timeout=6, env=redact.child_env())
         if r.returncode != 0 or not r.stdout.strip():
             return {"running": False}
         ver, mem, ncpu, root = (r.stdout.strip().split("|") + ["", "", "", ""])[:4]

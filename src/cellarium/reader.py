@@ -12,6 +12,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from . import redact
+
 WCECOLI_DIR = os.environ.get("WCECOLI_DIR", "")
 WCECOLI_DOCKER = os.environ.get("WCECOLI_DOCKER", "")
 PY = os.environ.get("WCECOLI_PY", "python")
@@ -33,7 +35,7 @@ def _worker_cmd(mode: str, args: list[str]) -> list[str]:
 
 
 def _run_cmd(cmd: list[str], cwd: str | None) -> dict:
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=redact.child_env())
     for line in reversed(proc.stdout.splitlines()):
         if line.startswith("CELLARIUM_JSON:"):
             return json.loads(line[len("CELLARIUM_JSON:"):])

@@ -21,9 +21,16 @@ Three funnels use this, chosen because everything else drains through them:
 
 from __future__ import annotations
 
+import os
 import re
 
 MARK = "[redacted]"
+
+# Environment variables stripped before handing an environment to a child process (see child_env). Names, not
+# shapes — a credential's variable name is the reliable signal here, and the list is identical on every OS.
+_SECRET_ENV = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "HF_TOKEN",
+               "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACEHUB_API_TOKEN", "AWS_SECRET_ACCESS_KEY",
+               "AWS_SESSION_TOKEN", "GITHUB_TOKEN", "GH_TOKEN")
 
 # High-signal, known-prefix token shapes — the same family CI's secret scan looks for, plus the generic Bearer
 # header. Deliberately NOT entropy-based: a false positive here silently corrupts scientific output, so this only
@@ -33,20 +40,71 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bsk-(?!ant-)[A-Za-z0-9_\-]{20,}"), f"sk-{MARK}"),            # OpenAI-style
     (re.compile(r"\bhf_[A-Za-z0-9]{16,}"), f"hf_{MARK}"),                       # HuggingFace
     (re.compile(r"\bghp_[A-Za-z0-9]{20,}"), f"ghp_{MARK}"),
-    (re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9._\-]{16,}"), r"\1" + MARK),
-    (re.compile(r"(?i)\b(x-api-key['\"\s:=]+)[A-Za-z0-9._\-]{16,}"), r"\1" + MARK),
+    # The token must contain a DIGIT and run 20+ chars. Without that guard "bearer responsibilities" — a plain
+    # English phrase, 16 letters — is redacted, and this scrub now runs over every saved transcript, so a false
+    # positive would silently corrupt scientific text. Real bearer tokens are never all-alphabetic.
+    (re.compile(r"(?i)\b(bearer\s+)(?=[A-Za-z0-9._\-]*\d)[A-Za-z0-9._\-]{20,}"), r"\1" + MARK),
+    (re.compile(r"(?i)\b(x-api-key['\"\s:=]+)(?=[A-Za-z0-9._\-]*\d)[A-Za-z0-9._\-]{16,}"), r"\1" + MARK),
 )
 
 # Field names whose VALUE is a secret regardless of shape — used when scrubbing structured data.
 _SECRET_FIELD = re.compile(r"(?i)(^|_)(api[_-]?key|apikey|secret|token|authorization|password|passwd|credential)s?($|_)")
 
 
+# Literal values registered by the vault at set/load time. Patterns only catch KNOWN prefixes, so a key with no
+# recognisable shape — an LLM-gateway, LiteLLM, Bedrock-proxy or self-hosted-router token, all of which the vault
+# accepts — would sail through every funnel untouched. Registering the literal closes that without teaching this
+# module how to READ a credential: it never touches the keychain or the environment, it is only ever told.
+_LITERALS: set[str] = set()
+
+
+def register_secret(value: str | None) -> None:
+    """Tell the scrubber about a literal secret so shape-blind values are caught too. Idempotent; short values are
+    ignored, because replacing a common short string everywhere would corrupt far more than it protects."""
+    v = (value or "").strip()
+    if len(v) >= 16:
+        _LITERALS.add(v)
+
+
+def forget_secret(value: str | None = None) -> None:
+    """Drop one literal (or all of them) — called when the key is cleared or replaced."""
+    if value is None:
+        _LITERALS.clear()
+    else:
+        _LITERALS.discard((value or "").strip())
+
+
 def scrub(text: str) -> str:
     """Replace every credential-shaped run in `text`. Safe on any string; returns it unchanged when clean."""
     out = str(text)
+    for lit in _LITERALS:                     # exact registered values first — these have no recognisable shape
+        if lit in out:
+            out = out.replace(lit, MARK)
     for pat, repl in _PATTERNS:
         out = pat.sub(repl, out)
     return out
+
+
+def looks_like_secret(text: str) -> bool:
+    """True if `text` contains a credential-shaped run. The detect-only twin of scrub(), for the callers that must
+    REFUSE rather than sanitise — an outbound request, or a snapshot about to be committed to git."""
+    return scrub(text) != str(text)
+
+
+def child_env(base: dict | None = None, *extra: str) -> dict:
+    """A copy of the environment with credentials removed, for handing to a subprocess.
+
+    COPY-and-remove, never build-from-scratch: a minimal env breaks child processes on Windows (which needs
+    SYSTEMROOT/PATH/TEMP to start almost anything) and loses the PATH that finds `docker` and `git` everywhere
+    else. The removals are the same on every OS, so behaviour does not diverge by platform.
+
+    Docker was never the exposure here — `docker run` passes only explicitly `-e`'d variables into the container,
+    so the key never crossed into the sim. What this closes is the host-side child (the `docker`/`git` CLI itself)
+    inheriting a credential it has no use for."""
+    env = dict(base if base is not None else os.environ)
+    for k in (*_SECRET_ENV, *extra):
+        env.pop(k, None)
+    return env
 
 
 def scrub_obj(obj, _depth: int = 0):

@@ -68,18 +68,26 @@ def backend() -> dict:
 
 def _classify(kr, _depth: int = 0) -> dict:
     """Verdict for one backend object. Recurses into a ChainerBackend, because that is where the trap hides: on
-    Linux keyring commonly hands back a chainer, the chainer reports a healthy priority, and its FIRST child may
-    still be a plaintext file backend. Judging only the wrapper would call that secure. We judge the leaf that
-    would actually receive the write — the highest-priority child — and inherit its verdict."""
+    Linux keyring commonly hands back a chainer, the chainer reports a healthy priority, and a plaintext file
+    backend sits inside it. Judging only the wrapper would call that secure."""
     mod, cls = (type(kr).__module__ or ""), type(kr).__name__
     name = f"{mod}.{cls}"
     kids = list(getattr(kr, "backends", None) or ())
     if kids and _depth < 4:
-        best = max(kids, key=lambda k: float(getattr(k, "priority", 0) or 0), default=None)
-        if best is None:
+        if not kids:
             return {"name": name, "secure": False, "reason": "no OS keychain is reachable on this machine"}
-        inner = _classify(best, _depth + 1)
-        return {"name": f"{name} -> {inner['name']}", "secure": inner["secure"], "reason": inner["reason"]}
+        # EVERY child must be secure, not just the highest-priority one. A chainer tries its backends in order and
+        # falls through when one declines the write, so a read-only plugin at priority 9 followed by a plaintext
+        # backend at 0.5 means the plaintext one silently receives the key. We cannot know which will accept, so
+        # any insecure child condemns the chain — degrading to session-only is the safe failure, writing plaintext
+        # is not. (Cost: a box with both a real keychain AND keyrings.alt installed loses persistence, and is told
+        # exactly why.)
+        inner = [_classify(k, _depth + 1) for k in kids]
+        weak = next((i for i in inner if not i["secure"]), None)
+        if weak is not None:
+            return {"name": f"{name} -> {weak['name']}", "secure": False,
+                    "reason": f"{weak['reason']} (reachable in the keyring chain)"}
+        return {"name": f"{name} -> {inner[0]['name']}", "secure": True, "reason": ""}
     if mod.startswith("keyrings.alt") or "Plaintext" in cls:
         return {"name": name, "secure": False, "reason": "this backend stores secrets unencrypted on disk"}
     if mod.endswith("backends.fail") or mod.endswith(".fail"):
@@ -164,6 +172,8 @@ def load_into_env(*, override: bool = False) -> dict:
     if val:
         os.environ[ENV_VAR] = val
         _SOURCE = "keychain"
+    from . import redact
+    redact.register_secret(os.environ.get(ENV_VAR))   # covers the .env / exported-variable case too
     return status()
 
 
@@ -182,6 +192,9 @@ def set_key(key: str, *, persist: bool = True) -> dict:
     if len(k) < _MIN_LEN:
         raise ValueError("That looks too short to be an API key — check for a truncated paste.")
     os.environ[ENV_VAR] = k
+    from . import redact
+    redact.forget_secret()                 # a replaced key stops being a literal we scrub for
+    redact.register_secret(k)              # ...and the new one starts, so a SHAPE-LESS key is caught too
     _SOURCE = "session"                    # true unless the keychain write below succeeds
     if persist and backend()["secure"]:
         try:
@@ -199,13 +212,18 @@ def clear() -> dict:
     """Remove the key from this process AND from the keychain. Idempotent; deleting a missing entry is a no-op."""
     global _SOURCE, _IN_KEYCHAIN
     os.environ.pop(ENV_VAR, None)
+    from . import redact
+    redact.forget_secret()
     _SOURCE = None
-    if backend()["secure"]:
-        try:
-            import keyring
-            keyring.delete_password(SERVICE, ACCOUNT)
-        except Exception:
-            pass
+    # ALWAYS attempt the delete — never gate it on the current secure verdict. A key stored while a keychain was
+    # available must still be removable from a later run where it is not (a different venv without the extra, a
+    # Secret Service daemon that isn't up, a container). Gating meant "Remove" could report success while the
+    # credential quietly survived in the keychain — the worst kind of security-UI lie.
+    try:
+        import keyring
+        keyring.delete_password(SERVICE, ACCOUNT)
+    except Exception:
+        pass                                   # already absent, or no backend at all — both are "nothing to do"
     _IN_KEYCHAIN = False
     return status()
 

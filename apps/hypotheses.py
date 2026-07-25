@@ -43,6 +43,11 @@ class HypothesisStore:
             pass   # column already present
 
     def _write(self, sql: str, params: tuple = ()):   # own connection per op, always closed (mirrors SessionStore)
+        # Scrub HERE rather than at each call site: create/append_round/complete/rename all write user- and
+        # model-authored text into this durable, HTTP-served table, and only fail() was covered before. One pass at
+        # the chokepoint means a new writer cannot forget it.
+        from cellarium import redact
+        params = tuple(redact.scrub(p) if isinstance(p, str) else p for p in params)
         db = sqlite3.connect(self.path)
         try:
             db.execute(sql, params)
@@ -90,11 +95,10 @@ class HypothesisStore:
                                 default=str), run_id))
 
     def fail(self, run_id: str, error: str) -> None:
-        # DURABLE sink: this stringified exception is written to SQLite and served back by /api/hypothesis_get,
-        # so it gets the same credential scrub the streamed errors get (see apps/server.py::_safe_err).
-        from cellarium import redact
+        # DURABLE sink: this stringified exception is written to SQLite and served back by /api/hypothesis_get.
+        # _write scrubs every string param, so this inherits the same credential scrub the streamed errors get.
         self._write("UPDATE council_runs SET status='error', meta=? WHERE id=?",
-                    (json.dumps({"error": redact.scrub(error)}), run_id))
+                    (json.dumps({"error": error}), run_id))
 
     def get(self, run_id: str) -> dict | None:
         row = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created "

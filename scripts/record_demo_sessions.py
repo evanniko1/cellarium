@@ -24,6 +24,7 @@ committing. If a run doesn't surface the clash / lit review cleanly, nudge the P
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -96,6 +97,14 @@ def record(job: dict, model: str | None, write_seed: bool) -> None:
     SessionStore(DB).put(job["sid"], sess)
     print(f"  saved to {DB}")
     if write_seed:
+        # The seed DB is TRACKED, and CI's secret scan is `git grep -I`, which skips binaries — so a credential
+        # reaching this file would be committed and invisible to the scanner. Refuse rather than scrub: if a live
+        # transcript picked up key-shaped text, that is a leak to investigate, not something to quietly clean.
+        from cellarium import redact
+        if redact.looks_like_secret(json.dumps(sess, default=str)):
+            print(f"  REFUSED to write {SEED}: this transcript contains credential-shaped text. "
+                  f"Investigate the source and rotate the key before seeding.")
+            return
         SessionStore(SEED).put(job["sid"], sess)
         print(f"  saved to {SEED} (committed seed)")
 

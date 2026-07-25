@@ -98,6 +98,33 @@ def test_plaintext_and_fail_backends_are_classified_insecure(monkeypatch):
     assert "keyrings.alt.file" in b["name"]        # the UI names the LEAF, so the reason it gives is the true one
 
 
+
+# The real backend class each platform's keyring selects, and the verdict this code must reach. This is the
+# "does it work on every OS?" question turned into an assertion: a secure keychain persists, and everywhere else
+# we degrade to session-only with an honest reason — never a silent plaintext downgrade, never a crash.
+_PLATFORM_BACKENDS = [
+    ("Windows 10/11",          "keyring.backends.Windows",       "WinVaultKeyring",   5.0, True),
+    ("macOS",                  "keyring.backends.macOS",         "Keyring",           5.0, True),
+    ("Linux / GNOME",          "keyring.backends.SecretService", "Keyring",           5.0, True),
+    ("Linux / KDE",            "keyring.backends.kwallet",       "DBusKeyring",       4.9, True),
+    ("headless Linux, Docker", "keyring.backends.fail",          "Keyring",           0.0, False),
+    ("keyrings.alt installed", "keyrings.alt.file",              "PlaintextKeyring",  0.5, False),
+]
+
+
+@pytest.mark.parametrize("label,mod,cls,prio,secure", _PLATFORM_BACKENDS)
+def test_backend_verdict_per_platform(monkeypatch, label, mod, cls, prio, secure):
+    monkeypatch.undo()                                 # exercise the REAL backend() classifier
+
+    class _B:
+        priority = prio
+    _B.__module__, _B.__qualname__ = mod, cls
+    monkeypatch.setitem(sys.modules, "keyring", type("K", (), {"get_keyring": staticmethod(_B)})())
+    b = C.backend()
+    assert b["secure"] is secure, f"{label} ({mod}.{cls}) classified wrong"
+    assert bool(b["reason"]) is not secure              # insecure must always explain itself; secure says nothing
+
+
 def test_a_secure_backend_persists_and_clear_removes(monkeypatch):
     store = {}
     monkeypatch.setattr(C, "backend", lambda: {"name": "test.Secure", "secure": True, "reason": ""})
@@ -221,6 +248,54 @@ def test_credential_endpoints_refuse_a_non_loopback_or_cross_site_caller():
     assert c.post("/api/settings_key", json={"key": FAKE},
                   headers={"origin": "http://evil.example"}).status_code == 403
     assert c.get("/api/settings").status_code == 200          # the local caller still works
+
+
+def test_an_origin_that_merely_starts_with_a_loopback_name_is_refused():
+    """From the adversarial review, proven against this app: the Origin check was a string PREFIX match, so
+    `http://localhost.evil.example` satisfied `startswith("http://localhost")` — an attacker only had to register
+    a name beginning with a loopback literal. No DNS rebinding required."""
+    c = _client()
+    for evil in ("http://localhost.evil.example", "http://127.0.0.1.evil.example",
+                 "https://127.0.0.1.attacker.tld", "http://localhost@evil.example"):
+        assert c.get("/api/settings", headers={"origin": evil}).status_code == 403, evil
+        assert c.post("/api/settings_key", json={"key": FAKE}, headers={"origin": evil}).status_code == 403, evil
+    for good in ("http://127.0.0.1:8000", "http://localhost:8000", "http://[::1]:8000"):
+        assert c.get("/api/settings", headers={"origin": good}).status_code == 200, good
+
+
+def test_clear_removes_from_the_keychain_even_when_the_backend_looks_insecure(monkeypatch):
+    """From the adversarial review: gating the delete on the CURRENT secure verdict meant a key stored while a
+    keychain was available could survive a later run where it isn't — while the UI reported it removed."""
+    store = {(C.SERVICE, C.ACCOUNT): FAKE}
+    monkeypatch.setitem(sys.modules, "keyring", type("K", (), {
+        "set_password": staticmethod(lambda s, a, v: store.__setitem__((s, a), v)),
+        "get_password": staticmethod(lambda s, a: store.get((s, a))),
+        "delete_password": staticmethod(lambda s, a: store.pop((s, a), None))})())
+    C.clear()                                       # backend() is patched insecure by the autouse fixture
+    assert store == {}, "Remove must never report a deletion it did not perform"
+
+
+def test_a_chainer_is_condemned_by_any_insecure_child_not_just_the_strongest(monkeypatch):
+    """A chainer falls through when a backend declines the write, so a read-only plugin at priority 9 in front of
+    a plaintext backend at 0.5 means PLAINTEXT receives the key. Judging only the top child called that secure."""
+    monkeypatch.undo()
+
+    class _Plugin:                                   # high priority, but read-only: declines the write
+        priority = 9.0
+    _Plugin.__module__, _Plugin.__qualname__ = "keyrings.envvars", "Keyring"
+
+    class _Plain:
+        priority = 0.5
+    _Plain.__module__, _Plain.__qualname__ = "keyrings.alt.file", "PlaintextKeyring"
+
+    class _Chain:
+        priority = 10
+        backends = [_Plugin(), _Plain()]
+    _Chain.__module__, _Chain.__qualname__ = "keyring.backends.chainer", "ChainerBackend"
+
+    monkeypatch.setitem(sys.modules, "keyring", type("K", (), {"get_keyring": staticmethod(_Chain)})())
+    b = C.backend()
+    assert b["secure"] is False and "unencrypted" in b["reason"] and "chain" in b["reason"]
 
 
 def test_the_settings_surface_is_mounted_in_the_shell():

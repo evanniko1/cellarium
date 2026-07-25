@@ -297,7 +297,8 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
             s = res.get("shard") or s
         shard, status = str(s), "done"
     except Exception as exc:
-        status, error = "failed", str(exc)[:200]
+        from . import redact
+        status, error = "failed", redact.scrub(str(exc))[:200]   # persisted to data/launch_queue.json + /api/queue
     with _LOCK:   # re-acquire to write the terminal status (re-find the job — the queue may have changed under us)
         q = _load()
         req = next((r for r in q if r["id"] == request_id), None)

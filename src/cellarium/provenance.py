@@ -9,6 +9,8 @@ agreement. Coarse per-design classification by perturbation type; see docs/CORPU
 
 from __future__ import annotations
 
+from . import redact
+
 # IN-SAMPLE = a condition the model was actually fit to. wcEcoli's fit uses measured RNA-seq for a small set of
 # media (M9 Glucose +/-AAs, N-/P-limited, glycerol) plus the modeled-TF regulons (e.g. FNR/ArcA -> anaerobic).
 # CRITICAL (audit M4): most named `condition`s are NOT fit to measured data — their expression is network-DERIVED
@@ -60,7 +62,7 @@ def _git_commit() -> str | None:
     try:
         root = Path(__file__).resolve().parents[2]
         r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=str(root),
-                           capture_output=True, text=True, timeout=3)
+                           capture_output=True, text=True, timeout=3, env=redact.child_env())
         return (r.stdout.strip() or None) if r.returncode == 0 else None
     except Exception:
         return None

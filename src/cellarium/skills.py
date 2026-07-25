@@ -94,18 +94,58 @@ def load_skill(name: str, include_references: bool = True) -> dict:
     return out
 
 
+# The ONLY request headers a caller may set. `web_get` is the one tool whose URL *and* headers are model-supplied,
+# which makes it the natural egress path for anything that ever leaks into context — so it is deliberately the
+# narrowest surface in the codebase: no Authorization, no Cookie, no X-* passthrough.
+_ALLOWED_HEADERS = frozenset({"accept", "accept-language", "user-agent", "if-modified-since", "if-none-match"})
+
+
+class _AllowListRedirects(urllib.request.HTTPRedirectHandler):
+    """Re-check the host allow-list on every hop.
+
+    Without this the allow-list is decorative: urllib follows 30x by default, so an allow-listed host that
+    redirects to an arbitrary one is a straight bypass. (NCBI and EBI both redirect in normal use, so refusing
+    redirects outright is not an option — they have to be followed, and checked.)"""
+
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        from urllib.parse import urlparse
+        p = urlparse(newurl)
+        if p.scheme not in ("http", "https") or (p.hostname or "").lower() not in _ALLOWED_HOSTS:
+            raise urllib.error.HTTPError(newurl, code, f"redirect to non-allow-listed host '{p.hostname}'", hdrs, fp)
+        return super().redirect_request(req, fp, code, msg, hdrs, newurl)
+
+
 def web_get(url: str, headers: dict | None = None) -> dict:
     """A narrow HTTP GET for the literature/bioinformatics skills — allow-listed hosts only, size-capped. Returns
     {status, body} or {error}. This is how the vendored skills reach PubMed/OpenAlex/etc.; every call is a normal
-    tool result, so it stays in the glass-box trace."""
+    tool result, so it stays in the glass-box trace.
+
+    Both arguments are model-supplied, so this is the one place where a credential that had somehow reached the
+    model's context could leave the machine. It cannot today — there is no tool that can read the key — but the
+    egress path is cheap to close and expensive to discover later, so: allow-listed hosts (re-checked across
+    redirects), an allow-list of header NAMES, and a refusal if anything credential-shaped appears in either."""
     from urllib.parse import urlparse
-    host = (urlparse(url).hostname or "").lower()
+
+    from . import redact
+    p = urlparse(url)
+    host = (p.hostname or "").lower()
+    if p.scheme not in ("http", "https"):
+        return {"error": f"scheme '{p.scheme}' is not fetchable; only http/https."}
     if host not in _ALLOWED_HOSTS:
         return {"error": f"host '{host}' is not in the literature/bioinformatics allow-list; refusing to fetch.",
                 "allowed": list(_ALLOWED_HOSTS)}
+    bad = sorted(k for k in (headers or {}) if k.lower() not in _ALLOWED_HEADERS)
+    if bad:
+        return {"error": f"header(s) {bad} are not permitted on an outbound fetch.",
+                "allowed_headers": sorted(_ALLOWED_HEADERS)}
+    # Refuse rather than scrub: a request carrying credential-shaped text is a bug or an injection, and silently
+    # sending a sanitised version of it would hide that.
+    if redact.looks_like_secret(url) or any(redact.looks_like_secret(str(v)) for v in (headers or {}).values()):
+        return {"error": "refusing to fetch: the URL or headers contain credential-shaped text."}
     req = urllib.request.Request(url, headers={"User-Agent": "Cellarium/1.0 (research)", **(headers or {})})
+    opener = urllib.request.build_opener(_AllowListRedirects)
     try:
-        with urllib.request.urlopen(req, timeout=25) as r:
+        with opener.open(req, timeout=25) as r:
             raw = r.read(_MAX_BYTES + 1)
             body = raw[:_MAX_BYTES].decode("utf-8", errors="replace")
             return {"status": r.status, "truncated": len(raw) > _MAX_BYTES, "body": body}

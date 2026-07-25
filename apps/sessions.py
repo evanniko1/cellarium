@@ -63,10 +63,19 @@ class SessionStore:
 
     def put(self, sid: str, sess: dict) -> None:
         self.mem[sid] = sess
+        # The most durable sink in the app: this is the model's full context (every tool input and result), written
+        # to disk and re-sent to the API on every later turn. The funnels upstream already scrub, so this is the
+        # last line — and the one that matters most, because a credential landing HERE would persist and replay.
+        from cellarium import redact
+        # scrub the OBJECT, not just the blob: `self.mem[sid]` is what /api/session_get serves, so scrubbing only
+        # the bytes on disk would leave the cached copy — the one actually read back — unscrubbed.
+        sess = dict(sess, messages=redact.scrub_obj(sess.get("messages", [])))
+        self.mem[sid] = sess
+        blob = redact.scrub(json.dumps(sess.get("messages", []), default=str))
         self._write("INSERT OR REPLACE INTO sessions(sid, model, used_council, title, messages, updated) "
                     "VALUES(?,?,?,?,?,?)",
                     (sid, sess.get("model"), int(bool(sess.get("used_council"))), sess.get("title"),
-                     json.dumps(sess.get("messages", []), default=str), time.time()))
+                     blob, time.time()))
 
     def list(self, limit: int = 300) -> list[dict]:
         """Every persisted session, newest first — the server-side index the client's localStorage doesn't have.

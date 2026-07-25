@@ -16,7 +16,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import envelope
+from . import envelope, redact
 from .model import Design
 
 WCECOLI_DIR = os.environ.get("WCECOLI_DIR", "")          # your separately-obtained, Stanford-licensed checkout
@@ -80,12 +80,12 @@ def _exec(script_args: list[str]) -> None:
         OUT_ROOT.mkdir(parents=True, exist_ok=True)
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, env=redact.child_env())   # the docker CLI has no use for a credential
         return
     if not WCECOLI_DIR:
         raise RuntimeError("Set WCECOLI_DOCKER (local model image) or WCECOLI_DIR (native checkout). "
                            "See docs/GENERATE.md.")
-    subprocess.run([PY, *script_args], cwd=WCECOLI_DIR, check=True)
+    subprocess.run([PY, *script_args], cwd=WCECOLI_DIR, check=True, env=redact.child_env())
 
 
 def ensure_parca(sim_path: str = "cellarium", cpus: int | None = None) -> None:

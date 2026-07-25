@@ -143,7 +143,9 @@ def _jsonsafe(o):
     makes it the right place for the defensive scrub: no tool is supposed to carry credential material, but this
     is the funnel where a future one that does would be caught before it becomes durable on someone's disk."""
     from cellarium import redact
-    return redact.scrub_obj(json.loads(json.dumps(o, default=str)))
+    # scrub the serialised form as well: scrub_obj walks values, so this is what catches a secret used as a
+    # dict KEY or buried below its depth guard.
+    return json.loads(redact.scrub(json.dumps(redact.scrub_obj(json.loads(json.dumps(o, default=str))))))
 
 
 def _safe_err(exc: Exception) -> str:
@@ -522,8 +524,15 @@ def _local_only(request):
     if (request.headers.get("sec-fetch-site") or "same-origin") != "same-origin":
         return "cross-site request"
     origin = request.headers.get("origin")
-    if origin and not any(origin.startswith(f"http://{h}") for h in ("127.0.0.1", "localhost", "[::1]")):
-        return "cross-origin request"
+    if origin:
+        # PARSE it — a prefix match is not a host check. `http://localhost.evil.example` startswith
+        # `http://localhost`, so an attacker only had to register a name beginning with a loopback literal (no DNS
+        # rebinding needed). Found by four independent reviewers and proven against this app; compare the parsed
+        # hostname against the loopback set instead.
+        from urllib.parse import urlsplit
+        o = urlsplit(origin)
+        if o.scheme not in ("http", "https") or (o.hostname or "").lower() not in _LOOPBACK:
+            return "cross-origin request"
     return None
 
 

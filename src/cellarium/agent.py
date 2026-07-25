@@ -236,7 +236,7 @@ def _truncate_tool_result(out: dict, cap: int) -> str:
     everywhere, so the funnel defends itself rather than trusting all present and future callers."""
     from . import redact
     out = redact.scrub_obj(out)
-    s = json.dumps(out)
+    s = redact.scrub(json.dumps(out))   # also covers dict KEYS + anything below scrub_obj's depth guard
     if len(s) <= cap:
         return s
     if not isinstance(out, dict):
