@@ -9,10 +9,13 @@ cherry-picking: the ranking is arithmetic. Cellwright must consume this before f
 
 from __future__ import annotations
 
+import re
 import statistics
 from collections import Counter, defaultdict
 
 from . import stats
+
+_SEED_SUFFIX = re.compile(r"·s\d+$")   # label = "{perturbation}·{tag}·s{seed}"
 
 MANIFEST_GLOB = "data/manifest/*.parquet"
 # host-safe channel names (the worker owns the table/column mapping; we only need the names here)
@@ -23,14 +26,46 @@ DIAGNOSTIC = {"fba_objective"}       # solver diagnostics — queryable, but exc
 REFERENCE = ("wildtype", "basal")   # the control designs are compared against
 
 
+def design_tag(row: dict) -> str:
+    """The identity of a DESIGN (the thing all its seeds are replicates of), taken from `label`, NOT from the raw
+    `condition` column.
+
+    Why this exists — it is a correctness fix, not a cosmetic one. `manifest._flat_row` persists
+    `design.condition` verbatim while `label` gets `manifest._design_tag(design)`. Keying analyses on the raw
+    column therefore MERGES designs that are different experiments, and two such merges are live in the current
+    265-run corpus:
+
+      * every `timeline` run stores `condition=None`, so an amino-acid UPSHIFT (`0 minimal, 1200
+        minimal_plus_amino_acids`) and a DOWNSHIFT (`0 minimal_plus_amino_acids, 1200 minimal`) both key to
+        `timeline/None` — and get averaged together as "4 seeds of one design". They are opposite experiments.
+      * the propose path writes `condition='basal'` with the genes in `params.target_genes`, so the
+        gltX+relA+spoT triple knockout keys to `multi_gene_knockout/basal`, while the generate.py path for the
+        same perturbation keys correctly to `KO:pfkA+pfkB`.
+
+    `label` already carries the correct tag, so deriving from it fixes every existing row retroactively — no
+    re-index, which matters because re-indexing needs Docker and 117 of the 265 rows have no run directory left.
+    """
+    lab = str(row.get("label") or "")
+    core = _SEED_SUFFIX.sub("", lab)
+    if "·" in core:
+        return core.split("·", 1)[1]
+    return row.get("condition") or row.get("timeline") or "basal"   # pre-label corpora
+
+
+def design_key(row: dict) -> str:
+    """'perturbation/tag' — the string form used as a design's public identity across the tools."""
+    return f'{row.get("perturbation")}/{design_tag(row)}'
+
+
 def _deduped_rows(channels: list[str]) -> list[dict]:
     import duckdb
 
     con = duckdb.connect()
     last = ""
+    # `label` is REQUIRED (not just nice): design identity is derived from it — see design_tag().
     # try with the pathways column (P2.1); fall back without it for pre-P2.1 corpora that lack it
-    for cols in (["perturbation", "condition", "seed", "qc", "reportable", "pathways", *channels],
-                 ["perturbation", "condition", "seed", "qc", "reportable", *channels]):
+    for cols in (["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways", *channels],
+                 ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", *channels]):
         sel = ", ".join(f'"{c}"' for c in cols)
         q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
              f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path,id) ORDER BY ts DESC)=1) "
@@ -71,7 +106,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     by_design: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
         if r.get("reportable"):
-            by_design[(r["perturbation"], r["condition"])].append(r)
+            by_design[(r["perturbation"], design_tag(r))].append(r)
 
 
     def dmean_ci(rs: list[dict], ch: str):
@@ -118,7 +153,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         "n_designs": len(by_design), "n_runs": len(rows),
         "reference_present": ref is not None,
         "qc": dict(Counter(r["qc"] for r in rows)),
-        "non_reportable_designs": sorted({f'{r["perturbation"]}/{r["condition"]}'
+        "non_reportable_designs": sorted({design_key(r)
                                           for r in rows if not r.get("reportable")}),
     }
     return {

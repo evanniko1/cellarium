@@ -41,7 +41,7 @@ def _design_seed_values() -> tuple[dict, list[str]]:
 
     out: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
-        d = out[f'{r["perturbation"]}/{r["condition"]}']
+        d = out[survey.design_key(r)]
         for ch in channels:
             v = val(r, ch)
             if v is not None:
@@ -152,7 +152,7 @@ def _design_run_roots(label: str) -> list[Path]:
 
     roots = []
     for r in store.list_results():
-        if f'{r.get("perturbation")}/{r.get("condition")}' == label:
+        if survey.design_key(r) == label:
             p = store.simout_path(r["id"])
             if p and Path(p).exists():
                 roots.append(Path(p))
