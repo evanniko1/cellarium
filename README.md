@@ -150,10 +150,21 @@ glass box* with zero credentials. Heavy imports (Council, agent, Docker) are laz
 
 ### Tier 1 — add an API key (the reasoning goes live)
 
+Either paste it into **Settings** (the gear in the top bar) — no terminal needed — or use a file:
+
 ```bash
 cp .env.example .env        # add ANTHROPIC_API_KEY=sk-ant-...   (get one at https://console.anthropic.com)
 python apps/server.py
 ```
+
+The Settings panel stores the key in your **OS keychain** (Windows Credential Manager / macOS Keychain / Linux
+Secret Service) via the optional `keyring` extra — `pip install -e ".[keyvault]"`. Precedence at startup is an
+exported shell variable, then a repo-root `.env`, then the keychain. If no *secure* keychain backend is present
+the panel says so and keeps the key in memory for that server session only: Cellarium never writes a credential
+to disk in plaintext, and never silently downgrades a "saved to your keychain" promise into an unencrypted file.
+The key stays on your machine, is sent only to Anthropic's API, and **never enters the assistant's context** —
+there is deliberately no tool through which Cellwright can read or change it (`src/cellarium/credentials.py`;
+invariants are pinned in `tests/test_credentials.py`).
 
 Now **new Cellwright investigations** and **fresh Council deliberations** run live. Two workspaces: *Investigations*
 (chat with Cellwright, grounded in the corpus) and *Hypotheses* (convene the Council, then *Open in Cellwright*).

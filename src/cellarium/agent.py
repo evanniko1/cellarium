@@ -228,7 +228,14 @@ def _truncate_tool_result(out: dict, cap: int) -> str:
     """DD-ENG-2: bound a tool result WITHOUT a blind char-slice that could cut JSON mid-structure and silently drop
     the tail of a list (a severed survey/panel/top_movers is a provenance hole — the number→tool chain the project
     exists to preserve). Keep the JSON valid and the scalar/provenance fields intact; shrink the biggest LIST fields
-    (rows) instead, recording how many items were dropped so the trim is honest, not hidden."""
+    (rows) instead, recording how many items were dropped so the trim is honest, not hidden.
+
+    This is also the single funnel through which every tool result enters the model's context (and, via the message
+    history, SQLite and every later turn), so it carries the defensive credential scrub. No tool is supposed to
+    touch key material — there is deliberately no tool that can — but a context leak is the one that propagates
+    everywhere, so the funnel defends itself rather than trusting all present and future callers."""
+    from . import redact
+    out = redact.scrub_obj(out)
     s = json.dumps(out)
     if len(s) <= cap:
         return s

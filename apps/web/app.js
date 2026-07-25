@@ -359,7 +359,13 @@ function handle(kind, data, turn, ct, inv) {
     ct.answer = data.answer; ct.trust = data.trust || {}; ct.model = data.model; ct.routed = !!data.routed;
     turn.answer(data); turn.badge(data.model, data.routed); if (viewing) refreshQueue();
   }
-  else if (kind === "error") { turn.error(esc(data.message) + (data.hint ? `<br><span style="opacity:.8">${esc(data.hint)}</span>` : "")); }
+  else if (kind === "error") {
+    // a missing key is the ONE failure with a one-click fix — offer it right here instead of leaving the user to
+    // find Settings (the delegated [data-open-settings] handler below opens the drawer).
+    const keyless = /API_KEY|api key|authentication/i.test(String(data.message) + " " + String(data.hint || ""));
+    turn.error(esc(data.message) + (data.hint ? `<br><span style="opacity:.8">${esc(data.hint)}</span>` : "")
+      + (keyless ? `<br><button class="set-btn primary" data-open-settings>Add your API key</button>` : ""));
+  }
   else if (kind === "done") { turn.done(); }
 }
 
@@ -1305,8 +1311,111 @@ function availView(a) {
   return wrap;
 }
 
+// ---------------- settings: the local API-key vault ----------------
+// The key is the one piece of state Cellwright can neither read nor write — there is no agent tool for it, the
+// same containment that keeps it away from the launch airlock. This panel is a thin view over /api/settings: it
+// POSTs the value once and never gets it back. Every response carries a MASK ('sk-ant-…AB12'), never the secret,
+// so there is deliberately no reveal toggle, no localStorage copy, and the value never touches a URL.
+const KEY_SOURCE = {
+  keychain: ["Saved in your OS keychain",
+    "Your operating system stores it encrypted, readable only by your user account. Cellarium reads it at startup."],
+  session: ["Set for this session only",
+    "Held in the running server's memory and gone when you stop it — nothing was written to disk."],
+  environment: ["Set from your environment",
+    "Picked up from an exported variable or a repo-root .env. Cellarium didn't put it there, so it won't remove it."],
+};
+
+async function refreshSettings() {
+  const b = $("#settingsBody"); if (!b) return;
+  let st = null;
+  try { st = (await (await fetch("/api/settings")).json()).key; } catch { /* server offline */ }
+  b.innerHTML = "";
+  if (!st) {
+    b.appendChild(el("div", "drawer-empty", "Settings aren't available from this server — restart it to pick up this panel."));
+    return;
+  }
+  state.keyStatus = st;
+  b.appendChild(el("div", "set-sec", "Anthropic API key"));
+
+  const [title, why] = st.configured ? (KEY_SOURCE[st.source] || KEY_SOURCE.environment)
+    : ["No key set", "Cellarium is running read-only: browse the corpus and every recorded investigation. Live reasoning needs a key."];
+  const card = el("div", "set-card");
+  const head = el("div", "set-head");
+  head.appendChild(el("span", "set-pill " + (st.configured ? "on" : "off"), st.configured ? "Active" : "Not set"));
+  head.appendChild(el("span", "set-title", esc(title)));
+  card.appendChild(head);
+  if (st.masked) card.appendChild(el("code", "set-mask", esc(st.masked)));
+  card.appendChild(el("div", "set-why", esc(why)));
+  b.appendChild(card);
+
+  // the field. type=password + autocomplete off + the password-manager opt-outs: this is a machine credential,
+  // not a login, and a manager silently capturing it is a copy we never asked for.
+  const form = el("div", "set-form");
+  const inp = el("input", "set-input");
+  inp.type = "password"; inp.autocomplete = "off"; inp.spellcheck = false;
+  inp.setAttribute("data-1p-ignore", "true"); inp.setAttribute("data-lpignore", "true");
+  inp.setAttribute("aria-label", "Anthropic API key");
+  inp.placeholder = st.configured ? "Paste a new key to replace it" : "sk-ant-…";
+  form.appendChild(inp);
+  const save = el("button", "set-btn primary", st.can_persist ? "Save to keychain" : "Use for this session");
+  form.appendChild(save);
+  b.appendChild(form);
+
+  if (!st.can_persist) {
+    b.appendChild(el("div", "set-note warn", safe`No secure keychain here — ${st.backend_reason || "no OS keychain is reachable"}. `
+      + `A key saved now lasts until you stop the server; Cellarium won't write it to disk in plaintext. `
+      + `For persistence, install the extra (<code>pip install "cellarium[keyvault]"</code>) or add it to a repo-root .env yourself.`));
+  }
+
+  const row = el("div", "set-row");
+  if (st.configured) {
+    const t = el("button", "set-btn", "Test key");
+    t.onclick = async () => {
+      t.disabled = true; t.textContent = "Testing…";
+      const r = await postJSON("/api/settings_key_test", {});
+      t.disabled = false; t.textContent = "Test key";
+      const p = r.probe || { ok: false, detail: r.error || "Test failed." };
+      const out = el("div", "set-note " + (p.ok ? "ok" : "warn"), esc(p.detail));
+      const prev = row.nextElementSibling;
+      if (prev && prev.classList.contains("set-note")) prev.remove();
+      row.insertAdjacentElement("afterend", out);
+      announce(p.detail);
+    };
+    row.appendChild(t);
+  }
+  if (st.managed_here) {
+    const rm = el("button", "set-btn danger", "Remove");
+    rm.onclick = async () => { await postJSON("/api/settings_key_delete", {}); refreshSettings(); announce("API key removed."); };
+    row.appendChild(rm);
+  } else if (st.configured) {
+    row.appendChild(el("span", "set-note", "Set outside the app — unset it in your shell or .env to manage it here."));
+  }
+  if (row.childElementCount) b.appendChild(row);
+
+  save.onclick = async () => {
+    const v = inp.value;
+    if (!v.trim()) { inlineError(form, "Paste your key first.", null); return; }
+    save.disabled = true; save.textContent = "Saving…";
+    const r = await postJSON("/api/settings_key", { key: v, persist: true });
+    inp.value = "";                                   // drop the plaintext from the DOM the moment it is sent
+    save.disabled = false;
+    if (r.error) { save.textContent = "Save"; inlineError(form, r.error, null); return; }
+    await refreshSettings();
+    announce("API key saved.");
+    if (r.key && r.key.persist_error) inlineError($("#settingsBody"), "Saved for this session, but the keychain write failed.", null);
+  };
+
+  b.appendChild(el("div", "set-foot",
+    "Your key stays on this machine. It is sent only to Anthropic's API, from this computer — never to us, never "
+    + "to another server, and never into the assistant's context: Cellwright has no way to read or change it."));
+  b.appendChild(el("div", "set-sec", "Where keys come from"));
+  b.appendChild(el("div", "set-note", safe`Precedence at startup: an exported shell variable, then a repo-root `
+    + `<code>.env</code>, then your OS keychain. Get a key at `
+    + `<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.`));
+}
+
 // ---------------- drawers / models / plumbing ----------------
-const DRAWER_ID = { queue: "#queueDrawer", figures: "#figuresDrawer" };
+const DRAWER_ID = { queue: "#queueDrawer", figures: "#figuresDrawer", settings: "#settingsDrawer" };
 function openDrawer(which) {
   const opener = document.activeElement;              // capture before closeDrawers() clears the tracker
   closeDrawers();
@@ -1318,6 +1427,7 @@ function openDrawer(which) {
 }
 function closeDrawers() {
   const anyOpen = Object.values(DRAWER_ID).some((id) => $(id).classList.contains("open"));
+  const k = $("#settingsBody .set-input"); if (k) k.value = "";   // never leave a typed key sitting in the DOM
   $("#scrim").classList.remove("show"); Object.values(DRAWER_ID).forEach((id) => $(id).classList.remove("open"));
   if (anyOpen) _restoreFocus();
 }
@@ -1451,6 +1561,11 @@ $("#hypNewBtn").onclick = newHypComposer;
 $("#sidebarCollapse").onclick = () => $("#app").classList.add("sidebar-collapsed");
 $("#sidebarExpand").onclick = () => $("#app").classList.remove("sidebar-collapsed");
 $("#queueBtn").onclick = () => openDrawer("queue");
+$("#settingsBtn").onclick = () => { refreshSettings(); openDrawer("settings"); };
+document.addEventListener("click", (e) => {   // the "Add your API key" affordance rendered inside an error turn
+  if (e.target.closest("[data-open-settings]")) { refreshSettings(); openDrawer("settings"); }
+});
+window.addEventListener("pagehide", () => { const k = $("#settingsBody .set-input"); if (k) k.value = ""; });
 // D-2: theme toggle. Resolve the CURRENT effective theme (explicit attribute, else the system preference), flip it,
 // and persist. Setting data-theme wins over the @media default in both directions; the head script re-applies it
 // before paint on the next load, so there's no flash.

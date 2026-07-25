@@ -12,6 +12,8 @@ A thin transport over the SAME pipeline as the CLI — no rigor lives here:
   POST /api/propose      -> vet + queue a design (the agent has no launch button).
   POST /api/approve      -> a human approves; the model runs in a background thread (poll /api/queue).
   POST /api/reject       -> drop a queued design.
+  GET  /api/settings     -> masked credential status (loopback-only; the response can never contain the key).
+  POST /api/settings_key -> store the API key in the OS keychain (see src/cellarium/credentials.py).
 
 The heavy imports (council, agent, Docker) are lazy + per-request, so the page serves even with no API key
 and errors surface as an event instead of a 500.
@@ -39,6 +41,22 @@ import hypotheses  # dedicated Hypothesis-Generation surface — persisted Counc
 from sessions import SessionStore
 
 WEB = Path(__file__).resolve().parent / "web"
+
+# ---- credentials, resolved ONCE at boot so every lazy `anthropic.Anthropic()` below just reads the environment.
+# Precedence: an exported shell variable > a repo-root .env > the OS keychain (the in-app Settings field). The
+# .env step also fixes a real gap: this server never loaded .env, so the README's `cp .env.example .env` only ever
+# worked for the CLI. Wrapped because a missing optional keyring backend must never block server start.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")   # does NOT override an already-exported value
+    from cellarium import credentials
+
+    _cred = credentials.load_into_env()
+    print(f"[startup] API key: {_cred['source'] or 'not configured'}"
+          f"{'' if _cred['configured'] else ' — set one in Settings or a .env'}", file=sys.stderr)
+except Exception as _exc:
+    print(f"[startup] credential load skipped: {type(_exc).__name__}", file=sys.stderr)   # never the message
 
 # user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults). "auto"
 # routes per turn (see route_model); an explicit pick pins that model.
@@ -121,7 +139,18 @@ except Exception as _exc:                      # never let a reconcile failure b
 
 
 def _jsonsafe(o):
-    return json.loads(json.dumps(o, default=str))
+    """Every tool input/output on its way to the browser (and thence to localStorage) drains through here, which
+    makes it the right place for the defensive scrub: no tool is supposed to carry credential material, but this
+    is the funnel where a future one that does would be caught before it becomes durable on someone's disk."""
+    from cellarium import redact
+    return redact.scrub_obj(json.loads(json.dumps(o, default=str)))
+
+
+def _safe_err(exc: Exception) -> str:
+    """The one way an exception becomes user-visible text. A malformed key (a trailing newline from a paste) can
+    reach an httpx exception verbatim, and these strings are streamed to the browser AND persisted to SQLite."""
+    from cellarium import redact
+    return redact.scrub(f"{type(exc).__name__}: {exc}")
 
 
 # ---------------------------------------------------------------- the investigation stream
@@ -197,7 +226,7 @@ async def investigate(request):
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace), "session_id": sid,
                               "model": chosen, "routed": routed, "first_turn": first_turn}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
-            ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",
+            ev.put(("error", {"message": _safe_err(exc),
                               "hint": "Live runs need ANTHROPIC_API_KEY set (and Docker up for deep reads)."}))
         finally:
             ev.put(("done", {}))
@@ -236,7 +265,7 @@ async def hypothesize(request):
                                          reuse_id=(body.get("reuse_id") or None))
             ev.put(("done", {"run": _jsonsafe(run)}))
         except Exception as exc:
-            ev.put(("error", {"message": f"{type(exc).__name__}: {exc}",
+            ev.put(("error", {"message": _safe_err(exc),
                               "hint": "Live Council runs need ANTHROPIC_API_KEY set."}))
             ev.put(("done", {}))
 
@@ -475,6 +504,67 @@ async def reject(request):
     return JSONResponse(launch.reject(b.get("request_id")))
 
 
+# ---------------------------------------------------------------- settings: the local credential vault
+# The agent is NOT wired to any of this (no tool, no dispatch entry) — the key is the one piece of state
+# Cellwright can neither read nor write. See src/cellarium/credentials.py for the four invariants.
+_LOOPBACK = ("127.0.0.1", "localhost", "::1")
+
+
+def _local_only(request):
+    """The one place a loopback-only server still needs a guard. A page on the open web cannot READ a cross-origin
+    response, but it can still fire a request at 127.0.0.1 — and DNS rebinding can make that request look
+    same-origin to us. So: the Host must be loopback (a rebound request arrives carrying the attacker's hostname),
+    and any browser-supplied Origin / Sec-Fetch-Site must say the request came from this app. Returns a refusal
+    reason, or None when the request is local. Only the credential endpoints pay this cost."""
+    host = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
+    if host not in _LOOPBACK:
+        return "not a loopback host"
+    if (request.headers.get("sec-fetch-site") or "same-origin") != "same-origin":
+        return "cross-site request"
+    origin = request.headers.get("origin")
+    if origin and not any(origin.startswith(f"http://{h}") for h in ("127.0.0.1", "localhost", "[::1]")):
+        return "cross-origin request"
+    return None
+
+
+async def _settings_call(request, fn):
+    """Shared shell for the credential endpoints: refuse non-local callers, then run the (blocking, possibly
+    keychain-prompting) work in the threadpool so it can never stall the event loop."""
+    from starlette.concurrency import run_in_threadpool
+    bad = _local_only(request)
+    if bad:
+        return JSONResponse({"error": f"refused: {bad}"}, status_code=403)
+    try:
+        return JSONResponse(await run_in_threadpool(fn))
+    except ValueError as exc:                       # a malformed paste — the message never quotes the value
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}"}, status_code=500)   # type only, never the message
+
+
+async def settings_get(request):
+    """Masked credential status. This response can never contain the key (credentials.status is masked-only)."""
+    from cellarium import credentials
+    return await _settings_call(request, lambda: {"key": credentials.status()})
+
+
+async def settings_key_set(request):
+    from cellarium import credentials
+    b = await request.json()
+    key, persist = b.get("key") or "", bool(b.get("persist", True))
+    return await _settings_call(request, lambda: {"key": credentials.set_key(key, persist=persist)})
+
+
+async def settings_key_delete(request):
+    from cellarium import credentials
+    return await _settings_call(request, lambda: {"key": credentials.clear()})
+
+
+async def settings_key_test(request):
+    from cellarium import credentials
+    return await _settings_call(request, lambda: {"probe": credentials.probe(), "key": credentials.status()})
+
+
 def index(request):
     return FileResponse(WEB / "index.html")
 
@@ -502,6 +592,10 @@ routes = [
     Route("/api/propose_panel", propose_panel, methods=["POST"]),   # queue a whole Council panel at proposed scale
     Route("/api/approve", approve, methods=["POST"]),
     Route("/api/reject", reject, methods=["POST"]),
+    Route("/api/settings", settings_get, methods=["GET"]),                     # masked key status — never the key
+    Route("/api/settings_key", settings_key_set, methods=["POST"]),            # store (keychain when secure)
+    Route("/api/settings_key_delete", settings_key_delete, methods=["POST"]),
+    Route("/api/settings_key_test", settings_key_test, methods=["POST"]),      # free count_tokens liveness probe
     Mount("/static", app=StaticFiles(directory=str(WEB)), name="static"),
 ]
 

@@ -16,6 +16,12 @@ from . import provenance as _prov
 from .model import Design
 
 _log = logging.getLogger("cellarium.tools")
+# An internal-defect log below uses exc_info=True, and a CHAINED traceback is the one place a malformed API key
+# (a paste with a trailing newline -> httpx's "Illegal header value b'…'") survives in plaintext. A logging.Filter
+# is the only hook that reaches rendered traceback text, so install it where the logger is defined.
+from . import redact  # noqa: E402
+
+redact.install_log_filter("cellarium.tools")
 
 # DD-ENG-1: exception types that almost always mean a PROGRAMMER DEFECT (not bad input / a transient data failure).
 # A tool raising one of these is a bug to fix, so dispatch logs its full traceback at ERROR; everything else is

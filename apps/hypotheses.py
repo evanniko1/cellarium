@@ -90,8 +90,11 @@ class HypothesisStore:
                                 default=str), run_id))
 
     def fail(self, run_id: str, error: str) -> None:
+        # DURABLE sink: this stringified exception is written to SQLite and served back by /api/hypothesis_get,
+        # so it gets the same credential scrub the streamed errors get (see apps/server.py::_safe_err).
+        from cellarium import redact
         self._write("UPDATE council_runs SET status='error', meta=? WHERE id=?",
-                    (json.dumps({"error": error}), run_id))
+                    (json.dumps({"error": redact.scrub(error)}), run_id))
 
     def get(self, run_id: str) -> dict | None:
         row = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created "
