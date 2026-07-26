@@ -78,17 +78,20 @@ def ko_footprint(symbol: str) -> dict | None:
     holds only because the corpus was built operons-ON (`DEFAULT_OPERON_OPTION = 'on'`, and `variant_map.json`
     contains literal TU ids); with `--operons off` every row would be a cistron and none of this would apply.
 
-    EVIDENCE, and the distinction matters. An earlier version of this module asserted a clean rule — "a gene is
-    silenced iff it has exactly one TU" — and claimed it validated 27/27. That was OVERFIT to three genes. Over
-    41 measurements it is 40/41, and the failure is informative:
+    EVIDENCE, and the distinction matters. Two earlier versions of this module asserted a clean rule — first
+    "a KO silences the whole operon", then "a gene is silenced iff it has exactly one TU" (claimed 27/27, in fact
+    overfit to three genes). Both were shipped and both were wrong. Across 55 measured gene-observations the
+    picture is asymmetric, and only one direction is usable:
 
-      * `n_tu == 1` → silenced: **no counterexample** (0 false positives in 41). A safe sufficient condition.
-      * `n_tu > 1` → survives: **FALSE.** `KO:dapA` silenced `bamC` (n_tu=2) completely — measured 0.0 vs 2.6.
+      * `n_tu == 1` -> silenced: **27 of 27, no counterexample.** A safe SUFFICIENT condition.
+      * `n_tu > 1`  -> survives: **23 fit, 5 refute** (bamC, prfB, and pheS/pheM/pheT). ~82% is a coin-flip
+        dressed as a rule; it has no usable predictive value and MUST NOT be relied on.
 
-    So co-membership of the zeroed TU means a gene is AT RISK, and only a measurement settles it. Each entry
-    therefore separates what was measured from what is merely predicted: `measured_silenced` /
-    `measured_expressed` come from real simOut, `unverified` does not, and `target_evidence` says which applies
-    to the named gene. Do not upgrade a prediction to a claim.
+    The refutation that matters most is `pheS`: predicted to survive, measured **silenced** (0.0 vs 1.8) along
+    with pheM and pheT — the whole phenylalanyl-tRNA synthetase — while infC (IF3), thrS, rplT, rpmI and ihfA on
+    the same annotated TU stayed expressed. So co-membership of the zeroed TU means AT RISK in both directions,
+    and only a measurement settles it. Each entry separates `measured_silenced` / `measured_expressed` from
+    `unverified`, and `target_evidence` says which applies. Do not upgrade a prediction to a claim.
 
     Built by scripts/build_ko_footprint.py; cache committed, so no wcEcoli checkout is needed at query time.
     """

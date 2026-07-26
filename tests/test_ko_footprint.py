@@ -8,8 +8,8 @@ EVIDENCE, and the honesty this file exists to enforce. An earlier version of thi
 silenced iff n_tu == 1" and claimed 27/27 validation. That was OVERFIT to three genes. Across 41 measurements
 it is 40/41, and the one failure is the informative half:
 
-  * `n_tu == 1` -> silenced: no counterexample (0 false positives in 41). Safe as a SUFFICIENT condition.
-  * `n_tu > 1`  -> survives: FALSE. `KO:dapA` fully silenced `bamC` (n_tu=2), measured 0.0 vs 2.6.
+  * `n_tu == 1` -> silenced: 27 of 27, no counterexample. Safe as a SUFFICIENT condition.
+  * `n_tu > 1`  -> survives: 23 fit, 5 refute (bamC, prfB, pheS, pheM, pheT). No usable predictive value.
 
 So the cache must never present a prediction as a finding. These tests pin the measurements as ground truth and
 pin the separation between `measured_*` and `unverified`.
@@ -35,6 +35,10 @@ MEASURED = {   # from real simOut: (KO mean, wildtype mean) mRNA cistron counts
     ("rpoB", "rpoB"): (10.4, 8.4), ("rpoB", "rpoC"): (10.4, 8.4),
     ("rpmJ", "rpmJ"): (50.1, 69.5), ("rpmJ", "secY"): (0.0, 15.8),
     ("dapA", "dapA"): (0.0, 2.6), ("dapA", "bamC"): (0.0, 2.6),
+    # measured 2026-07-26 from fresh 1-seed x 1-gen runs; pheS is the refutation that mattered most
+    ("pheS", "pheS"): (0.0, 1.8), ("pheS", "pheT"): (0.0, 1.8), ("pheS", "infC"): (23.7, 24.5),
+    ("pheS", "thrS"): (4.1, 4.2),
+    ("lysS", "lysS"): (0.0, 2.3), ("lysS", "prfB"): (0.0, 2.7),
 }
 
 
@@ -96,10 +100,31 @@ def test_warnings_distinguish_measured_from_predicted():
     assert "MEASURED fully silenced" not in w_pred
 
 
-def test_the_five_corpus_designs_that_may_not_be_knockouts_stay_flagged():
-    for g in ("dnaN", "murA", "pheS", "rpmJ", "rpoB"):
+def test_the_designs_that_are_not_knockouts_stay_flagged():
+    """murA, rpmJ and rpoB are MEASURED not to silence their named gene. (pheS was on this list until it was
+    measured — it IS silenced, which is why predictions are no longer allowed to stand in for measurement.)"""
+    for g in ("murA", "rpmJ", "rpoB"):
         fp = scope.ko_footprint(g)
         assert fp and fp["target_silenced"] is False, f"{g} should be flagged"
+        assert fp["target_evidence"] == "measured", f"{g} should rest on measurement, not the n_tu prior"
+
+
+def test_pheS_is_measured_knocked_out_and_the_prediction_was_wrong():
+    """The refutation that mattered most. pheS has n_tu=2, so the prior said it would survive; it is SILENCED,
+    with pheM and pheT — the whole phenylalanyl-tRNA synthetase — while infC (IF3) and thrS, the confounds we
+    feared, stay expressed. So KO:pheS is a CLEAN PheRS knockout and the aaRS story keeps it."""
+    fp = scope.ko_footprint("pheS")
+    assert fp and fp["target_silenced"] is True and fp["target_evidence"] == "measured"
+    assert fp["measured"]["pheT"]["silenced"] is True
+    assert fp["measured"]["infC"]["silenced"] is False and fp["measured"]["thrS"]["silenced"] is False
+
+
+def test_every_aaRS_leg_of_the_gen3_story_is_now_measured():
+    """argS, alaS, lysS, gltX, pheS — all measured silenced, so the crash story rests on data, not a prior."""
+    m = json.load(open(os.path.join(os.path.dirname(__file__), "..", "data", "cache", "ko_measured.json"),
+                       encoding="utf-8"))
+    for g in ("argS", "alaS", "lysS", "gltX", "pheS"):
+        assert g in m and m[g][g]["ko"] == 0.0, f"{g} should be measured silenced"
 
 
 def test_cache_shape_is_sane():

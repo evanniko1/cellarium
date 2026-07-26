@@ -21645,18 +21645,29 @@
 "co_members": [
 "prfB"
 ],
-"measured": {},
+"measured": {
+"lysS": {
+"ko_mean": 0.0,
+"silenced": true,
+"wt_mean": 2.3
+},
+"prfB": {
+"ko_mean": 0.0,
+"silenced": true,
+"wt_mean": 2.7
+}
+},
 "measured_expressed": [],
-"measured_silenced": [],
+"measured_silenced": [
+"prfB"
+],
 "n_genes_on_tu": 2,
-"target_evidence": "predicted_from_n_tu",
+"target_evidence": "measured",
 "target_n_tu": 1,
 "target_silenced": true,
 "tu_id": "TU00324",
 "tu_name": "prfB-lysS",
-"unverified": [
-"prfB"
-]
+"unverified": []
 },
 "lysT": {
 "co_members": [
@@ -28305,24 +28316,66 @@
 "rpmI",
 "thrS"
 ],
-"measured": {},
-"measured_expressed": [],
-"measured_silenced": [],
-"n_genes_on_tu": 8,
-"target_evidence": "predicted_from_n_tu",
-"target_n_tu": 2,
-"target_silenced": false,
-"tu_id": "TU0-14257",
-"tu_name": "thrS-infC-rpmI-rplT-pheMST-ihfA",
-"unverified": [
+"measured": {
+"ihfA": {
+"ko_mean": 6.2,
+"silenced": false,
+"wt_mean": 6.1
+},
+"infC": {
+"ko_mean": 23.7,
+"silenced": false,
+"wt_mean": 24.5
+},
+"pheM": {
+"ko_mean": 0.0,
+"silenced": true,
+"wt_mean": 1.8
+},
+"pheS": {
+"ko_mean": 0.0,
+"silenced": true,
+"wt_mean": 1.8
+},
+"pheT": {
+"ko_mean": 0.0,
+"silenced": true,
+"wt_mean": 1.8
+},
+"rplT": {
+"ko_mean": 44.0,
+"silenced": false,
+"wt_mean": 43.7
+},
+"rpmI": {
+"ko_mean": 29.3,
+"silenced": false,
+"wt_mean": 26.1
+},
+"thrS": {
+"ko_mean": 4.1,
+"silenced": false,
+"wt_mean": 4.2
+}
+},
+"measured_expressed": [
 "ihfA",
 "infC",
-"pheM",
-"pheT",
 "rplT",
 "rpmI",
 "thrS"
-]
+],
+"measured_silenced": [
+"pheM",
+"pheT"
+],
+"n_genes_on_tu": 8,
+"target_evidence": "measured",
+"target_n_tu": 2,
+"target_silenced": true,
+"tu_id": "TU0-14257",
+"tu_name": "thrS-infC-rpmI-rplT-pheMST-ihfA",
+"unverified": []
 },
 "pheT": {
 "co_members": [
