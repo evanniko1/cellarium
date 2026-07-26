@@ -43,16 +43,21 @@ def t95_halfwidth(values: list[float]) -> float | None:
     return t_critical_95(n - 1) * se
 
 
-# --- clustered / multi-machine replicates ------------------------------------------------------------------
-# The corpus pools runs from more than one machine, and the model is NOT bit-deterministic across environments:
-# `wildtype/basal` seed 0 gives growth 0.000244 on one contributor's machine and 0.000226 on another. So seeds
-# are not exchangeable — they are nested within machine — and `s/sqrt(n)` over the pooled set understates the
-# uncertainty by treating correlated observations as independent. Measured on this corpus the effect is large,
-# not academic: ICC 0.09-0.29 for `wildtype/basal` (the reference for EVERY comparison, n 34 -> n_eff 6-14) and
-# 0.70-0.79 for the `rRNA_KO:4op` dose arm (n 10 -> n_eff 2.5).
+# --- clustered (non-exchangeable) replicates -----------------------------------------------------------------
+# The corpus pools runs of DIFFERENT GENERATION DEPTH under one design, and a channel mean is taken over the
+# whole trajectory — so depth shifts it systematically (`wildtype/basal`, one contributor: ppGpp 60.4 / 65.5 /
+# 70.6 at gens 1 / 4 / 7). Those seeds are therefore nested within depth, not exchangeable, and `s/sqrt(n)` over
+# the pooled set understates the uncertainty by treating correlated observations as independent. Measured here
+# the effect is large: ICC 0.28-0.85 for `wildtype/basal` (the reference for EVERY comparison — its ribosome_conc
+# interval is 6.6x too narrow) and 0.83-0.99 for the `rRNA_KO:4op` dose arm.
+#
+# The MACHINE was the first suspect and is NOT the driver. Two contributors' `wildtype/basal` seed-0 runs differ,
+# but they also differ in depth; hold generations fixed and the machine ICC is exactly 0.0 on every channel, for
+# both multi-contributor designs. This module is agnostic — it decomposes whatever cluster it is handed — but the
+# cluster the corpus needs is depth. See `survey._replicate_cluster`.
 
 def design_effect(values: list[float], clusters: list) -> dict | None:
-    """One-way random-effects decomposition of `values` grouped by `clusters` (here: machine/contributor).
+    """One-way random-effects decomposition of `values` grouped by `clusters` (here: generation depth).
 
     Returns the intraclass correlation, the design effect and the EFFECTIVE sample size:
         ICC   = var_between / (var_between + var_within)
@@ -89,12 +94,12 @@ def t95_halfwidth_clustered(values: list[float], clusters: list | None = None) -
     """95% half-width that accounts for cluster structure, plus the diagnostics behind it.
 
     Returns `(half_width, info)`. With one cluster (or none given) this is exactly `t95_halfwidth` and `info` is
-    None, so single-machine results are unchanged. With several, the interval is widened by sqrt(DEFF) and the
-    t-quantile uses `n_eff - 1` degrees of freedom.
+    None, so a design run at a single depth is unchanged. With several, the interval is widened by sqrt(DEFF) and
+    the t-quantile uses `n_eff - 1` degrees of freedom.
 
-    ⚠️ A caveat that has to travel with the number: with only TWO machines the between-cluster variance rests on
+    ⚠️ A caveat that has to travel with the number: with only TWO clusters the between-cluster variance rests on
     one degree of freedom, so DEFF is real but its ESTIMATE is noisy. The correction is therefore better than
-    pretending the seeds are independent and worse than having three or more contributors. `info["unreliable"]`
+    pretending the seeds are independent and worse than having three or more clusters. `info["unreliable"]`
     marks that case, and a high ICC there should be read as "do not quote a pooled interval" rather than as a
     precise widening.
     """
@@ -112,9 +117,9 @@ def t95_halfwidth_clustered(values: list[float], clusters: list | None = None) -
     hw = t_critical_95(df) * se * math.sqrt(de["deff"])
     info = {**de, "df": df, "widened_by": round(hw / base, 2) if base else None,
             "unreliable": de["n_clusters"] < 3,
-            "note": ("Seeds are nested within machine and the model is not bit-deterministic across "
-                     "environments, so the pooled interval was widened by sqrt(DEFF)."
-                     + (" With only two machines this estimate rests on 1 df — treat a high ICC as 'do not "
+            "note": ("Seeds are nested within cluster (for this corpus: generation depth, which shifts a "
+                     "trajectory-wide mean systematically), so the pooled interval was widened by sqrt(DEFF)."
+                     + (" With only two clusters this estimate rests on 1 df — treat a high ICC as 'do not "
                         "quote a pooled interval', not as a precise correction." if de["n_clusters"] < 3 else ""))}
     return hw, info
 

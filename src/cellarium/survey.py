@@ -42,9 +42,31 @@ def _identity(design_key: str):
     return _IDENT_CACHE[design_key]
 
 
+def _replicate_cluster(row: dict) -> str:
+    """What makes two runs of one design NON-exchangeable. The answer is GENERATION DEPTH, not the machine.
+
+    This was measured the wrong way round first and the correction is worth recording. Three `wildtype/basal`
+    seed-0 runs gave different numbers, and because two came from different contributors the difference was
+    attributed to the machine. It was not: those runs had `generations` 1, 4 and 7. A channel mean is taken over
+    the whole trajectory, so depth moves it systematically — same contributor, `wildtype/basal`:
+
+        gens=1  growth 0.000248  ppGpp 60.4
+        gens=4  growth 0.000222  ppGpp 65.5
+        gens=7  growth 0.000220  ppGpp 70.6
+
+    Hold generations constant and the machine effect is **exactly zero** (ICC 0.0 on every channel, for both
+    multi-contributor designs, n=28 on wildtype). Cluster on generations and the ICC is 0.28-0.85 for
+    `wildtype/basal` and 0.83-0.99 for the `rRNA_KO:4op` arm. So depth is the real structure and the machine is
+    a red herring — pooling a 1-generation run with a 7-generation one as "replicates" is the actual error.
+    """
+    g = row.get("generations")
+    return f"gens={g}"
+
+
 def _machine(row: dict) -> str:
-    """The machine a row came from — stored on new rows, derived from the path for older ones."""
-    m = row.get("machine")
+    """The contributor/machine a row came from. Retained because it is genuine provenance and worth reporting —
+    but NOT used as the replicate cluster: at fixed generations its ICC is zero (see _replicate_cluster)."""
+    m = row.get("machine") or row.get("contributor")
     if m:
         return str(m)
     p = str(row.get("simout_path") or "").replace("\\", "/")
@@ -104,9 +126,11 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
     # cluster and the cluster correction silently does nothing — which is exactly what happened first.
     # `machine` is stored on rows indexed after that fix; the tiers fall back for older shards.
     for cols in (["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
-                  "simout_path", "machine", *channels],
+                  "simout_path", "machine", "generations", *channels],
                  ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
-                  "simout_path", *channels],
+                  "simout_path", "generations", *channels],
+                 ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable",
+                  "generations", *channels],
                  ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", *channels]):
         sel = ", ".join(f'"{c}"' for c in cols)
         q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
@@ -152,16 +176,17 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
 
 
     def dmean_ci(rs: list[dict], ch: str):
-        pairs = [(val(r, ch), _machine(r)) for r in rs]
+        pairs = [(val(r, ch), _replicate_cluster(r)) for r in rs]
         pairs = [(v, m) for v, m in pairs if v is not None]
         if not pairs:
             return None, None, 0, None
         vals = [v for v, _ in pairs]
         m = statistics.fmean(vals)
-        # CLUSTER-AWARE. t95 over the pooled seeds assumes they are exchangeable; they are not, because the model
-        # is not bit-deterministic across machines and the corpus pools contributors. Measured here: ICC 0.09-0.29
-        # for wildtype/basal — the reference for every comparison — so its naive interval was ~2x too narrow.
-        # Single-machine designs are unaffected: the helper falls back to the plain t interval.
+        # CLUSTER-AWARE on GENERATION DEPTH. t95 over pooled seeds assumes exchangeability; runs of different
+        # depth are not exchangeable, because a channel mean is taken over the whole trajectory and depth moves
+        # it systematically (wildtype/basal: ppGpp 60.4 / 65.5 / 70.6 at gens 1 / 4 / 7). Measured ICC 0.28-0.85
+        # for wildtype/basal — the reference for every comparison. A design run at ONE depth is unaffected: the
+        # helper falls back to the plain t interval.
         ci, info = stats.t95_halfwidth_clustered(vals, [c for _, c in pairs])
         return m, ci, len(vals), info
 
@@ -222,6 +247,15 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         seeds_by_design[design_key(r)].append(bool(r.get("reportable")))
     partial = sorted(k for k, v in seeds_by_design.items() if 0 < sum(v) < len(v))
     excluded = sorted(k for k, v in seeds_by_design.items() if not any(v))
+    # DEPTH MIXING, disclosed at corpus level rather than only per entry. The per-entry `cluster` block rides
+    # along with a design's row — but the ranking is truncated to the top |z|, and the design that most needs
+    # this warning is `wildtype/basal`, which sits near z=0 by construction (it IS the reference) and is
+    # therefore never shown. Reporting it here means a widened interval cannot be hidden by truncation.
+    depths_by_design: dict[str, set] = defaultdict(set)
+    for r in rows:
+        if r.get("reportable"):
+            depths_by_design[design_key(r)].add(r.get("generations"))
+    mixed = {k: sorted(v, key=lambda x: (x is None, x)) for k, v in depths_by_design.items() if len(v) > 1}
     coverage = {
         "n_designs_ranked": len(by_design),          # what the ranking is actually computed over
         "n_designs_in_corpus": len(seeds_by_design),  # ...out of this many
@@ -234,9 +268,15 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         # a mean over 3 of 4 seeds is not wrong, but the agent must know the replicate count shrank
         "designs_with_partial_seeds": {k: f"{sum(v)}/{len(v)} seeds usable"
                                        for k, v in seeds_by_design.items() if 0 < sum(v) < len(v)},
+        "designs_mixing_generation_depth": {k: f"generations {v}" for k, v in sorted(mixed.items())},
         "note": (f"{len(by_design)} of {len(seeds_by_design)} designs are ranked; {len(excluded)} are excluded "
                  f"(every seed non-reportable) and {len(partial)} rest on a reduced seed count. Per channel, "
-                 f"`n_dropped` says how many ranked designs are not shown."),
+                 f"`n_dropped` says how many ranked designs are not shown."
+                 + (f" {len(mixed)} design(s) pool runs of DIFFERENT generation depth "
+                    f"({', '.join(sorted(mixed))}); those seeds are not exchangeable — a channel mean is taken "
+                    f"over the whole trajectory, so depth shifts it systematically. Their intervals are widened "
+                    f"for it (see each entry's `cluster` block), but prefer a depth-matched comparison."
+                    if mixed else "")),
     }
     return {
         "coverage": coverage,
