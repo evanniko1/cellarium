@@ -38,9 +38,11 @@ def note_design(label: str) -> None:
 
 def coverage() -> dict:
     """Designs deep-read this session vs all designs in the corpus — the grid a conclusion should cover."""
-    from . import store
-
-    id2label = {r["id"]: f'{r.get("perturbation")}/{r.get("condition")}' for r in store.list_results()}
+    from . import store, survey
+    # design identity comes from the LABEL, not the raw condition column — the same merge that pooled an upshift
+    # with a downshift in survey/differential (fixed in a1a0388) applied here too, so a coverage grid could report
+    # "examined" for a design the agent never actually read.
+    id2label = {r["id"]: survey.design_key(r) for r in store.list_results()}
     all_designs = set(id2label.values())
     examined = (set(_examined_designs) | {id2label[r] for r in _examined_results if r in id2label}) & all_designs
     return {

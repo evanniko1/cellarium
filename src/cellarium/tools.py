@@ -19,7 +19,7 @@ _log = logging.getLogger("cellarium.tools")
 # An internal-defect log below uses exc_info=True, and a CHAINED traceback is the one place a malformed API key
 # (a paste with a trailing newline -> httpx's "Illegal header value b'…'") survives in plaintext. A logging.Filter
 # is the only hook that reaches rendered traceback text, so install it where the logger is defined.
-from . import redact  # noqa: E402
+from . import evidence, redact  # noqa: E402
 
 redact.install_log_filter("cellarium.tools")
 
@@ -1242,7 +1242,9 @@ def dispatch(name: str, args: dict) -> dict:
     if err:
         return {"error": err}
     try:
-        return fn(**(args or {}))
+        out = fn(**(args or {}))
+        evidence.record(name, args or {}, out)   # append-only provenance; no-op unless CELLARIUM_EVIDENCE=1
+        return out
     except Exception as exc:
         # DD-ENG-1: isolate EVERY tool-body failure into a structured, model-readable error. Before this, only
         # TypeError was caught, so any KeyError/ValueError/OSError/DuckDB/cobra/pydeseq2/… propagated past the

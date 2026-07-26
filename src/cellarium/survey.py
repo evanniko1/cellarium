@@ -143,18 +143,41 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         for e in entries:
             e["z"] = round((e["mean"] - mu) / sd, 2)
         entries.sort(key=lambda e: abs(e["z"]), reverse=True)
+        # INFORMATIVE truncation (same convention as top_movers' "k of N significant dropped"). This tool exists
+        # to stop the agent anchoring on whatever it happened to look at first — so silently showing 6 of N
+        # designs and saying nothing would reintroduce the exact bias it was built to remove.
         by_channel[ch] = {"reference": (round(ref_v, 6) if ref_v is not None else None),
+                          "n_designs_with_data": len(entries), "n_shown": min(top, len(entries)),
+                          "n_dropped": max(0, len(entries) - top),
                           "ranked": entries[:top]}
         if ch not in DIAGNOSTIC:  # keep solver diagnostics out of the biological notable ranking
             notable += [{"channel": ch, **e} for e in entries if abs(e["z"]) >= 2.0]
 
     notable.sort(key=lambda e: abs(e.get("z", 0)), reverse=True)
+    # What `coverage` must NOT do is let an agent read `n_designs` and believe it has seen the corpus. Three
+    # things were invisible before: designs excluded from ranking entirely (n_designs counted only the survivors),
+    # designs whose mean rests on FEWER seeds than were run because some crashed, and — per channel, above — how
+    # many ranked designs were truncated away.
+    seeds_by_design: dict[str, list] = defaultdict(list)
+    for r in rows:
+        seeds_by_design[design_key(r)].append(bool(r.get("reportable")))
+    partial = sorted(k for k, v in seeds_by_design.items() if 0 < sum(v) < len(v))
+    excluded = sorted(k for k, v in seeds_by_design.items() if not any(v))
     coverage = {
-        "n_designs": len(by_design), "n_runs": len(rows),
+        "n_designs_ranked": len(by_design),          # what the ranking is actually computed over
+        "n_designs_in_corpus": len(seeds_by_design),  # ...out of this many
+        "n_designs_excluded": len(excluded),          # every seed non-reportable -> absent from every ranking
+        "n_designs": len(by_design),                  # kept: existing callers read this (== n_designs_ranked)
+        "n_runs": len(rows),
         "reference_present": ref is not None,
         "qc": dict(Counter(r["qc"] for r in rows)),
-        "non_reportable_designs": sorted({design_key(r)
-                                          for r in rows if not r.get("reportable")}),
+        "non_reportable_designs": excluded,
+        # a mean over 3 of 4 seeds is not wrong, but the agent must know the replicate count shrank
+        "designs_with_partial_seeds": {k: f"{sum(v)}/{len(v)} seeds usable"
+                                       for k, v in seeds_by_design.items() if 0 < sum(v) < len(v)},
+        "note": (f"{len(by_design)} of {len(seeds_by_design)} designs are ranked; {len(excluded)} are excluded "
+                 f"(every seed non-reportable) and {len(partial)} rest on a reduced seed count. Per channel, "
+                 f"`n_dropped` says how many ranked designs are not shown."),
     }
     return {
         "coverage": coverage,
