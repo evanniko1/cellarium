@@ -69,22 +69,28 @@ _FOOTPRINT_CACHE: dict | None = None
 
 
 def ko_footprint(symbol: str) -> dict | None:
-    """What a `gene_knockout` of `symbol` ACTUALLY does. None means it is a clean single-gene knockout.
+    """What a `gene_knockout` of `symbol` ACTUALLY does. None means a clean single-gene knockout.
 
-    The variant does not knock out a gene. `gene_knockout.py` calls `sim_data.adjust_final_expression([i], [0])`,
-    and `i` indexes `rna_data` — a TRANSCRIPTION UNIT. So one TU is zeroed, and the rule (exact, validated 27/27
-    against measured mRNA from real simOut) is: **a gene is fully silenced iff it has exactly one TU.** Hence
-    three failure modes, all present in the shipped corpus:
+    MECHANISM (code-traced). `gene_knockout.py` calls `sim_data.adjust_final_expression([i], [0])`;
+    `adjust_final_expression` (`reconstruction/ecoli/simulation_data.py:314`) zeroes `rna_synth_prob[i]` and
+    `rna_expression[i]`, vectors indexed over `rna_data` — whose rows are TRANSCRIPTION UNITS
+    (`dataclasses/process/transcription.py:531`), plus orphan cistrons no TU covers. So ONE TU is zeroed. This
+    holds only because the corpus was built operons-ON (`DEFAULT_OPERON_OPTION = 'on'`, and `variant_map.json`
+    contains literal TU ids); with `--operons off` every row would be a cistron and none of this would apply.
 
-      * `target_silenced=True` with `collateral_silenced` — a real KO that also deletes operon partners.
-        `KO:flgB` zeroes all nine of flgBCDEFGHIJ (measured 0.0 vs 5.8; flgA/flgK/fliC on other TUs untouched).
-      * `target_silenced=False` — **the named gene is NOT knocked out**, because its other TUs keep transcribing
-        it. Measured: `KO:rpoB` leaves rpoB mRNA at 10.4 vs 8.4 in wildtype. 694 genes genome-wide are like this.
-      * `target_silenced=False` WITH `collateral_silenced` — the design silences a gene it is not named after.
-        Measured: `KO:rpmJ` leaves rpmJ at 50.1 (WT 69.5) and takes **secY** to 0.0 (WT 15.8).
+    EVIDENCE, and the distinction matters. An earlier version of this module asserted a clean rule — "a gene is
+    silenced iff it has exactly one TU" — and claimed it validated 27/27. That was OVERFIT to three genes. Over
+    41 measurements it is 40/41, and the failure is informative:
 
-    Built by scripts/build_ko_footprint.py from the model's own transcription_units.tsv; the cache is committed,
-    so no wcEcoli checkout is needed at query time.
+      * `n_tu == 1` → silenced: **no counterexample** (0 false positives in 41). A safe sufficient condition.
+      * `n_tu > 1` → survives: **FALSE.** `KO:dapA` silenced `bamC` (n_tu=2) completely — measured 0.0 vs 2.6.
+
+    So co-membership of the zeroed TU means a gene is AT RISK, and only a measurement settles it. Each entry
+    therefore separates what was measured from what is merely predicted: `measured_silenced` /
+    `measured_expressed` come from real simOut, `unverified` does not, and `target_evidence` says which applies
+    to the named gene. Do not upgrade a prediction to a claim.
+
+    Built by scripts/build_ko_footprint.py; cache committed, so no wcEcoli checkout is needed at query time.
     """
     global _FOOTPRINT_CACHE
     if _FOOTPRINT_CACHE is None:
@@ -99,25 +105,30 @@ def ko_footprint(symbol: str) -> dict | None:
 
 
 def _fp_view(symbol: str) -> dict | None:
-    """The footprint phrased as a constraint the agent cannot read past. None when the KO is clean."""
+    """The footprint phrased as a constraint the agent cannot read past, with measured and predicted kept apart."""
     fp = ko_footprint(symbol)
     if not fp:
         return None
-    coll, part = fp.get("collateral_silenced") or [], fp.get("partially_reduced") or []
-    if not fp.get("target_silenced"):
-        w = (f"THIS IS NOT A KNOCKOUT OF {symbol}. The variant zeroes ONE transcription unit ({fp['tu_id']}), but "
-             f"{symbol} is transcribed from {fp.get('target_n_tu')} TUs, so it is still expressed — at most it is "
-             f"partially knocked down. Do NOT report this design as a {symbol} knockout, and do not explain its "
-             f"phenotype as loss of {symbol}.")
-        if coll:
-            w += (f" What this design DOES silence completely is {', '.join(coll)} (only TU {fp['tu_id']} "
-                  f"transcribes them) — any phenotype is most plausibly theirs, not {symbol}'s.")
-    else:
+    measured = fp.get("target_evidence") == "measured"
+    sil, exp = fp.get("measured_silenced") or [], fp.get("measured_expressed") or []
+    unver = fp.get("unverified") or []
+    if fp.get("target_silenced"):
         w = (f"NOT a single-gene knockout. `KO:{symbol}` zeroes transcription unit {fp['tu_id']} "
-             f"({fp.get('tu_name')}), which also fully silences {', '.join(coll)}. Any phenotype is attributable "
-             f"to that SET, not to {symbol} alone; say so, and do not use this design as a single-gene control.")
-    if part:
-        w += f" Partially reduced (they have other TUs): {', '.join(part)}."
+             f"({fp.get('tu_name')}), which carries {fp.get('n_genes_on_tu')} genes. Attribute any phenotype to "
+             f"that SET, not to {symbol} alone, and do not use this design as a single-gene control.")
+    else:
+        w = (f"THIS MAY NOT BE A KNOCKOUT OF {symbol}. The variant zeroes ONE transcription unit ({fp['tu_id']}) "
+             f"and {symbol} is transcribed from {fp.get('target_n_tu')} TUs"
+             + (" — MEASURED: still expressed, so it is at most a partial knockdown."
+                if measured else " — so it may survive; this has NOT been measured for this gene.")
+             + f" Do not report this design as a {symbol} knockout without checking.")
+    if sil:
+        w += f" MEASURED fully silenced alongside it: {', '.join(sil)}."
+    if exp:
+        w += f" MEASURED still expressed: {', '.join(exp)}."
+    if unver:
+        w += (f" AT RISK but unverified (on the same TU; co-membership does not guarantee silencing, and "
+              f"n_tu > 1 does NOT guarantee survival — KO:dapA silenced bamC at n_tu=2): {', '.join(unver)}.")
     return {**fp, "warning": w}
 
 

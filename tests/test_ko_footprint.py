@@ -1,17 +1,18 @@
-"""What a `gene_knockout` ACTUALLY does — validated against real simulation output, not inferred from code.
+"""What a `gene_knockout` ACTUALLY does — measured, with predictions kept clearly separate.
 
-MECHANISM. `gene_knockout.py` calls `sim_data.adjust_final_expression([i], [0])`; `i` indexes `rna_data`, whose
-rows are TRANSCRIPTION UNITS. One TU is zeroed.
+MECHANISM (code-traced). `gene_knockout.py` calls `sim_data.adjust_final_expression([i],[0])`; that zeroes
+`rna_synth_prob[i]`/`rna_expression[i]`, indexed over `rna_data`, whose rows are TRANSCRIPTION UNITS. One TU is
+zeroed. This depends on the corpus being built operons-ON — it was.
 
-THE RULE, exact: a gene is fully silenced **iff it has exactly one TU**. Validated 27/27 against measured mRNA
-counts from existing local simOut (`KO:flgB`, `KO:rpmJ`, `KO:rpoB` vs `wildtype/basal`). The measured numbers
-are pinned below as the ground truth this module must keep reproducing — they came from the model, not from a
-reading of it.
+EVIDENCE, and the honesty this file exists to enforce. An earlier version of this module asserted "a gene is
+silenced iff n_tu == 1" and claimed 27/27 validation. That was OVERFIT to three genes. Across 41 measurements
+it is 40/41, and the one failure is the informative half:
 
-Three failure modes, all live in the shipped corpus:
-  * a real KO that also deletes operon partners — `KO:flgB` takes all nine of flgBCDEFGHIJ to zero;
-  * **the named gene is not knocked out at all** — `KO:rpoB` leaves rpoB mRNA at 10.4 vs 8.4 in wildtype;
-  * **the design silences a gene it is not named after** — `KO:rpmJ` leaves rpmJ at 50.1 and zeroes secY.
+  * `n_tu == 1` -> silenced: no counterexample (0 false positives in 41). Safe as a SUFFICIENT condition.
+  * `n_tu > 1`  -> survives: FALSE. `KO:dapA` fully silenced `bamC` (n_tu=2), measured 0.0 vs 2.6.
+
+So the cache must never present a prediction as a finding. These tests pin the measurements as ground truth and
+pin the separation between `measured_*` and `unverified`.
 """
 
 import json
@@ -29,95 +30,80 @@ CACHE = os.path.join(os.path.dirname(__file__), "..", "data", "cache", "ko_footp
 pytestmark = pytest.mark.skipif(not os.path.exists(CACHE), reason="ko_footprint cache not built")
 
 # MEASURED from real simOut (mean mRNA counts, KO vs wildtype/basal). The empirical anchor for the rule.
-MEASURED = {
-    "flgB": {"flgB": (0.0, 5.8), "flgJ": (0.0, 5.8), "flgA": (2.1, 2.0), "fliC": (142.1, 125.1)},
-    "rpoB": {"rpoB": (10.4, 8.4), "rpoC": (10.4, 8.4)},
-    "rpmJ": {"rpmJ": (50.1, 69.5), "secY": (0.0, 15.8)},
+MEASURED = {   # from real simOut: (KO mean, wildtype mean) mRNA cistron counts
+    ("flgB", "flgB"): (0.0, 5.8), ("flgB", "flgJ"): (0.0, 5.8),
+    ("rpoB", "rpoB"): (10.4, 8.4), ("rpoB", "rpoC"): (10.4, 8.4),
+    ("rpmJ", "rpmJ"): (50.1, 69.5), ("rpmJ", "secY"): (0.0, 15.8),
+    ("dapA", "dapA"): (0.0, 2.6), ("dapA", "bamC"): (0.0, 2.6),
 }
 
 
-def test_the_rule_reproduces_every_measured_observation():
-    """The whole guard rests on 'silenced iff n_tu == 1'. If the cache ever stops predicting the measurements,
-    the rule is wrong and everything built on it is suspect."""
-    for ko, obs in MEASURED.items():
-        fp = scope.ko_footprint(ko) or {}
-        silenced = set(fp.get("collateral_silenced") or [])
-        if fp.get("target_silenced"):
-            silenced.add(ko)
-        for gene, (ko_mean, _wt) in obs.items():
-            if gene not in obs or gene in ("flgA", "fliC"):
-                continue                                   # controls on other TUs — outside the footprint
-            predicted_zero = gene in silenced
-            assert predicted_zero == (ko_mean == 0.0), (
-                f"KO:{ko} / {gene}: rule says {'silenced' if predicted_zero else 'expressed'} "
-                f"but the simulation measured {ko_mean}")
+def test_the_cache_reproduces_every_measurement():
+    """Ground truth is the simulation, not the rule. If the cache disagrees with a measured count, it is wrong."""
+    for (ko, gene), (ko_mean, wt_mean) in MEASURED.items():
+        fp = scope.ko_footprint(ko)
+        assert fp, f"{ko} should have a footprint"
+        m = (fp.get("measured") or {}).get(gene)
+        assert m, f"KO:{ko} / {gene} should carry a measurement"
+        assert m["ko_mean"] == ko_mean and m["wt_mean"] == wt_mean
+        assert m["silenced"] == (ko_mean == 0.0)
 
 
-def test_flgB_is_a_nine_gene_operon_deletion_not_an_inert_single_gene_control():
-    """scope.py uses flgB as the canonical 'no phenotype BY CONSTRUCTION' control. Measured: all nine members
-    go to 0.0 while flgA/fliC on other TUs are untouched — so it is the TU, not the flagellar regulon."""
+def test_the_n_tu_rule_is_recorded_as_a_prior_not_a_law():
+    """THE counterexample. bamC has two TUs and was fully silenced anyway, so 'n_tu > 1 means it survives' is
+    false. The cache must classify bamC from the MEASUREMENT, not from n_tu."""
+    fp = scope.ko_footprint("dapA")
+    assert fp["measured"]["bamC"]["silenced"] is True
+    assert "bamC" in fp["measured_silenced"] and "bamC" not in fp.get("unverified", [])
+
+
+def test_flgB_is_a_nine_gene_operon_deletion_measured():
     fp = scope.ko_footprint("flgB")
-    assert fp and fp["target_silenced"] is True and fp["tu_id"] == "TU00273"
-    assert set(fp["collateral_silenced"]) == {"flgC", "flgD", "flgE", "flgF", "flgG", "flgH", "flgI", "flgJ"}
+    assert fp["target_silenced"] is True and fp["target_evidence"] == "measured"
+    assert set(fp["measured_silenced"]) == {"flgC", "flgD", "flgE", "flgF", "flgG", "flgH", "flgI", "flgJ"}
 
 
-def test_rpoB_is_not_actually_knocked_out():
-    """The corpus attributes rpoB survival to a 'large inherited RNAP reserve'. The simpler explanation, measured:
-    rpoB is transcribed from three TUs and the variant zeroes one, so rpoB mRNA does not fall at all."""
+def test_rpoB_measured_not_knocked_out():
+    """The corpus explains rpoB survival by a 'large inherited RNAP reserve'. Measured: rpoB mRNA does not fall."""
     fp = scope.ko_footprint("rpoB")
-    assert fp and fp["target_silenced"] is False and fp["target_n_tu"] == 3
+    assert fp["target_silenced"] is False and fp["target_evidence"] == "measured"
+    assert fp["measured"]["rpoB"]["ko_mean"] > fp["measured"]["rpoB"]["wt_mean"] * 0.9
 
 
-def test_rpmJ_silences_secY_instead_of_rpmJ():
-    """The sharpest case: a design that knocks out a gene it is not named after."""
+def test_rpmJ_silences_secY_instead():
     fp = scope.ko_footprint("rpmJ")
-    assert fp and fp["target_silenced"] is False
-    assert fp["collateral_silenced"] == ["secY"]
+    assert fp["target_silenced"] is False and fp["measured_silenced"] == ["secY"]
+
+
+def test_an_unmeasured_design_is_labelled_unverified_not_asserted():
+    """rplB's run has no simOut. An earlier BACKLOG row implied it was measured; it was not."""
+    fp = scope.ko_footprint("rplB")
+    assert fp["target_evidence"] == "predicted_from_n_tu"
+    assert fp["unverified"] and not fp["measured_silenced"]
+    w = scope.classify_gene("rplB")["ko_footprint"]["warning"]
+    assert "unverified" in w and "does NOT guarantee survival" in w
 
 
 def test_a_clean_single_gene_knockout_reports_nothing():
-    """The guard must not cry wolf, or it will be ignored where it matters."""
     for clean in ("pfkA", "argS", "gltX", "tpiA"):
-        assert scope.ko_footprint(clean) is None, f"{clean} should be a clean KO"
+        assert scope.ko_footprint(clean) is None, f"{clean} should be clean"
 
 
-def test_classify_gene_surfaces_the_right_warning_for_each_failure_mode():
-    w_flg = scope.classify_gene("flgB")["ko_footprint"]["warning"]
-    assert "NOT a single-gene knockout" in w_flg and "flgC" in w_flg
-    w_rpo = scope.classify_gene("rpoB")["ko_footprint"]["warning"]
-    assert "THIS IS NOT A KNOCKOUT OF rpoB" in w_rpo and "still expressed" in w_rpo
-    w_rpm = scope.classify_gene("rpmJ")["ko_footprint"]["warning"]
-    assert "secY" in w_rpm and "not named after" not in w_rpm.lower()   # names the gene, not the abstraction
-    assert scope.classify_gene("pfkA").get("ko_footprint") is None
+def test_warnings_distinguish_measured_from_predicted():
+    w_meas = scope.classify_gene("rpoB")["ko_footprint"]["warning"]
+    assert "MEASURED" in w_meas
+    w_pred = scope.classify_gene("rplB")["ko_footprint"]["warning"]
+    assert "MEASURED fully silenced" not in w_pred
 
 
-def test_the_five_corpus_designs_that_are_not_knockouts_stay_flagged():
-    """dnaN, murA, pheS, rpmJ, rpoB all have n_tu > 1 — none of them knocks out its named gene. Two project
-    claims rest on these (the aaRS gen-3 story via pheS; 'inherited reserve' via rpoB/dnaN)."""
+def test_the_five_corpus_designs_that_may_not_be_knockouts_stay_flagged():
     for g in ("dnaN", "murA", "pheS", "rpmJ", "rpoB"):
         fp = scope.ko_footprint(g)
-        assert fp and fp["target_silenced"] is False, f"{g} should be flagged as not-actually-knocked-out"
+        assert fp and fp["target_silenced"] is False, f"{g} should be flagged"
 
 
-def test_every_corpus_single_ko_is_either_clean_or_flagged():
-    from cellarium import survey
-    rows = survey._deduped_rows(survey.CHANNELS)
-    if not rows or "__error__" in rows[0]:
-        pytest.skip("no local manifest")
-    keys = {survey.design_key(r) for r in rows}
-    kos = sorted({k.split("KO:")[1] for k in keys if "/KO:" in k and "+" not in k})
-    if not kos:
-        pytest.skip("no single-KO designs")
-    flagged = {g for g in kos if scope.ko_footprint(g)}
-    assert {"flgB", "rplB", "glmS", "selA", "ymgD", "dnaN", "murA", "pheS", "rpmJ", "rpoB"} <= flagged
-    for g in kos:
-        fp = scope.ko_footprint(g)
-        assert fp is None or fp["collateral_silenced"] or fp["partially_reduced"] or not fp["target_silenced"]
-
-
-def test_the_cache_shape_and_scale_are_sane():
+def test_cache_shape_is_sane():
     data = json.load(open(CACHE, encoding="utf-8"))
-    assert 2200 < len(data) < 3200, f"{len(data)} genes flagged — expected ~2,607"
-    not_ko = [k for k, v in data.items() if not v["target_silenced"]]
-    assert 500 < len(not_ko) < 900, f"{len(not_ko)} not-actually-knocked-out — expected ~694"
-    assert all("target_silenced" in v and "collateral_silenced" in v for v in data.values())
+    assert 2200 < len(data) < 3200
+    assert all("co_members" in v and "target_evidence" in v for v in data.values())
+    assert sum(1 for v in data.values() if v["target_evidence"] == "measured") >= 8
