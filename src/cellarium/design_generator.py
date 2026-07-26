@@ -29,7 +29,13 @@ _PROPOSE, _FLAG, _AVOID = "propose", "flag", "avoid"
 def dispensable_pool(max_genes: int = 12) -> dict:
     """Grounded candidate pool: genes whose SINGLE KO was viable in the corpus (we've observed them tolerate loss),
     minus any that are core machinery or benchmark-essential (a reduced-genome build must not remove those). Returns
-    {pool, dropped, note}. The pool is the honest starting set — genes we have direct evidence tolerate deletion."""
+    {pool, dropped, note}. The pool is the honest starting set — genes we have direct evidence tolerate deletion.
+
+    ⚠️ EACH POOL ENTRY MAY BE MORE THAN ONE GENE. A `gene_knockout` zeroes a transcription unit, so "single KO was
+    viable" can mean an OPERON was viable: `KO:flgB` deletes nine genes, `KO:dapA` two. Composing k such entries
+    therefore deletes k TUs, not k genes — a "12-gene reduction" built from operon-wide entries could remove forty.
+    Every candidate now carries `ko_footprint`, and `n_genes_deleted` is the honest size of the proposed
+    reduction; read that, not `len(pool)`. See docs/KNOCKOUT_SEMANTICS.md."""
     from . import scope, store
     out = store.viability("gene_knockout", None)
     if out.get("error"):
@@ -50,10 +56,21 @@ def dispensable_pool(max_genes: int = 12) -> dict:
             continue
         pool.append(gene)
     pool = sorted(set(pool))[:max_genes]
+    # Each entry may delete a whole operon (see the docstring). Report the TRUE size of the reduction alongside
+    # the gene count, so a "k-gene reduction" is never read as k genes when it is k transcription units.
+    footprints = {g: (scope.ko_footprint(g) or {}) for g in pool}
+    operon_wide = {g: sorted([g] + (fp.get("co_members") or []))
+                   for g, fp in footprints.items() if fp.get("co_members")}
+    n_deleted = sum(len(operon_wide.get(g, [g])) for g in pool)
     return {"pool": pool, "n_pool": len(pool), "dropped": dropped,
+            "n_genes_deleted": n_deleted, "operon_wide": operon_wide,
             "note": ("Genes observed to tolerate a SINGLE KO in the corpus, excluding machinery + benchmark-essential "
                      "genes. Single-KO tolerance does NOT imply the combination is viable — epistasis is unmeasured "
-                     "here (see fba_synthetic_lethal + the sim).")}
+                     "here (see fba_synthetic_lethal + the sim). "
+                     + (f"WARNING: {len(operon_wide)} of these {len(pool)} entries delete a WHOLE TRANSCRIPTION UNIT, "
+                        f"so this pool removes {n_deleted} genes, not {len(pool)} — report n_genes_deleted, and name "
+                        f"the operons: {operon_wide}. See docs/KNOCKOUT_SEMANTICS.md."
+                        if operon_wide else "All pool entries are clean single-gene knockouts."))}
 
 
 def synthetic_lethal_check(genes: list[str]) -> dict:
