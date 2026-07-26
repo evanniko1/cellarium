@@ -43,6 +43,82 @@ def t95_halfwidth(values: list[float]) -> float | None:
     return t_critical_95(n - 1) * se
 
 
+# --- clustered / multi-machine replicates ------------------------------------------------------------------
+# The corpus pools runs from more than one machine, and the model is NOT bit-deterministic across environments:
+# `wildtype/basal` seed 0 gives growth 0.000244 on one contributor's machine and 0.000226 on another. So seeds
+# are not exchangeable — they are nested within machine — and `s/sqrt(n)` over the pooled set understates the
+# uncertainty by treating correlated observations as independent. Measured on this corpus the effect is large,
+# not academic: ICC 0.09-0.29 for `wildtype/basal` (the reference for EVERY comparison, n 34 -> n_eff 6-14) and
+# 0.70-0.79 for the `rRNA_KO:4op` dose arm (n 10 -> n_eff 2.5).
+
+def design_effect(values: list[float], clusters: list) -> dict | None:
+    """One-way random-effects decomposition of `values` grouped by `clusters` (here: machine/contributor).
+
+    Returns the intraclass correlation, the design effect and the EFFECTIVE sample size:
+        ICC   = var_between / (var_between + var_within)
+        DEFF  = 1 + (mean_cluster_size - 1) * ICC
+        n_eff = n / DEFF
+    `var_between` is clamped at 0 (a negative variance estimate means the data show no cluster effect, which is
+    what `condition/acetate` does here). None when there is only one cluster or too few points to decompose.
+    """
+    groups: dict = {}
+    for v, c in zip(values, clusters):
+        if v is not None:
+            groups.setdefault(c, []).append(float(v))
+    groups = {c: v for c, v in groups.items() if len(v) >= 2}
+    k = len(groups)
+    if k < 2:
+        return None
+    n = sum(len(v) for v in groups.values())
+    grand = statistics.fmean([x for v in groups.values() for x in v])
+    ss_between = sum(len(v) * (statistics.fmean(v) - grand) ** 2 for v in groups.values())
+    ss_within = sum((x - statistics.fmean(v)) ** 2 for v in groups.values() for x in v)
+    ms_between, ms_within = ss_between / (k - 1), ss_within / (n - k)
+    m0 = (n - sum(len(v) ** 2 for v in groups.values()) / n) / (k - 1)   # Hartley's m0, not the plain mean
+    var_between = max(0.0, (ms_between - ms_within) / m0)
+    var_within = ms_within
+    total = var_between + var_within
+    icc = (var_between / total) if total > 0 else 0.0
+    deff = 1.0 + (n / k - 1.0) * icc
+    return {"n": n, "n_clusters": k, "icc": round(icc, 4), "deff": round(deff, 3),
+            "n_eff": round(n / deff, 2) if deff else float(n),
+            "sd_within": var_within ** 0.5, "sd_between": var_between ** 0.5}
+
+
+def t95_halfwidth_clustered(values: list[float], clusters: list | None = None) -> tuple:
+    """95% half-width that accounts for cluster structure, plus the diagnostics behind it.
+
+    Returns `(half_width, info)`. With one cluster (or none given) this is exactly `t95_halfwidth` and `info` is
+    None, so single-machine results are unchanged. With several, the interval is widened by sqrt(DEFF) and the
+    t-quantile uses `n_eff - 1` degrees of freedom.
+
+    ⚠️ A caveat that has to travel with the number: with only TWO machines the between-cluster variance rests on
+    one degree of freedom, so DEFF is real but its ESTIMATE is noisy. The correction is therefore better than
+    pretending the seeds are independent and worse than having three or more contributors. `info["unreliable"]`
+    marks that case, and a high ICC there should be read as "do not quote a pooled interval" rather than as a
+    precise widening.
+    """
+    n = len(values)
+    if n < 2:
+        return None, None
+    base = t95_halfwidth(values)
+    if clusters is None:
+        return base, None
+    de = design_effect(values, clusters)
+    if not de or de["deff"] <= 1.0:
+        return base, de
+    se = statistics.stdev(values) / math.sqrt(n)
+    df = max(1, int(round(de["n_eff"])) - 1)
+    hw = t_critical_95(df) * se * math.sqrt(de["deff"])
+    info = {**de, "df": df, "widened_by": round(hw / base, 2) if base else None,
+            "unreliable": de["n_clusters"] < 3,
+            "note": ("Seeds are nested within machine and the model is not bit-deterministic across "
+                     "environments, so the pooled interval was widened by sqrt(DEFF)."
+                     + (" With only two machines this estimate rests on 1 df — treat a high ICC as 'do not "
+                        "quote a pooled interval', not as a precise correction." if de["n_clusters"] < 3 else ""))}
+    return hw, info
+
+
 # --- t-distribution p-value (scipy-free) -----------------------------------------------------------------
 # A slope/coefficient p-value needs the t CDF, which the t-table above can't give. This is the regularized
 # incomplete beta I_x(a,b) (Numerical Recipes continued fraction) — the standard scipy-free route to the

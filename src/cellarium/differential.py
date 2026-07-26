@@ -42,11 +42,21 @@ def _design_seed_values() -> tuple[dict, list[str]]:
     out: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
         d = out[survey.design_key(r)]
+        # Track which MACHINE each seed came from. The corpus pools contributors and the model is not
+        # bit-deterministic across environments, so seeds are clustered, not exchangeable — a Welch t over the
+        # pooled set is anti-conservative. We record the structure here so the caller can say so.
+        d["_machines"].append(survey._machine(r))
         for ch in channels:
             v = val(r, ch)
             if v is not None:
                 d[ch].append(float(v))
     return {d: dict(chv) for d, chv in out.items()}, channels
+
+
+def _multi_machine(design: str) -> int:
+    """How many machines contributed seeds to a design (1 = clean, >1 = clustered)."""
+    vals, _ = _design_seed_values()
+    return len(set((vals.get(design) or {}).get("_machines") or ["local"]))
 
 
 def _design_means() -> tuple[dict, list[str]]:
@@ -82,6 +92,7 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
                        "pct": round(100 * (tv - rv) / rv, 1), "log2fc": log2fc, "_ta": ta, "_ra": ra})
     movers.sort(key=lambda m: abs(m["log2fc"]) if m["log2fc"] is not None else abs(m["pct"]) / 100, reverse=True)
     ranked = movers[:top]
+    _n_mach_t, _n_mach_r = _multi_machine(target), _multi_machine(reference)
     for m in ranked:   # DS-3: a two-sample Welch t-test on the seed replicates behind each shown mover (or a note)
         w = stats.welch_t(m.pop("_ta"), m.pop("_ra"))
         if w is None:
@@ -89,6 +100,13 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
         else:
             m["welch_t"], m["p_value"], m["n_seeds"] = w["t"], w["p"], [w["n_a"], w["n_b"]]
             m["significant_p05"] = (w["p"] is not None and w["p"] < 0.05)
+            if _n_mach_t > 1 or _n_mach_r > 1:
+                # Anti-conservative, and by a measurable amount: on wildtype/basal the cluster-corrected CI is
+                # 2.7x the naive one (ICC 0.245). Do not upgrade a borderline p to a claim here.
+                m["clustered_caveat"] = (
+                    f"seeds span {max(_n_mach_t, _n_mach_r)} machines (target {_n_mach_t}, reference "
+                    f"{_n_mach_r}); the model is not bit-deterministic across environments, so this Welch p "
+                    f"treats correlated seeds as independent and is ANTI-CONSERVATIVE. Treat it as descriptive.")
     return {"target": target, "reference": reference, "ranked": ranked,
             "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
             "note": "Channels + pathways ranked by |log2 fold-change| (else |%|), each shown mover carrying a Welch "

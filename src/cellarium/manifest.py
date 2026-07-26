@@ -74,6 +74,17 @@ def _kb_prov() -> dict:
     return _KB_PROV_CACHE
 
 
+def _machine_of(run_root) -> str:
+    """A stable id for the machine/contributor that produced a run, taken from the run path's home directory.
+    Everything under this checkout is "local"; a contributed shard carries its own absolute path."""
+    p = str(run_root or "").replace("\\", "/")
+    for prefix in ("/Users/", "/home/", "C:/Users/", "c:/users/"):
+        if prefix.lower() in p.lower():
+            i = p.lower().index(prefix.lower()) + len(prefix)
+            return p[i:].split("/", 1)[0] or "local"
+    return "local"
+
+
 def _flat_row(rec: SimResult, seed: int, run_root: Path,
               requested_generations: int | None = None, crashed: bool = False) -> dict:
     overall, per = qc.check_result(rec)
@@ -89,6 +100,11 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            # Deriving correctly is now optional for a reader; getting it wrong requires ignoring this column.
            "design_key": f"{rec.design.perturbation}/{_design_tag(rec.design)}",
            "design_tag": _design_tag(rec.design),
+           # Which machine produced this run. Seeds are NOT exchangeable across machines — the model is not
+           # bit-deterministic between environments (wildtype/basal seed 0: growth 0.000244 on one contributor's
+           # box vs 0.000226 on ours), so pooling them as independent understates uncertainty. Stored so the
+           # cluster structure is available to any analysis rather than re-parsed from a path.
+           "machine": _machine_of(run_root),
            "requested_generations": requested_generations,   # for the viability truncation signal (§M)
            "crashed": crashed,                                # the sim raised — inviable regardless of partial data
            "contributor": getpass.getuser(), "host": socket.gethostname(), "ts": time.time(),

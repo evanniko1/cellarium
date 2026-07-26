@@ -42,6 +42,18 @@ def _identity(design_key: str):
     return _IDENT_CACHE[design_key]
 
 
+def _machine(row: dict) -> str:
+    """The machine a row came from — stored on new rows, derived from the path for older ones."""
+    m = row.get("machine")
+    if m:
+        return str(m)
+    p = str(row.get("simout_path") or "").replace("\\", "/")
+    for prefix in ("/Users/", "/home/"):
+        if prefix in p:
+            return p.split(prefix, 1)[1].split("/", 1)[0] or "local"
+    return "local"
+
+
 def design_tag(row: dict) -> str:
     """The identity of a DESIGN (the thing all its seeds are replicates of), taken from `label`, NOT from the raw
     `condition` column.
@@ -87,7 +99,14 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
     last = ""
     # `label` is REQUIRED (not just nice): design identity is derived from it — see design_tag().
     # try with the pathways column (P2.1); fall back without it for pre-P2.1 corpora that lack it
-    for cols in (["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways", *channels],
+    # `simout_path` is REQUIRED, not decorative: it carries the machine a run came from, and seeds are not
+    # exchangeable across machines (see stats.t95_halfwidth_clustered). Without it every row reads as one
+    # cluster and the cluster correction silently does nothing — which is exactly what happened first.
+    # `machine` is stored on rows indexed after that fix; the tiers fall back for older shards.
+    for cols in (["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
+                  "simout_path", "machine", *channels],
+                 ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
+                  "simout_path", *channels],
                  ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", *channels]):
         sel = ", ".join(f'"{c}"' for c in cols)
         q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
@@ -133,12 +152,18 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
 
 
     def dmean_ci(rs: list[dict], ch: str):
-        vals = [v for v in (val(r, ch) for r in rs) if v is not None]
-        if not vals:
-            return None, None, 0
+        pairs = [(val(r, ch), _machine(r)) for r in rs]
+        pairs = [(v, m) for v, m in pairs if v is not None]
+        if not pairs:
+            return None, None, 0, None
+        vals = [v for v, _ in pairs]
         m = statistics.fmean(vals)
-        ci = stats.t95_halfwidth(vals)  # 95% CI, t-distribution (right for n=4-8 seeds; normal-approx was too narrow)
-        return m, ci, len(vals)
+        # CLUSTER-AWARE. t95 over the pooled seeds assumes they are exchangeable; they are not, because the model
+        # is not bit-deterministic across machines and the corpus pools contributors. Measured here: ICC 0.09-0.29
+        # for wildtype/basal — the reference for every comparison — so its naive interval was ~2x too narrow.
+        # Single-machine designs are unaffected: the helper falls back to the plain t interval.
+        ci, info = stats.t95_halfwidth_clustered(vals, [c for _, c in pairs])
+        return m, ci, len(vals), info
 
     stats_by_design = {d: {ch: dmean_ci(rs, ch) for ch in all_channels} for d, rs in by_design.items()}
     means = {d: {ch: v[0] for ch, v in chs.items()} for d, chs in stats_by_design.items()}
@@ -153,12 +178,14 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
             v = m.get(ch)
             if v is None:
                 continue
-            _mn, ci, n = stats_by_design[d][ch]
+            _mn, ci, n, _clu = stats_by_design[d][ch]
             pct = (100.0 * (v - ref_v) / ref_v) if (ref_v not in (None, 0)) else None
             key = f"{d[0]}/{d[1]}"
             e = {"design": key, "mean": round(v, 6),
                  "ci95": (round(ci, 6) if ci is not None else None), "n": n,
                  "pct_vs_ref": (round(pct, 1) if pct is not None else None)}
+            if _clu and _clu.get("deff", 1) > 1:      # the interval was widened — say so, and by how much
+                e["cluster"] = {k: _clu[k] for k in ("n_clusters", "icc", "deff", "n_eff", "unreliable")}
             # A design's NAME can be wrong (KO:rpoB silences nothing; KO:flgB deletes nine genes). survey_corpus
             # is the mandatory first read, so the honest name travels with the number rather than being
             # discoverable only if the agent thinks to ask. Only attached when it differs — keeps the payload small.
