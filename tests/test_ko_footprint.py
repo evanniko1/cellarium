@@ -129,6 +129,35 @@ def test_every_aaRS_leg_of_the_gen3_story_is_now_measured():
 
 def test_cache_shape_is_sane():
     data = json.load(open(CACHE, encoding="utf-8"))
-    assert 2200 < len(data) < 3200
-    assert all("co_members" in v and "target_evidence" in v for v in data.values())
-    assert sum(1 for v in data.values() if v["target_evidence"] == "measured") >= 8
+    entries = {k: v for k, v in data.items() if k != "__kb__"}   # __kb__ is provenance, not a gene
+    assert 2200 < len(entries) < 3200
+    assert all("co_members" in v and "target_evidence" in v for v in entries.values())
+    assert sum(1 for v in entries.values() if v["target_evidence"] == "measured") >= 8
+
+
+def test_the_cache_records_which_kb_it_describes():
+    """Every verdict is a claim about ONE knowledge base. Without the stamp there is no way to notice the kb
+    changed underneath it."""
+    data = json.load(open(CACHE, encoding="utf-8"))
+    kb = data.get("__kb__")
+    assert kb and kb.get("kb_sha256") and kb.get("operons") == "on"
+    assert "TU ids" in (kb.get("operons_evidence") or "")
+
+
+def test_kb_metadata_is_not_served_as_a_gene():
+    assert scope.ko_footprint("__kb__") is None
+
+
+def test_a_kb_change_is_detected_rather_than_silently_trusted(monkeypatch):
+    """The dangerous direction: rebuild with --operons off and every entry becomes wrong — it would keep warning
+    about operon collateral that no longer exists, and users would trust it because it used to be right."""
+    from cellarium import provenance
+    monkeypatch.setattr(scope, "_FOOTPRINT_CACHE", None, raising=False)
+    monkeypatch.setattr(provenance, "kb_provenance", lambda *a, **k: {"kb_sha256": "deadbeef" * 8})
+    warn = scope.footprint_staleness()
+    assert warn and "rebuild" in warn and "operon mode" in warn
+
+
+def test_no_warning_when_the_kb_matches(monkeypatch):
+    monkeypatch.setattr(scope, "_FOOTPRINT_CACHE", None, raising=False)
+    assert scope.footprint_staleness() is None

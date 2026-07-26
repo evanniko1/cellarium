@@ -104,7 +104,43 @@ def ko_footprint(symbol: str) -> dict | None:
             _FOOTPRINT_CACHE = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
         except Exception:
             _FOOTPRINT_CACHE = {}
-    return _FOOTPRINT_CACHE.get(symbol)
+        _check_kb_staleness(_FOOTPRINT_CACHE)
+    return None if symbol == "__kb__" else _FOOTPRINT_CACHE.get(symbol)
+
+
+def _check_kb_staleness(cache: dict) -> None:
+    """Refuse to serve verdicts silently against a DIFFERENT knowledge base than they were computed for.
+
+    Every entry is a claim about one kb. Rebuild with `--operons off` and each row of `rna_data` becomes a
+    cistron, so a `gene_knockout` becomes a true single-gene knockout and the entire cache is wrong in the worst
+    direction — it would keep warning about operon collateral that no longer exists, and users would trust it
+    because it had been right before. A one-line comparison of the stamped hash against the live kb is the whole
+    guard; it warns rather than raising, because a stale cache must not take the app down."""
+    global _FOOTPRINT_STALE
+    _FOOTPRINT_STALE = None
+    try:
+        stamped = (cache.get("__kb__") or {}).get("kb_sha256")
+        if not stamped:
+            return
+        from . import provenance
+        live = provenance.kb_provenance().get("kb_sha256")
+        if live and live != stamped:
+            _FOOTPRINT_STALE = (f"ko_footprint cache was built against kb {stamped[:12]} but the live kb is "
+                                f"{live[:12]} — rebuild with scripts/build_ko_footprint.py. Its verdicts assume "
+                                f"the operon mode of the kb they were computed for.")
+            _log = __import__("logging").getLogger("cellarium.scope")
+            _log.warning(_FOOTPRINT_STALE)
+    except Exception:
+        pass
+
+
+_FOOTPRINT_STALE: str | None = None
+
+
+def footprint_staleness() -> str | None:
+    """The staleness warning, if any — so a caller (or a test) can surface it rather than only logging it."""
+    ko_footprint("__probe__")          # force the lazy load + check
+    return _FOOTPRINT_STALE
 
 
 def _fp_view(symbol: str) -> dict | None:

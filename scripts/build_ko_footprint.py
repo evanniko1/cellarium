@@ -100,12 +100,24 @@ def main() -> int:
         else:
             e["target_evidence"] = "predicted_from_n_tu"
 
+    # Stamp the kb this cache describes. Every verdict in it is a claim about ONE knowledge base — rebuild the kb
+    # with --operons off and the whole file becomes wrong in the most dangerous way: it would keep warning about
+    # operon collateral that no longer exists. The reader compares this against the live kb and refuses to
+    # pretend. (This is what the provenance added in provenance.kb_provenance() is FOR.)
+    try:
+        sys.path.insert(0, str(ROOT / "src"))
+        from cellarium import provenance
+        out["__kb__"] = provenance.kb_provenance()
+    except Exception:
+        pass
+
     dest = ROOT / "data/cache/ko_footprint.json"
     dest.write_text(json.dumps(out, indent=0, sort_keys=True), encoding="utf-8")
-    n_meas = sum(1 for v in out.values() if v["target_evidence"] == "measured")
-    not_ko = sum(1 for v in out.values() if not v["target_silenced"])
-    coll = sum(1 for v in out.values() if v["measured_silenced"] or v["unverified"])
-    print(f"{len(out)} of {len(gs)} genes have a NON-CLEAN knockout -> {dest}")
+    _e = [v for k, v in out.items() if k != "__kb__"]
+    n_meas = sum(1 for v in _e if v["target_evidence"] == "measured")
+    not_ko = sum(1 for v in _e if not v["target_silenced"])
+    coll = sum(1 for v in _e if v["measured_silenced"] or v["unverified"])
+    print(f"{len(_e)} of {len(gs)} genes have a NON-CLEAN knockout -> {dest}")
     print(f"  {not_ko} where the NAMED GENE IS NOT KNOCKED OUT (n_tu > 1)")
     print(f"  {coll} that additionally silence a different gene entirely")
     print(f"  {n_meas} with a MEASURED outcome; the rest are predictions")

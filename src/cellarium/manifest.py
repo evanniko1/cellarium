@@ -59,10 +59,30 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
                      viability=data.get("viability", {}))
 
 
+_KB_PROV_CACHE: dict | None = None
+
+
+def _kb_prov() -> dict:
+    """kb hash + operon mode, resolved once per process (hashing a 69 MB pickle per row would be absurd)."""
+    global _KB_PROV_CACHE
+    if _KB_PROV_CACHE is None:
+        try:
+            from . import provenance
+            _KB_PROV_CACHE = provenance.kb_provenance()
+        except Exception:
+            _KB_PROV_CACHE = {}
+    return _KB_PROV_CACHE
+
+
 def _flat_row(rec: SimResult, seed: int, run_root: Path,
               requested_generations: int | None = None, crashed: bool = False) -> dict:
     overall, per = qc.check_result(rec)
+    # Knockout semantics depend entirely on whether the kb was built operons-ON (see docs/KNOCKOUT_SEMANTICS.md),
+    # and nothing recorded it — "operons on" was filesystem inference. Stamp the kb identity and the operon mode
+    # on EVERY row so a published row is self-describing when someone slices the parquet away from this repo.
+    _kb = _kb_prov()
     row = {"id": rec.id, "label": rec.label,
+           "kb_sha256": _kb.get("kb_sha256"), "operons": _kb.get("operons"),
            "requested_generations": requested_generations,   # for the viability truncation signal (§M)
            "crashed": crashed,                                # the sim raised — inviable regardless of partial data
            "contributor": getpass.getuser(), "host": socket.gethostname(), "ts": time.time(),
@@ -309,6 +329,55 @@ def _design_from_dir(run_root: Path) -> tuple[Design, int]:
         return Design.model_validate_json(prov.read_text(encoding="utf-8")), seed
     perturbation, _, idx = run_root.parent.name.rpartition("_")  # fallback for pre-provenance runs
     return Design(perturbation=perturbation, params={"variant_index": int(idx)}), seed
+
+
+def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) -> dict:
+    """Stamp kb identity + operon mode onto rows indexed before those columns existed.
+
+    Why this is defensible rather than an overclaim: every row in a `sim_path` campaign was produced against the
+    ONE kb in `runs/<sim_path>/kb`, so campaign membership is real evidence about the operon mode. But it is
+    weaker evidence than reading the run directory, and the difference matters — so the backfilled rows carry
+    `kb_verified = False`, and the rows whose directory was actually read at index time carry True. A reviewer
+    can then filter on the strength of the provenance instead of trusting a flat assertion.
+
+    Leaving them NULL was the alternative and it is worse: 119 of 273 rows with no operon annotation invites
+    exactly the question ("are those results valid?") whose answer is yes-and-here-is-why.
+    """
+    import glob
+    import os
+
+    import duckdb
+
+    kb = _kb_prov()
+    if not kb.get("kb_sha256"):
+        return {"error": "no kb found — cannot backfill"}
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
+            "QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+    n_before = sum(1 for r in rows if r.get("kb_sha256"))
+    for r in rows:
+        if r.get("kb_sha256"):
+            r.setdefault("kb_verified", True)
+            if r.get("kb_verified") is None:
+                r["kb_verified"] = True
+        else:
+            r["kb_sha256"], r["operons"], r["kb_verified"] = kb["kb_sha256"], kb["operons"], False
+    res = {"rows": len(rows), "already_stamped": n_before, "backfilled": len(rows) - n_before,
+           "kb_sha256": kb["kb_sha256"], "operons": kb["operons"], "dry_run": dry_run}
+    if dry_run:
+        return res
+    new = append_shard(rows, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
 
 
 def reconcile_disk(sim_path: str = "cellarium") -> dict:

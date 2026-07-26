@@ -1,4 +1,10 @@
 {
+"__kb__": {
+"kb_bytes": 69442337,
+"kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+"operons": "on",
+"operons_evidence": "3006/3276 variant_map rna_ids are TU ids; 3276 knockout rows for 4724 genes \u2014 fewer rows than genes means polycistronic transcription units. The remainder are orphan cistrons no TU covers, which is exactly how rna_data is built."
+},
 "aaeA": {
 "co_members": [
 "aaeB",
@@ -40585,18 +40591,29 @@
 "co_members": [
 "holC"
 ],
-"measured": {},
+"measured": {
+"holC": {
+"ko_mean": 0.0,
+"silenced": true,
+"wt_mean": 1.1
+},
+"valS": {
+"ko_mean": 0.7,
+"silenced": false,
+"wt_mean": 1.9
+}
+},
 "measured_expressed": [],
-"measured_silenced": [],
+"measured_silenced": [
+"holC"
+],
 "n_genes_on_tu": 2,
-"target_evidence": "predicted_from_n_tu",
+"target_evidence": "measured",
 "target_n_tu": 2,
 "target_silenced": false,
 "tu_id": "TU0-14474",
 "tu_name": "holC-valS",
-"unverified": [
-"holC"
-]
+"unverified": []
 },
 "valT": {
 "co_members": [

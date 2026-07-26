@@ -68,6 +68,58 @@ def _git_commit() -> str | None:
         return None
 
 
+def kb_provenance(sim_path: str = "cellarium") -> dict:
+    """Which knowledge base a run was produced against, and — critically — whether OPERONS were on.
+
+    This closes a real gap. Every knockout semantic in this project depends on `rna_data` rows being
+    transcription units rather than cistrons, and that is true ONLY when the kb was built operons-ON. Nothing
+    recorded it: not the manifest, not the run metadata. "Operons ON" was filesystem inference — one
+    simData.cPickle on disk, TU ids in the cached variant map — which is not provenance a reviewer can check.
+
+    So this records the EVIDENCE, not an assertion: the kb file's SHA-256 and size, plus how the operon mode was
+    determined. `rna_ids` that look like `TU…` mean transcription units (operons on); ids matching the cistron
+    table mean operons off, and every gene_knockout would then be a true single-gene knockout.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    out: dict = {"kb_sha256": None, "kb_bytes": None, "operons": None, "operons_evidence": None}
+    try:
+        from . import runner
+        kb = runner._out_root(sim_path).parent / sim_path / "kb" / "simData.cPickle"
+        if not kb.exists():
+            kb = Path("runs") / sim_path / "kb" / "simData.cPickle"
+        if kb.exists():
+            h = hashlib.sha256()
+            with kb.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+            out["kb_sha256"] = h.hexdigest()
+            out["kb_bytes"] = kb.stat().st_size
+    except Exception:
+        pass
+    try:                                   # the variant map was dumped FROM this kb, so its ids settle the mode
+        vm = json.loads(Path("data/cache/variant_map.json").read_text(encoding="utf-8"))
+        genes = vm.get("genes") or []
+        tu_like = sum(1 for e in genes if str(e.get("rna_id", "")).startswith("TU"))
+        n = len(genes)
+        if n:
+            try:
+                n_genes = len(json.loads(Path("data/cache/gene_scope.json").read_text(encoding="utf-8")))
+            except Exception:
+                n_genes = None
+            out["operons"] = "on" if tu_like else "off"
+            out["operons_evidence"] = (
+                f"{tu_like}/{n} variant_map rna_ids are TU ids"
+                + (f"; {n} knockout rows for {n_genes} genes — fewer rows than genes means polycistronic "
+                   f"transcription units" if n_genes else "")
+                + ". The remainder are orphan cistrons no TU covers, which is exactly how rna_data is built.")
+    except Exception:
+        pass
+    return out
+
+
 def run_environment() -> dict:
     """The reproducibility bundle for a run (H-3): the interpreter, the repo's git commit, and the pinned versions of
     the load-bearing dependencies — recorded per Council run alongside the model + temperature (M-2/LLM-3) so a result
@@ -82,4 +134,5 @@ def run_environment() -> dict:
             packages[pkg] = _md.version(pkg)
         except Exception:
             packages[pkg] = None
-    return {"python": platform.python_version(), "git_commit": _git_commit(), "packages": packages}
+    return {"python": platform.python_version(), "git_commit": _git_commit(), "packages": packages,
+            **kb_provenance()}
