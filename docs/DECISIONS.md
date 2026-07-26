@@ -131,3 +131,55 @@ capability; which one is used is independent of the entrypoint:
 
 The gate is thus a policy on the launch action, not on the question entrypoint. Reads are never gated; launches
 may be. (Open reconciliation for a later pass: whether `loop_live` should optionally route through the gate.)
+
+## D6 — Exposing the corpus to third-party agents: MCP surface shape (OPEN — not decided)
+
+**Status: no decision has been made.** Three tiers were designed during the codegraph audit
+(`wf_c6e5b391`, 2026-07-26) and a sequence was *recommended*, but nothing is chosen and no code exists.
+Recorded here so the recommendation is not mistaken for a ruling.
+
+**The forcing question.** The corpus is the contribution, so it should be reachable by other people's
+agents. But Cellwright has ~57 tools, and the obvious move — expose them all over MCP — is the wrong one,
+for a reason that is easy to miss: **the rigor is not in the tools, it is in the system prompt.**
+Survey-first; do not anchor; judge lethality by viability, not growth rate; a benchmark note is not a
+measurement; `raw_available=0` does not mean the run is absent; check `mechanistic_scope` before
+over-reading a null. Ship the tools without that and a naive caller reads the first design it thinks of,
+anchors on it, and emits a number with none of the scope caveats — the instrument without the discipline,
+which is the opposite of a glass box. Independent support: codegraph's own measured finding that **one
+strong tool steers agents better than a menu of narrow ones** (fewer mis-picks, less context) — and we
+already instrument exactly this failure as the AG-2 tool-selection error rate.
+
+**The three tiers.**
+
+- **Tier 1 — one thick tool, `ask_cellwright(question)`.** The server runs the full Cellwright loop
+  (its own system prompt, its own tool discipline) and returns the grounded answer + trust strip + the
+  run ids behind it. The caller's agent sees ONE tool. Preserves the rigor; keeps the 57-tool menu out of
+  someone else's context. Whose key pays is answered by **MCP sampling** — the server asks the *client*
+  to make the model call, so the user's own key/model is used and nothing is stored server-side (composes
+  with the local credential vault, which never leaves the machine).
+- **Tier 2 — a small read-only subset** for agents that want raw access: `search_corpus`, `read_run`,
+  `data_availability`. Three or four, not fifty-seven. The manifest itself should be an MCP **Resource**,
+  not a tool (that is what Resources are for, and it avoids dumping rows into a tool result). Ship the
+  Council/Cellwright framings as MCP **Prompts** so the discipline is adoptable even by raw callers.
+- **Tier 3 — never over MCP:** anything that launches a simulation, anything that writes, the credential
+  vault. Containment and the biosecurity screen must survive the protocol boundary, server-side and
+  unbypassable.
+
+**The alternative that may beat all three.** MCP earns its place when the calling agent *cannot run code*.
+If it can, the HF dataset plus `pip install cellarium` delivers most of the value with **zero protocol
+surface** — and it is what actually serves the publication. Recommended sequence (not a decision):
+dataset + package first, `ask_cellwright` second, raw tools possibly never.
+
+**Lock-in assessment (why this is safe to defer).** Low, in one direction and high in the other:
+- *Tier 1 is nearly lock-in-free.* `ask_cellwright` is a thin adapter over `orchestrate.investigate` —
+  the same seam the CLI and the web server already call (see **D5**). Adding or removing it changes no
+  internal structure. MCP is also a wire protocol, not a framework: dropping it later costs one module.
+- *Tier 2 is where lock-in accrues, and it is a PUBLIC-API commitment, not a technical one.* The moment a
+  third party's agent depends on `search_corpus`'s output shape, that shape is versioned surface we cannot
+  refactor freely. Our tool signatures currently change whenever the science demands it (`design_key`
+  changed this week). **This is the real reason to sequence Tier 1 before Tier 2** — not effort.
+- *The genuinely irreversible decision is the SCHEMA*, not the protocol: whatever design identity and
+  factor columns we publish become the thing other people join against (**WELL-1**, **WELL-9**). Settle
+  those first; the transport is comparatively disposable.
+
+**Revisit when:** the HF dataset ships, or someone asks to point an agent at the corpus — whichever first.
