@@ -1,0 +1,773 @@
+{
+ "reference": "wildtype/basal",
+ "n_verified": 14,
+ "skipped_no_local_raw": [
+  "alaS",
+  "argS",
+  "gltX",
+  "lysS",
+  "pfkA",
+  "pheS",
+  "rplB"
+ ],
+ "summary": {
+  "knocked_out": [
+   "dapA",
+   "fabI",
+   "flgB",
+   "glmS",
+   "gltA",
+   "lpxC",
+   "rpmE",
+   "selA",
+   "tpiA",
+   "ymgD"
+  ],
+  "unmeasurable": [
+   "dnaN"
+  ],
+  "NOT_knocked_out": [
+   "murA",
+   "rpoB"
+  ],
+  "partially_reduced": [
+   "rpmJ"
+  ]
+ },
+ "results": {
+  "dapA": {
+   "gene": "dapA",
+   "design": "gene_knockout/KO:dapA",
+   "reference": "wildtype/basal",
+   "tu_id": "TU00256",
+   "tu_name": "dapA-nlpB",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 74,
+      "median": 0.3941,
+      "sd": 0.0753,
+      "p05": 0.1954
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3108,
+      "median": 0.0803,
+      "sd": 0.0367,
+      "p05": 0.0212
+     },
+     "genes": {
+      "dapA": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "bamC": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": [
+    "bamC"
+   ]
+  },
+  "dnaN": {
+   "gene": "dnaN",
+   "design": "gene_knockout/KO:dnaN",
+   "reference": "wildtype/basal",
+   "tu_id": "TU0-1193",
+   "tu_name": "dnaN-recF",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "error": "missing simOut (target or reference)"
+    },
+    "protein": {
+     "error": "missing simOut (target or reference)"
+    }
+   },
+   "verdict": "unmeasurable",
+   "levels_checked": [],
+   "collateral_silenced": []
+  },
+  "fabI": {
+   "gene": "fabI",
+   "design": "gene_knockout/KO:fabI",
+   "reference": "wildtype/basal",
+   "tu_id": null,
+   "tu_name": null,
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 78,
+      "median": 1.0716,
+      "sd": 0.0667,
+      "p05": 0.9549
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3352,
+      "median": 1.1234,
+      "sd": 1.2869,
+      "p05": 0.4957
+     },
+     "genes": {
+      "fabI": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "flgB": {
+   "gene": "flgB",
+   "design": "gene_knockout/KO:flgB",
+   "reference": "wildtype/basal",
+   "tu_id": "TU00273",
+   "tu_name": "flgBCDEFGHIJ",
+   "n_target_runs": 6,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 76,
+      "median": 1.0568,
+      "sd": 0.0492,
+      "p05": 0.9572
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3322,
+      "median": 1.1112,
+      "sd": 0.7135,
+      "p05": 0.6859
+     },
+     "genes": {
+      "flgB": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgC": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgD": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgE": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgF": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgG": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgH": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgI": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "flgJ": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": [
+    "flgC",
+    "flgD",
+    "flgE",
+    "flgF",
+    "flgG",
+    "flgH",
+    "flgI",
+    "flgJ"
+   ]
+  },
+  "glmS": {
+   "gene": "glmS",
+   "design": "gene_knockout/KO:glmS",
+   "reference": "wildtype/basal",
+   "tu_id": "TU00280",
+   "tu_name": "glmUS",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 74,
+      "median": 0.9633,
+      "sd": 0.0501,
+      "p05": 0.9004
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3319,
+      "median": 0.9512,
+      "sd": 0.9216,
+      "p05": 0.3761
+     },
+     "genes": {
+      "glmS": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "glmU": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": [
+    "glmU"
+   ]
+  },
+  "gltA": {
+   "gene": "gltA",
+   "design": "gene_knockout/KO:gltA",
+   "reference": "wildtype/basal",
+   "tu_id": null,
+   "tu_name": null,
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 75,
+      "median": 0.9714,
+      "sd": 0.0525,
+      "p05": 0.9154
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3299,
+      "median": 0.9242,
+      "sd": 1.348,
+      "p05": 0.4145
+     },
+     "genes": {
+      "gltA": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "lpxC": {
+   "gene": "lpxC",
+   "design": "gene_knockout/KO:lpxC",
+   "reference": "wildtype/basal",
+   "tu_id": null,
+   "tu_name": null,
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 75,
+      "median": 1.0183,
+      "sd": 0.0571,
+      "p05": 0.9248
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3346,
+      "median": 1.0042,
+      "sd": 1.0179,
+      "p05": 0.4115
+     },
+     "genes": {
+      "lpxC": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "murA": {
+   "gene": "murA",
+   "design": "gene_knockout/KO:murA",
+   "reference": "wildtype/basal",
+   "tu_id": "TU0-13887",
+   "tu_name": "murA",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 75,
+      "median": 1.0092,
+      "sd": 0.0381,
+      "p05": 0.9586
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3188,
+      "median": 0.9556,
+      "sd": 0.3408,
+      "p05": 0.5668
+     },
+     "genes": {
+      "murA": {
+       "ratio": 0.9683,
+       "verdict": "expressed"
+      }
+     }
+    }
+   },
+   "verdict": "NOT_knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "rpmE": {
+   "gene": "rpmE",
+   "design": "gene_knockout/KO:rpmE",
+   "reference": "wildtype/basal",
+   "tu_id": null,
+   "tu_name": null,
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 80,
+      "median": 1.0101,
+      "sd": 3.6222,
+      "p05": 0.4913
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3110,
+      "median": 0.103,
+      "sd": 0.9297,
+      "p05": 0.0347
+     },
+     "genes": {
+      "rpmE": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "rpmJ": {
+   "gene": "rpmJ",
+   "design": "gene_knockout/KO:rpmJ",
+   "reference": "wildtype/basal",
+   "tu_id": "TU00337",
+   "tu_name": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 64,
+      "median": 0.9322,
+      "sd": 0.0473,
+      "p05": 0.8583
+     },
+     "genes": {
+      "rpmJ": {
+       "ratio": 0.7209,
+       "verdict": "specifically_reduced"
+      },
+      "rplE": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rplF": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rplN": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rplO": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rplR": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rplX": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rpmD": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rpsE": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rpsH": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      },
+      "rpsN": {
+       "ratio": 0.819,
+       "verdict": "expressed"
+      }
+     }
+    },
+    "protein": {
+     "null": {
+      "n": 3279,
+      "median": 0.9693,
+      "sd": 1.0577,
+      "p05": 0.3436
+     },
+     "genes": {
+      "rpmJ": {
+       "ratio": 0.936,
+       "verdict": "expressed"
+      },
+      "rplE": {
+       "ratio": 0.89,
+       "verdict": "expressed"
+      },
+      "rplF": {
+       "ratio": 0.9333,
+       "verdict": "expressed"
+      },
+      "rplN": {
+       "ratio": 0.9181,
+       "verdict": "expressed"
+      },
+      "rplO": {
+       "ratio": 0.9398,
+       "verdict": "expressed"
+      },
+      "rplR": {
+       "ratio": 0.9539,
+       "verdict": "expressed"
+      },
+      "rplX": {
+       "ratio": 0.8903,
+       "verdict": "expressed"
+      },
+      "rpmD": {
+       "ratio": 0.8916,
+       "verdict": "expressed"
+      },
+      "rpsE": {
+       "ratio": 0.9411,
+       "verdict": "expressed"
+      },
+      "rpsH": {
+       "ratio": 0.9217,
+       "verdict": "expressed"
+      },
+      "rpsN": {
+       "ratio": 0.9278,
+       "verdict": "expressed"
+      },
+      "secY": {
+       "ratio": 0.0011,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "partially_reduced",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": [
+    "secY"
+   ]
+  },
+  "rpoB": {
+   "gene": "rpoB",
+   "design": "gene_knockout/KO:rpoB",
+   "reference": "wildtype/basal",
+   "tu_id": "TU0-6512",
+   "tu_name": "rplKAJL-rpoBC",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 70,
+      "median": 0.9022,
+      "sd": 0.0553,
+      "p05": 0.7888
+     },
+     "genes": {
+      "rplA": {
+       "ratio": 0.9173,
+       "verdict": "expressed"
+      },
+      "rplJ": {
+       "ratio": 0.9311,
+       "verdict": "expressed"
+      },
+      "rplK": {
+       "ratio": 0.9173,
+       "verdict": "expressed"
+      },
+      "rplL": {
+       "ratio": 0.9311,
+       "verdict": "expressed"
+      }
+     }
+    },
+    "protein": {
+     "null": {
+      "n": 3235,
+      "median": 0.8151,
+      "sd": 1.0812,
+      "p05": 0.3964
+     },
+     "genes": {
+      "rpoB": {
+       "ratio": 0.846,
+       "verdict": "expressed"
+      },
+      "rplA": {
+       "ratio": 0.8224,
+       "verdict": "expressed"
+      },
+      "rplJ": {
+       "ratio": 0.8461,
+       "verdict": "expressed"
+      },
+      "rplK": {
+       "ratio": 0.8529,
+       "verdict": "expressed"
+      },
+      "rplL": {
+       "ratio": 0.7983,
+       "verdict": "expressed"
+      },
+      "rpoC": {
+       "ratio": 0.8415,
+       "verdict": "expressed"
+      }
+     }
+    }
+   },
+   "verdict": "NOT_knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "selA": {
+   "gene": "selA",
+   "design": "gene_knockout/KO:selA",
+   "reference": "wildtype/basal",
+   "tu_id": "TU00355",
+   "tu_name": "selAB",
+   "n_target_runs": 4,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 77,
+      "median": 1.046,
+      "sd": 0.056,
+      "p05": 0.963
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3318,
+      "median": 0.9627,
+      "sd": 1.0834,
+      "p05": 0.3827
+     },
+     "genes": {
+      "selA": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "selB": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": [
+    "selB"
+   ]
+  },
+  "tpiA": {
+   "gene": "tpiA",
+   "design": "gene_knockout/KO:tpiA",
+   "reference": "wildtype/basal",
+   "tu_id": null,
+   "tu_name": null,
+   "n_target_runs": 6,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 76,
+      "median": 1.0417,
+      "sd": 0.0401,
+      "p05": 0.9846
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3324,
+      "median": 1.1209,
+      "sd": 0.8371,
+      "p05": 0.6907
+     },
+     "genes": {
+      "tpiA": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": []
+  },
+  "ymgD": {
+   "gene": "ymgD",
+   "design": "gene_knockout/KO:ymgD",
+   "reference": "wildtype/basal",
+   "tu_id": "TU0-13167",
+   "tu_name": "ymgGD",
+   "n_target_runs": 6,
+   "n_reference_runs": 8,
+   "levels": {
+    "mrna": {
+     "null": {
+      "n": 75,
+      "median": 1.0094,
+      "sd": 0.0411,
+      "p05": 0.9308
+     },
+     "genes": {}
+    },
+    "protein": {
+     "null": {
+      "n": 3327,
+      "median": 1.1069,
+      "sd": 0.6317,
+      "p05": 0.6835
+     },
+     "genes": {
+      "ymgD": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      },
+      "ymgG": {
+       "ratio": 0.0,
+       "verdict": "silenced"
+      }
+     }
+    }
+   },
+   "verdict": "knocked_out",
+   "levels_checked": [
+    "mrna",
+    "protein"
+   ],
+   "collateral_silenced": [
+    "ymgG"
+   ]
+  }
+ },
+ "note": "Verdicts are anchored to a NULL DISTRIBUTION over untargeted genes, because a knockout shifts the whole proteome \u2014 a raw ratio cannot distinguish silencing from that shift."
+}

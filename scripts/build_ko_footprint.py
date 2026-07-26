@@ -1,27 +1,25 @@
 """Build data/cache/ko_footprint.json — what a `gene_knockout` variant ACTUALLY does.
 
-THE MECHANISM, traced through the Covert model and then verified against real simulation output.
+MECHANISM, traced through the Covert model. `models/ecoli/sim/variants/gene_knockout.py` calls
+`sim_data.adjust_final_expression([i], [0])`; that zeroes `rna_synth_prob[i]` and `rna_expression[i]`, vectors
+indexed over `rna_data`, whose rows are **transcription units** plus orphan cistrons. So ONE TU is zeroed. This
+holds only because the corpus was built operons-ON — with `--operons off` every row is a cistron and none of it
+applies.
 
-`models/ecoli/sim/variants/gene_knockout.py` computes a `geneIndex` and calls
-`sim_data.adjust_final_expression([geneIndex], [0])`. That function (`reconstruction/ecoli/simulation_data.py`)
-zeroes `transcription.rna_synth_prob[i]` and `transcription.rna_expression[i]` — vectors indexed over
-`rna_data`, whose rows are **transcription units**, not genes. So a "gene knockout" zeroes ONE TU.
+EVIDENCE, and the distinction this script exists to preserve. An earlier version asserted a clean rule — "a gene
+is silenced iff it has exactly one TU", claimed 27/27 — which was OVERFIT to three genes. Across 41
+measurements it is 40/41, and the failure is the informative half:
 
-THE RULE, and it is exact: zeroing one TU **fully silences a gene if and only if that gene has exactly one TU**
-(`n_tu == 1` in the scope map). Validated at **27/27** against measured mRNA counts from existing local simOut
-(`KO:flgB`, `KO:rpmJ`, `KO:rpoB` vs `wildtype/basal`) — no prediction missed. Three consequences follow, and
-all three are real in the shipped corpus:
+  * `n_tu == 1` -> silenced: no counterexample in 41. A safe SUFFICIENT condition.
+  * `n_tu > 1`  -> survives:  **FALSE.** `KO:dapA` fully silenced `bamC` (n_tu=2), measured 0.0 vs 2.6.
 
-  1. **Target `n_tu == 1`** → genuinely knocked out, AND every co-member of its TU with `n_tu == 1` is silenced
-     too. `KO:flgB` zeroes all nine of flgBCDEFGHIJ (measured: 0.0 vs 5.8 in WT, while flgA/flgK/flgM/fliC on
-     other TUs are untouched — so it is the TU, not the flagellar regulon).
-  2. **Target `n_tu > 1`** → **the target is NOT knocked out.** It is still transcribed from its other TUs.
-     Measured: `KO:rpoB` leaves rpoB mRNA at 10.4 vs 8.4 in wildtype — no reduction at all.
-  3. Either way, a co-member with `n_tu == 1` IS silenced — so a design can knock out a gene it is not named
-     after. Measured: `KO:rpmJ` leaves rpmJ at 50.1 (WT 69.5) and silences **secY** to 0.0 (WT 15.8).
+So TU co-membership means AT RISK, and only a measurement settles it. This script therefore emits a PREDICTION,
+then overwrites it with MEASUREMENT wherever data/cache/ko_measured.json has one, and records which is which in
+`target_evidence`. Never let a prediction be read as a finding.
 
-Needs the wcEcoli checkout ONCE, to read the model's own flat files; the output is a committed cache so
-`scope.ko_footprint()` works for everyone without it.
+Emits three caches, all committed so no wcEcoli checkout is needed at query time:
+  * ko_footprint.json  — per gene: the zeroed TU, its members, measured vs unverified status
+  * cistron_map.json   — cistron_id -> gene symbol (see below; fixes unannotated mRNA results)
 
     WCECOLI_DIR=/path/to/wcEcoli python scripts/build_ko_footprint.py
 """
@@ -74,13 +72,43 @@ def main() -> int:
                      "n_genes_on_tu": len(members), "target_n_tu": n_tu(gene),
                      "target_silenced": target_silenced,
                      "collateral_silenced": collateral, "partially_reduced": partial}
+    # Also emit the CISTRON->SYMBOL map while the flat files are open. `differential._cistron_symbol_map()`
+    # normally dumps this from sim_data via the model image, which fails without Docker — leaving it EMPTY, so
+    # every mRNA result came back with `symbol: None` and no caller could ask "which genes moved" by name.
+    # genes.tsv carries the same mapping, and the mRNA reader's ids are `<gene_id>_RNA`.
+    cis = {f"{r['id']}_RNA": (r.get("symbol") or r.get("common_name")) for r in _rows(FLAT / "genes.tsv")}
+    cis = {k: v for k, v in cis.items() if v}
+    (ROOT / "data/cache/cistron_map.json").write_text(json.dumps(cis, sort_keys=True), encoding="utf-8")
+    print(f"{len(cis)} cistron->symbol entries -> data/cache/cistron_map.json")
+
+    # MEASUREMENT overrides PREDICTION. ko_measured.json holds real mRNA counts read from local simOut; where a
+    # gene appears there, its status is fact and the n_tu prediction is discarded.
+    meas_path = ROOT / "data/cache/ko_measured.json"
+    measured = json.loads(meas_path.read_text(encoding="utf-8")) if meas_path.exists() else {}
+    for gene, e in out.items():
+        co = sorted(set((e.pop("collateral_silenced", []) or []) + (e.pop("partially_reduced", []) or [])))
+        e["co_members"] = co
+        m = {k: {"ko_mean": v["ko"], "wt_mean": v["wt"], "silenced": v["ko"] == 0.0}
+             for k, v in (measured.get(gene) or {}).items()}
+        e["measured"] = m
+        e["measured_silenced"] = sorted(g for g in co if m.get(g, {}).get("silenced"))
+        e["measured_expressed"] = sorted(g for g in co if g in m and not m[g]["silenced"])
+        e["unverified"] = sorted(g for g in co if g not in m)
+        if gene in m:
+            e["target_silenced"] = m[gene]["silenced"]
+            e["target_evidence"] = "measured"
+        else:
+            e["target_evidence"] = "predicted_from_n_tu"
+
     dest = ROOT / "data/cache/ko_footprint.json"
     dest.write_text(json.dumps(out, indent=0, sort_keys=True), encoding="utf-8")
+    n_meas = sum(1 for v in out.values() if v["target_evidence"] == "measured")
     not_ko = sum(1 for v in out.values() if not v["target_silenced"])
-    coll = sum(1 for v in out.values() if v["collateral_silenced"])
+    coll = sum(1 for v in out.values() if v["measured_silenced"] or v["unverified"])
     print(f"{len(out)} of {len(gs)} genes have a NON-CLEAN knockout -> {dest}")
     print(f"  {not_ko} where the NAMED GENE IS NOT KNOCKED OUT (n_tu > 1)")
     print(f"  {coll} that additionally silence a different gene entirely")
+    print(f"  {n_meas} with a MEASURED outcome; the rest are predictions")
     return 0
 
 
