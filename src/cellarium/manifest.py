@@ -311,6 +311,64 @@ def _design_from_dir(run_root: Path) -> tuple[Design, int]:
     return Design(perturbation=perturbation, params={"variant_index": int(idx)}), seed
 
 
+def reconcile_disk(sim_path: str = "cellarium") -> dict:
+    """Two-way diff between the manifest and what is actually on disk. READ-ONLY — it reports, never mutates.
+
+    Both directions are real and they mean different things, which is why one function reports both:
+
+      * **PHANTOM rows** — indexed, but the run directory is gone. These are NOT invalid: the row still carries
+        real channels, QC and provenance, and only the full-resolution `simOut` is missing. `raw_available` /
+        `data_availability` already model this correctly, so a phantom must be FLAGGED, never deleted — deleting
+        would discard measured summary data to fix a storage fact.
+      * **ORPHAN runs** — readable on disk, absent from the manifest, therefore invisible to every tool, since
+        `_design_run_roots` resolves through the manifest. This is the dangerous direction: `KO:gltX` counted as
+        "no local raw" for the whole audit while its seed-0 output sat there, and the six knockouts re-run on
+        2026-07-26 are orphans by the same mechanism.
+
+    Returns counts plus the design keys on each side, so a caller can decide whether to re-index.
+    """
+    from . import store, survey
+
+    on_disk: dict = {}
+    for run_root in _discover_runs(sim_path):
+        try:
+            design, seed = _design_from_dir(run_root)
+        except Exception:
+            continue
+        key = f"{design.perturbation}/{_design_tag(design)}"
+        on_disk.setdefault(key, []).append((seed, str(run_root)))
+
+    indexed: dict = {}
+    for r in store.list_results():
+        key = survey.design_key(r)
+        path = store.simout_path(r["id"])
+        indexed.setdefault(key, []).append({"seed": r.get("seed"), "path": path,
+                                            "exists": bool(path) and Path(path).exists()})
+
+    phantom = {k: [v for v in vs if not v["exists"]] for k, vs in indexed.items()}
+    phantom = {k: v for k, v in phantom.items() if v}
+    orphan_designs = sorted(set(on_disk) - set(indexed))
+    # a design can be indexed AND have unindexed seeds on disk (gltX: rows for seeds 1-3, disk holds seed 0)
+    orphan_seeds = {}
+    for k, seeds in on_disk.items():
+        known = {v["seed"] for v in indexed.get(k, [])}
+        extra = [s for s, _ in seeds if s not in known]
+        if extra:
+            orphan_seeds[k] = sorted(extra)
+
+    return {
+        "n_indexed_rows": sum(len(v) for v in indexed.values()),
+        "n_designs_indexed": len(indexed), "n_designs_on_disk": len(on_disk),
+        "phantom_rows": sum(len(v) for v in phantom.values()),
+        "phantom_designs": sorted(phantom),
+        "orphan_designs": orphan_designs,
+        "orphan_seeds": orphan_seeds,
+        "note": ("Phantom = indexed but no simOut on disk: FLAG, do not delete (the summary data is real; only "
+                 "raw is gone). Orphan = readable on disk but not indexed, so invisible to every tool that "
+                 "resolves through the manifest — re-index with record_existing() to make it queryable."),
+    }
+
+
 def record_existing(sim_path: str = "cellarium") -> Path:
     """Index runs ALREADY on disk into a manifest shard — no re-simulation (one container read each).
 

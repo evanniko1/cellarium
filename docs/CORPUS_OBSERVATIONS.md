@@ -35,7 +35,12 @@ allocation" either way [3]. So expect ribosome/rRNA proxies to fall as the clamp
 while growth is humped. If Coli instead claims "more ppGpp = monotonically slower," that's wrong — check it
 against the titration series. (Mechanism review: [1], [2].)
 
-### rRNA-operon knockout (`rrna_operon_knockout`: KO 2, 4, 6 of 7 operons, minimal media)
+### rRNA dosage series (`rrna_operon_knockout`: 2, 4, 6 of 7 operon rows zeroed, minimal media)
+> ⚠️ **Not operon deletions.** The model rebalances rRNA synthesis across all seven operons after the
+> knockout, so what varies is **total rRNA synthesis capacity** (measured 73.8 / 45.9 / 15.8% of control),
+> not which operons are present. The dose is real; the operon identity is erased. See
+> [KNOCKOUT_SEMANTICS.md](KNOCKOUT_SEMANTICS.md).
+
 **Prediction: growth decreases as more operons are removed, with the defect steepening at higher KO counts**
 (notably after ~4 copies) [3], and the penalty is **milder in minimal media** than it would be in rich media
 because the growth cost of losing rRNA redundancy scales with the max growth rate the niche allows [1][2].

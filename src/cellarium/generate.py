@@ -36,7 +36,13 @@ def panel_designs() -> list[Design]:
     - ppGpp causal titration on minimal media (ppgpp_conc variant clamps [ppGpp] and disables its dynamics):
       turns the ppGpp<->growth *correlation* we saw into a *causal* dose-response (stringent-response biology).
     - AA up-shift (relaxation): the complement of the downshift already in the corpus.
-    - rRNA-operon knockout series (1..6 of 7 operons): ribosome-synthesis-capacity limitation of growth.
+    - rRNA dosage series (2/4/6 of 7 operons zeroed): ribosome-synthesis-capacity limitation of growth.
+      NB the label says "operon knockout" but the model does NOT produce operon-specific deletions: after the
+      variant zeroes n rows, `transcription.synth_prob_from_ppgpp(..., balanced_rRNA_prob=True)` reassigns
+      prob[is_rRNA] to the MEAN over all seven rows INCLUDING the zeroed ones. That is sum-preserving, so the
+      DOSE survives (measured total rRNA probability: 100 / 73.8 / 45.9 / 15.8% for control/2op/4op/6op) but the
+      operon IDENTITY does not — no row ends at zero. Report these as a graded reduction of TOTAL rRNA synthesis
+      capacity, never as operon deletion strains. See docs/KNOCKOUT_SEMANTICS.md.
 
     All indices verified against the model's own variant_map. basal(0)/with_aa(4)/downshift already in corpus.
     """

@@ -63,7 +63,15 @@ def _write_provenance(run_root: Path, design: Design) -> None:
 
 
 def _out_root(sim_path: str) -> Path:
-    """Where the model's out/<sim_path> lands on the host (a mounted dir in Docker; the checkout natively)."""
+    """Where the model's out/<sim_path> lands on the host (a mounted dir in Docker; the checkout natively).
+
+    An EXPLICIT `CELLARIUM_OUT` wins in both modes. Without that, output location was coupled to whether Docker
+    was in use, so any host-side tool that reads runs without needing a container — `manifest.reconcile_disk`,
+    a native-reader analysis — silently scanned `$WCECOLI_DIR/out` and found NOTHING, reporting "0 runs on disk"
+    for a corpus of 154. A silent zero is the worst failure shape for a reconciliation, so the explicit setting
+    is honoured regardless of transport."""
+    if os.environ.get("CELLARIUM_OUT"):
+        return OUT_ROOT / sim_path
     return (OUT_ROOT if WCECOLI_DOCKER else Path(WCECOLI_DIR) / "out") / sim_path
 
 

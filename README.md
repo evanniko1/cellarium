@@ -93,7 +93,8 @@ mapped — provenance-controlled — **where the whole-cell model predicts and w
   mechanism, Winther/Roghanian/Gerdes 2018). The TRN misses **specific inducible catabolic on-switches**
   (arabinose→araBAD, nitrate→narGHJI). The homeostatic FBA objective **under-calls essentiality** (fabI/murA/lpxC
   reroute to zero-flux viability).
-- **The showcase — a clash that led somewhere.** Deleting rRNA operons makes ribosomes and growth fall *together*
+- **The showcase — a clash that led somewhere.** Cutting total rRNA synthesis capacity (to 74 / 46 / 16% of
+  wild-type, by zeroing 2/4/6 of the seven operon rows) makes ribosomes and growth fall *together*
   (the *numbers* axis) — the opposite of Scott's second law, where impairing ribosome *efficiency* makes a cell
   *over-build*. From that clash the agent reasoned, via a live literature search, to **growth-dependent,
   ribosome-limited antibiotic susceptibility** (Greulich–Scott 2015) and to a regime **never shown computationally
