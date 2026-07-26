@@ -132,54 +132,73 @@ capability; which one is used is independent of the entrypoint:
 The gate is thus a policy on the launch action, not on the question entrypoint. Reads are never gated; launches
 may be. (Open reconciliation for a later pass: whether `loop_live` should optionally route through the gate.)
 
-## D6 — Exposing the corpus to third-party agents: MCP surface shape (OPEN — not decided)
+## D6 — Exposing the corpus to third-party agents: MCP surface shape (DECIDED — sub-agent behind a single tool)
 
-**Status: no decision has been made.** Three tiers were designed during the codegraph audit
-(`wf_c6e5b391`, 2026-07-26) and a sequence was *recommended*, but nothing is chosen and no code exists.
-Recorded here so the recommendation is not mistaken for a ruling.
+**Decision: one MCP tool that runs Cellwright locally, BYOK.** Superseded an earlier three-tier draft whose
+Tier-1 write-up quietly assumed a hosted, always-on server. It should not have — **a central always-on session
+is not in this project's deliverables**, and assuming one produced a design that answered the wrong question
+(*"whose API key pays?"*) instead of the right one (*"how does a user point their own agent at their own
+corpus?"*).
 
-**The forcing question.** The corpus is the contribution, so it should be reachable by other people's
-agents. But Cellwright has ~57 tools, and the obvious move — expose them all over MCP — is the wrong one,
-for a reason that is easy to miss: **the rigor is not in the tools, it is in the system prompt.**
-Survey-first; do not anchor; judge lethality by viability, not growth rate; a benchmark note is not a
-measurement; `raw_available=0` does not mean the run is absent; check `mechanistic_scope` before
-over-reading a null. Ship the tools without that and a naive caller reads the first design it thinks of,
-anchors on it, and emits a number with none of the scope caveats — the instrument without the discipline,
-which is the opposite of a glass box. Independent support: codegraph's own measured finding that **one
-strong tool steers agents better than a menu of narrow ones** (fewer mis-picks, less context) — and we
-already instrument exactly this failure as the AG-2 tool-selection error rate.
+**The actual shape.** The corpus ships on HuggingFace; the `cellarium` package ships alongside it. A user
+downloads all or part of the corpus, installs the package, and then reaches it three ways over the *same*
+local seam (`orchestrate.investigate`, see **D5**): the web UI, the CLI, or **their own agent(s) over MCP**.
+The MCP server is spawned by the user's client over **stdio** — a local subprocess, not a network service.
+Consequences that fall out of that and simplify everything:
 
-**The three tiers.**
+- **BYOK by construction.** The key is the user's, already handled by the local credential vault
+  (`docs/CREDENTIALS.md`) — OS keychain, never leaves the machine, never enters the model's context. The
+  earlier draft reached for **MCP sampling** to solve "whose key pays"; with a local server that problem does
+  not exist. Sampling stays *optional*, for a client that would rather supply the model itself.
+- **No auth, no multi-tenancy, no hosting.** stdio has no network surface, so the loopback/CSRF machinery the
+  web app needs has no analogue here and none is required.
+- **Multiple agents, one corpus.** Several clients can each spawn their own server against the same local
+  corpus; the manifest is read-only, so concurrency is not a concern.
 
-- **Tier 1 — one thick tool, `ask_cellwright(question)`.** The server runs the full Cellwright loop
-  (its own system prompt, its own tool discipline) and returns the grounded answer + trust strip + the
-  run ids behind it. The caller's agent sees ONE tool. Preserves the rigor; keeps the 57-tool menu out of
-  someone else's context. Whose key pays is answered by **MCP sampling** — the server asks the *client*
-  to make the model call, so the user's own key/model is used and nothing is stored server-side (composes
-  with the local credential vault, which never leaves the machine).
-- **Tier 2 — a small read-only subset** for agents that want raw access: `search_corpus`, `read_run`,
-  `data_availability`. Three or four, not fifty-seven. The manifest itself should be an MCP **Resource**,
-  not a tool (that is what Resources are for, and it avoids dumping rows into a tool result). Ship the
-  Council/Cellwright framings as MCP **Prompts** so the discipline is adoptable even by raw callers.
-- **Tier 3 — never over MCP:** anything that launches a simulation, anything that writes, the credential
-  vault. Containment and the biosecurity screen must survive the protocol boundary, server-side and
-  unbypassable.
+**What is exposed: one listed tool.** `ask_cellwright(question)` runs the full loop — Cellwright's system
+prompt, its tool discipline, its trust strip — and returns the grounded answer plus the run ids behind it. The
+caller's agent sees ONE tool, not fifty-seven. The reason is not tidiness: **the rigor lives in the system
+prompt, not in the tools** (survey-first; do not anchor; viability not growth rate; a benchmark note is not a
+measurement; `raw_available=0` ≠ absent). Expose the raw menu and a naive caller reads the first design it
+thinks of and emits a number with none of the scope caveats — the instrument without the discipline.
+Independent support: codegraph's measured finding that one strong tool steers agents better than a menu of
+narrow ones, and our own AG-2 tool-selection error rate, which exists because this failure is real.
 
-**The alternative that may beat all three.** MCP earns its place when the calling agent *cannot run code*.
-If it can, the HF dataset plus `pip install cellarium` delivers most of the value with **zero protocol
-surface** — and it is what actually serves the publication. Recommended sequence (not a decision):
-dataset + package first, `ask_cellwright` second, raw tools possibly never.
+Also worth exposing, and *easier* than Cellwright: **`convene_council(question)`**. The Council is **blind by
+construction** — it reads no corpus — so it needs no download at all. A user with the package and no corpus
+can still get a falsifiable, operationalized hypothesis, and the blindness invariant is *simpler* to hold
+across an MCP boundary than in-process. Packaging Cellwright without the Council is possible but loses the
+pairing the paper is about; treat "Cellwright-only" as a deployment option, not the default.
 
-**Lock-in assessment (why this is safe to defer).** Low, in one direction and high in the other:
-- *Tier 1 is nearly lock-in-free.* `ask_cellwright` is a thin adapter over `orchestrate.investigate` —
-  the same seam the CLI and the web server already call (see **D5**). Adding or removing it changes no
-  internal structure. MCP is also a wire protocol, not a framework: dropping it later costs one module.
-- *Tier 2 is where lock-in accrues, and it is a PUBLIC-API commitment, not a technical one.* The moment a
-  third party's agent depends on `search_corpus`'s output shape, that shape is versioned surface we cannot
-  refactor freely. Our tool signatures currently change whenever the science demands it (`design_key`
-  changed this week). **This is the real reason to sequence Tier 1 before Tier 2** — not effort.
-- *The genuinely irreversible decision is the SCHEMA*, not the protocol: whatever design identity and
-  factor columns we publish become the thing other people join against (**WELL-1**, **WELL-9**). Settle
-  those first; the transport is comparatively disposable.
+**The rest stays available but unlisted** — the same pattern codegraph uses: the other tools remain callable
+and are re-enabled by an env var for power users, but they are not advertised to the model. This dissolves the
+earlier "Tier 2", which on inspection was a *demo of limited capabilities* — a shape that only makes sense for
+a hosted preview, which we are not building. In a local BYOK install the user already has everything; a
+crippled read-only subset would be strictly worse than the package they installed.
 
-**Revisit when:** the HF dataset ships, or someone asks to point an agent at the corpus — whichever first.
+**On the earlier "Tier 3" (never over MCP) — that framing was wrong.** This is open source: anyone can clone,
+add tools, or strip Cellwright entirely, so "never" is not an enforceable architectural boundary and calling
+it one was a category error. The accurate statement is narrower and still worth holding:
+
+> The launch airlock protects **the user from their own agent**, not the project from the user. A human who
+> forks and removes it is making a decision about their own machine, which is legitimate. What the default must
+> guarantee is that **a third-party agent connected over MCP cannot launch a simulation, write to the corpus, or
+> reach the credential vault** without that human approving it.
+
+So it is a *shipped default and a safety property of the agent boundary*, not a wall. Biosecurity screening
+stays server-side for the same reason: it protects the operator, and a fork that removes it has assumed that
+responsibility knowingly.
+
+**Lock-in.** Low where it matters, and the risk is not where it looks:
+- `ask_cellwright` is a thin adapter over the same `orchestrate` seam the CLI and web server already call
+  (**D5**). MCP is a wire protocol, not a framework; removing it later costs one module.
+- The earlier draft's Tier 2 was the real lock-in — publishing granular tool signatures is a **public-API**
+  commitment, and our signatures change when the science demands it (`design_key` changed the week this was
+  written). Keeping the menu unlisted keeps that freedom.
+- **The genuinely irreversible decision is the SCHEMA, not the protocol.** Whatever design identity and factor
+  columns we publish become what other people join against (**WELL-1**, **WELL-9**). Settle those before
+  shipping any agent-facing surface; the transport is comparatively disposable.
+
+**Sequence:** HF dataset + `pip install cellarium` first (an agent that can run code needs no protocol at all),
+then the MCP server as a thin wrapper. **Blocked on WELL-1 + WELL-9** — do not publish a surface built on a
+keying scheme still in motion.
