@@ -143,3 +143,27 @@ def test_the_runner_exposes_the_shared_metric_on_both_arms():
     assert "--metric quality_score" in src                                  # the pointer the sweep prints
     import aggregate_ab
     assert "quality_score" in aggregate_ab.aggregate.__defaults__ or True   # default metric name agrees
+
+
+# ---------------------------------------------------------------- re-gradability (what makes PUB-A2 affordable)
+def test_the_grade_carries_the_exact_text_it_judged():
+    """PUB-A2's whole premise is that THIS judge may be wrong — same-family, single-sample, temperature-1. If the
+    ledger keeps only the score, finding that out means re-running the sweep: hours, and every arm re-rolled, so
+    the new numbers are not comparable to the old ones. Keeping the graded string turns it into re-running the
+    JUDGE over fixed artifacts — which is also the only way an inter-rater statistic means anything, since raters
+    must score the SAME items.
+
+    Asserted on the zero-cost path (empty artifact) plus the source, so it holds with no API key."""
+    empty = SM.grade(CASE, "   ", client=None, judge_model="x")
+    assert empty["graded_text"] == "" and empty["judged"] is False
+    src = open(os.path.join(os.path.dirname(__file__), "..", "evals", "shared_metric.py"), encoding="utf-8").read()
+    assert "graded_text=candidate_answer" in src, "the judged string must survive into the ledger"
+    assert "judge_model=judge_model" in src, "a panel's rows are meaningless without knowing who graded"
+
+
+def test_every_replicate_gets_its_own_session_id():
+    """A --reps 5 sweep writes 5 Arm A transcripts per case. They shared one session id, so `SessionStore.put`
+    overwrote four of them — 5 scores, 1 transcript, silently, and only discoverable after paying for the run."""
+    src = open(os.path.join(os.path.dirname(__file__), "..", "evals", "run_ab.py"), encoding="utf-8").read()
+    assert 'f"_r{rep}" if rep else ""' in src, "the rep must be in the Arm A session id"
+    assert "matched_framing=a.matched_framing, rep=rep" in src, "...and the sweep must actually pass it"

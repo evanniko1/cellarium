@@ -188,7 +188,7 @@ def run_arm_b(case: dict, client, council_models: dict, rounds: int, quota: int,
 # --- Arm A: Cellwright answers directly, persisted (sighted) ------------------------------------------------
 
 def run_arm_a(case: dict, agent_model: str | None, client=None, judge_model: str | None = None,
-              matched_framing: bool = False) -> dict:
+              matched_framing: bool = False, rep: int = 0) -> dict:
     """Answer the question directly with the grounded agent; persist to the sessions table; count corpus reads."""
     from sessions import SessionStore
 
@@ -218,9 +218,13 @@ def run_arm_a(case: dict, agent_model: str | None, client=None, judge_model: str
     n_tool = len(tool_events)
     n_err = sum(1 for _, e in tool_events if e)
     errored = dict(Counter(name for name, e in tool_events if e))   # which tools errored, and how often
-    sid = "s_eval_" + case["id"].replace(".", "_")
+    # PUB-A1: the rep MUST be in the session id. Without it every replicate of a case writes the same row and
+    # `SessionStore.put` overwrites, so a --reps 5 sweep would keep 5 scores but only the LAST transcript —
+    # silently, and only discoverable after paying for the run.
+    sid = "s_eval_" + case["id"].replace(".", "_") + (f"_r{rep}" if rep else "")
     SessionStore().put(sid, {"model": agent_model, "used_council": False,
-                             "title": f"[eval {case['id']}] {case['question'][:48]}", "messages": messages})
+                             "title": f"[eval {case['id']}{f' r{rep}' if rep else ''}] {case['question'][:48]}",
+                             "messages": messages})
     shared = (shared_metric.grade(case, shared_metric.from_agent(final), client, judge_model)
               if client and judge_model else dict(shared_metric.score_from([], []), comment="not graded", judged=False))
     return {"id": case["id"], "sid": sid, "corpus_reads": reads,
@@ -298,7 +302,7 @@ def main():
             try:
                 slot["a"] = run_arm_a(case, a.agent_model, client=client,
                                       judge_model=a.judge_model or a.grader_model,
-                                      matched_framing=a.matched_framing)
+                                      matched_framing=a.matched_framing, rep=rep)
                 r = slot["a"]
                 _log(f"    Arm A  Cellwright [{r.get('sid')}]  q={r.get('quality_score')}  "
                      f"corpus-reads={r.get('corpus_reads')}  "

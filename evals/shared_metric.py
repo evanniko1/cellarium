@@ -138,17 +138,26 @@ def score_from(min_c: list, str_c: list) -> dict:
 # ---------------------------------------------------------------- the graded call
 def grade(case: dict, candidate_answer: str, client, judge_model: str) -> dict:
     """Score one arm's artifact. Returns score_from(...) plus the judge's comment; on an empty artifact or a judge
-    that emits nothing, returns a zeroed row rather than raising — a crashed arm must not abort the sweep."""
+    that emits nothing, returns a zeroed row rather than raising — a crashed arm must not abort the sweep.
+
+    **`graded_text` is returned deliberately, and it is what makes PUB-A2 affordable.** The whole point of the
+    judge panel is that this judge might be wrong — same-family, single-sample, temperature-1. If the ledger
+    stores only the SCORE, then discovering the judge is unreliable means re-running the sweep: hours, and every
+    arm re-rolled, so the new numbers are not even comparable to the old ones. Storing the exact string that was
+    judged turns that into re-running the JUDGE over a fixed set of artifacts — cents, minutes, and the same
+    artifacts for every judge, which is also the only way an inter-rater statistic means anything."""
     if not (candidate_answer or "").strip():
-        return dict(score_from([], []), comment="empty artifact", judged=False)
+        return dict(score_from([], []), comment="empty artifact", judged=False, graded_text="")
     resp = client.messages.create(
         model=judge_model, max_tokens=2048, system=_JUDGE_SYS, tools=[_JUDGE_TOOL],
         tool_choice={"type": "tool", "name": "grade"},
         messages=[{"role": "user", "content": json.dumps(payload(case, candidate_answer))}],
     )
+    out = dict(score_from([], []), comment="judge emitted no verdict", judged=False)
     for block in resp.content:
         if getattr(block, "type", None) == "tool_use":
             g = dict(block.input)
-            return dict(score_from(g.get("min_criteria"), g.get("stringent_criteria")),
-                        comment=g.get("comment", ""), judged=True)
-    return dict(score_from([], []), comment="judge emitted no verdict", judged=False)
+            out = dict(score_from(g.get("min_criteria"), g.get("stringent_criteria")),
+                       comment=g.get("comment", ""), judged=True)
+            break
+    return dict(out, graded_text=candidate_answer, judge_model=judge_model)
