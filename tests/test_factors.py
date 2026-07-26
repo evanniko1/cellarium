@@ -141,3 +141,24 @@ def test_every_corpus_design_parses_and_gets_a_verdict():
         i = F.identity(k)
         assert i["family"] and i["true_label"]
         assert i["label_integrity"] in ("ok", "operon_wide", "misnamed", "relabel_required", "no_design_possible")
+
+
+def test_the_rrna_denominator_matches_the_models_own_operon_list():
+    """`Nof7` is biology (E. coli K-12 has seven rrn operons), not a row count — which is why it survives an
+    operons-OFF rebuild. Pinned against the model's own definition so a reconstruction change cannot silently
+    make the label lie. Skips when the wcEcoli checkout is absent."""
+    import os
+    import re
+    mg = os.environ.get("WCECOLI_DIR", "C:/dev/wcEcoli") + "/reconstruction/ecoli/dataclasses/molecule_groups.py"
+    if not os.path.exists(mg):
+        pytest.skip("no wcEcoli checkout")
+    src = open(mg, encoding="utf-8").read()
+    m = re.search(r"'rRNA_operons':\s*\[([^\]]+)\]", src)
+    assert m, "the model no longer defines rRNA_operons where we expect it"
+    n = len([x for x in m.group(1).split(",") if x.strip()])
+    assert n == F.N_RRN_OPERONS, f"model defines {n} rrn operons, factors says {F.N_RRN_OPERONS}"
+
+
+def test_the_rrna_label_uses_the_named_constant():
+    i = F.identity("rrna_operon_knockout/minimal|rRNA_KO:4op")
+    assert i["true_label"] == f"rRNA_operons_removed:4of{F.N_RRN_OPERONS}"

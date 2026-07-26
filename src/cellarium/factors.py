@@ -34,6 +34,19 @@ _NUM = re.compile(r"^\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)")
 _SCOPE: dict | None = None
 _FP: dict | None = None
 
+# The denominator in `rRNA_operons_removed:Nof7`. This is a BIOLOGICAL fact, not a model row count, which is why
+# it is a constant and not derived from the manifest: E. coli K-12 MG1655 has seven rrn operons, and the model
+# says so itself — `reconstruction/ecoli/dataclasses/molecule_groups.py:174` defines
+# `rRNA_operons = ['rrnA','rrnB','rrnC','rrnD','rrnE','rrnG','rrnH']`, and the variant indexes it with a literal
+# `np.zeros(7)` (models/ecoli/sim/variants/rrna_operon_knockout.py:62).
+#
+# It therefore holds in BOTH operon modes, which is the thing worth recording: the variant selects OPERONS and
+# only then maps them to rows via `cistron_tu_mapping_matrix.T`, so with operons OFF that mapping becomes the
+# identity and the same n operons are hit — as ~22 cistron rows rather than 7 TU rows, but still n of 7 operons.
+# A row-count denominator WOULD have been mode-dependent and wrong; this one is not.
+# `tests/test_factors.py` pins it against the model's own list whenever the checkout is present.
+N_RRN_OPERONS = 7
+
 
 def _scope() -> dict:
     global _SCOPE
@@ -160,7 +173,7 @@ def identity(design_key: str) -> dict:
         # The model's rRNA rebalance erases WHICH operons were removed while preserving HOW MUCH was removed,
         # so these are a total-capacity dose, not an operon deletion. Naming them otherwise is the error.
         n = int(f["level_num"] or 0)
-        out["canonical_id"] = f"{f['family']}#rrna_removed:{n}of7"
+        out["canonical_id"] = f"{f['family']}#rrna_removed:{n}of{N_RRN_OPERONS}"
         out["label_integrity"] = "relabel_required"
         out["perturbs"] = ["total_rRNA_capacity"]
         out["notes"].append("not an operon deletion: the rebalance erases operon identity but preserves the dose")
@@ -192,7 +205,7 @@ def true_label(design_key: str, ident: dict | None = None) -> str:
             return f"INVALID:{'+'.join(genes)}"
         return f"gene_KO:{'+'.join(genes)}"
     if f_factor == "rRNA_KO":
-        return f"rRNA_operons_removed:{int(i.get('level_num') or 0)}of7"
+        return f"rRNA_operons_removed:{int(i.get('level_num') or 0)}of{N_RRN_OPERONS}"
     if f_factor and i.get("level_raw") is not None:
         return f"{f_factor}:{i['level_raw']}"
     return str(design_key)

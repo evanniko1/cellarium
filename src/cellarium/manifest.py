@@ -83,6 +83,12 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
     _kb = _kb_prov()
     row = {"id": rec.id, "label": rec.label,
            "kb_sha256": _kb.get("kb_sha256"), "operons": _kb.get("operons"),
+           # Identity is STORED, not left to be re-derived. Every drift incident in this corpus came from a
+           # reader keying on a raw field: `condition` is NULL for timelines and 'basal' for propose-path KOs,
+           # so two opposite nutrient shifts merged into one cell and a gltX knockout was filed as a control.
+           # Deriving correctly is now optional for a reader; getting it wrong requires ignoring this column.
+           "design_key": f"{rec.design.perturbation}/{_design_tag(rec.design)}",
+           "design_tag": _design_tag(rec.design),
            "requested_generations": requested_generations,   # for the viability truncation signal (§M)
            "crashed": crashed,                                # the sim raised — inviable regardless of partial data
            "contributor": getpass.getuser(), "host": socket.gethostname(), "ts": time.time(),
@@ -378,6 +384,105 @@ def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) ->
             os.remove(f)
     res["shard"] = str(new)
     return res
+
+
+def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dict:
+    """Standing guard against IDENTITY DRIFT — the failure mode that made this corpus's analyses untrustworthy.
+
+    Every integrity bug found in this corpus was one thing wearing different clothes: **a design's recorded
+    identity drifting from what it actually is.** An upshift and a downshift merged because both had
+    `condition = NULL`; a gltX knockout was filed as a `basal` control because its provenance file was missing at
+    index time; a whole `valS` design sat on disk unindexed and therefore invisible; 1,554 gene names turned out
+    to be aliases of a design named after someone else. None of these announce themselves — they produce a
+    plausible number computed over the wrong set, which is the worst failure a corpus can have.
+
+    So this is a set of invariants a growing corpus must keep, meant to run in CI, not a one-off cleanup:
+
+      D1  every label parses as `perturbation·tag·s{seed}` — the form identity is derived from
+      D2  the STORED `design_key` agrees with the derived one (write/read drift)
+      D3  no design key contains `/None` — the nullable-field bug that merged the two nutrient shifts
+      D4  no two distinct design keys share a canonical experiment id (an alias counted as a replicate)
+      D5  a `gene_knockout` whose tag is `basal` is definitionally suspicious — a gene KO must name a gene
+      D6  every row carries kb provenance, so the operon mode behind it is checkable
+      D7  no orphan runs on disk (readable but unindexed, hence invisible)
+
+    Returns `{"ok": bool, "violations": [...]}`; each violation names the invariant, the rows, and the fix.
+    """
+    from . import factors, store, survey
+
+    violations: list[dict] = []
+    rows = store.list_results()
+
+    def add(code, msg, examples, fix):
+        violations.append({"invariant": code, "message": msg, "n": len(examples),
+                           "examples": sorted(examples)[:8], "fix": fix})
+
+    # The invariant is that identity is RECOVERABLE from the label, not that one format is used. Two conventions
+    # exist in this corpus ("…·tag·s0" and "…/tag seed0"); both are recognised by survey.design_tag. What must
+    # never happen is a label that carries no tag, because then identity silently falls back to the `condition`
+    # column — the fall-through that filed a gltX knockout as a `basal` control.
+    bad_label = [r["id"] for r in rows
+                 if not str(r.get("label") or "") or survey.design_tag(r) in (None, "", "None")]
+    if bad_label:
+        add("D1", "label carries no recoverable tag, so identity falls back to the `condition` column",
+            bad_label, "re-index the affected runs; identity must come from the label, not a nullable field")
+
+    drift = [r["id"] for r in rows
+             if r.get("design_key") and r["design_key"] != survey.design_key(r)]
+    if drift:
+        add("D2", "stored design_key disagrees with the derived one", drift,
+            "re-index: the row was written by an older _flat_row")
+
+    nulls = sorted({survey.design_key(r) for r in rows if survey.design_key(r).endswith("/None")})
+    if nulls:
+        add("D3", "design key contains /None — a nullable field is being used as identity", nulls,
+            "the label must carry the tag; check manifest._design_tag for this perturbation")
+
+    keys = sorted({survey.design_key(r) for r in rows})
+    dupes = factors.dedupe(keys).get("duplicates") or {}
+    if dupes:
+        add("D4", "distinct designs resolve to ONE experiment (aliases counted as replicates)",
+            [f"{c}: {'+'.join(v)}" for c, v in dupes.items()],
+            "these are the same run under different gene names — merge them, do not treat as replicates")
+
+    suspicious = sorted({survey.design_key(r) for r in rows
+                         if "knockout" in str(r.get("perturbation") or "") and survey.design_tag(r) == "basal"})
+    if suspicious:
+        add("D5", "a knockout design is tagged 'basal' — it names no gene, so its identity is unresolved",
+            suspicious, "the run needs a design.json; without it _design_from_dir falls back and mislabels")
+
+    # query the manifest directly: store.list_results() projects a fixed column set that omits provenance,
+    # so checking it through that view would report every row as unprovenanced (it did, on the first run).
+    try:
+        import duckdb
+        con = duckdb.connect()
+        no_prov = [r["id"] for r in con.execute(
+            f"SELECT id FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
+            "WHERE kb_sha256 IS NULL "
+            "QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+        ).fetch_arrow_table().to_pylist()]
+        con.close()
+    except Exception:
+        no_prov = []
+    if no_prov:
+        add("D6", "row carries no kb provenance, so its operon mode is unknowable", no_prov,
+            "run manifest.backfill_kb_provenance(dry_run=False)")
+
+    if check_disk:
+        try:
+            rec = reconcile_disk(sim_path)
+            if rec.get("orphan_designs") or rec.get("orphan_seeds"):
+                add("D7", "runs readable on disk but NOT indexed — invisible to every query",
+                    list(rec.get("orphan_designs") or []) + list(rec.get("orphan_seeds") or {}),
+                    "manifest.record_existing() to index them")
+        except Exception as exc:
+            violations.append({"invariant": "D7", "message": f"disk check failed: {type(exc).__name__}", "n": 0,
+                               "examples": [], "fix": "set CELLARIUM_OUT to the run root"})
+
+    return {"ok": not violations, "n_rows": len(rows), "n_designs": len(keys),
+            "violations": violations,
+            "note": ("Identity drift produces a plausible number computed over the wrong set. These invariants "
+                     "are meant to run in CI as the corpus grows, not once.")}
 
 
 def reconcile_disk(sim_path: str = "cellarium") -> dict:

@@ -15,7 +15,8 @@ from collections import Counter, defaultdict
 
 from . import stats
 
-_SEED_SUFFIX = re.compile(r"·s\d+$")   # label = "{perturbation}·{tag}·s{seed}"
+# two conventions are present in the corpus: "…·s0" (current) and "… seed0" (older/contributed)
+_SEED_SUFFIX = re.compile(r"(·s\d+|\s+seed\d+)$")
 
 MANIFEST_GLOB = "data/manifest/*.parquet"
 # host-safe channel names (the worker owns the table/column mapping; we only need the names here)
@@ -64,7 +65,14 @@ def design_tag(row: dict) -> str:
     core = _SEED_SUFFIX.sub("", lab)
     if "·" in core:
         return core.split("·", 1)[1]
-    return row.get("condition") or row.get("timeline") or "basal"   # pre-label corpora
+    # A SECOND labelling convention exists in this corpus — 41 rows read
+    # `metabolism_kinetic_objective_weight/minimal|kin_w:1e-7_default seed0`, i.e. slash-and-space rather than
+    # the interpunct form. They resolved correctly until now only by luck, because their `condition` column
+    # happened to be right; silently falling through to that column is precisely how a gltX knockout came to be
+    # filed as a `basal` control. Recognise the form explicitly instead.
+    if "/" in core:
+        return core.split("/", 1)[1]
+    return row.get("condition") or row.get("timeline") or "basal"   # genuinely pre-label rows
 
 
 def design_key(row: dict) -> str:
