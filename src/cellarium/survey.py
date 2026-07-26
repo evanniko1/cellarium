@@ -26,6 +26,21 @@ DIAGNOSTIC = {"fba_objective"}       # solver diagnostics — queryable, but exc
 REFERENCE = ("wildtype", "basal")   # the control designs are compared against
 
 
+_IDENT_CACHE: dict = {}
+
+
+def _identity(design_key: str):
+    """Cached factors.identity — the honest name for a design. Never raises: a missing cache must degrade to
+    "no annotation", not break the survey the whole agent depends on."""
+    if design_key not in _IDENT_CACHE:
+        try:
+            from . import factors
+            _IDENT_CACHE[design_key] = factors.identity(design_key)
+        except Exception:
+            _IDENT_CACHE[design_key] = None
+    return _IDENT_CACHE[design_key]
+
+
 def design_tag(row: dict) -> str:
     """The identity of a DESIGN (the thing all its seeds are replicates of), taken from `label`, NOT from the raw
     `condition` column.
@@ -132,9 +147,18 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
                 continue
             _mn, ci, n = stats_by_design[d][ch]
             pct = (100.0 * (v - ref_v) / ref_v) if (ref_v not in (None, 0)) else None
-            entries.append({"design": f"{d[0]}/{d[1]}", "mean": round(v, 6),
-                            "ci95": (round(ci, 6) if ci is not None else None), "n": n,
-                            "pct_vs_ref": (round(pct, 1) if pct is not None else None)})
+            key = f"{d[0]}/{d[1]}"
+            e = {"design": key, "mean": round(v, 6),
+                 "ci95": (round(ci, 6) if ci is not None else None), "n": n,
+                 "pct_vs_ref": (round(pct, 1) if pct is not None else None)}
+            # A design's NAME can be wrong (KO:rpoB silences nothing; KO:flgB deletes nine genes). survey_corpus
+            # is the mandatory first read, so the honest name travels with the number rather than being
+            # discoverable only if the agent thinks to ask. Only attached when it differs — keeps the payload small.
+            ident = _identity(key)
+            if ident and ident.get("label_integrity") != "ok":
+                e["true_label"] = ident["true_label"]
+                e["label_integrity"] = ident["label_integrity"]
+            entries.append(e)
         if len(entries) < 2:
             by_channel[ch] = {"reference": ref_v, "ranked": entries}
             continue
