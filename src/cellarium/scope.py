@@ -65,6 +65,49 @@ def benchmark_available() -> bool:
     return any(g.get("essential_ref") is not None for g in _scope().values())
 
 
+_FOOTPRINT_CACHE: dict | None = None
+
+
+def ko_footprint(symbol: str) -> dict | None:
+    """What a `gene_knockout` of `symbol` ACTUALLY silences.
+
+    The variant does not knock out a gene — it zeroes a ROW OF `rna_data`:
+    `gene_knockout.py` computes a `geneIndex` and calls `sim_data.adjust_final_expression([geneIndex], [0])`,
+    and that index addresses a TRANSCRIPTION UNIT. For a polycistronic TU the whole operon goes to zero, so a
+    design labelled `KO:flgB` is in fact a nine-gene deletion of flgBCDEFGHIJ.
+
+    This is not a rare edge case: **2,436 of the 4,724 genes in the scope map (52%) sit on a multi-gene TU.**
+    Eleven of the corpus's twenty-one single-KO designs are affected, including three that carry interpretive
+    weight — `flgB` (used as the canonical "no phenotype BY CONSTRUCTION" inert control, actually a nine-gene
+    flagellar operon), `pheS` (also removes infC/IF3, thrS — a SECOND aaRS — pheT and ihfA, which confounds the
+    aaRS-specific crash story) and `rpoB` (also removes rpoC and four ribosomal proteins).
+
+    Returns None for a monocistronic gene or when the cache is absent. Built by scripts/build_ko_footprint.py
+    from the model's own transcription_units.tsv, so it needs the wcEcoli checkout ONCE, not at query time.
+    """
+    global _FOOTPRINT_CACHE
+    if _FOOTPRINT_CACHE is None:
+        try:
+            import json
+            from pathlib import Path
+            p = Path("data/cache/ko_footprint.json")
+            _FOOTPRINT_CACHE = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        except Exception:
+            _FOOTPRINT_CACHE = {}
+    return _FOOTPRINT_CACHE.get(symbol)
+
+def _fp_view(symbol: str) -> dict | None:
+    """The footprint as a warning the agent cannot miss — None when the KO really is single-gene."""
+    fp = ko_footprint(symbol)
+    if not fp:
+        return None
+    return {**fp, "warning": (
+        f"NOT a single-gene knockout. `KO:{symbol}` zeroes transcription unit {fp['tu_id']} "
+        f"({fp['tu_name']}), silencing {fp['n_genes']} genes at once — also: "
+        f"{', '.join(fp['co_silenced'])}. Any phenotype is attributable to the OPERON, not to {symbol} alone; "
+        f"say so explicitly, and do not use this design as a single-gene control.")}
+
+
 def classify_gene(symbol: str) -> dict:
     g = _scope().get(symbol)
     if not g:
@@ -164,6 +207,7 @@ def classify_gene(symbol: str) -> dict:
             "is_sole_catalyst": sole, "is_kinetically_constraining": kinetic, "ko_effect_prior": ko_effect,
             "essential_reference": ess, "benchmark": benchmark,
             "ko_index": g["ko_index"], "n_tu": g["n_tu"], "note": note,
+            "ko_footprint": _fp_view(symbol),
             "calibration": ("model KO priors vs the Baba/Joyce essentiality benchmark: the metabolic 'reroute' prior "
                             "UNDER-predicts for benchmark-essential enzymes (fabI/glmS/gltA are essential yet the "
                             "model KO is viable — the FBA objective has no growth term); the machinery prior expects "
