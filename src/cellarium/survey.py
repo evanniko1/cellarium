@@ -137,9 +137,9 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
     # `contributor` is the real provenance column. A `machine` column was in this list for one commit; it was
     # never written to a single shard, so tier 1 took a Binder Error on EVERY read and fell through to a tier
     # that also lacked `contributor` — leaving provenance guessed from the path, wrongly. Ask for what exists.
-    for cols in (["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
+    for cols in (["id", "label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
                   "simout_path", "contributor", "generations", *channels],
-                 ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
+                 ["id", "label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", "pathways",
                   "simout_path", "generations", *channels],
                  ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable",
                   "generations", *channels],
@@ -149,11 +149,25 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
              f"{manifest.DEDUP_QUALIFY}) "
              f"SELECT {sel} FROM d")
         try:
-            return con.execute(q).fetch_arrow_table().to_pylist()
+            rows = con.execute(q).fetch_arrow_table().to_pylist()
+            return _mark_dropped(rows)
         except Exception as exc:
             last = str(exc)
     con.close()
     return [{"__error__": last}]
+
+
+def _mark_dropped(rows: list[dict]) -> list[dict]:
+    """Stamp `_dropped` on tombstoned rows (WELL-1y) rather than removing them: the ranking and comparisons
+    exclude `_dropped`, but coverage keeps counting them, so the DB never silently forgets a dropped run. A row
+    without `id`/`simout_path` (old shard, fallback projection) can't be keyed and is treated as live."""
+    dropped = manifest.dropped_keys()
+    if not dropped:
+        return rows
+    for r in rows:
+        if r.get("id") is not None or r.get("simout_path") is not None:
+            r["_dropped"] = manifest.dedup_key_py(r) in dropped
+    return rows
 
 
 def analysis_rows() -> tuple[list[dict], list[str]]:
@@ -175,8 +189,8 @@ def analysis_rows() -> tuple[list[dict], list[str]]:
     keep = []
     pw_keys: set[str] = set()
     for r in rows:
-        if not r.get("reportable"):
-            continue                       # a crashed run's channel values are garbage, not a low-quality datum
+        if not r.get("reportable") or r.get("_dropped"):
+            continue     # crashed -> garbage channels; tombstoned (WELL-1y) -> curated out of every comparison
         try:
             r["_pw"] = json.loads(r.get("pathways") or "{}")
         except Exception:
@@ -203,9 +217,9 @@ def _leth_rows() -> list[dict]:
     cols = ("label, perturbation, condition, timeline, seed, generations, reportable, qc, "
             "generation_qc, per_generation")
     q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) {manifest.DEDUP_QUALIFY}) "
-         f"SELECT {cols} FROM d")
+         f"SELECT id, simout_path, {cols} FROM d")
     try:
-        return con.execute(q).fetch_arrow_table().to_pylist()
+        return _mark_dropped(con.execute(q).fetch_arrow_table().to_pylist())
     except Exception as exc:
         return [{"__error__": str(exc)}]
     finally:
@@ -259,6 +273,8 @@ def lethality(reference: str = "wildtype/basal") -> dict:
     by_design: dict = defaultdict(lambda: {"collapse_seeds": 0, "reportable_seeds": 0, "collapse_gens": [],
                                            "verdicts": Counter(), "pre_growth": [], "pre_ppgpp": [], "pre_gen": []})
     for r in rows:
+        if r.get("_dropped"):        # tombstoned runs (WELL-1y) are curated out of the lethality view too
+            continue
         k = design_key(r)
         gq = _as_list(r.get("generation_qc"))
         if r.get("reportable"):
@@ -324,6 +340,118 @@ def lethality(reference: str = "wildtype/basal") -> dict:
     }
 
 
+# ---- WELL-1x: per-generation reporting (the 1-to-1 and trajectory comparison operations of the D7 contract) ----
+# The summary channel is the LAST generation's mean, so the ordinary tools compare designs at whatever depth
+# each reached. These read a channel AT a chosen generation instead — the operation that makes a collapsing
+# design inspectable (its valid early generations are usable even though the run is non-reportable) and lets two
+# designs be compared like-for-like at the same generation.
+#
+# Only growth + ppGpp are stored per generation (`per_generation`); the full panel per generation needs raw or a
+# panel expansion (still owed under WELL-1x). So these functions cover exactly those two channels and say so
+# rather than silently returning nothing for the rest.
+_PERGEN_KEY = {"growth_rate": "growth", "growth": "growth", "ppgpp_conc": "ppgpp", "ppgpp": "ppgpp"}
+
+
+def _pergen_channel(channel: str) -> str | None:
+    return _PERGEN_KEY.get(channel)
+
+
+def read_at_generation(design: str, channel: str, generation: int) -> dict:
+    """A channel's mean at ONE generation index across a design's seeds — counting only seeds whose that
+    generation passed QC. This is what makes a collapsing run's VALID early generations usable: reportability is
+    a whole-run verdict, but generation_qc is per-generation, so gen 0/1 of a run that collapses at gen 2 are
+    still trustworthy and counted here.
+    """
+    key = _pergen_channel(channel)
+    if not key:
+        return {"error": f"'{channel}' is not stored per generation — only growth_rate/ppgpp_conc are "
+                         f"(per_generation holds growth+ppGpp). Per-generation values for other channels need "
+                         f"raw simOut or the panel expansion (WELL-1x)."}
+    rows = _leth_rows()
+    if not rows or "__error__" in rows[0]:
+        return {"error": rows[0].get("__error__") if rows else "no rows"}
+    vals, excluded = [], 0
+    for r in rows:
+        if design_key(r) != design:
+            continue
+        gq = _as_list(r.get("generation_qc"))
+        pg = _as_list(r.get("per_generation"))
+        if generation < len(gq) and gq[generation] == "ok":
+            p = next((x for x in pg if isinstance(x, dict) and x.get("i") == generation), None)
+            if p and p.get(key) is not None:
+                vals.append(p[key])
+        elif generation < len(gq):
+            excluded += 1                       # this seed reached the generation but it failed QC there
+    if not vals:
+        return {"design": design, "channel": channel, "generation": generation, "n": 0,
+                "note": f"no seed has a QC-ok generation {generation} for '{channel}'"}
+    return {"design": design, "channel": channel, "generation": generation,
+            "mean": round(statistics.fmean(vals), 6), "n": len(vals),
+            "ci95": (round(stats.t95_halfwidth(vals), 6) if len(vals) > 1 else None),
+            "n_seeds_failed_qc_here": excluded,
+            "note": ("mean over seeds whose generation " f"{generation} passed QC — a collapsing run's valid "
+                     "early generations ARE included, its collapsed generation is not.")}
+
+
+def compare_at_generation(design_a: str, design_b: str, channel: str, generation: int) -> dict:
+    """The 1-to-1 generation comparison (D7): design_a vs design_b at the SAME generation index — the operation
+    whose confound-free result was measured (ICC→0). No depth mismatch is possible because both sides are read
+    at one generation."""
+    a = read_at_generation(design_a, channel, generation)
+    b = read_at_generation(design_b, channel, generation)
+    if "error" in a:
+        return a
+    if "error" in b:
+        return b
+    out = {"generation": generation, "channel": channel, "a": a, "b": b}
+    if a.get("n") and b.get("n"):
+        pct = (100.0 * (a["mean"] - b["mean"]) / b["mean"]) if b["mean"] else None
+        out["diff_a_minus_b"] = round(a["mean"] - b["mean"], 6)
+        out["pct_a_vs_b"] = round(pct, 1) if pct is not None else None
+    out["note"] = (f"{design_a} vs {design_b}, both read AT generation {generation} — a like-for-like comparison "
+                   "the depth-stratified survey cannot express for a design that collapses before its modal depth.")
+    return out
+
+
+def trajectory(design: str, channel: str = "growth_rate") -> dict:
+    """The per-generation ARC of a design: mean value + QC status at every generation index, so a collapse is
+    VISIBLE as the generation where QC turns bad. This is the lethality-case inspection — `trajectory` on a
+    collapsing design shows the good early generations, then the QC verdict at the collapse point."""
+    key = _pergen_channel(channel)
+    if not key:
+        return {"error": f"'{channel}' is not stored per generation — only growth_rate/ppgpp_conc are."}
+    rows = _leth_rows()
+    if not rows or "__error__" in rows[0]:
+        return {"error": rows[0].get("__error__") if rows else "no rows"}
+    by_gen_val: dict = defaultdict(list)
+    by_gen_qc: dict = defaultdict(Counter)
+    n_seeds = 0
+    for r in rows:
+        if design_key(r) != design:
+            continue
+        n_seeds += 1
+        gq = _as_list(r.get("generation_qc"))
+        pg = _as_list(r.get("per_generation"))
+        for i, s in enumerate(gq):
+            by_gen_qc[i][s] += 1
+            if s == "ok":
+                p = next((x for x in pg if isinstance(x, dict) and x.get("i") == i), None)
+                if p and p.get(key) is not None:
+                    by_gen_val[i].append(p[key])
+    if not n_seeds:
+        return {"design": design, "channel": channel, "error": "no seeds for this design"}
+    gens = sorted(by_gen_qc)
+    arc = [{"generation": i,
+            "mean": (round(statistics.fmean(by_gen_val[i]), 6) if by_gen_val.get(i) else None),
+            "n_ok": len(by_gen_val.get(i, [])), "qc": dict(by_gen_qc[i])} for i in gens]
+    collapse = next((i for i in gens if any(s != "ok" for s in by_gen_qc[i])), None)
+    return {"design": design, "channel": channel, "n_seeds": n_seeds,
+            "collapses_at_generation": collapse, "arc": arc,
+            "note": ("Per-generation mean (QC-ok seeds only) + the QC verdict spread at each generation. A "
+                     "collapse shows as the generation where `qc` stops being all-ok; earlier generations remain "
+                     "usable. Only growth/ppGpp are stored per generation.")}
+
+
 def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     import json
 
@@ -351,7 +479,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     # (e.g. gltX post-crash growth ranked z=+5.05). Non-reportable runs stay in `coverage` below, just not ranked.
     by_design: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
-        if r.get("reportable"):
+        if r.get("reportable") and not r.get("_dropped"):   # tombstoned runs are excluded from ranking (WELL-1y)
             by_design[(r["perturbation"], design_tag(r))].append(r)
 
     # STRATIFY ON DEPTH, do not correct for it. A channel is the LAST generation's time-mean
@@ -463,6 +591,10 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         seeds_by_design[design_key(r)].append(bool(r.get("reportable")))
     partial = sorted(k for k, v in seeds_by_design.items() if 0 < sum(v) < len(v))
     excluded = sorted(k for k, v in seeds_by_design.items() if not any(v))
+    # TOMBSTONED runs (WELL-1y): excluded from ranking above, but coverage KEEPS them — the DB never silently
+    # forgets a dropped run. Reported here so a shrunk corpus is explained, not just smaller.
+    dropped_meta = manifest.dropped_keys()
+    dropped_here = [r for r in rows if r.get("_dropped")]
     # THE DEPTH STRATA, disclosed at corpus level rather than only per entry. Per-entry notes ride along with a
     # design's row, but the ranking truncates to the top |z| and `wildtype/basal` sits at z=0 BY CONSTRUCTION
     # (it is the reference), so the design whose stratification matters most is structurally unable to appear.
@@ -485,6 +617,10 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
         "designs_with_partial_seeds": {k: f"{sum(v)}/{len(v)} seeds usable"
                                        for k, v in seeds_by_design.items() if 0 < sum(v) < len(v)},
         "designs_spanning_generation_depths": {k: f"generations {v}" for k, v in sorted(mixed.items())},
+        "n_runs_dropped": len(dropped_here),          # tombstoned (WELL-1y) — kept here, excluded from ranking
+        "dropped_runs": ([{"design": design_key(r), "id": r.get("id"),
+                           "reason": (dropped_meta.get(manifest.dedup_key_py(r)) or {}).get("reason")}
+                          for r in dropped_here] if dropped_here else []),
         "generation_strata": {f"generations={d}": n for d, n in sorted(strata.items(),
                                                                        key=lambda kv: (kv[0] is None, kv[0]))},
         "note": (f"{len(by_design)} of {len(seeds_by_design)} designs are ranked; {len(excluded)} are excluded "

@@ -65,6 +65,112 @@ DEDUP_KEY = f"(COALESCE(id, '') || '@@' || COALESCE({_NORM_PATH}, ''))"
 DEDUP_QUALIFY = f"QUALIFY row_number() OVER (PARTITION BY {DEDUP_KEY} ORDER BY ts DESC) = 1"
 
 MANIFEST_DIR = Path("data/manifest")
+DROPPED_PATH = MANIFEST_DIR / "dropped.json"
+LEDGER_PATH = Path("docs/CORPUS_LEDGER.md")
+
+
+def dedup_key_py(row: dict) -> str:
+    """The DEDUP_KEY value for a row, computed in Python — mirrors the SQL `DEDUP_KEY`/`_NORM_PATH`, which are
+    pinned equal in tests/test_corpus_integrity.py. Used to match a row against the tombstone set without a
+    round-trip to SQL."""
+    sp = row.get("simout_path")
+    norm = _portable_runpath(sp) if sp else ""
+    return f"{row.get('id') or ''}@@{norm}"
+
+
+def dropped_keys() -> dict:
+    """The TOMBSTONE set (WELL-1y): `{dedup_key: {id, reason, ts, simout_path, design_key}}`. A dropped run is
+    EXCLUDED from ranking and comparisons but KEPT in coverage — the DB never forgets it existed or why. Empty
+    when nothing has been dropped. This is the dev/benchmark-corpus curation policy (D7): free disk by deleting
+    the RAW simOut, but the manifest row and this record survive so a decision stays auditable."""
+    try:
+        data = json.loads(DROPPED_PATH.read_text(encoding="utf-8"))
+        return {t["key"]: t for t in data if isinstance(t, dict) and t.get("key")}
+    except Exception:
+        return {}
+
+
+def drop_run(run_id: str, reason: str, ts: float | None = None) -> dict:
+    """TOMBSTONE a run: mark it dropped, NEVER delete its manifest row. Records the decision to
+    `data/manifest/dropped.json` + `docs/CORPUS_LEDGER.md` and returns the raw simOut path + size for the user
+    to delete — raw deletion is the user's irreversible step, never this tool's. Idempotent on `run_id`.
+
+    Resolves `run_id` to its dedup key; refuses if the id is ambiguous (maps to more than one physical run)
+    rather than tombstoning several runs behind one id — the exact data-loss shape the dedup key exists to
+    prevent. `reason` is required: a drop with no recorded rationale is indistinguishable from silent loss."""
+    if not (reason or "").strip():
+        return {"error": "a drop needs a reason — an unrecorded drop is the silent-loss failure this prevents"}
+    import time
+
+    import duckdb
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT id, simout_path, perturbation, condition, timeline, label, generations, reportable "
+            f"FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) WHERE id = ?", [run_id]
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+    if not rows:
+        return {"error": f"no run with id '{run_id}' in the manifest"}
+    keys = {dedup_key_py(r) for r in rows}
+    if len(keys) > 1:
+        return {"error": f"id '{run_id}' maps to {len(keys)} distinct runs {sorted(keys)} — refusing to "
+                         f"tombstone several behind one id; drop each by its full identity"}
+    r0 = rows[0]
+    key = next(iter(keys))
+    existing = dropped_keys()
+    if key not in existing:
+        rec = {"key": key, "id": run_id, "reason": reason, "ts": (ts if ts is not None else time.time()),
+               "simout_path": r0.get("simout_path"),
+               "design_key": f"{r0.get('perturbation')}/{_design_tag_from_row(r0)}"}
+        DROPPED_PATH.parent.mkdir(parents=True, exist_ok=True)
+        allrecs = list(existing.values()) + [rec]
+        DROPPED_PATH.write_text(json.dumps(allrecs, indent=2, default=str), encoding="utf-8")
+        _append_ledger(rec)
+        existing[key] = rec
+    from . import store
+    raw = store._resolve_run(r0.get("simout_path"))
+    gb = None
+    if raw and Path(raw).exists():
+        try:
+            gb = round(sum(p.stat().st_size for p in Path(raw).rglob("*") if p.is_file()) / 1e9, 2)
+        except Exception:
+            gb = None
+    return {"dropped": existing[key], "raw_path": r0.get("simout_path"), "raw_gb_to_reclaim": gb,
+            "note": ("Tombstoned — the manifest row and this record SURVIVE (surveys exclude it from ranking, "
+                     "keep it in coverage). To reclaim disk, delete the raw simOut at `raw_path` yourself; the "
+                     "tombstone remains so the decision stays auditable.")}
+
+
+def _design_tag_from_row(r: dict) -> str:
+    """The design tag from a raw manifest row (for the ledger's design_key). Mirrors survey.design_tag's label
+    parse but works on the columns present here."""
+    import re
+    lbl = str(r.get("label") or "")
+    core = re.sub(r"(·s\d+|\s+seed\d+)$", "", lbl)
+    if "·" in core:
+        return core.split("·", 1)[1]
+    if "/" in core:
+        return core.split("/", 1)[1]
+    return r.get("condition") or r.get("timeline") or "basal"
+
+
+def _append_ledger(rec: dict) -> None:
+    """Append a human-readable line to docs/CORPUS_LEDGER.md — the decision record a later repo/DB version reads
+    to know what was dropped and why."""
+    import datetime
+    LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not LEDGER_PATH.exists():
+        LEDGER_PATH.write_text(
+            "# Corpus ledger\n\nEvery dropped run, recorded so a decision stays auditable across DB versions "
+            "(WELL-1y). Dropping tombstones the manifest row (never deletes it) and frees disk by removing the "
+            "RAW simOut only. Newest last.\n\n"
+            "| when (UTC) | design | id | reason |\n|---|---|---|---|\n", encoding="utf-8")
+    when = datetime.datetime.utcfromtimestamp(rec["ts"]).strftime("%Y-%m-%d %H:%M") if rec.get("ts") else "?"
+    line = f"| {when} | {rec.get('design_key')} | `{rec.get('id')}` | {rec.get('reason')} |\n"
+    with LEDGER_PATH.open("a", encoding="utf-8") as f:
+        f.write(line)
 
 
 def _design_tag(design: Design) -> str:

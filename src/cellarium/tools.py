@@ -99,6 +99,19 @@ def lethality_landscape() -> dict:
     return survey.lethality()
 
 
+def trajectory(design: str, channel: str = "growth_rate") -> dict:
+    """The per-GENERATION arc of a design (growth or ppGpp) — value + QC at each generation; a collapse shows as
+    the generation where QC turns bad. Use to INSPECT a lethality case gen-by-gen."""
+    return survey.trajectory(design, channel)
+
+
+def compare_at_generation(design_a: str, design_b: str, channel: str = "ppgpp_conc",
+                          generation: int = 0) -> dict:
+    """Compare two designs at the SAME generation index (growth or ppGpp) — a like-for-like read that includes a
+    collapsing run's valid early generations. No depth mismatch is possible."""
+    return survey.compare_at_generation(design_a, design_b, channel, generation)
+
+
 def differential(target: str, reference: str = "wildtype/basal") -> dict:
     """Rank channels + pathways by fold-change of one design vs a reference — what moved most."""
     rigor.note_design(target)
@@ -1040,6 +1053,10 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "lethality_landscape", "description": "The LETHALITY view: designs that DIVIDE then COLLAPSE at depth — the phenotype the ranked survey excludes (a collapsed generation's channel mean is numerical garbage, so the whole run is non-reportable). Reports, per collapsing design, the generation it collapses at, the QC signature, whether it is FULLY HIDDEN (zero reportable seeds — invisible to survey_corpus, e.g. dapA/rpmE), and the PRE-collapse growth/ppGpp read at its own generation vs the depth-matched WT. A depressed-growth + elevated-ppGpp `stringent_signature` on an essential-gene KO is the textbook uncharged-tRNA→RelA→ppGpp response — a signal to CHECK against literature/lab, never asserted. Use when a design looks absent from the survey, or to study essential-gene lethality.",
      "input_schema": {"type": "object", "properties": {}}},
+    {"name": "trajectory", "description": "The per-GENERATION arc of ONE design: the mean of a channel (growth_rate or ppgpp_conc — the two stored per generation) at each generation index, plus the QC verdict spread there, so a COLLAPSE is visible as the generation where QC stops being all-ok. This is how you INSPECT a lethality case gen-by-gen (e.g. dapA: ppGpp 488→636 over gens 0-1, then division arrest at gen 2). The valid early generations of a collapsing run are shown; the collapsed generation reads as its QC verdict, never a garbage number.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default growth_rate)"}}, "required": ["design"]}},
+    {"name": "compare_at_generation", "description": "Compare two designs at the SAME generation index (growth_rate or ppgpp_conc) — the 1-to-1 generation comparison of the reporting contract. Unlike the depth-stratified survey, this INCLUDES a collapsing run's valid early generations (a KO that collapses at gen 2 still has trustworthy gen 0/1), and no depth mismatch is possible because both sides are read at one generation. Use to compare a lethal KO to WT at the generation before it collapses.",
+     "input_schema": {"type": "object", "properties": {"design_a": {"type": "string"}, "design_b": {"type": "string", "description": "the reference, e.g. wildtype/basal"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default ppgpp_conc)"}, "generation": {"type": "integer", "description": "generation index (0 = first, default 0)"}}, "required": ["design_a", "design_b"]}},
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string", "description": "design label 'perturbation/condition' (from survey_corpus/list_results)"},
                       "reference": {"type": "string"}}, "required": ["target"]}},
@@ -1172,6 +1189,7 @@ TOOLS = [
 ]
 
 _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_landscape,
+             "trajectory": trajectory, "compare_at_generation": compare_at_generation,
              "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
