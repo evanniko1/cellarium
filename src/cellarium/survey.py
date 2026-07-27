@@ -192,6 +192,138 @@ def channel_value(row: dict, channel: str):
     return row["_pw"].get(channel[3:]) if channel.startswith("pw:") else row.get(channel)
 
 
+def _leth_rows() -> list[dict]:
+    """Deduped rows with the per-generation QC + trajectory — the columns `lethality` needs and the channel
+    surveys deliberately omit (they are large JSON). Separate query so the hot path stays lean."""
+    import duckdb
+    con = duckdb.connect()
+    # `label` is REQUIRED, not decorative: `design_key` derives identity from it, and without it `design_tag`
+    # falls through to the nullable `condition` — the exact D3 drift that filed the gltX KO as a `basal` run,
+    # so gltX's one reportable seed would be miscounted and gltX would read as fully_hidden when it is not.
+    cols = ("label, perturbation, condition, timeline, seed, generations, reportable, qc, "
+            "generation_qc, per_generation")
+    q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) {manifest.DEDUP_QUALIFY}) "
+         f"SELECT {cols} FROM d")
+    try:
+        return con.execute(q).fetch_arrow_table().to_pylist()
+    except Exception as exc:
+        return [{"__error__": str(exc)}]
+    finally:
+        con.close()
+
+
+def _as_list(v):
+    import json
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except Exception:
+            return []
+    return v or []
+
+
+def lethality(reference: str = "wildtype/basal") -> dict:
+    """Surface COLLAPSE — the lethality phenotype every reportable-only view discards, and the user's flagged
+    blind spot: we hold sims that divide for a generation or two and then collapse, but they are invisible.
+
+    A run whose late generation collapses is (correctly) marked non-reportable so its garbage last-generation
+    channel mean cannot pollute the ranking — `is_reportable` requires EVERY generation to be ok. But the
+    collapse itself is DATA: an essential-gene KO that divides on inherited enzyme, mounts a **stringent
+    response** (ppGpp up, growth down), then collapses numerically is exactly the lethality signal to test
+    against literature (an aminoacyl-tRNA synthetase KO → uncharged tRNA → RelA → ppGpp is textbook) and lab.
+
+    This reads the phenotype back from the per-generation QC verdicts (`generation_qc`) and the per-generation
+    growth/ppGpp trajectory (`per_generation`), reporting the PRE-COLLAPSE signature only — never the post-
+    collapse garbage. A design invisible to `survey_corpus` because every seed collapses (dapA, rpmE) is visible
+    here. It does not gate or rank on channels; it is a first-class viability landscape, depth-matched to the WT
+    trajectory so the signature is read at the generation it actually occurred.
+    """
+    rows = _leth_rows()
+    if not rows or "__error__" in rows[0]:
+        return {"error": rows[0].get("__error__") if rows else "no rows", "designs": []}
+
+    # WT growth/ppGpp per generation index, so a pre-collapse value is compared at its OWN generation (D7).
+    wt_g: dict = defaultdict(list)
+    wt_p: dict = defaultdict(list)
+    for r in rows:
+        if design_key(r) == reference and r.get("reportable"):
+            for p in _as_list(r.get("per_generation")):
+                if isinstance(p, dict) and p.get("i") is not None:
+                    if p.get("growth") is not None:
+                        wt_g[int(p["i"])].append(p["growth"])
+                    if p.get("ppgpp") is not None:
+                        wt_p[int(p["i"])].append(p["ppgpp"])
+    wt_growth = {i: statistics.fmean(v) for i, v in wt_g.items() if v}
+    wt_ppgpp = {i: statistics.fmean(v) for i, v in wt_p.items() if v}
+
+    by_design: dict = defaultdict(lambda: {"collapse_seeds": 0, "reportable_seeds": 0, "collapse_gens": [],
+                                           "verdicts": Counter(), "pre_growth": [], "pre_ppgpp": [], "pre_gen": []})
+    for r in rows:
+        k = design_key(r)
+        gq = _as_list(r.get("generation_qc"))
+        if r.get("reportable"):
+            by_design[k]["reportable_seeds"] += 1
+            continue
+        # a collapse: a run that read some generations, the first-bad of which is not generation 0 (i.e. it
+        # divided at least once before failing). A gen-0 failure or an empty read is a dead/degenerate run, a
+        # different category handled by coverage — this view is specifically the "divided, then collapsed" signal.
+        bad = next((i for i, s in enumerate(gq) if s != "ok"), None)
+        if bad is None or bad == 0:
+            continue
+        d = by_design[k]
+        d["collapse_seeds"] += 1
+        d["collapse_gens"].append(bad)                 # collapses AT generation `bad` (0-indexed)
+        d["verdicts"][gq[bad]] += 1
+        pg = _as_list(r.get("per_generation"))
+        last_ok = next((p for p in pg if isinstance(p, dict) and p.get("i") == bad - 1), None)
+        if last_ok:
+            d["pre_gen"].append(bad - 1)
+            if last_ok.get("growth") is not None:
+                d["pre_growth"].append(last_ok["growth"])
+            if last_ok.get("ppgpp") is not None:
+                d["pre_ppgpp"].append(last_ok["ppgpp"])
+
+    out = []
+    for k, d in by_design.items():
+        if not d["collapse_seeds"]:
+            continue
+        pre_i = round(statistics.fmean(d["pre_gen"])) if d["pre_gen"] else None
+        g = statistics.fmean(d["pre_growth"]) if d["pre_growth"] else None
+        p = statistics.fmean(d["pre_ppgpp"]) if d["pre_ppgpp"] else None
+        wg, wp = wt_growth.get(pre_i), wt_ppgpp.get(pre_i)
+        # the biological read: at the last good generation, is growth depressed AND ppGpp elevated vs WT? that is
+        # the stringent-response signature — reported as a flag, not asserted, so it can be checked not trusted.
+        stringent = bool(g is not None and wg and p is not None and wp and g < 0.9 * wg and p > 1.1 * wp)
+        ident = _identity(k)
+        out.append({
+            "design": k,
+            "true_label": (ident.get("true_label") if ident and ident.get("label_integrity") != "ok" else None),
+            "fully_hidden": d["reportable_seeds"] == 0,   # NO reportable seed — invisible to survey_corpus
+            "collapse_seeds": d["collapse_seeds"], "reportable_seeds": d["reportable_seeds"],
+            "collapses_at_generation": (Counter(d["collapse_gens"]).most_common(1)[0][0]
+                                        if d["collapse_gens"] else None),
+            "collapse_qc": dict(d["verdicts"]),
+            "pre_collapse": {"generation": pre_i, "growth": (round(g, 6) if g is not None else None),
+                             "ppgpp": (round(p, 2) if p is not None else None),
+                             "growth_pct_vs_wt": (round(100 * (g - wg) / wg, 1) if (g is not None and wg) else None),
+                             "ppgpp_pct_vs_wt": (round(100 * (p - wp) / wp, 1) if (p is not None and wp) else None)},
+            "stringent_signature": stringent,
+        })
+    out.sort(key=lambda e: (not e["fully_hidden"], -e["collapse_seeds"]))
+    return {
+        "reference": reference,
+        "n_designs_collapsing": len(out),
+        "n_fully_hidden": sum(1 for e in out if e["fully_hidden"]),
+        "designs": out,
+        "note": ("Designs that DIVIDE then COLLAPSE at depth — the lethality phenotype the reportable-only "
+                 "ranking excludes (a collapsed generation's channel mean is numerical garbage, so the whole run "
+                 "is non-reportable). Here the PRE-collapse growth/ppGpp is read at its own generation vs WT: a "
+                 "depressed-growth + elevated-ppGpp `stringent_signature` on an essential-gene KO is the textbook "
+                 "uncharged-tRNA → RelA → ppGpp response, to be checked against literature/lab, NOT asserted. "
+                 "`fully_hidden` designs have zero reportable seeds and are otherwise invisible to survey_corpus."),
+    }
+
+
 def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     import json
 
@@ -368,11 +500,30 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
                     f"— each entry's `depth_note` says how many were set aside."
                     if mixed else "")),
     }
+    # LETHALITY, surfaced in the mandatory first read (the flagged blind spot): designs that divide then
+    # collapse are excluded from the ranking above because a collapsed generation's channel mean is garbage —
+    # but the collapse is a phenotype, not noise. A compact pointer here; the full pre-collapse signature is in
+    # `lethality()` / the `lethality_landscape` tool. Kept compact so the hot path stays small.
+    leth = lethality()
+    leth_summary = {
+        "n_designs_collapsing": leth.get("n_designs_collapsing", 0),
+        "n_fully_hidden": leth.get("n_fully_hidden", 0),   # zero reportable seeds -> invisible to the ranking above
+        "collapsing_designs": [
+            {"design": e["design"], "collapses_at_generation": e["collapses_at_generation"],
+             "fully_hidden": e["fully_hidden"], "stringent_signature": e["stringent_signature"]}
+            for e in leth.get("designs", [])],
+        "note": ("Designs that DIVIDE then COLLAPSE at depth — a lethality phenotype, NOT in the ranking above "
+                 "(a collapsed generation's channel mean is numerical garbage). `n_fully_hidden` have zero "
+                 "reportable seeds and are otherwise invisible. Call `lethality_landscape` for the pre-collapse "
+                 "growth/ppGpp signature vs the depth-matched WT — a signal to CHECK against literature, not assert."),
+    }
     return {
         "coverage": coverage,
+        "lethality": leth_summary,
         "notable": notable[:12],            # biggest effects across ALL channels, ranked by |z|
         "by_channel": by_channel,
         "note": ("Deterministic full-corpus survey ranked by computed salience (|z| across designs). "
                  "Consume this BEFORE forming a hypothesis; do not anchor on any single run or on prior "
-                 "conversation. Then drill in with read_series / read_species and seek disconfirming evidence."),
+                 "conversation. Then drill in with read_series / read_species and seek disconfirming evidence. "
+                 "See `lethality` for designs that collapse at depth — excluded from the ranking but real."),
     }

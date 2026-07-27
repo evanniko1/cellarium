@@ -94,6 +94,11 @@ def survey_corpus() -> dict:
     return survey.survey_corpus()
 
 
+def lethality_landscape() -> dict:
+    """The LETHALITY view — designs that divide then COLLAPSE at depth, which the ranked survey excludes."""
+    return survey.lethality()
+
+
 def differential(target: str, reference: str = "wildtype/basal") -> dict:
     """Rank channels + pathways by fold-change of one design vs a reference — what moved most."""
     rigor.note_design(target)
@@ -1031,7 +1036,9 @@ _DESIGN_PROPS = {
 }
 
 TOOLS = [
-    {"name": "survey_corpus", "description": "FIRST STEP for any results question. Deterministic, ranked, whole-corpus survey: every design vs a reference per channel, ranked by effect size (|z|), a cross-channel notable set, and coverage. Ground your reasoning in this WHOLE view before drilling in — do not anchor on individual runs or prior conversation.",
+    {"name": "survey_corpus", "description": "FIRST STEP for any results question. Deterministic, ranked, whole-corpus survey: every design vs a reference per channel, ranked by effect size (|z|), a cross-channel notable set, and coverage. Ground your reasoning in this WHOLE view before drilling in — do not anchor on individual runs or prior conversation. Its `lethality` block flags designs that collapse at depth (excluded from the ranking but real).",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "lethality_landscape", "description": "The LETHALITY view: designs that DIVIDE then COLLAPSE at depth — the phenotype the ranked survey excludes (a collapsed generation's channel mean is numerical garbage, so the whole run is non-reportable). Reports, per collapsing design, the generation it collapses at, the QC signature, whether it is FULLY HIDDEN (zero reportable seeds — invisible to survey_corpus, e.g. dapA/rpmE), and the PRE-collapse growth/ppGpp read at its own generation vs the depth-matched WT. A depressed-growth + elevated-ppGpp `stringent_signature` on an essential-gene KO is the textbook uncharged-tRNA→RelA→ppGpp response — a signal to CHECK against literature/lab, never asserted. Use when a design looks absent from the survey, or to study essential-gene lethality.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string", "description": "design label 'perturbation/condition' (from survey_corpus/list_results)"},
@@ -1164,7 +1171,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string", "description": "the pending draft's req_ id"}, **_DESIGN_PROPS, "gene": {"type": "string"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "new gene set for a multi_gene_knockout"}}, "required": ["request_id"]}},
 ]
 
-_DISPATCH = {"survey_corpus": survey_corpus, "differential": differential, "top_movers": top_movers,
+_DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_landscape,
+             "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
              "coverage_check": coverage_check, "corpus_audit": corpus_audit,
