@@ -152,8 +152,12 @@ def test_the_sql_and_python_normalisers_agree():
 def test_the_dedup_outcome_is_pinned_on_the_corpus():
     """A concrete outcome pin — NOT a tautology. The earlier two invariants asserted only what QUALIFY
     guarantees by construction (survivors have unique keys), so a wrong-merge or wrong-split passed them both.
-    These counts move if the key ever merges a distinct run (drops below 264) or splits a duplicate (rises), so
-    they catch the regression class the tautologies could not."""
+
+    Pinned on the dedup DELTA (`raw - kept`), NOT absolute counts, so the guard survives LEGITIMATE corpus
+    growth (adding a run bumps raw and kept equally, leaving the delta) while still catching the regression
+    class: a wrong-MERGE of distinct runs raises the delta, a wrong-SPLIT of a duplicate lowers it. Exactly 9
+    re-indexed duplicates are removed (8 wildtype seeds 8-15 + 1 rRNA_KO:4op), and that stays 9 regardless of
+    how many new runs land. `wildtype/basal` and the crash floor are stable specific-value guards."""
     import duckdb
 
     from cellarium import manifest
@@ -168,8 +172,8 @@ def test_the_dedup_outcome_is_pinned_on_the_corpus():
                          "AND COALESCE(condition,'basal')='basal' AND reportable").fetchone()[0]
     finally:
         con.close()
-    # this specific corpus (single vmnik shard); update deliberately if the corpus is intentionally changed
-    assert raw == 273 and kept == 264, f"raw {raw} -> kept {kept}; expected 273 -> 264 (9 re-indexed duplicates)"
+    assert raw - kept == 9, (f"dedup removed {raw - kept} rows (raw {raw} -> kept {kept}); expected exactly 9 "
+                             "re-indexed duplicates — a different number means a wrong-merge or wrong-split")
     assert crash == 41, f"{crash} crash rows survive, expected 41 — a crash-id collision was wrongly merged"
     assert wt == 26, f"wildtype/basal reportable = {wt}, expected 26 — the reference count drifted"
 
