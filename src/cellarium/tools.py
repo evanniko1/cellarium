@@ -112,6 +112,13 @@ def compare_at_generation(design_a: str, design_b: str, channel: str = "ppgpp_co
     return survey.compare_at_generation(design_a, design_b, channel, generation)
 
 
+def similar_designs(design: str, k: int = 8) -> dict:
+    """Designs whose RESPONSE PROFILE resembles this one's — "which came out similar" (severity de-confounded).
+    Supplements survey_corpus (do NOT anchor on it); each neighbour carries its growth + a confound flag."""
+    from . import similarity
+    return similarity.similar_designs(design, k)
+
+
 def differential(target: str, reference: str = "wildtype/basal") -> dict:
     """Rank channels + pathways by fold-change of one design vs a reference — what moved most."""
     rigor.note_design(target)
@@ -1057,6 +1064,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default growth_rate)"}}, "required": ["design"]}},
     {"name": "compare_at_generation", "description": "Compare two designs at the SAME generation index (growth_rate or ppgpp_conc) — the 1-to-1 generation comparison of the reporting contract. Unlike the depth-stratified survey, this INCLUDES a collapsing run's valid early generations (a KO that collapses at gen 2 still has trustworthy gen 0/1), and no depth mismatch is possible because both sides are read at one generation. Use to compare a lethal KO to WT at the generation before it collapses.",
      "input_schema": {"type": "object", "properties": {"design_a": {"type": "string"}, "design_b": {"type": "string", "description": "the reference, e.g. wildtype/basal"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default ppgpp_conc)"}, "generation": {"type": "integer", "description": "generation index (0 = first, default 0)"}}, "required": ["design_a", "design_b"]}},
+    {"name": "similar_designs", "description": "The designs whose RESPONSE PROFILE most resembles a given design's — 'which runs CAME OUT similar', over the 199-species panel. The severity/growth axis is REMOVED (double-centering), so a neighbour is similar by MECHANISM, not just by being equally far from wildtype. Each neighbour carries its own growth (severity is de-confounded, NOT erased — you must still discount it) and a `severity_confounded` flag (the aaRS/dapA/rpmE KOs collapse, so their similarity can't be told from lethality). This is a HYPOTHESIS GENERATOR ('came out similar'), not ground truth, and NOT a substitute for survey_corpus — use it to find candidate mechanistic relatives to then CHECK with read_series/differential, never to anchor. Answers a different question than survey_corpus (which moved / vs a reference) and than the structured 'which are experimentally comparable' filter.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}, "k": {"type": "integer", "description": "number of neighbours (default 8)"}}, "required": ["design"]}},
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string", "description": "design label 'perturbation/condition' (from survey_corpus/list_results)"},
                       "reference": {"type": "string"}}, "required": ["target"]}},
@@ -1190,6 +1199,7 @@ TOOLS = [
 
 _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_landscape,
              "trajectory": trajectory, "compare_at_generation": compare_at_generation,
+             "similar_designs": similar_designs,
              "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
