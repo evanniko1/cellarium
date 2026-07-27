@@ -50,8 +50,17 @@ def _portable_runpath(run_root) -> str:
 #
 # Normalising at READ time rather than rewriting the shards is deliberate: lossless, fixes historical rows
 # nobody can re-index, and keeps working if an ingest path drifts again. The Python normaliser is
-# `_portable_runpath`; the two must stay in agreement (pinned in tests/test_corpus_integrity.py).
-_NORM_PATH = r"COALESCE(NULLIF(regexp_extract(replace(simout_path, '\', '/'), 'runs[^/]*/.*$'), ''), simout_path)"
+# `_portable_runpath`; the two MUST stay in agreement — pinned over every corpus path AND adversarial edge
+# spellings in tests/test_corpus_integrity.py::test_the_sql_and_python_normalisers_agree.
+#
+# The `runs` segment is anchored to a path boundary `(^|/)` and only the exact `runs` / `runs_<x>` forms match,
+# mirroring `_portable_runpath` (which splits on '/' and matches a whole component == 'runs' or startswith
+# 'runs_'). The earlier `runs[^/]*/` matched `runs` as a SUBSTRING of a component, so `myruns/foo` wrongly
+# normalised to `runs/foo` and `cellarium_runs/runs/...` to `runs/runs/...` — a future contributor whose
+# run-root contains a `runs`-substring segment would silently wrong-split a duplicate. No live path hit it
+# (all are clean `runs/...`); this is behaviour-identical on today's corpus and closes the latent gap.
+_NORM_PATH = (r"COALESCE(NULLIF(regexp_extract(replace(simout_path, '\', '/'), "
+              r"'(^|/)(runs(_[^/]*)?(/.*)?)$', 2), ''), simout_path)")
 DEDUP_KEY = f"(COALESCE(id, '') || '@@' || COALESCE({_NORM_PATH}, ''))"
 DEDUP_QUALIFY = f"QUALIFY row_number() OVER (PARTITION BY {DEDUP_KEY} ORDER BY ts DESC) = 1"
 

@@ -27,9 +27,15 @@ def _rows() -> list[dict]:
     """Every shard row (NOT deduped — supersession needs the duplicates). union_by_name tolerates schema drift."""
     import duckdb
 
+    from . import manifest
     con = duckdb.connect()
     try:
-        q = ("SELECT COALESCE(simout_path, id) AS run_key, id, perturbation, condition, timeline, seed, "
+        # run_key MUST be the same (id, normalised-path) PAIR the rest of the corpus dedupes on
+        # (manifest.DEDUP_KEY), or audit re-exposes the inflated counts every other tool corrects: the 9
+        # re-indexed duplicates differ only by an absolute-vs-relative path prefix, so the old
+        # `COALESCE(simout_path, id)` kept them as distinct runs and reported wildtype/basal at 34, not 26.
+        # `_rows()` stays UN-deduped (supersession needs the duplicate rows); `_latest_per_run` collapses them.
+        q = (f"SELECT {manifest.DEDUP_KEY} AS run_key, id, perturbation, condition, timeline, seed, "
              "qc, reportable, crashed, ts, generations, requested_generations, gens_reached "
              f"FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true)")
         return con.execute(q).fetch_arrow_table().to_pylist()
@@ -44,7 +50,8 @@ def _design(r: dict) -> str:
 
 
 def _latest_per_run(rows: list[dict]) -> list[dict]:
-    """Newest row per run_key — matches store's read-time dedup (latest ts wins)."""
+    """Newest row per run_key (the (id, normalised-path) pair from manifest.DEDUP_KEY, set in `_rows`) — the same
+    read-time dedup store/survey use, so audit counts the same corpus."""
     best: dict[str, dict] = {}
     for r in rows:
         k = r["run_key"]

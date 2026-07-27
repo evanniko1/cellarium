@@ -118,47 +118,72 @@ def test_every_row_can_say_which_knowledge_base_produced_it():
     assert n == 0, f"{n} rows carry no kb provenance — run manifest.backfill_kb_provenance(dry_run=False)"
 
 
-def test_the_dedup_key_leaves_no_reindexed_duplicates():
-    """The dedup key is the (id, normalised-path) PAIR. This asserts the property that matters downstream: after
-    dedupe, no physical run survives twice. A `wildtype/basal` seed that appears under both an absolute and a
-    repo-relative path spelling must collapse to ONE row — nine such rows had inflated the reference design."""
+def test_the_sql_and_python_normalisers_agree():
+    """The dedup key normalises the run path in SQL (`manifest._NORM_PATH`); `_portable_runpath` normalises it in
+    Python at WRITE time. If they disagree, a row written under one convention will not dedupe against a row
+    written under the other — exactly how the 9 duplicates got in. Asserted over EVERY corpus path AND
+    adversarial edge spellings, because the first regex matched `runs` as a substring (`myruns/foo` -> `runs/foo`)
+    and no test caught it — the divergence was latent only because no live path happened to contain such a
+    segment. This test is what the comment at manifest.py:53 promises."""
     import duckdb
 
     from cellarium import manifest
     con = duckdb.connect()
+
+    def sql_norm(p):
+        return con.execute(f"SELECT {manifest._NORM_PATH} FROM (SELECT ? AS simout_path)", [p]).fetchone()[0]
+
     try:
-        # same physical run == same id AND same normalised path; after dedupe each such pair is unique
-        dupe = con.execute(
-            f"SELECT count(*) FROM (SELECT {manifest.DEDUP_KEY} AS k FROM ("
-            f"  SELECT * FROM read_parquet('data/manifest/*.parquet', union_by_name=true) {manifest.DEDUP_QUALIFY}"
-            f") GROUP BY k HAVING count(*) > 1)"
-        ).fetchone()[0]
+        live = [r[0] for r in con.execute(
+            "SELECT DISTINCT simout_path FROM read_parquet('data/manifest/*.parquet', union_by_name=true) "
+            "WHERE simout_path IS NOT NULL").fetchall()]
+        adversarial = [
+            "myruns/foo/bar", "/home/x/cellarium_runs/runs/cellarium/wt/000000", "prefix_runs2/x/000000",
+            "x/runsxyz/000000", "foo/runs", "runs/foo/runs/bar", "runs_2024/cellarium/wt/000000",
+            "runs/cellarium/wt/000000", "/Users/fmenol/Downloads/cellarium/runs/cellarium/wt/000000",
+            r"C:\dev\anthropic_hackathon\runs\cellarium\wt\000000", "no/runs/here/deep", "justapath/000000"]
+        bad = [p for p in live + adversarial if sql_norm(p) != manifest._portable_runpath(p)]
     finally:
         con.close()
-    assert dupe == 0, f"{dupe} run(s) survive dedupe more than once — the (id, path) key is not unique"
+    assert not bad, ("SQL and Python normalisers disagree on:\n" + "\n".join(
+        f"  {p!r}: SQL {sql_norm(p)!r} != PY {manifest._portable_runpath(p)!r}" for p in bad[:8]))
 
 
-def test_no_two_distinct_runs_were_merged_by_dedupe():
-    """The other half: the key must not be so aggressive it collapses genuinely different runs. Crash rows share
-    a synthetic id across variants, and run directories repeat across contributors, so a wrong key silently
-    destroys data. Every surviving row must have a distinct (id, simout_path) raw identity."""
+def test_the_dedup_outcome_is_pinned_on_the_corpus():
+    """A concrete outcome pin — NOT a tautology. The earlier two invariants asserted only what QUALIFY
+    guarantees by construction (survivors have unique keys), so a wrong-merge or wrong-split passed them both.
+    These counts move if the key ever merges a distinct run (drops below 264) or splits a duplicate (rises), so
+    they catch the regression class the tautologies could not."""
     import duckdb
 
     from cellarium import manifest
     con = duckdb.connect()
+    src = "read_parquet('data/manifest/*.parquet', union_by_name=true)"
+    ded = f"(SELECT * FROM {src} {manifest.DEDUP_QUALIFY})"
     try:
-        kept = con.execute(
-            f"SELECT count(*) FROM (SELECT * FROM read_parquet('data/manifest/*.parquet', union_by_name=true) "
-            f"{manifest.DEDUP_QUALIFY})"
-        ).fetchone()[0]
-        raw_ids = con.execute(
-            f"SELECT count(*) FROM (SELECT DISTINCT id, simout_path FROM ("
-            f"  SELECT * FROM read_parquet('data/manifest/*.parquet', union_by_name=true) {manifest.DEDUP_QUALIFY}"
-            f"))"
-        ).fetchone()[0]
+        raw = con.execute(f"SELECT count(*) FROM {src}").fetchone()[0]
+        kept = con.execute(f"SELECT count(*) FROM {ded}").fetchone()[0]
+        crash = con.execute(f"SELECT count(*) FROM {ded} WHERE id LIKE '%_crash'").fetchone()[0]
+        wt = con.execute(f"SELECT count(*) FROM {ded} WHERE perturbation='wildtype' "
+                         "AND COALESCE(condition,'basal')='basal' AND reportable").fetchone()[0]
     finally:
         con.close()
-    assert kept == raw_ids, f"{kept} rows kept but only {raw_ids} distinct (id, path) — dedupe merged distinct runs"
+    # this specific corpus (single vmnik shard); update deliberately if the corpus is intentionally changed
+    assert raw == 273 and kept == 264, f"raw {raw} -> kept {kept}; expected 273 -> 264 (9 re-indexed duplicates)"
+    assert crash == 41, f"{crash} crash rows survive, expected 41 — a crash-id collision was wrongly merged"
+    assert wt == 26, f"wildtype/basal reportable = {wt}, expected 26 — the reference count drifted"
+
+
+def test_the_audit_tool_reads_the_same_corpus_as_everything_else():
+    """Regression for a consumer that was NOT migrated to the shared key. `audit.py` kept its own
+    `COALESCE(simout_path, id)` dedup, so `corpus_audit` and `prune_candidates` (both agent-reachable) re-exposed
+    the inflated 273 / wildtype-34 counts every other tool had corrected. Every dedup consumer must agree."""
+    from cellarium import audit, store, survey
+    n_store = len(store.list_results())
+    n_survey = survey.survey_corpus()["coverage"]["n_runs"]
+    n_audit = len(audit._latest_per_run(audit._rows()))
+    assert n_store == n_survey == n_audit, (
+        f"consumers disagree on corpus size: store={n_store} survey={n_survey} audit={n_audit}")
 
 
 def test_identity_is_stored_not_only_derived():
