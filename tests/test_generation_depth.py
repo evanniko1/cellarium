@@ -191,18 +191,36 @@ def test_the_comparison_tools_exclude_crashed_runs():
     assert rows and all(r.get("reportable") for r in rows)
 
 
-def test_differential_flags_a_depth_MISMATCH_not_a_widened_interval():
-    """A depth mismatch is a validity problem, not a precision one — no widening makes generation 0 comparable
-    to generation 3, so the tool must call the comparison invalid rather than merely uncertain."""
+def test_differential_gives_a_soft_quantified_depth_signal_not_a_verdict():
+    """ADR-1: a depth mismatch is a SIGNAL FOR EXPLORATION, not a verdict. The note must (a) never gate or call
+    the comparison invalid, (b) carry a data-grounded magnitude — how much the reference itself drifts over the
+    gap — so a 1% confound reads differently from a 30% one, and (c) suggest deepening the shallower case."""
     _corpus()
     from cellarium import differential
-    r = differential.summary("condition/acetate", "wildtype/basal")
+    r = differential.summary("condition/acetate", "wildtype/basal")   # acetate gen1 vs a reference spanning 1/4/7
     tested = [m for m in r["ranked"] if m.get("p_value") is not None]
     if not tested:
         pytest.skip("no tested movers")
-    assert not any("clustered_caveat" in m for m in tested), "the withdrawn cluster caveat is back"
-    flagged = [m["depth_mismatch"] for m in tested if m.get("depth_mismatch")]
-    assert flagged and "LAST generation" in flagged[0]
+    assert not any("clustered_caveat" in m or "depth_mismatch" in m for m in tested), "old hard framing is back"
+    notes = [m["depth_note"] for m in tested if m.get("depth_note")]
+    assert notes, "a depth-mismatched comparison must carry a depth_note"
+    n = notes[0]
+    assert "not a verdict" in n and "invalid" not in n.lower(), "the signal must not be framed as a verdict"
+    assert "consider running" in n, "it must suggest deepening the shallower case"
+    assert "%" in n, "it must quantify the reference's own drift over the gap, not just assert a gap"
+
+
+def test_the_depth_drift_number_is_computed_from_the_reference_trajectory():
+    """The magnitude must be MEASURED (the reference's per-generation growth curve), not a hardcoded constant, or
+    it stops tracking the data the first time the corpus changes."""
+    _corpus()
+    from cellarium import differential
+    traj = differential._reference_trajectory()
+    if len(traj) < 2:
+        pytest.skip("reference has a single generation here")
+    # depth 1 reports generation 0, depth 4 reports generation 3 — a real, nonzero drift on this corpus
+    d = differential._reference_drift_pct(1, 4)
+    assert d is not None and abs(d) > 1.0, f"reference drift over gens 0->3 reads {d}% — expected a real move"
 
 
 # ---------------------------------------------------------------- dedupe: the (id, path) PAIR

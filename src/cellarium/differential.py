@@ -51,6 +51,71 @@ def _depths_of(design: str) -> list:
     return sorted({d for d in ((vals.get(design) or {}).get("_depths") or []) if d is not None})
 
 
+_REF_TRAJ_CACHE: dict | None = None
+
+
+def _reference_trajectory() -> dict:
+    """Mean growth per GENERATION INDEX for the reference design — the model's own drift curve, measured, so the
+    depth note can quote how much the reference moves over a given gap instead of asserting it. Growth is the
+    representative channel because it is one of the two stored per-generation (with ppGpp) and it is monotone.
+
+    {gen_index: mean_growth_at_that_index}. Cached; empty if per_generation is unavailable."""
+    global _REF_TRAJ_CACHE
+    if _REF_TRAJ_CACHE is not None:
+        return _REF_TRAJ_CACHE
+    import json
+    import statistics
+    from collections import defaultdict
+    by_i: dict = defaultdict(list)
+    for r in survey._deduped_rows(["per_generation"]):
+        if survey.design_key(r) != REFERENCE or not r.get("reportable"):
+            continue
+        pg = r.get("per_generation")
+        if isinstance(pg, str):
+            try:
+                pg = json.loads(pg)
+            except Exception:
+                pg = None
+        for p in pg or []:
+            if isinstance(p, dict) and p.get("growth") is not None and p.get("i") is not None:
+                by_i[int(p["i"])].append(float(p["growth"]))
+    _REF_TRAJ_CACHE = {i: statistics.fmean(v) for i, v in by_i.items() if v}
+    return _REF_TRAJ_CACHE
+
+
+def _reference_drift_pct(depth_a: int, depth_b: int) -> float | None:
+    """How much the reference's growth changes between the generations that depths a and b REPORT (depth d reports
+    generation d-1). This is the magnitude a depth gap can inject into a comparison — a data-grounded number, not
+    an assertion. None when the trajectory does not cover both generations."""
+    traj = _reference_trajectory()
+    ga, gb = (depth_a or 0) - 1, (depth_b or 0) - 1
+    va, vb = traj.get(ga), traj.get(gb)
+    if va is None or vb is None or not va:
+        return None
+    return round(100.0 * (vb - va) / va, 1)
+
+
+def _depth_note(target: str, reference: str, dt: list, dr: list, shared: list) -> str:
+    """A soft, quantified exploration signal for a depth-mismatched comparison. Never gates; never calls the
+    comparison invalid or a finding. Names the gap, the reference's own drift over it, and what to run deeper."""
+    deeper = reference if (max(dr) if dr else 0) >= (max(dt) if dt else 0) else target
+    shallower = target if deeper == reference else reference
+    # The confound is the RANGE of generations this comparison spans (shallowest vs deepest either side reports),
+    # because that is the drift blended into the pooled means — not the min-to-min gap, which can be zero even
+    # when one side pools much deeper runs.
+    alld = (dt or []) + (dr or [])
+    drift = _reference_drift_pct(min(alld), max(alld)) if alld else None
+    mag = (f"across the generations this comparison spans, the wild-type reference's own growth moves ~{abs(drift)}%, "
+           f"so read a difference smaller than that as possibly generation drift rather than the perturbation"
+           if drift is not None else "the reference's per-generation drift over that span is not measurable here")
+    return (f"exploration signal (not a verdict): target ran to generations {dt}, reference to {dr}. A channel is "
+            f"the last generation's mean, so these report different generations of a lineage; {mag}. "
+            + (f"For a like-for-like read, restrict to the shared depth {shared}; "
+               if shared else "There is no shared depth yet; ")
+            + f"consider running {shallower} deeper to match {deeper}. Not a reason to discount the comparison — "
+              f"a reason to check it.")
+
+
 def _design_means() -> tuple[dict, list[str]]:
     """{ 'perturbation/condition': {channel|pw: mean across seeds} }, and the channel list (incl. pathways)."""
     vals, channels = _design_seed_values()
@@ -93,19 +158,14 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
         else:
             m["welch_t"], m["p_value"], m["n_seeds"] = w["t"], w["p"], [w["n_a"], w["n_b"]]
             m["significant_p05"] = (w["p"] is not None and w["p"] < 0.05)
-            # DEPTH MISMATCH is a validity problem, not a precision one. A channel is the LAST generation's
-            # time-mean, so comparing a 1-generation target with a 4-generation reference compares generation 0
-            # against generation 3 — and the model drifts hard between them (wildtype growth -11% and ppGpp
-            # +15% over four generations, in the condition it was FITTED for). No widening fixes that; the
-            # comparison is measuring the drift as if it were the perturbation.
+            # DEPTH MISMATCH — a SIGNAL FOR EXPLORATION, not a verdict (ADR-1). A channel is the last
+            # generation's mean, so a target at depth d_t and a reference at depth d_r report different
+            # generations of a lineage, and the model drifts between them. We do NOT gate the comparison and do
+            # NOT frame the difference as a finding that overturns anything — we say how far apart they are,
+            # quantify HOW MUCH the reference itself moves over that span (so a reader can tell a 1% from a 30%
+            # confound), and suggest deepening the shallower case. Soft in tone, specific in magnitude.
             if _dt != _dr:
-                m["depth_mismatch"] = (
-                    f"target ran to generations {_dt}, reference to {_dr}"
-                    + (f" (shared depth available: {_shared} — re-run this comparison restricted to it)"
-                       if _shared else " — NO shared depth exists, so no valid comparison is available here")
-                    + ". A channel is the LAST generation's mean, so these sides measure DIFFERENT generations "
-                      "of a lineage and the model drifts between them. This p-value is not a test of the "
-                      "perturbation; treat it as descriptive.")
+                m["depth_note"] = _depth_note(target, reference, _dt, _dr, _shared)
     return {"target": target, "reference": reference, "ranked": ranked,
             "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
             "note": "Channels + pathways ranked by |log2 fold-change| (else |%|), each shown mover carrying a Welch "

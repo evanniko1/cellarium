@@ -202,3 +202,84 @@ responsibility knowingly.
 **Sequence:** HF dataset + `pip install cellarium` first (an agent that can run code needs no protocol at all),
 then the MCP server as a thin wrapper. **Blocked on WELL-1 + WELL-9** — do not publish a surface built on a
 keying scheme still in motion.
+
+## D7 — The reporting & comparison contract (Cellwright's statistical manual) — ACCEPTED 2026-07-27
+**Status:** Accepted · **Deciders:** Evangelos · **Supersedes:** the ad-hoc depth handling in WELL-6x/6y/6z.
+
+**Context.** Every number Cellwright reports is a projection of a 4-D object, and conflating any two of its axes
+is what produced this session's repeated errors. The contract fixes the vocabulary so a suggestion Cellwright
+makes back to a user is auditable against a stated definition.
+
+**The three axes (canonical definitions).** A simulation result is `value[species, seed, generation, timestep]`.
+- **Seeds** — independent stochastic realizations at a *fixed* depth. **Exchangeable** (measured ICC ≈ 0 at
+  matched depth). This is the *variance* axis: average them, put a CI on them.
+- **Generations** — position in the lineage (mother→daughter→…). **A trajectory, NOT exchangeable** — ordered
+  and autocorrelated. This is the *depth* axis; never average across it.
+- **Timesteps** — the ~40 min within one cell cycle. A sub-trajectory, currently collapsed to a time-mean.
+- **Species** — the *value* read at each grid cell, not a fourth axis.
+
+Every "channel" today is a projection that collapses timesteps (mean) and takes the last generation. That is a
+choice, now stated, not an accident.
+
+**Decision.**
+1. **Three comparison operations, each declaring what it collapses:** *same-depth summary* (last gen of two
+   equal-depth runs — what `survey_corpus` does now), *1-to-1 generation* (gen k of A vs gen k of B — measured
+   ICC→0), *trajectory* (the whole gen-0…N curve). Cellwright picks by the question; the tool names which.
+2. **Depth mismatch is a SOFT, QUANTIFIED exploration signal — never a gate, never a "finding."** It states how
+   far apart the two sides are, quantifies how much the reference's *own* growth drifts across that span
+   (measured live from its per-generation trajectory — e.g. ~12.7% over gens 0→6), and suggests deepening the
+   shallower case. It must never call a comparison "invalid" or frame the gap as overturning anything. This is
+   the same never-gate invariant as the Council gate (D-nudge). *Shipped:* `differential._depth_note`,
+   `_reference_drift_pct`.
+3. **The fast layer holds a CURATED species panel per (gen, seed); "all species" is a raw drill-down.** The
+   199-species panel is last-generation only today — generation-resolved species retrieval requires either raw
+   simOut or a per-generation panel expansion (WELL-1x). Tool output must state this boundary, or Cellwright
+   will answer "species X at generation 3" from data the manifest never stored.
+4. **This corpus is the DEV/BENCHMARK corpus, not the publication corpus.** Underpowered or purpose-served runs
+   may be pruned to free disk for more informative ones — but **pruning tombstones, never deletes**: the raw
+   simOut goes, the manifest row stays with `dropped` + reason + timestamp, and a decision ledger records what
+   ran, what was found, and why. Rationale: silent absence (the invisible `valS`, the phantom rows) was the top
+   failure mode this session; "dropped" must be a state the DB remembers. Alternative to local retention:
+   export to a distinct HF `benchmark` config, separate from the `publication` config (D1).
+
+**Consequences.** Easier: every comparison is like-for-like or explicitly flagged; pruning is safe and
+auditable. Harder: generation-resolved species queries need new plumbing (WELL-1x). Revisit: the curated panel's
+membership (199 monomers) once per-generation expansion lands.
+
+**Action items** → BACKLOG **WELL-1x** (per-generation panel + the three comparison ops), **WELL-1y** (prune =
+tombstone + ledger + HF benchmark split).
+
+## D8 — Retrieval at the species granularity: SQL vs similarity vs graph (MEASURED) — ACCEPTED 2026-07-27
+**Status:** Accepted · **Deciders:** Evangelos · **Extends:** WELL-6c/6d/6d2 (which settled the *design*-level
+question; item 1 reopened it at the species level).
+
+**Context.** WELL-6d2 partitioned the retrieval tools over 60 *designs*. D7's axes push the target to the
+(design × generation × seed × species) tensor, at which the earlier verdicts do not automatically transfer. A
+measured bake-off was run on the 199-species curated panel (in every reportable row, 41 designs) rather than
+argued — the same discipline that killed the design-level embedding.
+
+**Measured results (bake-off, `scratchpad/bakeoff*.py`, reproduced in WELL-6z3):**
+| method | question | result on the 199-species panel |
+|---|---|---|
+| **SQL structured** | "which designs are COMPARABLE?" | exact, 7/7 by construction — unchanged, primary |
+| **Vector similarity** | "which CAME OUT similar?" | dose-neighbour recovery **~5/7** (ppGpp 3/4, rRNA 2/3) — better than WELL-6b's 3/5; non-lethal **envelope-biosynthesis KOs cluster (+0.397 vs −0.010 overall)** = mechanism; **but `corr(growth, cos-to-WT)=+0.608`**, so severity is a *partial* driver (reduced from WELL-6a, not gone) and the aaRS cluster (+0.855) is **confounded with lethality** — no severe non-aaRS control exists in this corpus |
+| **Graph distance** | "which are mechanistically NEAR?" | **does not apply** — 178/199 panel nodes are protein *monomers*; iML1515 is metabolic (metabolites+reactions). WELL-6c's graph-distance win was over metabolites and does **not** transfer to a protein panel |
+
+**Decision.** Keep all three; they answer different questions and are **not peers**.
+- **SQL stays primary and exact** for "comparable" — similarity's ~5/7 on the same task confirms you never use
+  it to answer SQL's question.
+- **Similarity over the curated panel is a HYPOTHESIS GENERATOR, not ground truth** — usable for "these hit the
+  same subsystem," but the severity component (PC1) must be removed before shipping, and mechanistic clusters
+  must be validated against a non-severity control the corpus currently lacks.
+- **Graph distance is DEFERRED at the species level** — it needs a *protein/regulatory* graph (PPI, TF-regulon,
+  or enzyme→reaction bipartite), which is new infra; the metabolic graph is the wrong object here. Graph
+  *embeddings* remain rejected (WELL-6c).
+- **The generation axis is the real gap** — the panel is last-gen only, so generation-resolved similarity is
+  untestable from the manifest and blocks on WELL-1x.
+
+**Consequences.** Easier: an honest, measured basis for what similarity can and can't be sold as. Harder:
+mechanistic retrieval needs both PC1 removal and a protein graph before it ships. Revisit: rerun the bake-off
+after the per-generation panel lands, and once a severe non-aaRS design exists to break the lethality confound.
+
+**Action items** → BACKLOG **WELL-6z3** (record the bake-off), **WELL-6z4** (PC1-removed similarity + the
+severity-control gap), **WELL-6z5** (a protein/regulatory graph, or an explicit "not now").
