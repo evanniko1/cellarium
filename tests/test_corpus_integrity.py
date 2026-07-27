@@ -65,10 +65,11 @@ def test_the_two_nutrient_shifts_never_merge_again():
 
     Note what does NOT work as a general merge detector, since both were tried and both were wrong:
       * seed CONTIGUITY — `kin_w:1e-4` legitimately holds seeds [1,2,3] because seed 0 crashed;
-      * duplicate (design, seed) — legitimate here. `wildtype/basal` seed 0 appears three times, from three
-        different `simout_path`s, and the channel values DIFFER (growth 0.000244 on one contributor's machine vs
-        0.000226 on ours), so the model is not bit-deterministic across environments and those are genuine
-        independent replicates rather than one run counted thrice.
+      * duplicate (design, seed) — legitimate here. `wildtype/basal` seed 0 exists at generations 1, 4 and 7,
+        and the channel values DIFFER — but that is because a channel is the LAST generation's mean, so those
+        runs measure different generations of a lineage (see `survey.depth`), and they are genuine independent
+        replicates at their respective depths, not one run counted thrice. (An EARLIER version of this comment
+        attributed the difference to cross-machine non-determinism; that was WELL-6x, withdrawn.)
     What does catch the real bug is D3: a key must never be built from a nullable column."""
     rows = _rows()
     by_key: dict = {}
@@ -102,17 +103,62 @@ def test_every_row_can_say_which_knowledge_base_produced_it():
     """D6. Knockout semantics depend entirely on the operon mode, so a row that cannot name its kb cannot be
     interpreted — and 'operons on' was filesystem inference until this column existed."""
     import duckdb
+
+    from cellarium import manifest
     con = duckdb.connect()
     try:
         n = con.execute(
             "SELECT count(*) FROM ("
             "  SELECT kb_sha256 FROM read_parquet('data/manifest/*.parquet', union_by_name=true)"
-            "  QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+            f"  {manifest.DEDUP_QUALIFY}"
             ") WHERE kb_sha256 IS NULL"
         ).fetchone()[0]
     finally:
         con.close()
     assert n == 0, f"{n} rows carry no kb provenance — run manifest.backfill_kb_provenance(dry_run=False)"
+
+
+def test_the_dedup_key_leaves_no_reindexed_duplicates():
+    """The dedup key is the (id, normalised-path) PAIR. This asserts the property that matters downstream: after
+    dedupe, no physical run survives twice. A `wildtype/basal` seed that appears under both an absolute and a
+    repo-relative path spelling must collapse to ONE row — nine such rows had inflated the reference design."""
+    import duckdb
+
+    from cellarium import manifest
+    con = duckdb.connect()
+    try:
+        # same physical run == same id AND same normalised path; after dedupe each such pair is unique
+        dupe = con.execute(
+            f"SELECT count(*) FROM (SELECT {manifest.DEDUP_KEY} AS k FROM ("
+            f"  SELECT * FROM read_parquet('data/manifest/*.parquet', union_by_name=true) {manifest.DEDUP_QUALIFY}"
+            f") GROUP BY k HAVING count(*) > 1)"
+        ).fetchone()[0]
+    finally:
+        con.close()
+    assert dupe == 0, f"{dupe} run(s) survive dedupe more than once — the (id, path) key is not unique"
+
+
+def test_no_two_distinct_runs_were_merged_by_dedupe():
+    """The other half: the key must not be so aggressive it collapses genuinely different runs. Crash rows share
+    a synthetic id across variants, and run directories repeat across contributors, so a wrong key silently
+    destroys data. Every surviving row must have a distinct (id, simout_path) raw identity."""
+    import duckdb
+
+    from cellarium import manifest
+    con = duckdb.connect()
+    try:
+        kept = con.execute(
+            f"SELECT count(*) FROM (SELECT * FROM read_parquet('data/manifest/*.parquet', union_by_name=true) "
+            f"{manifest.DEDUP_QUALIFY})"
+        ).fetchone()[0]
+        raw_ids = con.execute(
+            f"SELECT count(*) FROM (SELECT DISTINCT id, simout_path FROM ("
+            f"  SELECT * FROM read_parquet('data/manifest/*.parquet', union_by_name=true) {manifest.DEDUP_QUALIFY}"
+            f"))"
+        ).fetchone()[0]
+    finally:
+        con.close()
+    assert kept == raw_ids, f"{kept} rows kept but only {raw_ids} distinct (id, path) — dedupe merged distinct runs"
 
 
 def test_identity_is_stored_not_only_derived():

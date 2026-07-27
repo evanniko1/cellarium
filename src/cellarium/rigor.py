@@ -59,28 +59,40 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     """Challenge a claimed target-vs-reference effect on `channel`: per-seed spread, noise check, corpus z."""
     from . import survey
 
-    rows = survey._deduped_rows(survey.CHANNELS)
-    if not rows or "__error__" in rows[0]:
+    # ONE shared row source, and `design_key` rather than a private key. Both were wrong here, and in the tool
+    # least able to afford it: this had no `reportable` filter (so it averaged crashed runs) and keyed on
+    # `perturbation/condition` — NULL for timelines, 'basal' for propose-path knockouts, the drift that once
+    # merged two opposite nutrient shifts into one cell. It reported an interval 5.5x NARROWER than
+    # survey_corpus for the same cell. A disconfirmation tool more confident than what it checks is worse than
+    # no tool at all.
+    rows, _ = survey.analysis_rows()
+    if not rows:
         return {"error": "corpus unreadable or empty"}
-    for r in rows:
-        try:
-            r["_pw"] = json.loads(r.get("pathways") or "{}")
-        except Exception:
-            r["_pw"] = {}
 
     def val(r):
-        return r["_pw"].get(channel[3:]) if channel.startswith("pw:") else r.get(channel)
+        return survey.channel_value(r, channel)
 
-    def series(label):
-        return [val(r) for r in rows
-                if f'{r.get("perturbation")}/{r.get("condition")}' == label and val(r) is not None]
+    # Compared WITHIN a generation depth. A channel is the last generation's time-mean, so a 1-generation run
+    # and a 4-generation run measure different generations of a lineage; testing across them tests the model's
+    # drift, not the perturbation.
+    def series(label, at=None):
+        return [val(r) for r in rows if survey.design_key(r) == label and val(r) is not None
+                and (at is None or survey.depth(r) == at)]
 
-
-    tv, rv = series(target), series(reference)
+    t_depths = sorted({survey.depth(r) for r in rows if survey.design_key(r) == target})
+    r_depths = sorted({survey.depth(r) for r in rows if survey.design_key(r) == reference})
+    shared = sorted(d for d in set(t_depths) & set(r_depths) if d is not None)
+    at_depth = max(shared, key=lambda d: min(len(series(target, d)), len(series(reference, d)))) if shared else None
+    tv, rv = series(target, at_depth), series(reference, at_depth)
+    if not shared:
+        return {"error": f"no shared generation depth between '{target}' (ran to {t_depths}) and "
+                         f"'{reference}' (ran to {r_depths}). A channel is the LAST generation's time-mean, so "
+                         f"these measure different generations of a lineage and no valid comparison exists — "
+                         f"which is a real answer, not a failure. Run one of them to a matching depth."}
     if not tv:
-        return {"error": f"no '{channel}' values for design '{target}'"}
+        return {"error": f"no '{channel}' values for design '{target}' at generations={at_depth}"}
     if not rv:
-        return {"error": f"no '{channel}' values for reference '{reference}'"}
+        return {"error": f"no '{channel}' values for reference '{reference}' at generations={at_depth}"}
     tm, rm = statistics.fmean(tv), statistics.fmean(rv)
 
     def ci95(x):
@@ -94,11 +106,19 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     if wt:
         welch_t, welch_df, welch_p = wt["t"], wt["df"], wt["p"]
         significant = (welch_p is not None and welch_p < 0.05)
-    allv = [val(r) for r in rows if val(r) is not None]
+    # the corpus spread, also within this depth — a z against a depth-pooled spread would fold the model's
+    # generation drift into the "how unusual is this design" number
+    allv = [val(r) for r in rows if val(r) is not None and survey.depth(r) == at_depth]
     mu, sd = statistics.fmean(allv), (statistics.pstdev(allv) or 1e-12)
     tci, rci = ci95(tv), ci95(rv)
     return {
         "channel": channel,
+        "generations": at_depth,
+        "depth_note": (f"compared at generations={at_depth} (shared depths {shared}); the channel is the LAST "
+                       f"generation's time-mean, so only runs of equal depth measure the same generation"
+                       + (f". {target} also ran to {[d for d in t_depths if d != at_depth]} and {reference} to "
+                          f"{[d for d in r_depths if d != at_depth]}, not pooled in"
+                          if len(t_depths) > 1 or len(r_depths) > 1 else "")),
         "target": {"design": target, "mean": round(tm, 6), "ci95": (round(tci, 6) if tci else None),
                    "n_seeds": len(tv), "values": [round(x, 6) for x in tv]},
         "reference": {"design": reference, "mean": round(rm, 6), "ci95": (round(rci, 6) if rci else None),

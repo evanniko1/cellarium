@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from . import manifest
 from .model import ResultStore
 
 MANIFEST_DIR = Path("data/manifest")
@@ -39,7 +40,7 @@ def list_results() -> list[dict]:
     if has_manifest():
         # dedup: one row per run (latest ts wins) so re-indexed/duplicate shards don't double-count
         rows = _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable FROM {_FROM} "
-                     f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1")
+                     f"{manifest.DEDUP_QUALIFY}")
     else:
         rows = [{"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
                  "condition": r.design.condition, "timeline": r.design.timeline,
@@ -134,7 +135,7 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
 
     def q(cols):
         return _duck(f"SELECT {cols} FROM {_FROM} {where} "
-                     f"QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path,id) ORDER BY ts DESC)=1", params)
+                     f"{manifest.DEDUP_QUALIFY}", params)
 
     try:  # prefer the crash/truncation columns; fall back if no shard has them yet
         rows = q(base + ", requested_generations, crashed")

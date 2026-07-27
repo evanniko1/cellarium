@@ -9,6 +9,7 @@ Reading of simOut happens inside the model image (see reader.py / _reader_worker
 from __future__ import annotations
 
 import getpass
+import hashlib
 import json
 import socket
 import time
@@ -29,6 +30,30 @@ def _portable_runpath(run_root) -> str:
         if c == "runs" or c.startswith("runs_"):
             return "/".join(parts[i:])
     return str(run_root).replace("\\", "/")
+
+
+# The dedup key. It is the PAIR (id, normalised path), and it has to be, because **neither half is unique**:
+#
+#   * `simout_path` alone is not, even normalised. A run directory is named from variant-index + seed
+#     (`runs/cellarium/rrna_operon_knockout_000004/000000`), which is not unique ACROSS CONTRIBUTORS — two
+#     people running the same design produce the same relative path. Today the absolute prefix accidentally
+#     disambiguates them; normalising the prefix away merges 17 genuinely different runs, including a gens=4
+#     run of ours with a gens=1 run of Filippo's.
+#   * `id` alone is not either. Crash rows written before `_crash_row` carried the design tag share ONE id
+#     across genuinely different runs (8 ids covering 41 rows), so partitioning on `id` silently collapses
+#     distinct failed runs and makes "how many runs failed" unanswerable.
+#
+# The pair separates all three cases. What it MERGES is the real duplicate: same `id`, same physical run,
+# indexed twice under two path spellings — once absolute (`/Users/fmenol/Downloads/cellarium/runs/...`) and
+# once repo-relative (`runs/...`), from an ingest predating `_portable_runpath`. Nine such rows inflated
+# `wildtype/basal` — the reference for EVERY comparison — from 26 seeds to 34, and every interval on it.
+#
+# Normalising at READ time rather than rewriting the shards is deliberate: lossless, fixes historical rows
+# nobody can re-index, and keeps working if an ingest path drifts again. The Python normaliser is
+# `_portable_runpath`; the two must stay in agreement (pinned in tests/test_corpus_integrity.py).
+_NORM_PATH = r"COALESCE(NULLIF(regexp_extract(replace(simout_path, '\', '/'), 'runs[^/]*/.*$'), ''), simout_path)"
+DEDUP_KEY = f"(COALESCE(id, '') || '@@' || COALESCE({_NORM_PATH}, ''))"
+DEDUP_QUALIFY = f"QUALIFY row_number() OVER (PARTITION BY {DEDUP_KEY} ORDER BY ts DESC) = 1"
 
 MANIFEST_DIR = Path("data/manifest")
 
@@ -75,8 +100,15 @@ def _kb_prov() -> dict:
 
 
 def _machine_of(run_root) -> str:
-    """A stable id for the machine/contributor that produced a run, taken from the run path's home directory.
-    Everything under this checkout is "local"; a contributed shard carries its own absolute path."""
+    """A stable id for the machine that produced a run, from the run path's home directory. Everything under
+    this checkout is "local"; a contributed shard carries its own absolute path.
+
+    NOT written to the manifest, and deliberately so. A `machine` column was added here to support a
+    cross-machine variance correction that has since been WITHDRAWN — at a fixed generation index the machine
+    effect is exactly zero (see BACKLOG WELL-6x). It never reached a single shard, so `survey` tier 1 asked for
+    a column that did not exist, took a Binder Error on every read, and fell through to a tier that also lacked
+    `contributor` — leaving provenance to be guessed from the path, wrongly (18 "local"/16 fmenol against a
+    truth of 10 vmnik/24 fmenol). `contributor` is the real column; this stays only for path forensics."""
     p = str(run_root or "").replace("\\", "/")
     for prefix in ("/Users/", "/home/", "C:/Users/", "c:/users/"):
         if prefix.lower() in p.lower():
@@ -100,11 +132,6 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            # Deriving correctly is now optional for a reader; getting it wrong requires ignoring this column.
            "design_key": f"{rec.design.perturbation}/{_design_tag(rec.design)}",
            "design_tag": _design_tag(rec.design),
-           # Which machine produced this run. Seeds are NOT exchangeable across machines — the model is not
-           # bit-deterministic between environments (wildtype/basal seed 0: growth 0.000244 on one contributor's
-           # box vs 0.000226 on ours), so pooling them as independent understates uncertainty. Stored so the
-           # cluster structure is available to any analysis rather than re-parsed from a path.
-           "machine": _machine_of(run_root),
            "requested_generations": requested_generations,   # for the viability truncation signal (§M)
            "crashed": crashed,                                # the sim raised — inviable regardless of partial data
            "contributor": getpass.getuser(), "host": socket.gethostname(), "ts": time.time(),
@@ -162,8 +189,7 @@ def compact(dry_run: bool = False) -> dict:
     con = duckdb.connect()
     try:
         latest = con.execute(
-            f"SELECT * FROM read_parquet('{glob_pat}', union_by_name=true) "
-            "QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+            f"SELECT * FROM read_parquet('{glob_pat}', union_by_name=true) {DEDUP_QUALIFY}"
         ).fetch_arrow_table().to_pylist()
         total = con.execute(f"SELECT count(*) FROM read_parquet('{glob_pat}', union_by_name=true)").fetchone()[0]
     finally:
@@ -285,7 +311,13 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> d
         row["qc"], row["reportable"], row["note"] = "crashed", False, f"sim crashed: {str(exc)[:150]}"
         row["crash_type"] = ctype
         return row
-    return {"id": f"{design.perturbation}_{seed}_crash", "label": _label(design, seed),
+    # The id MUST carry the design tag. Without it, `<perturbation>_<seed>_crash` collides across every variant
+    # of a family: 8 such ids currently cover 41 genuinely different failed runs (all 10 `kin_w` doses at seed 1
+    # share `metabolism_kinetic_objective_weight_1_crash`). They survive today only because the dedup key is the
+    # (id, path) PAIR — keyed on id alone they would collapse to 8 rows and "how many runs failed" would be
+    # unanswerable. Matches the shape of a successful row's id: <perturbation>_<seed>_<hash8>.
+    tag = hashlib.sha256(f"{design.perturbation}|{_design_tag(design)}|{seed}".encode()).hexdigest()[:8]
+    return {"id": f"{design.perturbation}_{seed}_{tag}_crash", "label": _label(design, seed),
             "perturbation": design.perturbation, "condition": design.condition, "timeline": design.timeline,
             "seed": seed, "generations": 0, "requested_generations": generations, "crashed": True,
             "qc": "crashed", "reportable": False, "gens_reached": 0, "division_rate": 0.0, "crash_type": ctype,
@@ -377,8 +409,7 @@ def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) ->
     con = duckdb.connect()
     try:
         rows = con.execute(
-            f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
-            "QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) {DEDUP_QUALIFY}"
         ).fetch_arrow_table().to_pylist()
     finally:
         con.close()
@@ -474,8 +505,7 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
         con = duckdb.connect()
         no_prov = [r["id"] for r in con.execute(
             f"SELECT id FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
-            "WHERE kb_sha256 IS NULL "
-            "QUALIFY row_number() OVER (PARTITION BY COALESCE(simout_path, id) ORDER BY ts DESC) = 1"
+            f"WHERE kb_sha256 IS NULL {DEDUP_QUALIFY}"
         ).fetch_arrow_table().to_pylist()]
         con.close()
     except Exception:

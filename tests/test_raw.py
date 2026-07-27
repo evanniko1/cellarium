@@ -19,8 +19,10 @@ from cellarium import (  # noqa: E402
 )
 
 
-def _a_design_with_local_raw():
-    """A design label that has >=2 seeds of raw simOut on local disk, or None."""
+def _a_design_with_local_raw(channel: str | None = None):
+    """A design label with >=2 seeds of raw simOut on local disk, or None. If `channel` is given, require that a
+    cross-seed band on it actually builds — some local seeds have simOut dirs but no readable value for a given
+    channel, and a test that then charts that channel must select for it, not merely for disk presence."""
     seen = {}
     for r in store.list_results():
         pert, cond = r.get("perturbation"), r.get("condition")
@@ -28,7 +30,13 @@ def _a_design_with_local_raw():
         seen.setdefault(label, 0)
     for label in seen:
         if len(raw.seed_runs(label)) >= 2:
-            return label
+            if channel is None:
+                return label
+            try:
+                if len((raw.cross_seed_band(label, channel, n_points=6) or {}).get("seeds") or []) >= 2:
+                    return label
+            except Exception:
+                continue
     return None
 
 
@@ -60,7 +68,7 @@ def test_read_column_matches_manifest_mean():
 
 
 def test_cross_seed_band_is_grounded_and_json_safe():
-    design = _a_design_with_local_raw()
+    design = _a_design_with_local_raw("growth_rate")
     if not design:
         pytest.skip("no local raw simOut available")
     band = raw.cross_seed_band(design, "growth_rate", n_points=12)
@@ -75,7 +83,7 @@ def test_cross_seed_band_is_grounded_and_json_safe():
 
 def test_variance_band_needs_two_seeds():
     """A single result_id (not a design) can't yield a cross-seed band."""
-    design = _a_design_with_local_raw()
+    design = _a_design_with_local_raw("growth_rate")
     if not design:
         pytest.skip("no local raw simOut available")
     rid = raw.seed_runs(design)[0]["result_id"]
@@ -84,7 +92,7 @@ def test_variance_band_needs_two_seeds():
 
 
 def test_chart_band_builds_layered_spec():
-    design = _a_design_with_local_raw()
+    design = _a_design_with_local_raw("growth_rate")
     if not design:
         pytest.skip("no local raw simOut available")
     out = tools.chart(kind="band", channel="growth_rate", result_id=design, rationale="test")
@@ -103,7 +111,7 @@ def test_raw_tools_registered():
 
 def test_chart_design_alias():
     """chart(kind='band', design=...) must work (the agent naturally uses `design`, matching variance_band)."""
-    design = _a_design_with_local_raw()
+    design = _a_design_with_local_raw("growth_rate")
     if not design:
         pytest.skip("no local raw simOut available")
     out = tools.chart(kind="band", design=design, channel="growth_rate", rationale="alias")

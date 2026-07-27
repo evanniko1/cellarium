@@ -24,29 +24,20 @@ def _design_seed_values() -> tuple[dict, list[str]]:
     """{ 'perturbation/condition': {channel: [per-seed values]} } + the channel list (incl. pathways). Keeps the
     UN-aggregated replicates behind each design/channel, so a per-channel two-sample test (DS-3) can run on the real
     seed spread rather than a single mean. The means view (`_design_means`) is derived from this."""
-    rows = survey._deduped_rows(survey.CHANNELS)
-    if not rows or "__error__" in rows[0]:
+    # ONE shared row source (survey.analysis_rows) — this used to be a private copy that, unlike survey_corpus's,
+    # never filtered on `reportable`, so every Welch test here silently averaged in crashed runs.
+    rows, channels = survey.analysis_rows()
+    if not rows:
         return {}, []
-    pw_keys: set[str] = set()
-    for r in rows:
-        try:
-            r["_pw"] = json.loads(r.get("pathways") or "{}")
-        except Exception:
-            r["_pw"] = {}
-        pw_keys |= set(r["_pw"])
-    channels = survey.CHANNELS + [f"pw:{k}" for k in sorted(pw_keys)]
-
-    def val(r, ch):
-        return r["_pw"].get(ch[3:]) if ch.startswith("pw:") else r.get(ch)
+    val = survey.channel_value
 
     out: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for r in rows:
         d = out[survey.design_key(r)]
-        # Track each seed's GENERATION DEPTH. Runs of different depth are not exchangeable — a channel mean is
-        # taken over the whole trajectory, so depth moves it systematically (wildtype/basal: ppGpp 60.4 / 65.5 /
-        # 70.6 at gens 1 / 4 / 7). A Welch t over a depth-mixed set is therefore anti-conservative. (Machine was
-        # the first suspect and is NOT the driver: at fixed generations its ICC is zero.)
-        d["_clusters"].append(survey._replicate_cluster(r))
+        # A run's GENERATION DEPTH is part of WHAT WAS MEASURED, not noise: a channel is the LAST generation's
+        # time-mean, so a 1-generation run reports generation 0 and a 7-generation run reports generation 6.
+        # Recorded per seed so a comparison can check the two sides measured the same generation.
+        d["_depths"].append(survey.depth(r))
         for ch in channels:
             v = val(r, ch)
             if v is not None:
@@ -54,10 +45,10 @@ def _design_seed_values() -> tuple[dict, list[str]]:
     return {d: dict(chv) for d, chv in out.items()}, channels
 
 
-def _depth_mix(design: str) -> int:
-    """How many distinct generation depths a design pools (1 = clean, >1 = not exchangeable)."""
+def _depths_of(design: str) -> list:
+    """The distinct generation depths a design's seeds ran to."""
     vals, _ = _design_seed_values()
-    return len(set((vals.get(design) or {}).get("_clusters") or ["gens=?"]))
+    return sorted({d for d in ((vals.get(design) or {}).get("_depths") or []) if d is not None})
 
 
 def _design_means() -> tuple[dict, list[str]]:
@@ -93,7 +84,8 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
                        "pct": round(100 * (tv - rv) / rv, 1), "log2fc": log2fc, "_ta": ta, "_ra": ra})
     movers.sort(key=lambda m: abs(m["log2fc"]) if m["log2fc"] is not None else abs(m["pct"]) / 100, reverse=True)
     ranked = movers[:top]
-    _depth_t, _depth_r = _depth_mix(target), _depth_mix(reference)
+    _dt, _dr = _depths_of(target), _depths_of(reference)
+    _shared = sorted(set(_dt) & set(_dr))
     for m in ranked:   # DS-3: a two-sample Welch t-test on the seed replicates behind each shown mover (or a note)
         w = stats.welch_t(m.pop("_ta"), m.pop("_ra"))
         if w is None:
@@ -101,14 +93,19 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
         else:
             m["welch_t"], m["p_value"], m["n_seeds"] = w["t"], w["p"], [w["n_a"], w["n_b"]]
             m["significant_p05"] = (w["p"] is not None and w["p"] < 0.05)
-            if _depth_t > 1 or _depth_r > 1:
-                # Anti-conservative, and by a large measured amount: clustering wildtype/basal on depth gives
-                # ICC 0.85 on ribosome_conc and a 6.6x wider interval. Do not upgrade a borderline p to a claim.
-                m["clustered_caveat"] = (
-                    f"seeds pool {max(_depth_t, _depth_r)} different generation depths (target {_depth_t}, "
-                    f"reference {_depth_r}). A channel mean is taken over the whole trajectory, so depth shifts "
-                    f"it systematically and this Welch p treats non-exchangeable runs as independent — it is "
-                    f"ANTI-CONSERVATIVE. Prefer a depth-matched reference; treat this as descriptive.")
+            # DEPTH MISMATCH is a validity problem, not a precision one. A channel is the LAST generation's
+            # time-mean, so comparing a 1-generation target with a 4-generation reference compares generation 0
+            # against generation 3 — and the model drifts hard between them (wildtype growth -11% and ppGpp
+            # +15% over four generations, in the condition it was FITTED for). No widening fixes that; the
+            # comparison is measuring the drift as if it were the perturbation.
+            if _dt != _dr:
+                m["depth_mismatch"] = (
+                    f"target ran to generations {_dt}, reference to {_dr}"
+                    + (f" (shared depth available: {_shared} — re-run this comparison restricted to it)"
+                       if _shared else " — NO shared depth exists, so no valid comparison is available here")
+                    + ". A channel is the LAST generation's mean, so these sides measure DIFFERENT generations "
+                      "of a lineage and the model drifts between them. This p-value is not a test of the "
+                      "perturbation; treat it as descriptive.")
     return {"target": target, "reference": reference, "ranked": ranked,
             "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
             "note": "Channels + pathways ranked by |log2 fold-change| (else |%|), each shown mover carrying a Welch "

@@ -44,32 +44,44 @@ def t95_halfwidth(values: list[float]) -> float | None:
 
 
 # --- clustered (non-exchangeable) replicates -----------------------------------------------------------------
-# The corpus pools runs of DIFFERENT GENERATION DEPTH under one design, and a channel mean is taken over the
-# whole trajectory — so depth shifts it systematically (`wildtype/basal`, one contributor: ppGpp 60.4 / 65.5 /
-# 70.6 at gens 1 / 4 / 7). Those seeds are therefore nested within depth, not exchangeable, and `s/sqrt(n)` over
-# the pooled set understates the uncertainty by treating correlated observations as independent. Measured here
-# the effect is large: ICC 0.28-0.85 for `wildtype/basal` (the reference for EVERY comparison — its ribosome_conc
-# interval is 6.6x too narrow) and 0.83-0.99 for the `rRNA_KO:4op` dose arm.
+# A one-way random-effects decomposition for genuinely clustered replicates — observations that are nested
+# within some group and therefore NOT independent, so `s/sqrt(n)` over the pooled set understates the
+# uncertainty. This is the correct correction when clusters are exchangeable draws from a population.
 #
-# The MACHINE was the first suspect and is NOT the driver. Two contributors' `wildtype/basal` seed-0 runs differ,
-# but they also differ in depth; hold generations fixed and the machine ICC is exactly 0.0 on every channel, for
-# both multi-contributor designs. This module is agnostic — it decomposes whatever cluster it is handed — but the
-# cluster the corpus needs is depth. See `survey._replicate_cluster`.
+# It is deliberately NOT applied to this corpus right now, and the story is worth keeping. Two candidate cluster
+# variables were tried and both withdrawn — MACHINE (a correlated column: at fixed depth its ICC is 0.0) and
+# GENERATION DEPTH (a FIXED effect, not random: a channel is the last generation's time-mean, so depth selects
+# which generation is reported, and `survey` stratifies on it rather than correcting for it — see `survey.depth`
+# and BACKLOG WELL-6x/6y/6z). The machinery stays because the corpus may yet grow genuinely exchangeable
+# clusters, and because the estimator bugs found while withdrawing those attempts (WELL-6z2) are worth having
+# fixed regardless. It is agnostic: it decomposes whatever cluster it is handed.
 
 def design_effect(values: list[float], clusters: list) -> dict | None:
-    """One-way random-effects decomposition of `values` grouped by `clusters` (here: generation depth).
+    """One-way random-effects decomposition of `values` grouped by `clusters` (any exchangeable grouping).
 
     Returns the intraclass correlation, the design effect and the EFFECTIVE sample size:
         ICC   = var_between / (var_between + var_within)
-        DEFF  = 1 + (mean_cluster_size - 1) * ICC
+        DEFF  = 1 + (m0 - 1) * ICC          <- m0 is HARTLEY'S mean cluster size, the same one used to get ICC
         n_eff = n / DEFF
-    `var_between` is clamped at 0 (a negative variance estimate means the data show no cluster effect, which is
-    what `condition/acetate` does here). None when there is only one cluster or too few points to decompose.
+    `var_between` is clamped at 0 (a negative variance estimate means the data show no cluster effect).
+
+    ⚠️ **`m0`, not `n/k`, and the difference is not cosmetic.** This function computed Hartley's m0 to get the
+    variance component and then silently used the plain `n/k` in DEFF. On unbalanced clusters those diverge
+    badly: at ICC 0.8457 with sizes [28, 4, 2], m0 gives 2.47x, `n/k` gives 6.60x and Kish's
+    `sum(nᵢ²)/n` gives 28.04x — three defensible conventions, one number, and the code was picking by accident.
+    A published "6.6x too narrow" came out of exactly that mismatch. One convention throughout.
+
+    ⚠️ **`n` counts only the RETAINED clusters.** Singleton clusters carry no within-cluster information and are
+    dropped; the returned `n` reflects the drop, so a caller cannot pair this DEFF with a standard error taken
+    over the undropped list. That mismatch made the estimate swing 3.2x on the removal of one row out of 34.
+
+    None when there is only one usable cluster or too few points to decompose.
     """
     groups: dict = {}
     for v, c in zip(values, clusters):
         if v is not None:
             groups.setdefault(c, []).append(float(v))
+    n_all = sum(len(v) for v in groups.values())
     groups = {c: v for c, v in groups.items() if len(v) >= 2}
     k = len(groups)
     if k < 2:
@@ -84,8 +96,9 @@ def design_effect(values: list[float], clusters: list) -> dict | None:
     var_within = ms_within
     total = var_between + var_within
     icc = (var_between / total) if total > 0 else 0.0
-    deff = 1.0 + (n / k - 1.0) * icc
-    return {"n": n, "n_clusters": k, "icc": round(icc, 4), "deff": round(deff, 3),
+    deff = 1.0 + (m0 - 1.0) * icc
+    return {"n": n, "n_dropped_singletons": n_all - n, "n_clusters": k,
+            "icc": round(icc, 4), "deff": round(deff, 3), "m0": round(m0, 3),
             "n_eff": round(n / deff, 2) if deff else float(n),
             "sd_within": var_within ** 0.5, "sd_between": var_between ** 0.5}
 
@@ -102,6 +115,13 @@ def t95_halfwidth_clustered(values: list[float], clusters: list | None = None) -
     pretending the seeds are independent and worse than having three or more clusters. `info["unreliable"]`
     marks that case, and a high ICC there should be read as "do not quote a pooled interval" rather than as a
     precise widening.
+
+    ⚠️ **NOT currently applied to this corpus, on purpose.** It was, to generation depth, and that was wrong:
+    depth is a recorded FIXED effect (a channel is the last generation's time-mean, so depth selects which
+    generation is reported), and modelling a deterministic shift as random between-group variance widens the
+    interval while leaving the MEAN biased. `survey` stratifies instead. This stays because it is the right
+    tool for genuinely exchangeable clusters — which the corpus may yet have — and because the bugs found while
+    withdrawing it are worth having fixed. See `survey.depth`.
     """
     n = len(values)
     if n < 2:
@@ -111,17 +131,36 @@ def t95_halfwidth_clustered(values: list[float], clusters: list | None = None) -
         return base, None
     de = design_effect(values, clusters)
     if not de or de["deff"] <= 1.0:
-        return base, de
-    se = statistics.stdev(values) / math.sqrt(n)
-    df = max(1, int(round(de["n_eff"])) - 1)
+        # `unreliable`/`df` must be present on EVERY path. Omitting them here made `info.get("unreliable")`
+        # return None rather than False, so a caller testing `is False` silently saw neither.
+        return base, (dict(de, df=n - 1, widened_by=1.0, unreliable=de["n_clusters"] < 3) if de else None)
+    # The SE must be taken over the SAME points the DEFF describes: `design_effect` drops singleton clusters, so
+    # using the full list here pairs a design effect for one sample with a standard error for another. Live
+    # consequence before the fix: deleting one row of 34 moved the half-width 1.2012 -> 3.878.
+    used = _cluster_retained(values, clusters)
+    se = statistics.stdev(used) / math.sqrt(len(used))
+    # df CANNOT exceed k-1. The between-cluster variance rests on k-1 degrees of freedom no matter how many
+    # observations sit inside those clusters, so `n_eff - 1` over-states it whenever n_eff > k: on this corpus
+    # it claimed df=14 against k-1=2, an interval 2.0x too narrow on 8 of 9 channels.
+    df = max(1, min(int(round(de["n_eff"])) - 1, de["n_clusters"] - 1))
     hw = t_critical_95(df) * se * math.sqrt(de["deff"])
-    info = {**de, "df": df, "widened_by": round(hw / base, 2) if base else None,
+    info = {**de, "df": df, "df_cap": de["n_clusters"] - 1, "widened_by": round(hw / base, 2) if base else None,
             "unreliable": de["n_clusters"] < 3,
-            "note": ("Seeds are nested within cluster (for this corpus: generation depth, which shifts a "
-                     "trajectory-wide mean systematically), so the pooled interval was widened by sqrt(DEFF)."
+            "note": ("Observations are nested within cluster, so the interval was widened by sqrt(DEFF) with "
+                     "df capped at n_clusters-1."
                      + (" With only two clusters this estimate rests on 1 df — treat a high ICC as 'do not "
                         "quote a pooled interval', not as a precise correction." if de["n_clusters"] < 3 else ""))}
     return hw, info
+
+
+def _cluster_retained(values: list[float], clusters: list) -> list[float]:
+    """The values `design_effect` actually decomposed — i.e. with singleton clusters dropped."""
+    groups: dict = {}
+    for v, c in zip(values, clusters):
+        if v is not None:
+            groups.setdefault(c, []).append(float(v))
+    keep = [x for v in groups.values() if len(v) >= 2 for x in v]
+    return keep if len(keep) >= 2 else [float(v) for v in values if v is not None]
 
 
 # --- t-distribution p-value (scipy-free) -----------------------------------------------------------------
