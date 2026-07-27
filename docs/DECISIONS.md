@@ -283,3 +283,35 @@ after the per-generation panel lands, and once a severe non-aaRS design exists t
 
 **Action items** → BACKLOG **WELL-6z3** (record the bake-off), **WELL-6z4** (PC1-removed similarity + the
 severity-control gap), **WELL-6z5** (a protein/regulatory graph, or an explicit "not now").
+
+## D9 — The response-similarity metric: DOUBLE-CENTERING, not PC1 removal (MEASURED + adjudicated) — ACCEPTED 2026-07-27
+**Status:** Accepted (metric settled; index deferred per WELL-6) · **Deciders:** Evangelos · **Refines:** D8.
+
+**Context.** D8 kept response-profile similarity as a hypothesis generator but flagged that severity ("distance
+from wildtype") still partly drives it (`corr(growth, cos-to-WT)=+0.608` on the 199-species panel). WELL-6z4
+proposed removing PC1 to de-confound. Before implementing, a 32-agent audit/test/adversarial/literature pass
+(`wfv2tiipg`) tested it, with every load-bearing number independently reproduced (and re-reproduced by hand).
+
+**Decision.** When the similarity metric ships, de-confound severity by **DOUBLE-CENTERING** the z-scored
+design×species matrix — `Z2 = Z − rowmean(Z) − colmean(Z) + grandmean(Z)` — then cosine. NOT blind PC1 removal.
+- Measured: severity confound `corr(growth, cos-to-WT)` **+0.608 → −0.010** (vs +0.117 for PC1-removal), envelope
+  mechanism cluster preserved (NN **4/4**, Δ +0.358).
+- Why not PC1: PC1 is the *growth* axis (`corr +0.829`); the compositional severity WELL-6a flagged is on PC2
+  (`corr +0.908`), so PC1-removal leaves it intact — and PC1 wobbles ~27° across half-splits at n=41 (overfit).
+  Double-centering is parameter-free (no fitted direction, no K), and the literature warns against blind top-PC
+  subtraction (Goldinger 2013) while endorsing parameter-free/supervised removal (O'Duibhir 2014; SVA/RUV).
+- **Two mandatory ship-guards:** (a) always surface growth ALONGSIDE the de-confounded similarity — the axis is
+  partly real biology (Klumpp/Hwa growth laws), so a reader must discount it, not have it silently erased;
+  (b) label the aaRS cluster as SEVERITY-CONFOUNDED (no transform separates aaRS-mechanism from aaRS-lethality).
+
+**Graph distance (WELL-6z5): NOT NOW, and DROP the enzyme→reaction graph.** The only offline-buildable graph
+(iML1515 metabolic) covers 46% of the protein panel, separates modules at near-chance, and WELL-6c already
+measured it adding ~zero over exact response similarity. A protein/PPI graph is not evaluable until (a) a severe
+non-aaRS control exists and (b) a full-panel graph is acquired; it must then beat PC1-removed cosine with a CI
+excluding 0. The phenotype vector already recovers the clusters a graph would claim to add.
+
+**Consequences.** The metric is settled and cheap; building it is deferred (WELL-6 builds the index late). The
+`pgi` KO (D-run in progress) is the clean severity control that closes 6z4's residual confound gap.
+
+**Action items** → build `species_similarity()` with double-centering + the two guards + the WELL-6z4 acceptance
+test WHEN the similarity feature is scheduled; re-run the bake-off once pgi lands.
