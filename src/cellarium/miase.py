@@ -35,6 +35,7 @@ would train the reader to ignore the check, which is worse than a smaller check 
 from __future__ import annotations
 
 import json
+import os
 from collections import defaultdict
 
 from . import manifest, survey
@@ -105,6 +106,45 @@ def _truncation_signature(want: list[str], got: list[str]) -> str | None:
     return None
 
 
+def executed_media_from_raw(result_id: str) -> dict:
+    """The TRUE executed media sequence, read from `Environment/media_id` — the untruncated witness.
+
+    This turns the truncation from a defect we can only report upstream into one we can REPAIR locally. The
+    same simOut directory that carries the corrupted `FBAResults/media_id` also carries
+    `Environment/media_id`, and that column is written at `<U25`: wide enough for
+    `minimal_plus_amino_acids` (24 chars). Measured across every nutrient-shift run on disk — 7 seeds over
+    both directions — it carries BOTH media strings and switches at exactly t=1200.0 s, the declared shift
+    time, including in the three upshift seeds whose `FBAResults/media_id` reads a constant `'minimal'`.
+
+    So no re-simulation is needed and nothing has to be quarantined: every corrupted per-segment mean in the
+    corpus is recomputable from local disk. Values are space-padded to the column width and are stripped here.
+    """
+    from . import raw, store
+    p = store.simout_path(result_id)
+    if not p:
+        return {"available": False, "why": "no local raw simOut for this run"}
+    segs, gens = [], []
+    for so in raw.simout_dirs(p):
+        path = os.path.join(so, "Environment", "media_id")
+        if not os.path.exists(path):
+            return {"available": False, "why": "this run predates the Environment/media_id listener"}
+        try:
+            import numpy as np
+            vals = [str(x).rstrip() for x in np.asarray(raw.read_column(path)).ravel()]
+            t = np.asarray(raw.read_column(os.path.join(so, "Main", "time")), dtype=float).ravel()
+        except Exception as e:
+            return {"available": False, "why": f"could not read Environment/media_id ({e})"}
+        n = min(len(vals), t.size)
+        vals, t = vals[:n], t[:n]
+        gens.append(sorted(set(vals)))
+        for i in range(n):
+            if not segs or segs[-1]["media"] != vals[i]:
+                segs.append({"media": vals[i], "t_start_s": round(float(t[i]), 1)})
+    return {"available": True, "segments": segs, "media_sequence": [s["media"] for s in segs],
+            "switch_times_s": [s["t_start_s"] for s in segs[1:]], "per_generation_media": gens,
+            "source": "Environment/media_id (<U25, untruncated)"}
+
+
 def check_run(row: dict) -> dict:
     """Declared vs RECORDED for ONE run. Verdicts:
       `ok`             — declared media sequence matches the recorded one
@@ -132,6 +172,27 @@ def check_run(row: dict) -> dict:
         return {"verdict": "ok", **base}
     trunc = _truncation_signature(want, exec_media)
     if trunc:
+        # Before falling back to "the record is unreadable, go check the run log", try the untruncated witness
+        # in the same simOut. When it is there it settles the question outright — declared vs ACTUALLY EXECUTED,
+        # from the model's own environment listener — instead of leaving a permanent asterisk on the design.
+        rep = executed_media_from_raw(row.get("id")) if row.get("id") else {"available": False}
+        if rep.get("available"):
+            seq = rep["media_sequence"]
+            ok = want == seq
+            return {"verdict": "repaired_ok" if ok else "violation", **base,
+                    "repaired_executed": seq, "switch_times_s": rep["switch_times_s"],
+                    "repaired_from": rep["source"],
+                    "note": (
+                        f"The manifest's `media_segments` is corrupted by the fixed-width truncation, but the "
+                        f"same simOut carries `Environment/media_id` at <U25, which is untruncated. It records "
+                        f"{seq} with switches at {rep['switch_times_s']}s — "
+                        + ("MATCHING the declaration, so the experiment DID execute as declared and only the "
+                           "record was wrong. The per-segment means in the manifest are still corrupt (they "
+                           "average pre- and post-shift together) and must be recomputed from raw before use."
+                           if ok else
+                           "which does NOT match the declaration, so this is a genuine experiment violation "
+                           "rather than a recording defect.")),
+                    }
         return {"verdict": "recorder_truncation", **base, "note": trunc}
     if gens and gens > 1:
         return {"verdict": "undetermined", **base,
@@ -152,7 +213,7 @@ def check_corpus() -> dict:
     if rows and "__error__" in rows[0]:
         return {"error": rows[0]["__error__"], "ok": False}
     by_design: dict = defaultdict(lambda: {"violation": 0, "ok": 0, "undetermined": 0,
-                                           "recorder_truncation": 0, "examples": []})
+                                           "recorder_truncation": 0, "repaired_ok": 0, "examples": []})
     n_checked = 0
     for r in rows:
         if r.get("_dropped"):
@@ -163,13 +224,17 @@ def check_corpus() -> dict:
         n_checked += 1
         d = by_design[survey.design_key(r)]
         d[res["verdict"]] += 1
-        if res["verdict"] in ("violation", "recorder_truncation") and len(d["examples"]) < 3:
+        if res["verdict"] in ("violation", "recorder_truncation", "repaired_ok") and len(d["examples"]) < 3:
             d["examples"].append({"id": r.get("id"), "reportable": bool(r.get("reportable")),
                                   "verdict": res["verdict"], "declared": res["declared"],
                                   "executed": res["executed"], "note": res.get("note", ""),
+                                  **({"repaired_executed": res["repaired_executed"],
+                                      "switch_times_s": res.get("switch_times_s")}
+                                     if res.get("repaired_executed") else {}),
                                   "simout_path": r.get("simout_path")})
     violations = {k: v for k, v in by_design.items() if v["violation"]}
     truncated = {k: v for k, v in by_design.items() if v["recorder_truncation"]}
+    repaired = {k: v for k, v in by_design.items() if v["repaired_ok"]}
     # A violation on a NON-reportable run is already excluded from analysis; the blocking case is a violation
     # that is still marked reportable, because that row feeds figures and the dataset.
     blocking = {k: v for k, v in violations.items() if any(e["reportable"] for e in v["examples"])}
@@ -177,6 +242,8 @@ def check_corpus() -> dict:
         "ok": not blocking, "n_runs_checked": n_checked,
         "n_designs_with_violations": len(violations), "n_designs_blocking": len(blocking),
         "n_designs_recorder_truncation": len(truncated),
+        "n_designs_repaired": len(repaired),
+        "repaired": {k: dict(v) for k, v in sorted(repaired.items())},
         "recorder_truncation": {k: dict(v) for k, v in sorted(truncated.items())},
         "violations": {k: dict(v) for k, v in sorted(violations.items())},
         "summary": {k: dict(v) for k, v in sorted(by_design.items())},

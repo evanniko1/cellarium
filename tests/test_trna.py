@@ -47,27 +47,85 @@ def test_wildtype_resolves_about_twenty_families_and_the_mean_hides_spread():
     assert max(vals) - min(vals) > 0.2, "the per-family spread the aggregate hides should be substantial"
 
 
-def test_argS_knockout_selectively_starves_ARGININE():
-    """THE validation. Nothing tells the tool that argS charges arginine — it must fall out of the data."""
-    _needs_raw("gene_knockout/KO:argS")
+@pytest.mark.parametrize("design", ["gene_knockout/KO:argS", "gene_knockout/KO:pheS"])
+def test_arrested_synthetase_knockouts_are_REFUSED_not_reported_as_selectivity(design):
+    """The withdrawn validation, inverted into a guard.
+
+    These two runs were the tool's headline evidence ("argS starves arginine, blind"). They are translationally
+    ARRESTED: elongation rate is pinned at 0 and the charged-fraction vector is constant to ~1e-7 total
+    variation over the whole generation (wild-type is ~1.5). The per-family table is then (86 - n_target)/86
+    exactly — computable from the knockout's isoacceptor count with no simulation. Reporting it as a measurement
+    of selective charging was reporting arithmetic as biology, so the tool must now REFUSE."""
+    _needs_raw(design)
     from cellarium import trna
-    r = trna.selective_charging("gene_knockout/KO:argS")
+    r = trna.per_family(design)
     if "error" in r:
         pytest.skip(r["error"])
-    assert r["worst_family"]["family"] == "arg", f"argS should starve arginine, got {r['worst_family']}"
-    assert r["worst_family"]["charged"] < 0.05, "the targeted family should be essentially uncharged"
-    assert r["selective_charging"] is True
-    assert r["selectivity_gap_pp"] > 50, "the collapse must be far worse than the typical family"
+    st = r["translation_state"]
+    assert st["arrested"] is True, f"{design} should be detected as arrested: {st}"
+    assert st["row_mean_total_variation"] < 1e-6
+    assert r["most_starved"] is None, "an arrested run must not name a starved family"
+    assert "refused" in r and "ARRESTED" in r["refused"]
 
 
-def test_pheS_knockout_selectively_starves_PHENYLALANINE():
-    """The same blind recovery for a different synthetase — one hit could be luck, two is the mechanism."""
-    _needs_raw("gene_knockout/KO:pheS")
+@pytest.mark.parametrize("design,family", [("gene_knockout/KO:dapA", "lys"), ("gene_knockout/KO:lysS", "lys")])
+def test_non_degenerate_runs_still_name_the_right_cognate_family(design, family):
+    """What genuinely survives: where translation CONTINUES, the cognate-family axis of Dittmar 2005 is
+    recovered. dapA (a lysine-pathway lesion) and lysS both name `lys`, and nothing tells the tool that."""
+    _needs_raw(design)
     from cellarium import trna
-    r = trna.selective_charging("gene_knockout/KO:pheS")
+    r = trna.per_family(design)
     if "error" in r:
         pytest.skip(r["error"])
-    assert r["worst_family"]["family"] == "phe" and r["selective_charging"] is True
+    assert r["translation_state"]["arrested"] is False
+    assert r["most_starved"] == family, f"{design} should starve {family}, got {r['most_starved']}"
+
+
+def test_the_model_has_no_isoacceptor_resolution():
+    """Why the Elf 2003 citation was withdrawn. Elf's result is BETWEEN isoacceptors of one amino acid; this
+    model gives every isoacceptor in a family an identical charged fraction, so that axis cannot be
+    represented and must never be claimed. Asserted from the data, not from a comment."""
+    import json
+    import os
+    from collections import defaultdict
+
+    import numpy as np
+
+    from cellarium import raw, trna
+    runs = raw.seed_runs("wildtype/basal")
+    if not runs:
+        pytest.skip("no local wild-type raw")
+    so = raw.simout_dirs(runs[0]["root"])[0]
+    ids = json.load(open(os.path.join(so, "GrowthLimits", "attributes.json"), encoding="utf-8")
+                    )["uncharged_trna_ids"]
+    g = defaultdict(list)
+    for k, i in enumerate(ids):
+        fam = trna.family_of(i)
+        if fam:
+            g[fam].append(k)
+    multi = {f: ix for f, ix in g.items() if len(ix) >= 2}
+    assert multi, "expected several families with >1 isoacceptor"
+    v = np.asarray(raw.read_column(os.path.join(so, "GrowthLimits", "fraction_trna_charged")), dtype=float)[1:]
+    spread = max(float(np.nanmax(v[:, ix].max(axis=1) - v[:, ix].min(axis=1))) for ix in multi.values())
+    assert spread == 0.0, f"isoacceptors within a family differ by {spread} — re-examine the Elf 2003 claim"
+
+
+def test_selective_charging_returns_no_verdict_and_always_carries_its_null():
+    """A threshold without a null is not a detector. The old boolean fired on unperturbed wild-type, so it is
+    gone — and the wild-type-vs-wild-type null must ride along on every call so the gap is never read bare."""
+    _needs_raw("gene_knockout/KO:dapA")
+    from cellarium import trna
+    r = trna.selective_charging("gene_knockout/KO:dapA")
+    if "error" in r:
+        pytest.skip(r["error"])
+    assert "selective_charging" not in r, "the uncalibrated boolean verdict must not come back"
+    null = r["wildtype_null"]
+    if "error" in null:
+        pytest.skip(null["error"])
+    assert null["n_distinct_by_content_hash"] >= 2
+    # the null is a FALSE-POSITIVE rate: unperturbed runs still name a 'most starved' family
+    assert null["worst_family_named_on_pure_wildtype"], "the null must show what wild-type alone produces"
+    assert isinstance(r["exceeds_wildtype_null_max"], bool)
 
 
 def test_the_aggregate_would_have_MISSED_it():

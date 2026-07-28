@@ -107,9 +107,42 @@ def test_the_corpus_check_finds_the_upshift_and_clears_the_downshift():
     if down in summary:
         assert summary[down]["violation"] == 0, "the DOWNSHIFT must pass — it executed AND recorded its shift"
     if up in summary:
-        # the upshift is a RECORDER-TRUNCATION case, never a fabricated-experiment violation
+        # The upshift is a RECORDER defect, never a fabricated-experiment violation. It is now RESOLVED rather
+        # than merely suspected: `Environment/media_id` is written at <U25 in the same simOut and is not
+        # truncated, so the executed sequence is recoverable and matches the declaration exactly.
         assert summary[up]["violation"] == 0, "the upshift must not be reported as a missing experiment"
-        assert summary[up]["recorder_truncation"] > 0, "the truncation signature must be detected"
+        assert summary[up]["repaired_ok"] > 0 or summary[up]["recorder_truncation"] > 0
+        if summary[up]["repaired_ok"]:
+            e = next(x for x in summary[up]["examples"] if x["verdict"] == "repaired_ok")
+            assert e["repaired_executed"] == e["declared"], "the repaired sequence must match the declaration"
+            assert e["switch_times_s"] == [1200.0], "the shift must be recovered at its declared time"
+
+
+def test_the_untruncated_witness_recovers_every_shift_run():
+    """`Environment/media_id` is the repair path: <U25, wide enough for 'minimal_plus_amino_acids' (24 chars),
+    in the SAME simOut as the corrupted `FBAResults/media_id`. For every nutrient-shift run with local raw it
+    must carry the full declared sequence and switch at the declared time — which is what turns this from a
+    defect we can only report upstream into one we fix locally, with no re-simulation."""
+    _corpus()
+    from cellarium import miase, raw, store, survey
+    checked = 0
+    for r in store.list_results():
+        if (r.get("perturbation") or "") != "timeline":
+            continue
+        if not (store.simout_path(r["id"]) and raw.seed_runs(survey.design_key(r))):
+            continue
+        rep = miase.executed_media_from_raw(r["id"])
+        if not rep.get("available"):
+            continue
+        checked += 1
+        declared = [m for _t, m in miase.declared_events(r.get("timeline"))]
+        assert rep["media_sequence"][:len(declared)] == declared, (r["id"], rep["media_sequence"], declared)
+        assert 1200.0 in rep["switch_times_s"], (r["id"], rep["switch_times_s"])
+        # the whole point: no value is a truncated prefix of a longer declared one
+        for m in rep["media_sequence"]:
+            assert m in declared, f"{r['id']}: recovered {m!r} is not a declared medium"
+    if not checked:
+        pytest.skip("no timeline run with local raw and an Environment/media_id column")
 
 
 def test_a_dropped_run_is_not_reported_as_a_violation():

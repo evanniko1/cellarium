@@ -5,16 +5,29 @@
 The reader collapses that to a per-timestep mean, and the mean is the wrong instrument for the question the
 corpus keeps asking.
 
-Why it matters, concretely. `argS` charges *arginine* tRNA. Knock it out and the arginine isoacceptors go
-uncharged while the other ~19 amino-acid families stay loaded — so the aggregate barely moves (19/20 still
-charged) and **the one measurement that shows the mechanism is averaged away**. Elf, Nilsson, Tenson &
-Ehrenberg 2003 (*Science* 300:1718, PMID 12805541) established that this is how starvation actually behaves —
-"selective charging", where some isoacceptors fall to near zero while others stay full; Dittmar 2005 measured
-the arginine case directly. A single mean cannot represent selective charging by construction.
+Why it matters, concretely. `argS` charges *arginine* tRNA. Knock it out and the arginine tRNAs go uncharged
+while the other ~19 amino-acid families stay loaded — so the aggregate barely moves (19/20 still charged) and
+**the one measurement that shows the mechanism is averaged away**. The relevant published axis is Dittmar,
+Sørensen, Elf, Ehrenberg & Pan 2005 (*EMBO Rep* 6:151): starving a cell for one amino acid selectively
+de-charges the tRNAs for **that** amino acid — the COGNATE-FAMILY axis, which is exactly what this module
+measures.
 
-This module groups the 86 species into the ~20 amino-acid families by the tRNA gene-name prefix (`alaT`,
-`alaU`, ... -> `ala`) and reports each family's charged fraction, so a synthetase knockout can be checked
-against the family it should starve — and, just as importantly, against the families it should NOT.
+**Withdrawn: the Elf et al. 2003 citation this module originally carried.** That paper's result is
+*between-isoacceptor* — within one amino acid, some isoacceptors (e.g. tRNA2Leu) approach zero while others
+stay high. This model cannot represent that: measured across every design on disk, the maximum within-family
+spread among isoacceptors is **exactly 0.000e+00**, and the 86-species vector carries only **21 distinct
+values** at every timestep (the listener's own `attributes.json` indexes the sibling columns
+`charged_trna_conc` / `synthetase_conc` / `aa_conc` by `aaIds`, which has 21 entries — the per-amino-acid
+resolution is the real resolution). Claiming this module "recovers Elf 2003" was not merely unsupported, it
+was structurally impossible. It is 21 amino-acid rows presented as 86 species, and it is stated as such.
+
+**The degeneracy guard exists because the original validation was invalid.** `KO:argS` was reported as a
+blind success (arg -> 0.0 while the median family held). But that run is translationally ARRESTED: its
+per-timestep row mean has total variation 1.2e-07 over the whole generation, against 1.5e+00 for wild-type —
+seven orders of magnitude less. The charged fraction is a constant equal to (86 - n_target)/86, computable
+from the knockout's isoacceptor count with no simulation at all. Reporting that as a measurement of selective
+charging is reporting arithmetic as biology, so `per_family` now refuses the selectivity reading for any run
+that fails the arrest test and says why.
 
 Local-raw only (no Docker): reads the wcEcoli columns directly. Returns a structured error when the raw simOut
 for a design is not on this machine, rather than a silent empty result.
@@ -39,6 +52,50 @@ _SPECIAL = {"sel": "selenocysteine (selC — a special tRNA, not a standard fami
 def family_of(trna_id: str) -> str | None:
     m = _TRNA_ID.match(str(trna_id or ""))
     return m.group(1).lower() if m else None
+
+
+# Below this total variation in the per-timestep row mean, the charged-fraction vector is a CONSTANT and the
+# run carries no charging dynamics. Wild-type sits at ~1.5; the arrested synthetase KOs sit at ~1.2e-07.
+_ARREST_TOTVAR = 1e-6
+
+
+def _arrest_evidence(seed_root: str) -> dict:
+    """Is this run translationally ARRESTED? If so, its per-family table is arithmetic, not a measurement.
+
+    Three independent columns, any of which alone is decisive: the charged-fraction row mean has essentially no
+    total variation; the ribosome's own `effectiveElongationRate` is pinned at zero; protein mass does not
+    grow. Read separately from the family table so the verdict can never be inferred from the table itself."""
+    import numpy as np
+
+    from . import raw
+    sos = raw.simout_dirs(seed_root)
+    out: dict = {}
+    if not sos:
+        return out
+    so = sos[-1]
+    try:
+        v = np.asarray(raw.read_column(os.path.join(so, "GrowthLimits", "fraction_trna_charged")), dtype=float)
+        rm = v[1:].mean(axis=1)                      # drop the t=0 initialisation row
+        out["row_mean_total_variation"] = float(np.abs(np.diff(rm)).sum())
+    except Exception:
+        pass
+    try:
+        e = np.asarray(raw.read_column(os.path.join(so, "RibosomeData", "effectiveElongationRate")),
+                       dtype=float).ravel()
+        out["elongation_rate_mean_aa_per_s"] = round(float(np.nanmean(e)), 3)
+        out["elongation_zero_fraction"] = round(float((e == 0).mean()), 4)
+    except Exception:
+        pass
+    try:
+        pm = np.asarray(raw.read_column(os.path.join(so, "Mass", "proteinMass")), dtype=float).ravel()
+        if pm.size > 1 and pm[0]:
+            out["protein_mass_end_over_start"] = round(float(pm[-1] / pm[0]), 4)
+    except Exception:
+        pass
+    tv = out.get("row_mean_total_variation")
+    zf = out.get("elongation_zero_fraction")
+    out["arrested"] = bool((tv is not None and tv < _ARREST_TOTVAR) or (zf is not None and zf >= 0.999))
+    return out
 
 
 def _read(seed_root: str) -> tuple:
@@ -96,25 +153,113 @@ def per_family(design: str, seed: int | None = None) -> dict:
     fams = {f: round(statistics.fmean(v), 4) for f, v in per_seed_family.items()}
     ordered = sorted(fams.items(), key=lambda kv: kv[1])
     overall = round(statistics.fmean(list(fams.values())), 4)
-    return {
+    arrest = _arrest_evidence(sel[0]["root"])
+    out = {
         "design": design, "seeds": used, "n_families": len(fams),
         "aggregate_mean_over_families": overall,
         "families": [{"family": f, "charged_fraction": c,
                       **({"note": _SPECIAL[f]} if f in _SPECIAL else {})} for f, c in ordered],
-        "most_starved": ordered[0][0] if ordered else None,
-        "note": ("Charged fraction per amino-acid tRNA family (86 tRNA species grouped by gene prefix), mean "
-                 "over the last generation. Sorted ascending: the STARVED family is first. The corpus's single "
-                 "`fraction_trna_charged` is the mean across all of these, which hides selective charging "
-                 "(Elf et al. 2003) — the mechanism a synthetase knockout acts through."),
+        "translation_state": arrest,
+        "resolution": ("21 amino-acid rows, not 86 independent species: the maximum within-family spread among "
+                       "isoacceptors is exactly 0.0 in every design measured, so the 86-entry vector carries 21 "
+                       "distinct values. The isoacceptor axis of Elf et al. 2003 is NOT representable here."),
+        "note": ("Charged fraction per amino-acid tRNA family, mean over the last generation, sorted ascending "
+                 "so the most-starved family is first. The corpus's single `fraction_trna_charged` is the mean "
+                 "across all of these, which cannot show cognate-family de-charging (Dittmar et al. 2005, "
+                 "EMBO Rep 6:151) — the axis a synthetase knockout or an amino-acid dropout acts on."),
     }
+    if arrest.get("arrested"):
+        # An arrested run's table is (86 - n_target)/86 exactly — derivable from the knockout's isoacceptor
+        # count without running anything. Naming a "most starved" family here would present arithmetic as a
+        # measurement, and the ranking below row 1 is a stable-sort tie-break over families tied to 4 decimals.
+        out["most_starved"] = None
+        out["refused"] = (
+            "TRANSLATIONALLY ARRESTED — no charging dynamics to read. The charged-fraction vector is constant "
+            f"over the generation (row-mean total variation {arrest.get('row_mean_total_variation'):.2e}, "
+            f"vs ~1.5 for wild-type), so the table is fixed by the knockout's isoacceptor count and contains no "
+            "simulation-derived information. The selectivity reading is withheld; the table is shown only to "
+            "make the degeneracy visible. Use a design where translation continues (an amino-acid dropout such "
+            "as KO:dapA) to measure cognate-family de-charging.")
+    else:
+        out["most_starved"] = ordered[0][0] if ordered else None
+    return out
+
+
+_NULL_CACHE: dict = {}
+
+
+def wildtype_null() -> dict:
+    """The FALSE-POSITIVE floor: how big a selectivity gap appears between two genuine WILD-TYPE runs.
+
+    Without this, `selectivity_gap_pp` is a number with no scale. Measured here it is damning — comparing
+    wild-type lineages against each other, a "most starved family" is named essentially every time (trp
+    dominates, then phe/leu/his) with a median gap in the double digits. Any gap a perturbation produces has to
+    clear THIS, and the reason the boolean verdict was removed is that no threshold does.
+
+    Content-hash de-duplicated: 48 wild-type units on disk are only 34 distinct files (14 byte-identical
+    pairs), and counting duplicates as independent lineages would understate the null's spread."""
+    import hashlib
+
+    import numpy as np
+
+    from . import raw, store
+    if _NULL_CACHE:
+        return _NULL_CACHE
+    seen: dict = {}
+    for r in store.list_results():
+        if (r.get("perturbation") or "") != "wildtype":
+            continue
+        p = store.simout_path(r["id"])
+        if not p:
+            continue
+        for so in raw.simout_dirs(p):
+            f = os.path.join(so, "GrowthLimits", "fraction_trna_charged")
+            if os.path.exists(f):
+                with open(f, "rb") as fh:
+                    seen.setdefault(hashlib.sha1(fh.read()).hexdigest(), so)
+    tabs = []
+    for so in seen.values():
+        try:
+            v = np.asarray(raw.read_column(f"{so}/GrowthLimits/fraction_trna_charged"), dtype=float)[1:]
+            ids = json.load(open(os.path.join(so, "GrowthLimits", "attributes.json"), encoding="utf-8")
+                            ).get("uncharged_trna_ids") or []
+            byfam: dict = defaultdict(list)
+            for i, tid in enumerate(ids):
+                fam = family_of(tid)
+                if fam:
+                    byfam[fam].append(float(np.nanmean(v[:, i])))
+            tabs.append({f: statistics.fmean(x) for f, x in byfam.items()})
+        except Exception:
+            continue
+    if len(tabs) < 2:
+        return {"error": "need >=2 distinct wild-type units on disk to measure the null", "n_units": len(tabs)}
+    ref, gaps, names = tabs[0], [], []
+    for t in tabs[1:]:
+        worst = min(t, key=t.get)
+        names.append(worst)
+        gaps.append(100.0 * (ref[worst] - t[worst]))
+    from collections import Counter
+    _NULL_CACHE.update({
+        "n_wildtype_units_on_disk": len(seen), "n_distinct_by_content_hash": len(tabs),
+        "gap_pp": {"min": round(min(gaps), 1), "median": round(statistics.median(gaps), 1),
+                   "max": round(max(gaps), 1)},
+        "worst_family_named_on_pure_wildtype": Counter(names).most_common(),
+        "note": ("Wild-type vs wild-type. Every one of these is a FALSE POSITIVE by construction: nothing was "
+                 "perturbed. `trp` dominating the names is the tell — it is the lowest-charged family in this "
+                 "model generally, so a naive 'most starved' rule reports it whatever the condition."),
+    })
+    return _NULL_CACHE
 
 
 def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
-    """Is this design's tRNA starvation SELECTIVE (one family collapses) or GLOBAL (all families fall together)?
+    """Cognate-family de-charging vs a reference, reported AGAINST THE WILD-TYPE NULL — no verdict.
 
-    This is the measurement the aggregate cannot make. An aminoacyl-tRNA synthetase knockout should hit its OWN
-    family far harder than the rest; a general translation or energy failure should depress everything. The
-    verdict is the ratio between the worst family's drop and the median family's drop."""
+    An aminoacyl-tRNA synthetase lesion should hit its OWN family far harder than the rest. This reports the
+    per-family drops and the selectivity gap, but deliberately returns NO boolean: measured against genuine
+    wild-type-vs-wild-type comparisons the old `selective_charging: True/False` fired on unperturbed runs, and
+    the wild-type maximum gap exceeds the only non-degenerate synthetase result in the corpus. A threshold
+    without a null is not a detector, so the null is returned alongside every call and the reader draws the
+    conclusion."""
     t = per_family(design)
     if "error" in t:
         return t
@@ -133,16 +278,23 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
     drops.sort(key=lambda d: d["drop_pct"])
     worst = drops[0]
     median_drop = statistics.median(d["drop_pct"] for d in drops)
-    # selective = the worst family falls much further than the typical family
-    selective = bool(worst["drop_pct"] < -5 and (median_drop - worst["drop_pct"]) > 10)
-    return {
+    gap = round(median_drop - worst["drop_pct"], 1)
+    null = wildtype_null()
+    out = {
         "design": design, "reference": reference,
         "worst_family": worst, "median_drop_pct": round(median_drop, 1),
-        "selectivity_gap_pp": round(median_drop - worst["drop_pct"], 1),
-        "selective_charging": selective,
+        "selectivity_gap_pp": gap,
+        "translation_state": t.get("translation_state"),
+        "wildtype_null": null,
         "per_family": drops,
-        "note": ("SELECTIVE charging (one family collapses while others hold) is the signature of a specific "
-                 "aminoacyl-tRNA synthetase lesion (Elf et al. 2003, PMID 12805541); a GLOBAL fall implicates "
-                 "translation/energy instead. `selectivity_gap_pp` is how many percentage points worse the worst "
-                 "family fares than the median family. A signal to CHECK, not a diagnosis."),
+        "note": ("Cognate-family de-charging (Dittmar et al. 2005, EMBO Rep 6:151). `selectivity_gap_pp` is how "
+                 "many percentage points worse the worst family fares than the median family — read it against "
+                 "`wildtype_null`, which is the same statistic computed between UNPERTURBED wild-type runs and "
+                 "is therefore pure false-positive rate. NO verdict is returned: no threshold on this statistic "
+                 "separates the corpus's perturbations from its own wild-type null."),
     }
+    if t.get("refused"):
+        out["refused"] = t["refused"]
+    if isinstance(null.get("gap_pp"), dict) and null["gap_pp"].get("max") is not None:
+        out["exceeds_wildtype_null_max"] = bool(gap > null["gap_pp"]["max"])
+    return out

@@ -25,13 +25,30 @@ this layer knows WHEN the shift was declared and characterises the response arou
 
 from __future__ import annotations
 
+import os
 import statistics
 
 from . import miase, raw, scan, survey
 
+# channels that are a dry-mass quantity or a rate derived from one — for these an excursion at a nutrient shift
+# can be pure metabolite-pool re-equilibration, so the mass decomposition is attached automatically.
+_MASS_DERIVED = {"growth_rate", "cell_mass", "dry_mass"}
+
 # how far after the declared shift to look for the peak, and how much pre-shift window defines the baseline
 _WINDOW_S = 900.0        # 15 min — long enough for a stringent-response transient, short enough to stay local
 _BASELINE_S = 600.0
+_DESPIKE_K = 5           # samples (~5 s) — kills 1-2 sample noise excursions, far shorter than any adaptation
+
+
+def _rolling_median(a, k: int):
+    """Centred rolling median, edges held. Makes the extremum a PERSISTENT feature rather than one bad sample."""
+    import numpy as np
+    a = np.asarray(a, dtype=float)
+    if k < 3 or a.size < k:
+        return a
+    h = k // 2
+    padded = np.pad(a, h, mode="edge")
+    return np.median(np.lib.stride_tricks.sliding_window_view(padded, k), axis=-1)
 
 
 def _seed_response(seed_root: str, channel: str, t_shift: float) -> dict | None:
@@ -46,7 +63,13 @@ def _seed_response(seed_root: str, channel: str, t_shift: float) -> dict | None:
     if pre_mask.sum() < 5 or post_mask.sum() < 5:
         return None
     pre = float(np.median(v[pre_mask]))
-    post_win = v[post_mask]
+    # DE-SPIKE before taking an extremum. A raw argmax over a noisy channel reports NOISE as a transient:
+    # measured on `growth_rate`, whose baseline is ~4e-4 with occasional single-sample excursions — the raw
+    # extremum claimed a -173% crash (one sample at -2.9e-4) on the downshift and a +1181% surge on the
+    # upshift, neither near a generation boundary, both gone after a 5-sample median. A real adaptation lasts
+    # hundreds of seconds (the ppGpp response peaks at ~434s), so a 5s rolling median cannot erase biology; it
+    # only removes excursions too brief to be one.
+    post_win = _rolling_median(v[post_mask], _DESPIKE_K)
     # the extremum in the response window is the transient's peak (or nadir) — direction taken from the data
     i_max, i_min = int(np.argmax(post_win)), int(np.argmin(post_win))
     up = abs(float(post_win[i_max]) - pre) >= abs(float(post_win[i_min]) - pre)
@@ -55,10 +78,22 @@ def _seed_response(seed_root: str, channel: str, t_shift: float) -> dict | None:
     t_peak = float(t[post_mask][i_pk])
     settled = float(np.median(v[tail_mask])) if tail_mask.sum() >= 5 else None
     denom = abs(pre) or 1e-12
+    # If the extremum lands on the LAST sample of the response window, the response had not finished inside it:
+    # the "peak" is the window edge, not a turning point, and any overshoot computed from it is meaningless.
+    # Measured on the downshift, whose ppGpp is still climbing at t_shift+900 and reports a NEGATIVE overshoot
+    # purely as an artifact of the cut. Reporting that as a real undershoot would be a fabricated dynamic.
+    edge = bool(i_pk >= len(post_win) - 1)
+    # The MIRROR case: the extremum is the FIRST post-shift sample. The response was already complete within one
+    # timestep, so `time_to_peak_s` is an upper bound set by the sampling interval, not a measured latency.
+    # Measured on `growth_rate`, which jumps 11x at exactly t=1200 on the upshift and goes NEGATIVE on the
+    # downshift — both sustained for hundreds of samples and reproducible across seeds, so this is a genuinely
+    # instantaneous response, not an artifact. Reporting "time to peak = 0 s" without this flag would invite the
+    # reader to treat a resolution limit as a kinetic measurement.
+    immediate = bool(i_pk == 0)
     # OVERSHOOT: how far past the eventual steady state the peak went. This is the number a segment mean erases:
     # if the trajectory rises to a peak and then relaxes, |peak-pre| > |settled-pre| and the mean sees neither.
     overshoot = None
-    if settled is not None:
+    if settled is not None and not edge:
         step = abs(settled - pre)
         overshoot = round((abs(peak - pre) - step) / denom * 100.0, 1)
     return {
@@ -68,6 +103,80 @@ def _seed_response(seed_root: str, channel: str, t_shift: float) -> dict | None:
         "settled": (round(settled, 6) if settled is not None else None),
         "settled_pct_vs_pre": (round(100.0 * (settled - pre) / denom, 1) if settled is not None else None),
         "overshoot_pct_of_pre": overshoot,
+        "peak_at_window_edge": edge, "peak_at_first_sample": immediate,
+        **({"latency_is_a_bound": (
+            "the extremum is the FIRST post-shift sample: the response completed inside one timestep, so "
+            "`time_to_peak_s` is bounded by the sampling interval and is not a measured latency.")}
+           if immediate else {}),
+        **({"overshoot_withheld": (
+            f"the extremum is the LAST sample of the {_WINDOW_S:.0f}s response window, so the response had not "
+            f"turned over inside it: this is a monotonic rise/fall still in progress, not a peak. Overshoot is "
+            f"undefined here and is withheld rather than reported as a number that would read as an undershoot.")}
+           if edge else {}),
+    }
+
+
+def mass_decomposition(seed_root: str, t_shift: float, window_s: float = 200.0) -> dict:
+    """What the dry-mass jump at a shift is actually MADE OF — protein, RNA, DNA, or the metabolite pool.
+
+    This exists because `growth_rate` is not a growth rate in the sense the name implies. Verified on disk:
+    `Mass/instantaneous_growth_rate` equals d ln(dryMass)/dt to within 6e-06 (against a baseline of 2.7e-04),
+    and `dryMass` INCLUDES `smallMoleculeMass`. So when amino acids appear in the medium and the cell fills its
+    metabolite pool, the channel spikes — with no change in biosynthetic rate.
+
+    Measured on the amino-acid upshift: 94.6-95.2% of the first post-shift dry-mass increment is small
+    molecules and only 3-4% is protein, while d ln(protein)/dt goes 1.19x and keeps RISING (1.30x later) —
+    a monotonic approach to a new rate, NOT the 12x spike-and-decay the channel shows. The mirror holds on the
+    downshift: `growth_rate` goes NEGATIVE while d ln(protein)/dt is 1.04-1.07x of pre-shift, i.e. protein
+    synthesis continues unchanged and the pool drains. "Growth halts and reverses" is true of the channel and
+    false of the cell.
+
+    Any shift claim resting on `growth_rate` must be read next to this."""
+    import numpy as np
+
+    from . import raw
+    sos = raw.simout_dirs(seed_root)
+    if not sos:
+        return {}
+    so = sos[0]
+
+    def col(table, name):
+        return np.asarray(raw.read_column(os.path.join(so, table, name)), dtype=float).ravel()
+
+    try:
+        t = col("Main", "time")
+        dry = col("Mass", "dryMass")
+        parts = {k: col("Mass", c) for k, c in
+                 (("protein", "proteinMass"), ("rna", "rnaMass"), ("dna", "dnaMass"),
+                  ("small_molecules", "smallMoleculeMass"))}
+    except Exception:
+        return {}
+    i = int(np.searchsorted(t, t_shift))
+    if i < 1 or i >= t.size:
+        return {}
+    d_dry = float(dry[i] - dry[i - 1])
+    share = ({k: round(100.0 * float(v[i] - v[i - 1]) / d_dry, 1) for k, v in parts.items()}
+             if d_dry else {})
+
+    def rate(x, a, b):
+        m = (t >= a) & (t <= b)
+        return float(np.polyfit(t[m], np.log(x[m]), 1)[0]) if m.sum() >= 5 and (x[m] > 0).all() else float("nan")
+
+    rates = {}
+    for k, v in parts.items():
+        pre = rate(v, max(t[0], t_shift - _BASELINE_S), t_shift - 1)
+        post = rate(v, t_shift, t_shift + window_s)
+        rates[k] = {"pre_per_s": None if np.isnan(pre) else float(f"{pre:.4e}"),
+                    "post_per_s": None if np.isnan(post) else float(f"{post:.4e}"),
+                    "fold": None if (np.isnan(pre) or np.isnan(post) or pre == 0) else round(post / pre, 2)}
+    return {
+        "first_step_d_dry_mass_fg": round(d_dry, 4),
+        "first_step_share_pct": share,
+        "log_rate_fold_change": rates,
+        "warning": ("`growth_rate` is d ln(dryMass)/dt and dryMass INCLUDES the metabolite pool. Read "
+                    "`first_step_share_pct`: if small_molecules dominates, the channel's excursion is pool "
+                    "re-equilibration, not a change in biosynthetic rate. `log_rate_fold_change` for protein "
+                    "and rna is the biosynthetic answer."),
     }
 
 
@@ -114,8 +223,12 @@ def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
         corroborated = any(abs(e["t_peak"] - t_shift) <= _WINDOW_S for e in events)
     except Exception:
         pass
+    # A `growth_rate` excursion at a nutrient shift is dominated by the metabolite pool, so the decomposition
+    # is attached automatically — the reader must not have to know to ask for it.
+    decomp = mass_decomposition(runs[0]["root"], t_shift) if channel in _MASS_DERIVED else {}
     return {
         "design": design, "channel": channel, "declared_shift_s": t_shift, "seeds": used,
+        **({"mass_decomposition": decomp} if decomp else {}),
         "median": {k: med(k) for k in ("time_to_peak_s", "peak_pct_vs_pre", "settled_pct_vs_pre",
                                        "overshoot_pct_of_pre")},
         "direction": statistics.mode([p["direction"] for p in per_seed]),

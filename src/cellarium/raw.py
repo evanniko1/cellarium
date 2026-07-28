@@ -93,14 +93,23 @@ def _seed_root(result_id: str) -> str | None:
 def seed_runs(design_or_id: str) -> list[dict]:
     """Every seed of the design that has raw simOut ON LOCAL DISK: {result_id, seed, qc, root, n_gens}. Accepts a
     design label ('condition/no_oxygen') or a single result_id."""
+    from . import survey
     rows = store.list_results()
     by_id = {r.get("id"): r for r in rows}
     if design_or_id in by_id:
         sel = [by_id[design_or_id]]
     else:
-        pert, _, cond = str(design_or_id).partition("/")
-        sel = [r for r in rows if r.get("perturbation") == pert
-               and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
+        # Match on the canonical DESIGN KEY first. The old match was `perturbation` + `condition`, which is
+        # silently empty for every `timeline` design: their `condition` column is NULL and their identity lives
+        # in the label. Measured consequence — `timeline/0 minimal_plus_amino_acids, 1200 minimal` has 4 runs
+        # with raw ON DISK and `seed_runs` returned 0, so every raw-reading tool (trna, dilution, scan, the
+        # variance band) reported "no local raw" for data that was right there. That is the invisible-`valS`
+        # failure mode again: absence that looks like a fact.
+        sel = [r for r in rows if survey.design_key(r) == design_or_id]
+        if not sel:                                  # fall back to the older, looser match for callers that
+            pert, _, cond = str(design_or_id).partition("/")   # still pass a perturbation/condition pair
+            sel = [r for r in rows if r.get("perturbation") == pert
+                   and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
     out = []
     for r in sorted(sel, key=lambda r: (r.get("seed") if r.get("seed") is not None else 99)):
         root = _seed_root(r["id"])
