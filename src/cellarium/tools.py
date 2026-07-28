@@ -146,6 +146,18 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
     return trna.selective_charging(design, reference)
 
 
+def dilution_clock(design: str, gene: str | None = None) -> dict:
+    """Does this KO's target protein follow the published dilution law n(g)=n0*2^-g, or deviate from it?"""
+    from . import dilution
+    return dilution.protein_clock(design, gene)
+
+
+def serialization_check() -> dict:
+    """Deterministic guard: fixed-width simOut string columns at risk of SILENT truncation."""
+    from . import serialization
+    return serialization.scan_corpus()
+
+
 def experiment_integrity() -> dict:
     """MIASE check: does each run's DECLARED timeline match the media the model actually executed?"""
     from . import miase
@@ -1110,6 +1122,10 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
     {"name": "selective_charging", "description": "Is a design's tRNA starvation SELECTIVE (one family collapses while the rest hold — the signature of a specific aminoacyl-tRNA synthetase lesion) or GLOBAL (everything falls — implicating translation or energy instead)? Compares each amino-acid family against the reference and reports the worst family, the median family, and the gap between them. A signal to CHECK against literature, never a diagnosis. Needs local raw simOut.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string"}, "reference": {"type": "string", "description": "default wildtype/basal"}}, "required": ["design"]}},
+    {"name": "dilution_clock", "description": "Does a knockout's TARGET PROTEIN follow the inherited-pool dilution law n(g)=n0*2^-g? A KO stops synthesis but not possession, so the existing pool halves per division and the phenotype arrives generations after the genotype (published + named: Carballo-Pacheco 2020, PMID 32469859 — the tool CITES the law, it does not claim it). Fits log2(protein count) against generation from local raw and reports the RESIDUAL vs the predicted -1 slope: `dilution_limited` (CI contains -1; timing follows from the initial pool alone), `faster_than_dilution` (something removes the pool beyond division, so dilution UNDER-predicts failure), `slower_than_dilution` (residual synthesis or an incomplete knockout — a QC signal). Verified on KO:dapA: slope -1.047, CI [-1.231,-0.863], r2 0.914. Needs local raw with >=3 generations.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string"}, "gene": {"type": "string", "description": "target gene; inferred from a KO: label when omitted"}}, "required": ["design"]}},
+    {"name": "serialization_check", "description": "Deterministic guard against SILENT DATA LOSS in simOut. wcEcoli writes fixed-width string columns whose width is set per-run by the FIRST value, so a later longer value is truncated with no error — confirmed for FBAResults/media_id, where an upshift's 'minimal_plus_amino_acids' became exactly 'minimal' and a nutrient shift vanished from the record while the simulation performed it. Flags COLUMNS written at differing widths across runs whose narrow runs saturate (fragile by construction), NOT individual runs — a run whose value is genuinely short is correctly narrow. Confirm a specific loss with experiment_integrity. Run after any new campaign, especially with a new variant type.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "experiment_integrity", "description": "MIASE declared-vs-executed check (SCI-QC-1): for every design that DECLARES a media timeline, did the run actually execute it? Compares the declaration against the model's own recorded media (`FBAResults/media_id`). A `violation` on a REPORTABLE run means the corpus is advertising an experiment that was never performed — publication-blocking. Multi-generation runs report `undetermined` (the recorded segments cover only the last generation) rather than a false verdict. Read this before trusting or publishing any nutrient-shift result.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "similar_designs", "description": "The designs whose RESPONSE PROFILE most resembles a given design's — 'which runs CAME OUT similar', over the 199-species panel. The severity/growth axis is REMOVED (double-centering), so a neighbour is similar by MECHANISM, not just by being equally far from wildtype. Each neighbour carries its own growth (severity is de-confounded, NOT erased — you must still discount it) and a `severity_confounded` flag (the aaRS/dapA/rpmE KOs collapse, so their similarity can't be told from lethality). This is a HYPOTHESIS GENERATOR ('came out similar'), not ground truth, and NOT a substitute for survey_corpus — use it to find candidate mechanistic relatives to then CHECK with read_series/differential, never to anchor. Answers a different question than survey_corpus (which moved / vs a reference) and than the structured 'which are experimentally comparable' filter.",
@@ -1249,7 +1265,8 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "trajectory": trajectory, "compare_at_generation": compare_at_generation,
              "comparable_designs": comparable_designs, "similar_designs": similar_designs,
              "trna_families": trna_families, "selective_charging": selective_charging,
-             "experiment_integrity": experiment_integrity,
+             "experiment_integrity": experiment_integrity, "dilution_clock": dilution_clock,
+             "serialization_check": serialization_check,
              "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
