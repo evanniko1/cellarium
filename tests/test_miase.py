@@ -107,15 +107,40 @@ def test_the_corpus_check_finds_the_upshift_and_clears_the_downshift():
     if down in summary:
         assert summary[down]["violation"] == 0, "the DOWNSHIFT must pass — it executed AND recorded its shift"
     if up in summary:
-        # The upshift is a RECORDER defect, never a fabricated-experiment violation. It is now RESOLVED rather
-        # than merely suspected: `Environment/media_id` is written at <U25 in the same simOut and is not
-        # truncated, so the executed sequence is recoverable and matches the declaration exactly.
+        # The upshift was a RECORDER defect, never a fabricated experiment — and it is now FIXED at the source.
+        # SCI-QC-2 rewrote its `media_segments` from the untruncated `Environment/media_id`, so the two
+        # single-generation seeds now compare EQUAL to their declaration (`ok`) and the 4-generation seed is
+        # `undetermined` because the stored segments still describe only its last generation (SCI-QC-3).
+        # The durable invariant across all of that: never a `violation`.
         assert summary[up]["violation"] == 0, "the upshift must not be reported as a missing experiment"
-        assert summary[up]["repaired_ok"] > 0 or summary[up]["recorder_truncation"] > 0
-        if summary[up]["repaired_ok"]:
-            e = next(x for x in summary[up]["examples"] if x["verdict"] == "repaired_ok")
-            assert e["repaired_executed"] == e["declared"], "the repaired sequence must match the declaration"
-            assert e["switch_times_s"] == [1200.0], "the shift must be recovered at its declared time"
+        assert summary[up]["ok"] + summary[up]["repaired_ok"] + summary[up]["recorder_truncation"] > 0, (
+            f"the upshift must land on some benign verdict, got {summary[up]}")
+
+
+def test_the_repaired_upshift_no_longer_stores_the_truncated_label():
+    """SCI-QC-2, pinned at the manifest. If this ever reads a lone `minimal` again, either the repair was lost
+    or a re-index reintroduced the truncated column — both are silent corruption of a published number."""
+    _corpus()
+    import json
+
+    from cellarium import segments, store, survey
+    up = "timeline/0 minimal, 1200 minimal_plus_amino_acids"
+    rows = [r for r in store.list_results() if survey.design_key(r) == up]
+    if not rows:
+        pytest.skip("upshift design not in this manifest")
+    seen = 0
+    for r in rows:
+        full = segments.full_row(r["id"])
+        if not full or not full.get("media_segments"):
+            continue
+        seen += 1
+        media = [s.get("media") for s in json.loads(full["media_segments"])]
+        assert media != ["minimal"], (
+            f"{r['id']}: stored segments are the truncated single `minimal` again — the shift is invisible and "
+            f"its per-segment means average pre- and post-shift together")
+        assert "minimal_plus_amino_acids" in media, (r["id"], media)
+    if not seen:
+        pytest.skip("no stored media_segments for the upshift in this manifest")
 
 
 def test_an_unreadable_repair_is_never_reported_as_a_violation():

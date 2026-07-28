@@ -172,8 +172,13 @@ def test_the_dedup_outcome_is_pinned_on_the_corpus():
                          "AND COALESCE(condition,'basal')='basal' AND reportable").fetchone()[0]
     finally:
         con.close()
-    assert raw - kept == 9, (f"dedup removed {raw - kept} rows (raw {raw} -> kept {kept}); expected exactly 9 "
-                             "re-indexed duplicates — a different number means a wrong-merge or wrong-split")
+    # 9 re-indexed duplicates + 3 SCI-QC-2 segment repairs. The repair is append-only: each corrected row
+    # supersedes its corrupt original by `ts`, so the original stays on disk and shows up here as a superseded
+    # duplicate. This pin CAUGHT that write (it read 12 where 9 was pinned), which is exactly its job — the
+    # number must only ever move for a change someone can name.
+    assert raw - kept == 12, (f"dedup removed {raw - kept} rows (raw {raw} -> kept {kept}); expected 12 "
+                              "(9 re-indexed duplicates + 3 segment repairs) — a different number means a "
+                              "wrong-merge, a wrong-split, or an unrecorded corpus write")
     assert crash == 41, f"{crash} crash rows survive, expected 41 — a crash-id collision was wrongly merged"
     assert wt == 26, f"wildtype/basal reportable = {wt}, expected 26 — the reference count drifted"
 

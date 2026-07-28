@@ -224,8 +224,30 @@ def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
     except Exception:
         pass
     # A `growth_rate` excursion at a nutrient shift is dominated by the metabolite pool, so the decomposition
-    # is attached automatically — the reader must not have to know to ask for it.
-    decomp = mass_decomposition(runs[0]["root"], t_shift) if channel in _MASS_DERIVED else {}
+    # is attached automatically — the reader must not have to know to ask for it. Computed on EVERY seed, not
+    # the first: a composition claim read off one run is exactly the kind of n=1 result this project keeps
+    # having to withdraw. The across-seed spread is reported so the reader can see whether it is one run's
+    # quirk (measured: 94.6/95.2/96.4% small molecules on the three upshift seeds — a sub-2% spread).
+    decomp = {}
+    if channel in _MASS_DERIVED:
+        per = [(r.get("seed"), mass_decomposition(r["root"], t_shift)) for r in runs]
+        per = [(s, d) for s, d in per if d]
+        if per:
+            shares = {}
+            for key in ("protein", "rna", "dna", "small_molecules"):
+                vals = [d["first_step_share_pct"].get(key) for _s, d in per
+                        if isinstance(d.get("first_step_share_pct"), dict)
+                        and d["first_step_share_pct"].get(key) is not None]
+                if vals:
+                    shares[key] = {"median": round(statistics.median(vals), 1),
+                                   "min": round(min(vals), 1), "max": round(max(vals), 1),
+                                   "n_seeds": len(vals)}
+            decomp = {**per[0][1], "n_seeds": len(per), "seeds": [s for s, _d in per],
+                      "share_pct_across_seeds": shares,
+                      "per_seed": [{"seed": s, "share_pct": d.get("first_step_share_pct"),
+                                    "protein_fold": (d.get("log_rate_fold_change") or {}).get("protein", {}
+                                                                                              ).get("fold")}
+                                   for s, d in per]}
     return {
         "design": design, "channel": channel, "declared_shift_s": t_shift, "seeds": used,
         **({"mass_decomposition": decomp} if decomp else {}),

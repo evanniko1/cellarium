@@ -119,7 +119,7 @@ TEST_REGISTRY: tuple[TestSpec, ...] = (
 ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     # corpus survey / read / drill-down
     "survey_corpus", "lethality_landscape", "trajectory", "compare_at_generation", "comparable_designs", "similar_designs", "trna_families", "selective_charging",
-    "experiment_integrity", "dilution_clock", "serialization_check", "shift_response",
+    "experiment_integrity", "dilution_clock", "serialization_check", "shift_response", "segment_means",
     "differential", "list_results", "design_space", "read_series", "read_raw_series",
     "scan_series", "scan_overview", "variance_band", "raw_available", "download_raw", "list_species", "read_species",
     "exchange_flux", "regulon_response", "data_availability", "chart",

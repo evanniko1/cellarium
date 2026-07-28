@@ -163,10 +163,20 @@ def _media_segments(t, media, cols):
 def _dynamics(so):
     """Per summary channel: stats + a downsampled trajectory; plus media-segment means for the whole run."""
     t = _col(so, "Main", "time").ravel()
-    try:
-        media = [str(x) for x in np.asarray(_col(so, "FBAResults", "media_id")).ravel()]
-    except Exception:
-        media = []
+    # `Environment/media_id` FIRST. `FBAResults/media_id` is a fixed-width column sized from its first value, so
+    # a run starting in `minimal` (7 chars) gets <U7 and silently truncates a later `minimal_plus_amino_acids`
+    # to exactly `minimal` — the shift vanishes and the segment means average pre- and post-shift together
+    # (measured: a stored fba_objective of 7.88 for a quantity that goes 0.81 -> 14.05). The Environment
+    # listener writes <U25 and is not truncated; values are space-padded, so strip. Falls back to the old
+    # column for runs recorded before that listener existed.
+    media = []
+    for table, column in (("Environment", "media_id"), ("FBAResults", "media_id")):
+        try:
+            media = [str(x).rstrip() for x in np.asarray(_col(so, table, column)).ravel()]
+        except Exception:
+            continue
+        if media:
+            break
     cols = {}
     for name, (table, column) in SUMMARY_CHANNELS.items():
         try:
