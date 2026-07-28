@@ -296,8 +296,13 @@ def fba_flux(reactions: list[str] | None = None, fraction_of_optimum: float = 1.
                "fva_max": round(float(fva.loc[r, "maximum"]), 4),
                "variable_across_optima": abs(float(fva.loc[r, "maximum"]) - float(fva.loc[r, "minimum"])) > 1e-6}
            for r in rxns}
+    # The GROWTH rate is the flux through the biomass reaction — NOT `p.objective_value`. After pFBA the
+    # objective has been REPLACED by "minimize the sum of absolute fluxes", so `objective_value` is that sum:
+    # it read 726.0985 where the actual biomass flux is 0.8218, an 883x overstatement published under the name
+    # "objective_growth" in agent-facing output. pFBA holds growth at the FBA optimum, so the biomass flux is
+    # still the right number to report — it just has to be read from the fluxes, not the objective.
     return {"reactions": out, "loopless_fva": loopless, "fraction_of_optimum": fraction_of_optimum,
-            "objective_growth": round(float(p.objective_value), 4), "provenance": provenance(),
+            "objective_growth": round(float(p.fluxes[OBJECTIVE]), 4), "provenance": provenance(),
             "note": "pFBA point + FVA range. Trust the RANGE, not the point — a reaction with a wide FVA range is unidentified across equal optima."}
 
 

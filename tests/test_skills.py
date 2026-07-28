@@ -55,16 +55,29 @@ def test_web_get_refuses_non_allowlisted_host():
 
 
 def test_web_get_allows_scientific_hosts(monkeypatch):
-    # an allow-listed host is attempted (we stub the network so the test stays offline)
+    """An allow-listed host is attempted — with the network genuinely stubbed.
+
+    This previously patched `urlopen`, which `web_get` never calls: it builds an opener
+    (`build_opener(_AllowListRedirects).open(req)`), and `OpenerDirector.open` does not route through the
+    module-level `urlopen`. So the stub was bypassed, CI made a REAL 200 KB fetch to OpenAlex on every run, and
+    the assertion passed incidentally against the live payload — a test that proved nothing while quietly
+    contradicting H-13(c)'s "the live allow-list check is deliberately NOT in CI". Patch the opener instead, and
+    assert on a sentinel the live API cannot produce, so a future bypass FAILS instead of passing by luck."""
+    sentinel = '{"__offline_stub__": true}'
+
     class _Resp:
         status = 200
-        def read(self, n): return b'{"ok": true}'
+        def read(self, n): return sentinel.encode()
         def __enter__(self): return self
         def __exit__(self, *a): return False
 
-    monkeypatch.setattr(skills.urllib.request, "urlopen", lambda *a, **k: _Resp())
+    class _Opener:
+        def open(self, *a, **k): return _Resp()
+
+    monkeypatch.setattr(skills.urllib.request, "build_opener", lambda *a, **k: _Opener())
     out = skills.web_get("https://api.openalex.org/works?search=aars")
-    assert out.get("status") == 200 and "ok" in out["body"]
+    assert out.get("status") == 200
+    assert "__offline_stub__" in out["body"], "the network stub was bypassed — this test hit the real internet"
 
 
 def test_skill_tools_registered():
