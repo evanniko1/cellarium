@@ -78,6 +78,34 @@ def _log(msg: str) -> None:
     print(msg, flush=True)   # flush so `tail -f` shows progress live in an unattended run
 
 
+def _resolve_api_key(log=print) -> None:
+    """Resolve ANTHROPIC_API_KEY from EVERY supported source, then abort with an actionable message if absent.
+
+    The runners used to read only `.env` + the environment, so a key saved through the app's Settings tab — which
+    stores it in the OS KEYCHAIN — was invisible to exactly the billable sweeps that need it. "Save it once in
+    Settings" has to mean everywhere, or the securest path is the one that silently doesn't work.
+
+    Order matches `credentials.load_into_env`: an explicit export or `.env` WINS over the keychain (more local,
+    more explicit — and it is how CI and `docker run -e` already behave); the keychain is the fallback. Degrades
+    silently when the optional `keyring` extra is absent (CI, headless), which is why it is wrapped.
+    """
+    load_dotenv(str(ROOT / ".env"))
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            sys.path.insert(0, str(ROOT / "src"))
+            from cellarium import credentials
+            credentials.load_into_env()
+        except Exception:
+            pass                                   # no keyring extra / no backend — fall through to the message
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        log("ERROR: ANTHROPIC_API_KEY not set. Provide it in ANY of these ways:\n"
+            f"    1. the app's Settings tab (stored in your OS keychain — most secure)\n"
+            f"    2. a .env at the repo root: {ROOT / '.env'}   ->   ANTHROPIC_API_KEY=sk-ant-...\n"
+            "    3. an exported shell variable: ANTHROPIC_API_KEY=sk-ant-...\n"
+            "Aborting (no model access).")
+        sys.exit(2)
+
+
 def _cost_tag(s: dict | None) -> str:
     """Compact per-arm cost/latency suffix for the live log (LLM-6). '' when a row carries no telemetry."""
     if not s:
@@ -259,11 +287,7 @@ def main():
         global LEDGER
         LEDGER = Path(a.out)
 
-    load_dotenv(str(ROOT / ".env"))
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        _log("ERROR: ANTHROPIC_API_KEY not set. Put it in a .env at the repo root:\n"
-             f"    {ROOT / '.env'}\n    ANTHROPIC_API_KEY=sk-ant-...\nAborting (no model access).")
-        sys.exit(2)
+    _resolve_api_key(_log)
     import anthropic
     client = anthropic.Anthropic(max_retries=4)
     council_models = {"proposer": a.council_model, "skeptic": a.council_model, "judge": a.council_model}

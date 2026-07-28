@@ -341,13 +341,11 @@ def main():
         panel = json.loads(panel_path.read_text(encoding="utf-8"))
         print(f"resuming from {panel_path} ({len(panel)} unit(s) already scored)")
     else:
-        import os
-
-        from dotenv import load_dotenv
-        load_dotenv(str(ROOT / ".env"))
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            print("ERROR: ANTHROPIC_API_KEY not set — the panel is the billable half. Aborting.")
-            sys.exit(2)
+        # ONE resolver shared with run_ab, so the app's Settings tab (OS keychain) reaches the panel too — a key
+        # saved the securest way must not be the one the billable runs cannot see.
+        sys.path.insert(0, str(ROOT / "evals"))
+        from run_ab import _resolve_api_key
+        _resolve_api_key()
         import anthropic
         sys.path.insert(0, str(ROOT / "evals"))
         import cases as cases_mod
