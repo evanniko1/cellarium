@@ -328,3 +328,32 @@ def test_the_settings_surface_is_mounted_in_the_shell():
     assert 'inp.type = "text"' not in app_js                   # ...and nothing flips it back (no reveal toggle)
     assert "cellarium.key" not in app_js                       # no client-side copy of the credential
     assert 'inp.value = ""' in app_js                          # the plaintext leaves the DOM once it is sent
+
+
+def test_a_stale_page_token_is_refused_after_a_server_restart(monkeypatch):
+    """H-13(e). `_CSRF` is minted once at import, so a RESTART rotates it — and a browser tab left open still
+    holds the old one. That flow was never exercised: the copy promises a clear "reload the app" path, but
+    nothing proved the stale token is actually refused rather than, say, matching a regenerated-but-equal value
+    or slipping through a comparison against a falsy default.
+
+    Faithfully simulated in-process, no subprocess: the handler reads `_CSRF` as a module global at request time
+    (apps/server.py:544), so rebinding it IS what a restart looks like to an already-loaded page. The client
+    below keeps the pre-restart token."""
+    import secrets
+
+    import server
+    stale = _client()                                   # holds the token minted at import
+    old = server._CSRF
+    monkeypatch.setattr(server, "_CSRF", secrets.token_urlsafe(32))   # "restart"
+    assert server._CSRF != old
+
+    for path in ("/api/settings_key", "/api/settings_key_delete", "/api/settings_key_test"):
+        r = stale.post(path, json={"key": FAKE})
+        assert r.status_code == 403, f"{path} accepted a pre-restart token"
+        assert "page token" in r.json()["error"], path
+    assert stale.get("/api/settings").status_code == 200               # reads stay open, as before
+
+    # ...and the remedy the copy promises actually works: re-reading the shell hands back the NEW token.
+    fresh = _client()
+    assert server._CSRF in fresh.get("/").text
+    assert fresh.post("/api/settings_key_test", json={"key": FAKE}).status_code != 403

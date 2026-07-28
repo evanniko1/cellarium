@@ -75,15 +75,29 @@ def _repo_sizes(paths: list[str]) -> dict:
         return {}
     dirs = sorted({p.rsplit("/", 1)[0] for p in paths})
     sizes: dict[str, int] = {}
-    api = HfApi()
+    # ANONYMOUS FALLBACK. The dataset repo is PUBLIC (99 files, private=False), but a stale local OAuth token
+    # makes the default client fail closed: `HfApi()` returned `401 RepositoryNotFoundError` while
+    # `HfApi(token=False)` succeeded on the same repo, same moment. The `except: continue` below then swallowed
+    # it, so every row reported "available: false … (offline / no hub client)" — i.e. WE could not read a dataset
+    # any READER can, and BACKLOG WELL-6q recorded the wrong diagnosis ("private, unpushed, or renamed") as a
+    # result. A read-only public availability check should never depend on our credentials, so try the
+    # token-carrying client first (it is correct when the token is valid, e.g. for a gated repo) and fall back to
+    # the anonymous one, which is what a reader actually experiences.
+    clients = [HfApi()]
+    try:
+        clients.append(HfApi(token=False))
+    except Exception:
+        pass
     for d in dirs:
-        try:
-            for f in api.list_repo_tree(HF_REPO, path_in_repo=d, repo_type="dataset", recursive=False):
-                p = getattr(f, "path", "")
-                if p.endswith(".tar.gz"):
-                    sizes[p] = int(getattr(f, "size", 0) or 0)
-        except Exception:
-            continue
+        for api in clients:
+            try:
+                for f in api.list_repo_tree(HF_REPO, path_in_repo=d, repo_type="dataset", recursive=False):
+                    p = getattr(f, "path", "")
+                    if p.endswith(".tar.gz"):
+                        sizes[p] = int(getattr(f, "size", 0) or 0)
+                break                      # this client answered — do not re-ask with the other
+            except Exception:
+                continue
     return sizes
 
 

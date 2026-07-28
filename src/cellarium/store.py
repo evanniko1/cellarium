@@ -95,13 +95,22 @@ def _viability_verdict(rows: list[dict]) -> dict:
     """Cross-seed viability of one design from its per-seed manifest rows. The verdict is a MIN/BOOL_AND rollup —
     a single seed collapsing (terminal_divided False, low division_rate) flags the design, which a per-seed row
     can't do alone (a lineage can't see the requested depth). Reproduces CORPUS_OBSERVATIONS.md §J."""
-    drs = [r["division_rate"] for r in rows if r.get("division_rate") is not None]
-    if not drs:  # shards predate the viability channel
+    # EVERY vote must be taken over the SAME rows: the ones that actually carry viability data. A row from a shard
+    # predating the viability channel has division_rate NULL and terminal_divided NULL — and `bool(None)` is
+    # False, so counting it turned "we did not measure whether this divided" into "it did not divide", inventing
+    # a negative observation out of missing data. Measured: 36 of 272 rows are NULL, and three designs read
+    # IMPAIRED purely because of it — condition/acetate (5 NULL of 13), KO:rpoB (1 of 4),
+    # rRNA_KO:4op (5 of 9) — while every row that WAS measured divided. (`drs` already filtered; `gens`/`term`
+    # did not, which is the whole bug.) Designs where NOTHING was measured still fall to the `unknown` branch.
+    scored = [r for r in rows if r.get("division_rate") is not None]
+    if not scored:  # shards predate the viability channel
         return {"n_seeds": len(rows), "verdict": "unknown",
                 "note": "no viability columns in the manifest — run `manifest.record_existing()` to backfill (§J)."}
-    gens = [r.get("gens_reached") or 0 for r in rows]
-    term = [bool(r.get("terminal_divided")) for r in rows]
-    fbf = sum(int(r.get("n_fba_failures") or 0) for r in rows)
+    drs = [r["division_rate"] for r in scored]
+    gens = [r.get("gens_reached") or 0 for r in scored]
+    term = [bool(r.get("terminal_divided")) for r in scored]
+    fbf = sum(int(r.get("n_fba_failures") or 0) for r in scored)
+    n_unscored = len(rows) - len(scored)
     min_dr = min(drs)
     # §M truncation/crash: a lineage that CRASHED (run raised) or stopped short of the requested depth is inviable
     # even if its completed generations all divided (the alaS/pheS blind spot). Computed here and passed INTO the
@@ -111,11 +120,17 @@ def _viability_verdict(rows: list[dict]) -> dict:
     truncated = bool(reqs) and max(gens) < max(reqs)
     from . import viability_rules
     verdict = viability_rules.verdict(min_dr, all(term), any(term), fbf, crashed=crashed, truncated=truncated)
-    return {"n_seeds": len(rows), "min_division_rate": round(min_dr, 3),
+    return {"n_seeds": len(rows), "n_seeds_scored": len(scored), "n_seeds_unscored": n_unscored,
+            "min_division_rate": round(min_dr, 3),
             "max_gens_reached": max(gens), "requested_generations": (max(reqs) if reqs else None),
             "crashed": crashed, "truncated": truncated,
             "all_terminal_divided": all(term), "n_fba_failures": fbf,
             "verdict": verdict,
+            # A verdict resting on fewer seeds than were run is not wrong, but it must SAY so — the alternative
+            # (counting unmeasured seeds as failures) is what produced three false `impaired` verdicts.
+            **({"partial_note": f"{n_unscored} of {len(rows)} seed(s) carry no viability columns and are excluded "
+                                f"from the verdict (not counted as failures); backfill with "
+                                f"`manifest.record_existing()`"} if n_unscored else {}),
             "per_seed": [{"seed": r.get("seed"), "division_rate": r.get("division_rate"),
                           "gens_reached": r.get("gens_reached"), "terminal_divided": r.get("terminal_divided"),
                           "median_division_time_sec": r.get("median_division_time_sec")} for r in rows]}

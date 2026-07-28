@@ -56,7 +56,7 @@ def test_scan_is_deterministic():
     v[100:105] += 0.8
     a = scan.detect_events(t, v, min_effect_mad=4.0, min_width=3, fdr=0.05)
     b = scan.detect_events(t, v, min_effect_mad=4.0, min_width=3, fdr=0.05)
-    assert a == b                                       # fixed bootstrap seed -> reproducible
+    assert a == b                                       # no sampling step at all -> deterministic by construction
 
 
 def test_bh_qvalues_monotone_and_bounded():

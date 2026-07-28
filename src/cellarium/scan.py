@@ -5,14 +5,23 @@ downshift can vanish between sample points, so the agent never sees it. This mod
 series (`raw.seed_channel`) and returns a bounded, FDR-controlled event list, so a real transient or level shift is
 CAUGHT rather than silently missed. It also provides the extrema-preserving decimation `read_raw_series` uses.
 
-numpy + stdlib only (the raw reader is deliberately scipy-free). DETERMINISTIC: the block-bootstrap null uses a
-fixed seed, so the same trajectory always yields the same events — a tool the agent calls must be reproducible.
+numpy + stdlib only (the raw reader is deliberately scipy-free). DETERMINISTIC by construction — there is no
+sampling step at all, so the same trajectory always yields the same events; a tool the agent calls must be
+reproducible.
 
 Pitfalls handled (from the SOTA brief wf_2479258d): trajectories are autocorrelated + trending, which breaks the
 i.i.d. assumptions behind a naive z-threshold, so the baseline is robust (binned median → follows slow trend, not
-a spike), the scale is robust (MAD), detection is gated by BOTH effect size (in MAD) AND a minimum width (rejects
-single-sample noise), and every event's p-value is calibrated against a MOVING-BLOCK bootstrap null (preserves
-autocorrelation) then BH-FDR-controlled across events.
+a spike), the scale is robust (MAD), and detection is gated by BOTH effect size (in MAD) AND a minimum width
+(rejects single-sample noise). Every event's p is then BH-FDR-controlled across events.
+
+⚠️ **The p-value is an AR(1)-corrected normal tail, NOT a bootstrap.** Earlier revisions of this docstring
+claimed a "moving-block bootstrap null", which this module has never implemented — the prose overstated the
+statistics while the inline comment at the p-value site described the real method. The actual approach is
+deliberate and stated there: a normal-tail significance for the peak, with the number of ~independent looks set
+to the **AR(1) effective N** (`n·(1−ρ)/(1+ρ)`), so autocorrelation is charged for without resampling a series
+whose "null" blocks would still contain the very signal being tested. The returned `null` field was always
+honest; only this header was not. If a genuine bootstrap is ever wanted it must resample a SIGNAL-FREE reference,
+not the trajectory under test.
 """
 
 from __future__ import annotations
@@ -87,7 +96,7 @@ def _runs_above(mask: np.ndarray) -> list[tuple[int, int]]:
 
 def detect_events(t: np.ndarray, v: np.ndarray, *, min_effect_mad: float = 4.0, min_width: int = 3,
                   fdr: float = 0.05) -> list[dict]:
-    """Transients + level shifts in one detrended, robustly-scaled pass, each carrying a block-bootstrap-calibrated
+    """Transients + level shifts in one detrended, robustly-scaled pass, each carrying an AR(1)-corrected
     p and a BH q; only events with q <= fdr are returned. Empty list when the trajectory is short/flat/clean."""
     n = v.size
     if n < 8 or not np.isfinite(v).all():
