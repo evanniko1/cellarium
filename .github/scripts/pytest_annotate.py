@@ -11,6 +11,21 @@ the API, the PR diff view, and the run summary — no token, no log download, no
 Stdlib only (no new CI dependency). Exits 0 by design: the pytest step already failed the job, and a second
 non-zero here would just add noise. If the report is missing entirely — pytest crashed before writing it, e.g. a
 collection or import error — that is itself reported as the finding rather than passing silently.
+
+**VERIFIED END-TO-END on a throwaway branch (`ci/verify-annotations`, deleted), not assumed.** A deliberately
+failing test was pushed, CI went red, and the annotation was read back from
+`/repos/<owner>/<repo>/check-runs/<id>/annotations` with NO token. Round 1 exposed two real defects that local
+testing had missed, both fixed here:
+  1. the pytest nodeid contains `::`, the workflow-command delimiter, so an unescaped `title=` truncated at the
+     first `::` and spilled the rest into the message (see `_escape_prop`);
+  2. `file`/`line` were absent because pytest's DEFAULT `junit_family=xunit2` drops them — CI now asks for
+     `xunit1`, so the annotation anchors to the failing test instead of the workflow file.
+Round 2 returned exactly what it should:
+    path : tests/test_ci_annotation_probe.py | line 7
+    title: pytest failure: tests/test_ci_annotation_probe.py::test_ci_annotation_probe_deliberate_failure
+    msg  : AssertionError: … / assert 272 == 264
+If either behaviour regresses, re-run that probe rather than trusting the local unit checks — both defects
+passed locally and only surfaced against the real API.
 """
 
 from __future__ import annotations
@@ -25,8 +40,20 @@ MAX_MSG_LINES = 12         # the assertion + its immediate context, not the whol
 
 
 def _escape(text: str) -> str:
-    """GitHub workflow-command escaping — a raw newline would silently truncate the annotation."""
+    """Escape the DATA half (after `::`) — a raw newline would silently truncate the annotation."""
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _escape_prop(text: str) -> str:
+    """Escape a PROPERTY VALUE (`title=…`), which needs MORE than the data half: `:` and `,` are the property
+    delimiters, so an unescaped one silently truncates the command.
+
+    This is not theoretical — it is the bug the end-to-end probe caught. A pytest nodeid contains `::`
+    (`tests/test_x.py::test_name`), so `title=pytest failure: tests/test_x.py::test_name` made GitHub end the
+    property section at that `::` and dump the rest of the nodeid into the message. The annotation still
+    appeared, but with a truncated title and a mangled body — which is exactly the kind of half-broken
+    diagnostic that is worse than none, because it looks like it worked."""
+    return _escape(text).replace(":", "%3A").replace(",", "%2C")
 
 
 def _tail(text: str, n: int = MAX_MSG_LINES) -> str:
@@ -44,9 +71,16 @@ def _failures(report: Path) -> list[dict]:
             node = case.find(kind)
             if node is None:
                 continue
-            file = case.get("file") or ""
             name = case.get("name") or "?"
-            nodeid = f"{file}::{name}" if file else f"{case.get('classname', '?')}::{name}"
+            classname = case.get("classname", "")
+            # `file`/`line` exist only under junit_family=xunit1 — the DEFAULT xunit2 schema drops them, which is
+            # why the first probe run anchored its annotation to `.github` instead of the test file. CI requests
+            # xunit1; this still derives a path from the dotted classname (tests.test_x -> tests/test_x.py) so a
+            # config drift degrades to "right file, no line" instead of "wrong file entirely".
+            file = (case.get("file") or "").replace("\\", "/")
+            if not file and classname:
+                file = classname.replace(".", "/") + ".py"
+            nodeid = f"{file}::{name}" if file else f"{classname or '?'}::{name}"
             body = _tail(f"{node.get('message', '')}\n{node.text or ''}")
             out.append({"kind": kind, "nodeid": nodeid, "file": file,
                         "line": case.get("line") or "0", "message": body})
@@ -81,8 +115,7 @@ def main() -> int:
         # GitHub drops the annotation, which would defeat the whole point. `file` is absent when a test runs
         # from outside rootdir, so build the list conditionally rather than interpolating a maybe-empty string.
         props = [f"file={f['file']}", f"line={f['line']}"] if f["file"] else []
-        title = _escape("pytest {}: {}".format(f["kind"], f["nodeid"]))
-        props.append(f"title={title}")
+        props.append("title=" + _escape_prop("pytest {}: {}".format(f["kind"], f["nodeid"])))
         print(f"::error {','.join(props)}::{_escape(f['message'])}")
     if len(failures) > len(shown):
         print(f"::error::…and {len(failures) - len(shown)} more failing test(s) — see the uploaded "

@@ -33,8 +33,11 @@ jobs:
       - name: Lint — ruff
         run: ruff check .
 
+      # junit_family=xunit1 is deliberate: the default xunit2 schema DROPS the testcase `file`/`line`
+      # attributes, so a failure annotation would anchor to the workflow file instead of the failing test
+      # (verified end-to-end on a throwaway branch before this was trusted).
       - name: Test — pytest
-        run: pytest --junitxml=pytest-report.xml
+        run: pytest --junitxml=pytest-report.xml -o junit_family=xunit1
 
       # A CI failure must name the failing TEST, not just "exit code 1". The job log needs a token to download,
       # so on a red run the only thing readable through the unauthenticated API is the annotation stream — this
