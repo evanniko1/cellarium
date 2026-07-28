@@ -34,7 +34,7 @@ from __future__ import annotations
 import json
 import os
 
-from . import raw, store, survey
+from . import raw, store, support, survey
 
 # the truncation-prone recorder, and the untruncated witness that replaces it
 _RECORDED = ("FBAResults", "media_id")
@@ -189,6 +189,7 @@ def diff(result_id: str, channels: tuple = ("ppgpp_conc", "fba_objective", "grow
         if len(vals) >= 2 and min(abs(v) for v in vals) > 0:
             entry["fold_across_segments"] = round(max(vals) / min(v for v in vals if v != 0), 2)
         out["channels"][ch] = entry
+    support.attach(out, result_id)
     folds = [c.get("fold_across_segments") for c in out["channels"].values() if c.get("fold_across_segments")]
     out["worst_fold_error"] = max(folds) if folds else None
     out["note"] = (

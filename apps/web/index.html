@@ -7,6 +7,10 @@
   <!-- per-process page token, substituted by apps/server.py::index. The credential endpoints require it on any
        mutating call; a cross-origin page can't read this document, so it can't forge one. -->
   <meta name="cellarium-csrf" content="__CSRF__">
+  <!-- Favicon: the same mark as `.brand-mark` in the sidebar (clay rounded square, white hexagon + core), inlined
+       as a data URI so it needs no route, no file, and no network fetch — it renders even offline and cannot be
+       blocked by a static-asset policy. Kept in sync with the SVG in the .brand span below. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23C4623F'/%3E%3Cpath d='M16 6.5 25 11.5v9l-9 5-9-5v-9z' fill='none' stroke='white' stroke-width='2.2' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='16' r='3.2' fill='white'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
   <!-- D-2: set the saved theme BEFORE first paint so there's no flash of the wrong palette. With no saved
        preference the attribute is absent and the @media(prefers-color-scheme) default in style.css takes over. -->

@@ -28,7 +28,7 @@ from __future__ import annotations
 import os
 import statistics
 
-from . import miase, raw, scan, survey
+from . import miase, raw, scan, support, survey
 
 # channels that are a dry-mass quantity or a rate derived from one — for these an excursion at a nutrient shift
 # can be pure metabolite-pool re-equilibration, so the mass decomposition is attached automatically.
@@ -248,7 +248,7 @@ def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
                                     "protein_fold": (d.get("log_rate_fold_change") or {}).get("protein", {}
                                                                                               ).get("fold")}
                                    for s, d in per]}
-    return {
+    return support.attach({
         "design": design, "channel": channel, "declared_shift_s": t_shift, "seeds": used,
         **({"mass_decomposition": decomp} if decomp else {}),
         "median": {k: med(k) for k in ("time_to_peak_s", "peak_pct_vs_pre", "settled_pct_vs_pre",
@@ -262,4 +262,4 @@ def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
                  "timeline, never from the recorded media labels, because those truncate on the upshift "
                  "(SCI-QC-1). `independently_detected_by_scan` is a blind cross-check: SP-2's detector is not "
                  "told where the shift is."),
-    }
+    }, design)

@@ -41,6 +41,8 @@ import re
 import statistics
 from collections import defaultdict
 
+from . import support
+
 # tRNA ids look like 'alaT-tRNA[c]', 'argQ-tRNA[c]', 'selC-tRNA[c]'. The family is the leading 3 letters of the
 # gene name, which is the amino-acid code by E. coli tRNA gene convention (alaT/alaU/alaV -> alanine).
 _TRNA_ID = re.compile(r"^([a-zA-Z]{3})[A-Z0-9]*-tRNA")
@@ -153,7 +155,20 @@ def per_family(design: str, seed: int | None = None) -> dict:
     fams = {f: round(statistics.fmean(v), 4) for f, v in per_seed_family.items()}
     ordered = sorted(fams.items(), key=lambda kv: kv[1])
     overall = round(statistics.fmean(list(fams.values())), 4)
-    arrest = _arrest_evidence(sel[0]["root"])
+    # Arrest is a per-RUN property, so it must be checked on EVERY readable seed, not just the first. Reading
+    # sel[0] alone is the same n=1 defect this module was corrected for: one healthy seed among arrested ones
+    # (or the reverse) would have been reported as the state of the design.
+    arrests = [_arrest_evidence(r["root"]) for r in sel]
+    arrests = [a for a in arrests if a]
+    arrest = dict(arrests[0]) if arrests else {}
+    if arrests:
+        arrest["arrested"] = all(a.get("arrested") for a in arrests)
+        arrest["n_seeds_checked"] = len(arrests)
+        arrest["n_seeds_arrested"] = sum(1 for a in arrests if a.get("arrested"))
+        if arrest["n_seeds_arrested"] not in (0, len(arrests)):
+            arrest["disagreement"] = (
+                f"{arrest['n_seeds_arrested']} of {len(arrests)} seeds are translationally arrested — the "
+                f"design is NOT uniform, so a single per-design verdict would be wrong either way.")
     out = {
         "design": design, "seeds": used, "n_families": len(fams),
         "aggregate_mean_over_families": overall,
@@ -168,6 +183,7 @@ def per_family(design: str, seed: int | None = None) -> dict:
                  "across all of these, which cannot show cognate-family de-charging (Dittmar et al. 2005, "
                  "EMBO Rep 6:151) — the axis a synthetase knockout or an amino-acid dropout acts on."),
     }
+    support.attach(out, design)
     if arrest.get("arrested"):
         # An arrested run's table is (86 - n_target)/86 exactly — derivable from the knockout's isoacceptor
         # count without running anything. Naming a "most starved" family here would present arithmetic as a

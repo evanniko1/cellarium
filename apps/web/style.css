@@ -15,6 +15,7 @@
   --shadow:0 1px 2px rgba(30,28,24,.04),0 8px 24px rgba(30,28,24,.05);
   --shadow-lg:0 10px 40px rgba(30,28,24,.14);
   --overlay:rgba(0,0,0,.06); --zebra:rgba(0,0,0,.015);   /* theme-flipping hover / table-zebra tints */
+  --paper-blur:rgba(250,249,245,.8);   /* translucent --paper for the blurred topbar; MUST flip with the theme */
   color-scheme:light;
 }
 /* ---- D-2: dark theme. Token-only override — every rule reads var(--…), so redefining the palette here themes the
@@ -33,6 +34,7 @@
   --shadow:0 1px 2px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.36);
   --shadow-lg:0 10px 40px rgba(0,0,0,.52);
   --overlay:rgba(255,255,255,.07); --zebra:rgba(255,255,255,.025);
+  --paper-blur:rgba(28,27,24,.82);
   color-scheme:dark;
 }
 @media (prefers-color-scheme:dark){
@@ -48,6 +50,7 @@
     --shadow:0 1px 2px rgba(0,0,0,.30),0 8px 24px rgba(0,0,0,.36);
     --shadow-lg:0 10px 40px rgba(0,0,0,.52);
     --overlay:rgba(255,255,255,.07); --zebra:rgba(255,255,255,.025);
+    --paper-blur:rgba(28,27,24,.82);
     color-scheme:dark;
   }
 }
@@ -178,7 +181,7 @@ svg{display:block}
 /* ---------------- main column ---------------- */
 .main{flex:1; display:flex; flex-direction:column; min-width:0; position:relative}
 .topbar{height:56px; flex:0 0 56px; display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding:0 20px; border-bottom:1px solid var(--line); background:rgba(250,249,245,.8); backdrop-filter:blur(6px)}
+  padding:0 20px; border-bottom:1px solid var(--line); background:var(--paper-blur); backdrop-filter:blur(6px)}
 .convo-title{font-family:var(--serif); font-size:16px; color:var(--ink-2); font-weight:500; overflow:hidden;
   text-overflow:ellipsis; white-space:nowrap}
 .topbar-right{display:flex; align-items:center; gap:10px}
@@ -434,9 +437,11 @@ svg{display:block}
 .answer-body tbody tr:nth-child(even),.answer-body tbody tr:nth-child(even){background:var(--zebra)}
 /* grounded figures (charts) */
 .figure{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:12px 14px; margin:4px 0}
-.fig-chart{position:relative; width:100%; min-height:40px}
+.fig-chart{position:relative; width:100%; min-height:40px; isolation:isolate}
 .fig-chart .vega-embed{width:100%}
-.fig-chart .vega-embed summary{border-radius:8px; box-shadow:none; opacity:.5; transition:.12s}
+.fig-chart .vega-embed{position:relative; z-index:0}
+.fig-chart .vega-embed summary{border-radius:8px; box-shadow:none; opacity:.5; transition:.12s; z-index:1}
+.fig-chart .vega-embed .vega-actions{z-index:2}
 .fig-chart .vega-embed:hover summary{opacity:1}
 .fig-chart .vega-embed .vega-actions{background:var(--card); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow-lg)}
 .fig-chart .vega-embed .vega-actions a{font-family:var(--sans); font-size:12px; color:var(--ink-2)}
