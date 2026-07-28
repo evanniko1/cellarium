@@ -51,3 +51,6 @@ data/fba/
 # SCI-2: PRECISE-1K RNA-seq (~60 MB counts) is fetched on demand (Zenodo 10.5281/zenodo.8284223), not committed
 data/precise1k/
 data/evidence.jsonl
+
+# CI: pytest JUnit report (written by the failing-test annotator step)
+pytest-report.xml

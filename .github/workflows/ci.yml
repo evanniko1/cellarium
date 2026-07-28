@@ -34,7 +34,23 @@ jobs:
         run: ruff check .
 
       - name: Test — pytest
-        run: pytest
+        run: pytest --junitxml=pytest-report.xml
+
+      # A CI failure must name the failing TEST, not just "exit code 1". The job log needs a token to download,
+      # so on a red run the only thing readable through the unauthenticated API is the annotation stream — this
+      # turns each failing test into an annotation (+ a job summary). Runs only on failure; never masks it.
+      - name: Surface failing tests (annotations)
+        if: failure()
+        run: python .github/scripts/pytest_annotate.py pytest-report.xml
+
+      # The full machine-readable report, for the cases annotations bound (>30 failures, or a parse error).
+      - name: Upload pytest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report
+          path: pytest-report.xml
+          if-no-files-found: ignore
 
       # Advisory only for now (untyped surfaces remain) — tightening is BACKLOG H-2.
       - name: Type-check — mypy (advisory)
