@@ -100,11 +100,25 @@ def test_raw_derived_tools_attach_their_support(tool, arg):
     if fn is None:
         pytest.skip(f"{tool} not exposed")
     out = fn(arg)
-    if not isinstance(out, dict) or "error" in out:
-        pytest.skip(f"{tool} unavailable here: {str(out)[:80]}")
+    # An UNAVAILABILITY report is not a claim, and must not be forced to carry a support block — doing so
+    # would dress "I could not read anything" as "I measured this with n=0", which is the silent-absence
+    # failure mode in a new costume. Both refusal shapes count: `error` and `available: False`. CI hits this
+    # path for every raw-reading tool because it has no simOut, which is exactly why it is worth pinning.
+    if not isinstance(out, dict) or "error" in out or out.get("available") is False:
+        pytest.skip(f"{tool} reports unavailable here (no local raw): {str(out)[:100]}")
     assert "support" in out, f"{tool} returned a claim with no seed/generation support block"
     s = out["support"]
     assert "n_seeds" in s and "sufficient" in s
+
+
+def test_an_unavailable_result_is_a_refusal_not_a_zero_n_claim():
+    """The companion rule. A tool with no raw must return a refusal shape (`error` or `available: False`) and
+    must NOT return a well-formed result carrying support with n_seeds=0 — that would read as a measurement
+    made on nothing."""
+    from cellarium import segments
+    out = segments.diff("definitely_not_a_result_id")
+    assert out.get("available") is False and "why" in out
+    assert "channels" not in out, "an unavailable result must not carry claim-shaped fields"
 
 
 def test_the_agent_is_instructed_on_both_axes():
