@@ -140,6 +140,12 @@ def executed_media_from_raw(result_id: str) -> dict:
         for i in range(n):
             if not segs or segs[-1]["media"] != vals[i]:
                 segs.append({"media": vals[i], "t_start_s": round(float(t[i]), 1)})
+    if not segs:
+        # NEVER return an empty recovery as `available`. An empty list compares unequal to the declaration and
+        # would be reported as a fabricated-experiment VIOLATION — turning "we could not read anything" into a
+        # positive accusation. This is the silent-absence failure mode this module exists to guard against, and
+        # it was caught by CI (where no raw simOut is present) reporting the upshift as 3 violations.
+        return {"available": False, "why": "no readable simOut generations under the run path"}
     return {"available": True, "segments": segs, "media_sequence": [s["media"] for s in segs],
             "switch_times_s": [s["t_start_s"] for s in segs[1:]], "per_generation_media": gens,
             "source": "Environment/media_id (<U25, untruncated)"}

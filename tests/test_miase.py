@@ -118,6 +118,19 @@ def test_the_corpus_check_finds_the_upshift_and_clears_the_downshift():
             assert e["switch_times_s"] == [1200.0], "the shift must be recovered at its declared time"
 
 
+def test_an_unreadable_repair_is_never_reported_as_a_violation():
+    """The regression CI caught. When the raw simOut is absent (as on CI), the repair path must report
+    `available: False` — NOT an empty `media_sequence` marked available, which compares unequal to the
+    declaration and gets reported as a fabricated-experiment violation. Absence must never become an
+    accusation; that is the exact failure mode this module exists to prevent."""
+    from cellarium import miase
+    for bogus in ("no_such_result_id", "", "wildtype_does_not_exist_999"):
+        out = miase.executed_media_from_raw(bogus)
+        assert out.get("available") is False, out
+        assert "why" in out
+        assert not out.get("media_sequence"), "an unavailable repair must not carry a sequence at all"
+
+
 def test_the_untruncated_witness_recovers_every_shift_run():
     """`Environment/media_id` is the repair path: <U25, wide enough for 'minimal_plus_amino_acids' (24 chars),
     in the SAME simOut as the corrupted `FBAResults/media_id`. For every nutrient-shift run with local raw it
