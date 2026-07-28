@@ -134,6 +134,24 @@ def comparable_designs(design: str) -> dict:
                      "came out similar') and measured 1-of-5 relevant on this one — never substitute it here.")}
 
 
+def trna_families(design: str) -> dict:
+    """Charged-tRNA fraction PER AMINO-ACID FAMILY (the corpus channel is one aggregate that hides this)."""
+    from . import trna
+    return trna.per_family(design)
+
+
+def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
+    """Is tRNA starvation SELECTIVE (one family collapses = a specific synthetase lesion) or GLOBAL?"""
+    from . import trna
+    return trna.selective_charging(design, reference)
+
+
+def experiment_integrity() -> dict:
+    """MIASE check: does each run's DECLARED timeline match the media the model actually executed?"""
+    from . import miase
+    return miase.check_corpus()
+
+
 def similar_designs(design: str, k: int = 8) -> dict:
     """Designs whose RESPONSE PROFILE resembles this one's — "which came out similar" (severity de-confounded).
     Supplements survey_corpus (do NOT anchor on it); each neighbour carries its growth + a confound flag."""
@@ -1088,6 +1106,12 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"design_a": {"type": "string"}, "design_b": {"type": "string", "description": "the reference, e.g. wildtype/basal"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default ppgpp_conc)"}, "generation": {"type": "integer", "description": "generation index (0 = first, default 0)"}}, "required": ["design_a", "design_b"]}},
     {"name": "comparable_designs", "description": "The CORRECT-CONTROL query: designs identical to this one EXCEPT in exactly ONE factor (same family, same base, same factor, different level) — e.g. for 'ppgpp_conc/basal|ppGpp:0.6x' it returns the 0.2x/1.6x/2.0x doses, in dose order so a dose-response can be fitted. Exact, complete and explainable — a deterministic filter over typed factor columns, not a model-made selection. USE THIS to choose what to compare a design against. It answers a DIFFERENT question from `similar_designs` ('which runs came out similar'), which measured only 1-of-5 relevant on this task — never substitute similarity for a control.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
+    {"name": "trna_families", "description": "Charged-tRNA fraction PER AMINO-ACID FAMILY for a design, from raw simOut (86 tRNA species grouped into ~20 families), sorted with the STARVED family first. The corpus channel `fraction_trna_charged` is a single MEAN over all of these, which cannot show selective charging — an aminoacyl-tRNA synthetase knockout starves ONE family to ~0 while the other ~19 stay loaded, so the aggregate barely moves (Elf et al. 2003, PMID 12805541). Use whenever a question involves amino-acid limitation, a synthetase KO, or the stringent response. Needs the run's raw simOut on this machine.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
+    {"name": "selective_charging", "description": "Is a design's tRNA starvation SELECTIVE (one family collapses while the rest hold — the signature of a specific aminoacyl-tRNA synthetase lesion) or GLOBAL (everything falls — implicating translation or energy instead)? Compares each amino-acid family against the reference and reports the worst family, the median family, and the gap between them. A signal to CHECK against literature, never a diagnosis. Needs local raw simOut.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string"}, "reference": {"type": "string", "description": "default wildtype/basal"}}, "required": ["design"]}},
+    {"name": "experiment_integrity", "description": "MIASE declared-vs-executed check (SCI-QC-1): for every design that DECLARES a media timeline, did the run actually execute it? Compares the declaration against the model's own recorded media (`FBAResults/media_id`). A `violation` on a REPORTABLE run means the corpus is advertising an experiment that was never performed — publication-blocking. Multi-generation runs report `undetermined` (the recorded segments cover only the last generation) rather than a false verdict. Read this before trusting or publishing any nutrient-shift result.",
+     "input_schema": {"type": "object", "properties": {}}},
     {"name": "similar_designs", "description": "The designs whose RESPONSE PROFILE most resembles a given design's — 'which runs CAME OUT similar', over the 199-species panel. The severity/growth axis is REMOVED (double-centering), so a neighbour is similar by MECHANISM, not just by being equally far from wildtype. Each neighbour carries its own growth (severity is de-confounded, NOT erased — you must still discount it) and a `severity_confounded` flag (the aaRS/dapA/rpmE KOs collapse, so their similarity can't be told from lethality). This is a HYPOTHESIS GENERATOR ('came out similar'), not ground truth, and NOT a substitute for survey_corpus — use it to find candidate mechanistic relatives to then CHECK with read_series/differential, never to anchor. Answers a different question than survey_corpus (which moved / vs a reference) and than the structured 'which are experimentally comparable' filter.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}, "k": {"type": "integer", "description": "number of neighbours (default 8)"}}, "required": ["design"]}},
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
@@ -1224,6 +1248,8 @@ TOOLS = [
 _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_landscape,
              "trajectory": trajectory, "compare_at_generation": compare_at_generation,
              "comparable_designs": comparable_designs, "similar_designs": similar_designs,
+             "trna_families": trna_families, "selective_charging": selective_charging,
+             "experiment_integrity": experiment_integrity,
              "differential": differential, "top_movers": top_movers,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
