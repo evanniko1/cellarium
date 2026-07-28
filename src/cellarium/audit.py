@@ -19,7 +19,14 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 MANIFEST_GLOB = "data/manifest/*.parquet"
-GB_PER_GENERATION = 0.65   # observed simOut footprint per generation
+# Observed simOut footprint per generation. This is NOT one number: a healthy dividing lineage writes ~0.65
+# GB/gen, but an ARRESTED one (a lethal KO that never divides) runs its full time budget and writes 2-4x the
+# timesteps — measured 1.58 GB/gen on KO:dapA (25.32 GB / 16 sim-generations). Budgeting a knockout campaign at
+# 0.65 therefore under-estimates by ~2.4x, which is how a sweep fills a disk mid-run. `_gb` stays at the
+# dividing rate because it describes what is ALREADY on disk; anything FORECASTING a knockout campaign should
+# use GB_PER_GENERATION_ARRESTED and say so.
+GB_PER_GENERATION = 0.65             # a dividing lineage
+GB_PER_GENERATION_ARRESTED = 1.58    # a lethal/arrested KO — measured on KO:dapA, the SCI-TRNA-3 template
 TARGET_SEEDS = 4           # replication target: > this = redundancy candidate, < this = power gap
 
 
@@ -36,6 +43,7 @@ def _rows() -> list[dict]:
         # `COALESCE(simout_path, id)` kept them as distinct runs and reported wildtype/basal at 34, not 26.
         # `_rows()` stays UN-deduped (supersession needs the duplicate rows); `_latest_per_run` collapses them.
         q = (f"SELECT {manifest.DEDUP_KEY} AS run_key, id, perturbation, condition, timeline, seed, "
+             "simout_path, "   # the REAL path. run_key is `id @@ normalised-path` and is NOT a path.
              "qc, reportable, crashed, ts, generations, requested_generations, gens_reached "
              f"FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true)")
         return con.execute(q).fetch_arrow_table().to_pylist()
@@ -169,6 +177,7 @@ def prune_candidates(target_seeds: int = TARGET_SEEDS, channel: str = "growth_ra
     designs the grounded redundancy verdict marks 'prune-safe'. Keeps the lowest seed indices, lists the higher
     ones, with raw-on-disk + GB per candidate. DELETES NOTHING — the caller reviews and acts; the agent only
     relays this grounded list, it NEVER decides deletions (keep-for-power designs are never listed)."""
+    from . import store
     red = redundancy(target_seeds, channel, ref_effect_pct)
     if "error" in red:
         return red
@@ -179,7 +188,14 @@ def prune_candidates(target_seeds: int = TARGET_SEEDS, channel: str = "growth_ra
         d = _design(r)
         if d in safe:
             seed = r.get("seed")
-            by_design[d].append((seed if seed is not None else 10 ** 9, r.get("run_key")))
+            # Resolve the REAL run root. This read `run_key`, which is manifest.DEDUP_KEY —
+            # `id || '@@' || normalised_path` — so `Path(run_root).exists()` was structurally always
+            # False: `raw_on_disk` never fired, `est_gb_on_disk` was always 0.00, and the tool was
+            # useless for the one job it has. Worse, `how_to_delete` interpolated that same non-path
+            # into an `rm -rf` string. It was fail-safe only by accident (the `@@` string never
+            # resolves); a deletion helper must be correct on purpose, not by luck.
+            by_design[d].append((seed if seed is not None else 10 ** 9,
+                                 store._resolve_run(r.get("simout_path")) or r.get("simout_path")))
     cands, gb_disk = [], 0.0
     for d in sorted(by_design):
         excess = sorted(by_design[d])[target_seeds:]        # keep the lowest target_seeds seeds; list the rest
