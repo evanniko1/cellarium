@@ -152,7 +152,7 @@ def system_resources() -> dict:
 
 
 def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int = 4,
-                           per_sim_ram_gb: float = _PER_SIM_RAM_GB, res: dict | None = None) -> dict:
+                           per_sim_ram_gb: float | None = None, res: dict | None = None) -> dict:
     """Would this sweep FIT? Estimates the RAM (parallel × per-sim) and disk (n_runs × avg-run-GB, scaled by
     generations) it needs vs what's free, and returns a verdict + a SAFE `recommended_parallel` / `recommended_chunk_runs`
     so a memory- or disk-tight machine runs it in chunks instead of exhausting itself. verdict: 'block' (Docker down),
@@ -160,6 +160,28 @@ def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int 
     res = res or system_resources()
     n_runs = max(1, int(n_runs))
     parallel = max(1, int(parallel))
+    # Prefer MEASURED values over the constants. `_PER_SIM_RAM_GB = 2.0` was 3.6x the 0.55 GB actually observed
+    # for six concurrent sims, which made this warn on a workload needing 3.3 GB and recommend parallel=4 on a
+    # host comfortably running 6. A conservative constant is not free — it silently wastes the machine, and
+    # nothing ever contradicts it. `calibration` falls back to these same constants (and says so) until it has
+    # enough observations, so this can never be LESS grounded than before.
+    cal = {}
+    try:
+        from . import calibration
+        cal = calibration.calibrated()
+    except Exception:
+        cal = {}
+    ram_cal = cal.get("per_sim_ram_gb") or {}
+    # `per_sim_ram_gb=None` is the SENTINEL for "decide for me". An earlier version defaulted the parameter to
+    # the constant and then overrode it when it still equalled that constant, which made an explicit
+    # `per_sim_ram_gb=2.0` from a caller indistinguishable from the default — so a test pinning the arithmetic
+    # became silently host-dependent. An explicit value must always win, including when it happens to match.
+    if per_sim_ram_gb is None:
+        per_sim_ram_gb = ram_cal["value"] if ram_cal.get("basis") == "measured" else _PER_SIM_RAM_GB
+    min_per_gen = _PER_RUN_MIN_PER_GEN
+    wall_cal = cal.get("min_per_generation") or {}
+    if wall_cal.get("basis") == "measured":
+        min_per_gen = wall_cal["value"]
     avg_run_gb = (res.get("corpus") or {}).get("avg_gb_per_run") or _FALLBACK_RUN_GB
     gen_scale = (generations / 4.0) if generations else 1.0
     disk_needed = round(n_runs * avg_run_gb * max(0.25, gen_scale), 1)
@@ -194,7 +216,7 @@ def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int 
         rec_chunk = max(1, int(max(0.0, free_disk - _DISK_HEADROOM_GB) // (avg_run_gb * max(0.25, gen_scale))))
 
     # wall-clock budget: 'too big to sit through' -> 'chunk and queue overnight' (a WARN, not a block).
-    est_hours = round((-(-n_runs // max(1, rec_parallel))) * _PER_RUN_MIN_PER_GEN * max(1, generations) / 60.0, 1)
+    est_hours = round((-(-n_runs // max(1, rec_parallel))) * min_per_gen * max(1, generations) / 60.0, 1)
     if est_hours > _WALL_WARN_HOURS:
         warnings.append(f"~{est_hours} h wall-clock at parallel={rec_parallel} — chunk it and resume across sessions "
                         f"(don't sit on a multi-hour run; check between chunks).")
@@ -207,11 +229,14 @@ def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int 
         "free_ram_gb": free_ram, "free_disk_gb": free_disk, "docker_running": res.get("docker_running"),
         "docker_vm_mem_gb": res.get("docker_vm_mem_gb"),
         "recommended_parallel": rec_parallel, "recommended_chunk_runs": rec_chunk,
+        # Say WHICH numbers were measured and which are still constants, with their n. A learned value that
+        # arrives unannounced is worse than a stale constant: it looks authoritative and nobody re-checks it.
+        "calibration": {k: v for k, v in cal.items() if isinstance(v, dict)},
         "recommended": (f"run in {(-(-n_runs // rec_chunk))} chunk(s) of <= {rec_chunk} runs at parallel={rec_parallel}"
                         if (rec_chunk < n_runs or rec_parallel < parallel) else
                         f"fits as one batch at parallel={rec_parallel}"),
         "note": ("RAM is sized against the CONTAINER-visible ceiling (host free capped by the Docker VM), disk against "
                  "the tightest volume, plus a wall-clock estimate. TELL THE USER any warning with the one-line remedy "
                  "(reduce parallel / free disk / raise the VM memory) before queuing — chunked+slow beats OOM/full-disk. "
-                 "Re-check between chunks: free disk shrinks ~1 GB/run as the corpus grows."),
+                 "Re-check between chunks: free disk shrinks ~1 GB/run as the corpus grows. `calibration` shows which figures are MEASURED from this host's own runs (with n) and which are still constants — see cellarium.calibration."),
     }

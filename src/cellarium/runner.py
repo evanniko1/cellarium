@@ -10,10 +10,12 @@ image). See docs/GENERATE.md.
 
 from __future__ import annotations
 
+import glob
 import hashlib
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 from . import envelope, redact
@@ -196,8 +198,19 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     run_root = _run_subpath(design, seed, sim_path)
     run_root.mkdir(parents=True, exist_ok=True)  # write provenance BEFORE the sim so a CRASH still leaves labels (G3)
     _write_provenance(run_root, design)
+    _t0 = time.time()
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
+    # Record what this run ACTUALLY cost, so `estimate_sim_resources` stops guessing. Wall-clock per generation
+    # and GB per generation were both hard constants; a campaign that never reports its own cost can never
+    # correct them. Never allowed to break a completed run — the sim finishing is the valuable part.
+    try:
+        from . import calibration
+        _reached = len(glob.glob(os.path.join(str(run_root), "**", "simOut"), recursive=True)) or generations
+        calibration.observe_run(str(run_root), generations=_reached, elapsed_sec=time.time() - _t0,
+                                arrested=bool(_reached < generations))
+    except Exception:
+        pass
     if design.perturbation == "multi_gene_knockout":
         # the index-0 variant writes to multi_gene_knockout_000000/<seed>; move its generations into the hashed
         # run_root so distinct gene sets don't overwrite each other. Run multi-gene batches with --parallel 1.

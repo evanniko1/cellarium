@@ -394,8 +394,8 @@ def _label(design: Design, seed: int) -> str:
     return f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
 
 
-def _run_job(design: Design, seed: int, generations: int) -> dict:
-    run_root = runner.run_one(design, seed, generations)
+def _run_job(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> dict:
+    run_root = runner.run_one(design, seed, generations, sim_path=sim_path)
     return _flat_row(build_record(run_root, design, seed), seed, run_root, requested_generations=generations)
 
 
@@ -440,12 +440,19 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> d
             "simout_path": _portable_runpath(run_root)}
 
 
-def campaign(designs: list[Design], seeds: list[int], generations: int = 1, parallel: int = 1) -> Path:
+def campaign(designs: list[Design], seeds: list[int], generations: int = 1, parallel: int = 1,
+             sim_path: str = "cellarium") -> Path:
     """Run an in-envelope design x seed matrix on the public model and append a manifest shard.
 
     Crash-isolated: a failed sim is logged and skipped (never kills the batch), and the shard is written for
     whatever completed — so a long unattended run always leaves a usable corpus. `parallel>1` runs that many
     sims concurrently (each writes a distinct dir since Fix #1, and loads ~1GB sim_data — size to host RAM).
+
+    `sim_path` selects WHICH FITTED KB the campaign runs against. It was hard-coded to "cellarium" here even
+    though `runner.run_one` already accepted it, so any campaign needing a different KB — the SCI-TRNA-4
+    auxotroph arms need the rebuilt one that knows the dropout media — would have silently run against the
+    corpus KB: either dying on an unknown medium, or producing rows whose `kb_sha256` does not match the
+    experiment they claim to be. Threaded through to every job, serial and parallel.
     """
     jobs = [(d, s) for d in designs for s in seeds]
     n = len(jobs)
@@ -455,7 +462,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
         for i, (d, s) in enumerate(jobs, 1):
             print(f"[{i}/{n}] {_label(d, s)} ...", flush=True)
             try:
-                rows.append(_run_job(d, s, generations))
+                rows.append(_run_job(d, s, generations, sim_path))
                 print(f"[{i}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
             except Exception as exc:  # one bad sim must not lose the whole batch — but record it as a crash (§M)
                 print(f"[{i}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
@@ -467,7 +474,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
         from concurrent.futures import ThreadPoolExecutor, as_completed
         print(f"Running {n} sims, {parallel} at a time (each loads ~1GB sim_data — mind host RAM).", flush=True)
         with ThreadPoolExecutor(max_workers=parallel) as ex:
-            fut = {ex.submit(_run_job, d, s, generations): (d, s) for d, s in jobs}
+            fut = {ex.submit(_run_job, d, s, generations, sim_path): (d, s) for d, s in jobs}
             for k, f in enumerate(as_completed(fut), 1):
                 d, s = fut[f]
                 try:
