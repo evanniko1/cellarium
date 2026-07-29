@@ -50,7 +50,7 @@ WELL-KBDRIFT-1, not caused by this.
 
 ---
 
-## EXT-2 — Per-isoacceptor tRNA charging, for Elf et al. 2003 (DECLINED, for now)
+## EXT-2 — Per-isoacceptor tRNA charging, for Elf et al. 2003 (DO NOT BUILD — acquire v3.0.1 instead)
 
 **The question.** Can wcEcoli reproduce Elf, Nilsson, Tenson & Ehrenberg (2003, *Science* 300:1718), where
 under starvation one isoacceptor of an amino acid de-charges while another of the SAME amino acid stays
@@ -75,34 +75,50 @@ So our measured within-family spread of exactly `0.00e+00` across leu(8)/arg(7)/
 minimal runs alike, is that identity. It is not evidence about biology, and it should be stated as "the model
 cannot express this" rather than "we did not observe it".
 
-**Feasible but declined.** The pieces exist: anticodons already sit unused in `rnas.tsv`, per-gene abundances
-in `flat/trna_data/`, codons derivable from `sequence.fasta`. Missing: a ribosome-weighted codon-demand vector
-and a hand-curated, modification-aware codon×anticodon reading matrix (cmo⁵U34, lysidine, inosine). Code ~4–8
-person-weeks; total realistically 3–6 months and 400–600 CPU-hours. New `sim_data` fields change `kb_sha256`,
-putting all ~297 existing corpus rows across a knowledge-base boundary.
+**VERDICT REVISED — the machinery already exists, and we do not have it.** The Zenodo deposit
+`10.5281/zenodo.7859480` is a snapshot of `CovertLab/WholeCellEcoliRelease` **v3.0.1** (Choi & Covert 2023,
+CC-BY-NC-4.0). Checked directly, and it changes the answer:
 
-**Reasons to decline NOW, in order of weight:**
+* **The release resolves isoacceptors.** It carries a `KineticTrnaChargingModel` whose charging state is
+  dimensioned `n_trnas`, not 20, plus `trnas_to_codons` / `codons_to_trnas` — the codon×anticodon reading
+  matrix, including the inosine- and lysidine-modified exceptions at specific Arg and Ile codons. The paper
+  states it represents "85 tRNAs (in their aminoacylated and unaminoacylated forms)" and models "61 sense
+  codons" with Watson-Crick and wobble pairing.
+* **Our checkout does not have it.** `MohammedNagdi/wcEcoli` exposes only `BaseElongationModel`,
+  `TranslationSupplyElongationModel` and `SteadyStateElongationModel`; we run the last. `KineticTrnaCharging`,
+  `trnas_to_codons` and `codons_to_trnas` return **zero matches** across `models/`, `reconstruction/` and
+  `wholecell/`. So this is a fork-lineage gap, not a missing capability in the model family.
+* **Nobody has run the test.** Choi & Covert cite Elf's selective-aminoacylation theory but make **no attempt
+  to reproduce Elf 2003 or Dittmar 2005**. So "does the published per-isoacceptor whole-cell model reproduce
+  selective charging?" is an open question in a model that already has every mechanism required.
 
-1. **Prior art.** Choi & Covert 2023 (PMC10325894) already built per-isoacceptor charging, codon elongation and
-   wobble in this model family. Check the Zenodo deposit `10.5281/zenodo.7859480` first — if usable, the cost
-   model changes completely and this decision should be revisited.
-2. **The cheap version may be sufficient.** A mean-field steady-state solver using files already in this repo
-   reportedly recovers the Dittmar ordering (Thr ρ=1.00, Arg ρ=1.00, Leu ρ=0.90 under mean-pooling) in an
-   afternoon. If a months-long whole-cell extension matches Dittmar no better than an afternoon's arithmetic,
-   it has bought cost and nothing else — and that cannot be known without building the cheap one first.
-3. **A blocking data problem upstream** — see EXT-3. The prediction is a function of the abundance file, and
-   that file is currently not trustworthy.
-4. **The obvious acceptance gate is backwards.** "Within-family spread ≥ 5×" passes trivially: this class of
-   self-consistent fixed point drives non-exclusive isoacceptors to EXACTLY zero (spreads ~10¹²×), whereas
-   Dittmar observes a **bounded 5–10× with every value nonzero**. Elf's own theory over-predicts the retained
-   isoacceptors by 2–3× (Leu-4 predicted 0.8, observed 0.24). The hard target is the BOUND, not the magnitude.
+That converts a 3-6 month build into an acquisition plus an experiment, and it is the strongest available
+version of this line of work: a genuinely novel result at a fraction of the cost. The remaining risk is
+integration, not capability — v3.0.1 is the RELEASE lineage while our fork descends from the dev repo, so the
+realistic route is to run the comparison in the release model standalone rather than to merge it into ours.
+
+**What still stands from the original decline:**
+
+* EXT-3 remains blocking either way. Charged fraction goes as demand/abundance, so the abundance file is the
+  prediction, and it is not trustworthy at gene resolution.
+* The acceptance gate is still backwards if stated as "spread >= 5x" — this class of fixed point drives
+  non-exclusive isoacceptors to EXACTLY zero (~10^12x), whereas Dittmar observes a **bounded 5-10x with every
+  value nonzero**, and Elf's own theory over-predicts the retained isoacceptors 2-3x (Leu-4 predicted 0.8,
+  observed 0.24). Target the bound.
+* Any run in v3.0.1 carries its own `kb_sha256` and is NOT comparable to our corpus. That is a separate
+  experiment, not an extension of the existing dataset.
+
+**What NOT to do:** build per-isoacceptor charging into our fork. That was the original proposal and it is now
+clearly the wrong call - it would reimplement, worse, something already published and downloadable.
 
 **Caveat on the evidence.** The 2003 paper itself was paywalled; its internal parameterisation is reconstructed
 from the abstract, the open-access companion (Elf & Ehrenberg 2005, *PLoS Comput Biol* 1:e2), and Dittmar 2005
 Table 1 read verbatim. The Dittmar numbers are solid; the 2003 internals are not independently confirmed.
 
-**Revisit if:** the Choi & Covert deposit is usable, OR the EXT-3 audit passes and the standalone solver turns
-out to disagree with Dittmar in a way only a whole-cell model could resolve.
+**Next step, in order:** (1) finish EXT-3 by obtaining Dong 1996 Table 2, since the abundance file feeds any
+prediction; (2) obtain v3.0.1 and confirm the kinetic model runs; (3) run the Dittmar Table 1 comparison in it
+with the bound-not-magnitude criterion declared in advance. Step 3 is the publishable one and nobody has done
+it.
 
 ---
 
