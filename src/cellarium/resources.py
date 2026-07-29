@@ -182,9 +182,33 @@ def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int 
     wall_cal = cal.get("min_per_generation") or {}
     if wall_cal.get("basis") == "measured":
         min_per_gen = wall_cal["value"]
+    # Disk: prefer the MEASURED per-GENERATION figure over the corpus's average per RUN. The per-run average
+    # is computed over runs of differing depth, so it under-estimates a deep campaign: it put one 8-run x
+    # 4-generation arm at 10.1 GB against a measured 25.5 GB for exactly that shape. Calibration had the right
+    # number (0.808 GB/generation, n=12 -> 25.9 GB) and it simply was not being consulted here, which is a
+    # worse failure than the stale constant: the measurement existed and went unused.
+    #
+    # ARRESTED is the conservative branch. A knockout campaign is the case that fills a disk mid-run, so when
+    # both strata are known the estimate takes the larger.
+    # Take the max over MEASURED strata only. Taking it over all strata let the unmeasured `arrested` CONSTANT
+    # (1.58) dominate the measured `dividing` figure (0.808) while the result was still labelled "measured" —
+    # a 2x over-estimate wearing an empirical label, which is the same category of error as the original
+    # under-estimate. The measured leu pair (8 runs x 4 generations, all reaching depth) came to 25.5 GB, i.e.
+    # 0.797 GB/generation, matching the measured dividing figure to within 1.5%.
+    _strata = ("gb_per_generation_dividing", "gb_per_generation_arrested")
+    _measured = [(cal.get(k) or {}).get("value") for k in _strata
+                 if (cal.get(k) or {}).get("basis") == "measured" and (cal.get(k) or {}).get("value")]
+    gen_cal = max(_measured) if _measured else None
+    gen_basis = "measured" if _measured else "constant"
+    # Name the stratum we have NO measurement for, so a knockout campaign is not silently sized off a
+    # dividing-lineage number. Arrested lineages write 2-4x more; until one is measured, say so out loud.
+    _unmeasured = [k.rsplit("_", 1)[-1] for k in _strata if (cal.get(k) or {}).get("basis") != "measured"]
     avg_run_gb = (res.get("corpus") or {}).get("avg_gb_per_run") or _FALLBACK_RUN_GB
     gen_scale = (generations / 4.0) if generations else 1.0
-    disk_needed = round(n_runs * avg_run_gb * max(0.25, gen_scale), 1)
+    if gen_cal and gen_basis == "measured":
+        disk_needed = round(n_runs * gen_cal * max(1, generations), 1)   # per-GENERATION, the causal quantity
+    else:
+        disk_needed = round(n_runs * avg_run_gb * max(0.25, gen_scale), 1)
     ram_needed = round(parallel * per_sim_ram_gb, 1)
     # size RAM against the CONTAINER-visible free RAM (VM-capped), not host free — the Docker-VM-ceiling fix.
     free_ram = res.get("effective_ram_free_gb", res.get("ram_free_gb"))
@@ -212,8 +236,9 @@ def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int 
         by_ram = int(max(0.0, free_ram - _RAM_HEADROOM_GB) // per_sim_ram_gb)
         rec_parallel = max(1, min(parallel, by_ram or 1, max(1, cpu - 1)))
     rec_chunk = n_runs
-    if free_disk is not None and not disk_ok and avg_run_gb > 0:
-        rec_chunk = max(1, int(max(0.0, free_disk - _DISK_HEADROOM_GB) // (avg_run_gb * max(0.25, gen_scale))))
+    per_run_disk = (gen_cal * max(1, generations)) if (gen_cal and gen_basis == "measured")         else (avg_run_gb * max(0.25, gen_scale))
+    if free_disk is not None and not disk_ok and per_run_disk > 0:
+        rec_chunk = max(1, int(max(0.0, free_disk - _DISK_HEADROOM_GB) // per_run_disk))
 
     # wall-clock budget: 'too big to sit through' -> 'chunk and queue overnight' (a WARN, not a block).
     est_hours = round((-(-n_runs // max(1, rec_parallel))) * min_per_gen * max(1, generations) / 60.0, 1)
@@ -232,6 +257,12 @@ def estimate_sim_resources(n_runs: int = 1, parallel: int = 1, generations: int 
         # Say WHICH numbers were measured and which are still constants, with their n. A learned value that
         # arrives unannounced is worse than a stale constant: it looks authoritative and nobody re-checks it.
         "calibration": {k: v for k, v in cal.items() if isinstance(v, dict)},
+        "disk_basis": gen_basis,   # which figure the disk estimate used
+        **({"disk_caveat": (
+            f"no MEASURED gb/generation for the {'/'.join(_unmeasured)} stratum yet, so this is sized off the "
+            f"measured dividing-lineage figure. An arrested lineage runs its full time budget and writes 2-4x "
+            f"more, so a campaign expected to arrest may need proportionally more than stated.")}
+           if (_unmeasured and gen_basis == "measured") else {}),
         "recommended": (f"run in {(-(-n_runs // rec_chunk))} chunk(s) of <= {rec_chunk} runs at parallel={rec_parallel}"
                         if (rec_chunk < n_runs or rec_parallel < parallel) else
                         f"fits as one batch at parallel={rec_parallel}"),
