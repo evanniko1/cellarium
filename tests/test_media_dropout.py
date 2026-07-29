@@ -128,3 +128,44 @@ def test_the_media_names_fit_the_fixed_width_column():
     # and the guard that would catch a regression is real
     from cellarium import serialization
     assert hasattr(serialization, "scan_run")
+
+
+# ---------------- SCI-TRNA-4: the auxotroph arms ----------------
+AUXOTROPHS = [("leuB", 1818, "leu"), ("thrC", 2715, "thr"), ("argG", 2042, "arg")]
+
+
+def _aux_design(sym, idx, aa):
+    from cellarium.model import Design
+    return Design(perturbation="gene_knockout", condition=f"KO:{sym}", params={"variant_index": idx},
+                  timeline=f"0 minimal_plus_amino_acids, 1200 minimal_aa_minus_{aa}")
+
+
+@pytest.mark.parametrize("sym,idx,aa", AUXOTROPHS)
+def test_a_knockout_with_a_timeline_still_runs_the_knockout(sym, idx, aa):
+    """THE guard. `_variant_type` used to return "wildtype" whenever a timeline was present, which silently
+    discarded the genotype: KO:leuB + a leucine dropout emitted `--variant wildtype 1818 1818`, and the
+    wildtype variant ignores its index entirely. The media shift would still have worked and the provenance
+    would still have said KO:leuB, so the arm would have been a plain wild type wearing a knockout's label —
+    the WELL-NOOP-1 pattern, undetectable from the output."""
+    from cellarium import runner
+    args = runner._variant_args(_aux_design(sym, idx, aa))
+    assert args[:2] == ["--variant", "gene_knockout"], f"the knockout was dropped: {args}"
+    assert args[2] == str(idx) and args[3] == str(idx)
+    assert "--timeline" in args, "the media dropout was dropped"
+    assert f"minimal_aa_minus_{aa}" in args[args.index("--timeline") + 1]
+
+
+def test_a_pure_media_shift_still_runs_on_the_wildtype_variant():
+    """The companion: the fix must not break the designs the old rule existed for."""
+    from cellarium import runner
+    from cellarium.model import Design
+    args = runner._variant_args(Design(perturbation="timeline",
+                                       timeline="0 minimal_plus_amino_acids, 1200 minimal"))
+    assert args[:2] == ["--variant", "wildtype"] and "--timeline" in args
+
+
+@pytest.mark.parametrize("sym,idx,aa", AUXOTROPHS)
+def test_the_auxotroph_arms_are_in_envelope(sym, idx, aa):
+    from cellarium import envelope
+    v = envelope.check(_aux_design(sym, idx, aa))
+    assert v.in_envelope, v.reason

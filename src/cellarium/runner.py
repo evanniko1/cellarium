@@ -26,8 +26,21 @@ OUT_ROOT = Path(os.environ.get("CELLARIUM_OUT", "runs")).resolve()
 
 
 def _variant_type(design: Design) -> str:
-    # timeline designs execute on the wildtype variant with a --timeline env override
-    return "wildtype" if design.timeline else design.perturbation
+    """The model variant to run. A PURE media-shift design has no genotype of its own, so it executes on the
+    wildtype variant with a `--timeline` override.
+
+    But a design can carry BOTH a genotype and a timeline — the SCI-TRNA-4 auxotroph arms are a biosynthesis
+    knockout starved of the amino acid it can no longer make. This used to return "wildtype" whenever
+    `design.timeline` was set, which SILENTLY DISCARDED the knockout: `KO:leuB` + a leucine dropout emitted
+    `--variant wildtype 1818 1818`, and the wildtype variant ignores its index entirely. The media shift would
+    have worked, the provenance would have said `KO:leuB`, and the run would have been a plain wild type
+    wearing a knockout's label — indistinguishable from a real result and exactly the WELL-NOOP-1 pattern
+    (murA/rpoB) already open in the backlog.
+
+    `--timeline` is a SIM option (wholecell/utils/scriptBase.py:489), orthogonal to `--variant`, so a genotype
+    variant and a media timeline compose without either being dropped."""
+    pure_shift = design.perturbation in ("wildtype", "timeline")
+    return "wildtype" if (design.timeline and pure_shift) else design.perturbation
 
 
 def _variant_index(design: Design) -> int:

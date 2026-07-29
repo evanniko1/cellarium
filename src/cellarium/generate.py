@@ -182,6 +182,45 @@ def aa_dropout_designs(amino_acids: tuple[str, ...] = ("leu", "thr", "arg")) -> 
               for aa in amino_acids]]
 
 
+def auxotroph_starvation_designs() -> list[Design]:
+    """SCI-TRNA-4 — the corrected selective-charging experiment: a biosynthesis KO starved of its amino acid.
+
+    SCI-TRNA-3 (media dropout alone) RAN and was informative, but not as a starvation: K-12 MG1655 is
+    PROTOTROPHIC, so removing leucine from the medium only switched leucine from import to de novo synthesis.
+    Measured on the smoke run — `aa_import` 40,870 -> 0 while `aa_supply` went to 157% of pre-shift, charging
+    moved -0.8%, and `effectiveElongationRate` held at 100.1%. The cell was never short of leucine. (That run
+    is still a real result: the model reproduces prototrophic rerouting correctly, and it is kept.)
+
+    Blocking the pathway makes the dropout bite. Each arm is a biosynthesis knockout PLUS the matching dropout:
+      leuB (1818) — silences the whole `leuLABCD` operon (TU0-42478, 5 genes). Operon-wide silencing is what we
+                    want here: the goal is a blocked pathway, not a single-gene lesion.
+      thrC (2715) — silences `thrLABC` (TU00178).
+      argG (2042) — a CLEAN single-gene KO (`scope.ko_footprint` returns None).
+    `argH` is deliberately excluded: it sits on 2 transcription units with `target_silenced=False`, so the
+    knockout may not silence it — an ambiguous genotype is worse than a missing arm.
+
+    Why this can succeed where the SYNTHETASE knockouts failed: an auxotroph still has a functional aaRS. It
+    simply has no substrate, so charging can collapse WITHOUT translation being disabled a priori — which is
+    the only configuration in which the pre-registered criterion discriminates.
+
+    Pre-registered: the cognate tRNA family de-charges while `effectiveElongationRate` stays >50% of the
+    un-starved control. Controls are the un-starved KO (same genotype, medium intact) and the un-starved
+    wild type, so a charging collapse can be attributed to STARVATION rather than to the knockout itself.
+    """
+    arms = [("leuB", 1818, "leu"), ("thrC", 2715, "thr"), ("argG", 2042, "arg")]
+    designs = [Design(perturbation="wildtype", condition="basal")]                       # corpus-wide null
+    designs.append(Design(perturbation="condition", condition="with_aa",                 # un-starved WT
+                          params={"variant_index": 4}))
+    for sym, idx, aa in arms:
+        # the un-starved KO control: same genotype, medium left intact — isolates the knockout's own cost
+        designs.append(Design(perturbation="gene_knockout", condition=f"KO:{sym}",
+                              params={"variant_index": idx}))
+        designs.append(Design(perturbation="gene_knockout", condition=f"KO:{sym}",
+                              params={"variant_index": idx},
+                              timeline=f"0 minimal_plus_amino_acids, 1200 minimal_aa_minus_{aa}"))
+    return designs
+
+
 def multi_gene_ko_designs(gene_sets: list[list[str]]) -> list[Design]:
     """Multi-gene KO designs (the `multi_gene_knockout` variant) — knock out a SET of genes at once. Motivation
     (not the ML surrogate): metabolism REROUTES around single KOs because it has alternative flux paths, so a
@@ -271,6 +310,10 @@ def main() -> None:
     ap.add_argument("--power", action="store_true",
                     help="high-replicate set (basal, with_aa, acetate, no_oxygen, minus_magnesium) to test H1/H2 "
                          "and power the growth law; run with --seeds 8")
+    ap.add_argument("--auxotroph", action="store_true", dest="auxotroph",
+                    help="SCI-TRNA-4: biosynthesis KO + matching amino-acid dropout (the corrected "
+                         "selective-charging experiment). Needs the dropout media + a ParCa rebuild; "
+                         "pair with --generations 4")
     ap.add_argument("--aa-dropout", action="store_true", dest="aa_dropout",
                     help="SCI-TRNA-3: starve a growing cell of ONE amino acid (leu/thr/arg) - the selective "
                          "charging experiment. NEEDS the dropout media + a ParCa rebuild "
@@ -303,6 +346,8 @@ def main() -> None:
         designs = multi_gene_ko_designs([s.split("+") for s in spec.split(";") if s])
     elif args.aa_dropout:
         designs = aa_dropout_designs()
+    elif args.auxotroph:
+        designs = auxotroph_starvation_designs()
     elif args.machinery_calibration:
         designs = machinery_calibration_designs()
     elif args.objective_weight:
