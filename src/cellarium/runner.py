@@ -15,6 +15,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -69,6 +70,55 @@ def _variant_args(design: Design) -> list[str]:
     if design.timeline:
         args += ["--timeline", design.timeline]
     return args
+
+
+# Designs that share a variant index share the model's OUTPUT directory, and the model writes there before we
+# can move anything. Renaming after the run is therefore not enough on its own: two such designs running
+# concurrently race on the transit dir. That is not hypothetical — it destroyed generation 0 of all four
+# starved leu seeds (0-byte `Main/time`), the generation holding the shift, while generations 1-3 survived.
+# A per-directory lock serialises them; `_evacuate` clears foreign data out of the transit dir first.
+_MODEL_DIR_LOCKS: dict[str, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def _model_dir_lock(model_dir: Path) -> threading.Lock:
+    key = str(model_dir).lower()
+    with _LOCKS_GUARD:
+        return _MODEL_DIR_LOCKS.setdefault(key, threading.Lock())
+
+
+def _evacuate(model_dir: Path, run_root: Path, sim_path: str) -> dict | None:
+    """If the transit dir already holds ANOTHER design's output, move it to its own canonical dir first.
+
+    Reads the stranded run's `design.json` to work out where it belongs, so historical data written before
+    this scheme existed is rescued rather than overwritten. Refuses to guess: output with no provenance is
+    left in place and reported, because silently deleting someone's simOut is worse than a failed run."""
+    if model_dir == run_root or not model_dir.exists():
+        return None
+    prov = model_dir / "design.json"
+    if not prov.is_file():
+        return {"evacuated": False, "why": f"{model_dir} holds output with no design.json — refusing to move "
+                                           f"or overwrite data whose identity cannot be established"}
+    try:
+        other = Design.model_validate_json(prov.read_text(encoding="utf-8"))
+    except Exception as e:
+        return {"evacuated": False, "why": f"unreadable provenance in {model_dir}: {type(e).__name__}: {e}"}
+    seed = int(model_dir.name)
+    dest = _run_subpath(other, seed, sim_path)
+    if dest == model_dir:
+        return None
+    dest.mkdir(parents=True, exist_ok=True)
+    moved = []
+    for child in list(model_dir.iterdir()):
+        target = dest / child.name
+        if not target.exists():
+            shutil.move(str(child), str(target))
+            moved.append(child.name)
+    try:
+        model_dir.rmdir()
+    except OSError:
+        pass
+    return {"evacuated": True, "from": str(model_dir), "to": str(dest), "moved": moved}
 
 
 def _write_provenance(run_root: Path, design: Design) -> None:
@@ -220,27 +270,30 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     _write_provenance(run_root, design)
     model_dir = _model_output_dir(design, seed, sim_path)
     _t0 = time.time()
-    _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
-           "--generations", str(generations), *_variant_args(design)])
+    # Hold the transit dir for the whole run+move. The model always writes to <variant>_<idx>/<seed>, so two
+    # designs sharing a variant index race there no matter what we rename afterwards. That race destroyed
+    # generation 0 of all four starved leu seeds — 0-byte `Main/time`, the generation containing the shift —
+    # while generations 1-3 survived, which is the worst shape: a run that still looks complete on disk.
+    with _model_dir_lock(model_dir):
+        evac = _evacuate(model_dir, run_root, sim_path)      # rescue any other design's data sitting there
+        if evac and not evac.get("evacuated"):
+            raise RuntimeError(
+                f"Refusing to run: {evac['why']}. Running would overwrite it. Move or delete it deliberately.")
+        _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
+               "--generations", str(generations), *_variant_args(design)])
+        # Move the model's output into the CANONICAL dir, mirroring what multi_gene_knockout already does.
+        if model_dir != run_root and model_dir.exists():
+            for child in list(model_dir.iterdir()):
+                dest = run_root / child.name
+                if not dest.exists():
+                    shutil.move(str(child), str(dest))
+            try:
+                model_dir.rmdir()                  # only when empty — never remove another design's output
+            except OSError:
+                pass
     # Record what this run ACTUALLY cost, so `estimate_sim_resources` stops guessing. Wall-clock per generation
     # and GB per generation were both hard constants; a campaign that never reports its own cost can never
     # correct them. Never allowed to break a completed run — the sim finishing is the valuable part.
-    # Move the model's output into the CANONICAL dir when they differ. The model derives its directory from
-    # the variant type + index, so two designs knocking out the same gene write to the same place even when a
-    # timeline makes them different experiments. Measured: the SCI-TRNA-4 leu arm ran `KO:leuB` starved and
-    # un-starved concurrently at parallel=6, both resolved to `gene_knockout_001818/<seed>`, and they
-    # destroyed each other — three of the four control seeds died with `array must not contain infs or NaNs`
-    # and the survivors' provenance was overwritten by whichever finished last. Same remedy as
-    # multi_gene_knockout, applied before anything reads the run.
-    if model_dir != run_root and model_dir.exists():
-        for child in list(model_dir.iterdir()):
-            dest = run_root / child.name
-            if not dest.exists():
-                shutil.move(str(child), str(dest))
-        try:
-            model_dir.rmdir()                      # only when empty — never remove another design's output
-        except OSError:
-            pass
     try:
         from . import calibration
         _reached = len(glob.glob(os.path.join(str(run_root), "**", "simOut"), recursive=True)) or generations

@@ -62,7 +62,13 @@ def _portable_runpath(run_root) -> str:
 _NORM_PATH = (r"COALESCE(NULLIF(regexp_extract(replace(simout_path, '\', '/'), "
               r"'(^|/)(runs(_[^/]*)?(/.*)?)$', 2), ''), simout_path)")
 DEDUP_KEY = f"(COALESCE(id, '') || '@@' || COALESCE({_NORM_PATH}, ''))"
-DEDUP_QUALIFY = f"QUALIFY row_number() OVER (PARTITION BY {DEDUP_KEY} ORDER BY ts DESC) = 1"
+# `NULLS LAST` is explicit rather than load-bearing: DuckDB already orders NULLs last under `DESC`
+# (verified directly — a NULL-ts row loses to a timestamped correction either way). Stated because an
+# earlier version of this comment claimed the opposite and blamed NULL ordering for a supersession that
+# had actually failed for a different reason: the correction had rewritten `simout_path`, which is HALF
+# THE DEDUP KEY, so it minted a new row instead of superseding the old one. Appending a correction only
+# works when the (id, normalised path) pair is preserved exactly.
+DEDUP_QUALIFY = f"QUALIFY row_number() OVER (PARTITION BY {DEDUP_KEY} ORDER BY ts DESC NULLS LAST) = 1"
 
 MANIFEST_DIR = Path("data/manifest")
 DROPPED_PATH = MANIFEST_DIR / "dropped.json"
@@ -202,16 +208,23 @@ def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
 _KB_PROV_CACHE: dict | None = None
 
 
-def _kb_prov() -> dict:
-    """kb hash + operon mode, resolved once per process (hashing a 69 MB pickle per row would be absurd)."""
+def _kb_prov(sim_path: str = "cellarium") -> dict:
+    """kb hash + operon mode, cached PER sim_path (hashing a 69 MB pickle per row would be absurd).
+
+    Keyed by sim_path, not a single global: different campaigns run against different knowledge bases and they
+    are genuinely different — `runs/cellarium/kb` hashes to 3b2f8ebd… and `runs/aadrop/kb`, which adds the
+    amino-acid dropout media, to 0d861f80…. A single cached value silently attributed every campaign to
+    whichever kb was hashed first."""
     global _KB_PROV_CACHE
-    if _KB_PROV_CACHE is None:
+    if not isinstance(_KB_PROV_CACHE, dict) or "kb_sha256" in (_KB_PROV_CACHE or {}):
+        _KB_PROV_CACHE = {}                      # migrate the old single-value cache shape
+    if sim_path not in _KB_PROV_CACHE:
         try:
             from . import provenance
-            _KB_PROV_CACHE = provenance.kb_provenance()
+            _KB_PROV_CACHE[sim_path] = provenance.kb_provenance(sim_path)
         except Exception:
-            _KB_PROV_CACHE = {}
-    return _KB_PROV_CACHE
+            _KB_PROV_CACHE[sim_path] = {}
+    return _KB_PROV_CACHE[sim_path]
 
 
 def _machine_of(run_root) -> str:
@@ -411,11 +424,18 @@ def _classify_crash(exc: Exception) -> str:
     return "model"
 
 
-def _crash_row(design: Design, seed: int, generations: int, exc: Exception) -> dict:
+def _crash_row(design: Design, seed: int, generations: int, exc: Exception,
+               sim_path: str = "cellarium") -> dict:
     """A row for a sim that CRASHED (run_one raised) — captures the partial on-disk lineage so the crash is a
     first-class INVIABLE point (§M), not a silently-dropped job. crashed=True overrides any 'looks viable' partial.
-    crash_type distinguishes a real lethal KO (model) from a disk/host failure (infrastructure)."""
-    run_root = runner._run_subpath(design, seed, "cellarium")
+    crash_type distinguishes a real lethal KO (model) from a disk/host failure (infrastructure).
+
+    `sim_path` was hard-coded to "cellarium" here, so a crash in ANY other campaign recorded a run path that
+    does not exist and names the wrong knowledge base. Measured: the SCI-TRNA-4 leu arm ran under `aadrop` and
+    its 7 crash rows claimed `runs/cellarium/gene_knockout_001818/...`. That is not cosmetic — the kb
+    provenance backfill infers a row's knowledge base from its campaign, so those rows would have been
+    attributed to the corpus KB they never ran against."""
+    run_root = runner._run_subpath(design, seed, sim_path)
     ctype = _classify_crash(exc)
     try:
         rec = build_record(run_root, design, seed) if run_root.exists() else None
@@ -467,7 +487,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
             except Exception as exc:  # one bad sim must not lose the whole batch — but record it as a crash (§M)
                 print(f"[{i}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
                 try:
-                    rows.append(_crash_row(d, s, generations, exc))
+                    rows.append(_crash_row(d, s, generations, exc, sim_path))
                 except Exception:
                     pass
     else:
@@ -483,7 +503,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
                 except Exception as exc:
                     print(f"[{k}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
                     try:
-                        rows.append(_crash_row(d, s, generations, exc))
+                        rows.append(_crash_row(d, s, generations, exc, sim_path))
                     except Exception:
                         pass
 
@@ -524,9 +544,9 @@ def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) ->
 
     import duckdb
 
-    kb = _kb_prov()
+    kb = _kb_prov(sim_path)
     if not kb.get("kb_sha256"):
-        return {"error": "no kb found — cannot backfill"}
+        return {"error": f"no kb found under runs/{sim_path}/kb — cannot backfill"}
     files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
     con = duckdb.connect()
     try:
@@ -535,6 +555,14 @@ def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) ->
         ).fetch_arrow_table().to_pylist()
     finally:
         con.close()
+    # Stamp only rows from THIS campaign. `sim_path` was accepted and documented but never used: the kb was
+    # always the default one and every unstamped row in the whole manifest was stamped with it, regardless of
+    # which campaign produced it. That is the precise inverse of this function's own justification, and it
+    # would have attributed the 7 `aadrop` crash rows to the corpus kb they never ran against.
+    def _belongs(row) -> bool:
+        p = str(row.get("simout_path") or "").replace("\\", "/")
+        return f"runs/{sim_path}/" in p
+    rows = [r for r in rows if _belongs(r)]
     n_before = sum(1 for r in rows if r.get("kb_sha256"))
     for r in rows:
         if r.get("kb_sha256"):
