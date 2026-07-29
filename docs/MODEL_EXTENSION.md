@@ -173,36 +173,31 @@ declared first.
 
 Independently of Elf: this file sets tRNA cistron expression in **every existing corpus run**.
 
-### External half COMPLETE — the mapping is misaligned, not merely undocumented
+### External half COMPLETE — CORRECTED after re-checking against the paper's own tables
 
-Dong 1996 obtained (J Mol Biol 260:649-663; 44 of 46 species resolved by 2D gel). **Table 3, "molar ratio of
-tRNA/ribosome at different growth rates", has columns 0.4 / 0.7 / 1.07 / 1.6 / 2.5 — exactly the five column
-headers in `trna_data.tsv` (`ratio to 16SrRNA at 0.4 hr^-1` ...).** 16S rRNA is 1:1 with ribosomes, so the file
-is unambiguously derived from that table.
+An earlier version of this section said the species-to-gene mapping was "scrambled" and the per-gene values
+"not measurement-backed". **That was over-claimed, and the correction matters.** Re-checked against Dong Table 2
+(anticodon + codon recognition + molecules per cell) and Table 3 (molar ratio tRNA/ribosome), both read directly
+from the paper:
 
-The disaggregation rule turns out to be recoverable: for **19 of the 34 distinct values**, `value x n_genes`
-equals a Dong species value to three decimals. So each species value was divided by a gene count. But the
-quotients were assigned to the WRONG GENES:
-
-| file value x n | = Dong species | genes it was actually assigned to |
+| test | result | reading |
 |---|---|---|
-| `0.2225 x 4 = 0.89` | **Leu1** | glt, ile, met, pro |
-| `0.154 x 5 = 0.77` | **Val1** | ala, ile, leu, phe, thr |
-| `0.0633 x 6 = 0.38` | Leu4 / Lys | ala, arg, asp, met, trp, val |
-| `0.095 x 4 = 0.38` | Leu4 / Lys | ala, asn, asp, ile |
+| **total mass** | wcEcoli 86 genes sum to **12.850**; Dong Table 3 species sum to **12.850** | **EXACT.** The file is a mass-conserving disaggregation — nothing invented, nothing lost |
+| disaggregation rule | 29 of 34 distinct values x their gene count land on a Dong species value; permutation null mean 12.3, **p < 0.0001** | the rule IS "divide each species value by its gene count" — confirmed far beyond chance |
+| per-anticodon agreement | median ratio 1.104, range **0.184 to 4.750**, Spearman **rho = 0.546 (p = 0.0003)** | **partially** aligned, not scrambled and not correct |
 
-Leucine-1's abundance is spread across glutamate, isoleucine, methionine and proline genes; valine-1's across
-alanine, isoleucine, leucine, phenylalanine and threonine. **The species-to-gene mapping is scrambled** — the
-signature of a sort-order mismatch between Dong's species list and the gene list, not of a deliberate rule.
+**The honest conclusion.** The file faithfully reproduces Dong Table 3 *in total* and its rule is exactly
+recoverable, so it is not arbitrary data — my earlier wording was wrong. But the assignment of species mass to
+individual genes is only partially aligned with anticodon identity: the ordering correlates (rho = 0.55) while
+individual anticodon species land anywhere from 0.18x to 4.75x their Dong value. So **per-gene values remain
+unusable, and per-anticodon-species values carry up to ~5x error** — which is what matters for any prediction
+going as demand/abundance.
 
-**Caveat, stated plainly:** Dong's values are not unique (0.38 is both Leu4 and Lys; 0.13 is Val2A, Val2B and
-Leu3), so individual matches could be coincidence. 19 of 34 agreeing to three decimals across varied gene
-counts is far beyond chance, but the decisive evidence is not the arithmetic — it is that even where the
-arithmetic matches, the amino acid does not.
-
-**Verdict: the pre-registered criterion FAILS.** The declared SUM pooling does not reproduce Dong per species,
-and cannot, because the values are attached to the wrong genes. Per-gene tRNA expression in the model — and
-therefore in all ~297 existing corpus runs — does not reflect its cited source.
+**Caveat on my own mapping.** The disagreement is not all attributable to the file. Dong's own species share
+anticodons — Met f1 / Met f2 / Met m and Ile2 are all CAU; Thr1 and Thr3 are both GGU; Tyr1 and Tyr2 are both
+GUA — and Table 3 pools Gly1+2 and Ile1+2. Any anticodon-level comparison therefore inherits genuine ambiguity,
+which inflates the spread above. The exact-total and rule-recovery results do NOT depend on my mapping; the
+rho = 0.55 does.
 
 ### Why a 1996 paper at all
 
