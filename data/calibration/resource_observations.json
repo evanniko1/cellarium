@@ -877,5 +877,19 @@
   "ts": 1785349089.9405317,
   "host": "vmsi|Windows",
   "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.797048578659693,
+  "ts": 1785363360.204777,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.97510717075,
+  "ts": 1785363360.3856785,
+  "host": "vmsi|Windows",
+  "arrested": false
  }
 ]

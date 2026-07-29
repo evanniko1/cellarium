@@ -221,6 +221,72 @@ per-gene tRNA abundance from this file; and state the pooling rule wherever a sp
 
 ---
 
+## EXT-PORT — porting KineticTrnaChargingModel (IN PROGRESS)
+
+Permission obtained from Prof. Covert directly. Attribution: **Choi & Covert 2023, *NAR* 51(12):5911,
+doi:10.1093/nar/gkad435**, code from `CovertLab/WholeCellEcoliRelease` v3.0.1. Reference tree staged under
+`vendor/` (gitignored — not redistributed from this repo).
+
+### The port is PURELY ADDITIVE — measured, not assumed
+
+Comparing our `relation.py` against v3.0.1's method by method:
+
+| | result |
+|---|---|
+| shared methods | **6 of 6 byte-identical** (`_build_cistron_to_monomer_mapping`, `_build_monomer_to_mRNA_cistron_mapping`, `_build_monomer_to_tu_mapping`, `_build_RNA_to_tf_mapping`, `_build_tf_to_RNA_mapping`, `monomer_to_mRNA_cistron_mapping`) |
+| differs | `__init__` only — because it calls the new builders |
+
+That is the single most important fact for the port: **nothing existing has to change.** Seven methods are
+appended and `__init__` gains four calls. It also means the earlier framing of "adopt a frozen 2023 tree" was
+the wrong dichotomy — the tRNA work sits in cleanly separable methods.
+
+### What gets added
+
+| method | lines |
+|---|---|
+| `optimize_trna_charging_kinetics` | 602 |
+| `_build_codon_dependent_trna_charging` | 156 |
+| `_build_codon_sequences` | 144 |
+| `_build_trna_charging_kinetics` | 86 |
+| `get_constants` | 80 |
+| `assign_K_T` | 32 |
+| `_build_codon_based_translation` | 55 |
+| **total** | **~1155** |
+
+Then `KineticTrnaChargingModel` + `CoarseKineticTrnaChargingModel` (~860 lines) in
+`polypeptide_elongation.py`, and a CLI bool beside the existing `--trna-charging` (already plumbed through
+`SIM_KEYS`), defaulting **OFF** so `SteadyStateElongationModel` stays the default and every existing result
+reproduces.
+
+### Data dependencies — all five exist in v3.0.1, none in our tree
+
+```
+raw_data.optimization.trna_charging_kinetics_constants   ->  flat/optimization/...constants.tsv       (42 lines)
+raw_data.optimization.trna_charging_kinetics_solutions   ->  flat/optimization/...solutions.tsv     (5535 lines)
+raw_data.optimization.trna_synthetase_dynamic_range      ->  flat/optimization/...dynamic_range.tsv  (48 lines)
+raw_data.trna_charging_kinetics_curated                  ->  flat/trna_charging_kinetics_curated.tsv (21 lines)
+raw_data.rnas                                            ->  ALREADY PRESENT, and its `anticodon` column
+                                                              (field 8) is already there and unused
+```
+
+Plus `flat/trna_charging_kinetics.tsv` (22), `flat/trna_charging_reactions.tsv` (91), and
+`validation/ecoli/flat/trna_synthetase_kinetics.tsv` (85) for the validation path.
+
+`trna_charging_kinetics_solutions.tsv` at 5535 lines is a precomputed optimisation result — worth knowing
+before assuming the kinetics are fitted at ParCa time rather than loaded.
+
+### Verification plan, before any of it is wired to the ODE
+
+Build the nine `relation` structures and check each against the v3.0.1 reference by shape AND content:
+`trnas_to_codons`, `codons_to_trnas`, `codon_sequences`, `codons`, `codons_to_amino_acids`,
+`residue_weights_by_codon`, `amino_acid_to_synthetase`, `synthetase_to_k_cat`, `trna_codon_pairs`. A partial
+`relation` returning wrong shapes silently is the failure mode this whole project keeps paying for, so nothing
+downstream is connected until the structures match. `capability.py` flips to `present=True` only at the end —
+its marker probe (`KineticTrnaChargingModel`, `trnas_to_codons`, `codons_to_trnas`) will otherwise catch a
+partial port automatically.
+
+---
+
 ## Standing rules for any future extension
 
 - **Two files, not one.** A medium needs a `condition_defs.tsv` row or the sim dies on entering it.
