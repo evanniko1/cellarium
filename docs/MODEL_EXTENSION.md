@@ -173,11 +173,50 @@ declared first.
 
 Independently of Elf: this file sets tRNA cistron expression in **every existing corpus run**.
 
+### External half COMPLETE — the mapping is misaligned, not merely undocumented
+
+Dong 1996 obtained (J Mol Biol 260:649-663; 44 of 46 species resolved by 2D gel). **Table 3, "molar ratio of
+tRNA/ribosome at different growth rates", has columns 0.4 / 0.7 / 1.07 / 1.6 / 2.5 — exactly the five column
+headers in `trna_data.tsv` (`ratio to 16SrRNA at 0.4 hr^-1` ...).** 16S rRNA is 1:1 with ribosomes, so the file
+is unambiguously derived from that table.
+
+The disaggregation rule turns out to be recoverable: for **19 of the 34 distinct values**, `value x n_genes`
+equals a Dong species value to three decimals. So each species value was divided by a gene count. But the
+quotients were assigned to the WRONG GENES:
+
+| file value x n | = Dong species | genes it was actually assigned to |
+|---|---|---|
+| `0.2225 x 4 = 0.89` | **Leu1** | glt, ile, met, pro |
+| `0.154 x 5 = 0.77` | **Val1** | ala, ile, leu, phe, thr |
+| `0.0633 x 6 = 0.38` | Leu4 / Lys | ala, arg, asp, met, trp, val |
+| `0.095 x 4 = 0.38` | Leu4 / Lys | ala, asn, asp, ile |
+
+Leucine-1's abundance is spread across glutamate, isoleucine, methionine and proline genes; valine-1's across
+alanine, isoleucine, leucine, phenylalanine and threonine. **The species-to-gene mapping is scrambled** — the
+signature of a sort-order mismatch between Dong's species list and the gene list, not of a deliberate rule.
+
+**Caveat, stated plainly:** Dong's values are not unique (0.38 is both Leu4 and Lys; 0.13 is Val2A, Val2B and
+Leu3), so individual matches could be coincidence. 19 of 34 agreeing to three decimals across varied gene
+counts is far beyond chance, but the decisive evidence is not the arithmetic — it is that even where the
+arithmetic matches, the amino acid does not.
+
+**Verdict: the pre-registered criterion FAILS.** The declared SUM pooling does not reproduce Dong per species,
+and cannot, because the values are attached to the wrong genes. Per-gene tRNA expression in the model — and
+therefore in all ~297 existing corpus runs — does not reflect its cited source.
+
+### Why a 1996 paper at all
+
+Because it is the file's OWN source, and the question was provenance: does the data reproduce what it cites?
+Recency is irrelevant to that check. For the SCIENCE, modern data is clearly better — mim-tRNAseq (Behrens et
+al. 2021), OTTER, AQRNA-seq and nanopore-based quantification all post-date it, and there is a modern E. coli
+charging-level protocol (PMC5614356). But a per-isoacceptor abundance series ACROSS GROWTH RATES (0.4-2.5
+doublings/h), which is what wcEcoli's five columns need, does not appear to exist in modern form — which is
+why the model still rests on 1996 measurements. Replacing them with a modern series would itself be a
+contribution.
+
 ### Honest limitation
 
-The external half of the pre-registered criterion — reproduce Dong 1996's per-species values within stated
-error for ≥90% of species — is **NOT complete**. Dong's published table was not obtainable here, and it is not
-in the repo. What is established is the INTERNAL contradiction, which needs no external data and is on its own
+SUPERSEDED — the external half is now complete (see above). Dong 1996 Table 3 was obtained and compared. What is established is the INTERNAL contradiction, which needs no external data and is on its own
 sufficient to conclude that the gene-level numbers are not measurements. Obtaining Dong 1996 Table 2 would
 additionally reveal whether the SPECIES-level totals are right, which is the question that decides whether
 existing corpus runs are affected in magnitude or only in gene-level attribution.
