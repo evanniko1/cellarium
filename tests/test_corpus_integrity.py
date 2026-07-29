@@ -222,3 +222,39 @@ def test_no_run_on_disk_is_invisible_to_the_manifest():
     rec = manifest.reconcile_disk()
     assert not rec["orphan_designs"], f"unindexed designs on disk: {rec['orphan_designs']}"
     assert not rec["orphan_seeds"], f"unindexed seeds on disk: {rec['orphan_seeds']}"
+
+
+def test_a_rows_kb_matches_the_campaign_it_ran_in():
+    """Provenance must not contradict itself. `_flat_row` called `_kb_prov()` with NO sim_path, so every row
+    was stamped with the DEFAULT campaign's knowledge base regardless of which one produced it: all 21
+    `runs/aadrop/` rows carried the corpus hash, which does not contain the dropout media those runs executed
+    in. A kb_sha256 that disagrees with the run's own path is worse than a missing one — it is confidently
+    wrong, and it is exactly the field a reviewer would trust to tell models apart."""
+    import duckdb
+
+    from cellarium import manifest
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT simout_path, kb_sha256 FROM (SELECT * FROM "
+            f"read_parquet('{manifest.MANIFEST_DIR}/*.parquet', union_by_name=true) {manifest.DEDUP_QUALIFY})"
+        ).fetchall()
+    finally:
+        con.close()
+    from cellarium import provenance
+    known = {}
+    bad = []
+    for path, kb in rows:
+        if not path or not kb:
+            continue
+        sp = manifest._sim_path_of(path)
+        if sp not in known:
+            try:
+                known[sp] = (provenance.kb_provenance(sp) or {}).get("kb_sha256")
+            except Exception:
+                known[sp] = None
+        want = known.get(sp)
+        if want and kb != want:
+            bad.append((sp, path, kb[:10], want[:10]))
+    assert not bad, ("rows whose kb_sha256 contradicts the campaign in their own path:\n" +
+                     "\n".join(f"  {sp}: {p} has {got} want {exp}" for sp, p, got, exp in bad[:8]))

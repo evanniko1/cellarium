@@ -245,13 +245,34 @@ def _machine_of(run_root) -> str:
     return "local"
 
 
+def _sim_path_of(run_root) -> str:
+    """The campaign (`runs/<sim_path>/...`) a run belongs to, read off its own path.
+
+    Derived rather than assumed: a row's knowledge base is a property of where it ran, and defaulting it to
+    "cellarium" is how 21 dropout-campaign rows came to claim a kb that has never heard of their media."""
+    parts = str(run_root).replace("\\", "/").split("/")
+    for i, c in enumerate(parts):
+        if (c == "runs" or c.startswith("runs_")) and i + 1 < len(parts):
+            return parts[i + 1]
+    return "cellarium"
+
+
 def _flat_row(rec: SimResult, seed: int, run_root: Path,
-              requested_generations: int | None = None, crashed: bool = False) -> dict:
+              requested_generations: int | None = None, crashed: bool = False,
+              sim_path: str | None = None) -> dict:
     overall, per = qc.check_result(rec)
     # Knockout semantics depend entirely on whether the kb was built operons-ON (see docs/KNOCKOUT_SEMANTICS.md),
     # and nothing recorded it — "operons on" was filesystem inference. Stamp the kb identity and the operon mode
     # on EVERY row so a published row is self-describing when someone slices the parquet away from this repo.
-    _kb = _kb_prov()
+    # Resolve the kb of the CAMPAIGN this row belongs to. This called `_kb_prov()` with no argument, so every
+    # row ever indexed was stamped with the DEFAULT sim_path's knowledge base regardless of which one produced
+    # it. Measured before the fix: all 21 `runs/aadrop/` rows — the amino-acid dropout arm — carried the corpus
+    # hash 3b2f8ebd..., which does not contain the dropout media those runs executed in. Self-contradictory
+    # provenance on ~7% of the corpus, and precisely on the rows a tRNA question would read.
+    #
+    # `sim_path` is derived from the run path when not supplied, so callers that cannot pass it (historical
+    # `record_existing`) still get the right answer rather than the default one.
+    _kb = _kb_prov(sim_path or _sim_path_of(run_root))
     row = {"id": rec.id, "label": rec.label,
            "kb_sha256": _kb.get("kb_sha256"), "operons": _kb.get("operons"),
            # Identity is STORED, not left to be re-derived. Every drift incident in this corpus came from a
@@ -409,7 +430,8 @@ def _label(design: Design, seed: int) -> str:
 
 def _run_job(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> dict:
     run_root = runner.run_one(design, seed, generations, sim_path=sim_path)
-    return _flat_row(build_record(run_root, design, seed), seed, run_root, requested_generations=generations)
+    return _flat_row(build_record(run_root, design, seed), seed, run_root,
+                     requested_generations=generations, sim_path=sim_path)
 
 
 def _classify_crash(exc: Exception) -> str:
@@ -442,7 +464,8 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception,
     except Exception:
         rec = None
     if rec is not None:
-        row = _flat_row(rec, seed, run_root, requested_generations=generations, crashed=True)
+        row = _flat_row(rec, seed, run_root, requested_generations=generations, crashed=True,
+                        sim_path=sim_path)
         row["qc"], row["reportable"], row["note"] = "crashed", False, f"sim crashed: {str(exc)[:150]}"
         row["crash_type"] = ctype
         return row
