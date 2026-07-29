@@ -534,5 +534,236 @@
   "ts": 1785330050.2503269,
   "host": "vmsi|Windows",
   "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.694,
+  "ts": 1785330202.6243849,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.699,
+  "ts": 1785330355.0046656,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.713,
+  "ts": 1785330507.2813933,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.717,
+  "ts": 1785330659.6906428,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.739,
+  "ts": 1785330812.054394,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.769,
+  "ts": 1785330964.44298,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.757,
+  "ts": 1785331116.7815866,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.774,
+  "ts": 1785331268.9256582,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.668,
+  "ts": 1785331421.3858407,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.549,
+  "ts": 1785331573.7647936,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.525,
+  "ts": 1785331726.154977,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.527,
+  "ts": 1785331878.3608084,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.571,
+  "ts": 1785332030.746343,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.612,
+  "ts": 1785332183.1291656,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.66,
+  "ts": 1785332335.5079975,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.654,
+  "ts": 1785332487.8968318,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.66,
+  "ts": 1785332640.0362165,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.668,
+  "ts": 1785332792.4304054,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.672,
+  "ts": 1785332944.8137949,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.672,
+  "ts": 1785333097.2251308,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.672,
+  "ts": 1785333249.4649532,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.672,
+  "ts": 1785333401.8418224,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.682,
+  "ts": 1785333554.2525434,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.682,
+  "ts": 1785333706.640493,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.682,
+  "ts": 1785333858.9496148,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.668,
+  "ts": 1785334011.104309,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.668,
+  "ts": 1785334163.5532494,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.656,
+  "ts": 1785334315.9530442,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.656,
+  "ts": 1785334468.3354304,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.656,
+  "ts": 1785334620.5713646,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.656,
+  "ts": 1785334772.9803264,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.656,
+  "ts": 1785334925.3510325,
+  "host": "vmsi|Windows",
+  "n_containers": 6
+ },
+ {
+  "kind": "per_sim_ram_gb",
+  "value": 0.672,
+  "ts": 1785335077.7378647,
+  "host": "vmsi|Windows",
+  "n_containers": 6
  }
 ]

@@ -169,3 +169,40 @@ def test_the_auxotroph_arms_are_in_envelope(sym, idx, aa):
     from cellarium import envelope
     v = envelope.check(_aux_design(sym, idx, aa))
     assert v.in_envelope, v.reason
+
+
+@pytest.mark.parametrize("sym,idx,aa", AUXOTROPHS)
+def test_starved_and_unstarved_arms_never_share_an_output_dir(sym, idx, aa):
+    """They did, and it destroyed the control. Both carried the same `variant_index` (the gene index the model
+    needs), so both resolved to `gene_knockout_<idx>/<seed>`; run concurrently at parallel=6 they overwrote
+    each other's generations and provenance, and three of four control seeds died outright. `_variant_index`'s
+    content hash exists to prevent exactly this but is short-circuited by an explicit index."""
+    from cellarium import runner
+    from cellarium.model import Design
+    starved = _aux_design(sym, idx, aa)
+    unstarved = Design(perturbation="gene_knockout", condition=f"KO:{sym}", params={"variant_index": idx},
+                       timeline="0 minimal_plus_amino_acids")
+    a = runner._run_subpath(starved, 0, "t")
+    b = runner._run_subpath(unstarved, 0, "t")
+    assert a != b, f"starved and un-starved share {a} — they will overwrite each other"
+    # and the model must still be told the right variant, whatever we call the directory
+    assert runner._variant_args(starved)[:2] == ["--variant", "gene_knockout"]
+
+
+def test_a_plain_knockout_keeps_its_conventional_directory():
+    """The fix must not rename every existing run dir — only designs that would otherwise collide."""
+    from cellarium import runner
+    from cellarium.model import Design
+    d = Design(perturbation="gene_knockout", condition="KO:dapA", params={"variant_index": 2776})
+    assert runner._run_subpath(d, 0, "t").parent.name == "gene_knockout_002776"
+
+
+def test_the_unstarved_control_is_held_in_the_rich_medium():
+    """A gene_knockout design with NO timeline runs in basal MINIMAL medium. So an auxotroph 'control' without
+    an explicit medium is starved by construction — the opposite of a control."""
+    from cellarium import generate
+    ko = [d for d in generate.auxotroph_starvation_designs() if d.perturbation == "gene_knockout"]
+    unstarved = [d for d in ko if d.timeline and "minus_" not in d.timeline]
+    assert len(unstarved) == 3, "every arm needs an un-starved control"
+    for d in unstarved:
+        assert d.timeline.strip() == "0 minimal_plus_amino_acids", d.timeline

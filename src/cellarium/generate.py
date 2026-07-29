@@ -212,9 +212,14 @@ def auxotroph_starvation_designs() -> list[Design]:
     designs.append(Design(perturbation="condition", condition="with_aa",                 # un-starved WT
                           params={"variant_index": 4}))
     for sym, idx, aa in arms:
-        # the un-starved KO control: same genotype, medium left intact — isolates the knockout's own cost
+        # The un-starved KO control: same genotype, HELD in the amino-acid-rich medium. The explicit
+        # `0 minimal_plus_amino_acids` timeline is required, not cosmetic — a `gene_knockout` design with no
+        # timeline runs in basal MINIMAL medium, so the first version of this control was a leucine auxotroph
+        # in leucine-free minimal medium: lethal by construction, and a control for nothing. Three of its four
+        # seeds died with `array must not contain infs or NaNs`.
         designs.append(Design(perturbation="gene_knockout", condition=f"KO:{sym}",
-                              params={"variant_index": idx}))
+                              params={"variant_index": idx},
+                              timeline="0 minimal_plus_amino_acids"))
         designs.append(Design(perturbation="gene_knockout", condition=f"KO:{sym}",
                               params={"variant_index": idx},
                               timeline=f"0 minimal_plus_amino_acids, 1200 minimal_aa_minus_{aa}"))

@@ -185,9 +185,29 @@ def ensure_parca(sim_path: str = "cellarium", cpus: int | None = None) -> None:
     _exec(["runscripts/manual/runParca.py", sim_path, "--cpus", str(n)])
 
 
-def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
-    """The specific <variant>_<idx>/<seed> dir the model writes for this lineage (per-generation dirs beneath)."""
+def _model_output_dir(design: Design, seed: int, sim_path: str) -> Path:
+    """Where the MODEL writes: it derives the directory from the variant type + index, so we cannot rename it."""
     return _out_root(sim_path) / f"{_variant_type(design)}_{_variant_index(design):06d}" / f"{seed:06d}"
+
+
+def _needs_distinct_dir(design: Design) -> bool:
+    """True when this design shares the model's output directory with a DIFFERENT design.
+
+    A `variant_index` is the gene index the model needs, so two designs that knock out the same gene get the
+    same directory — even when a timeline makes them different experiments. That is exactly the SCI-TRNA-4
+    leu arm: `KO:leuB` un-starved and `KO:leuB` starved both resolved to `gene_knockout_001818/<seed>`, ran
+    concurrently at parallel=6, and destroyed each other. `_variant_index`'s content hash exists to prevent
+    this but is short-circuited whenever an explicit index is supplied."""
+    return bool(design.timeline) and "variant_index" in design.params
+
+
+def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
+    """The CANONICAL run root for this lineage — unique per design, which the model's own dir is not."""
+    base = _model_output_dir(design, seed, sim_path)
+    if not _needs_distinct_dir(design):
+        return base
+    tag = hashlib.sha1((design.timeline or "").encode()).hexdigest()[:6]
+    return base.parent.parent / f"{base.parent.name}__tl{tag}" / base.name
 
 
 def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> Path:
@@ -198,12 +218,29 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     run_root = _run_subpath(design, seed, sim_path)
     run_root.mkdir(parents=True, exist_ok=True)  # write provenance BEFORE the sim so a CRASH still leaves labels (G3)
     _write_provenance(run_root, design)
+    model_dir = _model_output_dir(design, seed, sim_path)
     _t0 = time.time()
     _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
            "--generations", str(generations), *_variant_args(design)])
     # Record what this run ACTUALLY cost, so `estimate_sim_resources` stops guessing. Wall-clock per generation
     # and GB per generation were both hard constants; a campaign that never reports its own cost can never
     # correct them. Never allowed to break a completed run — the sim finishing is the valuable part.
+    # Move the model's output into the CANONICAL dir when they differ. The model derives its directory from
+    # the variant type + index, so two designs knocking out the same gene write to the same place even when a
+    # timeline makes them different experiments. Measured: the SCI-TRNA-4 leu arm ran `KO:leuB` starved and
+    # un-starved concurrently at parallel=6, both resolved to `gene_knockout_001818/<seed>`, and they
+    # destroyed each other — three of the four control seeds died with `array must not contain infs or NaNs`
+    # and the survivors' provenance was overwritten by whichever finished last. Same remedy as
+    # multi_gene_knockout, applied before anything reads the run.
+    if model_dir != run_root and model_dir.exists():
+        for child in list(model_dir.iterdir()):
+            dest = run_root / child.name
+            if not dest.exists():
+                shutil.move(str(child), str(dest))
+        try:
+            model_dir.rmdir()                      # only when empty — never remove another design's output
+        except OSError:
+            pass
     try:
         from . import calibration
         _reached = len(glob.glob(os.path.join(str(run_root), "**", "simOut"), recursive=True)) or generations
