@@ -275,6 +275,38 @@ Plus `flat/trna_charging_kinetics.tsv` (22), `flat/trna_charging_reactions.tsv` 
 `trna_charging_kinetics_solutions.tsv` at 5535 lines is a precomputed optimisation result — worth knowing
 before assuming the kinetics are fitted at ParCa time rather than loaded.
 
+### It touches FOUR files, not one — found before appending anything
+
+`relation.py` alone would have imported cleanly and then failed at ParCa time with an `AttributeError`. The
+ported methods read four `sim_data` interfaces that do not exist in our tree:
+
+| missing interface | lives in | what it is |
+|---|---|---|
+| `sim_data.molecule_groups.codons` | `dataclasses/molecule_groups.py` | the 62 codon ids, built from NTP abbreviations skipping `UAA`/`UAG` but KEEPING `UGA` (selenocysteine) |
+| `sim_data.molecule_groups.initiator_trnas` | `dataclasses/molecule_groups.py` | `['RNA0-306[c]', 'metY-tRNA[c]', 'metZ-tRNA[c]', 'metW-tRNA[c]']` (with `elongator_trnas` alongside) |
+| `sim_data.molecule_ids.start_codon` | `dataclasses/molecule_ids.py` | `'start'` |
+| `sim_data.codon_read_rate` | `simulation_data.py` | initialised `{}`, populated during charging setup |
+
+Present and usable already: `amino_acid_code_to_id_ordered`, `charged_trna_names`,
+`ribosome_elongation_rate_max`, `getter.get_sequences`, `constants.*`, `mass.cell_dry_mass_fraction`,
+`molecule_groups.amino_acids`, `conditions`, `process.transcription.rna_data`,
+`process.translation.monomer_data`.
+
+Note `UGA` is deliberately retained as a sense codon for selenocysteine. Dropping it — the natural reading of
+"skip stop codons" — would silently change the codon set from 62 to 61 and shift every downstream index.
+
+### The port creates 22 attributes, not 9
+
+My earlier figure of nine was only what the ODE reads directly. The full set the methods define:
+
+```
+_codon_sequences  amino_acid_to_codons  amino_acid_to_synthetase  amino_acid_to_trnas  charged_to_free
+codon_counts  codon_sequences  codon_to_trnas  codons  codons_to_amino_acids  conc_unit
+modified_aa_from_synthetase  rate_unit  residue_weights_by_codon  synthetase_to_k_cat
+synthetase_to_max_curated_k_cats  trna_charging_constants  trna_charging_kinetics  trna_codon_pairs
+trna_condition_to_free_fraction  trna_synthetase_samples  trnas_to_codons
+```
+
 ### Verification plan, before any of it is wired to the ODE
 
 Build the nine `relation` structures and check each against the v3.0.1 reference by shape AND content:
