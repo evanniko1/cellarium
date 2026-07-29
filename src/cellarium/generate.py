@@ -178,7 +178,7 @@ def aa_dropout_designs(amino_acids: tuple[str, ...] = ("leu", "thr", "arg")) -> 
             Design(perturbation="condition", condition="with_aa",                      # the un-starved control:
                    params={"variant_index": 4}),                                       # rich medium, no dropout
             *[Design(perturbation="timeline",
-                     timeline=f"0 minimal_plus_amino_acids, 1200 minimal_plus_amino_acids_minus_{aa}")
+                     timeline=f"0 minimal_plus_amino_acids, 1200 minimal_aa_minus_{aa}")
               for aa in amino_acids]]
 
 

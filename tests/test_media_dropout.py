@@ -52,7 +52,7 @@ def test_a_dropout_removes_exactly_one_molecule(tag, mol):
     """THE assertion. If a dropout perturbs anything besides its target amino acid, the experiment cannot
     attribute a charging collapse to that amino acid and the design is worthless."""
     m = _media()
-    mid = f"minimal_plus_amino_acids_minus_{tag}"
+    mid = f"minimal_aa_minus_{tag}"
     assert mid in m.recipes, f"{mid} is not registered in media_recipes.tsv"
     base = m.make_recipe("minimal_plus_amino_acids")
     got = m.make_recipe(mid)
@@ -70,7 +70,7 @@ def test_the_dropout_is_a_far_cleaner_perturbation_than_the_existing_downshift()
     n_downshift = len(_diff(base, m.make_recipe("minimal")))
     assert n_downshift >= 20, "sanity: the AA-rich -> minimal downshift should perturb the whole AA set"
     for tag, _mol in DROPOUTS:
-        n = len(_diff(base, m.make_recipe(f"minimal_plus_amino_acids_minus_{tag}")))
+        n = len(_diff(base, m.make_recipe(f"minimal_aa_minus_{tag}")))
         assert n == 1 < n_downshift, f"minus_{tag} perturbs {n} molecules vs {n_downshift} for the downshift"
 
 
@@ -82,7 +82,7 @@ def test_a_minus_medium_is_not_classified_as_fed_by_what_it_removes():
     out-of-envelope carbon switch, or mis-recorded a run's carbon source in provenance."""
     from cellarium import envelope
     assert envelope.carbon_source("minimal_minus_malate") == "glucose"
-    assert envelope.carbon_source("minimal_plus_amino_acids_minus_leu") == "glucose"
+    assert envelope.carbon_source("minimal_aa_minus_leu") == "glucose"
     # and the real classifications must survive the fix
     assert envelope.carbon_source("minimal_acetate") == "acetate"
     assert envelope.carbon_source("minimal_malate") == "malate"
@@ -97,7 +97,7 @@ def test_the_dropout_timeline_is_inside_the_validated_envelope(tag, _mol):
     from cellarium import envelope
     from cellarium.generate import Design
     d = Design(perturbation="timeline",
-               timeline=f"0 minimal_plus_amino_acids, 1200 minimal_plus_amino_acids_minus_{tag}")
+               timeline=f"0 minimal_plus_amino_acids, 1200 minimal_aa_minus_{tag}")
     v = envelope.check(d)
     assert v.in_envelope, v.reason
 
@@ -108,3 +108,23 @@ def test_the_envelope_still_refuses_a_real_carbon_switch():
     from cellarium.generate import Design
     v = envelope.check(Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_acetate"))
     assert not v.in_envelope and "carbon source" in v.reason
+
+
+def test_the_media_names_fit_the_fixed_width_column():
+    """A data-integrity constraint, not style. wcEcoli writes media ids into a NumPy fixed-width column sized
+    from the FIRST value of the generation. These runs start in `minimal_plus_amino_acids` (24 chars), so the
+    generation containing the shift gets <U25 and anything longer is silently cut.
+
+    Measured on a real smoke run: named `minimal_plus_amino_acids_minus_{leu,thr,arg}` (34 chars), all three
+    truncated to the IDENTICAL string `minimal_plus_amino_acids_` — the record showed that *a* shift happened
+    but could not distinguish the three arms. That is SCI-QC-1 recurring inside the column SCI-QC-2 adopted as
+    its untruncated witness."""
+    start = "minimal_plus_amino_acids"
+    width = len(start) + 1                      # the observed <U25 for a generation starting in this medium
+    names = [f"minimal_aa_minus_{tag}" for tag, _mol in DROPOUTS]
+    for n in names:
+        assert len(n) <= width, f"{n!r} ({len(n)}) would be truncated in a <U{width} column"
+    assert len({n[:width] for n in names}) == len(names), "arms must stay distinguishable after truncation"
+    # and the guard that would catch a regression is real
+    from cellarium import serialization
+    assert hasattr(serialization, "scan_run")

@@ -18,7 +18,7 @@ Run it after cloning wcEcoli and before the ParCa rebuild:
 **Two files, and the second one is not optional.** An earlier version of this script patched only the media and
 argued that `condition_defs.tsv` could be left alone, since its doubling-time column feeds ParCa's fit. That was
 wrong, and a 1-seed smoke run — not a code read — proved it: the sim died at exactly t=1200 with
-`KeyError: 'minimal_plus_amino_acids_minus_leu'` inside `chromosome_replication.py:92`.
+`KeyError: 'minimal_aa_minus_leu'` inside `chromosome_replication.py:92`.
 `sim_data.nutrient_to_doubling_time` is keyed by MEDIA but BUILT from the conditions table, so a medium with no
 condition row has no doubling time and the strict lookup dies. (`metabolism.py:149` uses
 `.get(media, minimal)` and would have survived — the two processes disagree about unknown media, and the
@@ -45,13 +45,24 @@ CONDITION_DEFS = os.path.join("reconstruction", "ecoli", "flat", "condition", "c
 # combines base+supplement FIRST and applies `ingredients` to the RESULT (make_media.py:149-170), so
 # `-Infinity` here removes the molecule from the final amino-acid-rich medium rather than from the base it was
 # never in. Verified: each perturbs exactly 1 of 87 molecules, versus 30 for the AA-rich -> minimal downshift.
+#
+# THE NAMES MUST STAY <= 24 CHARACTERS, and that is a data-integrity constraint rather than style. wcEcoli
+# writes media ids into a NumPy fixed-width unicode column sized from the FIRST value in the generation. These
+# runs start in `minimal_plus_amino_acids` (24 chars), so the generation containing the shift gets a <U25
+# column and every longer name is silently cut to 25 characters. The first attempt named them
+# `minimal_plus_amino_acids_minus_{leu,thr,arg}` (34 chars) and all three truncated to the IDENTICAL string
+# `minimal_plus_amino_acids_` — measured on a smoke run, distinct-after-truncation = 1. The record would have
+# shown that *a* shift happened while making the three arms indistinguishable from each other. This is the
+# SCI-QC-1 defect a second time, in the very column SCI-QC-2 adopted as its untruncated witness; short names
+# fix the record itself instead of working around it. `serialization.scan_run` flags the condition if it
+# recurs.
 MEDIA_ROWS = [
-    ('minimal_plus_amino_acids_minus_leu',
-     '"minimal_plus_amino_acids_minus_leu"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["LEU"]\t[-Infinity]\t[]\t[]'),
-    ('minimal_plus_amino_acids_minus_thr',
-     '"minimal_plus_amino_acids_minus_thr"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["THR"]\t[-Infinity]\t[]\t[]'),
-    ('minimal_plus_amino_acids_minus_arg',
-     '"minimal_plus_amino_acids_minus_arg"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["ARG"]\t[-Infinity]\t[]\t[]'),
+    ('minimal_aa_minus_leu',
+     '"minimal_aa_minus_leu"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["LEU"]\t[-Infinity]\t[]\t[]'),
+    ('minimal_aa_minus_thr',
+     '"minimal_aa_minus_thr"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["THR"]\t[-Infinity]\t[]\t[]'),
+    ('minimal_aa_minus_arg',
+     '"minimal_aa_minus_arg"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["ARG"]\t[-Infinity]\t[]\t[]'),
 ]
 
 
@@ -68,9 +79,9 @@ MEDIA_ROWS = [
 # rather than from a discontinuity we imposed. Empty TF lists follow the `minus_calcium` precedent — adding TF
 # overrides would enlarge what ParCa fits.
 CONDITION_ROWS = [
-    ('minus_leu', '"minus_leu"	"minimal_plus_amino_acids_minus_leu"	{}	25.0	[]	[]'),
-    ('minus_thr', '"minus_thr"	"minimal_plus_amino_acids_minus_thr"	{}	25.0	[]	[]'),
-    ('minus_arg', '"minus_arg"	"minimal_plus_amino_acids_minus_arg"	{}	25.0	[]	[]'),
+    ('minus_leu', '"minus_leu"	"minimal_aa_minus_leu"	{}	25.0	[]	[]'),
+    ('minus_thr', '"minus_thr"	"minimal_aa_minus_thr"	{}	25.0	[]	[]'),
+    ('minus_arg', '"minus_arg"	"minimal_aa_minus_arg"	{}	25.0	[]	[]'),
 ]
 
 
