@@ -765,5 +765,47 @@
   "ts": 1785335077.7378647,
   "host": "vmsi|Windows",
   "n_containers": 6
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.423905393481254,
+  "ts": 1785345322.7450478,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.96200296,
+  "ts": 1785345323.0207105,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.822749618689219,
+  "ts": 1785345418.4676619,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.93844777675,
+  "ts": 1785345418.5966334,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.974060806632043,
+  "ts": 1785345454.782347,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.96141579675,
+  "ts": 1785345455.0430872,
+  "host": "vmsi|Windows",
+  "arrested": false
  }
 ]
