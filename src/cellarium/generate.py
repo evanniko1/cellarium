@@ -154,6 +154,34 @@ def gendepth_designs() -> list[Design]:
             Design(perturbation="condition", condition="minus_phosphate", params={"variant_index": 12})]
 
 
+def aa_dropout_designs(amino_acids: tuple[str, ...] = ("leu", "thr", "arg")) -> list[Design]:
+    """SCI-TRNA-3 — starve a GROWING cell of ONE amino acid (Dittmar 2005), the selective-charging experiment.
+
+    Why not synthetase knockouts, which we already tried: deleting an aaRS arrests translation outright, so 4 of
+    6 arms were degenerate — a cell that has stopped translating cannot show *selective* charging, only death.
+    The published protocol removes a single amino acid from a rich medium and watches ONE tRNA family collapse
+    while the others hold.
+
+    Why a TIMELINE and not a static condition: the biology is the transition. A cell fitted to grow in the
+    dropout medium from t=0 has already adapted — it derepressed the biosynthetic operon during ParCa and there
+    is no starvation to observe. It also avoids adding rows to `condition_defs.tsv`, whose doubling-time column
+    feeds the fit.
+
+    The perturbation is EXACTLY ONE MOLECULE (verified in tests/test_media_dropout.py): the AA-rich -> minimal
+    downshift already in the corpus moves 30 — all 20 amino acids to zero plus 10 base components diluted by the
+    0.8 L recipe — and a collapse under 30 simultaneous changes is not attributable to any of them.
+
+    REQUIRES the dropout media (scripts/apply_model_patches.py) and a ParCa rebuild: `external_state` looks
+    media up by label, so the stock `simData` raises KeyError on these. Run against the rebuilt sim_path.
+    """
+    return [Design(perturbation="wildtype", condition="basal"),                        # the corpus-wide null
+            Design(perturbation="condition", condition="with_aa",                      # the un-starved control:
+                   params={"variant_index": 4}),                                       # rich medium, no dropout
+            *[Design(perturbation="timeline",
+                     timeline=f"0 minimal_plus_amino_acids, 1200 minimal_plus_amino_acids_minus_{aa}")
+              for aa in amino_acids]]
+
+
 def multi_gene_ko_designs(gene_sets: list[list[str]]) -> list[Design]:
     """Multi-gene KO designs (the `multi_gene_knockout` variant) — knock out a SET of genes at once. Motivation
     (not the ML surrogate): metabolism REROUTES around single KOs because it has alternative flux paths, so a
@@ -243,6 +271,10 @@ def main() -> None:
     ap.add_argument("--power", action="store_true",
                     help="high-replicate set (basal, with_aa, acetate, no_oxygen, minus_magnesium) to test H1/H2 "
                          "and power the growth law; run with --seeds 8")
+    ap.add_argument("--aa-dropout", action="store_true", dest="aa_dropout",
+                    help="SCI-TRNA-3: starve a growing cell of ONE amino acid (leu/thr/arg) - the selective "
+                         "charging experiment. NEEDS the dropout media + a ParCa rebuild "
+                         "(scripts/apply_model_patches.py); pair with --generations 4")
     ap.add_argument("--mechanistic-ko", action="store_true", dest="mechanistic_ko",
                     help="single-gene KO experiment: mechanistic (pfkA, tpiA) vs non-mechanistic (flgB, ymgD)")
     ap.add_argument("--essential-ko", action="store_true", dest="essential_ko",
@@ -269,6 +301,8 @@ def main() -> None:
     elif args.multi_gene_ko is not None:
         spec = args.multi_gene_ko or "pfkA+pfkB"
         designs = multi_gene_ko_designs([s.split("+") for s in spec.split(";") if s])
+    elif args.aa_dropout:
+        designs = aa_dropout_designs()
     elif args.machinery_calibration:
         designs = machinery_calibration_designs()
     elif args.objective_weight:
