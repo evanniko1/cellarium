@@ -134,6 +134,29 @@ def comparable_designs(design: str) -> dict:
                      "came out similar') and measured 1-of-5 relevant on this one — never substitute it here.")}
 
 
+def model_capabilities(capability: str | None = None) -> dict:
+    """What the model CAN and CANNOT represent. Call this BEFORE claiming a mechanism is absent from the data.
+
+    Exists because we once measured a within-family tRNA charging spread of exactly 0.0 and reported it as a
+    result, when it was an algebraic identity of the model's per-amino-acid aggregation. A mechanism the model
+    cannot express must produce a REFUSAL naming the gap, never a number."""
+    from . import capability as cap
+    if capability:
+        return cap.check(capability)
+    return {
+        "cannot_represent": [{"capability": c.key, "question": c.question, "instead": c.instead,
+                              "why_the_output_misleads": c.consequence,
+                              "available_in": c.available_in, "flag": c.flag} for c in cap.missing()],
+        "can_represent": [{"capability": c.key, "question": c.question}
+                          for c in cap.CAPABILITIES if c.present],
+        "audit": cap.audit().get("ok"),
+        "note": ("`cannot_represent` entries are structural: the model returns a plausible number for each of "
+                 "them anyway. If a question needs one, say the model cannot answer it and why — do NOT report "
+                 "the number. Declarations are probed against the model checkout, so `audit=false` means this "
+                 "registry no longer matches the code and should not be trusted."),
+    }
+
+
 def trna_families(design: str) -> dict:
     """Charged-tRNA fraction PER AMINO-ACID FAMILY (the corpus channel is one aggregate that hides this)."""
     from . import trna
@@ -1136,6 +1159,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"design_a": {"type": "string"}, "design_b": {"type": "string", "description": "the reference, e.g. wildtype/basal"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default ppgpp_conc)"}, "generation": {"type": "integer", "description": "generation index (0 = first, default 0)"}}, "required": ["design_a", "design_b"]}},
     {"name": "comparable_designs", "description": "The CORRECT-CONTROL query: designs identical to this one EXCEPT in exactly ONE factor (same family, same base, same factor, different level) — e.g. for 'ppgpp_conc/basal|ppGpp:0.6x' it returns the 0.2x/1.6x/2.0x doses, in dose order so a dose-response can be fitted. Exact, complete and explainable — a deterministic filter over typed factor columns, not a model-made selection. USE THIS to choose what to compare a design against. It answers a DIFFERENT question from `similar_designs` ('which runs came out similar'), which measured only 1-of-5 relevant on this task — never substitute similarity for a control.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
+    {"name": "model_capabilities", "description": "What the model CAN and CANNOT structurally represent. CALL THIS BEFORE concluding that a mechanism is ABSENT from the data, and before answering any question about codon usage, individual tRNA isoacceptors, operon-specific rRNA deletion, or per-gene tRNA abundance. Each `cannot_represent` entry is a mechanism for which the model still returns a plausible NUMBER — e.g. per-isoacceptor charging columns are identical by construction, so a within-family spread of 0.0 is arithmetic, not a measurement. If a question needs a listed capability, state that the model cannot answer it and why; never report the number as evidence. Optional `capability` argument checks one key and returns a refusal string when unsupported.",
+     "input_schema": {"type": "object", "properties": {"capability": {"type": "string", "description": "optional capability key to check"}}}},
     {"name": "trna_families", "description": "Charged-tRNA fraction PER AMINO-ACID FAMILY for a design, from raw simOut, sorted with the most-starved family first. The corpus channel `fraction_trna_charged` is a single MEAN over all families, which cannot show cognate-family de-charging — an amino-acid limitation starves ONE family while the other ~19 stay loaded, so the aggregate barely moves (Dittmar et al. 2005, EMBO Rep 6:151). RESOLUTION: this is 21 amino-acid rows, not 86 independent species — measured within-family isoacceptor spread is exactly 0.0 in every design, so the between-isoacceptor axis of Elf 2003 is NOT representable in this model and must not be claimed. ALWAYS returns `translation_state`: for a translationally ARRESTED run (elongation rate pinned at 0, charged fraction constant) the table is (86 - n_target)/86 exactly — derivable from the knockout's isoacceptor count with no simulation — so the selectivity reading is REFUSED and `most_starved` is null. Needs the run's raw simOut on this machine.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
     {"name": "selective_charging", "description": "Per-family charged-tRNA drops vs a reference, reported AGAINST A MEASURED WILD-TYPE NULL. Returns NO verdict, deliberately: the previous boolean fired on genuinely unperturbed runs, because comparing wild-type lineages to each other already names a 'most starved' family almost every time (trp dominates — it is simply the lowest-charged family in this model) with a median gap in the double digits. Every call therefore returns `wildtype_null` (the same statistic between UNPERTURBED runs, i.e. pure false-positive rate) plus `exceeds_wildtype_null_max`, and the reader draws the conclusion. Also returns `translation_state` — an arrested run's table is arithmetic, not a measurement. Use it to compare a perturbation against the null, never as a detector. Needs local raw simOut.",
@@ -1286,6 +1311,7 @@ TOOLS = [
 _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_landscape,
              "trajectory": trajectory, "compare_at_generation": compare_at_generation,
              "comparable_designs": comparable_designs, "similar_designs": similar_designs,
+             "model_capabilities": model_capabilities,
              "trna_families": trna_families, "selective_charging": selective_charging,
              "experiment_integrity": experiment_integrity, "dilution_clock": dilution_clock,
              "shift_response": shift_response, "segment_means": segment_means,

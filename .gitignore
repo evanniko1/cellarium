@@ -54,3 +54,5 @@ data/evidence.jsonl
 
 # CI: pytest JUnit report (written by the failing-test annotator step)
 pytest-report.xml
+vendor/wcEcoliRelease-v3.0.1.tar.gz
+vendor/v301/

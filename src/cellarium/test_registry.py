@@ -127,6 +127,12 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     "viability", "mechanistic_scope", "metabolic_essentiality", "model_validation", "reroute_diagnosis",
     "provenance", "coverage_check", "corpus_audit", "prune_candidates", "robustness_check", "viability_surrogate",
     "system_resources", "estimate_sim_resources",
+    # model-scope declaration. Cellwright-side because it is a statement about what the MODEL can represent,
+    # which the agent needs before reading any number. OPEN QUESTION deliberately not decided here: the
+    # Council is blind to grounded results, but a capability boundary is not a result — it is structure — and
+    # exposing it would stop the Council proposing hypotheses the model cannot test. That is a change to the
+    # blindness invariant and belongs to whoever owns it, not to this classification.
+    "model_capabilities",
     # independent FBA cross-check family
     "fba_growth", "fba_gene_knockout", "fba_flux", "fba_essentiality_panel", "fba_synthetic_lethal",
     "fba_gene_deletion", "fba_sensitivity", "fba_qc", "rnaseq_concordance",
