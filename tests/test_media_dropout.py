@@ -1,0 +1,110 @@
+"""SCI-TRNA-3 — the single-amino-acid dropout media, and the envelope trap they exposed.
+
+The synthetase knockouts failed as a charging experiment because deleting an aaRS arrests translation: 4 of 6
+were degenerate. Dittmar 2005's actual protocol starves a *growing* cell of ONE amino acid, which is what these
+media do. The scientific claim that makes them worth adding is a single number, asserted below: the existing
+downshift (`minimal_plus_amino_acids` -> `minimal`) perturbs **30** molecules — 20 amino acids to zero plus 10
+base components diluted by the 0.8 L recipe — while each dropout perturbs exactly **1**. Selective charging is
+only attributable at n=1 perturbed molecule.
+
+The wcEcoli tests skip without a model checkout (CI has none); the envelope tests always run.
+"""
+
+from __future__ import annotations
+
+import functools
+import os
+import sys
+
+import pytest
+
+WCECOLI = os.environ.get("WCECOLI_PATH", r"C:\dev\wcEcoli")
+DROPOUTS = [("leu", "LEU"), ("thr", "THR"), ("arg", "ARG")]
+
+
+@functools.lru_cache(maxsize=1)
+def _media():
+    """The model's own media builder, or a skip. Never a hand-rolled reimplementation — the point of this test
+    is that WCECOLI builds these correctly, so computing them ourselves would test nothing.
+
+    Cached: constructing `KnowledgeBaseEcoli` parses the entire flat-file corpus and takes minutes, so building
+    it once per test turned a fast suite into a slow one. `pytest.skip` raises, and lru_cache does not cache
+    exceptions, so the skip path still fires correctly on every call."""
+    if not os.path.isdir(os.path.join(WCECOLI, "reconstruction")):
+        pytest.skip("no wcEcoli checkout")
+    if WCECOLI not in sys.path:
+        sys.path.insert(0, WCECOLI)
+    try:
+        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+        from wholecell.utils.make_media import Media
+    except Exception as e:                                    # unum / compiled extensions absent
+        pytest.skip(f"wcEcoli not importable here: {type(e).__name__}")
+    raw = KnowledgeBaseEcoli(operons_on=True, remove_rrna_operons=False, remove_rrff=False, stable_rrna=False)
+    return Media(raw)
+
+
+def _diff(a: dict, b: dict) -> list[str]:
+    return sorted(k for k in set(a) | set(b) if abs(float(b.get(k, 0)) - float(a.get(k, 0))) > 1e-12)
+
+
+@pytest.mark.parametrize("tag,mol", DROPOUTS)
+def test_a_dropout_removes_exactly_one_molecule(tag, mol):
+    """THE assertion. If a dropout perturbs anything besides its target amino acid, the experiment cannot
+    attribute a charging collapse to that amino acid and the design is worthless."""
+    m = _media()
+    mid = f"minimal_plus_amino_acids_minus_{tag}"
+    assert mid in m.recipes, f"{mid} is not registered in media_recipes.tsv"
+    base = m.make_recipe("minimal_plus_amino_acids")
+    got = m.make_recipe(mid)
+    assert _diff(base, got) == [mol], f"{mid} must perturb ONLY {mol}"
+    assert float(got[mol]) == 0.0, f"{mol} must be exactly zero, got {got[mol]}"
+    assert float(base[mol]) > 0.0, f"{mol} must be PRESENT in the AA-rich medium, else the dropout is a no-op"
+    assert len(got) == len(base), "molecule count must be preserved — removal sets the concentration to 0"
+
+
+def test_the_dropout_is_a_far_cleaner_perturbation_than_the_existing_downshift():
+    """The design justification, pinned as a number. Guards against someone 'simplifying' these recipes back
+    into a plain shift to `minimal`, which would silently reintroduce 29 confounded variables."""
+    m = _media()
+    base = m.make_recipe("minimal_plus_amino_acids")
+    n_downshift = len(_diff(base, m.make_recipe("minimal")))
+    assert n_downshift >= 20, "sanity: the AA-rich -> minimal downshift should perturb the whole AA set"
+    for tag, _mol in DROPOUTS:
+        n = len(_diff(base, m.make_recipe(f"minimal_plus_amino_acids_minus_{tag}")))
+        assert n == 1 < n_downshift, f"minus_{tag} perturbs {n} molecules vs {n_downshift} for the downshift"
+
+
+# ---------------- the envelope trap, which needs no model checkout ----------------
+def test_a_minus_medium_is_not_classified_as_fed_by_what_it_removes():
+    """`carbon_source` matched substrings, so `minimal_minus_malate` classified as MALATE-FED — a medium that
+    REMOVES a carbon source read as one that supplies it. Latent until these dropouts established
+    `minus_<molecule>` as a media naming pattern; it would have refused a valid glucose shift as an
+    out-of-envelope carbon switch, or mis-recorded a run's carbon source in provenance."""
+    from cellarium import envelope
+    assert envelope.carbon_source("minimal_minus_malate") == "glucose"
+    assert envelope.carbon_source("minimal_plus_amino_acids_minus_leu") == "glucose"
+    # and the real classifications must survive the fix
+    assert envelope.carbon_source("minimal_acetate") == "acetate"
+    assert envelope.carbon_source("minimal_malate") == "malate"
+    assert envelope.carbon_source("minimal_succinate") == "succinate"
+    assert envelope.carbon_source("minimal_fumarate") == "fumarate"
+
+
+@pytest.mark.parametrize("tag,_mol", DROPOUTS)
+def test_the_dropout_timeline_is_inside_the_validated_envelope(tag, _mol):
+    """These must be runnable as timelines — the whole design is a shift, and an envelope refusal is what
+    produced the 38 crashed zero-byte metabolism rows."""
+    from cellarium import envelope
+    from cellarium.generate import Design
+    d = Design(perturbation="timeline",
+               timeline=f"0 minimal_plus_amino_acids, 1200 minimal_plus_amino_acids_minus_{tag}")
+    v = envelope.check(d)
+    assert v.in_envelope, v.reason
+
+
+def test_the_envelope_still_refuses_a_real_carbon_switch():
+    """The companion: loosening the matcher must not have opened the gate it exists to hold."""
+    from cellarium import envelope
+    from cellarium.generate import Design
+    v = envelope.check(Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_acetate"))
+    assert not v.in_envelope and "carbon source" in v.reason

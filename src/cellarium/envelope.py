@@ -34,7 +34,11 @@ def carbon_source(media: str) -> str:
     """Classify a media id by its primary carbon source."""
     m = (media or "").lower()
     for alt in STATIC_ONLY_CARBON:
-        if alt in m:
+        # A `minus_<X>` medium REMOVES X — it is not fed by it. Plain substring matching read
+        # `minimal_minus_malate` as malate-fed and would have refused a glucose-medium shift as an
+        # out-of-envelope carbon switch, or worse, mis-attributed a run's carbon source in provenance.
+        # Latent until the SCI-TRNA-3 dropout media established `minus_<molecule>` as a naming pattern.
+        if alt in m.replace(f"minus_{alt}", ""):
             return alt
     return "glucose"  # minimal / minimal_glc_* / minimal_plus_* are all glucose-based
 
