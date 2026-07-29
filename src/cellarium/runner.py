@@ -75,6 +75,32 @@ def _out_root(sim_path: str) -> Path:
     return (OUT_ROOT if WCECOLI_DOCKER else Path(WCECOLI_DIR) / "out") / sim_path
 
 
+# Flat-file overlays: model DATA files Cellarium adds that the baked image predates. Read-only, one file at a
+# time, and never a directory — the image bakes in the compiled Cython, so mounting the checkout over /wcEcoli
+# shadows the built extensions and the model stops importing. A single .tsv is inert data and carries none of
+# that risk. Currently just the SCI-TRNA-3 dropout media (see scripts/apply_model_patches.py).
+_FLAT_OVERLAYS = ["reconstruction/ecoli/flat/condition/media_recipes.tsv"]
+
+
+def _flat_file_mounts() -> list[str]:
+    """`-v host:container:ro` args for each overlay that EXISTS on the host checkout and actually differs from
+    what the image ships. Silent when there is no checkout, so Docker-only users are unaffected.
+
+    Mounting is a stopgap, deliberately chosen over rebuilding the image: the rebuild is the correct long-term
+    fix and belongs in the image, but it is expensive and this keeps the model's own file as the single source
+    of truth in the meantime. A mounted file changes what ParCa FITS, so anything it produces carries a
+    different kb_sha256 than the corpus — that is recorded, not hidden."""
+    src = os.environ.get("WCECOLI_DIR") or WCECOLI_DIR
+    if not src:
+        return []
+    out: list[str] = []
+    for rel in _FLAT_OVERLAYS:
+        host = Path(src) / rel
+        if host.is_file():
+            out += ["-v", f"{host.as_posix()}:/wcEcoli/{rel}:ro"]
+    return out
+
+
 def _exec(script_args: list[str]) -> None:
     """Run a model script (e.g. ['runscripts/manual/runSim.py', ...]).
 
@@ -87,6 +113,7 @@ def _exec(script_args: list[str]) -> None:
     if WCECOLI_DOCKER:
         OUT_ROOT.mkdir(parents=True, exist_ok=True)
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
+               *_flat_file_mounts(),
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
         subprocess.run(cmd, check=True, env=redact.child_env())   # the docker CLI has no use for a credential
         return
