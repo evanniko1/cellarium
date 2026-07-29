@@ -79,7 +79,11 @@ def _out_root(sim_path: str) -> Path:
 # time, and never a directory — the image bakes in the compiled Cython, so mounting the checkout over /wcEcoli
 # shadows the built extensions and the model stops importing. A single .tsv is inert data and carries none of
 # that risk. Currently just the SCI-TRNA-3 dropout media (see scripts/apply_model_patches.py).
-_FLAT_OVERLAYS = ["reconstruction/ecoli/flat/condition/media_recipes.tsv"]
+_FLAT_OVERLAYS = ["reconstruction/ecoli/flat/condition/media_recipes.tsv",
+                  # Not optional, and not obvious: the media alone let the sim START but it dies on ENTERING
+                  # one, because nutrient_to_doubling_time is keyed by media yet built from the conditions
+                  # table. Mounting one without the other is the worst of both worlds — it fails 1200 s in.
+                  "reconstruction/ecoli/flat/condition/condition_defs.tsv"]
 
 
 def _flat_file_mounts() -> list[str]:
@@ -115,12 +119,44 @@ def _exec(script_args: list[str]) -> None:
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
                *_flat_file_mounts(),
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
-        subprocess.run(cmd, check=True, env=redact.child_env())   # the docker CLI has no use for a credential
+        _run_checked(cmd, None)   # the docker CLI has no use for a credential
         return
     if not WCECOLI_DIR:
         raise RuntimeError("Set WCECOLI_DOCKER (local model image) or WCECOLI_DIR (native checkout). "
                            "See docs/GENERATE.md.")
-    subprocess.run([PY, *script_args], cwd=WCECOLI_DIR, check=True, env=redact.child_env())
+    _run_checked([PY, *script_args], WCECOLI_DIR)
+
+
+# A crashed wcEcoli sim EXITS ZERO. FireWorks catches the process exception, marks the task FIZZLED, and the
+# wrapper script returns 0, so `check=True` is blind to it. Measured: a timeline naming a medium absent from
+# `nutrient_to_doubling_time` raised KeyError inside chromosome_replication, and `run_one` returned a run root
+# and reported success — with a simOut on disk that simply stopped at the shift. A truncated-but-present run is
+# the worst failure mode this project has: it looks like data.
+_FAILURE_MARKERS = ("Traceback (most recent call last)", "FIZZLED", "KeyError", "raise ",
+                    "ValueError:", "RuntimeError:", "AssertionError")
+
+
+def _run_checked(cmd: list[str], cwd: str | None) -> None:
+    """Run a model script, streaming its output, and FAIL on a traceback even when the exit code says 0."""
+    proc = subprocess.Popen(cmd, cwd=cwd or None, env=redact.child_env(),
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    tail: list[str] = []
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        print(line, end="")                      # keep the model's own progress visible
+        tail.append(line)
+        if len(tail) > 400:
+            del tail[:200]
+    rc = proc.wait()
+    blob = "".join(tail)
+    hit = next((m for m in _FAILURE_MARKERS if m in blob), None)
+    if rc != 0:
+        raise subprocess.CalledProcessError(rc, cmd, output=blob)
+    if hit:
+        raise RuntimeError(
+            f"The model script exited 0 but its output contains {hit!r} — the run FAILED and any simOut it "
+            f"left behind is truncated, not data. wcEcoli's FireWorks wrapper swallows the exception and "
+            f"returns 0, so the exit code cannot be trusted here.\n--- last output ---\n{blob[-2000:]}")
 
 
 def ensure_parca(sim_path: str = "cellarium", cpus: int | None = None) -> None:

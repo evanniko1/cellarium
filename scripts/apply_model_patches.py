@@ -15,14 +15,21 @@ Run it after cloning wcEcoli and before the ParCa rebuild:
     python scripts/apply_model_patches.py --wcecoli /path/to/wcEcoli
     python scripts/apply_model_patches.py --wcecoli /path/to/wcEcoli --check   # CI / verification, writes nothing
 
-**A ParCa rebuild is required after applying.** `reconstruction/ecoli/dataclasses/state/external_state.py`
-builds `saved_media` from every recipe and stores it in `sim_data`, and looks media up by label
-(`self.saved_media[media_label]`) — so a timeline naming a medium the cached `simData.cPickle` has never heard
-of raises KeyError. The rebuild changes `kb_sha256`, which every existing manifest row carries, so record both
-hashes and do not pool old and new runs without checking the fitted parameters for existing conditions are
-unchanged. They are EXPECTED to be unchanged — `saved_media`/`exchange_dict` are pure lookup tables keyed by
-media id, nothing here feeds an optimisation, and fitting is driven by `condition_defs.tsv`, which these
-patches deliberately do not touch — but that is a claim to verify against the rebuilt KB, not to assume.
+**Two files, and the second one is not optional.** An earlier version of this script patched only the media and
+argued that `condition_defs.tsv` could be left alone, since its doubling-time column feeds ParCa's fit. That was
+wrong, and a 1-seed smoke run — not a code read — proved it: the sim died at exactly t=1200 with
+`KeyError: 'minimal_plus_amino_acids_minus_leu'` inside `chromosome_replication.py:92`.
+`sim_data.nutrient_to_doubling_time` is keyed by MEDIA but BUILT from the conditions table, so a medium with no
+condition row has no doubling time and the strict lookup dies. (`metabolism.py:149` uses
+`.get(media, minimal)` and would have survived — the two processes disagree about unknown media, and the
+strict one decides.)
+
+**A ParCa rebuild is required after applying**, because `external_state` also bakes `saved_media` into
+`sim_data`. The rebuild changes `kb_sha256`, which every existing manifest row carries. Verified for the media
+change alone (`scripts/verify_kb_rebuild.py`): a stock rebuild and one carrying the media differ in 0 of 67
+fitted keys, and two identical-input rebuilds are bit-identical, so ParCa is deterministic and the media are
+purely additive. **Re-run that verification after the condition rows**, which touch the fitted table and so
+genuinely could move something — do not assume the earlier clean result carries over.
 """
 
 from __future__ import annotations
@@ -32,6 +39,7 @@ import os
 import sys
 
 MEDIA_RECIPES = os.path.join("reconstruction", "ecoli", "flat", "condition", "media_recipes.tsv")
+CONDITION_DEFS = os.path.join("reconstruction", "ecoli", "flat", "condition", "condition_defs.tsv")
 
 # Each dropout is `minimal_plus_amino_acids` with ONE amino acid forced to zero. `make_media.make_recipe`
 # combines base+supplement FIRST and applies `ingredients` to the RESULT (make_media.py:149-170), so
@@ -45,6 +53,46 @@ MEDIA_ROWS = [
     ('minimal_plus_amino_acids_minus_arg',
      '"minimal_plus_amino_acids_minus_arg"\t"MIX0-57"\t0.8\t"5X_supplement_EZ"\t0.2\t["ARG"]\t[-Infinity]\t[]\t[]'),
 ]
+
+
+# A medium is not enough. `sim_data.nutrient_to_doubling_time` is keyed by MEDIA but BUILT from the conditions
+# table, and `chromosome_replication.py:92` looks the current medium up with a bare `[...]` — so a timeline
+# entering a medium with no condition row raises KeyError mid-run. (`metabolism.py:149` uses `.get(media,
+# minimal)` and would have survived; the two processes disagree, and the strict one wins.) Found by a 1-seed
+# smoke run, not by reading: the sim died at exactly t=1200.
+#
+# Doubling time = 25.0, the SOURCE medium's (`with_aa`). This is the minimal-assumption choice, not a
+# prediction: with ppGpp regulation on, `metabolism` drives biomass from the RNA/protein ratio rather than from
+# this number, which mainly sets the DNA critical initiation mass. Matching the source medium means the shift
+# introduces NO step change in the replication set-point, so any response comes from the missing amino acid
+# rather than from a discontinuity we imposed. Empty TF lists follow the `minus_calcium` precedent — adding TF
+# overrides would enlarge what ParCa fits.
+CONDITION_ROWS = [
+    ('minus_leu', '"minus_leu"	"minimal_plus_amino_acids_minus_leu"	{}	25.0	[]	[]'),
+    ('minus_thr', '"minus_thr"	"minimal_plus_amino_acids_minus_thr"	{}	25.0	[]	[]'),
+    ('minus_arg', '"minus_arg"	"minimal_plus_amino_acids_minus_arg"	{}	25.0	[]	[]'),
+]
+
+
+def apply_conditions(wcecoli: str, check: bool = False) -> dict:
+    """Add the dropout CONDITION rows, without which the media exist but the sim dies on entering them."""
+    path = os.path.join(wcecoli, CONDITION_DEFS)
+    if not os.path.isfile(path):
+        return {"ok": False, "why": f"{CONDITION_DEFS} not found under {wcecoli!r}"}
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    present = [cid for cid, _row in CONDITION_ROWS if f'"{cid}"' in text]
+    missing = [(cid, row) for cid, row in CONDITION_ROWS if cid not in present]
+    if check or not missing:
+        return {"ok": not missing, "present": present, "missing": [c for c, _ in missing], "wrote": False}
+    lines = text.splitlines()
+    at = next((i for i, ln in enumerate(lines) if ln.startswith('"with_aa"')), len(lines) - 1)
+    for j, (_cid, row) in enumerate(missing):
+        lines.insert(at + 1 + j, row)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines) + "\n")
+    return {"ok": True, "present": present, "added": [c for c, _ in missing], "wrote": True,
+            "next": "REBUILD ParCa — nutrient_to_doubling_time is built from this table."}
 
 
 def apply_media(wcecoli: str, check: bool = False) -> dict:
@@ -82,10 +130,15 @@ def main(argv=None) -> int:
     ap.add_argument("--wcecoli", default=os.environ.get("WCECOLI_PATH", r"C:\dev\wcEcoli"))
     ap.add_argument("--check", action="store_true", help="report only; write nothing")
     a = ap.parse_args(argv)
-    res = apply_media(a.wcecoli, check=a.check)
-    for k, v in res.items():
-        print(f"{k}: {v}")
-    return 0 if res.get("ok") else 1
+    media = apply_media(a.wcecoli, check=a.check)
+    conds = apply_conditions(a.wcecoli, check=a.check)
+    print("media_recipes.tsv:")
+    for k, v in media.items():
+        print(f"  {k}: {v}")
+    print("condition_defs.tsv:")
+    for k, v in conds.items():
+        print(f"  {k}: {v}")
+    return 0 if (media.get("ok") and conds.get("ok")) else 1
 
 
 if __name__ == "__main__":
