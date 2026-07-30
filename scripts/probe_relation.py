@@ -92,7 +92,7 @@ def main() -> int:
         for m in unexpected[:20]:
             print(f"  {m}")
         return 1
-    print("\nOK: every monomer's mRNA translates to its protein, except the three known ones.")
+    print(f"\nOK: every monomer's mRNA translates to its protein, except {len(mismatch)} allowlisted.")
     return 0
 
 

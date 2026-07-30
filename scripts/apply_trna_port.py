@@ -163,6 +163,14 @@ FT_OPT_NEW = ('\t\toptions["trna_charging"] = self._get_default("trna_charging")
               '\t\toptions["coarse_kinetic_elongation"] = self._get_default("coarse_kinetic_elongation")\n')
 
 
+# EXT-PORT-7: two silent-wrong conditions the ported code's own asserts leave open. Both were found by
+# a content audit of the built structures rather than by anything crashing — which is the point.
+REL_OVERLOAD_OLD = '\t\t# Check for overloaded codons\n\t\tassert np.all(np.array(\n\t\t\t[len(amino_acids) for amino_acids in codon_to_amino_acid.values()]\n\t\t\t) <= 1)\n'
+REL_OVERLOAD_NEW = "\t\t# Check for overloaded codons\n\t\tassert np.all(np.array(\n\t\t\t[len(amino_acids) for amino_acids in codon_to_amino_acid.values()]\n\t\t\t) <= 1)\n\n\t\t# EXT-PORT-7: ...and for UNASSIGNED ones, which the check above does not cover. This mapping is\n\t\t# derived empirically by observing (codon, amino acid) pairs across the proteome, so a codon that no\n\t\t# protein happens to use gets an EMPTY list rather than an error. That becomes an all-zero column in\n\t\t# codons_to_amino_acids, and the residue-weight loop below then does `np.where(col)[0][0]` on it and\n\t\t# raises IndexError from a line that has nothing to do with the cause. Measured on this build: all 63\n\t\t# columns sum to exactly 1, so this holds today and the assert is here to catch drift.\n\t\tunassigned = [codon for codon, amino_acids in codon_to_amino_acid.items() if len(amino_acids) == 0]\n\t\tassert not unassigned, (\n\t\t\t'no amino acid was observed for codon(s) {} anywhere in the proteome, so their columns of '\n\t\t\t'codons_to_amino_acids would be all-zero'.format(unassigned))\n"
+REL_WEIGHTS_OLD = '\t\t# Describe residue masses\n\t\tresidue_weights_by_codon = []\n'
+REL_WEIGHTS_NEW = "\t\t# Describe residue masses\n\t\t# EXT-PORT-7: the loop below crosses TWO amino-acid orderings. `i` is a row index into\n\t\t# codons_to_amino_acids, which is ordered by molecule_groups.amino_acids (see\n\t\t# _build_codon_sequences), and it indexes translation_monomer_weights, which is ordered by\n\t\t# amino_acid_code_to_id_ordered.values() (translation.py). They are element-for-element equal in this\n\t\t# build, which is why this works — but nothing enforces it, and if they ever diverged every residue\n\t\t# weight would be silently PERMUTED with no error anywhere. Assert the coupling the code relies on.\n\t\tassert (list(sim_data.molecule_groups.amino_acids)\n\t\t\t\t== list(sim_data.amino_acid_code_to_id_ordered.values())), (\n\t\t\t'molecule_groups.amino_acids and amino_acid_code_to_id_ordered disagree, so the row index of '\n\t\t\t'codons_to_amino_acids can no longer be used to index translation_monomer_weights')\n\t\tresidue_weights_by_codon = []\n"
+
+
 PYX_SOURCE = os.path.join("wholecell", "utils", "_trna_charging.pyx")
 
 # Run INSIDE the model image by `build_extension`. Deliberately mirrors what Covert's own top-level setup.py
@@ -389,6 +397,7 @@ def status(wcecoli: str) -> dict:
         "relation_cistron_fix": _has(wcecoli, REL, "parsed from ITS OWN GENE"),
         "relation_keeps_mismatches": _has(wcecoli, REL, "codon_sequence_mismatches"),
         "relation_trna_space": _has(wcecoli, REL, "uncharged_trna_names)"),
+        "relation_guards": _has(wcecoli, REL, "EXT-PORT-7"),
         "relation_init": _has(wcecoli, REL, "self._build_trna_charging_kinetics(raw_data, sim_data)"),
         "groups_codons": _has(wcecoli, MG, "'codons': codon_ids"),
         "groups_initiators": _has(wcecoli, MG, "'initiator_trnas'"),
@@ -469,6 +478,13 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
                                             f"found {txt.count(old)}"}
             txt = txt.replace(old, new, 1)
         wrote.append("relation.py: record mRNA/protein mismatches instead of dropping the monomer")
+    if not st["relation_guards"]:
+        for old, new in ((REL_OVERLOAD_OLD, REL_OVERLOAD_NEW), (REL_WEIGHTS_OLD, REL_WEIGHTS_NEW)):
+            if txt.count(old) != 1:
+                return {"ok": False, "why": f"{REL}: expected exactly one {old.strip()[:44]!r}, "
+                                            f"found {txt.count(old)}"}
+            txt = txt.replace(old, new, 1)
+        wrote.append("relation.py: guards for unassigned codons and the amino-acid ordering cross")
     if not st["relation_trna_space"]:
         if txt.count(REL_TRNA_OLD) != 1:
             return {"ok": False, "why": f"{REL}: expected exactly one TU-space tRNA block to redirect at "

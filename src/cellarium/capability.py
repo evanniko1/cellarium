@@ -41,7 +41,8 @@ class Capability:
     markers: tuple[str, ...] = ()       # symbols in the checkout that evidence it
     # PORTED is not the same as ON, and conflating them is how a safety registry starts lying. After EXT-PORT-1
     # the kinetic tRNA charging code is in the checkout, so `markers` find it and `present` is honestly True —
-    # but it is behind `--kinetic-trna-charging`, which defaults OFF and which NO run in the existing corpus
+    # but it is behind `--kinetic-trna-charging`, which is GATED — it raises NotImplementedError,
+    # because the host process was never ported — and which NO run in the existing corpus
     # used. Reporting a per-isoacceptor number off a steady-state run would be exactly the confidently-wrong
     # answer this module exists to prevent, so `check()` still refuses unless the capability is on by default.
     default_on: bool = True
@@ -82,7 +83,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         question="Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? "
                  "(Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)",
         present=True,       # EXT-PORT-1 applied
-        default_on=False,   # ...but --kinetic-trna-charging defaults OFF, and no corpus run used it
+        default_on=False,   # ...--kinetic-trna-charging is gated (EXT-PORT-8) and no corpus run used it
         markers=("KineticTrnaChargingModel", "trnas_to_codons", "codons_to_trnas"),
         instead="charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 "
                 "isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across "
@@ -92,14 +93,14 @@ CAPABILITIES: tuple[Capability, ...] = (
                     "uniform charging",
         available_in="CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, "
                      "doi:10.1093/nar/gkad435) — not present in the dev lineage this checkout descends from",
-        flag="--kinetic-trna-charging (ported by scripts/apply_trna_port.py; defaults OFF)",
+        flag="--kinetic-trna-charging — NOT RUNNABLE YET: it raises NotImplementedError. The elongation models and their knowledge base are ported (ParCa is green), but the host PolypeptideElongation process still uses the steady-state calling convention. See BACKLOG EXT-PORT-8.",
         detail="differential charging BETWEEN isoacceptors of one amino acid",
     ),
     Capability(
         key="codon_level_elongation",
         question="Which CODON is a ribosome waiting on, and does codon identity change elongation rate?",
         present=True,       # EXT-PORT-1 applied: the consumer now exists
-        default_on=False,   # ...but nothing elongates by codon unless --kinetic-trna-charging is passed
+        default_on=False,   # ...and --kinetic-trna-charging, which would enable it, is gated (EXT-PORT-8)
         # The marker must be the CONSUMER, not the data.  /  are now present
         # because the EXT-PORT relation.py work added them — and the audit caught this declaration going stale,
         # which is what it is for. But the reading matrix existing is necessary and NOT sufficient: nothing
