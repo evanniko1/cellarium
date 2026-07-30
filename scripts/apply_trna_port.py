@@ -3,18 +3,15 @@
 Source: CovertLab/WholeCellEcoliRelease **v3.0.1** — Choi & Covert 2023, *NAR* 51(12):5911,
 doi:10.1093/nar/gkad435. Applied with permission from Prof. Covert.
 
-**This applies FROM A REFERENCE TREE and deliberately does not embed the ported code.** Two reasons.
-Practically, it is ~1155 lines of `relation.py` plus four smaller edits; inlining that would make the script
-unreadable and would drift from upstream invisibly. Legally, the licence position is unresolved — the Zenodo
-record states CC-BY-NC-4.0 while the in-repo `LICENSE.md` at tag v3.0.1 is the Stanford Academic Software
-License S18-475, which grants a NONTRANSFERABLE licence and says nothing permitting redistribution. Recording
-the PROCEDURE keeps Covert-lab code out of this public repo while leaving the port fully reproducible by anyone
-who obtains v3.0.1 themselves.
+**This applies FROM A REFERENCE TREE.** The reference is carried in-repo at `vendor/v301/` — Prof. Covert
+has given permission to use and redistribute this code, so it is committed rather than gitignored, and
+EXT-PORT-9 (the port not being reproducible from a clone) dissolves with it. Applying from a reference
+rather than inlining ~1275 lines into this script is now purely a readability choice: the script records
+the ADAPTATIONS, which are ours and are the part worth reading, while the ported code stays diffable
+against upstream.
 
-Get the reference, then point `--reference` at it:
-
-    https://zenodo.org/records/7859480
-    # or: git clone --branch v3.0.1 https://github.com/CovertLab/WholeCellEcoliRelease
+Attribution: Choi & Covert 2023, *NAR* 51(12):5911, doi:10.1093/nar/gkad435; code from
+`CovertLab/WholeCellEcoliRelease` v3.0.1.
 
 Five files change, and the fifth is the one that bites. `raw_data` does **not** scan `flat/` — it reads an
 explicit `LIST_OF_DICT_FILENAMES`, so a file that is copied but not registered is SILENTLY INVISIBLE. The first
