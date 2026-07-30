@@ -24,9 +24,14 @@ import tempfile
 from pathlib import Path
 
 
-def _run_roots(out: str) -> list[Path]:
-    """Every lineage run root under <out>/cellarium (a run root is a simOut's 3rd parent)."""
-    base = Path(out) / "cellarium"
+def _run_roots(out: str, sim_path: str = "cellarium") -> list[Path]:
+    """Every lineage run root under <out>/<sim_path> (a run root is a simOut's 3rd parent).
+
+    `sim_path` was hard-coded to "cellarium", so this could not see ANY other campaign — the SCI-TRNA-4
+    dropout arms live under `runs/aadrop/` and were simply invisible to the uploader, which reported "no run
+    roots found" rather than anything resembling the real problem. Same hard-coded-sim_path class as the bug
+    in `manifest.campaign` and `_crash_row`."""
+    base = Path(out) / sim_path
     return sorted({so.parents[2] for so in base.glob("**/simOut")}) if base.exists() else []
 
 
@@ -36,6 +41,8 @@ def main() -> int:
     ap.add_argument("--out", default=os.environ.get("CELLARIUM_OUT", "runs"), help="local output root")
     ap.add_argument("--designs", default="", help="comma-separated design dir names (e.g. gene_knockout_002095) "
                                                    "-- upload only runs under these (for a curated subset)")
+    ap.add_argument("--sim-path", dest="sim_path", default="cellarium",
+                    help="which campaign under <out>/ to upload (e.g. aadrop for the dropout arms)")
     ap.add_argument("--limit", type=int, default=0, help="upload only the first N runs (0 = all)")
     ap.add_argument("--card", action="store_true", help="also upload data/hf/README.md as the dataset card")
     ap.add_argument("--dry-run", action="store_true")
@@ -52,14 +59,14 @@ def main() -> int:
         print("Not logged in -> hf auth login (paste a WRITE token). Nothing uploaded.", file=sys.stderr)
         return 2
 
-    roots = _run_roots(args.out)
+    roots = _run_roots(args.out, args.sim_path)
     if args.designs:
         keep = {d.strip() for d in args.designs.split(",") if d.strip()}
         roots = [r for r in roots if r.parent.name in keep]   # <out>/cellarium/<design>/<seed> -> parent = <design>
     if args.limit:
         roots = roots[:args.limit]
     if not roots:
-        print(f"no run roots found under {Path(args.out) / 'cellarium'}", file=sys.stderr)
+        print(f"no run roots found under {Path(args.out) / args.sim_path}", file=sys.stderr)
         return 1
     print(f"Logged in as {me.get('name')!r}; {len(roots)} run(s) -> dataset {args.repo}")
     api = HfApi()

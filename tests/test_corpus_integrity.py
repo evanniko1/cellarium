@@ -176,11 +176,19 @@ def test_the_dedup_outcome_is_pinned_on_the_corpus():
     # supersedes its corrupt original by `ts`, so the original stays on disk and shows up here as a superseded
     # duplicate. This pin CAUGHT that write (it read 12 where 9 was pinned), which is exactly its job — the
     # number must only ever move for a change someone can name.
-    assert raw - kept == 12, (f"dedup removed {raw - kept} rows (raw {raw} -> kept {kept}); expected 12 "
-                              "(9 re-indexed duplicates + 3 segment repairs) — a different number means a "
-                              "wrong-merge, a wrong-split, or an unrecorded corpus write")
-    assert crash == 41, f"{crash} crash rows survive, expected 41 — a crash-id collision was wrongly merged"
-    assert wt == 26, f"wildtype/basal reportable = {wt}, expected 26 — the reference count drifted"
+    assert raw - kept == 47, (f"dedup removed {raw - kept} rows (raw {raw} -> kept {kept}); expected 47 = "
+                              "9 re-indexed duplicates + 3 segment repairs + 7 crash rows re-stamped with "
+                              "their aadrop kb + 28 rows re-stamped when _flat_row stopped defaulting the kb "
+                              "to the cellarium campaign — a different number means a wrong-merge, a "
+                              "wrong-split, or an unrecorded corpus write")
+    # Counts rows whose ID was MINTED by the crash path (`id LIKE '%_crash'`), which is NOT the same as
+    # `qc='crashed'` — 8 rows produced a record via build_record and were only then marked crashed, so they
+    # keep their real id. Both counts are valid answers to different questions; this pin is the id-minted one.
+    # 41 historical + 7 from the SCI-TRNA-4 leu campaigns, whose un-starved control was lethal by construction
+    # before its medium was fixed and collided with the starved arm on the model output dir.
+    assert crash == 48, f"{crash} crash rows survive, expected 48 — a crash-id collision was wrongly merged"
+    # 26 + the 4 wildtype/basal seeds the leu arm ran against the aadrop kb as its null.
+    assert wt == 30, f"wildtype/basal reportable = {wt}, expected 30 — the reference count drifted"
 
 
 def test_the_audit_tool_reads_the_same_corpus_as_everything_else():

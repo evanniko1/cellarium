@@ -676,9 +676,14 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
     try:
         import duckdb
         con = duckdb.connect()
+        # DEDUP FIRST, then filter. SQL applies WHERE before QUALIFY, so `WHERE kb_sha256 IS NULL ... QUALIFY`
+        # selects the NULL rows and then dedups AMONG THEMSELVES — it reports a stale row even when a
+        # superseding row carries the provenance. That made the invariant unsatisfiable by correction: 7 crash
+        # rows were correctly re-stamped by an appended shard and D6 kept flagging the superseded originals.
+        # Same shape as rewriting `simout_path` to "fix" a row: the repair is real, the check cannot see it.
         no_prov = [r["id"] for r in con.execute(
-            f"SELECT id FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
-            f"WHERE kb_sha256 IS NULL {DEDUP_QUALIFY}"
+            f"SELECT id FROM (SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
+            f"{DEDUP_QUALIFY}) WHERE kb_sha256 IS NULL"
         ).fetch_arrow_table().to_pylist()]
         con.close()
     except Exception:
