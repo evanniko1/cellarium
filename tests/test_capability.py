@@ -17,10 +17,17 @@ from cellarium import capability, tools
 
 def test_the_capability_that_burned_us_is_declared_absent():
     c = capability.get("per_isoacceptor_trna_charging")
-    assert c is not None and c.present is False
+    # EXT-PORT-1 put the mechanism IN the checkout, so `present` is now honestly True — but the flag defaults
+    # OFF and no run in the corpus used it. The distinction is the whole point: a registry that collapsed
+    # "ported" into "available" would start green-lighting per-isoacceptor claims against steady-state runs,
+    # which is precisely the failure this module was written after.
+    assert c is not None and c.present is True and c.default_on is False
+    assert capability.check(c.key)["can_answer"] is False
+    assert c in capability.missing()
     # the refusal must name the mechanism, the substitute, AND why the output misleads
     r = c.refusal()
     assert "CANNOT" in r
+    assert "defaults OFF" in r
     assert "aa_from_trna" in r, "the refusal must name the actual aggregation that causes it"
     assert "arithmetic" in r or "IDENTICAL BY CONSTRUCTION" in r
     assert "v3.0.1" in r, "must point at where the mechanism does exist"
@@ -76,7 +83,9 @@ def test_the_tool_surface_separates_can_from_cannot():
     out = tools.model_capabilities()
     cannot = {c["capability"] for c in out["cannot_represent"]}
     can = {c["capability"] for c in out["can_represent"]}
-    assert "per_isoacceptor_trna_charging" in cannot
+    assert "per_isoacceptor_trna_charging" in cannot, "ported but off by default is still not answerable"
+    assert "per_isoacceptor_trna_charging" in {
+        c["capability"] for c in out["ported_but_off_by_default"]}
     assert "per_amino_acid_trna_charging" in can, "what the model DOES do must be declared too"
     assert not (cannot & can)
     for c in out["cannot_represent"]:

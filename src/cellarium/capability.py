@@ -37,8 +37,14 @@ class Capability:
 
     key: str
     question: str                       # a scientific question that NEEDS this mechanism
-    present: bool                       # in the model configuration Cellarium currently runs
+    present: bool                       # the mechanism EXISTS in the checkout Cellarium runs against
     markers: tuple[str, ...] = ()       # symbols in the checkout that evidence it
+    # PORTED is not the same as ON, and conflating them is how a safety registry starts lying. After EXT-PORT-1
+    # the kinetic tRNA charging code is in the checkout, so `markers` find it and `present` is honestly True —
+    # but it is behind `--kinetic-trna-charging`, which defaults OFF and which NO run in the existing corpus
+    # used. Reporting a per-isoacceptor number off a steady-state run would be exactly the confidently-wrong
+    # answer this module exists to prevent, so `check()` still refuses unless the capability is on by default.
+    default_on: bool = True
     instead: str = ""                   # what the model does INSTEAD, when absent
     consequence: str = ""               # what a naive read would wrongly conclude
     available_in: str = ""              # where the mechanism does exist, if anywhere
@@ -47,6 +53,15 @@ class Capability:
 
     def refusal(self) -> str:
         """What to say instead of returning a number. Names the gap, the substitute, and the route."""
+        if self.present and not self.default_on:
+            return (f"The mechanism for {self.key} IS present in the model ({self.available_in or 'ported'}), "
+                    f"but it is behind {self.flag or 'a non-default flag'}, which defaults OFF, so the corpus "
+                    f"CANNOT answer this: no simulation in it was run with the flag. "
+                    + (f"What those runs do instead: {self.instead} " if self.instead else "")
+                    + (f"So do NOT read their output as evidence: {self.consequence} " if self.consequence
+                       else "")
+                    + "Answering this needs a NEW campaign run with that flag — and because the port changes "
+                      "kb_sha256, such a campaign is not poolable with the existing corpus.")
         parts = [f"The model as configured CANNOT represent {self.key}: {self.detail or self.question}"]
         if self.instead:
             parts.append(f"What it does instead: {self.instead}")
@@ -66,7 +81,8 @@ CAPABILITIES: tuple[Capability, ...] = (
         key="per_isoacceptor_trna_charging",
         question="Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? "
                  "(Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)",
-        present=False,
+        present=True,       # EXT-PORT-1 applied
+        default_on=False,   # ...but --kinetic-trna-charging defaults OFF, and no corpus run used it
         markers=("KineticTrnaChargingModel", "trnas_to_codons", "codons_to_trnas"),
         instead="charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 "
                 "isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across "
@@ -76,24 +92,26 @@ CAPABILITIES: tuple[Capability, ...] = (
                     "uniform charging",
         available_in="CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, "
                      "doi:10.1093/nar/gkad435) — not present in the dev lineage this checkout descends from",
-        flag="--kinetic-trna-charging (not yet ported; see docs/MODEL_EXTENSION.md EXT-2)",
+        flag="--kinetic-trna-charging (ported by scripts/apply_trna_port.py; defaults OFF)",
         detail="differential charging BETWEEN isoacceptors of one amino acid",
     ),
     Capability(
         key="codon_level_elongation",
         question="Which CODON is a ribosome waiting on, and does codon identity change elongation rate?",
-        present=False,
+        present=True,       # EXT-PORT-1 applied: the consumer now exists
+        default_on=False,   # ...but nothing elongates by codon unless --kinetic-trna-charging is passed
         # The marker must be the CONSUMER, not the data.  /  are now present
         # because the EXT-PORT relation.py work added them — and the audit caught this declaration going stale,
         # which is what it is for. But the reading matrix existing is necessary and NOT sufficient: nothing
         # elongates by codon until  is ported into polypeptide_elongation.py. Marking
         # this present on the strength of the data alone would have claimed a capability with no consumer.
         markers=("KineticTrnaChargingModel",),
-        instead="the codon x anticodon reading matrix now EXISTS (relation.py port) but nothing consumes it: "
-                "elongation still draws from per-amino-acid pools",
+        instead="with the flag OFF — which is every run in the corpus — elongation draws from per-amino-acid "
+                "pools and codon identity has no effect on rate, even though the codon x anticodon reading "
+                "matrix and its consumer are both now present in the checkout",
         consequence="any codon-usage or codon-bias claim would be inferred from sequence, not simulated",
         available_in="CovertLab/WholeCellEcoliRelease v3.0.1",
-        flag="--kinetic-trna-charging",
+        flag="--kinetic-trna-charging (ported by scripts/apply_trna_port.py; defaults OFF)",
     ),
     Capability(
         key="operon_specific_rrna_knockout",
@@ -168,8 +186,8 @@ def get(key: str) -> Capability | None:
 
 
 def missing() -> tuple[Capability, ...]:
-    """The mechanisms this model cannot represent — the ones that produce plausible wrong numbers."""
-    return tuple(c for c in CAPABILITIES if not c.present)
+    """The mechanisms the corpus cannot answer from — absent OR ported-but-off. Both produce wrong numbers."""
+    return tuple(c for c in CAPABILITIES if not (c.present and c.default_on))
 
 
 def check(key: str) -> dict:
@@ -182,8 +200,12 @@ def check(key: str) -> dict:
                 "note": f"'{key}' is not a declared capability. Declared: {sorted(_BY_KEY)}. An undeclared "
                         f"mechanism is not evidence of absence — add it to CAPABILITIES with markers so the "
                         f"answer is probed rather than assumed."}
-    out = {"capability": key, "known": True, "can_answer": c.present, "question": c.question}
-    if not c.present:
+    answerable = c.present and c.default_on
+    out = {"capability": key, "known": True, "can_answer": answerable, "question": c.question}
+    if c.present and not c.default_on:
+        out["ported_but_off_by_default"] = True
+        out["flag"] = c.flag
+    if not answerable:
         out["refusal"] = c.refusal()
         out["report_a_number"] = False
     return out

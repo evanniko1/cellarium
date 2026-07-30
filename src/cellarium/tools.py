@@ -147,8 +147,13 @@ def model_capabilities(capability: str | None = None) -> dict:
         "cannot_represent": [{"capability": c.key, "question": c.question, "instead": c.instead,
                               "why_the_output_misleads": c.consequence,
                               "available_in": c.available_in, "flag": c.flag} for c in cap.missing()],
+        # `present` means the mechanism is IN THE CHECKOUT; `default_on` means the runs actually used it.
+        # Only the second makes a question answerable from the corpus, so the split must test both — testing
+        # `present` alone would land the ported-but-off kinetic charging in BOTH lists.
         "can_represent": [{"capability": c.key, "question": c.question}
-                          for c in cap.CAPABILITIES if c.present],
+                          for c in cap.CAPABILITIES if c.present and c.default_on],
+        "ported_but_off_by_default": [{"capability": c.key, "question": c.question, "flag": c.flag}
+                                      for c in cap.CAPABILITIES if c.present and not c.default_on],
         "audit": cap.audit().get("ok"),
         "note": ("`cannot_represent` entries are structural: the model returns a plausible number for each of "
                  "them anyway. If a question needs one, say the model cannot answer it and why — do NOT report "
