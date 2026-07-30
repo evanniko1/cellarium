@@ -120,6 +120,49 @@ REL_ACC_NEW = '\t\t\t# Record codon to amino acid interactions\n\t\t\t# EXT-PORT
 REL_TRNA_OLD = "\t\t# Map tRNAs to their anticodons\n\t\trna_data = sim_data.process.transcription.rna_data\n\t\tfree_trnas = rna_data['id'][rna_data['is_tRNA']]\n\t\tanticodons = rna_data['anticodon'][rna_data['is_tRNA']]\n\t\ttrna_to_anticodon = dict(zip(free_trnas, anticodons))\n"
 REL_TRNA_NEW = "\t\t# Map tRNAs to their anticodons\n\t\t# EXT-PORT-1C adaptation, and the one that unblocks the whole tRNA half of the port at once.\n\t\t# v3.0.1 took the tRNA list from `rna_data`, which is correct only when operons are OFF and\n\t\t# rna_data degenerates to one row per cistron. Here rna_data is TRANSCRIPTION UNITS, so that\n\t\t# list comes out ~42 long instead of 86 — and `dict(zip(free_trnas, charged_trnas))` would have\n\t\t# TRUNCATED to the shorter of the two without raising, quietly pairing the wrong tRNAs.\n\t\t#\n\t\t# `transcription.uncharged_trna_names` is the canonical list: cistron ids with a '[c]' tag\n\t\t# (transcription.py:1265). Everything the ported code needs is already aligned to it —\n\t\t# `charged_trna_names` one-for-one (asserted at transcription.py:1285), the 86 columns of\n\t\t# `aa_from_trna`, `molecule_groups.initiator_trnas`, the six hard-coded wobble tRNAs below, and\n\t\t# the K_M keys in flat/optimization/trna_charging_kinetics_solutions.tsv.\n\t\t#\n\t\t# The anticodon has to come from raw_data: it is a column of rnas.tsv but is propagated into\n\t\t# neither cistron_data nor rna_data, which is why `rna_data['anticodon']` raised KeyError.\n\t\tfree_trnas = np.array(sim_data.process.transcription.uncharged_trna_names)\n\t\tanticodon_by_rna_id = {rna['id']: rna['anticodon'] for rna in raw_data.rnas}\n\t\tanticodons = [anticodon_by_rna_id[trna[:-3]] for trna in free_trnas]\n\t\ttrna_to_anticodon = dict(zip(free_trnas, anticodons))\n\t\tassert len(trna_to_anticodon) == len(free_trnas)\n"
 
+# EXT-PORT-5 / EXT-PORT-8 — the RUNTIME half, which ParCa never executes and therefore never checks.
+#
+# The same operons-OFF assumption that broke relation.py also sits in the ported process and listener:
+# `rna_data['id'][rna_data['is_tRNA']]` gives 51 transcription-unit ids where everything else uses the 86
+# cistron ids of `uncharged_trna_names` (intersection: 9). What makes this the worst defect in the port is
+# that it does NOT crash first — `relation.trna_to_K_T.get(trna, 1*units.umol/units.L)` would have
+# silently defaulted 42 of 51 lookups, and a .get with a default cannot fail loudly.
+#
+# The gate is the other half. The elongation MODELS are ported and their knowledge base builds, but the
+# HOST PolypeptideElongation process is not: it still calls them with the steady-state arity
+# (elongation_rate 0 args vs 3, request 1 vs 4, evolve 5 vs 8) and never calls seven of their methods.
+# Ungated, `--kinetic-trna-charging` fails with a TypeError deep inside a simulation that has already run
+# ParCa. Gated, it fails at construction with a sentence saying what is missing.
+PE_TRNA_OLD = "\t\trna_data = transcription.rna_data\n\t\tfree_trnas = rna_data['id'][rna_data['is_tRNA']].tolist()\n"
+PE_TRNA_NEW = "\t\t# EXT-PORT-5: `rna_data['id'][rna_data['is_tRNA']]` is the v3.0.1 idiom and it is wrong here for\n\t\t# the same reason it was wrong in relation.py — with operons ON, rna_data is TRANSCRIPTION\n\t\t# UNITS. Measured: it yields 51 TU ids against the 86 cistron ids everything else uses, an\n\t\t# intersection of 9. `relation.trna_to_K_T.get(trna, 1*units.umol/units.L)` would then have\n\t\t# silently defaulted 42 of 51 lookups — a .get with a default CANNOT fail loudly — and the\n\t\t# 51-vs-86 width disagreement crashes this constructor a few lines below.\n\t\t# SteadyStateElongationModel already uses uncharged_trna_names in this same file.\n\t\tfree_trnas = list(transcription.uncharged_trna_names)\n"
+GATE_OLD = '\t\tif kinetic_trna_charging:\n'
+GATE_NEW = "\t\t# EXT-PORT-8 GATE. The two kinetic elongation models are ported and their knowledge base is built\n\t\t# (ParCa is green), but the HOST process around them is not: v3.0.1's codon-aware\n\t\t# calculateRequest/evolveState were never brought across, so this class still calls the elongation\n\t\t# model with the steady-state arity. Measured mismatches:\n\t\t#     elongation_rate()          0 args   vs KineticTrnaChargingModel's 3\n\t\t#     request(aasInSequences)    1 arg    vs 4\n\t\t#     evolve(...)                5 args   vs 8\n\t\t# and seven further methods of the kinetic model (run_model, reconcile, protein_maturation,\n\t\t# record_mass, sequences, codon_sequences_width, monomer_limit) are never called at all.\n\t\t# Also missing: monomer_data has no 'cleavage_of_initial_methionine' column, which the kinetic\n\t\t# constructor reads.\n\t\t#\n\t\t# Without this gate the flag is reachable and fails with a TypeError deep inside a simulation that\n\t\t# has already run ParCa and started elongating. Fail here instead, and say what is missing.\n\t\tif kinetic_trna_charging or coarse_kinetic_elongation:\n\t\t\traise NotImplementedError(\n\t\t\t\t'kinetic_trna_charging / coarse_kinetic_elongation are NOT runnable yet. The elongation '\n\t\t\t\t'models and their knowledge base are ported (EXT-PORT-1), but the host PolypeptideElongation '\n\t\t\t\t'process still uses the steady-state calling convention, so the kinetic models would be '\n\t\t\t\t'called with the wrong arity. See BACKLOG EXT-PORT-8. Run without these flags to use '\n\t\t\t\t'SteadyStateElongationModel, which is unchanged by the port.')\n\t\tif kinetic_trna_charging:\n"
+LIS_TRNA_OLD = "\t\trna_data = sim_data.process.transcription.rna_data\n\t\ttrnas = rna_data['id'][rna_data['is_tRNA']]\n"
+LIS_TRNA_NEW = '\t\t# EXT-PORT-5: cistron space, not transcription-unit space — see the note in\n\t\t# polypeptide_elongation.py:KineticTrnaChargingModel.__init__. Sizing these columns from\n\t\t# rna_data gives 51 where the relation arrays are 86, so every logged column would be the\n\t\t# wrong width against data that is 86 wide.\n\t\ttrnas = sim_data.process.transcription.uncharged_trna_names\n'
+
+
+# The Fireworks firetasks keep their OWN allow-list of simulation kwargs, separate from scriptBase's two
+# lists. Fireworks RAISES on an unknown kwarg, so adding a flag to scriptBase alone does not merely fail to
+# reach the sim — it breaks EVERY run, including the default one, with
+#   RuntimeError: Invalid keyword argument specified for SimulationTask. You specified:
+#   kinetic_trna_charging.
+# Found by actually running `runscripts/manual/runSim.py`. It was invisible to a check that constructs
+# EcoliSimulation directly, because that path never goes through Fireworks. Both task classes need it: the
+# first generation goes through SimulationTask, every later one through SimulationDaughterTask.
+FIRETASKS = (os.path.join("wholecell", "fireworks", "firetasks", "simulation.py"),
+             os.path.join("wholecell", "fireworks", "firetasks", "simulationDaughter.py"))
+FT_LIST_OLD = '\t\t"trna_charging",\n'
+FT_LIST_NEW = ('\t\t"trna_charging",\n'
+               '\t\t# EXT-PORT-3: this allow-list is separate from scriptBase.SIM_KEYS, and Fireworks raises\n'
+               '\t\t# on an unknown kwarg, so the two must stay in step or every run fails.\n'
+               '\t\t"kinetic_trna_charging",\n'
+               '\t\t"coarse_kinetic_elongation",\n')
+FT_OPT_OLD = '\t\toptions["trna_charging"] = self._get_default("trna_charging")\n'
+FT_OPT_NEW = ('\t\toptions["trna_charging"] = self._get_default("trna_charging")\n'
+              '\t\toptions["kinetic_trna_charging"] = self._get_default("kinetic_trna_charging")\n'
+              '\t\toptions["coarse_kinetic_elongation"] = self._get_default("coarse_kinetic_elongation")\n')
+
+
 PYX_SOURCE = os.path.join("wholecell", "utils", "_trna_charging.pyx")
 
 # Run INSIDE the model image by `build_extension`. Deliberately mirrors what Covert's own top-level setup.py
@@ -362,8 +405,12 @@ def status(wcecoli: str) -> dict:
         "pe_guard": _has(wcecoli, PE, "if not (trna_charging or kinetic_trna_charging):"),
         "listener_installed": os.path.isfile(os.path.join(wcecoli, LIS)),
         "listener_registered": _has(wcecoli, MSIM, "TrnaCharging"),
+        "runtime_trna_space": (_has(wcecoli, PE, "free_trnas = list(transcription.uncharged")
+                               and _has(wcecoli, LIS, "transcription.uncharged_trna_names")),
+        "kinetic_flag_gated": _has(wcecoli, PE, "EXT-PORT-8 GATE"),
         "sim_flags": _has(wcecoli, WSIM, "kinetic_trna_charging = False"),
         "cli_flags": _has(wcecoli, SB, "'kinetic_trna_charging'"),
+        "firetasks_wired": all(_has(wcecoli, f, "kinetic_trna_charging") for f in FIRETASKS),
         "setup_registered": _has(wcecoli, SETUP, "_trna_charging.pyx"),
         # True only when NEITHER ported file still carries the removed alias.
         "numpy_aliases_modernised": (_has(wcecoli, REL, "class Relation") is not None and not any(
@@ -537,6 +584,27 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         _write(os.path.join(wcecoli, PE), t, n2)
         wrote.append("polypeptide_elongation.py: import + 2 kinetic models + selector + guard")
 
+    # 9b) the runtime tRNA id space, in BOTH the process and the listener
+    if not st["runtime_trna_space"] or not st["kinetic_flag_gated"]:
+        t, n2 = _read(os.path.join(wcecoli, PE))
+        for old, new, want in ((PE_TRNA_OLD, PE_TRNA_NEW, st["runtime_trna_space"]),
+                               (GATE_OLD, GATE_NEW, st["kinetic_flag_gated"])):
+            if want:
+                continue
+            o = old.replace("\n", n2)
+            if t.count(o) != 1:
+                return {"ok": False, "why": f"{PE}: expected exactly one {old.strip()[:44]!r}, "
+                                            f"found {t.count(o)}"}
+            t = t.replace(o, new.replace("\n", n2), 1)
+        _write(os.path.join(wcecoli, PE), t, n2)
+        wrote.append("polypeptide_elongation.py: tRNA cistron space + the EXT-PORT-8 gate")
+        if not st["runtime_trna_space"] and os.path.isfile(os.path.join(wcecoli, LIS)):
+            t, n2 = _read(os.path.join(wcecoli, LIS))
+            o = LIS_TRNA_OLD.replace("\n", n2)
+            if t.count(o) == 1:
+                _write(os.path.join(wcecoli, LIS), t.replace(o, LIS_TRNA_NEW.replace("\n", n2), 1), n2)
+                wrote.append("listeners/trna_charging.py: tRNA cistron space")
+
     # 10) the TrnaCharging listener — copied AND registered in one step
     if not st["listener_installed"]:
         s_lis = os.path.join(reference, LIS)
@@ -573,6 +641,19 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         t = t.replace(SB_OPT_ANCHOR, SB_OPT_ANCHOR + SB_OPT_ADD, 1)
         _write(os.path.join(wcecoli, SB), t, n2)
         wrote.append(f"{SB}: --kinetic-trna-charging / --coarse-kinetic-elongation")
+
+    # 11b) the Fireworks firetasks — without this, EVERY run fails, not just the kinetic one
+    if not st["firetasks_wired"]:
+        for f in FIRETASKS:
+            t, n2 = _read(os.path.join(wcecoli, f))
+            for old, new in ((FT_LIST_OLD, FT_LIST_NEW), (FT_OPT_OLD, FT_OPT_NEW)):
+                o = old.replace("\n", n2)
+                if t.count(o) != 1:
+                    return {"ok": False, "why": f"{f}: expected exactly one {old.strip()[:40]!r}, "
+                                                f"found {t.count(o)}"}
+                t = t.replace(o, new.replace("\n", n2), 1)
+            _write(os.path.join(wcecoli, f), t, n2)
+            wrote.append(f"{f}: kinetic flags added to the firetask allow-list")
 
     # 12) setup.py — so `make compile` (and therefore any image build) produces the extension
     if not st["setup_registered"]:
