@@ -69,6 +69,12 @@ REGISTRATIONS = [
       'os.path.join("optimization", "trna_synthetase_dynamic_range.tsv"),']),
 ]
 
+ATTRIBUTION = (
+    "\n\t\t# Relate tRNAs, codons, and translation. Ported from CovertLab/WholeCellEcoliRelease v3.0.1\n"
+    "\t\t# (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) with permission from\n"
+    "\t\t# Prof. Covert. Consumed only by the kinetic-tRNA-charging elongation model; the default\n"
+    "\t\t# SteadyStateElongationModel path is unchanged. See docs/MODEL_EXTENSION.md EXT-PORT.\n")
+
 INIT_CALLS = ("codon_sequences", "codon_based_translation",
               "codon_dependent_trna_charging", "trna_charging_kinetics")
 
@@ -161,7 +167,9 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False) -> dict
         if txt.count(anchor) != 1:
             return {"ok": False, "why": f"expected exactly 1 __init__ anchor in {REL}, found "
                                         f"{txt.count(anchor)} — refusing to guess placement"}
-        txt = txt.replace(anchor, anchor + "".join(
+        # Carry the attribution into the model source itself, not only into this script — someone reading
+        # relation.py should see where these four calls came from without having to go looking.
+        txt = txt.replace(anchor, anchor + ATTRIBUTION + "".join(
             f"\t\tself._build_{m}(raw_data, sim_data)\n" for m in INIT_CALLS), 1)
         wrote.append("relation.py: __init__ calls")
     if wrote:
