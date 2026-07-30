@@ -39,12 +39,20 @@ def list_results() -> list[dict]:
 
     if has_manifest():
         # dedup: one row per run (latest ts wins) so re-indexed/duplicate shards don't double-count
-        rows = _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable FROM {_FROM} "
-                     f"{manifest.DEDUP_QUALIFY}")
+        #
+        # `elongation_model` comes through `manifest.elongation_sql()` rather than as a bare column name.
+        # Writing the column to parquet is not enough on its own — THIS projection is the row source for
+        # integrity_check, reconcile_disk, hf._design_seeds and the UI, so a name missing here means every one
+        # of those consumers keeps treating two elongation models as one design. Unlike
+        # `survey._deduped_rows` this projection has no tier fallback, so naming the column before a shard
+        # carries it would RAISE rather than degrade; the helper resolves that explicitly instead of guessing.
+        rows = _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable,"
+                     f"{manifest.elongation_sql()} FROM {_FROM} {manifest.DEDUP_QUALIFY}")
     else:
         rows = [{"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
                  "condition": r.design.condition, "timeline": r.design.timeline,
-                 "seed": r.design.seeds, "qc": "ok", "reportable": True} for r in _json.list()]
+                 "seed": r.design.seeds, "qc": "ok", "reportable": True,
+                 "elongation_model": r.design.elongation_model} for r in _json.list()]
     for r in rows:  # tag each result in-sample (fitted) vs out-of-sample (predicted)
         r["provenance"] = provenance.tag(r.get("perturbation"), r.get("condition"))
     return rows

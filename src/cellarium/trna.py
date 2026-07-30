@@ -42,6 +42,27 @@ import statistics
 from collections import defaultdict
 
 from . import support
+from .capability import DEFAULT_MODE
+
+# What the 86-wide `GrowthLimits/fraction_trna_charged` column ACTUALLY IS, per elongation model. One string
+# per mode rather than one constant, because the column name and width are identical in all three and the
+# meaning is not — which is the whole reason the elongation axis is recorded on every row.
+_RESOLUTION = {
+    "steady_state": ("21 amino-acid rows, not 86 independent species: the maximum within-family spread among "
+                     "isoacceptors is exactly 0.0 in every design measured, so the 86-entry vector carries 21 "
+                     "distinct values. The isoacceptor axis of Elf et al. 2003 is NOT representable here."),
+    "kinetic": ("86 genuinely independent isoacceptor values: the kinetic model solves charging per "
+                "isoacceptor (charged / (charged + free)) and writes tRNA space directly, so a within-family "
+                "spread is a MEASUREMENT here rather than the arithmetic 0.0 the steady-state model produces. "
+                "The isoacceptor axis of Elf et al. 2003 IS representable in this mode — but a value from it "
+                "must never be compared against, or pooled with, a steady-state run."),
+    "coarse_kinetic": ("NOT A MEASUREMENT. The coarse kinetic model does not solve charging at all: "
+                       "CoarseKineticTrnaChargingModel.request and .evolve both return np.zeros(86), so this "
+                       "column is IDENTICALLY 0.00 at every timestep. A table of zeros here reads as complete "
+                       "de-acylation and is the ABSENCE of a charging model — the per-family reading is "
+                       "withheld. Use elongation_model='steady_state' (per-amino-acid) or 'kinetic' "
+                       "(per-isoacceptor) to measure charging."),
+}
 
 # tRNA ids look like 'alaT-tRNA[c]', 'argQ-tRNA[c]', 'selC-tRNA[c]'. The family is the leading 3 letters of the
 # gene name, which is the amino-acid code by E. coli tRNA gene convention (alaT/alaU/alaV -> alanine).
@@ -125,7 +146,22 @@ def per_family(design: str, seed: int | None = None) -> dict:
     question is almost always about."""
     import numpy as np
 
-    from . import raw
+    from . import factors, raw
+
+    # WHICH ELONGATION MODEL this design ran under, read off the design key rather than assumed. The
+    # `resolution` string below used to be a hard-coded constant asserting that isoacceptors cannot differ —
+    # true of the steady-state corpus, and a FALSE STATEMENT returned as fact next to real data the moment a
+    # kinetic run exists (measured within-family spread GLY 0.32, LEU 0.25). That is the silent-absence bug
+    # inverted: a hard-coded "cannot" that has become a lie, and it would instruct the reader to discard a
+    # genuine measurement.
+    mode = factors.parse(design).get("elongation_model", DEFAULT_MODE)
+    if mode == "coarse_kinetic":
+        # Refuse rather than tabulate: under this model `CoarseKineticTrnaChargingModel.request`/`.evolve`
+        # both return np.zeros(86), so every family would read 0.0000 and the table would look like total
+        # de-acylation. That is the absence of a charging model, not a measurement of complete starvation.
+        return {"design": design, "elongation_model": mode, "most_starved": None,
+                "refused": _RESOLUTION[mode],
+                "resolution": _RESOLUTION[mode]}
     runs = raw.seed_runs(design)
     if not runs:
         return {"error": f"no local raw simOut for '{design}' — this needs the run directory on this machine",
@@ -175,9 +211,8 @@ def per_family(design: str, seed: int | None = None) -> dict:
         "families": [{"family": f, "charged_fraction": c,
                       **({"note": _SPECIAL[f]} if f in _SPECIAL else {})} for f, c in ordered],
         "translation_state": arrest,
-        "resolution": ("21 amino-acid rows, not 86 independent species: the maximum within-family spread among "
-                       "isoacceptors is exactly 0.0 in every design measured, so the 86-entry vector carries 21 "
-                       "distinct values. The isoacceptor axis of Elf et al. 2003 is NOT representable here."),
+        "elongation_model": mode,
+        "resolution": _RESOLUTION[mode],
         "note": ("Charged fraction per amino-acid tRNA family, mean over the last generation, sorted ascending "
                  "so the most-starved family is first. The corpus's single `fraction_trna_charged` is the mean "
                  "across all of these, which cannot show cognate-family de-charging (Dittmar et al. 2005, "
@@ -276,6 +311,21 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
     the wild-type maximum gap exceeds the only non-degenerate synthetase result in the corpus. A threshold
     without a null is not a detector, so the null is returned alongside every call and the reader draws the
     conclusion."""
+    # REFUSE a cross-mode comparison before reading anything. The default reference is `wildtype/basal`, which
+    # is steady_state, so a kinetic design compared against it would divide 86 genuinely independent values by
+    # a broadcast identity and report the quotient as a per-family drop — the precise pooling the elongation
+    # axis exists to prevent, in the one tool most likely to be pointed at a kinetic run. A drop_pct is a
+    # ratio of two quantities, and here they would be quantities of different kinds.
+    from . import factors
+    m_t = factors.parse(design).get("elongation_model", DEFAULT_MODE)
+    m_r = factors.parse(reference).get("elongation_model", DEFAULT_MODE)
+    if m_t != m_r:
+        return {"design": design, "reference": reference, "elongation_model": m_t,
+                "reference_elongation_model": m_r, "worst_family": None, "selectivity_gap_pp": None,
+                "refused": (f"'{design}' ran under the {m_t} elongation model and '{reference}' under {m_r}. "
+                            f"`fraction_trna_charged` does not mean the same thing in the two — {_RESOLUTION[m_t]} "
+                            f"vs {_RESOLUTION[m_r]} — so a per-family drop between them is a ratio of two "
+                            f"different quantities, not a measurement. Compare within one elongation model.")}
     t = per_family(design)
     if "error" in t:
         return t

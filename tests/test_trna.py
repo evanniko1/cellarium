@@ -81,18 +81,27 @@ def test_non_degenerate_runs_still_name_the_right_cognate_family(design, family)
     assert r["most_starved"] == family, f"{design} should starve {family}, got {r['most_starved']}"
 
 
-def test_the_model_has_no_isoacceptor_resolution():
-    """Why the Elf 2003 citation was withdrawn. Elf's result is BETWEEN isoacceptors of one amino acid; this
-    model gives every isoacceptor in a family an identical charged fraction, so that axis cannot be
-    represented and must never be claimed. Asserted from the data, not from a comment."""
+def test_the_steady_state_model_has_no_isoacceptor_resolution():
+    """Why the Elf 2003 citation was withdrawn. Elf's result is BETWEEN isoacceptors of one amino acid; the
+    STEADY-STATE elongation model gives every isoacceptor in a family an identical charged fraction, so that
+    axis cannot be represented and must never be claimed. Asserted from the data, not from a comment.
+
+    Scoped to steady_state deliberately, and the scope is asserted rather than assumed. The claim is a
+    property of ONE elongation model, not of the tree: the kinetic model solves charging per isoacceptor and
+    a within-family spread there is a real measurement (GLY 0.32, LEU 0.25). A test whose name generalised
+    beyond its evidence is how a 'cannot' becomes a lie that later instructs a reader to discard real data.
+    """
     import json
     import os
     from collections import defaultdict
 
     import numpy as np
 
-    from cellarium import raw, trna
-    runs = raw.seed_runs("wildtype/basal")
+    from cellarium import factors, raw, trna
+    design = "wildtype/basal"
+    assert factors.parse(design)["elongation_model"] == "steady_state", \
+        "this test's claim holds only under the steady-state model — re-point it and it inverts"
+    runs = raw.seed_runs(design)
     if not runs:
         pytest.skip("no local wild-type raw")
     so = raw.simout_dirs(runs[0]["root"])[0]

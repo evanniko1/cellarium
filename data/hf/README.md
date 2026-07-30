@@ -37,7 +37,19 @@ ds = load_dataset("evanniko1/cellarium-corpus", "manifest")   # the distilled co
 # or directly with DuckDB / pandas over data/manifest/*.parquet
 ```
 
-Key columns: `perturbation`, `condition`, `timeline`, `seed`, `qc`, `reportable`, `generations`, `crashed`, `crash_type`, `division_rate`, `gens_reached`, `channels` (means), `channel_stats`, `series` (downsampled), `pathways`, `species_panel` (per-monomer `{mean, last, series}`), `simout_path`.
+Key columns: `perturbation`, `condition`, `timeline`, `seed`, `elongation_model`, `qc`, `reportable`, `generations`, `crashed`, `crash_type`, `division_rate`, `gens_reached`, `channels` (means), `channel_stats`, `series` (downsampled), `pathways`, `species_panel` (per-monomer `{mean, last, series}`), `simout_path`.
+
+### `elongation_model` — filter on this before pooling anything tRNA-related
+
+The model tree carries three translation-elongation models, and **the same column name means a different quantity under each**. `elongation_model` records which one produced a row; a row without it (written before the column existed) is `steady_state`, which is known rather than assumed — no earlier run could select another model.
+
+| value | what it does | `fraction_trna_charged` (86 wide in all three) |
+|---|---|---|
+| `steady_state` | charging solved as a 20-state ODE indexed by **amino acid**, then broadcast across the family | 21 distinct values in 86 columns; **within-family spread is 0.00 by construction**, not a measurement |
+| `kinetic` | per-isoacceptor charging with explicit codon reading (Choi & Covert 2023) | 86 genuinely independent values |
+| `coarse_kinetic` | coarse-grained elongation that **does not solve charging at all** | 86 **exact zeros** — the absence of a model, not total de-acylation |
+
+So: never average `fraction_trna_charged` across `elongation_model` values, and never read a within-family spread from `steady_state` rows as evidence about isoacceptors. Two runs of one design under different elongation models are separate experiments — they carry different design tags, different run paths and different dedup keys, and are not replicates of each other. `ppgpp_conc` needs the same care: only `steady_state` runs synthesise or degrade ppGpp, so a flat ppGpp trace under a kinetic model is a missing mechanism rather than a failed stringent response.
 
 ## Get a run's full trajectory
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .capability import ELONGATION_MODES, MODE_FLAGS
 from .model import Design
 
 # Variant types the model supports (models/ecoli/sim/variants/).
@@ -63,6 +64,18 @@ def _parse_timeline(events: str) -> list[tuple[float, str]]:
 
 def check(design: Design) -> EnvelopeVerdict:
     """Return whether the design is inside the model's validated envelope."""
+    # The elongation model is checked FIRST and refused loudly, because this is the only feasibility gate in
+    # front of `runner.run_one` and `tools.run_experiment`. An undeclared mode reaches `_variant_args`, which
+    # maps modes to runSim flags — a name it does not know either dies inside a container minutes in, or
+    # emits no flag at all and runs the steady-state model under another model's name. The house rule is to
+    # prefer a loud failure to a default, and this is where the loud failure belongs.
+    if design.elongation_model not in ELONGATION_MODES:
+        return EnvelopeVerdict(
+            False,
+            f"Elongation model '{design.elongation_model}' is not a declared model.",
+            "Use one of: " + ", ".join(f"{m} ({MODE_FLAGS[m]})" for m in ELONGATION_MODES) + ".",
+        )
+
     if design.perturbation not in VALIDATED_PERTURBATIONS:
         return EnvelopeVerdict(
             False,

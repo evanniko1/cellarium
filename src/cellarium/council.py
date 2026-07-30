@@ -383,7 +383,12 @@ def _judge(client, models, question, candidate, objections, feasible_code, *, te
 
 # --- assembly + gates --------------------------------------------------------------------------------------
 
-_DESIGN_KEYS = {"perturbation", "condition", "timeline", "seeds", "generations", "params"}
+# An explicit WHITELIST, so a proposer's stray key cannot reach the Design constructor. `elongation_model`
+# had to be added to it deliberately: a Council-proposed kinetic experiment was otherwise filtered out here
+# and silently became a steady-state one, while the Hypothesis surface reported it had run the design it
+# asked for. The blindness invariant depends on the proposed design and the executed design being the same
+# object, and a whitelist that drops an axis breaks that quietly rather than loudly.
+_DESIGN_KEYS = {"perturbation", "condition", "timeline", "seeds", "generations", "params", "elongation_model"}
 
 
 def _to_design(d: dict) -> Design | None:

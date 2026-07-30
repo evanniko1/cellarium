@@ -28,12 +28,11 @@ RAW = "/wcEcoli/out/kinetic_parca/kb/rawData.cPickle"
 # The monomers whose mRNA provably cannot translate to their curated protein. Allowlisted individually so
 # that ANY other mismatch — which would be a port defect — still fails this harness.
 KNOWN_MISMATCHES = frozenset({
-    # phnE1: the MG1655 8-bp insertion, and an 839-nt cistron whose length is not a multiple of three
-    # (hence the single Biopython "Partial codon" warning). v3.0.1 avoids it by typing EG11283_RNA
-    # 'pseudo', which EXCLUDED_RNA_TYPES then drops — the only rnas.tsv row whose type differs between
-    # the trees. Its protein sequence, gene coordinates and empty coding_segments are identical there,
-    # so this is a knowledge-base limitation both trees share rather than a port defect.
-    "PHNE-MONOMER",
+    # EXT-PORT-10 emptied this allowlist. PHNE-MONOMER was here until EG11283_RNA (phnE1) was typed
+    # 'pseudo' in reconstruction/ecoli/flat/rnas.tsv, matching v3.0.1 — EXCLUDED_RNA_TYPES then drops
+    # the cistron, the monomer leaves monomer_data, and the mismatch is not excused, it is gone.
+    # Deliberately EMPTY rather than deleted: the next monomer whose mRNA stops disagreeing quietly
+    # should fail this harness, and an empty frozenset says that on purpose.
     # dinG and ytiC were here too under the transcription-unit-slice route. They are NOT here any more:
     # parsing each cistron from its own gene's coordinates fixes both, which is the measurement that
     # decided between the two routes (3 mismatches -> 1).

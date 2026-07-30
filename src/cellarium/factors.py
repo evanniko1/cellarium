@@ -29,6 +29,11 @@ import json
 import re
 from pathlib import Path
 
+# capability is itself dependency-free (os + dataclasses), so importing the elongation vocabulary here keeps
+# this module's "works with no checkout and no Docker" property intact while making the tag spelling shared
+# rather than re-implemented — a second copy of `#elong:` is exactly how a parser and a writer drift apart.
+from .capability import DEFAULT_MODE, mode_from_tag
+
 _CACHE = Path("data/cache")
 _NUM = re.compile(r"^\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)")
 _SCOPE: dict | None = None
@@ -92,8 +97,14 @@ def parse(design_key: str) -> dict:
     """
     key = str(design_key or "")
     family, _, tag = key.partition("/")
+    # The elongation model is lifted OUT of the tag first and kept as its own field. Folding it into `base`
+    # (so `basal` and `basal#elong:kinetic` became different bases) or into `level_raw` (so the dose parser
+    # saw `0.6x#elong:kinetic`) would corrupt the very fields `one_factor_neighbours` filters on — and that
+    # function is surfaced to the agent as THE control-selection primitive, so a wrong answer here propagates
+    # into every comparison built on it.
+    tag, elongation = mode_from_tag(tag)
     out = {"family": family, "base": None, "factor": None,
-           "level_raw": None, "level_num": None, "genes": []}
+           "level_raw": None, "level_num": None, "genes": [], "elongation_model": elongation}
     if not tag:
         return out
     if "|" in tag:                                   # 'basal|ppGpp:0.6x' — the compound dose form
@@ -180,6 +191,14 @@ def identity(design_key: str) -> dict:
     else:
         out["canonical_id"] = f"{f['family']}#{f['factor']}:{f['level_raw']}" if f["factor"] else f"{f['family']}"
 
+    # The elongation model is part of the canonical EXPERIMENT, not a label variant of it. Without this,
+    # `dedupe` gives a kinetic and a steady-state knockout of one gene the SAME canonical_id, and integrity
+    # check D4 does not merely miss the problem — it inverts, flagging the two arms as aliases wrongly counted
+    # as replicates and telling the operator to "merge them, do not treat as replicates". The check would
+    # actively argue for the merge this axis exists to prevent.
+    if out.get("canonical_id") and f["elongation_model"] != DEFAULT_MODE:
+        out["canonical_id"] += f"#elong:{f['elongation_model']}"
+
     out["true_label"] = true_label(design_key, out)
     return out
 
@@ -226,6 +245,14 @@ def one_factor_neighbours(design_key: str, all_keys: list) -> list:
         if k == design_key:
             continue
         o = parse(k)
+        # Same ELONGATION MODEL is a precondition, not a fourth factor to vary. This function promises a
+        # neighbour differs "in exactly one factor", which an agent reads as "these are exchangeable except
+        # for that factor" — and two runs under different elongation models are not exchangeable at all: the
+        # same column names carry different quantities in each (a broadcast identity, 86 independent values,
+        # or 86 exact zeros). Offering one as the control for the other would attach that promise to a pair
+        # that cannot honour it.
+        if o["elongation_model"] != me["elongation_model"]:
+            continue
         if o["family"] == me["family"] and o["base"] == me["base"] and o["factor"] == me["factor"]:
             out.append(k)
     return sorted(out, key=lambda k: (level_num(parse(k)["level_raw"]) is None,

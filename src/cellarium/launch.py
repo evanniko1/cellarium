@@ -16,6 +16,7 @@ import time
 import uuid
 from pathlib import Path
 
+from .capability import DEFAULT_MODE
 from .model import Design
 
 # AG-1: root the queue at an ABSOLUTE, config-rooted path (env override, else the repo root derived from this file),
@@ -84,19 +85,25 @@ def _resolve_ko(perturbation: str, params: dict | None, gene: str | None) -> tup
 
 
 def propose(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
-            params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None) -> dict:
+            params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None,
+            elongation_model: str = DEFAULT_MODE) -> dict:
     """Vet + queue a proposed experiment. Never runs. A safety-flagged design is queued 'blocked'; otherwise
     'pending_approval'. A gene KO with no resolvable index is REFUSED (not queued) so we never run the wrong gene.
-    Returns the request (with the full vet result)."""
+    Returns the request (with the full vet result).
+
+    `elongation_model` is stored ON the queued design rather than assumed at approval time. The airlock's whole
+    purpose is that what a human approves and what executes cannot differ, and an axis the queue cannot carry
+    is an axis on which they silently do."""
     from . import tools
     params, err = _resolve_ko(perturbation, params, gene)
     if err:
         return {"status": "unresolved", "error": err,
                 "note": "gene_knockout runs on a variant index; resolve the gene -> ko_index (design_space) first."}
-    vet = tools.vet_hypothesis(perturbation, condition, timeline, params, gene)
+    vet = tools.vet_hypothesis(perturbation, condition, timeline, params, gene, elongation_model)
     req = {"id": "req_" + uuid.uuid4().hex[:8],
            "status": "blocked" if not vet.get("runnable") else "pending_approval",
-           "design": {"perturbation": perturbation, "condition": condition, "timeline": timeline, "params": params or {}},
+           "design": {"perturbation": perturbation, "condition": condition, "timeline": timeline,
+                      "params": params or {}, "elongation_model": elongation_model},
            "seeds": seeds, "generations": generations, "vet": vet, "ts": time.time()}
     with _txn() as q:
         q.append(req)
@@ -108,7 +115,8 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
 
 def revise(request_id: str, *, perturbation: str | None = None, condition: str | None = None,
            timeline: str | None = None, params: dict | None = None, seeds: int | None = None,
-           generations: int | None = None, gene: str | None = None, genes: list | None = None) -> dict:
+           generations: int | None = None, gene: str | None = None, genes: list | None = None,
+           elongation_model: str | None = None) -> dict:
     """REVISE a PENDING draft: mark the old one 'superseded' and queue a re-vetted new draft with the changed
     arg(s) merged over the old design. Keeps the human-approval airlock — only an UN-approved draft can be
     revised; a human still approves the result. Returns the new request (linked back via `revised_from`)."""
@@ -130,7 +138,11 @@ def revise(request_id: str, *, perturbation: str | None = None, condition: str |
                       timeline if timeline is not None else d.get("timeline"),
                       merged,
                       seeds if seeds is not None else old["seeds"],
-                      generations if generations is not None else old["generations"], gene)
+                      generations if generations is not None else old["generations"], gene,
+                      # carried forward unless explicitly changed — a revise that silently reset the
+                      # elongation model would turn a kinetic draft into a steady-state run at the airlock
+                      elongation_model if elongation_model is not None
+                      else d.get("elongation_model", DEFAULT_MODE))
         with _txn() as q:                                            # link old -> new for traceability
             for r in q:
                 if r["id"] == request_id:
@@ -171,16 +183,20 @@ _LIFE_RANK = {"done": 6, "running": 5, "pending_approval": 4, "blocked": 3, "fai
               "rejected": 0, "unresolved": 0}
 
 
-def _match_key(perturbation, condition, timeline, params) -> tuple:
+def _match_key(perturbation, condition, timeline, params, elongation_model=None) -> tuple:
     """A design's SEMANTIC identity for matching against queued/run jobs — perturbation/condition/timeline + the
     identifying params (gene set, ppGpp multiplier, operon count, TF targets). It deliberately EXCLUDES the resolved
     variant_index/ko_indices: a Council falsifier carries the gene SYMBOLS, and the queued job it spawns also carries
-    the resolved index, so keying on the index would wrongly split them. Symbol-level identity matches both."""
+    the resolved index, so keying on the index would wrongly split them. Symbol-level identity matches both.
+
+    The elongation model IS part of the identity: without it a kinetic proposal reports status 'done' with
+    another job's request_id and shard because a steady-state job of the same design finished, and the
+    Hypothesis surface then shows a falsifier as executed when it never ran."""
     p = params or {}
     genes = tuple(sorted(str(g).lower() for g in (p.get("target_genes") or ([p["gene"]] if p.get("gene") else []))))
     ident = {k: p[k] for k in ("multiplier", "num_operons_to_delete", "direction", "target_tfs") if k in p}
     return (perturbation or "wildtype", condition or None, timeline or None, genes,
-            json.dumps(ident, sort_keys=True, default=str))
+            json.dumps(ident, sort_keys=True, default=str), elongation_model or DEFAULT_MODE)
 
 
 def lifecycle_for_designs(designs: list[dict]) -> list[dict]:
@@ -193,12 +209,12 @@ def lifecycle_for_designs(designs: list[dict]) -> list[dict]:
     by_key: dict[tuple, list] = {}
     for r in q:
         d = r.get("design") or {}
-        by_key.setdefault(_match_key(d.get("perturbation"), d.get("condition"), d.get("timeline"), d.get("params")),
-                          []).append(r)
+        by_key.setdefault(_match_key(d.get("perturbation"), d.get("condition"), d.get("timeline"),
+                                     d.get("params"), d.get("elongation_model")), []).append(r)
     out = []
     for dv in designs:
         jobs = by_key.get(_match_key(dv.get("perturbation"), dv.get("condition"), dv.get("timeline"),
-                                     dv.get("params")), [])
+                                     dv.get("params"), dv.get("elongation_model")), [])
         job = max(jobs, key=lambda r: _LIFE_RANK.get(r.get("status"), -1), default=None)
         out.append({"status": (job["status"] if job else "proposed"),
                     "request_id": (job["id"] if job else None),
@@ -225,7 +241,11 @@ def reconcile() -> dict:
             landed = 0
             try:
                 design = Design(perturbation=d["perturbation"], condition=d.get("condition"),
-                                timeline=d.get("timeline"), params=d.get("params") or {})
+                                timeline=d.get("timeline"), params=d.get("params") or {},
+                                elongation_model=d.get("elongation_model", DEFAULT_MODE))
+                # count_runs matches on the label prefix, which now carries the elongation tag. Without the
+                # field here a kinetic job that produced nothing would be healed to 'done' by the 26
+                # steady-state `wildtype·basal·s*` rows that match the prefix.
                 landed = manifest.count_runs(design)   # DISTINCT seeds indexed — not just ">=1" (the false-'done' bug)
             except Exception:
                 landed = 0
@@ -282,7 +302,12 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
         d = req["design"]
         seeds, generations = req["seeds"], req["generations"]
         req["status"] = "running"; _save(q)
-    design = Design(perturbation=d["perturbation"], condition=d["condition"], timeline=d["timeline"], params=d["params"])
+    # Reconstructed with EXPLICIT kwargs, so anything not named here is dropped — which is why the elongation
+    # model has to be named. Without it a human approves "run this kinetic" at the airlock and a steady-state
+    # sim runs, defeating the one gate whose entire purpose is that the approval record and the executed run
+    # cannot disagree.
+    design = Design(perturbation=d["perturbation"], condition=d["condition"], timeline=d["timeline"],
+                    params=d["params"], elongation_model=d.get("elongation_model", DEFAULT_MODE))
     shard: str | None = None
     error: str | None = None
     try:

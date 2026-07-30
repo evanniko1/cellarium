@@ -44,6 +44,7 @@ def _rows() -> list[dict]:
         # `_rows()` stays UN-deduped (supersession needs the duplicate rows); `_latest_per_run` collapses them.
         q = (f"SELECT {manifest.DEDUP_KEY} AS run_key, id, perturbation, condition, timeline, seed, "
              "simout_path, "   # the REAL path. run_key is `id @@ normalised-path` and is NOT a path.
+             f"{manifest.elongation_sql()}, "   # safe before any shard carries the column (see the helper)
              "qc, reportable, crashed, ts, generations, requested_generations, gens_reached "
              f"FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true)")
         return con.execute(q).fetch_arrow_table().to_pylist()
@@ -54,7 +55,14 @@ def _rows() -> list[dict]:
 
 
 def _design(r: dict) -> str:
-    return f"{r['perturbation']}/{r.get('condition') or r.get('timeline') or 'basal'}"
+    """This file's own design key. It deliberately does NOT go through `survey.design_key` (it works on the
+    raw columns selected in `_rows`), which is why the elongation model has to be appended here explicitly:
+    `corpus_audit` and `prune_candidates` are both agent-reachable and would otherwise pool the two elongation
+    models into one design even after `_design_tag` was fixed, because they never consult the tag. Same shape
+    as the `COALESCE(simout_path, id)` bug this file's comment above records."""
+    from .capability import DEFAULT_MODE, mode_tag_suffix
+    base = f"{r['perturbation']}/{r.get('condition') or r.get('timeline') or 'basal'}"
+    return base + mode_tag_suffix(r.get("elongation_model") or DEFAULT_MODE)
 
 
 def _latest_per_run(rows: list[dict]) -> list[dict]:

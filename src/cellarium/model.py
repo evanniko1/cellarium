@@ -10,7 +10,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from .capability import DEFAULT_MODE, ELONGATION_MODES
 
 CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache"
 
@@ -24,6 +26,35 @@ class Design(BaseModel):
     timeline: str | None = None             # media-shift events string (e.g. "0 minimal, 1200 minimal_acetate")
     seeds: int = 1
     generations: int = 1
+    # WHICH ELONGATION MODEL produced this run. A string and not a bool: the checkout carries three today and
+    # the set will grow, and a bool would have to be replaced the moment it did. It DEFAULTS to "steady_state",
+    # which is not a convenience — every one of the ~300 historical design.json files on disk is validated back
+    # through this class (`runner._evacuate`, `manifest._design_from_dir`), and without the default each of
+    # them would fail validation: `_evacuate` would report "unreadable provenance", `run_one` would RAISE
+    # rather than run, and `record_existing` would die outright. The default is what keeps the corpus loadable.
+    #
+    # It is load-bearing far beyond a label. The same 86-wide `GrowthLimits/fraction_trna_charged` column means
+    # a broadcast identity under steady_state, 86 independent measurements under kinetic, and 86 exact zeros
+    # under coarse_kinetic — so a row that cannot name its model cannot be pooled with, or told apart from,
+    # a row from another one.
+    elongation_model: str = DEFAULT_MODE
+
+    @field_validator("elongation_model")
+    @classmethod
+    def _known_elongation_model(cls, v: str) -> str:
+        """Reject an unknown mode HERE, loudly, rather than downstream.
+
+        An unvalidated string reaches `runner._variant_args`, which maps it to a runSim flag. A typo would
+        either emit a flag the model's argparse rejects (a container that dies minutes in) or — worse — fall
+        through to emitting nothing, producing a steady-state run wearing another model's name in its label,
+        its design tag and its manifest row. That is the WELL-NOOP-1 pattern (a wild type wearing a knockout's
+        label) transplanted onto the elongation axis, and this repo has already paid for it once."""
+        if v not in ELONGATION_MODES:
+            raise ValueError(
+                f"unknown elongation_model {v!r} — declared models are {list(ELONGATION_MODES)}. This is "
+                f"refused rather than passed through, because an unrecognised value maps to no runSim flag "
+                f"and would silently run the steady-state model under another model's name.")
+        return v
 
 
 class GenerationResult(BaseModel):

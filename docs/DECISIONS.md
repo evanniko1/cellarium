@@ -315,3 +315,40 @@ excluding 0. The phenotype vector already recovers the clusters a graph would cl
 
 **Action items** → build `species_similarity()` with double-centering + the two guards + the WELL-6z4 acceptance
 test WHEN the similarity feature is scheduled; re-run the bake-off once pgi lands.
+
+## phnE1 typed `pseudo` — and the fur/tnaC degradation swap that came with it
+
+`EG11283_RNA` (phnE1) is now typed `pseudo` in `reconstruction/ecoli/flat/rnas.tsv`, matching v3.0.1.
+The reason is not a judgement call: the curated "protein sequence" for `PHNE-MONOMER` **contains stop
+codons**, and the naive translation of the gene matches it 278/278 positions including the asterisks. It is
+the conceptual translation of a pseudogene, not a protein. In K-12 MG1655 the phosphonate operon is cryptic
+because phnE carries an 8-bp insertion that breaks the frame; the gene record still shows the scar (one
+gene, synonyms b4103/b4104/b4583/ECK4096/ECK4097). Carrying it as an mRNA made the codon-aware elongation
+path read past the end of its codon array into a Cython kernel compiled `wraparound(False)`.
+
+Effect on the knowledge base: 4539 -> 4538 cistrons, 4310 -> 4309 monomers, `rna_data` unchanged at 3276
+rows with identical ids (phnE1 has no TU of its own; it sits inside `TU00201[c]`), so no `ko_index` moves.
+phnE1's own expression is negligible — 1.9735e-08 after fitting, rank 4197/4539 — so the direct
+renormalisation of every other cistron is ~1.7e-6.
+
+**THE PART THAT IS NOT ABOUT PHOSPHONATE, AND MUST NOT BE READ AS BIOLOGY.** `transcription.py:728`
+estimates unmeasured transcription-unit degradation rates with a GLOBAL `fast_nnls` over the whole
+cistron x TU matrix. That solve is **degenerate**, and removing one row flips a tie in it. Measured, the
+largest movers are nowhere near the phn operon:
+
+| TU | gene | before | after | change |
+|---|---|---|---|---|
+| `TU0-1283[c]` | **fur** | 2.888e-02 /s (t½ 24 s) | 1.267e-04 /s (t½ 91 min) | **228x slower** |
+| `TU0-42514[c]` | **tnaC** | 1.267e-04 /s | 2.888e-02 /s | the two literally SWAP |
+| `TU0-1281[c]` | uof-fur | 1.267e-04 /s | 2.610e-03 /s | 20x faster |
+| `TU00085[c]` | tnaCAB | | | -7.1% |
+
+1135 of 3276 TUs move at all; 7 move by more than 1%. mRNA *abundances* are essentially preserved (9 TUs,
+1.96e-07 total absolute) — what changes is modelled *turnover*. `fur` is the global iron regulator and
+`tnaCAB` is tryptophanase, for which the corpus carries a `plus_indole` condition. **A 228x change in fur
+mRNA half-life arriving as a side effect of a phosphonate pseudogene is exactly the kind of thing that gets
+misread as a finding later.** It is a degenerate-NNLS tie-break, it is real, and it is in the DEFAULT path.
+
+Consequence for the corpus: any run produced after this change is on a new baseline and is not poolable
+with earlier rows without checking `kb_sha256`. The degeneracy itself is a pre-existing fragility of the
+ParCa fit that this change merely exposed, and it deserves its own investigation.

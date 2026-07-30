@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 
 from . import envelope, redact
+from .capability import DEFAULT_MODE, ELONGATION_MODES, MODE_FLAGS
 from .model import Design
 
 WCECOLI_DIR = os.environ.get("WCECOLI_DIR", "")          # your separately-obtained, Stanford-licensed checkout
@@ -56,20 +57,47 @@ def _variant_index(design: Design) -> int:
     # sim's _000000 output into it). Single-gene KO / conditions use their semantic index.
     if "variant_index" in design.params and design.perturbation != "multi_gene_knockout":
         return int(design.params["variant_index"])
-    key = f"{design.perturbation}|{design.condition}|{design.timeline}|{design.params.get('ko_indices')}".encode()
-    return int(hashlib.sha1(key).hexdigest(), 16) % 900000 + 100000  # 6-digit, never collides with idx 0
+    key = f"{design.perturbation}|{design.condition}|{design.timeline}|{design.params.get('ko_indices')}"
+    # The elongation model joins the hash ONLY when it is not the default, so every historical design hashes
+    # to exactly the directory it already occupies. Two runs of one design under different elongation models
+    # are DIFFERENT EXPERIMENTS that the model would otherwise write to one transit dir — and wcEcoli rmtree's
+    # its output dir before every run (wholecell/sim/simulation.py:173-175), so the second run does not
+    # mislabel the first, it DELETES it. That is the SCI-TRNA-4 leu-arm race that destroyed generation 0 of
+    # four seeds, reproduced exactly on a new axis.
+    if design.elongation_model != DEFAULT_MODE:
+        key += f"|elong:{design.elongation_model}"
+    return int(hashlib.sha1(key.encode()).hexdigest(), 16) % 900000 + 100000  # 6-digit, never collides with idx 0
+
+
+def _elongation_args(design: Design) -> list[str]:
+    """The runSim option(s) selecting the elongation model — EMPTY for the default.
+
+    Emitting nothing for "steady_state" is what preserves byte-identical command lines, and therefore
+    byte-identical behaviour, for every design that existed before this axis. These are SIM options like
+    `--timeline`, not env vars, so they belong on the command line and never in `_EXEC_ENV`.
+
+    Exactly one flag is ever emitted. The two are mutually exclusive alternatives rather than modifiers — with
+    both passed, argparse accepts them and `polypeptide_elongation.py` silently picks kinetic while
+    `runSim.py` writes BOTH into metadata — which is why the mapping is a string lookup and not a pair of
+    bools that can disagree."""
+    mode = design.elongation_model
+    if mode not in ELONGATION_MODES:   # Design validates this; belt-and-braces for a model_construct bypass
+        raise ValueError(f"unknown elongation_model {mode!r} — declared: {list(ELONGATION_MODES)}")
+    flag = MODE_FLAGS[mode]
+    return [] if not flag.startswith("--") else [flag]
 
 
 def _variant_args(design: Design) -> list[str]:
-    """Map a Design to runSim --variant args (+ a --timeline override for timeline designs)."""
+    """Map a Design to runSim --variant args (+ --timeline / elongation-model overrides)."""
     if design.perturbation == "multi_gene_knockout":  # index-0 variant + the gene set via --multi-ko-indices
         idxs = [str(i) for i in design.params.get("ko_indices", [])]
-        return ["--variant", "multi_gene_knockout", "0", "0", "--multi-ko-indices", *idxs]
+        return ["--variant", "multi_gene_knockout", "0", "0", "--multi-ko-indices", *idxs,
+                *_elongation_args(design)]
     idx = str(_variant_index(design))
     args = ["--variant", _variant_type(design), idx, idx]
     if design.timeline:
         args += ["--timeline", design.timeline]
-    return args
+    return args + _elongation_args(design)
 
 
 def _graded_ko_env(design: Design) -> dict:
@@ -279,24 +307,50 @@ def _model_output_dir(design: Design, seed: int, sim_path: str) -> Path:
     return _out_root(sim_path) / f"{_variant_type(design)}_{_variant_index(design):06d}" / f"{seed:06d}"
 
 
-def _needs_distinct_dir(design: Design) -> bool:
-    """True when this design shares the model's output directory with a DIFFERENT design.
+def _dir_discriminator(design: Design) -> str:
+    """The suffix that separates designs the MODEL would otherwise write to one directory — '' when none is
+    needed.
+
+    Two independent clauses, and each records a way data was destroyed rather than mislabelled.
 
     A `variant_index` is the gene index the model needs, so two designs that knock out the same gene get the
     same directory — even when a timeline makes them different experiments. That is exactly the SCI-TRNA-4
     leu arm: `KO:leuB` un-starved and `KO:leuB` starved both resolved to `gene_knockout_001818/<seed>`, ran
     concurrently at parallel=6, and destroyed each other. `_variant_index`'s content hash exists to prevent
-    this but is short-circuited whenever an explicit index is supplied."""
-    return bool(design.timeline) and "variant_index" in design.params
+    this but is short-circuited whenever an explicit index is supplied.
+
+    The elongation model is the same shape of collision and needed its own clause: a plain KO design carries
+    an explicit index and NO timeline, so it bypassed both the hash and the timeline test — a kinetic and a
+    steady-state knockout of one gene landed in one directory with nothing anywhere forcing them apart, and
+    wcEcoli rmtree's its output dir before every run.
+
+    Both clauses are silent for a default-elongation design with no timeline, which is what keeps every
+    pre-existing run path byte-identical."""
+    suffix = ""
+    if design.timeline and "variant_index" in design.params:
+        suffix += "__tl" + hashlib.sha1(design.timeline.encode()).hexdigest()[:6]
+    if design.elongation_model != DEFAULT_MODE:
+        suffix += "__el" + design.elongation_model
+    return suffix
+
+
+def _needs_distinct_dir(design: Design) -> bool:
+    """True when this design shares the model's output directory with a DIFFERENT design. Defined in terms of
+    `_dir_discriminator` rather than restating its rules, so the predicate and the path cannot drift apart."""
+    return bool(_dir_discriminator(design))
 
 
 def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
-    """The CANONICAL run root for this lineage — unique per design, which the model's own dir is not."""
+    """The CANONICAL run root for this lineage — unique per design, which the model's own dir is not.
+
+    Every path this produced before the elongation axis existed is byte-identical today, and that is not
+    cosmetic: `_evacuate`, `_crash_row` and `reconcile_disk` all RECOMPUTE this path for runs already on
+    disk, so a changed spelling would strand ~300 of them."""
     base = _model_output_dir(design, seed, sim_path)
-    if not _needs_distinct_dir(design):
+    suffix = _dir_discriminator(design)
+    if not suffix:
         return base
-    tag = hashlib.sha1((design.timeline or "").encode()).hexdigest()[:6]
-    return base.parent.parent / f"{base.parent.name}__tl{tag}" / base.name
+    return base.parent.parent / f"{base.parent.name}{suffix}" / base.name
 
 
 def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> Path:

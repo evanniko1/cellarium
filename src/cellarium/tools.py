@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 
 from . import biosecurity, envelope, rigor, store, survey
+from . import capability as _cap
 from . import differential as _diff
 from . import provenance as _prov
 from .model import Design
@@ -134,31 +135,64 @@ def comparable_designs(design: str) -> dict:
                      "came out similar') and measured 1-of-5 relevant on this one — never substitute it here.")}
 
 
-def model_capabilities(capability: str | None = None) -> dict:
-    """What the model CAN and CANNOT represent. Call this BEFORE claiming a mechanism is absent from the data.
+def model_capabilities(capability: str | None = None, mode: str | None = None) -> dict:
+    """What the model CAN and CANNOT represent, CONDITIONED on an elongation model.
 
     Exists because we once measured a within-family tRNA charging spread of exactly 0.0 and reported it as a
     result, when it was an algebraic identity of the model's per-amino-acid aggregation. A mechanism the model
-    cannot express must produce a REFUSAL naming the gap, never a number."""
-    from . import capability as cap
+    cannot express must produce a REFUSAL naming the gap, never a number.
+
+    `elongation_model` is the FIRST key of the return, because today's picture is only true of one mode and
+    under three models an unconditional picture is a lie. Four shaping decisions, each about not tempting the
+    reader: there is ONE `cannot_represent` list, exhaustive over everything unanswerable in this mode (a
+    separate `answerable_in_another_mode` heading was considered and rejected — an agent scanning headings
+    reads a positive-sounding one as permission, which is the near-miss this registry exists to stop); each
+    entry carries `why_not` as a fixed token so the agent branches on an enum and not on prose; each entry
+    carries the `refusal` STRING VERBATIM, because until now only the single-key form returned one and an
+    agent that called the listing had to COMPOSE its own refusal from the parts — composing is exactly where
+    the hedge creeps in; and `ported_but_off_by_default` is kept but redefined as a derived VIEW over
+    `cannot_represent`, so nothing is double-counted.
+    """
+    cap = _cap                     # the `capability` PARAMETER shadows the module name, so alias it
+    m = mode or cap.DEFAULT_MODE
     if capability:
-        return cap.check(capability)
+        return cap.check(capability, m)
+    if m not in cap.ELONGATION_MODES:
+        return {"error": f"'{m}' is not a declared elongation model", "declared": list(cap.ELONGATION_MODES),
+                "note": "An undeclared mode is not evidence of absence — declare it before querying it."}
+    cannot = [dict(cap.check(c.key, m), capability=c.key, instead=c.instead,
+                   why_the_output_misleads=c.consequence, available_in=c.available_in)
+              for c in cap.missing(m)]
     return {
-        "cannot_represent": [{"capability": c.key, "question": c.question, "instead": c.instead,
-                              "why_the_output_misleads": c.consequence,
-                              "available_in": c.available_in, "flag": c.flag} for c in cap.missing()],
-        # `present` means the mechanism is IN THE CHECKOUT; `default_on` means the runs actually used it.
-        # Only the second makes a question answerable from the corpus, so the split must test both — testing
-        # `present` alone would land the ported-but-off kinetic charging in BOTH lists.
+        "elongation_model": m,
+        "this_view_is_conditional_on_the_elongation_model": (
+            "Every answer below is scoped to the elongation model named above and CANNOT be carried across "
+            "modes. `GrowthLimits/fraction_trna_charged` is 86 columns wide under all three and means three "
+            "different things: under steady_state one per-amino-acid scalar broadcast across the family, so "
+            "within-family spread is 0.00 as an algebraic identity; under kinetic 86 genuinely independent "
+            "measurements; under coarse_kinetic 86 EXACT ZEROS, because that model does not solve charging at "
+            "all — which reads as total starvation and is the absence of a mechanism. Never pool runs from "
+            "different modes, and never read a number from one mode as evidence about another."),
+        "modes": {name: {"what_it_does": cap.MODE_SUMMARY.get(name, ""), "flag": cap.MODE_FLAGS.get(name, ""),
+                         "in_corpus": name in cap.MODES_IN_CORPUS} for name in cap.ELONGATION_MODES},
+        "corpus_modes": list(cap.MODES_IN_CORPUS),
+        "cannot_represent": cannot,
         "can_represent": [{"capability": c.key, "question": c.question}
-                          for c in cap.CAPABILITIES if c.present and c.default_on],
-        "ported_but_off_by_default": [{"capability": c.key, "question": c.question, "flag": c.flag}
-                                      for c in cap.CAPABILITIES if c.present and not c.default_on],
+                          for c in cap.CAPABILITIES if cap.answerable_in(c, m)],
+        # A VIEW over cannot_represent, not a fourth category: "the code is there, the runs are not" covers
+        # both the wrong-mode case and the never-run case, which is why per_isoacceptor still appears here.
+        "ported_but_off_by_default": [{"capability": c["capability"], "question": c["question"],
+                                       "why_not": c.get("why_not"), "switch": c.get("switch")}
+                                      for c in cannot if c.get("why_not") != "no_elongation_model_represents_it"],
         "audit": cap.audit().get("ok"),
         "note": ("`cannot_represent` entries are structural: the model returns a plausible number for each of "
                  "them anyway. If a question needs one, say the model cannot answer it and why — do NOT report "
-                 "the number. Declarations are probed against the model checkout, so `audit=false` means this "
-                 "registry no longer matches the code and should not be trusted."),
+                 "the number. When `why_not` is 'another_mode_represents_it', the correct answer is a refusal "
+                 "PLUS the concrete offer in `switch` ('I cannot answer that from steady-state runs; the "
+                 "kinetic model represents it — shall I run one?'), and `switch.in_corpus` tells you whether "
+                 "that is a new run to propose or a query to re-issue. Declarations are probed against the "
+                 "model checkout AND the manifest, so `audit=false` means this registry no longer matches the "
+                 "code and should not be trusted."),
     }
 
 
@@ -750,7 +784,7 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
 
 def propose_experiment(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
                        params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None,
-                       genes: list | None = None) -> dict:
+                       genes: list | None = None, elongation_model: str = _cap.DEFAULT_MODE) -> dict:
     """PROPOSE an experiment to run — Cellwright CANNOT launch sims itself. The design is vetted (safety is the only hard
     gate) and QUEUED pending human approval; a human approves via the interface, then the result is indexed so you
     can reason over it. Use design_space first to resolve gene symbols.
@@ -762,12 +796,13 @@ def propose_experiment(perturbation: str = "wildtype", condition: str | None = N
     params = dict(params or {})
     if genes:
         params["target_genes"] = list(genes)   # -> launch._resolve_ko turns these into ko_indices
-    return launch.propose(perturbation, condition, timeline, params, seeds, generations, gene)
+    return launch.propose(perturbation, condition, timeline, params, seeds, generations, gene, elongation_model)
 
 
 def revise_experiment(request_id: str, perturbation: str | None = None, condition: str | None = None,
                       timeline: str | None = None, params: dict | None = None, seeds: int | None = None,
-                      generations: int | None = None, gene: str | None = None, genes: list | None = None) -> dict:
+                      generations: int | None = None, gene: str | None = None, genes: list | None = None,
+                      elongation_model: str | None = None) -> dict:
     """REVISE a PENDING experiment draft (one you got from propose_experiment) when the user wants to CHANGE an
     argument — e.g. more seeds, a different condition, a different gene set. This SUPERSEDES the old draft (no
     duplicate is left in the queue) and returns a re-vetted new draft pending human approval. Pass request_id +
@@ -775,7 +810,8 @@ def revise_experiment(request_id: str, perturbation: str | None = None, conditio
     duplicate in the queue."""
     from . import launch
     return launch.revise(request_id, perturbation=perturbation, condition=condition, timeline=timeline,
-                         params=params, seeds=seeds, generations=generations, gene=gene, genes=genes)
+                         params=params, seeds=seeds, generations=generations, gene=gene, genes=genes,
+                         elongation_model=elongation_model)
 
 
 def propose_experiments(designs: list | None = None) -> dict:
@@ -798,7 +834,8 @@ def propose_experiments(designs: list | None = None) -> dict:
         if d.get("genes"):
             params["target_genes"] = list(d["genes"])
         res = launch.propose(d.get("perturbation", "wildtype"), d.get("condition"), d.get("timeline"),
-                             params, int(d.get("seeds", 4)), int(d.get("generations", 4)), d.get("gene"))
+                             params, int(d.get("seeds", 4)), int(d.get("generations", 4)), d.get("gene"),
+                             d.get("elongation_model") or _cap.DEFAULT_MODE)
         status = res.get("status")
         if status == "pending_approval":
             queued += 1
@@ -806,7 +843,8 @@ def propose_experiments(designs: list | None = None) -> dict:
             blocked += 1
         else:                       # unresolved gene, bad args, etc. — not queued
             refused += 1
-        results.append({"design": {k: d.get(k) for k in ("perturbation", "condition", "gene", "genes")},
+        results.append({"design": {k: d.get(k) for k in ("perturbation", "condition", "gene", "genes",
+                                                         "elongation_model")},
                         "request_id": res.get("request_id"), "status": status, "error": res.get("error")})
     return {"queued": queued, "blocked": blocked, "refused": refused, "total": len(designs),
             "requests": results,
@@ -815,12 +853,14 @@ def propose_experiments(designs: list | None = None) -> dict:
 
 
 def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
-                   params: dict | None = None, gene: str | None = None) -> dict:
+                   params: dict | None = None, gene: str | None = None,
+                   elongation_model: str = _cap.DEFAULT_MODE) -> dict:
     """Vet a proposed experiment before running it. SAFETY is the ONLY hard gate — out-of-sample / predicted-to-
     reroute / likely-to-fail hypotheses are ENCOURAGED (they are the genuine model tests; a gate on 'likely to
     fail' would have killed the most valuable experiments, e.g. the H2 model-boundary result). Feasibility +
     provenance + scope are ADVISORY annotations that set expectations, never block. `runnable` reflects safety only."""
-    d = Design(perturbation=perturbation, condition=condition, timeline=timeline, params=params or {})
+    d = Design(perturbation=perturbation, condition=condition, timeline=timeline, params=params or {},
+               elongation_model=elongation_model)
     safety = biosecurity.screen(d)          # HARD GATE (safety only) — never auto-run a flagged misuse design
     feas = envelope.check(d)                 # advisory: out-of-envelope => boundary test, still allowed
     prov = _prov.classify(perturbation, condition)   # epistemic: out-of-sample is a STRENGTH
@@ -1056,17 +1096,19 @@ def generate_designs(k: int = 2, max_candidates: int = 8, objective: str = "viab
 
 def check_feasibility(perturbation: str = "wildtype", condition: str | None = None,
                       timeline: str | None = None, seeds: int = 1, generations: int = 1,
-                      params: dict | None = None) -> dict:
+                      params: dict | None = None, elongation_model: str = _cap.DEFAULT_MODE) -> dict:
     v = envelope.check(Design(perturbation=perturbation, condition=condition, timeline=timeline,
-                              seeds=seeds, generations=generations, params=params or {}))
+                              seeds=seeds, generations=generations, params=params or {},
+                              elongation_model=elongation_model))
     return {"in_envelope": v.in_envelope, "reason": v.reason, "suggestion": v.suggestion}
 
 
 def run_experiment(perturbation: str = "wildtype", condition: str | None = None,
                    timeline: str | None = None, seeds: int = 1, generations: int = 1,
-                   params: dict | None = None) -> dict:
+                   params: dict | None = None, elongation_model: str = _cap.DEFAULT_MODE) -> dict:
     design = Design(perturbation=perturbation, condition=condition, timeline=timeline,
-                    seeds=seeds, generations=generations, params=params or {})
+                    seeds=seeds, generations=generations, params=params or {},
+                    elongation_model=elongation_model)
     v = envelope.check(design)
     if not v.in_envelope:
         return {"status": "refused", "reason": v.reason, "suggestion": v.suggestion,
@@ -1077,9 +1119,13 @@ def run_experiment(perturbation: str = "wildtype", condition: str | None = None,
                 "severity": b.severity, "reason": b.reason,
                 "note": "Flagged by the biosecurity screen — not run; "
                         + ("refused." if b.severity == "block" else "requires review before running.")}
+    # The elongation model is part of the match. Without it a kinetic design reports `in_corpus` and hands
+    # back steady-state rows — the single most direct way for the axis to be defeated: the agent is told the
+    # experiment has already been done and reads the other model's numbers as its answer.
     matches = [r for r in store.list_results()
                if r.get("perturbation") == perturbation and r.get("condition") == condition
-               and r.get("timeline") == timeline]
+               and r.get("timeline") == timeline
+               and (r.get("elongation_model") or _cap.DEFAULT_MODE) == elongation_model]
     if matches:
         return {"status": "in_corpus", "results": matches[:8],
                 "note": "Already generated. Ground via read_series / read_species."}
@@ -1151,6 +1197,12 @@ _DESIGN_PROPS = {
     "condition": {"type": "string", "description": "static media condition, e.g. basal, acetate"},
     "timeline": {"type": "string", "description": "media-shift events, e.g. '0 minimal, 1200 minimal_acetate'"},
     "seeds": {"type": "integer"}, "generations": {"type": "integer"},
+    "elongation_model": {"type": "string", "enum": list(_cap.ELONGATION_MODES),
+                         "description": "which elongation model runs this design. Omit for 'steady_state' — "
+                                        "the model that produced EVERY row in the corpus. 'kinetic' solves "
+                                        "tRNA charging per isoacceptor with explicit codon reading; "
+                                        "'coarse_kinetic' does not solve charging at all. Results from "
+                                        "different elongation models are NOT poolable."},
 }
 
 TOOLS = [
@@ -1164,9 +1216,9 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"design_a": {"type": "string"}, "design_b": {"type": "string", "description": "the reference, e.g. wildtype/basal"}, "channel": {"type": "string", "description": "growth_rate or ppgpp_conc (default ppgpp_conc)"}, "generation": {"type": "integer", "description": "generation index (0 = first, default 0)"}}, "required": ["design_a", "design_b"]}},
     {"name": "comparable_designs", "description": "The CORRECT-CONTROL query: designs identical to this one EXCEPT in exactly ONE factor (same family, same base, same factor, different level) — e.g. for 'ppgpp_conc/basal|ppGpp:0.6x' it returns the 0.2x/1.6x/2.0x doses, in dose order so a dose-response can be fitted. Exact, complete and explainable — a deterministic filter over typed factor columns, not a model-made selection. USE THIS to choose what to compare a design against. It answers a DIFFERENT question from `similar_designs` ('which runs came out similar'), which measured only 1-of-5 relevant on this task — never substitute similarity for a control.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
-    {"name": "model_capabilities", "description": "What the model CAN and CANNOT structurally represent. CALL THIS BEFORE concluding that a mechanism is ABSENT from the data, and before answering any question about codon usage, individual tRNA isoacceptors, operon-specific rRNA deletion, or per-gene tRNA abundance. Each `cannot_represent` entry is a mechanism for which the model still returns a plausible NUMBER — e.g. per-isoacceptor charging columns are identical by construction, so a within-family spread of 0.0 is arithmetic, not a measurement. If a question needs a listed capability, state that the model cannot answer it and why; never report the number as evidence. Optional `capability` argument checks one key and returns a refusal string when unsupported.",
-     "input_schema": {"type": "object", "properties": {"capability": {"type": "string", "description": "optional capability key to check"}}}},
-    {"name": "trna_families", "description": "Charged-tRNA fraction PER AMINO-ACID FAMILY for a design, from raw simOut, sorted with the most-starved family first. The corpus channel `fraction_trna_charged` is a single MEAN over all families, which cannot show cognate-family de-charging — an amino-acid limitation starves ONE family while the other ~19 stay loaded, so the aggregate barely moves (Dittmar et al. 2005, EMBO Rep 6:151). RESOLUTION: this is 21 amino-acid rows, not 86 independent species — measured within-family isoacceptor spread is exactly 0.0 in every design, so the between-isoacceptor axis of Elf 2003 is NOT representable in this model and must not be claimed. ALWAYS returns `translation_state`: for a translationally ARRESTED run (elongation rate pinned at 0, charged fraction constant) the table is (86 - n_target)/86 exactly — derivable from the knockout's isoacceptor count with no simulation — so the selectivity reading is REFUSED and `most_starved` is null. Needs the run's raw simOut on this machine.",
+    {"name": "model_capabilities", "description": "What the model CAN and CANNOT structurally represent, CONDITIONED ON AN ELONGATION MODEL. CALL THIS BEFORE concluding that a mechanism is ABSENT from the data, and before answering any question about codon usage, individual tRNA isoacceptors, operon-specific rRNA deletion, per-gene tRNA abundance, ppGpp/the stringent response, or amino-acid uptake. Each `cannot_represent` entry is a mechanism for which the model still returns a plausible NUMBER — e.g. under steady_state the per-isoacceptor charging columns are identical by construction, so a within-family spread of 0.0 is arithmetic, not a measurement; under coarse_kinetic the same 86 columns are EXACT ZEROS because that model does not solve charging at all, which is the absence of a mechanism and not total de-acylation. Branch on the `why_not` token, never on the prose: 'no_elongation_model_represents_it' = a flat refusal; 'no_run_used_this_mode' = the code exists but no run used it; 'another_mode_represents_it' = refuse AND make the concrete offer ('I cannot answer that from steady-state runs; the kinetic model represents it — shall I run one?'), never a hedged number and never silence. `switch.in_corpus` says whether that is a new run to propose or a query to re-issue. Never carry a number across modes. Optional `capability` checks one key and returns its refusal string.",
+     "input_schema": {"type": "object", "properties": {"capability": {"type": "string", "description": "optional capability key to check"}, "mode": {"type": "string", "enum": list(_cap.ELONGATION_MODES), "description": "the elongation model to condition the answer on. Omit for 'steady_state' — the mode of EVERY row in the corpus."}}}},
+    {"name": "trna_families", "description": "Charged-tRNA fraction PER AMINO-ACID FAMILY for a design, from raw simOut, sorted with the most-starved family first. The corpus channel `fraction_trna_charged` is a single MEAN over all families, which cannot show cognate-family de-charging — an amino-acid limitation starves ONE family while the other ~19 stay loaded, so the aggregate barely moves (Dittmar et al. 2005, EMBO Rep 6:151). RESOLUTION DEPENDS ON THE ELONGATION MODEL and is returned per call as `resolution` alongside `elongation_model` — READ IT, do not assume. Under steady_state (every row in the corpus) this is 21 amino-acid rows presented as 86: within-family isoacceptor spread is exactly 0.0 by construction, so the between-isoacceptor axis of Elf 2003 is NOT representable and must not be claimed. Under kinetic the 86 values ARE independent and a within-family spread is a real measurement. Under coarse_kinetic the reading is REFUSED — that model returns zeros for all 86, which is the absence of a charging model, not total de-acylation. Never pool families across modes. ALWAYS returns `translation_state`: for a translationally ARRESTED run (elongation rate pinned at 0, charged fraction constant) the table is (86 - n_target)/86 exactly — derivable from the knockout's isoacceptor count with no simulation — so the selectivity reading is REFUSED and `most_starved` is null. Needs the run's raw simOut on this machine.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "design label 'perturbation/condition'"}}, "required": ["design"]}},
     {"name": "selective_charging", "description": "Per-family charged-tRNA drops vs a reference, reported AGAINST A MEASURED WILD-TYPE NULL. Returns NO verdict, deliberately: the previous boolean fired on genuinely unperturbed runs, because comparing wild-type lineages to each other already names a 'most starved' family almost every time (trp dominates — it is simply the lowest-charged family in this model) with a median gap in the double digits. Every call therefore returns `wildtype_null` (the same statistic between UNPERTURBED runs, i.e. pure false-positive rate) plus `exceeds_wildtype_null_max`, and the reader draws the conclusion. Also returns `translation_state` — an arrested run's table is arithmetic, not a measurement. Use it to compare a perturbation against the null, never as a detector. Needs local raw simOut.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string"}, "reference": {"type": "string", "description": "default wildtype/basal"}}, "required": ["design"]}},

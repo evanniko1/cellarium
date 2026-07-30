@@ -17,6 +17,7 @@ import uuid
 from pathlib import Path
 
 from . import qc, reader, runner
+from .capability import DEFAULT_MODE, ELONGATION_MODES, mode_tag_suffix
 from .model import Design, GenerationResult, SimResult
 
 
@@ -149,6 +150,98 @@ def drop_run(run_id: str, reason: str, ts: float | None = None) -> dict:
                      "tombstone remains so the decision stays auditable.")}
 
 
+_COLUMNS_CACHE: tuple[tuple, set[str]] | None = None
+
+
+def manifest_columns() -> set[str]:
+    """The union of column names across every shard, or an empty set when the manifest is unreadable.
+
+    Asked EXPLICITLY rather than discovered by catching a Binder Error, because catching is how the last
+    column-drift incident hid: a `machine` column was added to `survey._deduped_rows`' tier-1 projection and
+    never written to a single shard, so tier 1 raised on EVERY read and silently fell through to a tier that
+    also lacked `contributor` — provenance was then guessed from the path and reported 18/16 against a truth
+    of 10/24. A projection must know what exists before it asks for it.
+
+    Cached on the shard set's (name, mtime, size) fingerprint rather than for the process lifetime: this sits
+    on the read path (`survey._deduped_rows` consults it once per tier), but a run that appends a shard and
+    then reads must see its own write — a stale schema would be the same class of bug this function prevents.
+    """
+    global _COLUMNS_CACHE
+    import glob
+    import os
+
+    import duckdb
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return set()
+    try:
+        fp = tuple((f, os.stat(f).st_mtime_ns, os.stat(f).st_size) for f in files)
+    except OSError:
+        fp = tuple(files)
+    if _COLUMNS_CACHE is not None and _COLUMNS_CACHE[0] == fp:
+        return _COLUMNS_CACHE[1]
+    con = duckdb.connect()
+    try:
+        desc = con.execute(f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
+                           f"LIMIT 0").description
+        cols = {d[0] for d in (desc or [])}
+    except Exception:
+        return set()          # deliberately NOT cached: an unreadable manifest must be re-asked, not pinned
+    finally:
+        con.close()
+    _COLUMNS_CACHE = (fp, cols)
+    return cols
+
+
+def elongation_sql(alias: str = "elongation_model") -> str:
+    """A SELECT expression for a row's elongation model that is safe on a corpus written before the column.
+
+    Two branches, and the NULL one is the point. Once any shard carries the column, `union_by_name` fills NULL
+    for shards that do not — and NULL must read as "steady_state", never as absent. That is design decision 4
+    and it is KNOWN, not assumed: no row in this corpus COULD have used another model, because the flag's host
+    process was only just ported. Leaving it to each consumer to decide is exactly the shape of the
+    `division_rate` bug (store.py:98-104), where `bool(None)` turned "we did not measure whether this divided"
+    into "it did not divide" and produced three false IMPAIRED verdicts.
+
+    When NO shard carries the column yet, the value is synthesised as the literal. Normalising at READ time
+    rather than rewriting the shards is the same deliberate, lossless choice the dedup key already makes — and
+    `capability.probe_corpus_modes()` reports the physical column as UNVERIFIED so this never reads as a
+    confirmation. `backfill_elongation_model()` is what makes it physical."""
+    if "elongation_model" in manifest_columns():
+        return f"COALESCE(elongation_model, '{DEFAULT_MODE}') AS {alias}"
+    return f"'{DEFAULT_MODE}' AS {alias}"
+
+
+def corpus_elongation_modes() -> dict:
+    """Which elongation models actually produced rows — probed, for `capability.probe_corpus_modes()`.
+
+    Reports `verified: False` when the column is not physically present or the manifest cannot be read. It
+    does NOT report the read-time default as if it were an observation: a "could not read" reported as a fact
+    is the silent-absence bug this repo keeps re-encountering."""
+    import glob
+
+    import duckdb
+    if not glob.glob(str(MANIFEST_DIR / "*.parquet")):
+        return {"verified": False, "modes": [], "why": "no manifest shards to read"}
+    if "elongation_model" not in manifest_columns():
+        return {"verified": False, "modes": [],
+                "why": ("no shard carries an `elongation_model` column yet — reads resolve it to "
+                        f"'{DEFAULT_MODE}' via manifest.elongation_sql(), which is the documented value for "
+                        "every pre-axis row but is NOT an observation. Run "
+                        "manifest.backfill_elongation_model(dry_run=False) to make it physical.")}
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT DISTINCT COALESCE(elongation_model, '{DEFAULT_MODE}') AS m FROM "
+            f"(SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) {DEDUP_QUALIFY})"
+        ).fetch_arrow_table().to_pylist()
+        return {"verified": True, "modes": sorted(r["m"] for r in rows if r.get("m"))}
+    except Exception as exc:
+        return {"verified": False, "modes": [], "why": f"manifest unreadable: {type(exc).__name__}: {exc}"}
+    finally:
+        con.close()
+
+
 def _design_tag_from_row(r: dict) -> str:
     """The design tag from a raw manifest row (for the ledger's design_key). Mirrors survey.design_tag's label
     parse but works on the columns present here."""
@@ -182,14 +275,23 @@ def _append_ledger(rec: dict) -> None:
 def _design_tag(design: Design) -> str:
     """The label's middle segment. For a gene KO, the GENE is the identity — but the propose (agent/UI) path sets
     condition='basal' with the gene in params.target_genes, while generate.py sets condition='KO:<gene>'. Both must
-    label as 'KO:<gene>' so a KO run is never mislabeled 'basal'. Appends a non-basal media as '@<cond>'."""
+    label as 'KO:<gene>' so a KO run is never mislabeled 'basal'. Appends a non-basal media as '@<cond>'.
+
+    The ELONGATION MODEL is appended last (as `#elong:<mode>`, and only when it is not the default) because
+    this one function is where design identity is actually decided. Its output flows into `label`, the stored
+    `design_key`/`design_tag` columns, `count_runs`' prefix, the deterministic crash-row id, the ledger — and,
+    via `survey.design_tag` re-parsing `label`, into EVERY analysis grouping in the repo. Without the mode
+    here, `survey.analysis_rows` pools kinetic and steady-state seeds into one design cell and averages
+    `fraction_trna_charged` across a measurement and an algebraic identity, silently, because both rows carry
+    an 86-wide column of the same name. That pooling is the entire reason this axis exists."""
     genes = list((design.params or {}).get("target_genes") or [])
     if "gene_knockout" in design.perturbation and genes:
         tag = "KO:" + "+".join(genes)
         if design.condition and design.condition not in ("basal", "KO:" + "+".join(genes)):
             tag += "@" + design.condition
-        return tag
-    return design.condition or design.timeline or "basal"
+        return tag + mode_tag_suffix(design.elongation_model)
+    base = design.condition or design.timeline or "basal"
+    return base + mode_tag_suffix(design.elongation_model)
 
 
 def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
@@ -275,6 +377,12 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
     _kb = _kb_prov(sim_path or _sim_path_of(run_root))
     row = {"id": rec.id, "label": rec.label,
            "kb_sha256": _kb.get("kb_sha256"), "operons": _kb.get("operons"),
+           # WHICH ELONGATION MODEL produced this row, stored beside kb_sha256/operons and for the same
+           # reason the comment below argues for design_key: identity is STORED, not left to be re-derived.
+           # A reader that had to recover it by parsing `label` would be keying on a string that already
+           # tolerates two conventions in this corpus, and every drift incident recorded in this file came
+           # from a reader keying on something it had to re-derive.
+           "elongation_model": rec.design.elongation_model,
            # Identity is STORED, not left to be re-derived. Every drift incident in this corpus came from a
            # reader keying on a raw field: `condition` is NULL for timelines and 'basal' for propose-path KOs,
            # so two opposite nutrient shifts merged into one cell and a gltX knockout was filed as a control.
@@ -425,7 +533,14 @@ def count_runs(design: Design) -> int:
 
 
 def _label(design: Design, seed: int) -> str:
-    return f"{design.perturbation}/{design.condition or design.timeline or 'basal'} seed{seed}"
+    """The `perturbation/tag seed{n}` label form — used for console progress and for the CRASH row.
+
+    The elongation suffix is appended here too, and it has to be: `survey.design_tag` recognises this
+    slash-and-space convention as well as the interpunct one, so a crash row labelled without the mode would
+    group a kinetic failure into the steady-state design cell — the exact pooling the axis prevents, on the
+    rows least able to defend themselves. Byte-identical for the default model."""
+    tag = design.condition or design.timeline or "basal"
+    return f"{design.perturbation}/{tag}{mode_tag_suffix(design.elongation_model)} seed{seed}"
 
 
 def _run_job(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> dict:
@@ -475,7 +590,13 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception,
     # (id, path) PAIR — keyed on id alone they would collapse to 8 rows and "how many runs failed" would be
     # unanswerable. Matches the shape of a successful row's id: <perturbation>_<seed>_<hash8>.
     tag = hashlib.sha256(f"{design.perturbation}|{_design_tag(design)}|{seed}".encode()).hexdigest()[:8]
+    # This branch hand-writes its column dict instead of going through `_flat_row`, so a column added there
+    # does NOT appear here — and these are the rows that MOST need to say which model was attempted. Left off,
+    # a kinetic failure lands NULL and is then permanently recorded as a steady-state failure by the backfill.
+    # The id and the path above already separate the two arms (both derive from `_design_tag` /
+    # `_run_subpath`, which now carry the mode); this column is what makes the row say so out loud.
     return {"id": f"{design.perturbation}_{seed}_{tag}_crash", "label": _label(design, seed),
+            "elongation_model": design.elongation_model,
             "perturbation": design.perturbation, "condition": design.condition, "timeline": design.timeline,
             "seed": seed, "generations": 0, "requested_generations": generations, "crashed": True,
             "qc": "crashed", "reportable": False, "gens_reached": 0, "division_rate": 0.0, "crash_type": ctype,
@@ -546,8 +667,22 @@ def _design_from_dir(run_root: Path) -> tuple[Design, int]:
     prov = run_root / "design.json"
     if prov.exists():  # true design written at run time (survives the opaque variant-dir naming)
         return Design.model_validate_json(prov.read_text(encoding="utf-8")), seed
-    perturbation, _, idx = run_root.parent.name.rpartition("_")  # fallback for pre-provenance runs
-    return Design(perturbation=perturbation, params={"variant_index": int(idx)}), seed
+    # Fallback for pre-provenance runs. `_run_subpath` appends discriminator suffixes to the variant dir
+    # (`__tl<hash>` for a timeline, `__el<mode>` for a non-default elongation model), so they have to come
+    # off before the trailing index is parsed — `gene_knockout_000644__elkinetic`.rpartition('_') yields
+    # 'elkinetic', and int() on that raises, which would take down record_existing for the whole campaign.
+    # The elongation model is RECOVERED rather than defaulted: this is the one place a kinetic run with no
+    # design.json could be silently indexed as steady_state, and the directory name knows the answer.
+    name = run_root.parent.name
+    elongation = DEFAULT_MODE
+    for mode in ELONGATION_MODES:
+        if name.endswith(f"__el{mode}"):
+            name, elongation = name[: -len(f"__el{mode}")], mode
+            break
+    name = name.split("__tl")[0]
+    perturbation, _, idx = name.rpartition("_")
+    return Design(perturbation=perturbation, params={"variant_index": int(idx)},
+                  elongation_model=elongation), seed
 
 
 def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) -> dict:
@@ -606,6 +741,57 @@ def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) ->
     return res
 
 
+def backfill_elongation_model(dry_run: bool = True) -> dict:
+    """Stamp `elongation_model = "steady_state"` onto rows indexed before that column existed.
+
+    STRONGER evidence than the kb backfill above, and deliberately carries no `kb_verified`-style qualifier
+    to say so. kb membership is INFERRED from a campaign path; this is not inferred at all — no row in the
+    corpus COULD have used another elongation model, because Cellarium had no way to express the choice and
+    the flags' host process was only ported afterwards. "steady_state" is KNOWN, not unknown, which is why
+    this writes the value rather than an "unknown" category, and why it never writes NULL.
+
+    MUST run before the first non-steady-state row is appended. After that, NULL stops being safely inferable:
+    a NULL could then mean either "written before the column" or "written by something that dropped it", and
+    nothing in the row distinguishes them.
+
+    Reads are already correct without this — `elongation_sql()` resolves a missing column to the documented
+    value — so the thing this buys is a SELF-DESCRIBING parquet row: the corpus is published to HuggingFace
+    and sliced away from this repo, where no read-time helper travels with it. Compacts to one shard the way
+    `backfill_kb_provenance` does; `dry_run` (the default) reports without writing.
+    """
+    import glob
+    import os
+
+    import duckdb
+
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards to backfill"}
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) {DEDUP_QUALIFY}"
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+    n_before = sum(1 for r in rows if r.get("elongation_model"))
+    for r in rows:
+        if not r.get("elongation_model"):
+            r["elongation_model"] = DEFAULT_MODE
+    res = {"rows": len(rows), "already_stamped": n_before, "backfilled": len(rows) - n_before,
+           "elongation_model": DEFAULT_MODE, "dry_run": dry_run,
+           "note": ("Every pre-axis row was produced by the steady-state elongation model — that is known, "
+                    "not assumed. Reads already resolve it; this makes the parquet row self-describing.")}
+    if dry_run:
+        return res
+    new = append_shard(rows, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
+
+
 def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dict:
     """Standing guard against IDENTITY DRIFT — the failure mode that made this corpus's analyses untrustworthy.
 
@@ -625,6 +811,8 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
       D5  a `gene_knockout` whose tag is `basal` is definitionally suspicious — a gene KO must name a gene
       D6  every row carries kb provenance, so the operon mode behind it is checkable
       D7  no orphan runs on disk (readable but unindexed, hence invisible)
+      D8  no row carries a NULL elongation model once that column exists (backfill, never leave NULL)
+      D9  a row whose label tag names an elongation model carries the MATCHING column (write/read drift)
 
     Returns `{"ok": bool, "violations": [...]}`; each violation names the invariant, the rows, and the fix.
     """
@@ -691,6 +879,34 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
     if no_prov:
         add("D6", "row carries no kb provenance, so its operon mode is unknowable", no_prov,
             "run manifest.backfill_kb_provenance(dry_run=False)")
+
+    # D8/D9 — the elongation axis. Same query shape as D6 (DEDUP FIRST in a subquery, then filter), because
+    # SQL applies WHERE before QUALIFY and filtering first would dedup among the offending rows alone,
+    # reporting a stale row even after a superseding row fixed it — an invariant unsatisfiable by correction.
+    if "elongation_model" in manifest_columns():
+        try:
+            import duckdb
+            con = duckdb.connect()
+            null_elong = [r["id"] for r in con.execute(
+                f"SELECT id FROM (SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
+                f"{DEDUP_QUALIFY}) WHERE elongation_model IS NULL").fetch_arrow_table().to_pylist()]
+            con.close()
+        except Exception:
+            null_elong = []
+        if null_elong:
+            add("D8", "row carries a NULL elongation model, so the meaning of its 86-wide charging columns is "
+                      "unknowable — and NULL is not 'unknown' here, it is un-backfilled", null_elong,
+                "run manifest.backfill_elongation_model(dry_run=False)")
+    # D9 catches the write/read drift D2 catches for design_key: the label says one model, the column says
+    # another. Either the tag was written by an older _design_tag or the column by an older _flat_row, and a
+    # reader that trusts the wrong one pools a measurement with an identity.
+    from .capability import mode_from_tag
+    drift_elong = [r["id"] for r in rows
+                   if r.get("elongation_model")
+                   and mode_from_tag(survey.design_tag(r))[1] != r["elongation_model"]]
+    if drift_elong:
+        add("D9", "the label's elongation tag disagrees with the stored elongation_model column", drift_elong,
+            "re-index the affected runs: manifest._design_tag and manifest._flat_row must agree")
 
     if check_disk:
         try:

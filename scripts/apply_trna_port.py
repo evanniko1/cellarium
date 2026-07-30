@@ -449,6 +449,22 @@ def status(wcecoli: str) -> dict:
         # True only when NEITHER ported file still carries the removed alias.
         "numpy_aliases_modernised": (_has(wcecoli, REL, "class Relation") is not None and not any(
             _has(wcecoli, f, NP_ALIAS_OLD) for f in NP_ALIAS_FILES)),
+        # EXT-PORT-10, applied by scripts/ext_port_10_patch.py. Four markers, one per item, so a partial
+        # application of THAT script reports as partial here too rather than as done.
+        "ext_port_10": all([
+            # (1) phnE1 typed 'pseudo' -- changes the DEFAULT path, see that module's docstring
+            bool(_has(wcecoli, os.path.join("reconstruction", "ecoli", "flat", "rnas.tsv"),
+                      "EXT-PORT-10: EG11283_RNA (phnE1) typed 'pseudo'")),
+            # (2) codon_sequences padded for the wider window, buffer constant shared with the process
+            bool(_has(wcecoli, REL, "KINETIC_TRNA_CHARGING_WIDTH_BUFFER")),
+            bool(_has(wcecoli, PE, "EXT-PORT-10 tripwire")),
+            # (3) next_amino_acids implemented on both codon-aware models
+            bool(_has(wcecoli, PE, "EXT-PORT-10: the codon-space implementation")),
+            bool(_has(wcecoli, PE, "EXT-PORT-10: amino-acid space here")),
+            # (4) listener columns with no writer, and the turnover divide
+            bool(_has(wcecoli, LIS, "EXT-PORT-10: NO WRITER EXISTS")),
+            bool(_has(wcecoli, PE, "EXT-PORT-10: turnover is UNDEFINED")),
+            ]),
         "flat_files": {f: os.path.isfile(os.path.join(flat, f)) for f in FLAT_FILES},
     }
 
@@ -743,6 +759,26 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
             n_hits = t.count(NP_ALIAS_OLD)
             _write(os.path.join(wcecoli, f), t.replace(NP_ALIAS_OLD, NP_ALIAS_NEW), n2)
             wrote.append(f"{f}: np.bool -> np.bool_ ({n_hits})")
+
+    # 14) EXT-PORT-10 — the four items that were blocking the codon-aware path.
+    #
+    # DELEGATED rather than inlined. Those edits are defined ONCE, in scripts/ext_port_10_patch.py, and
+    # that module is the only place they live; duplicating ~200 lines of anchors here is how two copies
+    # of the same recipe drift apart. It is idempotent and marker-guarded on exactly the same terms as
+    # everything above, so calling it from a fully-applied tree is a no-op.
+    #
+    # ONE OF ITS EDITS IS NOT ADDITIVE. It types EG11283_RNA (phnE1) 'pseudo' in rnas.tsv, which removes
+    # one cistron and one monomer from the DEFAULT path as well — a deliberate re-baseline, not a
+    # no-op. See that module's docstring for the measured blast radius.
+    if not st["ext_port_10"]:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from ext_port_10_patch import run as _ext_port_10_run
+        r10 = _ext_port_10_run(wcecoli, os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               check=False)
+        if not r10["complete"]:
+            return {"ok": False, "status": status(wcecoli), "wrote": wrote,
+                    "why": f"EXT-PORT-10 edits did not fully apply: {r10['files']}"}
+        wrote.extend(f"EXT-PORT-10 {f}" for f in r10["wrote"])
 
     st2 = status(wcecoli)
     return {"ok": _complete(st2), "status": st2, "wrote": wrote,

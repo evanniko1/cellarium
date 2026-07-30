@@ -144,7 +144,12 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
                  ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable",
                   "generations", *channels],
                  ["label", "perturbation", "condition", "timeline", "seed", "qc", "reportable", *channels]):
-        sel = ", ".join(f'"{c}"' for c in cols)
+        # `elongation_model` is appended to EVERY tier, not just tier 1, and as an expression rather than a
+        # bare name. It cannot Binder-Error (the helper resolves to a literal when no shard carries the column
+        # yet), so unlike the `machine` incident recorded above it cannot knock a tier out; and putting it on
+        # every tier means a degraded read still says which elongation model each row came from, which is the
+        # one field a lower tier must never lose.
+        sel = ", ".join([*(f'"{c}"' for c in cols), manifest.elongation_sql()])
         q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
              f"{manifest.DEDUP_QUALIFY}) "
              f"SELECT {sel} FROM d")

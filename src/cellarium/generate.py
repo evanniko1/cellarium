@@ -12,9 +12,34 @@ import json
 from pathlib import Path
 
 from . import manifest
+from .capability import DEFAULT_MODE, ELONGATION_MODES, MODE_FLAGS
 from .model import Design
 
 VARIANT_MAP_CACHE = Path("data/cache/variant_map.json")
+
+
+def kinetic_charging_designs() -> list[Design]:
+    """The first arm on the KINETIC elongation model — the experiment the steady-state corpus cannot do.
+
+    Every existing row solves charging as a 20-state ODE indexed by AMINO ACID and broadcasts the result
+    across all 86 isoacceptor columns, so within-family spread is 0.00 as an algebraic identity and the
+    between-isoacceptor axis of Elf et al. 2003 is not a hard question here — it is an unaskable one. The
+    kinetic model (Choi & Covert 2023, NAR 51(12):5911) solves charging PER ISOACCEPTOR with explicit codon
+    reading, which makes the same 86 columns 86 genuine measurements.
+
+    Paired deliberately: each kinetic arm ships with its steady-state twin, because the point of the first
+    campaign is the CONTRAST, and the two are separate designs at every level (distinct design tag, distinct
+    run directory, distinct dedup key) precisely so they can be run side by side without one overwriting or
+    silently averaging into the other. `argS` is the Choi & Covert ArgRS case and is already in the corpus
+    under steady_state.
+
+    NOT poolable with the existing corpus. A kinetic run answers a different question with the same column
+    names, so report the arms against each other, never merged.
+    """
+    arms = [Design(perturbation="wildtype", condition="basal"),
+            Design(perturbation="gene_knockout", condition="KO:argS", params={"variant_index": 644})]
+    return [d for arm in arms
+            for d in (arm, arm.model_copy(update={"elongation_model": "kinetic"}))]
 
 
 def default_designs() -> list[Design]:
@@ -363,9 +388,21 @@ def main() -> None:
     ap.add_argument("--multi-gene-ko", dest="multi_gene_ko", default=None,
                     help="multi-gene KO sets, genes '+'-joined within a set and ';'-separated across sets "
                          "(default: pfkA+pfkB). Run with --parallel 1.")
+    ap.add_argument("--kinetic-charging", action="store_true", dest="kinetic_charging",
+                    help="the first KINETIC-elongation arm (per-isoacceptor charging, Choi & Covert 2023), "
+                         "each design paired with its steady-state twin. NOT poolable with the corpus")
+    # The axis has to be reachable from the ONE supported campaign entry point. Left off, the first kinetic
+    # run happens through an ad-hoc script that skips manifest.campaign entirely — no shard, no row, no dedup
+    # key — and the run exists only as a directory that record_existing later indexes as steady_state.
+    ap.add_argument("--elongation", default=None, choices=list(ELONGATION_MODES),
+                    help="run EVERY design in the selected set under this elongation model (default: "
+                         "steady_state, the model that produced the whole corpus). Flags: "
+                         + "; ".join(f"{m}={MODE_FLAGS[m]}" for m in ELONGATION_MODES))
     args = ap.parse_args()
 
-    if args.panel:
+    if args.kinetic_charging:
+        designs = kinetic_charging_designs()
+    elif args.panel:
         designs = panel_designs()
     elif args.overnight:
         designs = overnight_designs()
@@ -396,6 +433,15 @@ def main() -> None:
         designs = knockout_designs(args.knockout)
     else:
         designs = default_designs()
+    # Applied to the DESIGNS, not passed alongside them, because the elongation model belongs on the Design:
+    # one campaign can then run both arms side by side (see kinetic_charging_designs), and `manifest.campaign`
+    # needs no new parameter that its serial and parallel branches could disagree about. That discrepancy —
+    # working when run serially and silently defaulting under --parallel — is exactly what the hard-coded
+    # sim_path did, and it put a wrong kb_sha256 on 21 aadrop rows.
+    if args.elongation and args.elongation != DEFAULT_MODE:
+        designs = [d.model_copy(update={"elongation_model": args.elongation}) for d in designs]
+        print(f"Elongation model: {args.elongation} ({MODE_FLAGS[args.elongation]}) — these runs are NOT "
+              f"poolable with the steady-state corpus.", flush=True)
     shard = manifest.campaign(designs, list(range(args.seeds)), args.generations, args.parallel)
     print(f"Wrote manifest shard: {shard}")
 
