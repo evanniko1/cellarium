@@ -185,6 +185,16 @@ PE_METHOD_ANCHOR = "\tdef elongation_rate(self):\n\t\tcurrent_media_id = self.pr
 PE_METHOD_NEW = '\tdef next_amino_acids(self, all_sequences, sequence_elongations):\n\t\t"""EXT-PORT-8: v3.0.1 BaseElongationModel\'s own implementation, verbatim. Only the codon-aware\n\t\tpath calls it; KineticTrnaChargingModel overrides it where it means something."""\n\t\treturn 0\n\n\tdef elongation_rate(self):\n\t\tcurrent_media_id = self.process._external_states[\'Environment\'].current_media_id\n'
 
 
+# EXT-PORT-8: the elongation models are ALTERNATIVES, not modifiers, and leaving the flags independent
+# is a silent-wrongness generator. v3.0.1 resolves them together (its simulation.py:164-180 sets
+# _steady_state_trna_charging and _translationSupply False whenever _kinetic_trna_charging goes True).
+# This belongs at the simulation level rather than in PolypeptideElongation because `trna_charging` is
+# read elsewhere in the model: left True alongside a kinetic elongation model, metabolism goes on holding
+# amino acid targets that nothing updates any more. Nothing raises; the numbers are simply wrong.
+WSIM_RESOLVE_ANCHOR = '\t\tunknownKeywords = kwargs.keys() - DEFAULT_SIMULATION_KWARGS.keys()\n'
+WSIM_RESOLVE = "\t\t# EXT-PORT-8: the elongation flags are MUTUALLY EXCLUSIVE, and saying so here rather than leaving\n\t\t# them independent closes a whole class of silent inconsistency. v3.0.1 resolves them exactly this\n\t\t# way (wholecell/sim/simulation.py:164-180 there): selecting the kinetic model sets\n\t\t# _steady_state_trna_charging and _translationSupply False in the same breath.\n\t\t#\n\t\t# It matters beyond the elongation process, which is why it belongs here and not in\n\t\t# PolypeptideElongation.initialize. `trna_charging` is read elsewhere in the model -- with it left\n\t\t# True alongside a kinetic model, metabolism keeps holding amino acid targets that nothing is\n\t\t# updating any more. Nothing raises; the numbers are just wrong.\n\t\tif self._kinetic_trna_charging or self._coarse_kinetic_elongation:\n\t\t\tif self._trna_charging or self._translationSupply:\n\t\t\t\tprint('EXT-PORT-8: a kinetic elongation model was selected, so trna_charging and'\n\t\t\t\t\t' translation_supply are being forced False (they are alternative elongation'\n\t\t\t\t\t' models, not modifiers).')\n\t\t\tself._trna_charging = False\n\t\t\tself._translationSupply = False\n\n"
+
+
 PYX_SOURCE = os.path.join("wholecell", "utils", "_trna_charging.pyx")
 
 # Run INSIDE the model image by `build_extension`. Deliberately mirrors what Covert's own top-level setup.py
@@ -435,6 +445,7 @@ def status(wcecoli: str) -> dict:
                                and _has(wcecoli, LIS, "transcription.uncharged_trna_names")),
         "kinetic_flag_gated": _has(wcecoli, PE, "EXT-PORT-8 GATE"),
         "sim_flags": _has(wcecoli, WSIM, "kinetic_trna_charging = False"),
+        "flags_mutually_exclusive": _has(wcecoli, WSIM, "elongation flags are MUTUALLY EXCLUSIVE"),
         "cli_flags": _has(wcecoli, SB, "'kinetic_trna_charging'"),
         "firetasks_wired": all(_has(wcecoli, f, "kinetic_trna_charging") for f in FIRETASKS),
         "setup_registered": _has(wcecoli, SETUP, "_trna_charging.pyx"),
@@ -684,6 +695,14 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
             return {"ok": False, "why": f"{WSIM}: expected exactly one trna_charging kwarg to anchor on"}
         _write(os.path.join(wcecoli, WSIM), t.replace(WSIM_ANCHOR, WSIM_ANCHOR + WSIM_ADD, 1), n2)
         wrote.append(f"{WSIM}: kinetic_trna_charging / coarse_kinetic_elongation kwargs")
+    if not st["flags_mutually_exclusive"]:
+        t, n2 = _read(os.path.join(wcecoli, WSIM))
+        o = WSIM_RESOLVE_ANCHOR.replace("\n", n2)
+        if t.count(o) != 1:
+            return {"ok": False, "why": f"{WSIM}: expected exactly one kwargs-unpacking anchor to place the "
+                                        f"flag resolution before, found {t.count(o)}"}
+        _write(os.path.join(wcecoli, WSIM), t.replace(o, WSIM_RESOLVE.replace("\n", n2) + o, 1), n2)
+        wrote.append(f"{WSIM}: kinetic flags force trna_charging / translation_supply False")
     if not st["cli_flags"]:
         t, n2 = _read(os.path.join(wcecoli, SB))
         # Two option LISTS carry every sim flag; both must gain the new names or the CLI value is parsed and
