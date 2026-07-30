@@ -165,6 +165,16 @@ def _out_root(sim_path: str) -> Path:
 # time, and never a directory — the image bakes in the compiled Cython, so mounting the checkout over /wcEcoli
 # shadows the built extensions and the model stops importing. A single .tsv is inert data and carries none of
 # that risk. Currently just the SCI-TRNA-3 dropout media (see scripts/apply_model_patches.py).
+# Cellarium's OWN variants (model_patches/variants/, installed into the checkout by
+# scripts/apply_model_variants.py) plus the variant registry that names them. These must be MOUNTED into the
+# container as well as installed on the host: the image bakes in its own copy of models/, so installing to the
+# checkout alone leaves the container running stock code. Measured — the first graded dose run died instantly
+# with `graded_gene_knockout is not a valid variant function!` because the applier and the runner were not
+# connected. Same read-only single-file discipline as the flat overlays; never mount the directory, which would
+# shadow the compiled Cython.
+_VARIANT_OVERLAYS = ["models/ecoli/sim/variants/graded_gene_knockout.py",
+                     "models/ecoli/sim/variants/__init__.py"]
+
 _FLAT_OVERLAYS = ["reconstruction/ecoli/flat/condition/media_recipes.tsv",
                   # Not optional, and not obvious: the media alone let the sim START but it dies on ENTERING
                   # one, because nutrient_to_doubling_time is keyed by media yet built from the conditions
@@ -184,7 +194,7 @@ def _flat_file_mounts() -> list[str]:
     if not src:
         return []
     out: list[str] = []
-    for rel in _FLAT_OVERLAYS:
+    for rel in (*_FLAT_OVERLAYS, *_VARIANT_OVERLAYS):
         host = Path(src) / rel
         if host.is_file():
             out += ["-v", f"{host.as_posix()}:/wcEcoli/{rel}:ro"]
