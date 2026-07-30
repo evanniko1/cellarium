@@ -171,6 +171,20 @@ REL_WEIGHTS_OLD = '\t\t# Describe residue masses\n\t\tresidue_weights_by_codon =
 REL_WEIGHTS_NEW = "\t\t# Describe residue masses\n\t\t# EXT-PORT-7: the loop below crosses TWO amino-acid orderings. `i` is a row index into\n\t\t# codons_to_amino_acids, which is ordered by molecule_groups.amino_acids (see\n\t\t# _build_codon_sequences), and it indexes translation_monomer_weights, which is ordered by\n\t\t# amino_acid_code_to_id_ordered.values() (translation.py). They are element-for-element equal in this\n\t\t# build, which is why this works — but nothing enforces it, and if they ever diverged every residue\n\t\t# weight would be silently PERMUTED with no error anywhere. Assert the coupling the code relies on.\n\t\tassert (list(sim_data.molecule_groups.amino_acids)\n\t\t\t\t== list(sim_data.amino_acid_code_to_id_ordered.values())), (\n\t\t\t'molecule_groups.amino_acids and amino_acid_code_to_id_ordered disagree, so the row index of '\n\t\t\t'codons_to_amino_acids can no longer be used to index translation_monomer_weights')\n\t\tresidue_weights_by_codon = []\n"
 
 
+# EXT-PORT-8 prerequisites. Both additive, and both needed before the codon-aware host path can run.
+#   * monomer_data gains a `cleavage_of_initial_methionine` bool column. It is already on
+#     raw_data.proteins in this tree and already read for the N-end rule; it simply never reached
+#     monomer_data, and KineticTrnaChargingModel reads it per monomer. Note the field_units entry is
+#     not optional: UnitStructArray raises on a field missing from field_units, so adding the dtype
+#     entry alone fails at construction.
+#   * BaseElongationModel gains `protein_lengths` and `next_amino_acids`. v3.0.1 carries both on ITS
+#     base class; ours predates them, and KineticTrnaChargingModel inherits from ours.
+TRL_EDITS = [('\t\tmonomer_data = np.zeros(\n', "\t\t# EXT-PORT-8: needed by KineticTrnaChargingModel, which reads it per monomer. Already present on\n\t\t# raw_data.proteins and already used above for the N-end rule; it just never reached monomer_data.\n\t\tcleavage_of_initial_methionine = np.zeros(len(all_proteins), dtype=bool)\n\t\tfor i, protein in enumerate(all_proteins):\n\t\t\tcleavage_of_initial_methionine[i] = protein['cleavage_of_initial_methionine']\n\n\t\tmonomer_data = np.zeros(\n"), ("\t\t\t\t('mw', 'f8'),\n\t\t\t\t]\n", "\t\t\t\t('mw', 'f8'),\n\t\t\t\t('cleavage_of_initial_methionine', 'bool'),\n\t\t\t\t]\n"), ("\t\tmonomer_data['mw'] = mws\n", "\t\tmonomer_data['mw'] = mws\n\t\tmonomer_data['cleavage_of_initial_methionine'] = cleavage_of_initial_methionine\n"), ("\t\t\t'mw': units.g / units.mol,\n", "\t\t\t'mw': units.g / units.mol,\n\t\t\t# None, not a unit: UnitStructArray raises on a field absent from field_units, so a new column\n\t\t\t# added to the dtype alone would fail at construction rather than being quietly unitless.\n\t\t\t'cleavage_of_initial_methionine': None,\n")]
+PE_BASE_EDITS = [('\t\tself.water = self.process.bulkMoleculeView(sim_data.molecule_ids.water)\n', "\t\tself.water = self.process.bulkMoleculeView(sim_data.molecule_ids.water)\n\t\t# EXT-PORT-8: v3.0.1 carries this on its BaseElongationModel and our base predates it.\n\t\t# KineticTrnaChargingModel inherits from THIS class, so without it the codon-aware host path\n\t\t# raises AttributeError on its first step. Additive: nothing on the steady-state path reads it.\n\t\tself.protein_lengths = sim_data.process.translation.monomer_data['length'].asNumber()\n")]
+PE_METHOD_ANCHOR = "\tdef elongation_rate(self):\n\t\tcurrent_media_id = self.process._external_states['Environment'].current_media_id\n"
+PE_METHOD_NEW = '\tdef next_amino_acids(self, all_sequences, sequence_elongations):\n\t\t"""EXT-PORT-8: v3.0.1 BaseElongationModel\'s own implementation, verbatim. Only the codon-aware\n\t\tpath calls it; KineticTrnaChargingModel overrides it where it means something."""\n\t\treturn 0\n\n\tdef elongation_rate(self):\n\t\tcurrent_media_id = self.process._external_states[\'Environment\'].current_media_id\n'
+
+
 PYX_SOURCE = os.path.join("wholecell", "utils", "_trna_charging.pyx")
 
 # Run INSIDE the model image by `build_extension`. Deliberately mirrors what Covert's own top-level setup.py
@@ -202,6 +216,7 @@ LIS = os.path.join("models", "ecoli", "listeners", "trna_charging.py")
 MSIM = os.path.join("models", "ecoli", "sim", "simulation.py")
 WSIM = os.path.join("wholecell", "sim", "simulation.py")
 SB = os.path.join("wholecell", "utils", "scriptBase.py")
+TRL = os.path.join("reconstruction", "ecoli", "dataclasses", "process", "translation.py")
 SETUP = "setup.py"
 NP_ALIAS_FILES = (REL, PE)   # defined here because PE is not bound until this block
 
@@ -398,6 +413,8 @@ def status(wcecoli: str) -> dict:
         "relation_keeps_mismatches": _has(wcecoli, REL, "codon_sequence_mismatches"),
         "relation_trna_space": _has(wcecoli, REL, "uncharged_trna_names)"),
         "relation_guards": _has(wcecoli, REL, "EXT-PORT-7"),
+        "monomer_cleavage_column": _has(wcecoli, TRL, "'cleavage_of_initial_methionine', 'bool'"),
+        "base_model_members": _has(wcecoli, PE, "def next_amino_acids"),
         "relation_init": _has(wcecoli, REL, "self._build_trna_charging_kinetics(raw_data, sim_data)"),
         "groups_codons": _has(wcecoli, MG, "'codons': codon_ids"),
         "groups_initiators": _has(wcecoli, MG, "'initiator_trnas'"),
@@ -599,6 +616,28 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
             t = t.replace(PE_GUARD_OLD, PE_GUARD_NEW, 1)
         _write(os.path.join(wcecoli, PE), t, n2)
         wrote.append("polypeptide_elongation.py: import + 2 kinetic models + selector + guard")
+
+    # 9c) the EXT-PORT-8 prerequisites
+    if not st["monomer_cleavage_column"]:
+        t, n2 = _read(os.path.join(wcecoli, TRL))
+        for old, new in TRL_EDITS:
+            o, n = old.replace("\n", n2), new.replace("\n", n2)
+            if t.count(o) != 1:
+                return {"ok": False, "why": f"{TRL}: expected exactly one {old.strip()[:44]!r}, "
+                                            f"found {t.count(o)}"}
+            t = t.replace(o, n, 1)
+        _write(os.path.join(wcecoli, TRL), t, n2)
+        wrote.append("translation.py: monomer_data['cleavage_of_initial_methionine']")
+    if not st["base_model_members"]:
+        t, n2 = _read(os.path.join(wcecoli, PE))
+        for old, new in list(PE_BASE_EDITS) + [(PE_METHOD_ANCHOR, PE_METHOD_NEW)]:
+            o, n = old.replace("\n", n2), new.replace("\n", n2)
+            if t.count(o) != 1:
+                return {"ok": False, "why": f"{PE}: expected exactly one {old.strip()[:44]!r}, "
+                                            f"found {t.count(o)}"}
+            t = t.replace(o, n, 1)
+        _write(os.path.join(wcecoli, PE), t, n2)
+        wrote.append("polypeptide_elongation.py: BaseElongationModel protein_lengths + next_amino_acids")
 
     # 9b) the runtime tRNA id space, in BOTH the process and the listener
     if not st["runtime_trna_space"] or not st["kinetic_flag_gated"]:
