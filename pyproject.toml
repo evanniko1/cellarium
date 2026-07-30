@@ -38,7 +38,13 @@ packages = ["src/cellarium"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["skills"]   # vendored third-party skills — not ours to lint
+extend-exclude = [
+    "skills",          # vendored third-party skills — not ours to lint
+    "model_patches",   # model-tree code in the MODEL's style: wcEcoli is tab-indented throughout, so these
+                       # files must keep tabs to match the tree they are installed into. Linting them under
+                       # Cellarium's space convention reports 75 mixed-indentation errors for code that is
+                       # correct where it runs. Installed by scripts/apply_model_variants.py.
+]
 
 [tool.ruff.lint]
 # The codebase deliberately uses compact one-liners (semicolons) and long single-line tool-description strings,

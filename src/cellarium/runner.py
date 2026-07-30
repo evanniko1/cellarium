@@ -72,6 +72,27 @@ def _variant_args(design: Design) -> list[str]:
     return args
 
 
+def _graded_ko_env(design: Design) -> dict:
+    """Env for a `graded_gene_knockout` design: the target cistron and its transcription-unit count.
+
+    Resolved from the DESIGN via `scope.graded_ko_target`, never from the ambient environment. The variant
+    needs the cistron because its index names a TRANSCRIPTION UNIT and a multi-gene operon has no single
+    implied gene; with the cistron absent it falls back to suppressing ONE unit, which for a multi-TU gene is
+    not a knockout at all. That fallback would produce a run that LOOKS graded and is not, so this raises
+    rather than letting the design run under-specified."""
+    if _variant_type(design) != "graded_gene_knockout":
+        return {}
+    from . import scope
+    symbol = str(design.condition or "").split(":")[-1].strip()
+    if not symbol:
+        raise ValueError(f"graded_gene_knockout design has no resolvable gene symbol in condition "
+                         f"{design.condition!r} — expected the 'KO:<gene>' form.")
+    t = scope.graded_ko_target(symbol)
+    if not t.get("ok"):
+        raise ValueError(t["why"])
+    return t["env"]
+
+
 # Designs that share a variant index share the model's OUTPUT directory, and the model writes there before we
 # can move anything. Renaming after the run is therefore not enough on its own: two such designs running
 # concurrently race on the transit dir. That is not hypothetical — it destroyed generation 0 of all four
@@ -170,6 +191,11 @@ def _flat_file_mounts() -> list[str]:
     return out
 
 
+# Per-invocation env for the model process, set by run_one around _exec. A module global rather than a
+# parameter because _exec is called from several places and only one of them needs it.
+_EXEC_ENV: dict | None = None
+
+
 def _exec(script_args: list[str]) -> None:
     """Run a model script (e.g. ['runscripts/manual/runSim.py', ...]).
 
@@ -181,8 +207,11 @@ def _exec(script_args: list[str]) -> None:
     """
     if WCECOLI_DOCKER:
         OUT_ROOT.mkdir(parents=True, exist_ok=True)
+        extra_env: list[str] = []
+        for k, v in (_EXEC_ENV or {}).items():
+            extra_env += ["-e", f"{k}={v}"]
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
-               *_flat_file_mounts(),
+               *_flat_file_mounts(), *extra_env,
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
         _run_checked(cmd, None)   # the docker CLI has no use for a credential
         return
@@ -279,8 +308,13 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         if evac and not evac.get("evacuated"):
             raise RuntimeError(
                 f"Refusing to run: {evac['why']}. Running would overwrite it. Move or delete it deliberately.")
-        _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
-               "--generations", str(generations), *_variant_args(design)])
+        global _EXEC_ENV
+        _EXEC_ENV = _graded_ko_env(design)      # raises if a graded design cannot be fully specified
+        try:
+            _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
+                   "--generations", str(generations), *_variant_args(design)])
+        finally:
+            _EXEC_ENV = None
         # Move the model's output into the CANONICAL dir, mirroring what multi_gene_knockout already does.
         if model_dir != run_root and model_dir.exists():
             for child in list(model_dir.iterdir()):

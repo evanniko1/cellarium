@@ -17,6 +17,11 @@ from .model import Design
 VALIDATED_PERTURBATIONS = {
     "wildtype", "gene_knockout", "multi_gene_knockout", "condition", "tf_activity",
     "ppgpp_conc", "timeline", "amino_acid_shift", "rrna_operon_knockout", "new_gene",
+    # Cellarium's own variant (model_patches/variants/, installed by scripts/apply_model_variants.py). It
+    # suppresses a gene across ALL of its transcription units and at a chosen strength, which `gene_knockout`
+    # cannot do: that variant zeroes ONE unit, so a multi-TU gene keeps being expressed from the others
+    # (murA 1789 copies -> 0 once both of its units are suppressed).
+    "graded_gene_knockout",
 }
 
 # Alternative carbon sources the model validates ONLY as static conditions.

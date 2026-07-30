@@ -66,6 +66,10 @@ def benchmark_available() -> bool:
 
 
 _FOOTPRINT_CACHE: dict | None = None
+_GENE_SCOPE_CACHE: dict | None = None
+
+# Variants that zero EVERY transcription unit carrying the target cistron, so n_tu > 1 is not a barrier.
+_ALL_TU_VARIANTS = frozenset({"graded_gene_knockout"})
 
 
 def ko_footprint(symbol: str) -> dict | None:
@@ -106,6 +110,93 @@ def ko_footprint(symbol: str) -> dict | None:
             _FOOTPRINT_CACHE = {}
         _check_kb_staleness(_FOOTPRINT_CACHE)
     return None if symbol == "__kb__" else _FOOTPRINT_CACHE.get(symbol)
+
+
+def _gene_scope() -> dict:
+    """`data/cache/gene_scope.json` — the COMPLETE gene registry (4724 entries), with each gene's `n_tu`."""
+    global _GENE_SCOPE_CACHE
+    if _GENE_SCOPE_CACHE is None:
+        try:
+            import json
+            from pathlib import Path
+            p = Path("data/cache/gene_scope.json")
+            _GENE_SCOPE_CACHE = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+        except Exception:
+            _GENE_SCOPE_CACHE = {}
+    return _GENE_SCOPE_CACHE
+
+
+def footprint_known(symbol: str) -> bool:
+    """Can we say anything about this gene's knockout footprint? Checked against `gene_scope.json`, NOT
+    `ko_footprint.json`.
+
+    This is the correction to a wrong diagnosis of mine. I read `ko_footprint(g) is None` as an ambiguous
+    cache-miss and built a refusal around it. It is not ambiguous: `build_ko_footprint.py` ends its loop with
+
+        if target_silenced and not collateral and not partial:
+            continue        # a clean single-gene KO: nothing to warn
+
+    so `ko_footprint.json` is a WARNING LIST (2608 entries) and a clean knockout is absent BY DESIGN. The six
+    genes I flagged as unverifiable — argG, fabI, gltA, lpxC, pgi, rpmE — are absent precisely because all six
+    are clean, `n_tu == 1`. My refusal would have blocked exactly the knockouts that work.
+
+    The completeness question is real but belongs to the other file: `gene_scope.json` has all 4724 genes. A
+    gene missing from THAT is genuinely unknown."""
+    return symbol in _gene_scope()
+
+
+def ko_will_silence(symbol: str, variant: str = "gene_knockout") -> dict:
+    """Will a knockout of `symbol` ACTUALLY silence it, UNDER THE GIVEN VARIANT? The gate before any KO claim.
+
+    `variant` matters, and omitting it produced a wrong refusal. The `n_tu > 1 -> not silenced` rule is a
+    property of `gene_knockout`, which zeroes ONE transcription unit. `graded_gene_knockout` resolves the gene's
+    own cistron and suppresses EVERY transcription unit carrying it, so a multi-TU gene IS silenced there —
+    measured: murA 1403 copies under `gene_knockout` -> 0 under the graded variant at factor 0.0. Answering for
+    the wrong variant made `verify_ko_applied` refuse a run that had in fact worked.
+
+    This is the finding that explains every no-op found so far, and it is a MODEL SCOPE limit rather than a
+    pipeline defect. `gene_knockout` zeroes ONE transcription unit (`adjust_final_expression([i], [0])`). A gene
+    transcribed from SEVERAL TUs keeps being made from the others, so the knockout cannot silence it:
+
+        murA n_tu=2 -> ko_mean 1.6 vs wt 1.5 (unchanged)   rpoB n_tu=3 -> 10.4 vs 8.4
+        rpmJ n_tu=2 -> 50.1 vs 69.5 (72% of WT)            valS n_tu=2 -> 0.7 vs 1.9 (37%)
+        thrC n_tu=1 -> silenced    leuB n_tu=1 -> silenced    dapA n_tu=1 -> silenced
+
+    Every defective knockout had n_tu > 1; every clean one had n_tu == 1. The cache ALREADY carried
+    `target_silenced: False` with `evidence: measured` for all four — the information was complete and sitting
+    in the repo, and nothing consumed it to gate reportability. That is the actual failure: not a wrong
+    measurement, an unread one."""
+    if not footprint_known(symbol):
+        return {"symbol": symbol, "known": False, "will_silence": None,
+                "why": f"{symbol!r} is not in gene_scope.json (4724 genes) — genuinely unknown, so no claim "
+                       f"either way. Rebuild the caches with scripts/build_ko_footprint.py."}
+    # A variant that suppresses EVERY transcription unit of the gene is not subject to the multi-TU limit.
+    if variant in _ALL_TU_VARIANTS:
+        n_all = (_gene_scope().get(symbol) or {}).get("n_tu")
+        return {"symbol": symbol, "known": True, "will_silence": True, "variant": variant,
+                "n_transcription_units": n_all, "evidence": "variant_suppresses_all_tus", "why": None,
+                "note": f"{variant} resolves the gene's own cistron and suppresses all {n_all} transcription "
+                        f"unit(s) carrying it, so `gene_knockout`'s multi-TU limit does not apply. Measured: "
+                        f"murA 1403 copies -> 0."}
+    fp = ko_footprint(symbol)          # loads the cache; None == clean single-gene, by the builder's skip rule
+    if fp is None:
+        # Absent from the WARNING list = a clean single-gene knockout, by the builder's own skip rule.
+        n_tu = (_gene_scope().get(symbol) or {}).get("n_tu")
+        return {"symbol": symbol, "known": True, "will_silence": (n_tu == 1),
+                "n_transcription_units": n_tu, "n_genes_on_tu": 1, "evidence": "clean_single_gene_no_warning",
+                "why": (None if n_tu == 1 else
+                        f"{symbol} has n_tu={n_tu} but no footprint warning — inconsistent caches, rebuild.")}
+    n_tu = fp.get("target_n_tu")
+    silenced = fp.get("target_silenced")
+    return {"symbol": symbol, "known": True, "will_silence": silenced,
+            "n_transcription_units": n_tu, "n_genes_on_tu": fp.get("n_genes_on_tu"),
+            "evidence": fp.get("target_evidence"), "tu_name": fp.get("tu_name"),
+            "measured": (fp.get("measured") or {}).get(symbol),
+            "why": (None if silenced else
+                    f"{symbol} is transcribed from {n_tu} transcription units; `gene_knockout` zeroes ONE, so "
+                    f"the gene keeps being expressed from the others. This is a MODEL SCOPE limit — the "
+                    f"variant cannot knock out a multi-TU gene — not a pipeline bug. Do not treat a run of "
+                    f"this design as a knockout.")}
 
 
 def _check_kb_staleness(cache: dict) -> None:
@@ -312,3 +403,51 @@ def model_validation_summary() -> dict:
             "reroutes. So a 'viable' KO verdict is UNRELIABLE for essential-gene candidates — defer to the "
             "benchmark. Recall = fraction of benchmark-essential genes the model calls lethal."),
     }
+
+_CISTRON_BY_SYMBOL: dict | None = None
+
+
+def cistron_for(symbol: str) -> str | None:
+    """The cistron id for a gene symbol, e.g. `murA -> EG11358_RNA`.
+
+    `data/cache/cistron_map.json` maps cistron -> symbol, so this INVERTS it. Needed because
+    `graded_gene_knockout` must be told which gene it is targeting: the variant index names a TRANSCRIPTION
+    UNIT, and a multi-gene operon has no single implied gene. `cistron_data['id']` in the model carries these
+    same `EG*_RNA` ids, so the join is direct.
+
+    This replaces reading the value from a GRADED_KO_CISTRON environment variable. An absent env var made the
+    variant fall back to single-row behaviour, so a run would have LOOKED like a graded knockout while being an
+    ordinary one — the plausible-wrong-output failure this project keeps paying for. Resolved from the design
+    instead, a missing symbol is an error rather than a silent downgrade."""
+    global _CISTRON_BY_SYMBOL
+    if _CISTRON_BY_SYMBOL is None:
+        try:
+            import json
+            from pathlib import Path
+            p = Path("data/cache/cistron_map.json")
+            raw_map = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+            _CISTRON_BY_SYMBOL = {v: k for k, v in raw_map.items()}
+        except Exception:
+            _CISTRON_BY_SYMBOL = {}
+    return _CISTRON_BY_SYMBOL.get(symbol)
+
+
+def graded_ko_target(symbol: str) -> dict:
+    """Everything `graded_gene_knockout` needs for one gene: its cistron and its transcription-unit count.
+
+    Returns `ok: False` with a reason rather than a partial answer — the variant refuses on a mismatch, and it
+    should be given a complete target or none."""
+    cistron = cistron_for(symbol)
+    scope_entry = _gene_scope().get(symbol) or {}
+    n_tu = scope_entry.get("n_tu")
+    ko_index = scope_entry.get("ko_index")
+    missing = [k for k, v in (("cistron", cistron), ("n_tu", n_tu), ("ko_index", ko_index)) if not v]
+    if missing:
+        return {"ok": False, "symbol": symbol, "missing": missing,
+                "why": f"cannot build a graded-KO target for {symbol!r}: missing {missing}. The variant would "
+                       f"fall back to suppressing ONE transcription unit, which for a multi-TU gene is not a "
+                       f"knockout — so this refuses instead."}
+    return {"ok": True, "symbol": symbol, "cistron": cistron, "n_tu": int(n_tu),
+            "ko_index": int(ko_index),
+            "env": {"GRADED_KO_CISTRON": cistron, "GRADED_KO_N_TU": str(int(n_tu))},
+            "variant_index_for_level": {lvl: int(ko_index) * 10 + lvl for lvl in range(1, 10)}}

@@ -226,6 +226,31 @@ def auxotroph_starvation_designs() -> list[Design]:
     return designs
 
 
+def graded_ko_designs(gene: str = "murA", levels: tuple[int, ...] = (1, 3, 5, 7)) -> list[Design]:
+    """GRADED-4 — a dose-response for one gene, using Cellarium's `graded_gene_knockout` variant.
+
+    Two things this does that `gene_knockout` cannot. It KNOCKS OUT a multi-transcription-unit gene at all
+    (murA has n_tu=2; the stock variant zeroes one unit and leaves 1789 copies, this reaches 0). And it
+    suppresses to an ARBITRARY level, which is the actual new science: single metabolic knockouts in this model
+    mostly reroute and show nothing — pfkA, tpiA, fabI, glmS and gltA are all viable at division rate 1.00 —
+    so "does it reroute" is far less informative than "up to what dose does it reroute".
+
+    Levels map to expression: 1 -> 0%, 3 -> 10%, 5 -> 50%, 7 -> 90%. Pre-registered readout, stated before the
+    run: murA copy number should scale monotonically with the factor, and the question is whether any phenotype
+    (growth, viability, flux rerouting) appears at INTERMEDIATE doses that is absent at both extremes. A
+    threshold would be a real finding; a smooth ramp with no phenotype would confirm the reroute story
+    quantitatively rather than anecdotally.
+    """
+    from . import scope
+    t = scope.graded_ko_target(gene)
+    if not t.get("ok"):
+        raise ValueError(t["why"])
+    idx = t["variant_index_for_level"]
+    return [Design(perturbation="wildtype", condition="basal")] + [
+        Design(perturbation="graded_gene_knockout", condition=f"KO:{gene}",
+               params={"variant_index": idx[lvl], "level": lvl}) for lvl in levels]
+
+
 def multi_gene_ko_designs(gene_sets: list[list[str]]) -> list[Design]:
     """Multi-gene KO designs (the `multi_gene_knockout` variant) — knock out a SET of genes at once. Motivation
     (not the ML surrogate): metabolism REROUTES around single KOs because it has alternative flux paths, so a

@@ -83,8 +83,14 @@ CAPABILITIES: tuple[Capability, ...] = (
         key="codon_level_elongation",
         question="Which CODON is a ribosome waiting on, and does codon identity change elongation rate?",
         present=False,
-        markers=("trnas_to_codons", "codons_to_trnas"),
-        instead="elongation draws from per-amino-acid pools; there is no codon x anticodon reading matrix",
+        # The marker must be the CONSUMER, not the data.  /  are now present
+        # because the EXT-PORT relation.py work added them — and the audit caught this declaration going stale,
+        # which is what it is for. But the reading matrix existing is necessary and NOT sufficient: nothing
+        # elongates by codon until  is ported into polypeptide_elongation.py. Marking
+        # this present on the strength of the data alone would have claimed a capability with no consumer.
+        markers=("KineticTrnaChargingModel",),
+        instead="the codon x anticodon reading matrix now EXISTS (relation.py port) but nothing consumes it: "
+                "elongation still draws from per-amino-acid pools",
         consequence="any codon-usage or codon-bias claim would be inferred from sequence, not simulated",
         available_in="CovertLab/WholeCellEcoliRelease v3.0.1",
         flag="--kinetic-trna-charging",
@@ -114,6 +120,23 @@ CAPABILITIES: tuple[Capability, ...] = (
         detail="tRNA abundance resolved to the individual gene",
     ),
     # Present capabilities are declared too, so the registry is a complete picture rather than a defect list.
+    Capability(
+        key="knockout_of_a_multi_transcription_unit_gene",
+        question="Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? "
+                 "(murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)",
+        present=True,
+        markers=("graded_gene_knockout",),
+        instead="`gene_knockout` zeroes ONE transcription unit, so the gene keeps being expressed from the "
+                "others — measured murA ko_mean 1.6 vs wt 1.5, i.e. unchanged",
+        consequence="a run of such a design under `gene_knockout` is a WILD TYPE wearing a knockout's label, "
+                    "and its null result says nothing about the gene (WELL-NOOP-1). Five of seventeen audited "
+                    "knockouts were defective this way, and one was propping up a live acceptance gate",
+        available_in="Cellarium's own `graded_gene_knockout` variant — resolves the gene's own cistron and "
+                     "suppresses every transcription unit carrying it. Verified: murA 1789 copies -> 0 across "
+                     "2 generations",
+        flag="--variant graded_gene_knockout <ko_index*10 + level>",
+        detail="knocking out a gene with n_tu > 1, and graded suppression at 5-99% expression",
+    ),
     Capability(
         key="per_amino_acid_trna_charging",
         question="What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?",
