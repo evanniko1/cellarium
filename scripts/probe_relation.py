@@ -1,0 +1,92 @@
+"""Fast harness for the EXT-PORT relation methods — seconds-to-minutes, not a 15-minute ParCa.
+
+Runs INSIDE the model image. It reuses the `rawData.cPickle` a ParCa run already produced and builds
+`SimulationDataEcoli` only as far as `Relation`, which is where every port failure so far has surfaced. The
+full ParCa spends most of its time in `fitSimData_1`'s optimisation, long AFTER the point we care about, so
+iterating on the port through full ParCa runs costs ~15 minutes per attempt to learn something that is decided
+in the first two.
+
+More importantly it answers the question a green ParCa does NOT answer. `_build_codon_sequences` translates
+each monomer's mRNA and compares it to that monomer's protein sequence, but a mismatch only calls
+`warnings.warn` — the run continues and stores the value anyway. So "ParCa went green" is compatible with
+every protein having received the wrong mRNA. This harness COUNTS the mismatches and fails on them.
+
+    docker run --rm -v C:/dev/wcEcoli/out:/wcEcoli/out -v <this file>:/tmp/probe.py \
+        -e PYTHONPATH=/wcEcoli -w /wcEcoli wcecoli-sim:kinetic python /tmp/probe.py
+
+Exit code is 0 only when Relation builds AND no monomer's mRNA disagrees with its protein.
+"""
+
+from __future__ import annotations
+
+import pickle
+import sys
+import warnings
+
+RAW = "/wcEcoli/out/kinetic_parca/kb/rawData.cPickle"
+
+# The three monomers whose mRNA provably cannot translate to their curated protein. Verified against
+# WholeCellEcoliRelease v3.0.1: identical protein sequences, identical gene coordinates, identically EMPTY
+# coding_segments — so this is a knowledge-base limitation both trees share, not a port defect. Allowlisted so
+# that a FOURTH mismatch, which would be a port defect, still fails this harness.
+KNOWN_MISMATCHES = frozenset({
+    "PHNE-MONOMER",      # phnE1: the MG1655 8-bp insertion. v3.0.1 avoids it by typing EG11283_RNA 'pseudo';
+                         # this tree types it 'mRNA' — the only rnas.tsv row whose type differs between them.
+    "EG11357-MONOMER",   # dinG: in-frame stop two residues early; no offset in the TU reproduces the 716-mer.
+    "MONOMER0-4391",     # ytiC: stop at the second codon.
+})
+
+
+def main() -> int:
+    with open(RAW, "rb") as f:
+        raw_data = pickle.load(f)
+
+    from reconstruction.ecoli.simulation_data import SimulationDataEcoli
+
+    sim_data = SimulationDataEcoli()
+
+    # Every warning raised while Relation builds is captured rather than printed, because the ONE that matters
+    # ('mRNA sequence does not match the protein') is emitted per-protein and would otherwise scroll past as
+    # noise. `simplefilter('always')` defeats the default once-per-location dedup — without it, 4000 wrong
+    # proteins report as one warning.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sim_data.initialize(raw_data=raw_data, basal_expression_condition="M9 Glucose minus AAs")
+
+    mismatch = [str(w.message) for w in caught if "does not match the protein" in str(w.message)]
+    other = [str(w.message) for w in caught if "does not match the protein" not in str(w.message)]
+
+    rel = sim_data.relation
+    n_monomers = len(sim_data.process.translation.monomer_data["id"])
+    print(f"Relation built. monomers={n_monomers}")
+    for attr in ("codons", "trnas_to_codons", "codons_to_trnas", "codons_to_amino_acids",
+                 "residue_weights_by_codon", "amino_acid_to_synthetase", "synthetase_to_k_cat",
+                 "trna_codon_pairs"):
+        v = getattr(rel, attr, None)
+        shape = getattr(v, "shape", None)
+        print(f"  {attr}: {'ABSENT' if v is None else (shape if shape is not None else f'len={len(v)}')}")
+
+    seqs = getattr(rel, "_codon_sequences", None)
+    print(f"  _codon_sequences: {'ABSENT' if seqs is None else f'len={len(seqs)}'}")
+
+    print(f"\nmRNA/protein mismatches: {len(mismatch)} of {n_monomers}")
+    for m in mismatch[:5]:
+        print(f"  {m}")
+    if len(mismatch) > 5:
+        print(f"  ... and {len(mismatch) - 5} more")
+    if other:
+        print(f"\nother warnings: {len(other)}")
+        for m in other[:5]:
+            print(f"  {m}")
+
+    # A mismatch count of zero is the real acceptance criterion. ParCa exiting 0 is not: the warning does not
+    # abort, so a fully wrong sequence assignment produces a green run.
+    if mismatch:
+        print("\nFAIL: at least one monomer's mRNA does not translate to its protein.")
+        return 1
+    print("\nOK: every monomer's mRNA translates to its protein.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

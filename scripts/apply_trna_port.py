@@ -75,28 +75,38 @@ REL_IMPORTS = (
 #
 # I first reported this as requiring a native image rebuild "a different order of work". That was wrong, and it
 # came from checking the IMPORT FAILURE instead of checking whether the image could BUILD it.
-# The one place the two trees genuinely disagree on SEMANTICS rather than on presence.
-# `_build_codon_sequences` looks up each monomer's mRNA with `rna_sequences[cistron_to_monomer_mapping[i]]`.
-# That index is in CISTRON space — the method's own docstring says it maps "a property for RNA cistrons into
-# ... the corresponding monomers". In our tree `transcription.rna_data` is TRANSCRIPTION UNITS and cistrons
-# live in `transcription.cistron_data`, so indexing rna_data with a cistron index runs off the end:
-#   IndexError: list index out of range   (relation.py _build_codon_sequences)
-# after ParCa had already run for minutes. Note this is an INDEX error only because the arrays happen to be
-# different lengths — had n_TU exceeded n_cistrons it would have silently returned the WRONG mRNA for every
-# protein and the port would have "worked".
+# The one place the two trees genuinely disagree on SEMANTICS rather than on presence. v3.0.1 looked each
+# monomer's mRNA up in `rna_data`; here that array is transcription units, the index is in cistron space,
+# and the getter has no key for a polycistronic gene's own RNA id. Three ParCa runs walked this down
+# (IndexError -> KeyError 'EG10001_' -> KeyError 'EG10001_RNA'), and the first of those raised only
+# because n_cistrons happens to exceed n_TU — had it been the other way round, every protein would have
+# received the WRONG mRNA and the port would have looked finished.
 #
-# The two later uses of rna_data (free_trnas / anticodons) are deliberately NOT rewritten: tRNAs are addressed
-# TU-side everywhere else in our tree, including in SteadyStateElongationModel and the TrnaCharging listener.
+# The replacement slices each cistron out of a transcription unit. See the inserted comment for why a
+# disagreement between a cistron's TUs is resolved by translation rather than by picking the first.
 REL_CISTRON_OLD = ("\t\trna_sequences = sim_data.getter.get_sequences(\n"
                    "\t\t\t[rna_id[:-3] for rna_id\n"
                    "\t\t\tin sim_data.process.transcription.rna_data['id']])\n")
-REL_CISTRON_NEW = ("\t\t# EXT-PORT-1 adaptation: cistron_to_monomer_mapping indexes CISTRONS, and in this tree\n"
-                   "\t\t# rna_data is transcription units. v3.0.1 read rna_data here; we must read cistron_data\n"
-                   "\t\t# or every monomer gets the wrong mRNA (or an IndexError, which is the lucky case).\n"
-                   "\t\t# ...and cistron ids carry NO [c] compartment suffix, so the [:-3] strip that is right\n"
-                   "\t\t# for rna_data ids eats real characters: 'EG10001_RNA' -> 'EG10001_' -> KeyError.\n"
-                   "\t\trna_sequences = sim_data.getter.get_sequences(\n"
-                   "\t\t\tlist(sim_data.process.transcription.cistron_data['id']))\n")
+REL_CISTRON_NEW = '\t\t# EXT-PORT-1C adaptation. v3.0.1 read each monomer\'s mRNA straight out of `rna_data`, whose rows\n\t\t# were one-per-gene in that tree. Here `rna_data` is TRANSCRIPTION UNITS (3276 rows) while\n\t\t# `cistron_to_monomer_mapping` indexes CISTRONS (4539), and `getter._sequences` is keyed by TU ids plus\n\t\t# only those gene RNA ids that belong to no TU — so a polycistronic gene\'s own id is not a key at all.\n\t\t# Each cistron\'s mRNA is therefore sliced out of a TU that carries it, via\n\t\t# transcription.cistron_start_end_pos_in_tu.\n\t\t#\n\t\t# 694 of 4539 cistrons sit in more than one TU. Measured over all 4310 monomers, 692 of them get an\n\t\t# identical subsequence from every TU — but two do not, and for those the choice is a CORRECTNESS\n\t\t# decision rather than a tie-break: the lowest TU index is right for EG11413_RNA and WRONG for\n\t\t# G7107_RNA. Picking "the first one" would have handed G7107-MONOMER[o] someone else\'s mRNA silently.\n\t\t# So a disagreement is resolved by translating and keeping the slice that reproduces the monomer\'s own\n\t\t# protein; only when nothing matches do we fall back to a deterministic pick, and then we say so.\n\t\tcistron_ids = sim_data.process.transcription.cistron_data[\'id\']\n\t\ttu_ids = sim_data.process.transcription.rna_data[\'id\']\n\t\tcistron_pos_in_tu = sim_data.process.transcription.cistron_start_end_pos_in_tu\n\n\t\ttus_of_cistron = {}\n\t\tfor (cistron_index, tu_index) in cistron_pos_in_tu:\n\t\t\ttus_of_cistron.setdefault(cistron_index, []).append(tu_index)\n\n\t\t# cistron_to_monomer_mapping is monomer-indexed and holds cistron indices; we need the inverse to know\n\t\t# which protein a disputed cistron should reproduce.\n\t\tmonomer_of_cistron = {}\n\t\tfor monomer_index, cistron_index in enumerate(self.cistron_to_monomer_mapping):\n\t\t\tmonomer_of_cistron.setdefault(int(cistron_index), monomer_index)\n\n\t\ttu_sequences = {}\n\t\trna_sequences = [None] * len(cistron_ids)\n\t\tfor cistron_index in range(len(cistron_ids)):\n\t\t\tcandidate_tus = sorted(tus_of_cistron.get(cistron_index, []))\n\t\t\tif not candidate_tus:\n\t\t\t\t# Left as None on purpose. If a monomer ever maps here the AttributeError on .translate() is\n\t\t\t\t# loud; a silent placeholder sequence would not be.\n\t\t\t\tcontinue\n\n\t\t\tslices = []\n\t\t\tfor tu_index in candidate_tus:\n\t\t\t\tif tu_index not in tu_sequences:\n\t\t\t\t\ttu_sequences[tu_index] = sim_data.getter.get_sequences(\n\t\t\t\t\t\t[tu_ids[tu_index][:-3]])[0]\n\t\t\t\tstart, end = cistron_pos_in_tu[(cistron_index, tu_index)]\n\t\t\t\tslices.append(tu_sequences[tu_index][start:end])\n\n\t\t\tchosen = slices[0]\n\t\t\tif len(set(str(candidate) for candidate in slices)) > 1:\n\t\t\t\tmonomer_index = monomer_of_cistron.get(cistron_index)\n\t\t\t\tmatched = False\n\t\t\t\tif monomer_index is not None:\n\t\t\t\t\tprotein = str(protein_sequences[monomer_index])\n\t\t\t\t\tfor candidate in slices:\n\t\t\t\t\t\ttranslated = str(candidate.translate()).split(\'*\')[0]\n\t\t\t\t\t\t# Residue 0 is allowed to differ. 421 of 4310 E. coli genes start on GUG/UUG/AUU/CUG,\n\t\t\t\t\t\t# which Bio.Seq translates as V/L/I/L while the protein records the formyl-Met; the\n\t\t\t\t\t\t# port\'s own start_codon handling covers that a few lines below.\n\t\t\t\t\t\tif (len(translated) == len(protein)\n\t\t\t\t\t\t\t\tand translated[1:] == protein[1:]):\n\t\t\t\t\t\t\tchosen = candidate\n\t\t\t\t\t\t\tmatched = True\n\t\t\t\t\t\t\tbreak\n\t\t\t\tif not matched:\n\t\t\t\t\twarnings.warn(\n\t\t\t\t\t\t\'EXT-PORT: transcription units disagree on the sequence of cistron \'\n\t\t\t\t\t\t+ str(cistron_ids[cistron_index])\n\t\t\t\t\t\t+ \' and none of them translates to its protein; falling back to TU \'\n\t\t\t\t\t\t+ str(tu_ids[candidate_tus[0]]) + \'.\')\n\t\t\trna_sequences[cistron_index] = chosen\n'
+
+# v3.0.1 predates the removal of `np.bool` (deprecated in NumPy 1.20, REMOVED in 1.24; the image runs
+# 1.26.3). Two uses come in with the port. The one in relation.py surfaces during ParCa; the one in
+# KineticTrnaChargingModel.__init__ does NOT - ParCa never executes it and neither does a default
+# simulation, so it would have fired only at the start of the first --kinetic-trna-charging campaign.
+# `np.bool_` is valid both before and after the break.
+NP_ALIAS_OLD = "np.bool)"
+NP_ALIAS_NEW = "np.bool_)"
+
+REL_SKIP_OLD = "\t\t\tif rna_sequence_translated != protein_sequence:\n\t\t\t\twarnings.warn('mRNA sequence does not match the protein '\n\t\t\t\t\t'sequence for {}'.format(protein_id))\n\t\t\t\tcontinue\n"
+REL_SKIP_NEW = "\t\t\tif rna_sequence_translated != protein_sequence:\n\t\t\t\t# EXT-PORT-1C adaptation: RECORD instead of `continue`.\n\t\t\t\t#\n\t\t\t\t# Upstream drops the monomer here, which is not survivable: the very next method,\n\t\t\t\t# _build_codon_based_translation, subscripts _codon_sequences for EVERY monomer, so one warning\n\t\t\t\t# becomes a KeyError seconds later and ParCa cannot finish at all.\n\t\t\t\t#\n\t\t\t\t# Three of 4310 monomers land here, and the data is IDENTICAL in v3.0.1 — same protein\n\t\t\t\t# sequences, same gene coordinates, same empty coding_segments (checked against\n\t\t\t\t# WholeCellEcoliRelease v3.0.1 rnas.tsv / genes.tsv / proteins.tsv). So this is a pre-existing\n\t\t\t\t# annotation limitation, not something the port introduced:\n\t\t\t\t#   PHNE-MONOMER     phnE1, the MG1655 8-bp insertion. v3.0.1 sidesteps it by typing\n\t\t\t\t#                    EG11283_RNA as 'pseudo', which EXCLUDED_RNA_TYPES then drops; this tree\n\t\t\t\t#                    types it 'mRNA', so it stays in scope. The only row whose type differs.\n\t\t\t\t#   EG11357-MONOMER  dinG. In-frame stop 2 residues early; no offset in the TU reproduces the\n\t\t\t\t#                    curated 716-mer (searched +/-300 nt).\n\t\t\t\t#   MONOMER0-4391    ytiC. Stop at the second codon.\n\t\t\t\t#\n\t\t\t\t# Keeping the mRNA-derived sequence makes those three differ from their curated protein by a\n\t\t\t\t# few residues. Dropping them instead would leave them with NO codon sequence, i.e. a protein\n\t\t\t\t# the kinetic model can never elongate. Wrong by two residues beats never synthesised, and\n\t\t\t\t# neither is silent: the warning fires and the list is on sim_data.relation.\n\t\t\t\twarnings.warn('mRNA sequence does not match the protein '\n\t\t\t\t\t'sequence for {}'.format(protein_id))\n\t\t\t\tself.codon_sequence_mismatches.append(protein_id)\n"
+REL_INIT_OLD = '\t\tself._codon_sequences = {}\n'
+REL_INIT_NEW = '\t\tself._codon_sequences = {}\n\t\t# EXT-PORT-1C: monomers whose mRNA does not translate to their curated protein. Empty is the\n\t\t# expected state; anything in here is a knowledge-base limitation worth naming, not hiding.\n\t\tself.codon_sequence_mismatches = []\n'
+
+REL_ACC_OLD = '\t\t\t# Record codon to amino acid interactions\n\t\t\tfor codon, amino_acid in zip(codon_sequence, protein_sequence):\n'
+REL_ACC_NEW = '\t\t\t# Record codon to amino acid interactions\n\t\t\t# EXT-PORT-1C: the recorded mismatches are excluded from THIS accumulation, though their codon\n\t\t\t# sequence is kept above. Their mRNA and protein disagree by construction, so their\n\t\t\t# codon->amino-acid pairs are not evidence of anything — and feeding them in trips the\n\t\t\t# overloaded-codon assert below with a mapping that is genuinely inconsistent.\n\t\t\tif protein_id in self.codon_sequence_mismatches:\n\t\t\t\tcontinue\n\t\t\tfor codon, amino_acid in zip(codon_sequence, protein_sequence):\n'
+
+REL_TRNA_OLD = "\t\t# Map tRNAs to their anticodons\n\t\trna_data = sim_data.process.transcription.rna_data\n\t\tfree_trnas = rna_data['id'][rna_data['is_tRNA']]\n\t\tanticodons = rna_data['anticodon'][rna_data['is_tRNA']]\n\t\ttrna_to_anticodon = dict(zip(free_trnas, anticodons))\n"
+REL_TRNA_NEW = "\t\t# Map tRNAs to their anticodons\n\t\t# EXT-PORT-1C adaptation, and the one that unblocks the whole tRNA half of the port at once.\n\t\t# v3.0.1 took the tRNA list from `rna_data`, which is correct only when operons are OFF and\n\t\t# rna_data degenerates to one row per cistron. Here rna_data is TRANSCRIPTION UNITS, so that\n\t\t# list comes out ~42 long instead of 86 — and `dict(zip(free_trnas, charged_trnas))` would have\n\t\t# TRUNCATED to the shorter of the two without raising, quietly pairing the wrong tRNAs.\n\t\t#\n\t\t# `transcription.uncharged_trna_names` is the canonical list: cistron ids with a '[c]' tag\n\t\t# (transcription.py:1265). Everything the ported code needs is already aligned to it —\n\t\t# `charged_trna_names` one-for-one (asserted at transcription.py:1285), the 86 columns of\n\t\t# `aa_from_trna`, `molecule_groups.initiator_trnas`, the six hard-coded wobble tRNAs below, and\n\t\t# the K_M keys in flat/optimization/trna_charging_kinetics_solutions.tsv.\n\t\t#\n\t\t# The anticodon has to come from raw_data: it is a column of rnas.tsv but is propagated into\n\t\t# neither cistron_data nor rna_data, which is why `rna_data['anticodon']` raised KeyError.\n\t\tfree_trnas = np.array(sim_data.process.transcription.uncharged_trna_names)\n\t\tanticodon_by_rna_id = {rna['id']: rna['anticodon'] for rna in raw_data.rnas}\n\t\tanticodons = [anticodon_by_rna_id[trna[:-3]] for trna in free_trnas]\n\t\ttrna_to_anticodon = dict(zip(free_trnas, anticodons))\n\t\tassert len(trna_to_anticodon) == len(free_trnas)\n"
 
 PYX_SOURCE = os.path.join("wholecell", "utils", "_trna_charging.pyx")
 
@@ -130,6 +140,7 @@ MSIM = os.path.join("models", "ecoli", "sim", "simulation.py")
 WSIM = os.path.join("wholecell", "sim", "simulation.py")
 SB = os.path.join("wholecell", "utils", "scriptBase.py")
 SETUP = "setup.py"
+NP_ALIAS_FILES = (REL, PE)   # defined here because PE is not bound until this block
 
 # `setup.py` names every .pyx EXPLICITLY — it does not glob `wholecell/utils/*.pyx`. So `make compile`, which
 # is what the Dockerfile runs, would not build `_trna_charging` no matter that the source is present. This is
@@ -320,7 +331,9 @@ def status(wcecoli: str) -> dict:
     return {
         "relation_methods": _has(wcecoli, REL, "_build_codon_dependent_trna_charging"),
         "relation_imports": _has(wcecoli, REL, "import warnings"),
-        "relation_cistron_fix": _has(wcecoli, REL, "EXT-PORT-1 adaptation: cistron_to_monomer_mapping"),
+        "relation_cistron_fix": _has(wcecoli, REL, "EXT-PORT-1C adaptation"),
+        "relation_keeps_mismatches": _has(wcecoli, REL, "codon_sequence_mismatches"),
+        "relation_trna_space": _has(wcecoli, REL, "uncharged_trna_names)"),
         "relation_init": _has(wcecoli, REL, "self._build_trna_charging_kinetics(raw_data, sim_data)"),
         "groups_codons": _has(wcecoli, MG, "'codons': codon_ids"),
         "groups_initiators": _has(wcecoli, MG, "'initiator_trnas'"),
@@ -340,6 +353,9 @@ def status(wcecoli: str) -> dict:
         "sim_flags": _has(wcecoli, WSIM, "kinetic_trna_charging = False"),
         "cli_flags": _has(wcecoli, SB, "'kinetic_trna_charging'"),
         "setup_registered": _has(wcecoli, SETUP, "_trna_charging.pyx"),
+        # True only when NEITHER ported file still carries the removed alias.
+        "numpy_aliases_modernised": (_has(wcecoli, REL, "class Relation") is not None and not any(
+            _has(wcecoli, f, NP_ALIAS_OLD) for f in NP_ALIAS_FILES)),
         "flat_files": {f: os.path.isfile(os.path.join(flat, f)) for f in FLAT_FILES},
     }
 
@@ -386,6 +402,20 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
                                         f"the ported methods' imports on"}
         txt = txt.replace(REL_IMPORT_ANCHOR, REL_IMPORT_ANCHOR + REL_IMPORTS, 1)
         wrote.append("relation.py: 7 imports the ported methods need")
+    if not st["relation_keeps_mismatches"]:
+        for old, new in ((REL_INIT_OLD, REL_INIT_NEW), (REL_SKIP_OLD, REL_SKIP_NEW),
+                         (REL_ACC_OLD, REL_ACC_NEW)):
+            if txt.count(old) != 1:
+                return {"ok": False, "why": f"{REL}: expected exactly one {old.strip()[:40]!r}, "
+                                            f"found {txt.count(old)}"}
+            txt = txt.replace(old, new, 1)
+        wrote.append("relation.py: record mRNA/protein mismatches instead of dropping the monomer")
+    if not st["relation_trna_space"]:
+        if txt.count(REL_TRNA_OLD) != 1:
+            return {"ok": False, "why": f"{REL}: expected exactly one TU-space tRNA block to redirect at "
+                                        f"uncharged_trna_names, found {txt.count(REL_TRNA_OLD)}"}
+        txt = txt.replace(REL_TRNA_OLD, REL_TRNA_NEW, 1)
+        wrote.append("relation.py: tRNAs addressed in cistron space (uncharged_trna_names)")
     if not st["relation_cistron_fix"]:
         if txt.count(REL_CISTRON_OLD) != 1:
             return {"ok": False, "why": f"{REL}: expected exactly one TU-indexed rna_sequences lookup to "
@@ -539,6 +569,16 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
             return {"ok": False, "why": f"{SETUP}: expected exactly one {SETUP_ANCHOR!r} anchor"}
         _write(os.path.join(wcecoli, SETUP), t.replace(SETUP_ANCHOR, SETUP_ADD + SETUP_ANCHOR, 1), n2)
         wrote.append("setup.py: registered _trna_charging.pyx with cythonize")
+
+    # 13) removed NumPy aliases in the ported code
+    if not st["numpy_aliases_modernised"]:
+        for f in NP_ALIAS_FILES:
+            t, n2 = _read(os.path.join(wcecoli, f))
+            if NP_ALIAS_OLD not in t:
+                continue
+            n_hits = t.count(NP_ALIAS_OLD)
+            _write(os.path.join(wcecoli, f), t.replace(NP_ALIAS_OLD, NP_ALIAS_NEW), n2)
+            wrote.append(f"{f}: np.bool -> np.bool_ ({n_hits})")
 
     st2 = status(wcecoli)
     return {"ok": _complete(st2), "status": st2, "wrote": wrote,
