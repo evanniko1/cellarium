@@ -157,13 +157,142 @@ def test_every_declared_mode_is_a_real_mode():
         assert not unknown, f"{c.key} declares undeclared elongation model(s) {unknown}"
 
 
-def test_a_partial_holds_in_promises_that_the_redirect_has_words():
-    """A capability real in SOME modes will be refused in the others, and that refusal quotes `instead` and
-    `consequence`. Declaring a partial `holds_in` without them queues up a bare 'no'."""
+def test_every_mode_that_refuses_has_words_for_that_mode():
+    """A capability refused in a mode must have prose ABOUT THAT MODE — checked once per refusing mode.
+
+    This replaces an assertion that `c.instead` was merely non-empty. That test could not survive the prose
+    becoming mode-keyed: a non-empty TABLE is evidence of nothing, since the sentence it holds may be keyed to
+    a mode the capability is never refused in, and the assertion would have passed on exactly the payload it
+    exists to forbid. The demand is therefore made against the RESOLVED text, per mode — strictly stronger, and
+    it now covers the `holds_in=()` entries the old form skipped.
+
+    The ported-but-off case (c) is exempt for the reason the tool-surface test already gives: that model DOES
+    represent the mechanism, so demanding a substitute would force an invented one. What case (c) must render
+    is pinned by test_the_ported_but_off_refusal_describes_the_corpus_not_the_mode_asked_about."""
     for c in capability.CAPABILITIES:
-        if c.holds_in and set(c.holds_in) != set(capability.ELONGATION_MODES):
-            assert c.instead, f"{c.key} holds in {c.holds_in} but says nothing about what happens elsewhere"
-            assert c.consequence, f"{c.key} holds in {c.holds_in} but never says how the output misleads"
+        for mode in capability.ELONGATION_MODES:
+            if capability.answerable_in(c, mode) or (c.holds_in and mode in c.holds_in):
+                continue
+            assert c.instead_in(mode), f"{c.key} is refused under {mode} with nothing to say it does instead"
+            assert c.consequence_in(mode), f"{c.key} is refused under {mode} but never says how it misleads"
+
+
+@pytest.mark.parametrize("mode", capability.ELONGATION_MODES)
+def test_a_refusal_never_renders_another_modes_prose(mode):
+    """THE regression. `instead`/`consequence` were single strings written when there was one elongation model,
+    so a refusal rendered in one mode quoted a sentence about a different one: asked about per-isoacceptor
+    charging under coarse_kinetic it described the steady-state 20-state ODE broadcast, and asked about
+    per-amino-acid charging under kinetic it described the coarse model's np.zeros(86) as what the STEADY-STATE
+    corpus does. Fluent text about the wrong model is worse than a bare refusal — it reads as informed, and an
+    agent repeats it.
+
+    Two halves, and both are needed. No sentence keyed to a mode other than the refusal's subject may appear in
+    the rendered string; AND the subject's own sentences must appear when they exist, so this cannot be
+    satisfied by a 'fix' that renders no prose at all."""
+    for c in capability.CAPABILITIES:
+        if capability.answerable_in(c, mode):
+            continue
+        r = c.refusal(mode)
+        subject = c.prose_subject(mode)
+        for name in ("instead", "consequence"):
+            table = getattr(c, name)
+            for key, text in table.items():
+                claims = (key,) if isinstance(key, str) else tuple(key)
+                if subject in claims:
+                    continue
+                assert text not in r, (
+                    f"{c.key}.{name} keyed to {claims} was rendered in a {mode} refusal, whose subject is "
+                    f"{subject} — this is prose about a model the run did not use")
+        for resolved in (c.instead_in(mode), c.consequence_in(mode)):
+            if resolved:
+                assert resolved in r, f"{c.key}: the {subject} prose resolved but never reached the refusal"
+
+
+def test_the_ported_but_off_refusal_describes_the_corpus_not_the_mode_asked_about():
+    """The subtlest of the three, and the one place where quoting the asked-for mode would be wrong.
+
+    Case (c)'s sentence is "what THOSE RUNS do instead", and "those runs" is the corpus — every row of which is
+    steady_state. Quoting the mode in the question would describe a model that has never produced a row, inside
+    a refusal whose entire content is that no such row exists."""
+    c = capability.get("per_isoacceptor_trna_charging")
+    assert c.prose_subject("kinetic") == capability.DEFAULT_MODE
+    r = c.refusal("kinetic")
+    assert "no run in the corpus" in r.lower()
+    assert "aa_from_trna" in r, \
+        "the corpus is steady_state, so 'what those runs do instead' must be ITS broadcast"
+    assert "zero_charged_holder" not in r and "coarse" not in r, \
+        "and never the coarse model, which produced no corpus row either"
+
+    # The case where the honest answer is SILENCE. per_amino_acid_trna_charging holds in steady_state, so the
+    # corpus does nothing "instead" of it; the only mode that lacks it is coarse_kinetic, and that sentence
+    # must not be dragged into a kinetic refusal about steady-state rows. It used to be, verbatim.
+    p = capability.get("per_amino_acid_trna_charging")
+    rk = p.refusal("kinetic")
+    assert p.instead_in("kinetic") == "" and p.consequence_in("kinetic") == ""
+    assert "np.zeros(86)" not in rk and "does not solve charging" not in rk
+    assert capability.check("per_amino_acid_trna_charging", mode="kinetic")["can_answer"] is False, \
+        "silence about the substitute must not soften the refusal itself"
+    assert p.instead_in("coarse_kinetic"), "the coarse sentence is still there — it is simply keyed to coarse"
+
+
+def test_the_multi_tu_knockout_caveat_is_not_tied_to_the_elongation_model():
+    """This entry's prose is about the VARIANT axis — `gene_knockout` vs `graded_gene_knockout` — which is
+    orthogonal to elongation. Keyed to one mode it would imply the caveat arrives with that mode; keyed to all
+    of them it says the caveat is invariant, which it is. So: identical in every mode, naming no elongation
+    model, and still reaching the refusal, since 'what those corpus runs do instead' is a real answer."""
+    c = capability.get("knockout_of_a_multi_transcription_unit_gene")
+    rendered = {m: (c.instead_in(m), c.consequence_in(m)) for m in capability.ELONGATION_MODES}
+    assert len(set(rendered.values())) == 1, f"the variant caveat differs by elongation model: {rendered}"
+    instead, consequence = rendered[capability.DEFAULT_MODE]
+    assert instead and consequence, "keying it to every mode must not mean losing it"
+    for m in capability.ELONGATION_MODES:
+        assert m not in instead and m not in consequence, \
+            f"the variant caveat names elongation model {m!r}, implying the two axes are related"
+    assert "graded_gene_knockout" in c.available_in and "variant" in c.flag, \
+        "the route out is a VARIANT, and it must be stated as one"
+    assert instead in c.refusal("kinetic")
+
+
+def test_every_prose_key_is_a_real_mode():
+    """A typo'd key ('kinetc') makes that sentence unreachable in every mode and nothing raises — the refusal
+    just quietly degrades to a bare 'no'. That is the silent-absence shape this repo keeps re-encountering, so
+    it is audited rather than trusted, and a field reverted to a bare string fails here too."""
+    for c in capability.CAPABILITIES:
+        for name in ("instead", "consequence"):
+            table = getattr(c, name)
+            assert isinstance(table, dict), \
+                f"{c.key}.{name} must be mode-keyed — an unkeyed string is how the wrong model gets described"
+            for m in capability._prose_keys(table):
+                assert m in capability.ELONGATION_MODES, f"{c.key}.{name} claims undeclared mode {m!r}"
+    assert not capability.audit()["undeclared_prose_modes"], "and the audit must say so too, not just this test"
+
+
+def test_a_capability_declared_absent_claims_no_mode():
+    """`holds_in` DEFAULTS to every mode, so an entry written with `present=False` and no `holds_in` lands in
+    the ported-but-off branch and opens with 'The mechanism for X IS present in the model' — the registry
+    contradicting its own `present` flag, fluently, in the one sentence an agent will quote. Nothing in the
+    code prevents that; this does."""
+    for c in capability.CAPABILITIES:
+        if not c.present:
+            assert c.holds_in == (), f"{c.key} is declared absent but claims to hold in {c.holds_in}"
+
+
+@pytest.mark.parametrize("mode", capability.ELONGATION_MODES)
+def test_the_listing_and_the_refusal_quote_the_same_model(mode):
+    """`model_capabilities` is the SECOND renderer of this prose, and two renderers each holding their own copy
+    of the rule is how they drift — particularly over case (c), where the subject is the corpus and not the
+    mode asked about. Pin that the listing carries the RESOLVED sentence, string-identical to the one inside
+    the refusal it ships alongside, and never the raw table."""
+    out = tools.model_capabilities(mode=mode)
+    for entry in out["cannot_represent"]:
+        c = capability.get(entry["capability"])
+        assert isinstance(entry["instead"], str), f"{entry['capability']}: a prose TABLE leaked into the payload"
+        assert isinstance(entry["why_the_output_misleads"], str), entry["capability"]
+        assert entry["instead"] == c.instead_in(mode), entry["capability"]
+        assert entry["why_the_output_misleads"] == c.consequence_in(mode), entry["capability"]
+        if entry["instead"]:
+            assert entry["instead"] in entry["refusal"], \
+                f"{entry['capability']}: the listing and the refusal disagree about what the model does instead"
 
 
 def test_the_coarse_model_reports_zeros_and_the_registry_refuses_them():
@@ -214,9 +343,17 @@ def test_ppgpp_is_refused_under_both_kinetic_models():
     SteadyStateElongationModel, and every mention inside either kinetic class is a comment saying ppGpp is
     NOT computed on the codon-aware path. 'We knocked out the synthetase and ppGpp did not rise' is a
     publishable claim, and under either kinetic model it is guaranteed by construction."""
+    c = capability.get("ppgpp_stringent_response")
     for mode in ("kinetic", "coarse_kinetic"):
         res = capability.check("ppgpp_stringent_response", mode=mode)
         assert res["can_answer"] is False, mode
         assert "constant" in res["refusal"] or "frozen" in res["refusal"], mode
+        # The account rendered must be of the model the question was asked under. One tuple-keyed sentence
+        # covers both kinetic models because it was audited as true of both — that is a claim, not a shortcut.
+        assert c.instead_in(mode) == c.instead_in("kinetic"), mode
     assert capability.check("ppgpp_stringent_response")["can_answer"] is True, \
         "steady_state — the whole corpus — must keep answering it"
+    # And the mirror, which is what mode-keying buys: under steady_state ppGpp IS live, so 'nothing synthesises
+    # or degrades ppGpp' is simply false there and must be unreachable, not merely unused.
+    assert c.instead_in("steady_state") == "" and c.consequence_in("steady_state") == "", \
+        "the kinetic account of ppGpp must not be reachable from the mode where ppGpp is computed"

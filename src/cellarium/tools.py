@@ -143,15 +143,17 @@ def model_capabilities(capability: str | None = None, mode: str | None = None) -
     cannot express must produce a REFUSAL naming the gap, never a number.
 
     `elongation_model` is the FIRST key of the return, because today's picture is only true of one mode and
-    under three models an unconditional picture is a lie. Four shaping decisions, each about not tempting the
+    under three models an unconditional picture is a lie. Five shaping decisions, each about not tempting the
     reader: there is ONE `cannot_represent` list, exhaustive over everything unanswerable in this mode (a
     separate `answerable_in_another_mode` heading was considered and rejected — an agent scanning headings
     reads a positive-sounding one as permission, which is the near-miss this registry exists to stop); each
     entry carries `why_not` as a fixed token so the agent branches on an enum and not on prose; each entry
     carries the `refusal` STRING VERBATIM, because until now only the single-key form returned one and an
     agent that called the listing had to COMPOSE its own refusal from the parts — composing is exactly where
-    the hedge creeps in; and `ported_but_off_by_default` is kept but redefined as a derived VIEW over
-    `cannot_represent`, so nothing is double-counted.
+    the hedge creeps in; `ported_but_off_by_default` is kept but redefined as a derived VIEW over
+    `cannot_represent`, so nothing is double-counted; and `instead`/`why_the_output_misleads` are the sentences
+    written about THIS mode, resolved through the capability's own accessors rather than read off the object,
+    because prose that describes the wrong elongation model reads as informed and gets repeated.
     """
     cap = _cap                     # the `capability` PARAMETER shadows the module name, so alias it
     m = mode or cap.DEFAULT_MODE
@@ -160,8 +162,15 @@ def model_capabilities(capability: str | None = None, mode: str | None = None) -
     if m not in cap.ELONGATION_MODES:
         return {"error": f"'{m}' is not a declared elongation model", "declared": list(cap.ELONGATION_MODES),
                 "note": "An undeclared mode is not evidence of absence — declare it before querying it."}
-    cannot = [dict(cap.check(c.key, m), capability=c.key, instead=c.instead,
-                   why_the_output_misleads=c.consequence, available_in=c.available_in)
+    # `instead`/`why_the_output_misleads` are resolved THROUGH the capability's own accessors, not read off the
+    # object, because they are mode-keyed and this listing is the second place they get rendered. Reading the
+    # raw fields here would put a dict in the payload; picking a mode here would make this the second copy of
+    # the subject rule — and the rule has a subtlety (the ported-but-off case describes the CORPUS, i.e.
+    # steady_state, not the mode asked about) that a second copy would eventually get wrong. One rule, in
+    # capability.prose_subject, quoted by both the refusal string and this listing, so they cannot disagree.
+    # `available_in` stays a plain field: it is provenance of the mechanism, not behaviour of a model.
+    cannot = [dict(cap.check(c.key, m), capability=c.key, instead=c.instead_in(m),
+                   why_the_output_misleads=c.consequence_in(m), available_in=c.available_in)
               for c in cap.missing(m)]
     return {
         "elongation_model": m,
