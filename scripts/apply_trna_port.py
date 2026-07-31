@@ -647,6 +647,27 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
             return {"ok": False, "why": f"reference is missing {PYX_SOURCE}"}
         shutil.copyfile(s, os.path.join(wcecoli, PYX_SOURCE))
         wrote.append(PYX_SOURCE)
+    # EXT-PORT-12 (BACKLOG UNIFY-2 gate): the reference .pyx seeds the C stdlib RNG from the WALL
+    # CLOCK -- `cdef time_t t = time(NULL); srand(t)` at the head of reconcile_via_ribosome_positions
+    # and reconcile_via_trna_pools. Copied verbatim, it makes every kinetic simulation
+    # NON-REPRODUCIBLE: measured, two runs with identical --seed 0 on the same knowledge base matched
+    # in only 82 of 254 comparable listener columns and were 0.51% apart on Mass/cellMass at
+    # division. With the fix (an explicit `seed` argument drawn from the process RandomState) the
+    # same pair is bit-identical in all 224 comparable columns.
+    #
+    # This check is here because the guard above is `os.path.isfile`, so the copy is skipped on an
+    # already-ported tree and the fix survives -- but on a FRESH tree the vendor file lands unpatched
+    # and nothing downstream would notice. A non-reproducible tree that runs is precisely the failure
+    # this project keeps being bitten by, so it gets announced rather than discovered later.
+    _pyx_text, _ = _read(os.path.join(wcecoli, PYX_SOURCE))
+    if "srand(t)" in _pyx_text or "time(NULL)" in _pyx_text:
+        msg = (f"EXT-PORT-12 NOT APPLIED: {PYX_SOURCE} still seeds the C RNG from the wall clock"
+               " (srand(time(NULL))). The kinetic elongation path in this tree is NOT reproducible"
+               " across runs with the same --seed, and no ppGpp / isoacceptor comparison built on it"
+               " is interpretable. Apply the EXT-PORT-12 edits (see BACKLOG UNIFY-2) before running"
+               " any comparison.")
+        print("\n!! " + msg + "\n")
+        wrote.append("WARNING: " + msg)
     if not st["extension_compiled"]:
         b = build_extension(wcecoli, image=image)
         wrote.append(f"cython extension: {b}")
