@@ -29,6 +29,17 @@ Two further traps, both handled here:
 Idempotent: every edit is guarded by its own marker, and `--check` writes nothing. A PARTIAL application is
 reported as partial rather than as done, so a half-finished port cannot be mistaken for a finished one.
 
+Two later rounds are DELEGATED to their own modules rather than inlined here, because duplicating their
+anchors is how two copies of one recipe drift apart. Both are idempotent and marker-guarded on exactly
+these terms, and both are applied from this script:
+  * `scripts/ext_port_10_patch.py` -- the four items blocking the codon-aware path. One of its edits is
+    NOT additive: it types phnE1 'pseudo', which changes the DEFAULT path too.
+  * `scripts/ext_port_11_patch.py` -- the tRNA charging OPTIMISER and the charged-fraction ANCHOR. It
+    supplies the missing `codon_read_rate` producer (without which the fit KeyErrors on its first
+    synthetase), the Parca step and CLI flag the optimiser never had, and a fifth objective term whose
+    target is a PARAMETER with a documented default of "no anchor". It is additive to sim_data but it
+    does move kb_sha256.
+
     python scripts/apply_trna_port.py --wcecoli /path/to/wcEcoli --reference vendor/v301 --check
     python scripts/apply_trna_port.py --wcecoli /path/to/wcEcoli --reference vendor/v301
 """
@@ -46,6 +57,10 @@ MG = os.path.join("reconstruction", "ecoli", "dataclasses", "molecule_groups.py"
 MI = os.path.join("reconstruction", "ecoli", "dataclasses", "molecule_ids.py")
 SD = os.path.join("reconstruction", "ecoli", "simulation_data.py")
 KB = os.path.join("reconstruction", "ecoli", "knowledge_base_raw.py")
+# EXT-PORT-11 touches three more files than the original port did.
+FSD = os.path.join("reconstruction", "ecoli", "fit_sim_data_1.py")
+PARCA_TASK = os.path.join("wholecell", "fireworks", "firetasks", "parca.py")
+FITSIMDATA_TASK = os.path.join("wholecell", "fireworks", "firetasks", "fitSimData.py")
 
 # The seven imports the appended relation.py methods need. Ours had ONLY `import numpy as np`. Every one of
 # these is used inside the ported methods, and they fail LATE: `warnings` is referenced only on an mRNA/protein
@@ -440,7 +455,10 @@ def status(wcecoli: str) -> dict:
         "listener_registered": _has(wcecoli, MSIM, "TrnaCharging"),
         "runtime_trna_space": (_has(wcecoli, PE, "free_trnas = list(transcription.uncharged")
                                and _has(wcecoli, LIS, "transcription.uncharged_trna_names")),
-        "kinetic_flag_gated": _has(wcecoli, PE, "EXT-PORT-8 GATE"),
+        # NOTE: the EXT-PORT-8 GATE (a NotImplementedError refusing --kinetic-trna-charging) is
+        # RETIRED, not missing. EXT-PORT-10 made the codon-aware path actually run, so the gate
+        # would now refuse a working model. It is no longer applied and no longer checked; the
+        # anchor GATE_OLD/GATE_NEW pair is kept below only as the record of what it was.
         "sim_flags": _has(wcecoli, WSIM, "kinetic_trna_charging = False"),
         "flags_mutually_exclusive": _has(wcecoli, WSIM, "elongation flags are MUTUALLY EXCLUSIVE"),
         "cli_flags": _has(wcecoli, SB, "'kinetic_trna_charging'"),
@@ -464,6 +482,25 @@ def status(wcecoli: str) -> dict:
             # (4) listener columns with no writer, and the turnover divide
             bool(_has(wcecoli, LIS, "EXT-PORT-10: NO WRITER EXISTS")),
             bool(_has(wcecoli, PE, "EXT-PORT-10: turnover is UNDEFINED")),
+            ]),
+        # EXT-PORT-11, applied by scripts/ext_port_11_patch.py. Six markers, one per file, so a
+        # partial application of THAT script reports as partial here rather than as done.
+        "ext_port_11": all([
+            # the anchor: a named registry with provenance, and the objective lifted out of its
+            # closure so it can be regression-tested
+            bool(_has(wcecoli, REL, "TRNA_CHARGED_FRACTION_TARGETS")),
+            bool(_has(wcecoli, REL, "def trna_charging_objective")),
+            bool(_has(wcecoli, REL, "print_optimization = False")),
+            # the blocker: sim_data.codon_read_rate finally has a producer
+            bool(_has(wcecoli, FSD, "codon_read_rate = np.log(2) / doubling_time * c_codons")),
+            # the Parca step and its flag
+            bool(_has(wcecoli, FSD, "def optimize_trna_charging_kinetics(sim_data, cell_specs")),
+            bool(_has(wcecoli, SB, "'trna_charged_fraction_target',")),
+            bool(_has(wcecoli, SD, "EXT-PORT-11: now POPULATED")),
+            # both Firetasks -- Fireworks RAISES on an unknown kwarg, so a half-wired pair breaks
+            # every Parca, not only the refitting one
+            bool(_has(wcecoli, PARCA_TASK, "trna_charged_fraction_target")),
+            bool(_has(wcecoli, FITSIMDATA_TASK, "trna_charged_fraction_target")),
             ]),
         "flat_files": {f: os.path.isfile(os.path.join(flat, f)) for f in FLAT_FILES},
     }
@@ -663,11 +700,16 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         _write(os.path.join(wcecoli, PE), t, n2)
         wrote.append("polypeptide_elongation.py: BaseElongationModel protein_lengths + next_amino_acids")
 
-    # 9b) the runtime tRNA id space, in BOTH the process and the listener
-    if not st["runtime_trna_space"] or not st["kinetic_flag_gated"]:
+    # 9b) the runtime tRNA id space, in BOTH the process and the listener.
+    #
+    # The EXT-PORT-8 gate that used to be applied here is deliberately NOT applied any more. It
+    # raised NotImplementedError for --kinetic-trna-charging while the host process still used the
+    # steady-state calling convention; EXT-PORT-10 fixed that, so re-inserting the gate would now
+    # refuse a model that works. Running this script against an EXT-PORT-10 tree used to do exactly
+    # that, silently, because `status()` reported the (correctly absent) gate as a missing item.
+    if not st["runtime_trna_space"]:
         t, n2 = _read(os.path.join(wcecoli, PE))
-        for old, new, want in ((PE_TRNA_OLD, PE_TRNA_NEW, st["runtime_trna_space"]),
-                               (GATE_OLD, GATE_NEW, st["kinetic_flag_gated"])):
+        for old, new, want in ((PE_TRNA_OLD, PE_TRNA_NEW, st["runtime_trna_space"]),):
             if want:
                 continue
             o = old.replace("\n", n2)
@@ -676,7 +718,7 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
                                             f"found {t.count(o)}"}
             t = t.replace(o, new.replace("\n", n2), 1)
         _write(os.path.join(wcecoli, PE), t, n2)
-        wrote.append("polypeptide_elongation.py: tRNA cistron space + the EXT-PORT-8 gate")
+        wrote.append("polypeptide_elongation.py: tRNA cistron space")
         if not st["runtime_trna_space"] and os.path.isfile(os.path.join(wcecoli, LIS)):
             t, n2 = _read(os.path.join(wcecoli, LIS))
             o = LIS_TRNA_OLD.replace("\n", n2)
@@ -780,11 +822,37 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
                     "why": f"EXT-PORT-10 edits did not fully apply: {r10['files']}"}
         wrote.extend(f"EXT-PORT-10 {f}" for f in r10["wrote"])
 
+    # 15) EXT-PORT-11 -- the tRNA charging OPTIMISER, and the charged-fraction anchor.
+    #
+    # DELEGATED for the same reason EXT-PORT-10 is: those edits are defined ONCE, in
+    # scripts/ext_port_11_patch.py, and duplicating ~300 lines of anchors here is how two copies of
+    # the same recipe drift apart. That module's anchors were EXTRACTED from a tree that had already
+    # been built and verified, and re-applying them to the pre-edit tree reproduces the verified
+    # files byte for byte -- so the recipe and the thing that was tested are the same thing.
+    #
+    # THIS IS THE ONLY PART OF THE PORT THAT CHANGES sim_data ON THE DEFAULT PATH -- and it changes
+    # it ADDITIVELY: sim_data.codon_read_rate goes from {} to 25 media x 63 codons, and
+    # relation.conditions is set. Measured: rebuilding the knowledge base and diffing 20 fitted
+    # structures (rna_expression, rna_synth_prob, monomer_data, trna_to_K_T, codon_sequences, ...)
+    # gives 0 changed. But simData.cPickle is NOT byte-identical, so kb_sha256 moves and anything
+    # built after this is a new campaign.
+    if not st["ext_port_11"]:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from ext_port_11_patch import run as _ext_port_11_run
+        r11 = _ext_port_11_run(wcecoli, check=False)
+        if not r11["complete"]:
+            return {"ok": False, "status": status(wcecoli), "wrote": wrote,
+                    "why": f"EXT-PORT-11 edits did not fully apply: {r11['files']}"}
+        wrote.extend(f"EXT-PORT-11 {f}" for f in r11["wrote"])
+
     st2 = status(wcecoli)
     return {"ok": _complete(st2), "status": st2, "wrote": wrote,
-            "next": "REBUILD ParCa, then compare the relation structures against the v3.0.1 reference by shape "
-                    "AND content before wiring anything to the ODE. This changes kb_sha256, so anything it "
-                    "produces is a NEW campaign and is not comparable to the existing corpus."}
+            "next": "REBUILD ParCa (`runscripts/manual/runParca.py <newdir> --cpus 4 "
+                    "--save-intermediates`), then verify with scripts/verify_trna_objective.py that the "
+                    "ported objective still reproduces all 5533 shipped solution rows. This changes "
+                    "kb_sha256, so anything it produces is a NEW campaign and is not comparable to the "
+                    "existing corpus. The tRNA charging REFIT itself is opt-in and is NOT run by a "
+                    "default Parca -- see --optimize-trna-charging-kinetics."}
 
 
 def main(argv=None) -> int:
