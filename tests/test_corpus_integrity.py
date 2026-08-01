@@ -150,37 +150,66 @@ def test_the_sql_and_python_normalisers_agree():
 
 
 def test_the_dedup_outcome_is_pinned_on_the_corpus():
-    """A concrete outcome pin — NOT a tautology. The earlier two invariants asserted only what QUALIFY
-    guarantees by construction (survivors have unique keys), so a wrong-merge or wrong-split passed them both.
+    """A concrete outcome pin. QC-3: the delta pin this test used to carry is GONE, and could not be kept.
 
-    Pinned on the dedup DELTA (`raw - kept`), NOT absolute counts, so the guard survives LEGITIMATE corpus
-    growth (adding a run bumps raw and kept equally, leaving the delta) while still catching the regression
-    class: a wrong-MERGE of distinct runs raises the delta, a wrong-SPLIT of a duplicate lowers it. Exactly 9
-    re-indexed duplicates are removed (8 wildtype seeds 8-15 + 1 rRNA_KO:4op), and that stays 9 regardless of
-    how many new runs land. `wildtype/basal` and the crash floor are stable specific-value guards."""
+    IT USED TO ASSERT `raw - kept == 47` — that 47 superseded rows were sitting on disk awaiting dedup —
+    chosen over absolute counts so the guard would survive legitimate corpus growth. That was sound until it
+    collided with a guardrail: `manifest.compact()` (manifest.py:432) consolidates shards and physically drops
+    exactly those superseded rows, and it is called AUTOMATICALLY at manifest.py:999 so re-indexes do not pile
+    up. A compaction ran on 2026-07-31, producing data/manifest/vmnik-compact.parquet. After it,
+    `raw == kept == 322` and dedup removes 0 — so the delta pin became UNSATISFIABLE BY CONSTRUCTION, and the
+    test failed for a reason that was not a corpus defect. The test was wrong, not the guardrail: it pinned a
+    transient on-disk condition that a maintenance operation exists to erase. Do not "fix" this by disabling
+    compaction.
+
+    WHAT REPLACES IT, and — stated plainly — what does not. The delta is a property of shard HISTORY; every
+    check below is a property of the CORPUS, which is what survives compaction (compaction removes superseded
+    rows but preserves the surviving key set exactly).
+
+      * `kept == distinct keys in raw` is the compaction-invariant statement of the dedup contract: exactly
+        one row per key, and no key lost. It catches a broken DEDUP_QUALIFY — one that keeps two rows per key,
+        or drops keys entirely — before and after compaction alike.
+      * `crash` and `wildtype/basal` are STABLE SPECIFIC-VALUE guards: unlike `kept` or `reportable` they do
+        not move when an unrelated new experiment lands, so they can be pinned to a literal without breaking
+        on growth. They are what now carries the wrong-MERGE / wrong-SPLIT coverage: a merge that wrongly
+        collapses two wildtype/basal runs reads 29, a split reads 31.
+
+    HONEST LIMITATION: that coverage is WEAKER than the delta was. The delta saw a wrong-merge anywhere in the
+    corpus; these guards see one only if it lands inside a pinned subset. Post-compaction the evidence a
+    general check would need has been consolidated away, so no stronger compaction-proof check exists on this
+    data. If broader coverage is wanted, it has to come from a pre-compaction assertion at write time, not
+    from a test reading the finished corpus."""
     import duckdb
 
     from cellarium import manifest
     con = duckdb.connect()
     src = "read_parquet('data/manifest/*.parquet', union_by_name=true)"
     ded = f"(SELECT * FROM {src} {manifest.DEDUP_QUALIFY})"
+    # The dedup key, DERIVED FROM manifest.DEDUP_QUALIFY rather than hand-copied, so the two cannot drift.
+    # A hand-copy is how this check would silently start testing a different key from the one production
+    # dedups on — and the first attempt at it did in fact mis-place a NULLIF argument.
+    key = manifest.DEDUP_QUALIFY.split("PARTITION BY", 1)[1].rsplit("ORDER BY", 1)[0].strip()
+    assert key.startswith("(") and key.endswith(")"), (
+        f"could not extract the PARTITION BY expression from DEDUP_QUALIFY; got {key!r}")
     try:
         raw = con.execute(f"SELECT count(*) FROM {src}").fetchone()[0]
+        raw_keys = con.execute(f"SELECT count(DISTINCT {key}) FROM {src}").fetchone()[0]
         kept = con.execute(f"SELECT count(*) FROM {ded}").fetchone()[0]
+        kept_keys = con.execute(f"SELECT count(DISTINCT {key}) FROM {ded}").fetchone()[0]
         crash = con.execute(f"SELECT count(*) FROM {ded} WHERE id LIKE '%_crash'").fetchone()[0]
         wt = con.execute(f"SELECT count(*) FROM {ded} WHERE perturbation='wildtype' "
                          "AND COALESCE(condition,'basal')='basal' AND reportable").fetchone()[0]
     finally:
         con.close()
-    # 9 re-indexed duplicates + 3 SCI-QC-2 segment repairs. The repair is append-only: each corrected row
-    # supersedes its corrupt original by `ts`, so the original stays on disk and shows up here as a superseded
-    # duplicate. This pin CAUGHT that write (it read 12 where 9 was pinned), which is exactly its job — the
-    # number must only ever move for a change someone can name.
-    assert raw - kept == 47, (f"dedup removed {raw - kept} rows (raw {raw} -> kept {kept}); expected 47 = "
-                              "9 re-indexed duplicates + 3 segment repairs + 7 crash rows re-stamped with "
-                              "their aadrop kb + 28 rows re-stamped when _flat_row stopped defaulting the kb "
-                              "to the cellarium campaign — a different number means a wrong-merge, a "
-                              "wrong-split, or an unrecorded corpus write")
+    # THE DEDUP CONTRACT, in the one form that survives compaction. `raw - kept` is 47 on an uncompacted
+    # corpus and 0 on a compacted one — both correct — so it cannot be pinned. What is true in BOTH states is
+    # that dedup emits exactly one row per distinct key and loses none.
+    assert kept == raw_keys, (
+        f"dedup emitted {kept} rows for {raw_keys} distinct keys in raw (raw rows {raw}); these must be equal "
+        "— fewer means dedup DROPPED a key, more means it kept multiple rows for one key. Note this is "
+        "deliberately NOT the old `raw - kept == 47` pin, which manifest.compact() makes unsatisfiable.")
+    assert kept_keys == kept, (
+        f"{kept} surviving rows carry only {kept_keys} distinct keys — QUALIFY let a duplicate through")
     # Counts rows whose ID was MINTED by the crash path (`id LIKE '%_crash'`), which is NOT the same as
     # `qc='crashed'` — 8 rows produced a record via build_record and were only then marked crashed, so they
     # keep their real id. Both counts are valid answers to different questions; this pin is the id-minted one.
