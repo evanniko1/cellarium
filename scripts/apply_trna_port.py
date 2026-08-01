@@ -509,6 +509,11 @@ def status(wcecoli: str) -> dict:
             bool(_has(wcecoli, PE, "ROUTE1-21: the A-site occupancy in the form it is derived from")),
             bool(_has(wcecoli, PE, "ROUTE1-21: this is now read ONLY by the")),
             ]),
+        # ROUTE1 step 2, applied by scripts/route1_step2_patch.py. Lands in STAGES, so this key grows
+        # a marker per stage; a partially-applied step 2 must report as partial, never as done.
+        "route1_step2": all([
+            bool(_has(wcecoli, PE, "ROUTE1 -- tRNA charging resolution, and the measured cost")),
+            ]),
         "flat_files": {f: os.path.isfile(os.path.join(flat, f)) for f in FLAT_FILES},
     }
 
@@ -897,6 +902,19 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
             return {"ok": False, "status": status(wcecoli), "wrote": wrote,
                     "why": f"ROUTE1-21 occupancy edit did not apply: {r1.get('why')}"}
         wrote.extend(f"ROUTE1-21 {w}" for w in r1["wrote"])
+
+    # 17) ROUTE1 step 2 -- isoacceptor-resolution charging. Also NOT part of the v3.0.1 port, and it
+    # lands INCREMENTALLY: that module grows a stage at a time, so calling it repeatedly is normal
+    # rather than exceptional. Ordered after step 1 because its first stage anchors on
+    # get_charging_params, which step 1 leaves alone but whose surroundings step 1 shifts.
+    if not st["route1_step2"]:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from route1_step2_patch import run as _route1_step2_run
+        r2 = _route1_step2_run(wcecoli, check=False)
+        if not r2["complete"]:
+            return {"ok": False, "status": status(wcecoli), "wrote": wrote,
+                    "why": f"ROUTE1 step-2 edits did not fully apply: {r2.get('why')}"}
+        wrote.extend(f"ROUTE1-step2 {w}" for w in r2["wrote"])
 
     st2 = status(wcecoli)
     return {"ok": _complete(st2), "status": st2, "wrote": wrote,

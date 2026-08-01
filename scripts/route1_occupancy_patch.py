@@ -139,9 +139,16 @@ OCC_NEW = (
     "\t\t# Writing it that way is not a normalization applied after the fact: it restores the\n"
     "\t\t# renewal-theory occupancy the previous line was an approximation to, and it is exact\n"
     "\t\t# only here -- the old form agreed only when v_rib was the rate law's OWN k*[R]/D at\n"
-    "\t\t# the same resolution with the same k, which is true on the request path (:1683 feeds\n"
-    "\t\t# :1186) and FALSE on the evolve path, where :1243 supplies polymerize's REALIZED\n"
-    "\t\t# throughput. Consequence that matters: max_elong_rate is now read nowhere in this\n"
+    # NOTE: line-number citations were REMOVED from this comment on purpose. It went stale twice --
+    # once from its own patch shifting the file, and again when the ROUTE1 resolution block was added
+    # above get_charging_params. Naming the call sites survives both.
+    "\t\t# the same resolution with the same k, which is true on the request path (the v_rib\n"
+    "\t\t# computed inside calculate_trna_charging feeds the ppgpp_metabolite_changes call in\n"
+    "\t\t# calculateRequest) and FALSE on the evolve path, where evolveState supplies polymerize's\n"
+    "\t\t# REALIZED nElongations*counts_to_molar/dt instead. Named rather than cited by line: this\n"
+    "\t\t# comment has already been stale twice, once from its own patch and once from the block\n"
+    "\t\t# added above get_charging_params.\n"
+    "\t\t# Consequence that matters: max_elong_rate is now read nowhere in this\n"
     "\t\t# function, so re-pinning it for an isoacceptor-resolved charging ODE cannot reach the\n"
     "\t\t# ppGpp arm. See scripts/route1_occupancy_patch.py for the measurements.\n"
     "\t\t#\n"
