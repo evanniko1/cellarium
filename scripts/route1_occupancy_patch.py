@@ -241,11 +241,61 @@ def run(wcecoli: str, check: bool = False) -> dict:
     return {"complete": all(st2.values()), "wrote": wrote, "files": [REL], "status": st2}
 
 
+def revert(wcecoli: str) -> dict:
+    """Put the file back exactly as it was, so a CONTROL image can be built from the same tree.
+
+    This exists to make the A/B honest. The first acceptance run compared a rebuilt image against
+    baselines produced by an image that could no longer be identified, so it could not isolate this
+    change from six unrelated ones also sitting in the tree. Building a control from the SAME tree
+    with only this edit reverted removes that confound entirely.
+
+    It is the exact inverse of run(): the same two anchors, applied in reverse, each still required
+    to appear exactly once. Reverting a tree that is already reverted is a no-op.
+
+    THE CALLER MUST RE-APPLY. Leaving the tree reverted would silently un-fix the ppGpp arm for every
+    later run, so callers must treat revert/build/re-apply as one atomic sequence and VERIFY the
+    re-apply, not assume it.
+    """
+    path = os.path.join(wcecoli, REL)
+    if not os.path.isfile(path):
+        return {"complete": False, "wrote": [], "why": f"{REL} not found under {wcecoli}"}
+    txt, nl = _read(path)
+    wrote: list[str] = []
+
+    for label, new, old in (("occupancy", OCC_NEW, OCC_OLD), ("docstring", DOC_NEW, DOC_OLD)):
+        cur = _norm(new, nl)
+        if cur not in txt:
+            continue  # already reverted, or never applied
+        if txt.count(cur) != 1:
+            return {"complete": False, "wrote": wrote,
+                    "why": f"expected exactly 1 {label} block to revert in {REL}, found {txt.count(cur)}"}
+        txt = txt.replace(cur, _norm(old, nl), 1)
+        wrote.append(f"{REL}: {label} reverted")
+
+    _write(path, txt, nl)
+    st = status(wcecoli)
+    reverted = not st["occupancy"] and not st["docstring"]
+    return {"complete": reverted, "wrote": wrote, "status": st,
+            "why": "" if reverted else "revert did not clear both markers"}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--wcecoli", default=os.environ.get("WCECOLI", "C:/dev/wcEcoli"))
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--revert", action="store_true",
+                    help="undo the edit so a CONTROL image can be built from the same tree; "
+                         "the caller MUST re-apply afterwards and verify")
     a = ap.parse_args(argv)
+    if a.revert:
+        r = revert(a.wcecoli)
+        for w in r.get("wrote", []):
+            print(f"  reverted {w}")
+        if r.get("why"):
+            print(f"  {r['why']}")
+        print(f"status: {r.get('status')}")
+        print("REVERTED" if r["complete"] else "REVERT FAILED")
+        return 0 if r["complete"] else 1
     r = run(a.wcecoli, check=a.check)
     for w in r.get("wrote", []):
         print(f"  wrote {w}")
