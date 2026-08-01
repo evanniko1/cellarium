@@ -112,6 +112,7 @@ SIM = "wholecell/sim/simulation.py"
 SB = "wholecell/utils/scriptBase.py"
 
 MARKER_PLUMBING = "ROUTE1 step 2: tRNA charging resolution"
+MARKER_PARAMS = "ROUTE1 step 2: isoacceptor bookkeeping"
 
 # E1 -- the two kwargs, placed next to the flag they qualify so they are read together.
 SIM_KW_OLD = "\ttrna_charging = True,\n"
@@ -215,8 +216,82 @@ FW_DEF_NEW = ('\t\toptions["trna_charging"] = self._get_default("trna_charging")
               '\t\toptions["trna_charging_resolution"] = self._get_default("trna_charging_resolution")\n'
               '\t\toptions["trna_demand_split"] = self._get_default("trna_demand_split")\n')
 
+# E8 -- get_charging_params signature.
+GCP_SIG_OLD = (
+    "def get_charging_params(\n"
+    "\t\tsim_data,\n"
+    "\t\taa_removed_from_charging: Optional[Set[str]] = None,\n"
+    "\t\tvariable_elongation: bool = False,\n"
+    "\t\t) -> Dict[str, Any]:\n"
+)
+GCP_SIG_NEW = (
+    "def get_charging_params(\n"
+    "\t\tsim_data,\n"
+    "\t\taa_removed_from_charging: Optional[Set[str]] = None,\n"
+    "\t\tvariable_elongation: bool = False,\n"
+    "\t\ttrna_charging_resolution: str = 'family',\n"
+    "\t\ttrna_demand_split: str = 'abundance',\n"
+    "\t\t) -> Dict[str, Any]:\n"
+)
+
+# E9 -- the isoacceptor bookkeeping, built once from sim_data.
+GCP_BODY_OLD = (
+    "\telongation_max = (constants.ribosome_elongation_rate_max\n"
+    "\t\tif variable_elongation else constants.ribosome_elongation_rate_basal)\n"
+)
+GCP_BODY_NEW = (
+    "\telongation_max = (constants.ribosome_elongation_rate_max\n"
+    "\t\tif variable_elongation else constants.ribosome_elongation_rate_basal)\n"
+    "\n"
+    "\t# ROUTE1 step 2: isoacceptor bookkeeping. Built HERE rather than in the right-hand side\n"
+    "\t# because it is pure sim_data derivation that never changes during a simulation, and because\n"
+    "\t# the RHS is @njit, where boolean fancy-indexing and matrix construction are unsupported.\n"
+    "\t#\n"
+    "\t# aa_from_trna is the authoritative (21, 86) 0/1 map, built in Transcription._build_charged_trna.\n"
+    "\t# Do NOT re-derive it from tRNA name prefixes: that route silently yields ILE=4/MET=6 instead of\n"
+    "\t# ILE=5/MET=6 -- still summing to 86, so it looks correct -- because RNA0-305[c] maps to ILE\n"
+    "\t# rather than the natural guess of MET. Restricting rows to the charging mask leaves 85 species:\n"
+    "\t# 86 tRNA genes minus selC, whose amino acid (SEC) is removed from charging.\n"
+    "\taa_from_trna = transcription.aa_from_trna\n"
+    "\ttrna_charging_mask = aa_from_trna[aa_charging_mask].sum(0) > 0\n"
+    "\tif int(trna_charging_mask.sum()) != 85:\n"
+    "\t\traise ValueError('expected exactly 85 charging-masked tRNA species (86 minus selC), got '\n"
+    "\t\t\t'{}'.format(int(trna_charging_mask.sum())))\n"
+    "\t# C-contiguous float64: dcdt_jit is @njit and numba's np.dot requires both.\n"
+    "\tT2A = np.ascontiguousarray(\n"
+    "\t\taa_from_trna[np.ix_(aa_charging_mask, trna_charging_mask)], dtype=np.float64)\n"
+    "\tA2T = np.ascontiguousarray(T2A.T)\n"
+    "\t# KMtf is BROADCAST per family, never re-fitted. That broadcast is exactly what makes the\n"
+    "\t# shared-synthetase denominator collapse to the 21-form for ARBITRARY within-family splits\n"
+    "\t# (worst relative error 6.9e-16 over 20 families x 200 Dirichlet splits x 121 timesteps).\n"
+    "\tKMtf_trna = A2T @ transcription.trna_kms.asNumber(CONC_UNITS)[aa_charging_mask]\n"
+)
+
+# E10 -- the returned dict. Additive only: no existing key changes, so 'family' resolution is
+# bit-identical to today and every existing consumer is untouched.
+GCP_RET_OLD = (
+    "\t\tunit_conversion=metabolism.get_amino_acid_conc_conversion(CONC_UNITS),\n"
+    "\t\t)\n"
+)
+GCP_RET_NEW = (
+    "\t\tunit_conversion=metabolism.get_amino_acid_conc_conversion(CONC_UNITS),\n"
+    "\t\t# ROUTE1 step 2 -- additive. Present at BOTH resolutions so consumers need no branch to\n"
+    "\t\t# read them; they are simply unused when trna_resolution == 'family'.\n"
+    "\t\ttrna_resolution=trna_charging_resolution,\n"
+    "\t\tdemand_split=trna_demand_split,\n"
+    "\t\ttrna_charging_mask=trna_charging_mask,\n"
+    "\t\tT2A=T2A,\n"
+    "\t\tA2T=A2T,\n"
+    "\t\tn_trna_per_aa=T2A.sum(1),\n"
+    "\t\tKMtf_trna=KMtf_trna,\n"
+    "\t\t)\n"
+)
+
 PLUMBING = (
     (FW_SIM, FW_LIST_OLD, FW_LIST_NEW, 1, "firetasks/simulation.py: allow-list"),
+    (REL, GCP_SIG_OLD, GCP_SIG_NEW, 1, "get_charging_params: signature"),
+    (REL, GCP_BODY_OLD, GCP_BODY_NEW, 1, "get_charging_params: isoacceptor bookkeeping"),
+    (REL, GCP_RET_OLD, GCP_RET_NEW, 1, "get_charging_params: returned dict"),
     (FW_SIM, FW_DEF_OLD, FW_DEF_NEW, 1, "firetasks/simulation.py: defaults"),
     (FW_DAU, FW_LIST_OLD, FW_LIST_NEW, 1, "firetasks/simulationDaughter.py: allow-list"),
     (FW_DAU, FW_DEF_OLD, FW_DEF_NEW, 1, "firetasks/simulationDaughter.py: defaults"),
@@ -258,6 +333,11 @@ def status(wcecoli: str) -> dict:
         # collapsed the two into one entry — so a half-applied pair could report as fully applied.
         st["plumbing_" + rel.replace("\\", "/")] = (
             os.path.isfile(p) and MARKER_PLUMBING in _read(p)[0])
+    # Each STAGE needs its own marker, not just each file. Stage 3 lands in a file that stage 2
+    # already marked, so a file-level check reported "already applied" and silently skipped it --
+    # the same class of bug as the per-file idempotence check inside run().
+    pe = os.path.join(wcecoli, REL)
+    st["params_dict"] = os.path.isfile(pe) and MARKER_PARAMS in _read(pe)[0]
     return st
 
 
