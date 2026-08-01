@@ -224,6 +224,7 @@ Recorded so they are not cited from earlier drafts.
 | `r` span high end **1.371027** | **Not reproducible** under any split, convention or timestep; nothing exceeds 1.3283 (and that is the equal split). **Dropped.** |
 | `r` quoted to 7 significant digits, agreement 1.8e-5 | **Precision-inflated.** Independent re-derivation differs by 1.7e-4 (~10× the claimed agreement); the reference state was internally inconsistent. |
 | Aₐ/Hₐ = SER 1.9118 / LEU 1.4105 / GLY 1.3419 | **Not reproducible.** Measured 1.8530 / 1.2790 / 1.1690. |
+| at `equal`, within-family spread follows the kinetic model's **rank ordering** (GLY then LEU) | **Withdrawn.** The *magnitude* replicates (6.18e-2 at 40 s vs 6.63e-2 at 20 s) but the ranking does not: at 20 s the leader is **LYS 6.63e-2**, with GLY 6.05e-2 and ALA 4.06e-2, and LEU is not in the top three. See §9.3. |
 | A-site sum in current code = 1.084 (OFF) / 1.100 (ON) | **Refuted** — those are `activeRibosomeAllocated / UniqueMoleculeCounts.active_ribosome`, a ribosome-count ratio. True A-site sum ratio **0.99991 / 0.99996**. |
 | `KD_RelA` = scalar 0.26 µM | **Corrected** — a **21-vector**, range 0.027–0.54 µM. 0.26 µM is the literature value, not what the runs use. |
 | `trna_kms` spans 0.008–1.667 µM, "three orders" from `trna_to_K_T` | **Refuted** — max is **2.7** (PHE); 1.667 is merely the first element. Ranges **overlap** `K_T` (2.4374–558.475). Real separation median/median 10.4×. |
@@ -233,10 +234,182 @@ Recorded so they are not cited from earlier drafts.
 
 ---
 
-## 9. Known limits of the evidence
+## 9. The demand split is degenerate at the default — reported, not hidden
 
-1. **Generations are untested.** Every charging-enabled output on disk is **generation 0 only, 120 s**.
-   Seeds are covered (n = 3); generations are not. Full-generation drift is **unmeasured**.
+This section exists because the finding is easy to mistake for a null result. It is not: it is a
+**structural property of the fixed point**, and it fully determines what the switch can and cannot do.
+
+**The configuration decision.** `abundance` stays the **DEFAULT** — it is the conservative choice and
+it reproduces the 21-resolution answer. `equal` ships as the **SCIENCE configuration**. The degeneracy
+of `abundance` is documented at the point of choice (the `--trna-demand-split` help text and the
+ROUTE1 comment block above `get_charging_params`), not buried.
+
+### 9.1 Why the kinetics cannot distinguish isoacceptors — *structural*
+
+`KMtf_trna` is built at `models/ecoli/processes/polypeptide_elongation.py:1749` (line numbers as of
+stage 6; this file has moved repeatedly — re-grep rather than trusting them) as
+
+```
+KMtf_trna = A2T @ transcription.trna_kms.asNumber(CONC_UNITS)[aa_charging_mask]
+```
+
+`A2T` is the transpose of the one-hot `(20, 85)` family map (`T2A`, built at lines 1743–1745 and
+asserted one-hot by column at line 1942), so this is a **per-family broadcast**:
+`KMtf_trna[i] = trna_kms[family(i)]`. Its within-family spread is therefore **exactly 0.000e+00** —
+structural, not measured-to-be-small. **Nothing in the kinetics tells isoacceptors of one family
+apart.** There is no setting of this model in which it does.
+
+### 9.2 Why `abundance` forces a uniform charged fraction — *derived, from the code*
+
+| Step | Source |
+|---|---|
+| `du_i/dt = −dtrna_i`, `dc_i/dt = +dtrna_i` via `np.hstack((-dtrna, dtrna, daa, ...))` — so **`T_i = u_i + c_i` is conserved exactly, per species** | `polypeptide_elongation.py:1887` |
+| `v_i = family_rate[a] · u_i/KMtf_i`; with `KMtf` broadcast, `v_i = (family_rate_a/KMtf_a)·u_i` — **proportional to `u_i`** | lines 2210, 2218, 2221 |
+| `dtrna_i = v_i − v_rib·f_i`; fixed point ⇒ `v_i = v_rib·f_i` | line 2251 |
+| `abundance`: `f_i = f_a·(u_i+c_i)/T_a = f_a·T_i/T_a` | lines 2237–2244 |
+| `equal`: `f_i = f_a/n_a` | lines 2233–2236 |
+
+Combining:
+
+- **`abundance`** — `u_i ∝ T_i` at the fixed point. `T_i` is conserved, so `c_i = T_i − u_i ∝ T_i`
+  too, and **`c_i/T_i` is constant within the family**. The charged fraction is uniform **by
+  construction**. It is not a finding about *E. coli*; it is the fixed point of the equations.
+- **`equal`** — `u_i` is *constant* within the family, so `c_i/T_i = 1 − u/T_i` inherits the `T_i`
+  heterogeneity. Spread develops — but it comes from **pool sizes**, still not from kinetics.
+
+### 9.3 Measurement
+
+Worst per-family spread in `GrowthLimits/fraction_trna_charged`, over the **17 multi-member
+families**, from real simulations — not analytic; the ODE was integrated by the production code path.
+Measured **twice, at two run lengths, by two implementations**. The second measurement is
+reproducible via `scripts/measure_within_family_spread.py`, run inside the model image:
+
+| Configuration | 40 s run | 20 s run (independent re-measurement) | Reading |
+|---|---|---|---|
+| family (control) | **exactly 0.0** | **exactly 0.000e+00** | one value per family; nothing to spread |
+| isoacceptor + `abundance` | **2.79e-7** | **2.16e-7** | **numerically zero** — solver residual, not structure |
+| isoacceptor + `equal` | **6.18e-2** | **6.63e-2** | genuine spread |
+
+The 20 s re-measurement also confirms `family / equal` is **exactly 0.000e+00** — i.e. the split is
+inert at family resolution, as designed, rather than merely small.
+
+**What replicates and what does not.** The *magnitudes* replicate: worst spread 6.18e-2 vs 6.63e-2
+(≈7% apart, same order), and `abundance` is numerically zero in both. The **per-family identity does
+not**:
+
+| Run | Top three families at `equal` |
+|---|---|
+| 40 s | GLY **5.13e-2**, LEU **3.07e-2** |
+| 20 s | LYS **6.63e-2**, GLY **6.05e-2**, ALA **4.06e-2** |
+
+GLY is large in both; **LYS leads at 20 s and LEU is not in the top three there.** So the *ranking* is
+**not established** — it moves with run length, which is what one expects of a quantity driven by
+transient pool sizes rather than by a fixed parameter.
+
+Consequence for the comparison to the kinetic model (GLY **0.372**, LEU **0.241** at 120 s): the
+earlier reading that `equal` reproduces the kinetic model's *rank ordering* **does not survive** the
+second measurement and is **withdrawn**. What survives is the magnitude statement — `equal` produces
+spread roughly **7× smaller** than the kinetic model, i.e. it moves in the right direction and does
+not arrive.
+
+### 9.4 What this means for anyone selecting a split
+
+1. Selecting `isoacceptor` resolution **with the default split** buys per-species *bookkeeping* and
+   no per-species *biology*. Every 21-resolution output is unchanged (the shared-synthetase reduction,
+   §6), and the 85-wide charged-fraction column carries 17 families of identical values.
+2. If within-family structure is the object of study, **`equal` must be selected explicitly.**
+3. Even at `equal`, the spread is **not evidence that the model resolves isoacceptor kinetics** — by
+   §9.1 it cannot be. The spread that appears is a function of **pool sizes**, and §9.3 shows its
+   per-family pattern is not even stable across run length, so it must not be read as a per-family
+   prediction.
+4. Closing the remaining gap requires either codon-resolved demand (`TrnaCharging/reading_events`,
+   which sums to exactly 0.0 on every run on disk) or per-isoacceptor `KMtf` — a knowledge-base
+   change, not a switch.
+
+**Verification of the configuration change itself** (stage 6 of `scripts/route1_step2_patch.py`,
+marker `ROUTE1 step 2 (stage 6): the abundance split's within-family degeneracy`): comment/help-text
+only, no behaviour change; applier reports COMPLETE; revert → re-apply is **byte-identical across all
+five patched files** (md5s compared in one process, and the reverted tree verified to differ in all
+five — otherwise "identical" would be evidence of nothing), and a 20 s simulation starts and records
+its selection at **both** splits.
+
+### 9.5 The full test matrix — 3 arms × 3 seeds × 3 **full generations**
+
+This closes the standing project rule (never validate on one seed or one generation), which §10.1 and
+§10.8 previously recorded as **unsatisfied for every charging run on disk**.
+
+**What ran.** 27 cells: `family` / `isoacceptor+abundance` / `isoacceptor+equal` × seeds 0,1,2 ×
+generations 0,1,2. Real full generations to natural division — **not** length-capped: 2499–3310
+timesteps each (2498–3309 s), every cell wrote `Daughter1_inherited_state.cPickle`, mass ratio
+1.70–2.53. Daughters were produced by `SimulationDaughterTask`, so generations 1 and 2 also verify
+that the two switches survive the daughter path (`simulationDaughter.py:36-37` allow-list,
+`:94-95` `_get_default`, which falls back to the default only when the key is absent). All 9 chains
+exited **0**; **0 cells** with any NaN in `fraction_trna_charged`, `ppgpp_conc`, `rela_syn`,
+`instantaneous_growth_rate` or `cellMass`; **0** missing cells. Image `wcecoli-sim:route1matrix`,
+verified to contain all six stage markers with the five patched files byte-identical to the tree.
+`kb/` hardlinked from `out/kinetic_parca/kb` (same inode), so `simData.cPickle` is identical by
+construction and no baseline directory was written.
+
+**A maximum over ~3000 timesteps is not a level.** Reported here as the *distribution* of the
+worst-family spread per timestep, pooled over the 3 seeds of each generation:
+
+| Arm | median gen0 | median gen1 | median gen2 | timesteps > 1e-2 |
+|---|---|---|---|---|
+| family (control) | **0.000e+00** | **0.000e+00** | **0.000e+00** | **0 of 24 807** |
+| isoacceptor + `abundance` | 4.7e-8 | 1.8e-7 | 2.7e-7 | **0 of 25 493** |
+| isoacceptor + `equal` | 5.2e-2 | 5.7e-2 | 6.6e-2 | **25 931 of 25 931** |
+
+1. **The negative control is exact, not approximate.** At family resolution the spread is
+   **0.000e+00 at every one of ~24 800 timesteps**, across 3 seeds and 3 generations — median, 99th
+   percentile and maximum all exactly zero.
+2. **`abundance` is numerically zero and stays there.** Median ~1e-7, and **not one timestep in
+   ~25 500** exceeds 1e-2. It is ~5 orders of magnitude below `equal`.
+3. **`equal` is sustained, not transient.** **Every** timestep in the arm exceeds 1e-2, and the
+   median magnitude 5.2e-2…6.6e-2 **replicates** the earlier single-generation figures (6.18e-2 at
+   40 s, 6.63e-2 at 20 s). The §9.3 magnitude claim now holds across seeds *and* generations.
+4. **Generation effect: present but immaterial.** `abundance`'s median rises ~6× (4.7e-8 → 2.7e-7)
+   and `equal`'s ~27% (5.2e-2 → 6.6e-2) from generation 0 to 2. Neither changes any conclusion; the
+   `abundance` prediction is exact zero and it remains numerically zero.
+5. **Two transient episodes, named rather than hidden.** `abundance` seed 1 gen 2 reaches a maximum
+   of 1.294e-3 (p99 6.3e-4, 404 steps above 10× its median) and `equal` seed 1 gen 2 reaches 7.375e-1
+   (27 steps of 2919, on a median of 6.1e-2). Both are excursions on a chaotically diverged
+   trajectory; neither carries the arm's end-of-generation value, which stays 3.8e-7 and 6.6e-2.
+6. **The per-family ranking is still not established, and the withdrawal in §8 stands.** The leader
+   moves *by generation*: gen0 LYS 7.27e-2, gen1 ALA 8.93e-2, gen2 LEU 7.38e-1. Do not cite an order.
+
+**Between-arm differences in growth are CHAOS, not effect — measured, not assumed.** The arm summary
+shows mean doubling times of 46.0 (family) / 50.3 (`abundance`) / 49.9 (`equal`) min, which invites
+the reading that isoacceptor resolution slows the cell. It does not. Comparing the `cellMass` series
+step by step within generation 0:
+
+| step | 0 | 1 | 2 | 50 | 300 | 1200 | end |
+|---|---|---|---|---|---|---|---|
+| `abundance` vs family, relative | **0.0** | **0.0** | 2.8e-10 | 3.5e-5 | 2.2e-3 | 1.1e-2 | 3.0e-2 (seed 0), 1.1e-1 (seed 2) |
+
+`abundance` is **exactly equal** to the family control for the first two timesteps and departs at
+**2e-10** — the shared-synthetase reduction of §6 holding in production — then amplifies over ~3000
+steps. The doubling-time, ppGpp and relA differences between arms are that amplification, and with
+n = 3 seeds they are **not** evidence of a systematic effect of the switch.
+
+**Reproduce.** `scripts/mx_setup.py` (hardlinked run dirs) → `scripts/mx_run.ps1` (the 9 chains) →
+`scripts/mx_analyze.py` + `scripts/mx_report.py` (the matrix table) →
+`scripts/mx_transient.py` (the distribution, not the max) → `scripts/mx_diverge.py` /
+`scripts/mx_diverge2.py` (the chaos check). Outputs are in `out/mx_{fam,abu,equ}_s{0,1,2}`.
+
+**Cost.** 19.7 GB for the matrix; 136.3 → 122.9 GiB free. ~56 min wall for 9 chains at 9-way
+parallelism, peak ~7.4 GiB across all containers.
+
+---
+
+## 10. Known limits of the evidence
+
+1. ~~**Generations are untested.**~~ **CLOSED by §9.5.** 3 arms × 3 seeds × 3 full generations to
+   natural division (27 cells, 2499–3310 timesteps each, all exit 0, no NaN) now exist for the
+   §9 spread claims. What remains open is narrower and is stated as such: (a) the matrix is
+   **`--trna-charging` (SteadyState + ppGpp) only** — the ROUTE1-21 occupancy A/B of §4 and the
+   `r`-drift measurement of §7 are **still generation-0 only**, so *those* figures have not inherited
+   this coverage; (b) 3 generations is enough to show the spread magnitude is stable and the control
+   is exactly zero, not enough to characterise long-lineage drift.
 2. **The clean window is defined on four monitored series**, not the full state vector, so identity of
    the entering state inside the window is *inferred*. Only the **step-1** measurement is
    unambiguously a pure direct effect.
@@ -252,3 +425,11 @@ Recorded so they are not cited from earlier drafts.
    is untested under ROUTE1-21.
 7. **The `limit_v_rib` clamp's binding frequency is unmeasured**, so the materiality of the
    clamp/aggregation non-commutation is unestablished.
+8. ~~**The §9 spread numbers are single-seed, generation 0, 40 s.**~~ **CLOSED by §9.5.** The `equal`
+   magnitude now replicates across 3 seeds × 3 full generations (median 5.2e-2…6.6e-2, bracketing the
+   original 6.18e-2), the `abundance` prediction of numerically-zero holds at **0 of ~25 500
+   timesteps above 1e-2**, and the family control is **exactly 0.000e+00 at every timestep**. Two
+   residual limits: the *per-family ranking* remains unestablished — the leader now moves by
+   generation as well as by run length (§9.5.6), which strengthens rather than weakens the §8
+   withdrawal — and the generation trend itself (`abundance` median ×6, `equal` +27% over three
+   generations) is measured on n = 3 seeds and is **not** characterised beyond generation 2.

@@ -47,6 +47,27 @@ STAGES APPLIED SO FAR:
      widening is a numerical no-op; at 'equal' the same widening produces up to 7.2e-2 of genuine
      within-family spread against exactly 0.0 with the uniform expansion. See the stage banner.
 
+  6. DOCUMENT THE DEGENERACY AT THE POINT OF CHOICE -- the --trna-demand-split help text and the
+     ROUTE1 comment block both state plainly that at the DEFAULT split the within-family charged
+     fraction is uniform BY CONSTRUCTION (worst measured 2.79e-7 at 40 s, 2.16e-7 at 20 s, over 17
+     multi-member families) and that 'equal' is the configuration in which spread develops (worst
+     6.18e-2 at 40 s, 6.63e-2 at 20 s). The magnitude replicates across the two runs; the per-family
+     ranking does NOT, so no family order is recorded. `abundance` stays the default -- conservative,
+     and it reproduces the 21-resolution answer -- and the degeneracy is reported as a FINDING rather
+     than hidden behind it. No behaviour change: comments and help text only.
+
+  7. CORRECT THE PROVENANCE CAVEAT -- stages 1 and 6 both ended the ROUTE1 block on "every charging
+     run is 121 rows / 120 s of GENERATION 0 ONLY". That sentence is now FALSE: 3 arms x 3 seeds x
+     3 FULL generations to natural division (27 cells, 2499-3310 timesteps each, all 9 chains exit 0,
+     zero NaN, every cell divided) were run and measured. The stage replaces it with the matrix
+     result AND with what the matrix did not cover -- r-drift across generations was still not
+     measured, and the matrix is --trna-charging only. MEASURED, per-timestep medians pooled over
+     seeds: family control exactly 0.000e+00 at all ~24800 timesteps; abundance 4.7e-8 / 1.8e-7 /
+     2.7e-7 by generation with 0 of ~25500 timesteps above 1e-2; equal 5.2e-2 / 5.7e-2 / 6.6e-2 with
+     ALL timesteps above 1e-2. Also records that the between-arm growth differences are CHAOS:
+     abundance is bit-equal to the family control for two timesteps and departs at 2e-10 before
+     amplifying to ~1e-1. No behaviour change: comments only.
+
 STAGES NOT YET APPLIED: none.
 
     python scripts/route1_step2_patch.py --wcecoli C:/dev/wcEcoli [--check] [--revert]
@@ -1124,9 +1145,254 @@ WIDEN_EDITS = (
     (REL, WD_LIST_OLD, WD_LIST_NEW, 1, "polypeptide_elongation.py: fraction_trna_charged listener"),
 )
 
+
+# ---------------------------------------------------------------------------------------------------
+# STAGE 6 -- DOCUMENT THE DEGENERACY AT THE POINT OF CHOICE. No behaviour change whatsoever: two
+# comment/help-text edits. It is a stage rather than a loose edit because the thing it records is the
+# single most misreadable property of the switch, and a loose edit would not survive a revert cycle.
+#
+# THE DECISION THIS STAGE ENCODES. `abundance` stays the DEFAULT -- it is the conservative choice and
+# it is the one that reproduces the 21-resolution answer. `equal` is the SCIENCE configuration. The
+# degeneracy of `abundance` is REPORTED AS A FINDING, not hidden behind the default.
+#
+# THE FINDING. Nothing in the KINETICS distinguishes isoacceptors of the same family:
+# `KMtf_trna = A2T @ trna_kms[aa_charging_mask]` with a one-hot A2T is a per-family BROADCAST, so its
+# within-family spread is exactly 0.000e+00 -- structural, not measured-to-be-small. The consequence
+# is a fixed-point argument, not a numerical accident:
+#
+#   * The ODE assembles `np.hstack((-dtrna, dtrna, daa, ...))`, so du_i/dt = -dtrna_i and
+#     dc_i/dt = +dtrna_i and T_i = u_i + c_i is conserved EXACTLY, per species.
+#   * At the fixed point dtrna_i = 0, i.e. v_i = v_rib * f_i, and with KMtf broadcast
+#     v_i = (family_rate_a / KMtf_a) * u_i -- proportional to u_i.
+#   * Under 'abundance', f_i = f_a * T_i/T_a, so u_i is proportional to T_i; T_i is conserved, so
+#     c_i = T_i - u_i is proportional to T_i too and c_i/T_i is CONSTANT within the family. Uniform
+#     charged fraction BY CONSTRUCTION.
+#   * Under 'equal', f_i = f_a/n_a, so u_i is CONSTANT within the family and
+#     c_i/T_i = 1 - u_const/T_i inherits the T_i heterogeneity. Spread develops -- but it comes from
+#     POOL SIZES, still not from kinetics.
+#
+# MEASURED TWICE, real simulations, worst per-family spread over the 17 multi-member families -- a
+# 40 s run and an independent 20 s re-measurement from the production listener column:
+#
+#                      40 s       20 s
+#     family control   0.0        0.000e+00   (both splits)
+#     iso + abundance  2.79e-7    2.16e-7     (numerically zero)
+#     iso + equal      6.18e-2    6.63e-2
+#
+# The MAGNITUDE replicates; the per-family RANKING does not (40 s: GLY, LEU; 20 s: LYS, GLY, ALA), so
+# the stage records no family order. Kinetic-model reference at 120 s: GLY 0.372 / LEU 0.241, ~7x
+# larger than 'equal' produces.
+# ---------------------------------------------------------------------------------------------------
+
+MARKER_DEGEN = "ROUTE1 step 2 (stage 6): the abundance split's within-family degeneracy"
+
+# D1 -- the CLI help text. Anchors on the APPLIED form of stage 2's E4, which is why this stage must
+# revert BEFORE stage 2 does; `reversed(...)` in revert() gives that for free as long as DEGEN_EDITS
+# stays last in the concatenation.
+DG_CLI_OLD = (
+    "\t\tself.define_option(parser, 'trna_demand_split', str,\n"
+    "\t\t\tdefault='abundance',\n"
+    "\t\t\thelp=\"how per-amino-acid elongation demand is divided among a family's isoacceptors at\"\n"
+    "\t\t\t\t\" isoacceptor resolution: 'abundance' (default; an isoacceptor's share of demand is\"\n"
+    "\t\t\t\t\" its share of the family tRNA pool) or 'equal'. NOT determined by the knowledge\"\n"
+    "\t\t\t\t\" base -- TrnaCharging/reading_events sums to exactly 0.0 on every run on disk -- so\"\n"
+    "\t\t\t\t\" it is an explicit modelling choice. Measured resolution ratio r = D_86/D_21:\"\n"
+    "\t\t\t\t\" abundance 1.2713 (operons on) / 1.2423 (off), equal 1.3283 / 1.3195; gap ~4.5%.\"\n"
+    "\t\t\t\t\" Inert at family resolution.\")\n"
+)
+DG_CLI_NEW = (
+    "\t\t# ROUTE1 step 2 (stage 6): the abundance split's within-family degeneracy is stated in the\n"
+    "\t\t# help text itself, not only in docs/ROUTE1_VERIFICATION.md. Someone choosing a split at the\n"
+    "\t\t# command line must not have to rediscover that the DEFAULT cannot produce within-family\n"
+    "\t\t# spread -- that is a property of the fixed point, not a small number that might grow.\n"
+    "\t\tself.define_option(parser, 'trna_demand_split', str,\n"
+    "\t\t\tdefault='abundance',\n"
+    "\t\t\thelp=\"how per-amino-acid elongation demand is divided among a family's isoacceptors at\"\n"
+    "\t\t\t\t\" isoacceptor resolution. 'abundance' is the DEFAULT and the conservative choice (an\"\n"
+    "\t\t\t\t\" isoacceptor's share of demand is its share of the family tRNA pool); 'equal' is the\"\n"
+    "\t\t\t\t\" SCIENCE configuration. NOT determined by the knowledge base --\"\n"
+    "\t\t\t\t\" TrnaCharging/reading_events sums to exactly 0.0 on every run on disk -- so it is an\"\n"
+    "\t\t\t\t\" explicit modelling choice. READ BEFORE CHOOSING: at 'abundance' the within-family\"\n"
+    "\t\t\t\t\" charged fraction is UNIFORM BY CONSTRUCTION, not merely small. KMtf_trna is\"\n"
+    "\t\t\t\t\" broadcast per family (within-family spread exactly 0.000e+00), so nothing in the\"\n"
+    "\t\t\t\t\" kinetics tells isoacceptors of a family apart; the fixed point then has u_i\"\n"
+    "\t\t\t\t\" proportional to T_i = u_i + c_i, which the ODE conserves exactly, so c_i/T_i is\"\n"
+    "\t\t\t\t\" constant inside a family. Under 'equal' u_i is constant instead and c_i/T_i\"\n"
+    "\t\t\t\t\" inherits the T_i heterogeneity -- spread from POOL SIZES, still not from kinetics.\"\n"
+    "\t\t\t\t\" MEASURED worst per-family spread over 17 multi-member families, real sims, twice:\"\n"
+    "\t\t\t\t\" family control exactly 0.0 (both splits); abundance 2.79e-7 at 40 s / 2.16e-7 at\"\n"
+    "\t\t\t\t\" 20 s (numerically zero); equal 6.18e-2 at 40 s / 6.63e-2 at 20 s. The MAGNITUDE\"\n"
+    "\t\t\t\t\" replicates; the per-family RANKING does NOT (40 s: GLY 5.13e-2, LEU 3.07e-2;\"\n"
+    "\t\t\t\t\" 20 s: LYS 6.63e-2, GLY 6.05e-2, ALA 4.06e-2), so do not cite a family order.\"\n"
+    "\t\t\t\t\" Kinetic-model reference at 120 s: GLY 0.372 / LEU 0.241 -- about 7x larger than\"\n"
+    "\t\t\t\t\" 'equal' produces. If you need within-family structure you must select 'equal';\"\n"
+    "\t\t\t\t\" the default will not give it to you. Measured resolution\"\n"
+    "\t\t\t\t\" ratio r = D_86/D_21: abundance 1.2713 (operons on) / 1.2423 (off), equal 1.3283 /\"\n"
+    "\t\t\t\t\" 1.3195; gap ~4.5%. Inert at family resolution.\")\n"
+)
+
+# D2 -- the same statement in the ROUTE1 comment block above get_charging_params, inserted BEFORE the
+# provenance caveat so the block still ends on what is unmeasured. Anchors on the last two lines of
+# BLOCK, so stage 1's revert (a literal replace of BLOCK) only matches again once this stage is undone
+# -- which the reverse-order revert loop guarantees.
+DG_BLOCK_OLD = (
+    "# CAVEAT ON PROVENANCE. Only 3 of the 8 ParCa trees on disk have charging-enabled output, and every\n"
+    "# charging run is 121 rows / 120 s of GENERATION 0 ONLY. Full-generation drift in r is UNMEASURED.\n"
+)
+DG_BLOCK_NEW = (
+    "# ROUTE1 step 2 (stage 6): the abundance split's within-family degeneracy -- REPORTED, NOT HIDDEN.\n"
+    "# 'abundance' remains the DEFAULT because it is conservative and reproduces the 21-resolution\n"
+    "# answer; 'equal' is the SCIENCE configuration. What the default cannot do is a structural fact:\n"
+    "#\n"
+    "#   Nothing in the KINETICS distinguishes isoacceptors of one family. KMtf_trna is built as\n"
+    "#   `A2T @ trna_kms[aa_charging_mask]` with a ONE-HOT A2T, i.e. a per-family BROADCAST, so its\n"
+    "#   within-family spread is exactly 0.000e+00 -- structural, not measured-to-be-small.\n"
+    "#\n"
+    "#   The ODE returns `np.hstack((-dtrna, dtrna, daa, ...))`, so du_i/dt = -dtrna_i and\n"
+    "#   dc_i/dt = +dtrna_i: T_i = u_i + c_i is conserved EXACTLY, per species. At the fixed point\n"
+    "#   dtrna_i = 0 gives v_i = v_rib*f_i, and with KMtf broadcast v_i = (family_rate_a/KMtf_a)*u_i,\n"
+    "#   proportional to u_i.\n"
+    "#\n"
+    "#     abundance: f_i = f_a * T_i/T_a  =>  u_i proportional to T_i  =>  c_i = T_i - u_i also\n"
+    "#       proportional to T_i  =>  c_i/T_i CONSTANT within the family. The charged fraction is\n"
+    "#       uniform BY CONSTRUCTION. It is not a finding about E. coli; it is the fixed point.\n"
+    "#     equal:     f_i = f_a/n_a  =>  u_i CONSTANT within the family  =>  c_i/T_i = 1 - u/T_i,\n"
+    "#       which inherits the T_i heterogeneity. Spread develops -- but from POOL SIZES, not from\n"
+    "#       kinetics. No configuration of this model makes kinetics discriminate isoacceptors.\n"
+    "#\n"
+    "# MEASURED TWICE, real simulations, worst per-family spread in GrowthLimits/fraction_trna_charged\n"
+    "# over the 17 multi-member families -- 40 s, and an independent 20 s re-measurement:\n"
+    "#\n"
+    "#                       40 s       20 s\n"
+    "#     family control    0.0        0.000e+00   (both splits: inert at family resolution)\n"
+    "#     iso + abundance   2.79e-7    2.16e-7     (numerically zero -- solver residual)\n"
+    "#     iso + equal       6.18e-2    6.63e-2\n"
+    "#\n"
+    "# THE MAGNITUDE REPLICATES; THE PER-FAMILY RANKING DOES NOT. 40 s put GLY 5.13e-2 and LEU 3.07e-2\n"
+    "# on top; 20 s puts LYS 6.63e-2, GLY 6.05e-2, ALA 4.06e-2, with LEU outside the top three. Do not\n"
+    "# cite a family order from this: it moves with run length, which is what a quantity driven by\n"
+    "# transient POOL SIZES rather than by a fixed parameter should do.\n"
+    "#\n"
+    "# Kinetic-model reference at 120 s: GLY 0.372 / LEU 0.241 -- about 7x larger than 'equal'\n"
+    "# produces. So 'equal' moves in the right direction and does not arrive. An earlier reading that\n"
+    "# 'equal' reproduces the kinetic model's RANK ORDERING did not survive the second measurement and\n"
+    "# is withdrawn; see docs/ROUTE1_VERIFICATION.md section 8.\n"
+    "#\n"
+    "# CAVEAT ON PROVENANCE. Only 3 of the 8 ParCa trees on disk have charging-enabled output, and every\n"
+    "# charging run is 121 rows / 120 s of GENERATION 0 ONLY. Full-generation drift in r is UNMEASURED.\n"
+)
+
+DEGEN_EDITS = (
+    (SB, DG_CLI_OLD, DG_CLI_NEW, 1, "scriptBase.py: --trna-demand-split help states the degeneracy"),
+    (REL, DG_BLOCK_OLD, DG_BLOCK_NEW, 1, "polypeptide_elongation.py: degeneracy in the ROUTE1 block"),
+)
+
+
+# ---------------------------------------------------------------------------------------------------
+# STAGE 7 -- the provenance caveat is now FALSE and must be corrected in place.
+#
+# Stages 1 and 6 both end the ROUTE1 block on "every charging run is 121 rows / 120 s of GENERATION 0
+# ONLY". That was true when it was written. It is not true now: a 3 arms x 3 seeds x 3 full
+# generations matrix (27 cells, real divisions, all exit 0, no NaN) exists on disk. Leaving the old
+# sentence there is exactly the silent-stale-fact failure this file's discipline exists to prevent --
+# a reader would re-derive a limitation that has been closed, or worse, trust it.
+#
+# The replacement does NOT simply claim the caveat is gone. It records what the matrix covered and,
+# separately, what it did NOT: r-drift itself was never measured across generations, so that clause
+# survives verbatim. Comment text only; no behaviour change.
+#
+# Anchors on the two caveat lines, which are the applied form of stage 6 (they are the tail of
+# DG_BLOCK_NEW). Stage 7 must therefore revert BEFORE stage 6, which the reverse-order revert loop
+# gives for free as long as GEN_EDITS stays last in the concatenation.
+# ---------------------------------------------------------------------------------------------------
+
+MARKER_GEN = "ROUTE1 step 2 (stage 7): seeds AND generations -- the 3x3x3 matrix"
+
+GEN_BLOCK_OLD = DG_BLOCK_OLD
+GEN_BLOCK_NEW = (
+    "# ROUTE1 step 2 (stage 7): seeds AND generations -- the 3x3x3 matrix. The line that used to sit\n"
+    "# here (\"every charging run is 121 rows / 120 s of GENERATION 0 ONLY\") is NO LONGER TRUE and has\n"
+    "# been corrected rather than left to be re-derived.\n"
+    "#\n"
+    "# MEASURED: 3 arms (family control / isoacceptor+abundance / isoacceptor+equal) x 3 seeds (0,1,2)\n"
+    "# x 3 FULL generations to natural division -- 27 cells, 2499-3310 timesteps each (2498-3309 s),\n"
+    "# every cell wrote daughter state, mass ratio 1.70-2.53, all 9 chains exit 0, ZERO NaN in\n"
+    "# fraction_trna_charged / ppgpp_conc / rela_syn / instantaneous_growth_rate / cellMass. Generations\n"
+    "# 1-2 ran through SimulationDaughterTask, so they also verify the two switches survive the daughter\n"
+    "# path. Distribution of the worst-family spread PER TIMESTEP (a max over ~3000 steps is not a\n"
+    "# level), medians pooled over the 3 seeds of each generation:\n"
+    "#\n"
+    "#                       gen0       gen1       gen2      timesteps > 1e-2\n"
+    "#     family control    0.000e+00  0.000e+00  0.000e+00      0 of 24807\n"
+    "#     iso + abundance   4.7e-8     1.8e-7     2.7e-7         0 of 25493\n"
+    "#     iso + equal       5.2e-2     5.7e-2     6.6e-2     25931 of 25931\n"
+    "#\n"
+    "# The family control is EXACTLY zero at every one of ~24800 timesteps -- median, p99 and max alike.\n"
+    "# 'abundance' is numerically zero and never once exceeds 1e-2. 'equal' exceeds 1e-2 at EVERY\n"
+    "# timestep, and its median 5.2e-2..6.6e-2 brackets the earlier 6.18e-2 (40 s) / 6.63e-2 (20 s), so\n"
+    "# the magnitude claim now holds across seeds AND generations. Generation effect exists and is\n"
+    "# immaterial: abundance's median rises ~6x and equal's ~27% from gen0 to gen2.\n"
+    "#\n"
+    "# THE PER-FAMILY RANKING IS STILL NOT ESTABLISHED -- it now moves by GENERATION as well as by run\n"
+    "# length (gen0 LYS 7.27e-2, gen1 ALA 8.93e-2, gen2 LEU 7.38e-1), which strengthens the withdrawal\n"
+    "# above rather than weakening it.\n"
+    "#\n"
+    "# BETWEEN-ARM DIFFERENCES IN GROWTH ARE CHAOS, NOT EFFECT, and this was measured rather than\n"
+    "# assumed. Mean doubling times of 46.0 / 50.3 / 49.9 min invite the reading that isoacceptor\n"
+    "# resolution slows the cell. Step-by-step, 'abundance' is EXACTLY equal to the family control for\n"
+    "# the first two timesteps and departs at 2e-10 -- the shared-synthetase reduction holding in\n"
+    "# production -- then amplifies to 3.0e-2 (seed 0) and 1.1e-1 (seed 2) over ~3000 steps. With n = 3\n"
+    "# seeds those arm differences are NOT evidence of a systematic effect of the switch.\n"
+    "#\n"
+    "# WHAT REMAINS UNMEASURED, stated so it is not assumed closed: only 3 of the 8 ParCa trees on disk\n"
+    "# have charging-enabled output; the matrix is --trna-charging (SteadyState + ppGpp) ONLY, so the\n"
+    "# ROUTE1-21 occupancy A/B and the r measurements above are STILL generation-0 only; and\n"
+    "# full-generation drift in r ITSELF was not measured here -- the matrix measured spread, growth,\n"
+    "# ppGpp and relA, not r. See docs/ROUTE1_VERIFICATION.md section 9.5.\n"
+)
+
+GEN_EDITS = (
+    (REL, GEN_BLOCK_OLD, GEN_BLOCK_NEW, 1,
+     "polypeptide_elongation.py: correct the now-false generation-0-only caveat"),
+)
+
+# ALL_EDITS is the single ordered list revert() walks (in reverse), so a stage can never be applied by
+# run() and forgotten by revert(). DEGEN_EDITS stays LAST: it anchors on text stages 1 and 2 wrote.
+#
+# EDIT_GROUPS is the same edits carved into STAGES, which run() needs and revert() does not. run()
+# must be able to skip a stage WHOLESALE, because per-edit "is the applied form present?" idempotence
+# is unsound across stages that rewrite each other -- stage 5 rewrites regions stage 4 introduced, so
+# several stage-4 applied forms genuinely do not survive into a fully-applied tree. GROUP_STATUS_KEYS
+# maps each group to the status() keys that must ALL be true for the group to count as applied; None
+# means "compute it", because stages 2 and 3 share the PLUMBING tuple and stage 2's keys are per file.
+EDIT_GROUPS = (
+    ("plumbing", PLUMBING),
+    ("rhs", RHS_EDITS),
+    ("widen", WIDEN_EDITS),
+    ("degeneracy", DEGEN_EDITS),
+    ("generations", GEN_EDITS),
+)
+
+GROUP_STATUS_KEYS = {
+    "plumbing": None,
+    "rhs": ("rhs",),
+    "widen": ("widen",),
+    "degeneracy": ("degeneracy_cli", "degeneracy_block"),
+    "generations": ("generations_block",),
+}
+
+ALL_EDITS = tuple(e for _gname, _edits in EDIT_GROUPS for e in _edits)
+
+# The two views must not drift apart: an edit reachable by run() but not by revert() would be applied
+# and never undone, which is precisely the failure the marker/revert discipline exists to prevent.
+assert set(GROUP_STATUS_KEYS) == {_g for _g, _e in EDIT_GROUPS}, (
+    "EDIT_GROUPS and GROUP_STATUS_KEYS disagree about which stages exist")
+assert ALL_EDITS == PLUMBING + RHS_EDITS + WIDEN_EDITS + DEGEN_EDITS + GEN_EDITS, (
+    "EDIT_GROUPS does not reproduce the apply order revert() reverses")
+
 # Guard against an accidental re-indent of the constants above: wcEcoli is tab-indented throughout,
 # and a stray space-indented line would apply cleanly and then fail to parse inside the model image.
-for _rel, _old, _new, _n, _label in RHS_EDITS + WIDEN_EDITS:
+for _rel, _old, _new, _n, _label in RHS_EDITS + WIDEN_EDITS + DEGEN_EDITS + GEN_EDITS:
     for _line in (_old + _new).split("\n"):
         if _line.startswith(" "):
             raise AssertionError("space-indented line in RHS constants: {!r}".format(_line))
@@ -1139,6 +1405,34 @@ assert any(MARKER_WIDEN in _new for _rel, _old, _new, _n, _label in WIDEN_EDITS)
     "MARKER_WIDEN does not appear in any stage-5 replacement text")
 assert not any(MARKER_WIDEN in _old for _rel, _old, _new, _n, _label in WIDEN_EDITS), (
     "MARKER_WIDEN appears in stage-5 ANCHOR text; status() could never report unapplied")
+
+# Stage 6, same discipline. It lands in TWO files, and status() reports each separately, so require
+# the marker in the applied form of BOTH edits -- a marker present in only one would let a
+# half-applied stage read as fully applied, the same bug the per-file plumbing keys once had.
+assert all(MARKER_DEGEN in _new for _rel, _old, _new, _n, _label in DEGEN_EDITS), (
+    "MARKER_DEGEN is missing from at least one stage-6 replacement text")
+assert not any(MARKER_DEGEN in _old for _rel, _old, _new, _n, _label in DEGEN_EDITS), (
+    "MARKER_DEGEN appears in stage-6 ANCHOR text; status() could never report unapplied")
+# The stage-6 anchors are the APPLIED forms of earlier stages. Assert that relationship here rather
+# than discovering it as a mid-apply "found 0 occurrences": DG_CLI_OLD must be exactly what stage 2
+# writes, and DG_BLOCK_OLD must be text that BLOCK actually contains.
+assert DG_CLI_OLD in SB_OPT_NEW, (
+    "DG_CLI_OLD is not the applied form of stage 2's CLI edit; stage 6 could never anchor")
+assert DG_BLOCK_OLD in BLOCK, (
+    "DG_BLOCK_OLD is not present in BLOCK; stage 6 could never anchor")
+
+# Stage 7, same discipline as 5 and 6.
+assert all(MARKER_GEN in _new for _rel, _old, _new, _n, _label in GEN_EDITS), (
+    "MARKER_GEN is missing from stage-7 replacement text")
+assert not any(MARKER_GEN in _old for _rel, _old, _new, _n, _label in GEN_EDITS), (
+    "MARKER_GEN appears in stage-7 ANCHOR text; status() could never report unapplied")
+# Stage 7 anchors on the TAIL of stage 6's applied text. Assert that relationship here rather than
+# discovering it as a mid-apply "found 0 occurrences" -- and assert it against BLOCK too, so the
+# stage still anchors on a tree where stage 6 has been reverted but stage 1 has not.
+assert GEN_BLOCK_OLD in DG_BLOCK_NEW, (
+    "GEN_BLOCK_OLD is not the tail of stage 6's applied block; stage 7 could never anchor")
+assert GEN_BLOCK_OLD in BLOCK, (
+    "GEN_BLOCK_OLD is not present in BLOCK; stage 7 could never anchor on a stage-6-reverted tree")
 
 
 def _read(path: str) -> tuple[str, str]:
@@ -1184,6 +1478,14 @@ def status(wcecoli: str) -> dict:
     # Stage 5 lands in the SAME file as stages 1-4 and edits regions stage 4 created, so it needs its
     # own marker for the same reason as every stage before it.
     st["widen"] = MARKER_WIDEN in pe_txt
+    # Stage 6 lands in TWO files and is reported per file, for the same reason stage 2 is: a
+    # half-applied documentation stage (help text updated, comment block not) must read as partial.
+    sb_txt = _read(os.path.join(wcecoli, SB))[0] if os.path.isfile(os.path.join(wcecoli, SB)) else ""
+    st["degeneracy_cli"] = MARKER_DEGEN in sb_txt
+    st["degeneracy_block"] = MARKER_DEGEN in pe_txt
+    # Stage 7 rewrites the tail of the block stage 6 wrote, in the SAME file every stage since 1 has
+    # touched, so it needs its own marker for the same reason as all of them.
+    st["generations_block"] = MARKER_GEN in pe_txt
     return st
 
 
@@ -1209,29 +1511,47 @@ def run(wcecoli: str, check: bool = False) -> dict:
         _write(path, txt)
         wrote.append(f"{REL}: ROUTE1 resolution/demand-split comment block above get_charging_params")
 
-    # STAGES 2-5. Each edit states how many occurrences it expects and refuses to proceed on any
+    # STAGES 2-6. Each edit states how many occurrences it expects and refuses to proceed on any
     # other count, so a file that has drifted fails loudly instead of being patched blind or
     # silently skipped. Stages 4 and 5 ride the same loop deliberately: they get the same
     # anchor-count discipline for free, and each applies after the text it anchors on exists --
     # stage 4 after the params dict it reads, stage 5 after the RHS branch it widens.
-    for rel, old, new, n_expected, label in PLUMBING + RHS_EDITS + WIDEN_EDITS:
-        p = os.path.join(wcecoli, rel)
-        if not os.path.isfile(p):
-            return {"complete": False, "wrote": wrote, "status": status(wcecoli),
-                    "why": f"{rel} not found under {wcecoli}"}
-        t, n2 = _read(p)
-        # Idempotence is judged per EDIT by content, never per file by marker: two edits land in
-        # simulation.py, and a file-level marker check would skip the second one the moment the
-        # first applied. That bug is why this comment exists.
-        o, w = _norm(old, n2), _norm(new, n2)
-        if w in t:
+    #
+    # GROUP-LEVEL SKIP, and the bug that forced it. Per-EDIT idempotence ("is the applied form
+    # present verbatim?") stops being sound the moment one stage REWRITES text an earlier stage
+    # introduced -- which is exactly what stage 5 does to stage 4. On a fully stage-1..5 tree several
+    # stage-4 applied forms no longer exist verbatim, so the loop hit `found 0 -- refusing to guess`
+    # on RHS_INIT and could not reach a later stage at all. It stayed invisible only because
+    # `all(st.values())` short-circuited above; adding stage 6 removed that mask and the defect
+    # surfaced immediately. The fix is to skip a whole EDIT GROUP that status() already reports
+    # applied, and to keep the per-edit content check for any group that is NOT -- so a half-applied
+    # group still gets edit-by-edit anchor counting rather than a blind pass.
+    for gname, edits in EDIT_GROUPS:
+        keys = GROUP_STATUS_KEYS[gname]
+        if keys is None:
+            # Stages 2 and 3 share one edit tuple, so the group is "applied" only when every marker
+            # they introduce is present -- every per-file plumbing key AND the two stage-3 markers.
+            keys = tuple(k for k in st if k.startswith("plumbing_")) + ("params_dict", "forwarding")
+        if keys and all(st.get(k) for k in keys):
             continue
-        if t.count(o) != n_expected:
-            return {"complete": False, "wrote": wrote, "status": status(wcecoli),
-                    "why": f"{rel}: expected exactly {n_expected} occurrence(s) of "
-                           f"{old.strip()[:60]!r}, found {t.count(o)} — refusing to guess"}
-        _write(p, t.replace(o, w, n_expected))
-        wrote.append(label)
+        for rel, old, new, n_expected, label in edits:
+            p = os.path.join(wcecoli, rel)
+            if not os.path.isfile(p):
+                return {"complete": False, "wrote": wrote, "status": status(wcecoli),
+                        "why": f"{rel} not found under {wcecoli}"}
+            t, n2 = _read(p)
+            # Idempotence is judged per EDIT by content, never per file by marker: two edits land in
+            # simulation.py, and a file-level marker check would skip the second one the moment the
+            # first applied. That bug is why this comment exists.
+            o, w = _norm(old, n2), _norm(new, n2)
+            if w in t:
+                continue
+            if t.count(o) != n_expected:
+                return {"complete": False, "wrote": wrote, "status": status(wcecoli),
+                        "why": f"{rel}: expected exactly {n_expected} occurrence(s) of "
+                               f"{old.strip()[:60]!r}, found {t.count(o)} — refusing to guess"}
+            _write(p, t.replace(o, w, n_expected))
+            wrote.append(label)
 
     st2 = status(wcecoli)
     return {"complete": all(v for k, v in st2.items() if k != "present"), "status": st2, "wrote": wrote}
@@ -1248,11 +1568,13 @@ def revert(wcecoli: str) -> dict:
         return {"complete": False, "wrote": [], "why": f"{REL} not found under {wcecoli}"}
     wrote = []
 
-    # STAGES 5, 4, 3, 2 then 1 -- the reverse of the order run() applies them. The ordering stopped
+    # STAGES 6, 5, 4, 3, 2 then 1 -- the reverse of the order run() applies them. The ordering stopped
     # being cosmetic at stage 5: several of its anchors are text stage 4 INTRODUCED (the uniform pool
     # expansion, the T2A aggregation, the dcdt call), so reverting stage 4 first would leave stage 5
-    # unmatched and the tree half-patched. Reverse order is now load-bearing, not symmetry.
-    for rel, old, new, n_expected, label in reversed(PLUMBING + RHS_EDITS + WIDEN_EDITS):
+    # unmatched and the tree half-patched. Stage 6 makes it doubly load-bearing: it rewrites stage 2's
+    # CLI help text and inserts into stage 1's comment BLOCK, and stage 1's revert is a literal
+    # replace of BLOCK that matches nothing until stage 6 is undone. Reverse order, not symmetry.
+    for rel, old, new, n_expected, label in reversed(ALL_EDITS):
         p = os.path.join(wcecoli, rel)
         if not os.path.isfile(p):
             return {"complete": False, "wrote": wrote, "why": f"{rel} not found under {wcecoli}"}
