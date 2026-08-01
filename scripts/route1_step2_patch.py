@@ -102,6 +102,108 @@ BLOCK = '''
 '''
 
 
+# ---------------------------------------------------------------------------------------------------
+# STAGE 2 -- switch plumbing. Four files, five edits, no behaviour change: the defaults reproduce
+# today exactly. The point of the stage is that the choice becomes RECORDED (metadata.json) and
+# VALIDATED (ValueError on anything unrecognised), never silently defaulted.
+# ---------------------------------------------------------------------------------------------------
+
+SIM = "wholecell/sim/simulation.py"
+SB = "wholecell/utils/scriptBase.py"
+
+MARKER_PLUMBING = "ROUTE1 step 2: tRNA charging resolution"
+
+# E1 -- the two kwargs, placed next to the flag they qualify so they are read together.
+SIM_KW_OLD = "\ttrna_charging = True,\n"
+SIM_KW_NEW = (
+    "\ttrna_charging = True,\n"
+    "\t# ROUTE1 step 2: tRNA charging resolution, and how within-family demand is split.\n"
+    "\t# Defaults reproduce the pre-ROUTE1 behaviour exactly: 'family' is 21-amino-acid\n"
+    "\t# resolution, and the split is inert at that resolution. Validated in __init__ --\n"
+    "\t# an unrecognised value raises rather than silently falling back.\n"
+    "\ttrna_charging_resolution = 'family',\n"
+    "\ttrna_demand_split = 'abundance',\n"
+)
+
+# E2 -- validation, immediately after the generic setattr loop that creates self._<kwarg>.
+SIM_VAL_OLD = '\t\t\tsetattr(self, "_" + attrName, value)\n'
+SIM_VAL_NEW = (
+    '\t\t\tsetattr(self, "_" + attrName, value)\n'
+    "\n"
+    "\t\t# ROUTE1 step 2: validate the resolution/split strings HERE, at the single point where they\n"
+    "\t\t# enter the simulation, rather than at each use. A typo must stop the run: silently falling\n"
+    "\t\t# back to a default would produce a run whose shell history says one thing and whose\n"
+    "\t\t# metadata says another, which is the exact failure this switch exists to prevent.\n"
+    "\t\t_allowed_resolution = ('family', 'isoacceptor')\n"
+    "\t\t_allowed_split = ('abundance', 'equal')\n"
+    "\t\tif self._trna_charging_resolution not in _allowed_resolution:\n"
+    "\t\t\traise ValueError('trna_charging_resolution must be one of {}, got {!r}'.format(\n"
+    "\t\t\t\t_allowed_resolution, self._trna_charging_resolution))\n"
+    "\t\tif self._trna_demand_split not in _allowed_split:\n"
+    "\t\t\traise ValueError('trna_demand_split must be one of {}, got {!r}'.format(\n"
+    "\t\t\t\t_allowed_split, self._trna_demand_split))\n"
+    "\t\t# Isoacceptor resolution only means anything inside the steady-state charging ODE. Forcing\n"
+    "\t\t# it back rather than ignoring it keeps metadata honest about what actually ran -- the same\n"
+    "\t\t# reason the elongation flags are resolved rather than left independent just below.\n"
+    "\t\tif not self._trna_charging and self._trna_charging_resolution != 'family':\n"
+    "\t\t\tprint('Note: --trna-charging-resolution is only meaningful with --trna-charging;'\n"
+    "\t\t\t\t' forcing it to family.')\n"
+    "\t\t\tself._trna_charging_resolution = 'family'\n"
+)
+
+# E3 -- METADATA_KEYS and SIM_KEYS. BOTH lists carry "'trna_charging'," on its own line, and both
+# need the two new names: METADATA_KEYS is what puts them in metadata.json (the whole point of the
+# switch being recorded), and SIM_KEYS is what passes them through -- data.select_keys does
+# mapping[key] with NO default, so omitting them there KeyErrors every sim invocation.
+SB_KEYS_OLD = "\t'trna_charging',\n"
+SB_KEYS_NEW = ("\t'trna_charging',\n"
+               "\t# ROUTE1 step 2: tRNA charging resolution, recorded per run in metadata.json.\n"
+               "\t'trna_charging_resolution',\n"
+               "\t'trna_demand_split',\n")
+
+# E4 -- the CLI options. Deliberately plain string parameters validated in simulation.py rather than
+# argparse choices=, so there is ONE enforcement point and one error message.
+SB_OPT_OLD = (
+    "\t\tadd_bool_option('kinetic_trna_charging', 'kinetic_trna_charging',\n"
+)
+SB_OPT_NEW = (
+    "\t\tself.define_parameter(parser, 'trna_charging_resolution', str,\n"
+    "\t\t\tdefault='family',\n"
+    "\t\t\thelp=\"resolution of the tRNA charging ODE: 'family' (21 amino acids, the default and\"\n"
+    "\t\t\t\t\" the pre-ROUTE1 behaviour) or 'isoacceptor' (85 charging-masked tRNA species of 86;\"\n"
+    "\t\t\t\t\" selC excluded). Only meaningful with --trna-charging.\")\n"
+    "\t\tself.define_parameter(parser, 'trna_demand_split', str,\n"
+    "\t\t\tdefault='abundance',\n"
+    "\t\t\thelp=\"how per-amino-acid elongation demand is divided among a family's isoacceptors at\"\n"
+    "\t\t\t\t\" isoacceptor resolution: 'abundance' (default; an isoacceptor's share of demand is\"\n"
+    "\t\t\t\t\" its share of the family tRNA pool) or 'equal'. NOT determined by the knowledge\"\n"
+    "\t\t\t\t\" base -- TrnaCharging/reading_events sums to exactly 0.0 on every run on disk -- so\"\n"
+    "\t\t\t\t\" it is an explicit modelling choice. Measured resolution ratio r = D_86/D_21:\"\n"
+    "\t\t\t\t\" abundance 1.2713 (operons on) / 1.2423 (off), equal 1.3283 / 1.3195; gap ~4.5%.\"\n"
+    "\t\t\t\t\" Inert at family resolution.\")\n"
+    "\t\tadd_bool_option('kinetic_trna_charging', 'kinetic_trna_charging',\n"
+)
+
+# E5 -- read them in the process, alongside the existing flag reads. getattr-with-default so a
+# sim_data/Simulation built by older code still works.
+PE_READ_OLD = "\t\tself.coarse_kinetic_elongation = coarse_kinetic_elongation\n"
+PE_READ_NEW = (
+    "\t\tself.coarse_kinetic_elongation = coarse_kinetic_elongation\n"
+    "\t\t# ROUTE1 step 2: tRNA charging resolution and the within-family demand split. Defaults\n"
+    "\t\t# match the pre-ROUTE1 behaviour, so a Simulation built by older code is unaffected.\n"
+    "\t\tself.trna_charging_resolution = getattr(sim, '_trna_charging_resolution', 'family')\n"
+    "\t\tself.trna_demand_split = getattr(sim, '_trna_demand_split', 'abundance')\n"
+)
+
+PLUMBING = (
+    (SIM, SIM_KW_OLD, SIM_KW_NEW, 1, "simulation.py: resolution/split kwargs"),
+    (SIM, SIM_VAL_OLD, SIM_VAL_NEW, 1, "simulation.py: validation + family forcing"),
+    (SB, SB_KEYS_OLD, SB_KEYS_NEW, 2, "scriptBase.py: METADATA_KEYS + SIM_KEYS"),
+    (SB, SB_OPT_OLD, SB_OPT_NEW, 1, "scriptBase.py: CLI options"),
+    (REL, PE_READ_OLD, PE_READ_NEW, 1, "polypeptide_elongation.py: read the two switches"),
+)
+
+
 def _read(path: str) -> tuple[str, str]:
     with io.open(path, encoding="utf-8", newline="") as fh:
         txt = fh.read()
@@ -122,7 +224,14 @@ def status(wcecoli: str) -> dict:
     if not os.path.isfile(path):
         return {"present": False, "resolution_block": False}
     txt, _ = _read(path)
-    return {"present": True, "resolution_block": MARKER_BLOCK in txt}
+    st = {"present": True, "resolution_block": MARKER_BLOCK in txt}
+    # Stage 2 reports per FILE, not as one boolean, so a half-applied plumbing pass (say scriptBase
+    # edited but simulation.py not) reads as partial rather than done.
+    for rel in (SIM, SB, REL):
+        p = os.path.join(wcecoli, rel)
+        st["plumbing_" + os.path.basename(rel)] = (
+            os.path.isfile(p) and MARKER_PLUMBING in _read(p)[0])
+    return st
 
 
 def run(wcecoli: str, check: bool = False) -> dict:
@@ -141,11 +250,36 @@ def run(wcecoli: str, check: bool = False) -> dict:
         return {"complete": False, "wrote": [], "status": st,
                 "why": f"expected exactly 1 {ANCHOR.strip()!r} in {REL}, found {txt.count(anchor)} "
                        f"— refusing to guess placement"}
-    txt = txt.replace(anchor, _norm(BLOCK, nl).lstrip(nl) + anchor, 1)
-    _write(path, txt)
+    wrote = []
+    if not st["resolution_block"]:
+        txt = txt.replace(anchor, _norm(BLOCK, nl).lstrip(nl) + anchor, 1)
+        _write(path, txt)
+        wrote.append(f"{REL}: ROUTE1 resolution/demand-split comment block above get_charging_params")
+
+    # STAGE 2 -- switch plumbing. Each edit states how many occurrences it expects and refuses to
+    # proceed on any other count, so a file that has drifted fails loudly instead of being patched
+    # blind or silently skipped.
+    for rel, old, new, n_expected, label in PLUMBING:
+        p = os.path.join(wcecoli, rel)
+        if not os.path.isfile(p):
+            return {"complete": False, "wrote": wrote, "status": status(wcecoli),
+                    "why": f"{rel} not found under {wcecoli}"}
+        t, n2 = _read(p)
+        # Idempotence is judged per EDIT by content, never per file by marker: two edits land in
+        # simulation.py, and a file-level marker check would skip the second one the moment the
+        # first applied. That bug is why this comment exists.
+        o, w = _norm(old, n2), _norm(new, n2)
+        if w in t:
+            continue
+        if t.count(o) != n_expected:
+            return {"complete": False, "wrote": wrote, "status": status(wcecoli),
+                    "why": f"{rel}: expected exactly {n_expected} occurrence(s) of "
+                           f"{old.strip()[:60]!r}, found {t.count(o)} — refusing to guess"}
+        _write(p, t.replace(o, w, n_expected))
+        wrote.append(label)
+
     st2 = status(wcecoli)
-    return {"complete": all(st2.values()), "status": st2,
-            "wrote": [f"{REL}: ROUTE1 resolution/demand-split comment block above get_charging_params"]}
+    return {"complete": all(v for k, v in st2.items() if k != "present"), "status": st2, "wrote": wrote}
 
 
 def revert(wcecoli: str) -> dict:
