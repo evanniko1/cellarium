@@ -27,9 +27,19 @@ STAGES APPLIED SO FAR:
      constant, explains why no pin is required, and carries the provenance caveat that every
      charging run on disk is generation 0 only. No behaviour change.
 
-STAGES NOT YET APPLIED: switch plumbing (simulation.py defaults + scriptBase CLI/METADATA_KEYS/
-SIM_KEYS), the params-dict additions (T2A/A2T/KMtf_trna/trna_charging_mask), the 85-resolution RHS
-with the aggregate-then-rescale clamp, and the listener widening.
+  2. SWITCH PLUMBING — simulation.py kwargs + validation, scriptBase CLI/METADATA_KEYS/SIM_KEYS,
+     both Fireworks firetask allow-lists, and the two flag reads in the Process. No behaviour
+     change: the defaults reproduce today exactly, but the choice becomes recorded and validated.
+  3. PARAMS DICT — T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, additive only.
+  4. THE 85-RESOLUTION RHS — `dcdt_jit_iso` and `clamp_charging_shared`, plus the resolution branch
+     in `calculate_trna_charging`. `dcdt_jit` is NOT touched, so the family path is bit-identical by
+     inspection rather than by argument. Charging runs at 85 with one shared synthetase denominator
+     per family; the clamp is aggregate-then-rescale; u_i and c_i are aggregated back to families
+     inside the RHS so v_rib stays at 21 and r == 1 by construction.
+
+STAGES NOT YET APPLIED: widening the CALLERS to pass genuinely per-isoacceptor pools (until that
+lands the isoacceptor path reproduces the family answer — see the comment at the pool expansion),
+and the listener widening.
 
     python scripts/route1_step2_patch.py --wcecoli C:/dev/wcEcoli [--check] [--revert]
 """
@@ -303,6 +313,354 @@ PLUMBING = (
 )
 
 
+# ---------------------------------------------------------------------------------------------------
+# STAGE 4 -- the 85-resolution right-hand side.
+#
+# FOUR edits, all in polypeptide_elongation.py, plus two new @njit kernels. The shape of the stage is
+# dictated by acceptance item A: the family path must be BIT-IDENTICAL, so every existing line that
+# runs at family resolution is reproduced VERBATIM inside an `else:` branch rather than parameterised.
+# Parameterising (`n_state_trna` in place of `n_aas_masked`, say) would be equal in value and shorter,
+# but it would make bit-identity an argument instead of an inspection.
+#
+# WHAT RUNS AT WHICH RESOLUTION, and why:
+#   * charging (v_i)               85 -- one synthetase pool per FAMILY, so the denominator carries a
+#                                        SUM over the family. With KMtf broadcast per family that
+#                                        collapses to the 21-form denominator identically, which is
+#                                        what makes the reduction exact for arbitrary splits.
+#   * the amino-acid clamp          85 -- but AGGREGATE-then-rescale, never elementwise fmin.
+#   * ribosome denominator, v_rib   21 -- u_i and c_i are aggregated back to families INSIDE the RHS
+#                                        before it is formed. r == 1 by construction; nothing to pin.
+#   * v_charging as RETURNED        20 -- aggregated, so the closure's `daa[mask] = v_supply[mask] -
+#                                        v_charging` at the call site needs no edit at all.
+#   * everything after integration  21 -- the pools are aggregated straight after negative_check, so
+#                                        fraction_charged, the post-integration ribosome denominator
+#                                        and the second v_rib clamp are the unchanged 21 arithmetic.
+#
+# NUMBA ROUTE TAKEN: manual accumulation over a precomputed int64 family-index array, NOT T2A @ u.
+# Measured: both kernels compile nopython under numba 0.66.0 / numpy 2.4.6. The index route was
+# chosen on merit rather than as a fallback -- the map is one-hot, so accumulation is O(85) rather
+# than O(20*85), it needs no C-contiguity contract inside the kernel, and it cannot silently
+# mis-broadcast the way a matmul against a transposed view can.
+# ---------------------------------------------------------------------------------------------------
+
+MARKER_RHS = "ROUTE1 step 2: isoacceptor right-hand side"
+
+# R1 -- the dcdt closure's call site. The `else` branch is the ORIGINAL four lines byte for byte,
+# including the trailing space after `mask,` on the first of them.
+RHS_CALL_OLD = (
+	"\t\tv_charging, dtrna, daa = dcdt_jit(t, c, n_aas_masked, n_aas, mask, \n"
+	"\t\t\tparams['kS'], synthetase_conc, params['KMaa'], params['KMtf'],\n"
+	"\t\t\tf, params['krta'], params['krtf'], params['max_elong_rate'],\n"
+	"\t\t\tribosome_conc, limit_v_rib, aa_rate_limit, v_rib_max)\n"
+)
+RHS_CALL_NEW = (
+	"\t\tif iso:\n"
+	"\t\t\t# 85-resolution kernel. It returns v_charging ALREADY AGGREGATED to the 20 charging-masked\n"
+	"\t\t\t# amino acids, which is why the supply branch below needs no edit: `daa[mask] = ...` is\n"
+	"\t\t\t# still a 20-vector assignment. dtrna is the only return that changes shape.\n"
+	"\t\t\tv_charging, dtrna, daa = dcdt_jit_iso(t, c, n_trna, n_aas, mask,\n"
+	"\t\t\t\tparams['kS'], synthetase_conc, params['KMaa'], KMtf_trna,\n"
+	"\t\t\t\tf, params['krta'], params['krtf'], params['max_elong_rate'],\n"
+	"\t\t\t\tribosome_conc, limit_v_rib, aa_rate_limit, v_rib_max,\n"
+	"\t\t\t\ttrna_to_aa_index, n_trna_per_aa, equal_split)\n"
+	"\t\telse:\n"
+	"\t\t\tv_charging, dtrna, daa = dcdt_jit(t, c, n_aas_masked, n_aas, mask, \n"
+	"\t\t\t\tparams['kS'], synthetase_conc, params['KMaa'], params['KMtf'],\n"
+	"\t\t\t\tf, params['krta'], params['krtf'], params['max_elong_rate'],\n"
+	"\t\t\t\tribosome_conc, limit_v_rib, aa_rate_limit, v_rib_max)\n"
+)
+
+# R2 -- resolution setup and the initial condition.
+RHS_INIT_OLD = (
+	"\tv_rib_max = max(0, ((aa_rate_limit + trna_rate_limit) / f).min())\n"
+	"\n"
+	"\t# Integrate rates of charging and elongation\n"
+	"\tc_init = np.hstack((original_uncharged_trna_conc, original_charged_trna_conc,\n"
+	"\t\taa_conc, np.zeros(n_aas), np.zeros(n_aas), np.zeros(n_aas)))\n"
+)
+RHS_INIT_NEW = (
+	"\tv_rib_max = max(0, ((aa_rate_limit + trna_rate_limit) / f).min())\n"
+	"\n"
+	"\t# ROUTE1 step 2 -- resolution setup. Everything above this line is per AMINO ACID and STAYS\n"
+	"\t# per amino acid: aa_rate_limit and v_rib_max are the family limits, and they are exactly what\n"
+	"\t# the 85-resolution clamp is applied against. Only the tRNA pools are re-resolved.\n"
+	"\tiso = params.get('trna_resolution', 'family') == 'isoacceptor'\n"
+	"\tif iso:\n"
+	"\t\tif use_disabled_aas:\n"
+	"\t\t\t# T2A has one row per CHARGING-MASKED amino acid, so a run that re-enables the disabled\n"
+	"\t\t\t# ones has no isoacceptor map to use. Raise rather than quietly fall back to family: a\n"
+	"\t\t\t# silent fall back yields a run whose metadata says isoacceptor and whose numbers say\n"
+	"\t\t\t# family, which is the single failure this switch exists to prevent.\n"
+	"\t\t\traise ValueError('use_disabled_aas is not supported at isoacceptor resolution')\n"
+	"\t\tT2A = params['T2A']\n"
+	"\t\tA2T = params['A2T']\n"
+	"\t\tn_trna_per_aa = params['n_trna_per_aa']\n"
+	"\t\tKMtf_trna = params['KMtf_trna']\n"
+	"\t\tn_trna = T2A.shape[1]\n"
+	"\t\tif T2A.shape[0] != n_aas_masked:\n"
+	"\t\t\traise ValueError('T2A has {} families but {} amino acids are charging-masked'.format(\n"
+	"\t\t\t\tT2A.shape[0], n_aas_masked))\n"
+	"\t\tif not np.array_equal(T2A.sum(0), np.ones(n_trna)):\n"
+	"\t\t\traise ValueError('T2A is not one-hot by column; the family index would be wrong')\n"
+	"\t\t# The family index of each isoacceptor. The @njit right-hand side accumulates over THIS\n"
+	"\t\t# rather than evaluating T2A @ u: the map is one-hot, so accumulation is O(85) instead of\n"
+	"\t\t# O(20*85), and the kernel then carries no C-contiguity contract for a 2D operand.\n"
+	"\t\ttrna_to_aa_index = np.ascontiguousarray(T2A.argmax(0).astype(np.int64))\n"
+	"\t\tequal_split = params.get('demand_split', 'abundance') == 'equal'\n"
+	"\t\t# Expand the incoming FAMILY pools to isoacceptors. This function's interface is still\n"
+	"\t\t# 21-vectors, so no within-family abundance reaches here and the expansion is uniform.\n"
+	"\t\t# That costs nothing in the aggregate and it is not a stand-in for a missing derivation:\n"
+	"\t\t# with KMtf broadcast per family the family-aggregated 85-form flux equals the 21-form for\n"
+	"\t\t# ARBITRARY within-family splits, so no split can move a 21-resolution output. The\n"
+	"\t\t# consequence is worth stating plainly -- until a later stage widens the CALLER to pass\n"
+	"\t\t# genuinely resolved pools, the isoacceptor path reproduces the family answer to solver\n"
+	"\t\t# tolerance. That is the intended, checkable intermediate state.\n"
+	"\t\tiso_uncharged_trna_conc = A2T @ (original_uncharged_trna_conc / n_trna_per_aa)\n"
+	"\t\tiso_charged_trna_conc = A2T @ (original_charged_trna_conc / n_trna_per_aa)\n"
+	"\n"
+	"\t# Integrate rates of charging and elongation\n"
+	"\tif iso:\n"
+	"\t\tc_init = np.hstack((iso_uncharged_trna_conc, iso_charged_trna_conc,\n"
+	"\t\t\taa_conc, np.zeros(n_aas), np.zeros(n_aas), np.zeros(n_aas)))\n"
+	"\telse:\n"
+	"\t\tc_init = np.hstack((original_uncharged_trna_conc, original_charged_trna_conc,\n"
+	"\t\t\taa_conc, np.zeros(n_aas), np.zeros(n_aas), np.zeros(n_aas)))\n"
+)
+
+# R3 -- unpacking the solution. The `else` branch is the original seven lines verbatim.
+RHS_POST_OLD = (
+	"\t# Determine new values from integration results\n"
+	"\tfinal_uncharged_trna_conc = c_sol[-1, :n_aas_masked]\n"
+	"\tfinal_charged_trna_conc = c_sol[-1, n_aas_masked:2*n_aas_masked]\n"
+	"\ttotal_synthesis = c_sol[-1, 2*n_aas_masked+n_aas:2*n_aas_masked+2*n_aas]\n"
+	"\ttotal_import = c_sol[-1, 2*n_aas_masked+2*n_aas:2*n_aas_masked+3*n_aas]\n"
+	"\ttotal_export = c_sol[-1, 2*n_aas_masked+3*n_aas:2*n_aas_masked+4*n_aas]\n"
+	"\n"
+	"\tnegative_check(final_uncharged_trna_conc, final_charged_trna_conc)\n"
+	"\tnegative_check(final_charged_trna_conc, final_uncharged_trna_conc)\n"
+)
+RHS_POST_NEW = (
+	"\t# Determine new values from integration results\n"
+	"\tif iso:\n"
+	"\t\t# The state lives at 85, so unpack it there and run negative_check per SPECIES -- aggregating\n"
+	"\t\t# first would hide a negative isoacceptor behind a positive family total, which is exactly\n"
+	"\t\t# the floating-point residue negative_check exists to catch. Then aggregate the pools back to\n"
+	"\t\t# 20, so every line below (fraction_charged, the ribosome denominator, the second v_rib\n"
+	"\t\t# clamp) is the unchanged 21-resolution arithmetic and r == 1 by construction.\n"
+	"\t\tfinal_uncharged_trna_conc = c_sol[-1, :n_trna]\n"
+	"\t\tfinal_charged_trna_conc = c_sol[-1, n_trna:2*n_trna]\n"
+	"\t\ttotal_synthesis = c_sol[-1, 2*n_trna+n_aas:2*n_trna+2*n_aas]\n"
+	"\t\ttotal_import = c_sol[-1, 2*n_trna+2*n_aas:2*n_trna+3*n_aas]\n"
+	"\t\ttotal_export = c_sol[-1, 2*n_trna+3*n_aas:2*n_trna+4*n_aas]\n"
+	"\n"
+	"\t\tnegative_check(final_uncharged_trna_conc, final_charged_trna_conc)\n"
+	"\t\tnegative_check(final_charged_trna_conc, final_uncharged_trna_conc)\n"
+	"\n"
+	"\t\tfinal_uncharged_trna_conc = T2A @ final_uncharged_trna_conc\n"
+	"\t\tfinal_charged_trna_conc = T2A @ final_charged_trna_conc\n"
+	"\telse:\n"
+	"\t\tfinal_uncharged_trna_conc = c_sol[-1, :n_aas_masked]\n"
+	"\t\tfinal_charged_trna_conc = c_sol[-1, n_aas_masked:2*n_aas_masked]\n"
+	"\t\ttotal_synthesis = c_sol[-1, 2*n_aas_masked+n_aas:2*n_aas_masked+2*n_aas]\n"
+	"\t\ttotal_import = c_sol[-1, 2*n_aas_masked+2*n_aas:2*n_aas_masked+3*n_aas]\n"
+	"\t\ttotal_export = c_sol[-1, 2*n_aas_masked+3*n_aas:2*n_aas_masked+4*n_aas]\n"
+	"\n"
+	"\t\tnegative_check(final_uncharged_trna_conc, final_charged_trna_conc)\n"
+	"\t\tnegative_check(final_charged_trna_conc, final_uncharged_trna_conc)\n"
+)
+
+# R4 -- the two new @njit kernels, inserted between dcdt_jit and get_charging_supply_function.
+# dcdt_jit itself is NOT touched: at family resolution it is still the function that runs, unedited.
+RHS_KERNEL_OLD = (
+	"\treturn v_charging, dtrna, daa\n"
+	"\n"
+	"def get_charging_supply_function(\n"
+)
+RHS_KERNEL_NEW = (
+	"\treturn v_charging, dtrna, daa\n"
+	"\n"
+	"@njit(error_model='numpy')\n"
+	"def clamp_charging_shared(v_trna, limit_aa, trna_to_aa_index, n_aas_masked):\n"
+	"\t'''\n"
+	"\tROUTE1 step 2: isoacceptor right-hand side -- the amino-acid rate clamp, at 85 resolution.\n"
+	"\n"
+	"\tdcdt_jit clamps the charging flux against the amino acid actually available with an elementwise\n"
+	"\tnp.fmin(v_charging, aa_rate_limit), which is exact while both sides are per amino acid. At\n"
+	"\tisoacceptor resolution the flux is per SPECIES and the limit stays per FAMILY, and the obvious\n"
+	"\tlift -- broadcast L_a to every isoacceptor and fmin elementwise -- is wrong twice over. First,\n"
+	"\tmin does not commute with the family sum,\n"
+	"\n"
+	"\t\tsum_i min(v_i, L_a)  !=  min(sum_i v_i, L_a),\n"
+	"\n"
+	"\tso it breaks the exact 85 -> 21 reduction. Second and worse, each of the family's n_a\n"
+	"\tisoacceptors is independently granted the FULL family limit, so the family can draw up to\n"
+	"\tn_a * L_a of an amino acid that only had L_a. MEASURED phantom capacity over 500 random binding\n"
+	"\tstates: median 2.73x, max 4.84x. limit_v_rib=True is the production request path, so the naive\n"
+	"\tlift would be wrong on the only path that runs.\n"
+	"\n"
+	"\tThe correct form, pinned by tests/test_charging_clamp_commutation.py in the Cellarium repo:\n"
+	"\tclamp the family AGGREGATE, then rescale that family's isoacceptors proportionally.\n"
+	"\n"
+	"\t\tV_a = sum_{i in a} v_i ; V_a_clamped = min(V_a, L_a) ; v_i *= V_a_clamped / V_a\n"
+	"\n"
+	"\twhich restores sum_{i in a} v_i_clamped == min(sum_i v_i, L_a) identically, and preserves every\n"
+	"\twithin-family share. V_a == 0 maps to exactly 0, never NaN -- not a synthetic edge case, since\n"
+	"\tVALINE has seven identically zero uncharged counts at BulkMolecules row 0 in BOTH ParCa trees.\n"
+	"\n"
+	"\tV_a < 0 also maps to 0, matching the pinned reference. That differs from the 21-form, which\n"
+	"\twould pass a negative flux through fmin unchanged; it is a deliberate match to the test, and it\n"
+	"\tis reachable only from a transiently negative pool inside the solver.\n"
+	"\n"
+	"\tReturns a NEW array; v_trna is not modified.\n"
+	"\t'''\n"
+	"\ttotals = np.zeros(n_aas_masked)\n"
+	"\tfor i in range(len(v_trna)):\n"
+	"\t\ttotals[trna_to_aa_index[i]] += v_trna[i]\n"
+	"\n"
+	"\tscale = np.zeros(n_aas_masked)\n"
+	"\tfor a in range(n_aas_masked):\n"
+	"\t\tif totals[a] > 0:\n"
+	"\t\t\t# Written as a comparison rather than min() so a NaN limit leaves the family alone,\n"
+	"\t\t\t# which is the direction np.fmin takes in the 21-form.\n"
+	"\t\t\tif limit_aa[a] < totals[a]:\n"
+	"\t\t\t\tscale[a] = limit_aa[a] / totals[a]\n"
+	"\t\t\telse:\n"
+	"\t\t\t\tscale[a] = 1.0\n"
+	"\t\telse:\n"
+	"\t\t\tscale[a] = 0.0\n"
+	"\n"
+	"\tout = np.zeros(len(v_trna))\n"
+	"\tfor i in range(len(v_trna)):\n"
+	"\t\tout[i] = v_trna[i] * scale[trna_to_aa_index[i]]\n"
+	"\treturn out\n"
+	"\n"
+	"@njit(error_model='numpy')\n"
+	"def dcdt_jit_iso(t, c, n_trna, n_aas, mask,\n"
+	"\tkS, synthetase_conc, KMaa, KMtf_trna,\n"
+	"\tf, krta, krtf, max_elong_rate,\n"
+	"\tribosome_conc, limit_v_rib, aa_rate_limit, v_rib_max,\n"
+	"\ttrna_to_aa_index, n_trna_per_aa, equal_split\n"
+	"):\n"
+	"\t'''\n"
+	"\tThe 85-isoacceptor form of dcdt_jit. dcdt_jit itself is untouched and is still what runs at\n"
+	"\tfamily resolution, so that path is bit-identical rather than argued to be.\n"
+	"\n"
+	"\tSHARED SYNTHETASE. All isoacceptors of an amino acid compete for ONE synthetase pool -- there is\n"
+	"\tone aminoacyl-tRNA synthetase per amino acid -- so the denominator carries a SUM over the family,\n"
+	"\tnever a per-species denominator:\n"
+	"\n"
+	"\t\tU_a  = sum_{i in a} u_i / KMtf_i\n"
+	"\t\tv_i  = kS * S_a * (A_a/KMaa_a) / (1 + U_a + A_a/KMaa_a + U_a*A_a/KMaa_a) * u_i/KMtf_i\n"
+	"\n"
+	"\tBecause KMtf is BROADCAST per family, U_a == u_a/KMtf_a and sum_{i in a} v_i is identically the\n"
+	"\t21-form v_a -- for ARBITRARY within-family splits of u_a, not merely at zero spread. That is the\n"
+	"\treduction, and it is why the split choice cannot move a 21-resolution output.\n"
+	"\n"
+	"\tTHE RIBOSOME ARM STAYS AT 21. u_i and c_i are aggregated back to families HERE, before the\n"
+	"\tribosome denominator is formed, so numerator_ribosome and v_rib are the unchanged 21-resolution\n"
+	"\tscalars and r == 1 by construction. Letting the denominator follow charging to 85 would drop\n"
+	"\tv_rib by ~21%, and about two thirds of that is spurious: the 86 tRNA genes carry only 41 distinct\n"
+	"\t(family, anticodon) pairs, and anticodon-identical duplicates are not separate A-site queues.\n"
+	"\n"
+	"\tDEMAND SPLIT. f is per amino acid; f_i divides it within the family, by pool share ('abundance',\n"
+	"\tthe default) or evenly ('equal'). Either way sum_{i in a} f_i == f_a, so v_rib*f aggregates\n"
+	"\texactly and dtrna reduces to the 21-form. A family with an empty pool falls back to the even\n"
+	"\tsplit, which keeps that sum intact instead of producing 0/0.\n"
+	"\n"
+	"\tv_charging is returned AGGREGATED to the 20 charging-masked amino acids, so the caller's\n"
+	"\t`daa[mask] = v_supply[mask] - v_charging` needs no edit. dtrna is the only return that changes\n"
+	"\tshape, and it is the only one whose shape the state vector depends on.\n"
+	"\n"
+	"\tNUMBA. Family sums are manual accumulations over the int64 trna_to_aa_index rather than T2A @ u:\n"
+	"\tthe map is one-hot, so this is O(85) instead of O(20*85), and no 2D operand crosses into the\n"
+	"\tkernel. Both this and clamp_charging_shared compile nopython.\n"
+	"\t'''\n"
+	"\tn_fam = len(f)\n"
+	"\tuncharged_trna_conc = c[:n_trna]\n"
+	"\tcharged_trna_conc = c[n_trna:2*n_trna]\n"
+	"\taa_conc = c[2*n_trna:2*n_trna+n_aas]\n"
+	"\tmasked_aa_conc = aa_conc[mask]\n"
+	"\tKMaa_masked = KMaa[mask]\n"
+	"\n"
+	"\t# Family aggregates, and u_i/KMtf_i both per species and summed over the family.\n"
+	"\tu_fam = np.zeros(n_fam)\n"
+	"\tc_fam = np.zeros(n_fam)\n"
+	"\trel_fam = np.zeros(n_fam)\n"
+	"\trel_trna = np.zeros(n_trna)\n"
+	"\tfor i in range(n_trna):\n"
+	"\t\ta = trna_to_aa_index[i]\n"
+	"\t\tu_fam[a] += uncharged_trna_conc[i]\n"
+	"\t\tc_fam[a] += charged_trna_conc[i]\n"
+	"\t\tr = uncharged_trna_conc[i] / KMtf_trna[i]\n"
+	"\t\trel_trna[i] = r\n"
+	"\t\trel_fam[a] += r\n"
+	"\n"
+	"\t# Charging, with ONE shared synthetase denominator per family.\n"
+	"\tfamily_rate = np.zeros(n_fam)\n"
+	"\tfor a in range(n_fam):\n"
+	"\t\ts_aa = masked_aa_conc[a] / KMaa_masked[a]\n"
+	"\t\tdenom = 1.0 + rel_fam[a] + s_aa + rel_fam[a] * s_aa\n"
+	"\t\tfamily_rate[a] = kS * synthetase_conc[a] * s_aa / denom\n"
+	"\tv_charging = np.zeros(n_trna)\n"
+	"\tfor i in range(n_trna):\n"
+	"\t\tv_charging[i] = family_rate[trna_to_aa_index[i]] * rel_trna[i]\n"
+	"\n"
+	"\t# The A-site arm, at 21 resolution, from the AGGREGATED pools. Identical expression to dcdt_jit.\n"
+	"\tnumerator_ribosome = 1 + np.sum(f * (krta / c_fam + u_fam / c_fam * krta / krtf))\n"
+	"\tv_rib = max_elong_rate * ribosome_conc / numerator_ribosome\n"
+	"\n"
+	"\t# Handle case when f is 0 and charged_trna_conc is 0\n"
+	"\tif not np.isfinite(v_rib):\n"
+	"\t\tv_rib = 0\n"
+	"\n"
+	"\t# Within-family demand split. sum_{i in a} f_trna[i] == f[a] under both options.\n"
+	"\tf_trna = np.zeros(n_trna)\n"
+	"\tif equal_split:\n"
+	"\t\tfor i in range(n_trna):\n"
+	"\t\t\ta = trna_to_aa_index[i]\n"
+	"\t\t\tf_trna[i] = f[a] / n_trna_per_aa[a]\n"
+	"\telse:\n"
+	"\t\tfor i in range(n_trna):\n"
+	"\t\t\ta = trna_to_aa_index[i]\n"
+	"\t\t\tpool = u_fam[a] + c_fam[a]\n"
+	"\t\t\tif pool > 0:\n"
+	"\t\t\t\tf_trna[i] = f[a] * (uncharged_trna_conc[i] + charged_trna_conc[i]) / pool\n"
+	"\t\t\telse:\n"
+	"\t\t\t\tf_trna[i] = f[a] / n_trna_per_aa[a]\n"
+	"\n"
+	"\t# Limit v_rib and v_charging to the amount of available amino acids\n"
+	"\tif limit_v_rib:\n"
+	"\t\tv_charging = clamp_charging_shared(v_charging, aa_rate_limit, trna_to_aa_index, n_fam)\n"
+	"\t\tv_rib = min(v_rib, v_rib_max)\n"
+	"\n"
+	"\tdtrna = v_charging - v_rib*f_trna\n"
+	"\n"
+	"\tv_charging_aa = np.zeros(n_fam)\n"
+	"\tfor i in range(n_trna):\n"
+	"\t\tv_charging_aa[trna_to_aa_index[i]] += v_charging[i]\n"
+	"\n"
+	"\tdaa = np.zeros(n_aas)\n"
+	"\n"
+	"\treturn v_charging_aa, dtrna, daa\n"
+	"\n"
+	"def get_charging_supply_function(\n"
+)
+
+RHS_EDITS = (
+	(REL, RHS_KERNEL_OLD, RHS_KERNEL_NEW, 1, "polypeptide_elongation.py: dcdt_jit_iso + clamp_charging_shared"),
+	(REL, RHS_CALL_OLD, RHS_CALL_NEW, 1, "polypeptide_elongation.py: dcdt closure resolution branch"),
+	(REL, RHS_INIT_OLD, RHS_INIT_NEW, 1, "polypeptide_elongation.py: resolution setup + c_init"),
+	(REL, RHS_POST_OLD, RHS_POST_NEW, 1, "polypeptide_elongation.py: post-integration unpack + aggregation"),
+)
+
+# Guard against an accidental re-indent of the constants above: wcEcoli is tab-indented throughout,
+# and a stray space-indented line would apply cleanly and then fail to parse inside the model image.
+for _rel, _old, _new, _n, _label in RHS_EDITS:
+	for _line in (_old + _new).split("\n"):
+		if _line.startswith(" "):
+			raise AssertionError("space-indented line in RHS constants: {!r}".format(_line))
+
+
 def _read(path: str) -> tuple[str, str]:
     with io.open(path, encoding="utf-8", newline="") as fh:
         txt = fh.read()
@@ -337,7 +695,11 @@ def status(wcecoli: str) -> dict:
     # already marked, so a file-level check reported "already applied" and silently skipped it --
     # the same class of bug as the per-file idempotence check inside run().
     pe = os.path.join(wcecoli, REL)
-    st["params_dict"] = os.path.isfile(pe) and MARKER_PARAMS in _read(pe)[0]
+    pe_txt = _read(pe)[0] if os.path.isfile(pe) else ""
+    st["params_dict"] = MARKER_PARAMS in pe_txt
+    # Stage 4 lands in the SAME file as stages 1-3, so it needs its own marker for exactly the
+    # reason recorded above: a per-file check reports "already applied" and skips it silently.
+    st["rhs"] = MARKER_RHS in pe_txt
     return st
 
 
@@ -363,10 +725,11 @@ def run(wcecoli: str, check: bool = False) -> dict:
         _write(path, txt)
         wrote.append(f"{REL}: ROUTE1 resolution/demand-split comment block above get_charging_params")
 
-    # STAGE 2 -- switch plumbing. Each edit states how many occurrences it expects and refuses to
-    # proceed on any other count, so a file that has drifted fails loudly instead of being patched
-    # blind or silently skipped.
-    for rel, old, new, n_expected, label in PLUMBING:
+    # STAGES 2-4. Each edit states how many occurrences it expects and refuses to proceed on any
+    # other count, so a file that has drifted fails loudly instead of being patched blind or
+    # silently skipped. Stage 4 (the 85-resolution RHS) rides the same loop deliberately: it gets
+    # the same anchor-count discipline for free, and it applies after the params dict it reads.
+    for rel, old, new, n_expected, label in PLUMBING + RHS_EDITS:
         p = os.path.join(wcecoli, rel)
         if not os.path.isfile(p):
             return {"complete": False, "wrote": wrote, "status": status(wcecoli),
@@ -400,11 +763,11 @@ def revert(wcecoli: str) -> dict:
         return {"complete": False, "wrote": [], "why": f"{REL} not found under {wcecoli}"}
     wrote = []
 
-    # STAGE 2 first, then stage 1 -- the reverse of the order run() applies them. Stage 1 inserts a
-    # block above get_charging_params and stage 2 edits elsewhere in the same file, so they do not
-    # overlap textually; the ordering is for symmetry rather than necessity, and reverting in apply
-    # order would be a latent hazard the moment a later stage anchors inside an earlier one.
-    for rel, old, new, n_expected, label in reversed(PLUMBING):
+    # STAGES 4, 3, 2 then 1 -- the reverse of the order run() applies them. The stages do not
+    # overlap textually today, so the ordering is for symmetry rather than necessity; reverting in
+    # apply order would be a latent hazard the moment a later stage anchors inside an earlier one,
+    # and stage 4's RHS anchors sit a few lines from stage 3's params dict in the same file.
+    for rel, old, new, n_expected, label in reversed(PLUMBING + RHS_EDITS):
         p = os.path.join(wcecoli, rel)
         if not os.path.isfile(p):
             return {"complete": False, "wrote": wrote, "why": f"{rel} not found under {wcecoli}"}
