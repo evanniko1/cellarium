@@ -37,9 +37,17 @@ STAGES APPLIED SO FAR:
      per family; the clamp is aggregate-then-rescale; u_i and c_i are aggregated back to families
      inside the RHS so v_rib stays at 21 and r == 1 by construction.
 
-STAGES NOT YET APPLIED: widening the CALLERS to pass genuinely per-isoacceptor pools (until that
-lands the isoacceptor path reproduces the family answer — see the comment at the pool expansion),
-and the listener widening.
+  5. WIDEN THE INTERFACE -- calculate_trna_charging accepts genuine 85-vectors read from the
+     per-species BulkMolecules views, returns an opt-in per-species charged fraction, and the
+     request write-back and the GrowthLimits/fraction_trna_charged column consume it instead of
+     broadcasting the family value. No listener column changes SHAPE; one changes MEANING. The ppGpp
+     arm and every 21-wide column keep receiving aa_from_trna-aggregated pools. MEASURED before the
+     stage was written: at the fixed default split ('abundance') the ODE's steady state is exactly
+     proportional, so real input spread of 3.3e-4..9.5e-3 contracts to 1.1e-16..3.1e-8 and the
+     widening is a numerical no-op; at 'equal' the same widening produces up to 7.2e-2 of genuine
+     within-family spread against exactly 0.0 with the uniform expansion. See the stage banner.
+
+STAGES NOT YET APPLIED: none.
 
     python scripts/route1_step2_patch.py --wcecoli C:/dev/wcEcoli [--check] [--revert]
 """
@@ -673,12 +681,464 @@ RHS_EDITS = (
     (REL, RHS_POST_OLD, RHS_POST_NEW, 1, "polypeptide_elongation.py: post-integration unpack + aggregation"),
 )
 
+
+# ---------------------------------------------------------------------------------------------------
+# STAGE 5 -- WIDEN THE INTERFACE to genuine 85-vectors.
+#
+# Stage 4 built the 85-resolution kernel but left the CALLER at 21: calculate_trna_charging still took
+# 21-vectors and expanded them UNIFORMLY (A2T @ (x / n_trna_per_aa)). With KMtf broadcast per family
+# and one shared synthetase denominator a uniform family stays uniform, so the isoacceptor path
+# reproduced the family answer BY CONSTRUCTION. This stage supplies the pools that wcEcoli already
+# tracks per species, so isoacceptors of one family can differ.
+#
+# WHAT THIS STAGE DOES **NOT** DO, stated first because it is the honest headline and because
+# discovering it later would be worse than reading it here.
+#
+#   MEASURED, before a line of this stage was written: under the FIXED DEFAULT demand split
+#   ('abundance') widening the caller does not produce a within-family spread in the ODE OUTPUT,
+#   because the 85-resolution steady state under that split is exactly proportional and one
+#   production timestep is long enough to reach it. The real per-species input spread -- 3.3e-4 to
+#   9.5e-3 across the 17 multi-member families, measured off BulkMolecules -- is CONTRACTED by the
+#   solve to 1.1e-16..3.1e-8. Derivation, confirmed by execution: the species total T_i = u_i + c_i
+#   is conserved exactly (du = -dtrna, dc = +dtrna); charging is v_i = R_a * u_i / KMtf_a with a
+#   family-scalar R_a, and the abundance split makes demand v_rib * f_a * T_i / T_a; setting
+#   v_i = demand gives u_i proportional to T_i, hence c_i / T_i constant within the family.
+#
+#   Under 'equal' the same widening produces a LARGE genuine spread -- up to 7.2e-2, i.e. 7 charged-
+#   fraction points between isoacceptors of one family -- because there the steady state is u_i
+#   constant within the family, so c_i / T_i = 1 - u_i / T_i varies with the genuine per-species pool
+#   T_i. That pool only exists once the caller is widened: with the uniform expansion the measured
+#   output spread is EXACTLY 0.0 under BOTH splits.
+#
+#   So the widening is the necessary and previously missing half. It is not sufficient on its own at
+#   the default split, and the default is NOT changed here -- that is a fixed design decision, and
+#   changing it silently is exactly the failure the switch exists to prevent.
+#
+# INTERFACE SHAPE, and why it is opt-in.
+#   calculate_trna_charging gains three keyword-only-by-convention arguments:
+#   uncharged_trna_conc_iso, charged_trna_conc_iso (85-vectors with concentration units, restricted
+#   to the charging mask) and return_iso. return_iso defaults to False, so THE ARITY OF THE RETURN IS
+#   UNCHANGED for every existing caller. models/ecoli/sim/initial_conditions.py:105 and
+#   runscripts/debug/charging.py:312 are therefore not edited by this stage and are provably
+#   unaffected -- the first because it builds its own family-resolution params and unpacks with
+#   `fraction_charged, *_`, the second because it unpacks exactly five names and reads 21-wide
+#   listener columns that carry no per-species information to widen with.
+#
+# WHAT STAYS AT 21, verified numerically rather than asserted:
+#   * the ppGpp arm, both halves. The request half reads the 21-wide `fraction_charged` return and
+#     the 21-wide uncharged_trna_counts/charged_trna_counts; neither is rebound by this stage. The
+#     evolve half re-aggregates from counts and cannot see the change at all.
+#   * synthetase_conc / uncharged_trna_conc / charged_trna_conc / aa_conc listener columns (n_aa=21).
+#   * v_rib and numerator_ribosome, which the stage-4 RHS already forms from family aggregates.
+#
+# ORDERING. Masking the two BulkMolecules views with params['trna_charging_mask'] is only correct if
+# charged_trna_names[j] is the charged form of uncharged_trna_names[j]. VERIFIED WITHOUT USING NAMES,
+# on BOTH ParCa trees: charging_stoich_matrix is built independently of aa_from_trna, and column j
+# carries -1 on uncharged_trna_names[j] and +1 on charged_trna_names[j] for all 86 columns, with zero
+# exceptions. (A name-based check gives 10 FALSE alarms on the opaque RNA0-3xx ids.) The single
+# excluded column is 58, selC-tRNA[c] / charged-selC-tRNA[c], on both trees.
+#
+# ZERO-POOL SPECIES. With genuine pools an empty species stops being exceptional. u_i == 0 is already
+# common (7 identically zero VALINE uncharged counts at row 0 on both trees). u_i + c_i == 0 is the
+# harder case: under 'equal' such a species is still assigned demand, so c_i integrates negative,
+# negative_check returns it to (0, 0), and the naive c/(u+c) is 0/0. The per-species fraction is
+# therefore taken with an explicit where= guard that maps an empty species to 0.0.
+# ---------------------------------------------------------------------------------------------------
+
+MARKER_WIDEN = "ROUTE1 step 2 (stage 5): genuine per-isoacceptor pools"
+
+# W1 -- the signature. Additive keywords only; every existing positional call is unaffected.
+WD_SIG_OLD = (
+    "def calculate_trna_charging(synthetase_conc, uncharged_trna_conc, charged_trna_conc, aa_conc, ribosome_conc,\n"
+    "\t\tf, params, supply=None, time_limit=1000, limit_v_rib=False, use_disabled_aas=False):\n"
+)
+WD_SIG_NEW = (
+    "def calculate_trna_charging(synthetase_conc, uncharged_trna_conc, charged_trna_conc, aa_conc, ribosome_conc,\n"
+    "\t\tf, params, supply=None, time_limit=1000, limit_v_rib=False, use_disabled_aas=False,\n"
+    "\t\tuncharged_trna_conc_iso=None, charged_trna_conc_iso=None, return_iso=False):\n"
+)
+
+# W2 -- the docstring. The three new arguments are documented where the other eleven are, so a reader
+# who never opens the patch still learns that the pools are opt-in and that the sixth return value
+# only exists when asked for.
+WD_DOC_OLD = (
+    "\t\tuse_disabled_aas (bool) - if True, all amino acids will be used for charging calculations,\n"
+    "\t\t\tif False, some will be excluded as determined in initialize\n"
+    "\n"
+    "\tReturns:\n"
+)
+WD_DOC_NEW = (
+    "\t\tuse_disabled_aas (bool) - if True, all amino acids will be used for charging calculations,\n"
+    "\t\t\tif False, some will be excluded as determined in initialize\n"
+    "\t\tuncharged_trna_conc_iso (array of floats with concentration units, or None) - ROUTE1 step 2\n"
+    "\t\t\t(stage 5): GENUINE per-isoacceptor uncharged tRNA concentrations, one entry per\n"
+    "\t\t\tcharging-masked tRNA species in params['trna_charging_mask'] order (85 of 86; selC\n"
+    "\t\t\texcluded). Only accepted when params['trna_resolution'] == 'isoacceptor'. If None, the\n"
+    "\t\t\tincoming per-amino-acid pools are expanded uniformly across each family, which is the\n"
+    "\t\t\tpre-stage-5 behaviour and reproduces the family answer by construction.\n"
+    "\t\tcharged_trna_conc_iso (array of floats with concentration units, or None) - as above, for\n"
+    "\t\t\tcharged tRNA. Must be supplied together with uncharged_trna_conc_iso or not at all.\n"
+    "\t\treturn_iso (bool) - if True, a SIXTH value is returned (see below). Defaults to False so\n"
+    "\t\t\tthat the arity of this function is unchanged for callers that predate stage 5.\n"
+    "\n"
+    "\tReturns:\n"
+)
+
+WD_DOC2_OLD = (
+    "\t\ttotal_export (np.ndarray) - the total amount of amino acids exported during charging\n"
+    "\t\t\tin units of CONC_UNITS.  Will be zeros if supply function is not given.\n"
+    "\t'''\n"
+)
+WD_DOC2_NEW = (
+    "\t\ttotal_export (np.ndarray) - the total amount of amino acids exported during charging\n"
+    "\t\t\tin units of CONC_UNITS.  Will be zeros if supply function is not given.\n"
+    "\t\tfraction_charged_iso (np.ndarray or None) - ONLY when return_iso is True. Fraction of total\n"
+    "\t\t\ttRNA that is charged for each of the 85 charging-masked tRNA SPECIES, in\n"
+    "\t\t\tparams['trna_charging_mask'] order. None at family resolution. A species with an empty\n"
+    "\t\t\ttotal pool maps to 0.0, never NaN.\n"
+    "\t'''\n"
+)
+
+# W3 -- accept the pools. The uniform expansion is KEPT as the fallback, so a caller that passes
+# nothing gets exactly the pre-stage-5 numbers and the stage-4 verification remains valid evidence.
+WD_POOL_OLD = (
+    "\t\t# Expand the incoming FAMILY pools to isoacceptors. This function's interface is still\n"
+    "\t\t# 21-vectors, so no within-family abundance reaches here and the expansion is uniform.\n"
+    "\t\t# That costs nothing in the aggregate and it is not a stand-in for a missing derivation:\n"
+    "\t\t# with KMtf broadcast per family the family-aggregated 85-form flux equals the 21-form for\n"
+    "\t\t# ARBITRARY within-family splits, so no split can move a 21-resolution output. The\n"
+    "\t\t# consequence is worth stating plainly -- until a later stage widens the CALLER to pass\n"
+    "\t\t# genuinely resolved pools, the isoacceptor path reproduces the family answer to solver\n"
+    "\t\t# tolerance. That is the intended, checkable intermediate state.\n"
+    "\t\tiso_uncharged_trna_conc = A2T @ (original_uncharged_trna_conc / n_trna_per_aa)\n"
+    "\t\tiso_charged_trna_conc = A2T @ (original_charged_trna_conc / n_trna_per_aa)\n"
+)
+WD_POOL_NEW = (
+    "\t\t# ROUTE1 step 2 (stage 5): genuine per-isoacceptor pools, when the caller supplies them.\n"
+    "\t\t#\n"
+    "\t\t# WITHOUT them (the stage-4 state, still the fallback) the incoming FAMILY pools are\n"
+    "\t\t# expanded UNIFORMLY. With KMtf broadcast per family a uniform family stays uniform, so the\n"
+    "\t\t# isoacceptor path then reproduces the family answer by construction -- checkable, and\n"
+    "\t\t# exactly what makes the stage-4 equivalence gates provable, but it means no within-family\n"
+    "\t\t# spread can ever develop.\n"
+    "\t\t#\n"
+    "\t\t# WITH them the pools carry the real per-species abundances wcEcoli already tracks in\n"
+    "\t\t# BulkMolecules. What that buys is split-dependent, and it was MEASURED before this branch\n"
+    "\t\t# was written rather than assumed:\n"
+    "\t\t#   'abundance' (the default): the steady state is u_i proportional to the species total\n"
+    "\t\t#     T_i = u_i + c_i, which T_i is conserved exactly by the integration, so the charged\n"
+    "\t\t#     fraction goes UNIFORM within a family no matter what came in. Input spread of\n"
+    "\t\t#     3.3e-4..9.5e-3 over the 17 multi-member families contracts to 1.1e-16..3.1e-8 in one\n"
+    "\t\t#     production timestep. Widening is a no-op at this split, to ~1e-7 relative.\n"
+    "\t\t#   'equal': the steady state is u_i CONSTANT within a family, so the charged fraction\n"
+    "\t\t#     1 - u_i/T_i tracks the genuine per-species pool. Measured output spread up to 7.2e-2,\n"
+    "\t\t#     against EXACTLY 0.0 with the uniform expansion.\n"
+    "\t\t# The default is not changed here; the point is that the choice now has an effect at all.\n"
+    "\t\tif uncharged_trna_conc_iso is None and charged_trna_conc_iso is None:\n"
+    "\t\t\tiso_uncharged_trna_conc = A2T @ (original_uncharged_trna_conc / n_trna_per_aa)\n"
+    "\t\t\tiso_charged_trna_conc = A2T @ (original_charged_trna_conc / n_trna_per_aa)\n"
+    "\t\telif uncharged_trna_conc_iso is None or charged_trna_conc_iso is None:\n"
+    "\t\t\t# Half a pair is never a defensible state: it would silently mix a genuine pool with a\n"
+    "\t\t\t# uniform one and the totals would stop being consistent with each other.\n"
+    "\t\t\traise ValueError('supply both uncharged_trna_conc_iso and charged_trna_conc_iso, or neither')\n"
+    "\t\telse:\n"
+    "\t\t\tiso_uncharged_trna_conc = np.asarray(\n"
+    "\t\t\t\tuncharged_trna_conc_iso.asNumber(CONC_UNITS), dtype=np.float64)\n"
+    "\t\t\tiso_charged_trna_conc = np.asarray(\n"
+    "\t\t\t\tcharged_trna_conc_iso.asNumber(CONC_UNITS), dtype=np.float64)\n"
+    "\t\t\t# Shape is the ONLY thing that can silently scramble the mapping, so it is checked\n"
+    "\t\t\t# rather than trusted. Ordering itself is guaranteed upstream: the caller masks the two\n"
+    "\t\t\t# BulkMolecules views with params['trna_charging_mask'], whose columns index\n"
+    "\t\t\t# aa_from_trna, and charged_trna_names[j] is verified to be the charged form of\n"
+    "\t\t\t# uncharged_trna_names[j] for all 86 j against charging_stoich_matrix on both ParCa trees.\n"
+    "\t\t\tif iso_uncharged_trna_conc.shape != (n_trna,) or iso_charged_trna_conc.shape != (n_trna,):\n"
+    "\t\t\t\traise ValueError('per-isoacceptor pools must have shape ({},); got {} and {}'.format(\n"
+    "\t\t\t\t\tn_trna, iso_uncharged_trna_conc.shape, iso_charged_trna_conc.shape))\n"
+    "\t\t\tif not (np.all(np.isfinite(iso_uncharged_trna_conc))\n"
+    "\t\t\t\t\tand np.all(np.isfinite(iso_charged_trna_conc))):\n"
+    "\t\t\t\traise ValueError('per-isoacceptor pools contain non-finite values')\n"
+    "\t\t\tif iso_uncharged_trna_conc.min() < 0 or iso_charged_trna_conc.min() < 0:\n"
+    "\t\t\t\traise ValueError('per-isoacceptor pools contain negative concentrations')\n"
+)
+
+# W4 -- reject pools that cannot be used. Accepting and ignoring them is the silent-absence failure:
+# the run would report isoacceptor resolution and quietly integrate the uniform expansion.
+WD_GUARD_OLD = (
+    "\tiso = params.get('trna_resolution', 'family') == 'isoacceptor'\n"
+    "\tif iso:\n"
+)
+WD_GUARD_NEW = (
+    "\tiso = params.get('trna_resolution', 'family') == 'isoacceptor'\n"
+    "\t# ROUTE1 step 2 (stage 5): per-isoacceptor pools are meaningless at family resolution. Raise\n"
+    "\t# rather than ignore them -- ignoring is how a run ends up reporting one resolution and\n"
+    "\t# integrating another.\n"
+    "\tif not iso and (uncharged_trna_conc_iso is not None or charged_trna_conc_iso is not None):\n"
+    "\t\traise ValueError('per-isoacceptor pools were supplied but '\n"
+    "\t\t\t\"params['trna_resolution'] is not 'isoacceptor'\")\n"
+    "\tif iso:\n"
+)
+
+# W5 -- the per-species charged fraction, taken BEFORE the pools are aggregated back to families.
+# It is the only quantity in this function that carries within-family information; everything after
+# the aggregation is the unchanged 21-resolution arithmetic that keeps r == 1.
+WD_FRAC_OLD = (
+    "\t\tfinal_uncharged_trna_conc = T2A @ final_uncharged_trna_conc\n"
+    "\t\tfinal_charged_trna_conc = T2A @ final_charged_trna_conc\n"
+    "\telse:\n"
+    "\t\tfinal_uncharged_trna_conc = c_sol[-1, :n_aas_masked]\n"
+)
+WD_FRAC_NEW = (
+    "\t\t# ROUTE1 step 2 (stage 5): the PER-SPECIES charged fraction, taken HERE because the next two\n"
+    "\t\t# lines destroy the within-family information it carries. A species whose TOTAL pool is\n"
+    "\t\t# empty maps to 0.0 rather than 0/0: with genuine pools that case stops being exceptional,\n"
+    "\t\t# and under the 'equal' split such a species is still assigned elongation demand, drives\n"
+    "\t\t# its charged pool negative, and is returned to (0, 0) by negative_check just above.\n"
+    "\t\tiso_total_trna_conc = final_uncharged_trna_conc + final_charged_trna_conc\n"
+    "\t\tfraction_charged_iso = np.zeros(n_trna)\n"
+    "\t\tnp.divide(final_charged_trna_conc, iso_total_trna_conc, out=fraction_charged_iso,\n"
+    "\t\t\twhere=iso_total_trna_conc > 0)\n"
+    "\n"
+    "\t\tfinal_uncharged_trna_conc = T2A @ final_uncharged_trna_conc\n"
+    "\t\tfinal_charged_trna_conc = T2A @ final_charged_trna_conc\n"
+    "\telse:\n"
+    "\t\tfraction_charged_iso = None\n"
+    "\t\tfinal_uncharged_trna_conc = c_sol[-1, :n_aas_masked]\n"
+)
+
+# W6 -- the return. Opt-in sixth element; the five-tuple is byte-for-byte the original statement.
+WD_RET_OLD = (
+    "\treturn new_fraction_charged, v_rib, total_synthesis, total_import, total_export\n"
+)
+WD_RET_NEW = (
+    "\t# ROUTE1 step 2 (stage 5): the sixth value is OPT-IN so that the arity of this function is\n"
+    "\t# unchanged for callers that predate the stage. initial_conditions.py and\n"
+    "\t# runscripts/debug/charging.py are untouched by stage 5 and provably unaffected: the first\n"
+    "\t# builds family-resolution params of its own and unpacks with `fraction_charged, *_`, the\n"
+    "\t# second unpacks exactly five names and reads 21-wide listener columns that carry no\n"
+    "\t# per-species information it could widen with.\n"
+    "\tif return_iso:\n"
+    "\t\treturn (new_fraction_charged, v_rib, total_synthesis, total_import, total_export,\n"
+    "\t\t\tfraction_charged_iso)\n"
+    "\treturn new_fraction_charged, v_rib, total_synthesis, total_import, total_export\n"
+)
+
+# W6b -- A LATENT STAGE-4 DEFECT, found by running a real simulation and by nothing else.
+#
+# The dcdt closure slices the amino-acid block out of the state vector to feed the supply function:
+#
+#     aa_conc = c[2*n_aas_masked:2*n_aas_masked+n_aas]
+#
+# That offset is the width of the tRNA block, which stage 4 changed from 2*n_aas_masked (40) to
+# 2*n_trna (170) at isoacceptor resolution -- but only in c_init and in the post-integration unpack,
+# not here. So at isoacceptor resolution the supply function was handed 21 numbers taken from the
+# MIDDLE OF THE tRNA STATE and called them amino acid concentrations. The integration then produced
+# non-finite values and BDF raised 'array must not contain infs or NaNs' inside lu_factor.
+#
+# WHY EVERY STAGE-4 GATE MISSED IT: the branch is `if supply is None` -- and supply is None in the
+# offline kernel drivers, in initial_conditions.py, and in every equivalence check run so far. It is
+# NOT None on the production request path, which is the only path that matters. This is precisely the
+# silent-absence failure mode: nothing about the code reads wrong, the family path is untouched, and
+# the first evidence is a real simulation refusing to start.
+#
+# The fix is resolution-dependent offset arithmetic. At family resolution n_trna_state IS
+# n_aas_masked, so the slice is character-for-character the same computation and the family path
+# stays bit-identical -- verified by execution, not by argument.
+WD_SUPPLY_OLD = (
+    "\t\telse:\n"
+    "\t\t\taa_conc = c[2*n_aas_masked:2*n_aas_masked+n_aas]\n"
+    "\t\t\tv_synthesis, v_import, v_export = supply(unit_conversion * aa_conc)\n"
+)
+WD_SUPPLY_NEW = (
+    "\t\telse:\n"
+    "\t\t\t# ROUTE1 step 2 (stage 5): the amino-acid block starts AFTER the tRNA block, and that\n"
+    "\t\t\t# block is 2*n_trna wide at isoacceptor resolution, not 2*n_aas_masked. Slicing it with\n"
+    "\t\t\t# n_aas_masked unconditionally handed the supply function 21 values read out of the\n"
+    "\t\t\t# MIDDLE OF THE tRNA STATE; the integration then went non-finite and BDF raised inside\n"
+    "\t\t\t# lu_factor. Only reachable when supply is not None, which is the production request path\n"
+    "\t\t\t# and no other -- which is why it survived every offline check.\n"
+    "\t\t\t#\n"
+    "\t\t\t# At family resolution n_trna_state is n_aas_masked, so the slice below is the same\n"
+    "\t\t\t# computation on the same values and that path stays bit-identical.\n"
+    "\t\t\tn_trna_state = n_trna if iso else n_aas_masked\n"
+    "\t\t\taa_conc = c[2*n_trna_state:2*n_trna_state+n_aas]\n"
+    "\t\t\tv_synthesis, v_import, v_export = supply(unit_conversion * aa_conc)\n"
+)
+
+# W7 -- read the per-species counts in the request. The two aggregating np.dot lines are KEPT
+# VERBATIM: they are what the ppGpp arm and the 21-wide listener columns read, and their meaning must
+# not shift by a bit.
+WD_COUNTS_OLD = (
+    "\t\tuncharged_trna_counts = np.dot(self.process.aa_from_trna, self.uncharged_trna.total_counts())\n"
+    "\t\tcharged_trna_counts = np.dot(self.process.aa_from_trna, self.charged_trna.total_counts())\n"
+)
+WD_COUNTS_NEW = (
+    "\t\tuncharged_trna_counts = np.dot(self.process.aa_from_trna, self.uncharged_trna.total_counts())\n"
+    "\t\tcharged_trna_counts = np.dot(self.process.aa_from_trna, self.charged_trna.total_counts())\n"
+    "\t\t# ROUTE1 step 2 (stage 5): genuine per-isoacceptor pools, straight off the per-species\n"
+    "\t\t# BulkMolecules views. The two aggregating lines above are NOT replaced -- they are what the\n"
+    "\t\t# ppGpp arm (both halves) and the 21-wide GrowthLimits columns read, and they keep their\n"
+    "\t\t# meaning exactly.\n"
+    "\t\t#\n"
+    "\t\t# ORDERING. bulkMoleculesView(names) returns counts in names order, and trna_charging_mask\n"
+    "\t\t# indexes the columns of aa_from_trna, which are indexed by uncharged_trna_names -- so the\n"
+    "\t\t# uncharged side is aligned trivially. The charged side needs charged_trna_names[j] to be\n"
+    "\t\t# the charged form of uncharged_trna_names[j]; that is VERIFIED WITHOUT USING NAMES against\n"
+    "\t\t# charging_stoich_matrix, which is built independently of aa_from_trna and carries -1 on\n"
+    "\t\t# uncharged_trna_names[j] and +1 on charged_trna_names[j] in column j, for all 86 columns on\n"
+    "\t\t# both ParCa trees. A name-based check would report 10 false misalignments on the opaque\n"
+    "\t\t# RNA0-3xx ids, which is why it is not the check used.\n"
+    "\t\tself.trna_resolution_iso = (\n"
+    "\t\t\tself.charging_params.get('trna_resolution', 'family') == 'isoacceptor')\n"
+    "\t\tif self.trna_resolution_iso:\n"
+    "\t\t\ttrna_charging_mask = self.charging_params['trna_charging_mask']\n"
+    "\t\t\tiso_uncharged_trna_counts = self.uncharged_trna.total_counts()[trna_charging_mask]\n"
+    "\t\t\tiso_charged_trna_counts = self.charged_trna.total_counts()[trna_charging_mask]\n"
+)
+
+# W8 -- the concentrations, next to the 21-wide ones they parallel.
+WD_CONC_OLD = (
+    "\t\tuncharged_trna_conc = self.counts_to_molar * uncharged_trna_counts\n"
+    "\t\tcharged_trna_conc = self.counts_to_molar * charged_trna_counts\n"
+)
+WD_CONC_NEW = (
+    "\t\tuncharged_trna_conc = self.counts_to_molar * uncharged_trna_counts\n"
+    "\t\tcharged_trna_conc = self.counts_to_molar * charged_trna_counts\n"
+    "\t\tif self.trna_resolution_iso:\n"
+    "\t\t\t# ROUTE1 step 2 (stage 5): same counts_to_molar, so the 85-vectors sum to the 21-vectors\n"
+    "\t\t\t# above to floating-point exactness of the summation order, not to a separate conversion.\n"
+    "\t\t\tiso_uncharged_trna_conc = self.counts_to_molar * iso_uncharged_trna_counts\n"
+    "\t\t\tiso_charged_trna_conc = self.counts_to_molar * iso_charged_trna_counts\n"
+)
+
+# W9 -- the call. The family branch is the ORIGINAL eleven lines byte for byte, for the same reason
+# stage 4 duplicated rather than parameterised: bit-identity becomes an inspection, not an argument.
+WD_CALL_OLD = (
+    "\t\tfraction_charged, v_rib, synthesis_in_charging, import_in_charging, export_in_charging = calculate_trna_charging(\n"
+    "\t\t\tsynthetase_conc,\n"
+    "\t\t\tuncharged_trna_conc,\n"
+    "\t\t\tcharged_trna_conc,\n"
+    "\t\t\taa_conc,\n"
+    "\t\t\tribosome_conc,\n"
+    "\t\t\tf,\n"
+    "\t\t\tself.charging_params,\n"
+    "\t\t\tsupply=supply_function,\n"
+    "\t\t\tlimit_v_rib=True,\n"
+    "\t\t\ttime_limit=self.process.timeStepSec())\n"
+)
+WD_CALL_NEW = (
+    "\t\tif self.trna_resolution_iso:\n"
+    "\t\t\t# ROUTE1 step 2 (stage 5): the 21-vectors are STILL PASSED -- they set the family\n"
+    "\t\t\t# aggregates, aa_rate_limit and v_rib_max, all of which stay per amino acid. The two\n"
+    "\t\t\t# 85-vectors only decide how each family's pool is divided among its isoacceptors.\n"
+    "\t\t\t(fraction_charged, v_rib, synthesis_in_charging, import_in_charging,\n"
+    "\t\t\t\texport_in_charging, fraction_charged_iso) = calculate_trna_charging(\n"
+    "\t\t\t\tsynthetase_conc,\n"
+    "\t\t\t\tuncharged_trna_conc,\n"
+    "\t\t\t\tcharged_trna_conc,\n"
+    "\t\t\t\taa_conc,\n"
+    "\t\t\t\tribosome_conc,\n"
+    "\t\t\t\tf,\n"
+    "\t\t\t\tself.charging_params,\n"
+    "\t\t\t\tsupply=supply_function,\n"
+    "\t\t\t\tlimit_v_rib=True,\n"
+    "\t\t\t\ttime_limit=self.process.timeStepSec(),\n"
+    "\t\t\t\tuncharged_trna_conc_iso=iso_uncharged_trna_conc,\n"
+    "\t\t\t\tcharged_trna_conc_iso=iso_charged_trna_conc,\n"
+    "\t\t\t\treturn_iso=True)\n"
+    "\t\telse:\n"
+    "\t\t\tfraction_charged_iso = None\n"
+    "\t\t\tfraction_charged, v_rib, synthesis_in_charging, import_in_charging, export_in_charging = calculate_trna_charging(\n"
+    "\t\t\t\tsynthetase_conc,\n"
+    "\t\t\t\tuncharged_trna_conc,\n"
+    "\t\t\t\tcharged_trna_conc,\n"
+    "\t\t\t\taa_conc,\n"
+    "\t\t\t\tribosome_conc,\n"
+    "\t\t\t\tf,\n"
+    "\t\t\t\tself.charging_params,\n"
+    "\t\t\t\tsupply=supply_function,\n"
+    "\t\t\t\tlimit_v_rib=True,\n"
+    "\t\t\t\ttime_limit=self.process.timeStepSec())\n"
+)
+
+# W10 -- the WRITE-BACK. This is the line that destroyed within-family information: it took the
+# 21-wide fraction and BROADCAST it across each family. At isoacceptor resolution it consumes the
+# per-species fraction instead. Counts are already written back at 86 everywhere downstream of here
+# (charged_trna_request, uncharged_trna_request, total_charging_reactions, and the evolve() half all
+# operate per species), so this single line is the whole of "write back at the resolution read".
+WD_WRITE_OLD = (
+    "\t\ttotal_trna = self.charged_trna.total_counts() + self.uncharged_trna.total_counts()\n"
+    "\t\tfinal_charged_trna = stochasticRound(self.process.randomState, np.dot(fraction_charged, self.process.aa_from_trna * total_trna))\n"
+)
+WD_WRITE_NEW = (
+    "\t\ttotal_trna = self.charged_trna.total_counts() + self.uncharged_trna.total_counts()\n"
+    "\t\t# ROUTE1 step 2 (stage 5): the 86-wide per-species charged fraction. At family resolution it\n"
+    "\t\t# is the unchanged family BROADCAST; at isoacceptor resolution the 85 charging-masked entries\n"
+    "\t\t# are replaced by the genuine per-species values and selC keeps the broadcast value it has\n"
+    "\t\t# today (its amino acid is not charging-masked, so calculate_trna_charging gives it the mean\n"
+    "\t\t# of the others). Stashed on the model because PolypeptideElongation.calculateRequest writes\n"
+    "\t\t# GrowthLimits/fraction_trna_charged and only receives the 21-wide return.\n"
+    "\t\tself.fraction_trna_charged_iso = None\n"
+    "\t\tif self.trna_resolution_iso:\n"
+    "\t\t\tfraction_charged_trna = np.dot(fraction_charged, self.process.aa_from_trna)\n"
+    "\t\t\tfraction_charged_trna[self.charging_params['trna_charging_mask']] = fraction_charged_iso\n"
+    "\t\t\tself.fraction_trna_charged_iso = fraction_charged_trna\n"
+    "\t\t\tfinal_charged_trna = stochasticRound(self.process.randomState, fraction_charged_trna * total_trna)\n"
+    "\t\telse:\n"
+    "\t\t\tfinal_charged_trna = stochasticRound(self.process.randomState, np.dot(fraction_charged, self.process.aa_from_trna * total_trna))\n"
+)
+
+# W11 -- the listener. GrowthLimits/fraction_trna_charged is ALREADY 86 wide and subcolumned by
+# uncharged_trna_ids (growth_limits.py:94-95, ids bound :30), so NO COLUMN CHANGES SHAPE. What changes
+# is the meaning: the column stops being a family broadcast and starts carrying per-species values.
+# Every elongation model other than the steady-state one leaves the attribute unset, so getattr
+# returns None and the original expression is what runs for them, unchanged.
+WD_LIST_OLD = (
+    "\t\tself.writeToListener(\"GrowthLimits\", \"fraction_trna_charged\", np.dot(fraction_charged, self.aa_from_trna))\n"
+)
+WD_LIST_NEW = (
+    "\t\t# ROUTE1 step 2 (stage 5): at isoacceptor resolution this column carries GENUINE per-species\n"
+    "\t\t# charged fractions instead of a family broadcast. Same 86-wide column, same subcolumn map --\n"
+    "\t\t# no listener allocation changes -- so every downstream reader keeps working; the ones that\n"
+    "\t\t# re-aggregate 86 -> 21 simply compute a real family mean where they used to compute an\n"
+    "\t\t# identity. Models other than the steady-state one never set the attribute, so they run the\n"
+    "\t\t# original expression.\n"
+    "\t\tfraction_trna_charged = getattr(self.elongation_model, 'fraction_trna_charged_iso', None)\n"
+    "\t\tif fraction_trna_charged is None:\n"
+    "\t\t\tfraction_trna_charged = np.dot(fraction_charged, self.aa_from_trna)\n"
+    "\t\tself.writeToListener(\"GrowthLimits\", \"fraction_trna_charged\", fraction_trna_charged)\n"
+)
+
+WIDEN_EDITS = (
+    (REL, WD_SIG_OLD, WD_SIG_NEW, 1, "polypeptide_elongation.py: calculate_trna_charging signature"),
+    (REL, WD_DOC_OLD, WD_DOC_NEW, 1, "polypeptide_elongation.py: docstring, new arguments"),
+    (REL, WD_DOC2_OLD, WD_DOC2_NEW, 1, "polypeptide_elongation.py: docstring, sixth return value"),
+    (REL, WD_GUARD_OLD, WD_GUARD_NEW, 1, "polypeptide_elongation.py: reject pools at family resolution"),
+    (REL, WD_POOL_OLD, WD_POOL_NEW, 1, "polypeptide_elongation.py: accept genuine per-isoacceptor pools"),
+    (REL, WD_FRAC_OLD, WD_FRAC_NEW, 1, "polypeptide_elongation.py: per-species charged fraction"),
+    (REL, WD_RET_OLD, WD_RET_NEW, 1, "polypeptide_elongation.py: opt-in sixth return value"),
+    (REL, WD_SUPPLY_OLD, WD_SUPPLY_NEW, 1, "polypeptide_elongation.py: supply-branch state offset (stage-4 defect)"),
+    (REL, WD_COUNTS_OLD, WD_COUNTS_NEW, 1, "polypeptide_elongation.py: request reads per-species counts"),
+    (REL, WD_CONC_OLD, WD_CONC_NEW, 1, "polypeptide_elongation.py: request per-species concentrations"),
+    (REL, WD_CALL_OLD, WD_CALL_NEW, 1, "polypeptide_elongation.py: calculate_trna_charging call branch"),
+    (REL, WD_WRITE_OLD, WD_WRITE_NEW, 1, "polypeptide_elongation.py: per-species charged write-back"),
+    (REL, WD_LIST_OLD, WD_LIST_NEW, 1, "polypeptide_elongation.py: fraction_trna_charged listener"),
+)
+
 # Guard against an accidental re-indent of the constants above: wcEcoli is tab-indented throughout,
 # and a stray space-indented line would apply cleanly and then fail to parse inside the model image.
-for _rel, _old, _new, _n, _label in RHS_EDITS:
+for _rel, _old, _new, _n, _label in RHS_EDITS + WIDEN_EDITS:
     for _line in (_old + _new).split("\n"):
         if _line.startswith(" "):
             raise AssertionError("space-indented line in RHS constants: {!r}".format(_line))
+
+# Every stage needs its OWN marker, and the marker must be a string this stage ALONE introduces.
+# MARKER_WIDEN appears in ten of the twelve edits above; assert that it is genuinely present in the
+# applied form of at least one of them, so a future rename of the marker fails here rather than
+# turning status() into a permanent False and re-running the stage on an already-patched tree.
+assert any(MARKER_WIDEN in _new for _rel, _old, _new, _n, _label in WIDEN_EDITS), (
+    "MARKER_WIDEN does not appear in any stage-5 replacement text")
+assert not any(MARKER_WIDEN in _old for _rel, _old, _new, _n, _label in WIDEN_EDITS), (
+    "MARKER_WIDEN appears in stage-5 ANCHOR text; status() could never report unapplied")
 
 
 def _read(path: str) -> tuple[str, str]:
@@ -721,6 +1181,9 @@ def status(wcecoli: str) -> dict:
     # reason recorded above: a per-file check reports "already applied" and skips it silently.
     st["rhs"] = MARKER_RHS in pe_txt
     st["forwarding"] = MARKER_FORWARD in pe_txt
+    # Stage 5 lands in the SAME file as stages 1-4 and edits regions stage 4 created, so it needs its
+    # own marker for the same reason as every stage before it.
+    st["widen"] = MARKER_WIDEN in pe_txt
     return st
 
 
@@ -746,11 +1209,12 @@ def run(wcecoli: str, check: bool = False) -> dict:
         _write(path, txt)
         wrote.append(f"{REL}: ROUTE1 resolution/demand-split comment block above get_charging_params")
 
-    # STAGES 2-4. Each edit states how many occurrences it expects and refuses to proceed on any
+    # STAGES 2-5. Each edit states how many occurrences it expects and refuses to proceed on any
     # other count, so a file that has drifted fails loudly instead of being patched blind or
-    # silently skipped. Stage 4 (the 85-resolution RHS) rides the same loop deliberately: it gets
-    # the same anchor-count discipline for free, and it applies after the params dict it reads.
-    for rel, old, new, n_expected, label in PLUMBING + RHS_EDITS:
+    # silently skipped. Stages 4 and 5 ride the same loop deliberately: they get the same
+    # anchor-count discipline for free, and each applies after the text it anchors on exists --
+    # stage 4 after the params dict it reads, stage 5 after the RHS branch it widens.
+    for rel, old, new, n_expected, label in PLUMBING + RHS_EDITS + WIDEN_EDITS:
         p = os.path.join(wcecoli, rel)
         if not os.path.isfile(p):
             return {"complete": False, "wrote": wrote, "status": status(wcecoli),
@@ -784,11 +1248,11 @@ def revert(wcecoli: str) -> dict:
         return {"complete": False, "wrote": [], "why": f"{REL} not found under {wcecoli}"}
     wrote = []
 
-    # STAGES 4, 3, 2 then 1 -- the reverse of the order run() applies them. The stages do not
-    # overlap textually today, so the ordering is for symmetry rather than necessity; reverting in
-    # apply order would be a latent hazard the moment a later stage anchors inside an earlier one,
-    # and stage 4's RHS anchors sit a few lines from stage 3's params dict in the same file.
-    for rel, old, new, n_expected, label in reversed(PLUMBING + RHS_EDITS):
+    # STAGES 5, 4, 3, 2 then 1 -- the reverse of the order run() applies them. The ordering stopped
+    # being cosmetic at stage 5: several of its anchors are text stage 4 INTRODUCED (the uniform pool
+    # expansion, the T2A aggregation, the dcdt call), so reverting stage 4 first would leave stage 5
+    # unmatched and the tree half-patched. Reverse order is now load-bearing, not symmetry.
+    for rel, old, new, n_expected, label in reversed(PLUMBING + RHS_EDITS + WIDEN_EDITS):
         p = os.path.join(wcecoli, rel)
         if not os.path.isfile(p):
             return {"complete": False, "wrote": wrote, "why": f"{rel} not found under {wcecoli}"}
