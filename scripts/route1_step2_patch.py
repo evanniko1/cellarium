@@ -167,12 +167,12 @@ SB_OPT_OLD = (
     "\t\tadd_bool_option('kinetic_trna_charging', 'kinetic_trna_charging',\n"
 )
 SB_OPT_NEW = (
-    "\t\tself.define_parameter(parser, 'trna_charging_resolution', str,\n"
+    "\t\tself.define_option(parser, 'trna_charging_resolution', str,\n"
     "\t\t\tdefault='family',\n"
     "\t\t\thelp=\"resolution of the tRNA charging ODE: 'family' (21 amino acids, the default and\"\n"
     "\t\t\t\t\" the pre-ROUTE1 behaviour) or 'isoacceptor' (85 charging-masked tRNA species of 86;\"\n"
     "\t\t\t\t\" selC excluded). Only meaningful with --trna-charging.\")\n"
-    "\t\tself.define_parameter(parser, 'trna_demand_split', str,\n"
+    "\t\tself.define_option(parser, 'trna_demand_split', str,\n"
     "\t\t\tdefault='abundance',\n"
     "\t\t\thelp=\"how per-amino-acid elongation demand is divided among a family's isoacceptors at\"\n"
     "\t\t\t\t\" isoacceptor resolution: 'abundance' (default; an isoacceptor's share of demand is\"\n"
@@ -195,7 +195,31 @@ PE_READ_NEW = (
     "\t\tself.trna_demand_split = getattr(sim, '_trna_demand_split', 'abundance')\n"
 )
 
+# E6/E7 -- the FIREWORKS FIRETASKS. Fireworks validates kwargs against a per-task allow-list and
+# RAISES RuntimeError on anything unlisted, so a name that reaches SimulationTask without being
+# declared there breaks EVERY simulation, not only isoacceptor ones. This was missed by the spec and
+# caught only by the smoke test: static checks, ruff, the applier and a byte-identical round trip all
+# passed while every variant failed. Both the allow-list and the defaults wiring are needed, in BOTH
+# the mother and daughter tasks.
+FW_SIM = "wholecell/fireworks/firetasks/simulation.py"
+FW_DAU = "wholecell/fireworks/firetasks/simulationDaughter.py"
+
+FW_LIST_OLD = '\t\t"trna_charging",\n'
+FW_LIST_NEW = ('\t\t"trna_charging",\n'
+               '\t\t# ROUTE1 step 2: tRNA charging resolution. Fireworks raises on unlisted kwargs.\n'
+               '\t\t"trna_charging_resolution",\n'
+               '\t\t"trna_demand_split",\n')
+
+FW_DEF_OLD = '\t\toptions["trna_charging"] = self._get_default("trna_charging")\n'
+FW_DEF_NEW = ('\t\toptions["trna_charging"] = self._get_default("trna_charging")\n'
+              '\t\toptions["trna_charging_resolution"] = self._get_default("trna_charging_resolution")\n'
+              '\t\toptions["trna_demand_split"] = self._get_default("trna_demand_split")\n')
+
 PLUMBING = (
+    (FW_SIM, FW_LIST_OLD, FW_LIST_NEW, 1, "firetasks/simulation.py: allow-list"),
+    (FW_SIM, FW_DEF_OLD, FW_DEF_NEW, 1, "firetasks/simulation.py: defaults"),
+    (FW_DAU, FW_LIST_OLD, FW_LIST_NEW, 1, "firetasks/simulationDaughter.py: allow-list"),
+    (FW_DAU, FW_DEF_OLD, FW_DEF_NEW, 1, "firetasks/simulationDaughter.py: defaults"),
     (SIM, SIM_KW_OLD, SIM_KW_NEW, 1, "simulation.py: resolution/split kwargs"),
     (SIM, SIM_VAL_OLD, SIM_VAL_NEW, 1, "simulation.py: validation + family forcing"),
     (SB, SB_KEYS_OLD, SB_KEYS_NEW, 2, "scriptBase.py: METADATA_KEYS + SIM_KEYS"),
@@ -227,9 +251,12 @@ def status(wcecoli: str) -> dict:
     st = {"present": True, "resolution_block": MARKER_BLOCK in txt}
     # Stage 2 reports per FILE, not as one boolean, so a half-applied plumbing pass (say scriptBase
     # edited but simulation.py not) reads as partial rather than done.
-    for rel in (SIM, SB, REL):
+    for rel in (SIM, SB, REL, FW_SIM, FW_DAU):
         p = os.path.join(wcecoli, rel)
-        st["plumbing_" + os.path.basename(rel)] = (
+        # Keyed by the FULL relative path, not the basename: wholecell/sim/simulation.py and
+        # wholecell/fireworks/firetasks/simulation.py share a basename, and keying on it silently
+        # collapsed the two into one entry — so a half-applied pair could report as fully applied.
+        st["plumbing_" + rel.replace("\\", "/")] = (
             os.path.isfile(p) and MARKER_PLUMBING in _read(p)[0])
     return st
 
@@ -291,16 +318,40 @@ def revert(wcecoli: str) -> dict:
     path = os.path.join(wcecoli, REL)
     if not os.path.isfile(path):
         return {"complete": False, "wrote": [], "why": f"{REL} not found under {wcecoli}"}
+    wrote = []
+
+    # STAGE 2 first, then stage 1 -- the reverse of the order run() applies them. Stage 1 inserts a
+    # block above get_charging_params and stage 2 edits elsewhere in the same file, so they do not
+    # overlap textually; the ordering is for symmetry rather than necessity, and reverting in apply
+    # order would be a latent hazard the moment a later stage anchors inside an earlier one.
+    for rel, old, new, n_expected, label in reversed(PLUMBING):
+        p = os.path.join(wcecoli, rel)
+        if not os.path.isfile(p):
+            return {"complete": False, "wrote": wrote, "why": f"{rel} not found under {wcecoli}"}
+        t, n2 = _read(p)
+        o, w = _norm(old, n2), _norm(new, n2)
+        if w not in t:
+            continue  # this edit is already reverted
+        if t.count(w) != n_expected:
+            return {"complete": False, "wrote": wrote,
+                    "why": f"{rel}: expected exactly {n_expected} occurrence(s) of the applied form "
+                           f"of {label!r}, found {t.count(w)} — refusing to guess"}
+        _write(p, t.replace(w, o, n_expected))
+        wrote.append(f"{label} reverted")
+
     txt, nl = _read(path)
     block = _norm(BLOCK, nl).lstrip(nl)
-    if block not in txt:
-        return {"complete": True, "wrote": [], "status": status(wcecoli), "why": "already reverted"}
-    if txt.count(block) != 1:
-        return {"complete": False, "wrote": [], "why": f"expected exactly 1 block, found {txt.count(block)}"}
-    _write(path, txt.replace(block, "", 1))
+    if block in txt:
+        if txt.count(block) != 1:
+            return {"complete": False, "wrote": wrote,
+                    "why": f"expected exactly 1 resolution block, found {txt.count(block)}"}
+        _write(path, txt.replace(block, "", 1))
+        wrote.append(f"{REL}: resolution block reverted")
+
     st = status(wcecoli)
-    return {"complete": not st["resolution_block"], "wrote": [f"{REL}: resolution block reverted"],
-            "status": st}
+    reverted = not any(v for k, v in st.items() if k != "present")
+    return {"complete": reverted, "wrote": wrote, "status": st,
+            "why": "" if reverted else "revert did not clear every marker"}
 
 
 def main(argv=None) -> int:
