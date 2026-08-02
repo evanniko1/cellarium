@@ -68,6 +68,19 @@ STAGES APPLIED SO FAR:
      abundance is bit-equal to the family control for two timesteps and departs at 2e-10 before
      amplifying to ~1e-1. No behaviour change: comments only.
 
+  8. THE tRNA Km DEFECT REPAIRS -- the first stage here that changes NUMBERS, so it requires a ParCa
+     rebuild and produces a NEW simData; nothing built against the old one is comparable to it.
+     Four separable changes in `transcription.py` and `parameters.tsv`: delete the one-sided high-Km
+     filter (it rejected exactly three PubMed-cited values -- GLT 56 uM, PRO 14.14, LEU 13 -- had no
+     low-side counterpart, and its threshold was tied to the default it filtered toward); replace
+     the ARITHMETIC mean over Km data spanning 0.008-56 uM with a GEOMETRIC one (tRNA only); add a
+     low-side guard referenced to the POOLED tRNA Km distribution rather than to the default; and
+     raise Km_synthetase_uncharged_trna 1 -> 10 umol/L, RELABELLED as an EFFECTIVE in vivo constant
+     rather than the Bosdriesz/Elf-Ehrenberg DISSOCIATION constant it has been standing in for.
+     PREDICTED 0.9013 +/- 0.0197 charged, corroborated at 0.9092 +/- 0.0478 from the kinetic arm's
+     own K_T + k_cat. That is 0.90, NOT the measured 0.71-0.86: about 36% of the gap. The residual
+     is the rate law, not the Km, and the constant must NOT be retuned to hit a target.
+
 STAGES NOT YET APPLIED: none.
 
     python scripts/route1_step2_patch.py --wcecoli C:/dev/wcEcoli [--check] [--revert]
@@ -1356,6 +1369,170 @@ GEN_EDITS = (
      "polypeptide_elongation.py: correct the now-false generation-0-only caveat"),
 )
 
+# ---------------------------------------------------------------------------------------------------
+# STAGE 8 -- the tRNA Km defect repairs, and the EFFECTIVE in vivo uncharged-tRNA Km.
+#
+# This is the FIRST stage in this file that is not comment-only or interface-only: it changes a
+# RECONSTRUCTION-TIME quantity, so it requires a ParCa rebuild and produces a NEW simData. Nothing
+# built against the old simData is comparable to anything built against the new one.
+#
+# THE DEFECT. The steady-state charging arm sits at ~0.969 charged tRNA. This project's own kinetic
+# arm publishes 0.788 (Choi & Covert 2023) and every measurement lands 0.71-0.86. The exact algebra of
+# the charging rate law gives, at steady state, u_a = KMtf_a * rho/(1-rho): the ABSOLUTE uncharged pool
+# is pinned by KMtf alone and contains no tRNA total. So KMtf, and only KMtf, sets the charged
+# fraction. Spearman(KMtf, uncharged amount) = +0.686, p = 8.4e-4, N = 20; pool size gives +0.021,
+# p = 0.93.
+#
+# FOUR THINGS ARE WRONG, and they are separable:
+#
+#   (a) A ONE-SIDED FILTER. `if km > 5 * Km_synthetase_uncharged_trna: continue` discarded high data
+#       with no low-side counterpart. It rejected exactly three values, all with PubMed IDs: GLT 56 uM
+#       (PMID 10215844), PRO 14.14 uM (PMID 16864571), LEU 13 uM (PMID 17378584). Its threshold was
+#       tied to the default it was filtering toward, so raising the default silently widened the
+#       filter. 70 of the 85 K_T values this project's OWN charging optimiser selected would be
+#       rejected by it, and NONE of them falls below its (nonexistent) low side. The filter is
+#       backwards. It is deleted, not retuned.
+#
+#   (b) AN ARITHMETIC MEAN over a log-distributed quantity spanning 0.008-56 uM
+#       (transcription.py, `np.mean` on trna_kms). With the filter gone, one 56 uM datum drags GLT
+#       from 0.16 to 14.12 uM -- 88x, from a single measurement. MEASURED: removing the filter under
+#       the arithmetic mean gives 0.9399; under a geometric mean over the SAME data it gives 0.9468.
+#       Most of the filter's apparent effect was one outlier times a badly chosen mean, and reporting
+#       it as a physiology result would have been wrong. Geometric mean, tRNA only; the amino-acid Km
+#       aggregation is deliberately untouched.
+#
+#   (c) NO LOW-SIDE RULE AT ALL. VAL's family Km is 0.008 uM from one datum, which pins VAL at 0.9999
+#       charged under ANY perturbation -- 7.6% of the pool that cannot respond. A guard referenced to
+#       the POOLED tRNA Km distribution (median/5 ~ 0.22 uM) is the symmetric counterpart the deleted
+#       rule never had, and it is referenced to the DATA rather than to the default so it does not
+#       move when the default is retuned. Five data lie below it. MEASURED effect on the charged
+#       fraction: 2e-4. It is a CORRECTNESS fix, not a physiology fix, and is recorded as such.
+#
+#   (d) THE DEFAULT IS A DISSOCIATION CONSTANT WEARING A Km's NAME. The 1 uM traces Bosdriesz 2015 ->
+#       Elf & Ehrenberg 2005 Table 2 -> a BRENDA-sourced DISSOCIATION constant, adopted in a model that
+#       ASSUMED complete charging. The provenance is circular. The in vitro number is not in dispute
+#       (N = 77 primary values with per-row PubMed IDs, median 0.60 uM) -- what is in dispute is that
+#       an in vitro Km is the right thing to put in an in vivo rate law. NO in vivo effective Km has
+#       ever been measured. Inverting measured charged fractions (0.68-0.90) implies 3.4-10.7 uM;
+#       this project's own fitted K_T (N = 85) has median 10.38 uM. Two independent routes bracket 10
+#       and exclude 1. The value is raised to 10 uM and RELABELLED in parameters.tsv as an EFFECTIVE
+#       in vivo constant, so nobody later cites Bosdriesz for a number Bosdriesz does not contain.
+#       With (a) applied the default governs only the three families that carry no tRNA Km datum at
+#       all -- ASN, GLY and TYR. PRO leaves the default set because its 14.14 uM datum is readmitted.
+#
+# WHAT THIS DOES *NOT* CLAIM, stated here so it cannot be quietly dropped downstream. The predicted
+# charged fraction is 0.9013 +/- 0.0197 (frozen-state re-solve of the model's own
+# calculate_trna_charging over 3 seeds x 3 generations, 54 sampled timesteps), independently
+# corroborated at 0.9092 +/- 0.0478 by importing the kinetic arm's K_T WITH the k_cat fitted
+# alongside it. Those two agree within one standard deviation from entirely different parameter
+# sources, and they agree on 0.90 -- NOT on 0.79. This closes about 36% of the gap and no more. The
+# residual is the charging / A-site rate law, not the Km: forcing 0.788 needs a UNIFORM 29.06 uM
+# (0.71 needs 81.86 uM), above every in vitro datum in the file and 3-8x the kinetic arm's median
+# K_T, at a 35-65% collapse in elongation rate. Do NOT retune this constant to hit a target charged
+# fraction; that is fitting to the quantity the model is supposed to predict.
+#
+# CONSEQUENCE FOR ppGpp, which is a real risk and not a footnote: RelA supplies 73.9% of ppGpp
+# synthesis and is essentially LINEAR in uncharged tRNA (krtf = 500 uM, u << krtf). This change
+# multiplies the absolute uncharged pool, so RelA synthesis rises roughly in proportion. Whether the
+# arm stays balanced is a SIMULATED question, measured after the rebuild -- not something this
+# comment may assert.
+#
+# Lands in two files no earlier stage touches, so its position in the revert order is free.
+# ---------------------------------------------------------------------------------------------------
+
+MARKER_KM = "ROUTE1 step 2 (stage 8): tRNA Km defect repairs"
+
+TRANS = "reconstruction/ecoli/dataclasses/process/transcription.py"
+PARAMS_TSV = "reconstruction/ecoli/flat/parameters.tsv"
+
+KM_FILTER_OLD = (
+    "\t\t\t\t\t# Exclude suspiciously high data\n"
+    "\t\t\t\t\tif km > 5 * sim_data.constants.Km_synthetase_uncharged_trna:\n"
+    "\t\t\t\t\t\tcontinue\n"
+    "\t\t\t\t\taa = met.split('-')[0]\n"
+)
+KM_FILTER_NEW = (
+    "\t\t\t\t\t# ROUTE1 step 2 (stage 8): tRNA Km defect repairs -- the one-sided\n"
+    "\t\t\t\t\t# high-Km filter that stood here is DELETED. It rejected exactly three\n"
+    "\t\t\t\t\t# values, all carrying PubMed IDs (GLT 56 uM, PRO 14.14, LEU 13), had no\n"
+    "\t\t\t\t\t# low-side counterpart, and its threshold was tied to the very default it\n"
+    "\t\t\t\t\t# filtered toward -- so raising that default silently widened the filter.\n"
+    "\t\t\t\t\t# 70 of the 85 K_T this project's own charging optimiser selected would be\n"
+    "\t\t\t\t\t# rejected by it and none falls below its nonexistent low side. See the\n"
+    "\t\t\t\t\t# stage-8 banner in scripts/route1_step2_patch.py.\n"
+    "\t\t\t\t\taa = met.split('-')[0]\n"
+)
+
+KM_AGG_OLD = (
+    "\t\t# Save average KM values and use the default value if no data is available\n"
+    "\t\tkm_units = units.umol / units.L\n"
+    "\t\taverage_aa_kms = []\n"
+    "\t\taverage_trna_kms = []\n"
+    "\t\tfor aa_id in aa_names_without_tag:\n"
+    "\t\t\taverage_aa_kms.append(np.mean(aa_kms.get(aa_id, sim_data.constants.Km_synthetase_amino_acid)).asNumber(km_units))\n"
+    "\t\t\taverage_trna_kms.append(np.mean(trna_kms.get(aa_id, sim_data.constants.Km_synthetase_uncharged_trna)).asNumber(km_units))\n"
+)
+KM_AGG_NEW = (
+    "\t\t# Save average KM values and use the default value if no data is available\n"
+    "\t\tkm_units = units.umol / units.L\n"
+    "\t\t# ROUTE1 step 2 (stage 8): tRNA Km defect repairs -- aggregation, and the low-side guard\n"
+    "\t\t# the deleted high-side filter never had. GEOMETRIC mean, because the tRNA Km data span\n"
+    "\t\t# 0.008-56 uM and an arithmetic mean over that is set by its largest datum (one 56 uM GLT\n"
+    "\t\t# value moves the GLT family 0.16 -> 14.12 uM, 88x). The guard is referenced to the POOLED\n"
+    "\t\t# tRNA Km distribution (median / 5), NOT to Km_synthetase_uncharged_trna, so it does not\n"
+    "\t\t# move when that default is retuned -- the coupling that made the old rule unreasonable.\n"
+    "\t\t# Five data lie below it (VAL 0.008, THR 0.05, ASP 0.08, GLT 0.08 and 0.10); its measured\n"
+    "\t\t# effect on the charged fraction is 2e-4, so it is a CORRECTNESS fix (VAL at 0.008 uM\n"
+    "\t\t# cannot become uncharged under any perturbation), not a physiology fix.\n"
+    "\t\t# The AMINO-ACID Km aggregation below is deliberately UNTOUCHED: this stage is tRNA only.\n"
+    "\t\ttrna_km_pool = np.array(\n"
+    "\t\t\t[km.asNumber(km_units) for kms in trna_kms.values() for km in kms])\n"
+    "\t\ttrna_km_floor = float(np.median(trna_km_pool)) / 5. if trna_km_pool.size else 0.\n"
+    "\t\taverage_aa_kms = []\n"
+    "\t\taverage_trna_kms = []\n"
+    "\t\tfor aa_id in aa_names_without_tag:\n"
+    "\t\t\taverage_aa_kms.append(np.mean(aa_kms.get(aa_id, sim_data.constants.Km_synthetase_amino_acid)).asNumber(km_units))\n"
+    "\t\t\ttrna_km_data = trna_kms.get(aa_id)\n"
+    "\t\t\tif trna_km_data:\n"
+    "\t\t\t\tguarded = np.fmax(\n"
+    "\t\t\t\t\tnp.array([km.asNumber(km_units) for km in trna_km_data]), trna_km_floor)\n"
+    "\t\t\t\taverage_trna_kms.append(float(np.exp(np.mean(np.log(guarded)))))\n"
+    "\t\t\telse:\n"
+    "\t\t\t\taverage_trna_kms.append(\n"
+    "\t\t\t\t\tsim_data.constants.Km_synthetase_uncharged_trna.asNumber(km_units))\n"
+)
+
+# The parameters.tsv row. Anchored on the WHOLE row including the trailing empty _comments cell, so a
+# partial match cannot leave a half-edited line. parameters.tsv is CRLF; _norm() handles that.
+KM_PARAM_OLD = (
+    '"Km_synthetase_uncharged_trna"\t1\t"units.umol/units.L"\t"Bosdriesz et al. FEBS. 2015."\t\n'
+)
+KM_PARAM_NEW = (
+    '"Km_synthetase_uncharged_trna"\t10\t"units.umol/units.L"\t'
+    '"EFFECTIVE in vivo constant. NOT the Bosdriesz et al. FEBS. 2015. value."\t'
+    '"ROUTE1 step 2 (stage 8): tRNA Km defect repairs. Raised 1 -> 10 umol/L and RELABELLED. '
+    'The 1 umol/L traces '
+    'Bosdriesz 2015 to Elf and Ehrenberg 2005 Table 2, who took 1e-6 M from a BRENDA-sourced '
+    'compilation and labelled it a DISSOCIATION constant, in a model that ASSUMED complete '
+    'charging. The in vitro value is not disputed (N=77 primary values with per-row PubMed IDs, '
+    'median 0.60 umol/L); what is disputed is using an in vitro Km in an in vivo rate law. No in '
+    'vivo effective Km has ever been measured. Inverting measured charged fractions of 0.68-0.90 '
+    'implies 3.4-10.7 umol/L, and this project own fitted K_T '
+    '(flat/trna_charging_kinetics.tsv, N=85) has median 10.38 umol/L: two independent routes that '
+    'bracket 10 and exclude 1. Predicted charged fraction 0.9013 +/- 0.0197, NOT the measured '
+    '0.71-0.86; the residual is the rate law, not this constant, so do NOT retune this value to '
+    'hit a target charged fraction. Governs only families with no tRNA Km datum: ASN, GLY, TYR."\n'
+)
+
+KM_EDITS = (
+    (TRANS, KM_FILTER_OLD, KM_FILTER_NEW, 1,
+     "transcription.py: delete the one-sided high-Km tRNA filter"),
+    (TRANS, KM_AGG_OLD, KM_AGG_NEW, 1,
+     "transcription.py: geometric-mean tRNA Km aggregation + pooled low-side guard"),
+    (PARAMS_TSV, KM_PARAM_OLD, KM_PARAM_NEW, 1,
+     "parameters.tsv: Km_synthetase_uncharged_trna 1 -> 10 umol/L, relabelled EFFECTIVE"),
+)
+
 # ALL_EDITS is the single ordered list revert() walks (in reverse), so a stage can never be applied by
 # run() and forgotten by revert(). DEGEN_EDITS stays LAST: it anchors on text stages 1 and 2 wrote.
 #
@@ -1371,6 +1548,7 @@ EDIT_GROUPS = (
     ("widen", WIDEN_EDITS),
     ("degeneracy", DEGEN_EDITS),
     ("generations", GEN_EDITS),
+    ("km", KM_EDITS),
 )
 
 GROUP_STATUS_KEYS = {
@@ -1379,6 +1557,12 @@ GROUP_STATUS_KEYS = {
     "widen": ("widen",),
     "degeneracy": ("degeneracy_cli", "degeneracy_block"),
     "generations": ("generations_block",),
+    # Stage 8 lands in TWO files and is reported per file, for the same reason stages 2 and 6 are:
+    # a half-applied stage (code repaired, constant not, or the reverse) must read as PARTIAL. That
+    # particular half-application is the dangerous one here -- the code repairs alone give 0.9468
+    # and the constant alone gives something else again, and either would be silently mistaken for
+    # the full change in a rebuilt simData.
+    "km": ("km_code", "km_default"),
 }
 
 ALL_EDITS = tuple(e for _gname, _edits in EDIT_GROUPS for e in _edits)
@@ -1387,12 +1571,12 @@ ALL_EDITS = tuple(e for _gname, _edits in EDIT_GROUPS for e in _edits)
 # and never undone, which is precisely the failure the marker/revert discipline exists to prevent.
 assert set(GROUP_STATUS_KEYS) == {_g for _g, _e in EDIT_GROUPS}, (
     "EDIT_GROUPS and GROUP_STATUS_KEYS disagree about which stages exist")
-assert ALL_EDITS == PLUMBING + RHS_EDITS + WIDEN_EDITS + DEGEN_EDITS + GEN_EDITS, (
+assert ALL_EDITS == PLUMBING + RHS_EDITS + WIDEN_EDITS + DEGEN_EDITS + GEN_EDITS + KM_EDITS, (
     "EDIT_GROUPS does not reproduce the apply order revert() reverses")
 
 # Guard against an accidental re-indent of the constants above: wcEcoli is tab-indented throughout,
 # and a stray space-indented line would apply cleanly and then fail to parse inside the model image.
-for _rel, _old, _new, _n, _label in RHS_EDITS + WIDEN_EDITS + DEGEN_EDITS + GEN_EDITS:
+for _rel, _old, _new, _n, _label in RHS_EDITS + WIDEN_EDITS + DEGEN_EDITS + GEN_EDITS + KM_EDITS:
     for _line in (_old + _new).split("\n"):
         if _line.startswith(" "):
             raise AssertionError("space-indented line in RHS constants: {!r}".format(_line))
@@ -1433,6 +1617,26 @@ assert GEN_BLOCK_OLD in DG_BLOCK_NEW, (
     "GEN_BLOCK_OLD is not the tail of stage 6's applied block; stage 7 could never anchor")
 assert GEN_BLOCK_OLD in BLOCK, (
     "GEN_BLOCK_OLD is not present in BLOCK; stage 7 could never anchor on a stage-6-reverted tree")
+
+# Stage 8, same discipline as 5, 6 and 7 -- and it needs it MORE than they do, because it is the
+# first stage that changes numbers rather than comments. The marker must appear in the applied form
+# of every edit and in the anchor of none, or a half-applied numeric change reads as fully applied.
+assert all(MARKER_KM in _new for _rel, _old, _new, _n, _label in KM_EDITS), (
+    "MARKER_KM is missing from at least one stage-8 replacement text")
+assert not any(MARKER_KM in _old for _rel, _old, _new, _n, _label in KM_EDITS), (
+    "MARKER_KM appears in stage-8 ANCHOR text; status() could never report unapplied")
+# Stage 8 anchors on PRISTINE upstream text in two files no other stage touches, so unlike stages 6
+# and 7 there is no cross-stage anchor relationship to assert. Assert instead the property that
+# actually matters for a NUMERIC stage: the anchor and the replacement must disagree about the
+# value, so a no-op edit can never be mistaken for an applied one.
+assert '"Km_synthetase_uncharged_trna"\t1\t' in KM_PARAM_OLD, (
+    "stage-8 parameters.tsv anchor does not carry the OLD value 1")
+assert '"Km_synthetase_uncharged_trna"\t10\t' in KM_PARAM_NEW, (
+    "stage-8 parameters.tsv replacement does not carry the NEW value 10")
+# The two transcription.py edits must not overlap: the second anchors on text BELOW the first, and
+# if the first ever grew to include it the second would find 0 occurrences mid-apply.
+assert KM_AGG_OLD not in KM_FILTER_OLD and KM_FILTER_OLD not in KM_AGG_OLD, (
+    "the two stage-8 transcription.py anchors overlap; one would destroy the other")
 
 
 def _read(path: str) -> tuple[str, str]:
@@ -1486,6 +1690,15 @@ def status(wcecoli: str) -> dict:
     # Stage 7 rewrites the tail of the block stage 6 wrote, in the SAME file every stage since 1 has
     # touched, so it needs its own marker for the same reason as all of them.
     st["generations_block"] = MARKER_GEN in pe_txt
+    # Stage 8 is the first stage that changes NUMBERS, and it lands in two files neither of which
+    # any earlier stage touches. Report them separately: "code repaired but constant still 1 uM" and
+    # "constant raised but the filter still discarding data" are different wrong answers, and a
+    # single boolean would hide both. Absent files report False rather than raising, so a --check on
+    # a partial checkout says "not applied" instead of crashing.
+    tr = os.path.join(wcecoli, TRANS)
+    pt = os.path.join(wcecoli, PARAMS_TSV)
+    st["km_code"] = os.path.isfile(tr) and MARKER_KM in _read(tr)[0]
+    st["km_default"] = os.path.isfile(pt) and MARKER_KM in _read(pt)[0]
     return st
 
 
