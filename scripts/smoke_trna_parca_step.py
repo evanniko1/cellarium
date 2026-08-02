@@ -1,6 +1,8 @@
 """EXT-PORT-11 smoke test: run the whole Parca STEP FUNCTION, not just the optimiser method.
 
-scripts/smoke_trna_refit.py proves `Relation.optimize_trna_charging_kinetics` runs. This proves the
+Its companion smoke test proved that `Relation.optimize_trna_charging_kinetics` runs. (That was
+scripts/smoke_trna_refit.py; it belonged to the ROUTE1 isoacceptor exploration and now lives in
+https://github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors, not here.) This proves the
 layer above it runs: `fit_sim_data_1.optimize_trna_charging_kinetics`, which is what
 --optimize-trna-charging-kinetics actually invokes. That layer does four things the method does not,
 and each of them can fail on its own:

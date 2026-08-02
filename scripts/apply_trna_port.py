@@ -502,18 +502,6 @@ def status(wcecoli: str) -> dict:
             bool(_has(wcecoli, PARCA_TASK, "trna_charged_fraction_target")),
             bool(_has(wcecoli, FITSIMDATA_TASK, "trna_charged_fraction_target")),
             ]),
-        # ROUTE1-21, applied by scripts/route1_occupancy_patch.py. NOT part of the v3.0.1 port --
-        # this is our own change, and it is wired in here only so that ONE command reproduces the
-        # whole working tree from a clone. Two markers so a half-applied patch reads as partial.
-        "route1_occupancy": all([
-            bool(_has(wcecoli, PE, "ROUTE1-21: the A-site occupancy in the form it is derived from")),
-            bool(_has(wcecoli, PE, "ROUTE1-21: this is now read ONLY by the")),
-            ]),
-        # ROUTE1 step 2, applied by scripts/route1_step2_patch.py. Lands in STAGES, so this key grows
-        # a marker per stage; a partially-applied step 2 must report as partial, never as done.
-        "route1_step2": all([
-            bool(_has(wcecoli, PE, "ROUTE1 -- tRNA charging resolution, and the measured cost")),
-            ]),
         "flat_files": {f: os.path.isfile(os.path.join(flat, f)) for f in FLAT_FILES},
     }
 
@@ -878,44 +866,19 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
                     "why": f"EXT-PORT-11 edits did not fully apply: {r11['files']}"}
         wrote.extend(f"EXT-PORT-11 {f}" for f in r11["wrote"])
 
-    # 16) ROUTE1-21 -- the A-site occupancy rewrite. NOT part of the v3.0.1 port.
+    # This applier reproduces THE PORT ONLY -- the v3.0.1 kinetic elongation model in the wcEcoli
+    # tree, i.e. what makes capability.ELONGATION_MODES' `kinetic` and `coarse_kinetic` producible
+    # from a fresh clone. It deliberately stops here.
     #
-    # Included here only so that one command reproduces the whole working tree from a clone; it is
-    # otherwise independent and can be applied or reverted on its own. It rewrites ONE expression,
-    # ribosome_conc_a_site, at its derived renewal-theory form R_j/[R] = f_j(1+theta_j)/D, in which
-    # max_elong_rate cancels identically. The consequence is the point: after this,
-    # charging_params['max_elong_rate'] is read NOWHERE inside ppgpp_metabolite_changes, so
-    # re-pinning it for an isoacceptor-resolved charging ODE cannot reach the stringent-response
-    # arm. Without it, an 86-derived v_rib into the unmodified expression cuts RelA synthesis by
-    # 21.27% at an identical tRNA state -- silently.
+    # Two further steps used to run at this point: an A-site occupancy rewrite and a set of
+    # isoacceptor-resolution charging edits. Those were the isoacceptor-resolution EXPLORATION built
+    # on top of the port, not the port, and they reached a documented dead end. They now live --
+    # with their patch modules, their regression tests, their findings docs and the full decision
+    # log -- in the extension repo:
     #
-    # MEASURED COST at the current 21-amino-acid resolution: RelA synthesis moves +0.009% (operons
-    # OFF) / +0.004% (ON) median. It is NOT a no-op on the evolve path, so ppGpp-enabled
-    # trajectories diverge and any existing such run is superseded. See that module's docstring for
-    # the identities, the two deliberate choices that look like oversights, and the acceptance
-    # criterion. tests/test_ppgpp_arm_isolation.py pins the invariance.
-    if not st["route1_occupancy"]:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from route1_occupancy_patch import run as _route1_run
-        r1 = _route1_run(wcecoli, check=False)
-        if not r1["complete"]:
-            return {"ok": False, "status": status(wcecoli), "wrote": wrote,
-                    "why": f"ROUTE1-21 occupancy edit did not apply: {r1.get('why')}"}
-        wrote.extend(f"ROUTE1-21 {w}" for w in r1["wrote"])
-
-    # 17) ROUTE1 step 2 -- isoacceptor-resolution charging. Also NOT part of the v3.0.1 port, and it
-    # lands INCREMENTALLY: that module grows a stage at a time, so calling it repeatedly is normal
-    # rather than exceptional. Ordered after step 1 because its first stage anchors on
-    # get_charging_params, which step 1 leaves alone but whose surroundings step 1 shifts.
-    if not st["route1_step2"]:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from route1_step2_patch import run as _route1_step2_run
-        r2 = _route1_step2_run(wcecoli, check=False)
-        if not r2["complete"]:
-            return {"ok": False, "status": status(wcecoli), "wrote": wrote,
-                    "why": f"ROUTE1 step-2 edits did not fully apply: {r2.get('why')}"}
-        wrote.extend(f"ROUTE1-step2 {w}" for w in r2["wrote"])
-
+    #     https://github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors
+    #
+    # Nothing here imports them any more, so this module has no dependency on that repo.
     st2 = status(wcecoli)
     return {"ok": _complete(st2), "status": st2, "wrote": wrote,
             "next": "REBUILD ParCa (`runscripts/manual/runParca.py <newdir> --cpus 4 "

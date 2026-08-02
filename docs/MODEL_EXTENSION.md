@@ -129,7 +129,10 @@ Dong, Nilsson & Kurland (1996) measured tRNA per SPECIES (~44), and a species is
 several identical genes encodes it. So the per-gene file is a disaggregation of species-level measurements, and
 no rule for that disaggregation is documented anywhere in the model.
 
-**Pooling rule declared BEFORE any comparison: SUM** (`scripts/audit_trna_abundance.py`, `POOLING_RULE`).
+**Pooling rule declared BEFORE any comparison: SUM** (`scripts/audit_trna_abundance.py`, `POOLING_RULE` — that
+script was part of the ROUTE1 isoacceptor exploration and now lives in
+[wcecoli-extension-tRNA-isoacceptors](https://github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors), not
+in this repo).
 Declared because abundance is extensive — four genes transcribing the same molecule contribute additively to
 the cell's pool. The alternative (MEAN) would be correct only if the file already held a species total
 replicated onto each gene. Which of the two it is, is what the audit determines, so the rule was fixed in

@@ -56,7 +56,15 @@ ELONGATION_MODES = ("steady_state", "kinetic", "coarse_kinetic")
 # back to steady_state", which is the ABSENCE of a flag, and a per-capability flag field cannot express that.
 # Both names verified against the checkout (wholecell/utils/scriptBase.py:534-538, dashized by
 # define_parameter_bool); they are mutually exclusive alternatives, not modifiers, and selecting either one
-# forces trna_charging and translation_supply False (wholecell/sim/simulation.py:148-154).
+# forces trna_charging and translation_supply False.
+#
+# That last claim is cited BY NAME, not by line number: `wholecell.sim.simulation.resolve_elongation_flags`,
+# which is the single definition of the rule and is applied to the simulation in `Simulation.__init__` (it is
+# also what runscripts/manual/runSim.py calls to write the RESOLVED flags into metadata.json). This used to
+# read "wholecell/sim/simulation.py:148-154"; that tree is not ours, its line numbers have shifted repeatedly,
+# and those lines now hold `SimulationException` and `DEFAULT_LISTENER_CLASSES` — an unrelated pair that a
+# reader would have taken as the evidence for a claim about elongation flags. A citation into a moving tree
+# decays into a confident pointer at the wrong code, which is the same failure mode as a stale `present=True`.
 MODE_FLAGS = {
     "steady_state": "(no flag — the model default)",
     "kinetic": "--kinetic-trna-charging",
@@ -80,6 +88,23 @@ MODE_SUMMARY = {
 # so `audit()` probes it against the manifest rather than trusting it. A new campaign in another mode must
 # extend this tuple.
 MODES_IN_CORPUS = ("steady_state",)
+
+
+def corpus_modes_phrase() -> str:
+    """How a refusal SPELLS the set of elongation models the corpus actually contains.
+
+    MEASURED 2026-08-01 against data/manifest: 322 of 322 rows carry elongation_model='steady_state' and no
+    other value occurs, so the sentence this renders is true as written today. It is DERIVED from
+    MODES_IN_CORPUS anyway, because it was previously two hand-written f-strings that both said
+    `elongation_model="{DEFAULT_MODE}"` — a literal that a routine action (running one kinetic campaign, then
+    extending MODES_IN_CORPUS as its docstring instructs) turns into a false statement inside a user-facing
+    refusal, with nothing raising. `probe_corpus_modes()` already guards the TUPLE against the manifest; this
+    makes the PROSE follow the tuple, so one update fixes both instead of leaving the sentence behind."""
+    modes = tuple(MODES_IN_CORPUS)
+    if len(modes) == 1:
+        return f'every corpus row is elongation_model="{modes[0]}"'
+    listed = ", ".join(f'"{m}"' for m in modes)
+    return f"every corpus row is elongation_model in ({listed})"
 
 # How a non-default elongation model is spelled INSIDE a design tag, e.g. `KO:argS#elong:kinetic`. Lives here
 # so `manifest._design_tag` (which writes it) and `factors.parse` (which must lift it back out as its own
@@ -255,13 +280,12 @@ class Capability:
                       f"elongation_model=\"{other}\" ({MODE_FLAGS.get(other, 'see MODE_FLAGS')}). "
                     + ("The corpus IS in that mode — re-issue the query there rather than proposing a run. "
                        if other in MODES_IN_CORPUS else
-                       f"No run in the corpus used it (every corpus row is elongation_model="
-                       f"\"{DEFAULT_MODE}\"), so this is a NEW RUN to propose, not a query to re-issue. ")
+                       f"No run in the corpus used it ({corpus_modes_phrase()}), so this is a NEW RUN to "
+                       f"propose, not a query to re-issue. ")
                     + (f"Where it comes from: {self.available_in}" if self.available_in else ""))
         return (f"The mechanism for {self.key} IS present in the model ({self.available_in or 'ported'}) and "
                 f"the {mode} elongation model represents it, but NO run in the corpus was produced by that "
-                f"model — every corpus row is elongation_model=\"{DEFAULT_MODE}\" — so the corpus CANNOT "
-                f"answer this. "
+                f"model — {corpus_modes_phrase()} — so the corpus CANNOT answer this. "
                 # "Those runs" is the CORPUS, not `mode` — see `prose_subject`, which has already resolved the
                 # subject to DEFAULT_MODE for exactly this sentence.
                 + (f"What those runs do instead: {instead} " if instead else "")
