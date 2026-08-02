@@ -135,14 +135,27 @@ def test_rnaseq_concordance_fails_loud_on_namespace_mismatch(monkeypatch):
 # ---- real PRECISE-1K + pydeseq2 (opt-in): needs the `rnaseq` extra + the fetched data ----
 
 def _rnaseq_ready():
+    """Gate on WHICH DATA is present, not merely that a file exists.
+
+    This gate used to be `COUNTS.exists() and METADATA.exists()`, and that made the real-contrast test below
+    silently state-dependent: `data/precise1k/` is gitignored (.gitignore:52), `sci2.DATA_DIR` is CWD-relative, and
+    `fetch_precise1k` pulls from a GitHub `main` branch with no hash or length check. A partial download or an
+    upstream edit still satisfies `.exists()` and still produces a plausible DESeq2 table, so the test could move
+    between skip / fail / pass with no attributable code change — which is exactly why it was seen flipping. It is
+    also invisible in CI, which installs only `[dev,hf,surrogate]`, so this path always skips there.
+
+    Now it skips with a LOUD, specific reason when the local bytes are not the validated snapshot, instead of
+    certifying a run over unknown input."""
     try:
         import pydeseq2  # noqa: F401
     except Exception:
-        return False
-    return sci2.COUNTS.exists() and sci2.METADATA.exists()
+        return False, "rnaseq extra (pydeseq2) not installed"
+    st = sci2.snapshot_status()
+    return st["matches"], st["reason"]
 
 
-realrnaseq = pytest.mark.skipif(not _rnaseq_ready(), reason="rnaseq extra (pydeseq2) + PRECISE-1K data not present")
+_READY, _WHY = _rnaseq_ready()
+realrnaseq = pytest.mark.skipif(not _READY, reason=f"SCI-2 real path unavailable: {_WHY}")
 
 
 @realrnaseq
@@ -156,3 +169,6 @@ def test_build_reference_on_a_real_contrast():
     assert all(k.startswith("b") for k in list(rl)[:20])       # b-number keys
     assert any(v["padj"] is not None and v["padj"] < 0.05 and abs(v["log2FC"]) > 2 for v in rl.values())
     assert ref["provenance"]["counts_sha256"] and ref["provenance"]["ref_strain"] == "MG1655"
+    # Name the input this result certifies. Without this the assertions above are conditional on whatever bytes
+    # happened to be in the gitignored data dir.
+    assert ref["provenance"]["counts_sha256"] == sci2.PRECISE1K_SNAPSHOT["counts_sha256"]

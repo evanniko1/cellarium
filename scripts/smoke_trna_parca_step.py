@@ -38,78 +38,78 @@ import numpy as np
 
 sys.path.insert(0, os.environ.get('WCECOLI_DIR', '/wcEcoli'))
 
-from reconstruction.ecoli import fit_sim_data_1 as F   # noqa: E402
-from reconstruction.ecoli.dataclasses.relation import Relation   # noqa: E402
+from reconstruction.ecoli import fit_sim_data_1 as F  # noqa: E402
+from reconstruction.ecoli.dataclasses.relation import Relation  # noqa: E402
 
 
 def main(argv=None):
-	ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-	ap.add_argument('--kb', required=True, help='Parca kb dir with --save-intermediates output')
-	ap.add_argument('--out', required=True, help='scratch dir for the three TSVs; NEVER the checkout')
-	ap.add_argument('--target', default='none')
-	ap.add_argument('--weight', type=float, default=None)
-	ap.add_argument('--iterations', type=int, default=2,
-		help='SCOUTING budget. Shipped is 100. The output of this script is not a fit.')
-	ap.add_argument('--viable-solutions', type=int, default=1)
-	ap.add_argument('--seed', type=int, default=0)
-	a = ap.parse_args(argv)
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap.add_argument('--kb', required=True, help='Parca kb dir with --save-intermediates output')
+    ap.add_argument('--out', required=True, help='scratch dir for the three TSVs; NEVER the checkout')
+    ap.add_argument('--target', default='none')
+    ap.add_argument('--weight', type=float, default=None)
+    ap.add_argument('--iterations', type=int, default=2,
+        help='SCOUTING budget. Shipped is 100. The output of this script is not a fit.')
+    ap.add_argument('--viable-solutions', type=int, default=1)
+    ap.add_argument('--seed', type=int, default=0)
+    a = ap.parse_args(argv)
 
-	flat = os.path.join(os.environ.get('WCECOLI_DIR', '/wcEcoli'),
-		'reconstruction', 'ecoli', 'flat')
-	if os.path.abspath(a.out) == os.path.abspath(flat):
-		raise SystemExit('refusing to write a scouting result into the checkout flat/ directory')
+    flat = os.path.join(os.environ.get('WCECOLI_DIR', '/wcEcoli'),
+        'reconstruction', 'ecoli', 'flat')
+    if os.path.abspath(a.out) == os.path.abspath(flat):
+        raise SystemExit('refusing to write a scouting result into the checkout flat/ directory')
 
-	with open(os.path.join(a.kb, 'sim_data_final_adjustments.cPickle'), 'rb') as f:
-		sim_data = pickle.load(f)
-	with open(os.path.join(a.kb, 'cell_specs_final_adjustments.cPickle'), 'rb') as f:
-		cell_specs = pickle.load(f)
-	with open(os.path.join(a.kb, 'rawData.cPickle'), 'rb') as f:
-		raw_data = pickle.load(f)
+    with open(os.path.join(a.kb, 'sim_data_final_adjustments.cPickle'), 'rb') as f:
+        sim_data = pickle.load(f)
+    with open(os.path.join(a.kb, 'cell_specs_final_adjustments.cPickle'), 'rb') as f:
+        cell_specs = pickle.load(f)
+    with open(os.path.join(a.kb, 'rawData.cPickle'), 'rb') as f:
+        raw_data = pickle.load(f)
 
-	# Scouting budget, injected by wrapping the real method rather than by editing it: the code under
-	# test stays exactly what a real run would execute.
-	real = Relation.optimize_trna_charging_kinetics
+    # Scouting budget, injected by wrapping the real method rather than by editing it: the code under
+    # test stays exactly what a real run would execute.
+    real = Relation.optimize_trna_charging_kinetics
 
-	@functools.wraps(real)
-	def _scouting(self, *args, **kw):
-		kw.setdefault('iterations', a.iterations)
-		kw.setdefault('viable_solutions', a.viable_solutions)
-		return real(self, *args, **kw)
+    @functools.wraps(real)
+    def _scouting(self, *args, **kw):
+        kw.setdefault('iterations', a.iterations)
+        kw.setdefault('viable_solutions', a.viable_solutions)
+        return real(self, *args, **kw)
 
-	Relation.optimize_trna_charging_kinetics = _scouting
+    Relation.optimize_trna_charging_kinetics = _scouting
 
-	np.random.seed(a.seed)
-	t0 = time.time()
-	sim_data, cell_specs = F.optimize_trna_charging_kinetics(
-		sim_data, cell_specs, raw_data=raw_data,
-		optimize_trna_charging_kinetics=True,
-		trna_charged_fraction_target=a.target,
-		trna_charged_fraction_weight=a.weight,
-		trna_charging_kinetics_out=a.out,
-		save_intermediates=False, intermediates_directory='', load_intermediate=None,
-		)
-	print(f'\nstep function completed in {time.time() - t0:.0f} s')
-	print(f'*** SCOUTING RUN (iterations={a.iterations}). NOT a fit; do not adopt these TSVs. ***')
+    np.random.seed(a.seed)
+    t0 = time.time()
+    sim_data, cell_specs = F.optimize_trna_charging_kinetics(
+        sim_data, cell_specs, raw_data=raw_data,
+        optimize_trna_charging_kinetics=True,
+        trna_charged_fraction_target=a.target,
+        trna_charged_fraction_weight=a.weight,
+        trna_charging_kinetics_out=a.out,
+        save_intermediates=False, intermediates_directory='', load_intermediate=None,
+        )
+    print(f'\nstep function completed in {time.time() - t0:.0f} s')
+    print(f'*** SCOUTING RUN (iterations={a.iterations}). NOT a fit; do not adopt these TSVs. ***')
 
-	for rel in (os.path.join('optimization', 'trna_charging_kinetics_solutions.tsv'),
-			os.path.join('optimization', 'trna_charging_kinetics_constants.tsv'),
-			'trna_charging_kinetics.tsv'):
-		path = os.path.join(a.out, rel)
-		with open(path) as f:
-			lines = f.read().splitlines()
-		print(f'\n{rel}: {len(lines)} lines')
-		print(f'  header: {lines[0][:200]}')
-		if rel.endswith('trna_charging_kinetics.tsv'):
-			print(f'  columns: {lines[1]}')
-			print(f'  first row: {lines[2][:160]}...')
+    for rel in (os.path.join('optimization', 'trna_charging_kinetics_solutions.tsv'),
+            os.path.join('optimization', 'trna_charging_kinetics_constants.tsv'),
+            'trna_charging_kinetics.tsv'):
+        path = os.path.join(a.out, rel)
+        with open(path) as f:
+            lines = f.read().splitlines()
+        print(f'\n{rel}: {len(lines)} lines')
+        print(f'  header: {lines[0][:200]}')
+        if rel.endswith('trna_charging_kinetics.tsv'):
+            print(f'  columns: {lines[1]}')
+            print(f'  first row: {lines[2][:160]}...')
 
-	rel_obj = sim_data.relation
-	print(f'\nrebuilt sim_data.relation from the files just written:')
-	print(f'  synthetase_to_k_cat : {len(rel_obj.synthetase_to_k_cat)} synthetases')
-	print(f'  trna_to_K_T         : {len(rel_obj.trna_to_K_T)} tRNAs')
-	print(f'  free fractions      : {len(rel_obj.trna_condition_to_free_fraction)} (tRNA, condition)')
-	return 0
+    rel_obj = sim_data.relation
+    print('\nrebuilt sim_data.relation from the files just written:')
+    print(f'  synthetase_to_k_cat : {len(rel_obj.synthetase_to_k_cat)} synthetases')
+    print(f'  trna_to_K_T         : {len(rel_obj.trna_to_K_T)} tRNAs')
+    print(f'  free fractions      : {len(rel_obj.trna_condition_to_free_fraction)} (tRNA, condition)')
+    return 0
 
 
 if __name__ == '__main__':
-	sys.exit(main())
+    sys.exit(main())

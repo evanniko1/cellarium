@@ -97,8 +97,11 @@ def _build() -> dict | None:
     cm = [statistics.fmean([mat[i][j] for i in range(len(mat))]) for j in range(len(species))]
     gm = statistics.fmean([x for row in mat for x in row])
     z = {designs[i]: [mat[i][j] - rm[i] - cm[j] + gm for j in range(len(species))] for i in range(len(designs))}
+    # The PRE-double-centering (column-z only) profile is kept so the transform's benefit can be MEASURED against
+    # its own baseline rather than asserted from the docstring. `mat` is not mutated by the comprehension above.
+    z_raw = {designs[i]: list(mat[i]) for i in range(len(designs))}
     g = {d: statistics.fmean(v) for d, v in growth.items() if v}
-    return {"designs": designs, "z": z, "growth": g, "n_species": len(species)}
+    return {"designs": designs, "z": z, "z_raw": z_raw, "growth": g, "n_species": len(species)}
 
 
 def _matrix() -> dict | None:
@@ -187,6 +190,20 @@ def species_similarity(design_a: str, design_b: str) -> dict:
             "metric": "double-centered cosine over the 199-species panel (D9)", "guards": _GUARDS}
 
 
+def severity_confound(vecs: dict, g: dict, designs: list | None = None) -> float:
+    """corr(growth, cosine-to-wildtype) over designs — the severity confound, on ANY profile dict. Exposed so the
+    shipped (double-centered) profile and its own pre-transform baseline are measured by the SAME code path."""
+    ds = designs if designs is not None else list(vecs)
+    pairs = [(g[d], _cos(vecs[d], vecs[REFERENCE])) for d in ds if d in g and d != REFERENCE and d in vecs]
+    if len(pairs) < 3:
+        return 0.0
+    xs, ys = [p[0] for p in pairs], [p[1] for p in pairs]
+    mx, my = statistics.fmean(xs), statistics.fmean(ys)
+    cov = sum((x - mx) * (y - my) for x, y in pairs)
+    denom = (math.sqrt(sum((x - mx) ** 2 for x in xs)) or 1e-12) * (math.sqrt(sum((y - my) ** 2 for y in ys)) or 1e-12)
+    return cov / denom
+
+
 def acceptance() -> dict:
     """Run the WELL-6z4 acceptance test on the live corpus, so the metric's guarantees are checkable, not
     asserted: severity confound removed (`|corr(growth, cos-to-WT)| < 0.15`), the envelope-biosynthesis
@@ -196,13 +213,8 @@ def acceptance() -> dict:
         return {"error": "corpus unreadable"}
     z, g = m["z"], m["growth"]
     designs = m["designs"]
-    # confound: corr(growth, cosine-to-WT), excluding WT itself
-    pairs = [(g[d], _cos(z[d], z[REFERENCE])) for d in designs if d in g and d != REFERENCE]
-    xs, ys = [p[0] for p in pairs], [p[1] for p in pairs]
-    mx, my = statistics.fmean(xs), statistics.fmean(ys)
-    cov = sum((x - mx) * (y - my) for x, y in pairs)
-    denom = (math.sqrt(sum((x - mx) ** 2 for x in xs)) or 1e-12) * (math.sqrt(sum((y - my) ** 2 for y in ys)) or 1e-12)
-    confound = cov / denom
+    confound = severity_confound(z, g, designs)
+    baseline = severity_confound(m["z_raw"], g, designs)   # the pre-double-centering number, for comparison
     env = [d for d in designs if any(x in d for x in ("fabI", "lpxC", "murA", "glmS"))]
     allp = [_cos(z[a], z[b]) for i, a in enumerate(designs) for b in designs[i + 1:]]
     overall = statistics.fmean(allp) if allp else 0.0
@@ -226,11 +238,22 @@ def acceptance() -> dict:
         "envelope_cluster_survives": within is not None and (within - overall) > 0.30,  # gate
     }
     return {"corr_growth_cos_to_wt": round(confound, 3),
+            "corr_growth_cos_to_wt_baseline": round(baseline, 3),   # diagnostic: the same statistic pre-transform
+            "confound_abs_reduction": round(abs(baseline) - abs(confound), 3),
             "envelope_within_minus_overall": (round(within - overall, 3) if within is not None else None),
+            "envelope_members": env,
             "envelope_nn_purity": f"{nn_ok}/{len(env)}",                            # diagnostic, not a gate
             "envelope_nn_off_cluster": {k.split("/")[-1]: v.split("/")[-1] for k, v in off.items()},
             "checks": checks, "passes": all(checks.values()),
             "note": ("The metric's corpus-robust guarantees, recomputed live: severity removed AND the mechanism "
                      "cluster coheres above chance. `passes` gates on those two. NN purity is a diagnostic — a "
                      "metabolically-adjacent design (e.g. pgi) can legitimately take an envelope member's NN, so "
-                     "`envelope_nn_off_cluster` NAMES it rather than failing.")}
+                     "`envelope_nn_off_cluster` NAMES it rather than failing."),
+            "status": ("WELL-6z4-REDO OPEN — `passes` is currently FALSE and that is the honest state, not a "
+                       "regression to repair. The original PASS rested on `KO:murA`, which verify_ko_applied.py "
+                       "later proved was a no-op (a wild type wearing a KO label, now reportable=False, "
+                       "qc=noop_knockout). With it removed the gate fails. Re-admitting murA/rpoB to recover the "
+                       "number is forbidden; the gate must be RE-ESTABLISHED on verified knockouts. Note "
+                       "`corr_growth_cos_to_wt_baseline` — the transform still reduces the confound substantially; "
+                       "what it does not do is drive it below 0.15, a threshold that at this corpus size sits "
+                       "below the statistic's own sampling error.")}

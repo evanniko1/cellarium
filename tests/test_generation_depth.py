@@ -226,8 +226,15 @@ def test_the_depth_drift_number_is_computed_from_the_reference_trajectory():
 # ---------------------------------------------------------------- dedupe: the (id, path) PAIR
 def test_the_dedup_key_drops_reindexed_duplicates_but_keeps_distinct_runs():
     """Neither half of the key is unique alone. `simout_path` repeats across contributors (a run directory is
-    named from variant+seed), and `id` repeats across crash rows (8 ids covering 41 different failed runs).
-    The pair separates them; either half alone destroys data."""
+    named from variant+seed), and `id` repeats across crash rows (measured on this corpus: 12 ids covering 48
+    crash rows). The pair separates them; either half alone destroys data.
+
+    This used to assert `deduped < raw` — i.e. that the read-time dedup still had superseded rows to remove.
+    That premise died when `manifest.compact()` (manifest.py:432) became AUTOMATIC after every re-index
+    (manifest.py:999): compaction writes exactly the deduped set, so a healthy corpus now holds ZERO duplicate
+    keys and `deduped == raw` is the CORRECT post-condition, not a regression. Asserting on corpus dirtiness
+    tested our housekeeping hygiene, not the key. So the collapsing behaviour is now proven by CONSTRUCTING a
+    re-indexed duplicate, which is deterministic and independent of what the corpus happens to contain."""
     _corpus()
     import duckdb
 
@@ -235,15 +242,35 @@ def test_the_dedup_key_drops_reindexed_duplicates_but_keeps_distinct_runs():
     con = duckdb.connect()
     src = f"read_parquet('{survey.MANIFEST_GLOB}', union_by_name=true)"
     f = f"(SELECT * FROM {src} {manifest.DEDUP_QUALIFY})"
+    # Two rows that are the SAME run re-indexed by a contributor whose run-root is absolute + backslashed —
+    # exactly the spelling difference that let 9 duplicates into the corpus before _NORM_PATH existed.
+    dup_q = f"(SELECT * FROM (VALUES (?,?,1.0),(?,?,2.0)) t(id, simout_path, ts) {manifest.DEDUP_QUALIFY})"
     try:
+        raw = con.execute(f"SELECT count(*) FROM {src}").fetchone()[0]
+        keys = con.execute(f"SELECT count(DISTINCT {manifest.DEDUP_KEY}) FROM {src}").fetchone()[0]
         n = con.execute(f"SELECT count(*) FROM {f}").fetchone()[0]
         crash = con.execute(f"SELECT count(*) FROM {f} WHERE id LIKE '%_crash'").fetchone()[0]
         by_id = con.execute(f"SELECT count(DISTINCT id) FROM {f}").fetchone()[0]
-        raw = con.execute(f"SELECT count(*) FROM {src}").fetchone()[0]
+        by_path = con.execute(f"SELECT count(DISTINCT {manifest._NORM_PATH}) FROM {f}").fetchone()[0]
+        rid, rpath = con.execute(
+            f"SELECT id, simout_path FROM {src} WHERE id IS NOT NULL AND simout_path LIKE 'runs/%' LIMIT 1"
+        ).fetchone()
+        reindexed = "C:\\dev\\elsewhere\\" + rpath.replace("/", "\\")
+        collapsed = con.execute(f"SELECT ts FROM {dup_q}", [rid, rpath, rid, reindexed]).fetchall()
+        distinct = con.execute(f"SELECT count(*) FROM {dup_q}", [rid, rpath, rid, "runs/other/000001"]).fetchone()[0]
     finally:
         con.close()
-    assert n < raw, "nothing deduped — the key stopped matching re-indexed rows"
-    assert n > by_id, "id-collision crash rows were collapsed — distinct failed runs have been destroyed"
+    # The key collapses a re-indexed duplicate to one row, and the LATEST ts wins.
+    assert len(collapsed) == 1, f"a re-indexed duplicate survived as {len(collapsed)} rows — the key stopped matching"
+    assert collapsed[0][0] == 2.0, "the superseded (older) row won — ORDER BY ts DESC is broken"
+    # ...but two genuinely different run directories under one id stay separate.
+    assert distinct == 2, "two distinct runs sharing an id were collapsed — the path half of the key is dead"
+    # Dedup keeps exactly one row per key, and the compacted corpus is already one-row-per-key.
+    assert n == keys, f"dedup returned {n} rows for {keys} distinct keys"
+    assert n == raw, f"the corpus holds {raw - n} superseded rows — compact() should have removed them"
+    # Neither half of the key is unique on the real corpus: deduping by either alone would destroy runs.
+    assert by_id < n, "id is unique here, so this corpus can no longer prove the pair is needed"
+    assert by_path < n, "simout_path is unique here, so this corpus can no longer prove the pair is needed"
     assert crash >= 8, f"only {crash} crash rows survive"
 
 

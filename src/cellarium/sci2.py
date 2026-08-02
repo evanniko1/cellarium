@@ -71,6 +71,39 @@ def fetch_precise1k() -> dict:
     return {"dir": str(DATA_DIR), "counts_sha256": _sha256(COUNTS), "metadata_bytes": METADATA.stat().st_size}
 
 
+# The local snapshot this code was validated against, MEASURED (2026-08, data/precise1k): 4355 genes x 1055
+# samples, counts.csv 17,113,562 bytes, sha256[:16] f6307411d59e640d. 1055 samples is the documented PRECISE-1K
+# size, so this is the real matrix rather than a partial pull.
+PRECISE1K_SNAPSHOT = {"counts_sha256": "f6307411d59e640d", "n_genes": 4355, "n_samples": 1055,
+                      "counts_bytes": 17113562}
+
+
+def snapshot_status() -> dict:
+    """WHICH bytes are in DATA_DIR — not merely whether a file is there.
+
+    `available()` gates on `.exists()`, and that is not enough to trust a result. `DATA_DIR` is CWD-relative,
+    `data/precise1k/` is gitignored, and `fetch_precise1k` calls `urlretrieve` against a GitHub **`main` branch**
+    with no hash, length or resume check. A truncated or upstream-drifted counts.csv therefore still exists, still
+    parses, and still yields a plausible-looking DESeq2 table — so a test over this data can move between skip,
+    fail and pass with no code change and nothing in the repo able to say which happened. `counts_sha256` was
+    already recorded in `provenance()` but was never COMPARED to anything.
+
+    Returns `matches=False` (never raises) when the local bytes differ from `PRECISE1K_SNAPSHOT`, so callers can
+    decline to certify rather than quietly computing on unknown input."""
+    if not (COUNTS.exists() and METADATA.exists()):
+        return {"present": False, "matches": False, "reason": f"PRECISE-1K not present in {DATA_DIR}",
+                "expected": PRECISE1K_SNAPSHOT}
+    got = {"counts_sha256": _sha256(COUNTS), "counts_bytes": COUNTS.stat().st_size}
+    if got["counts_sha256"] == PRECISE1K_SNAPSHOT["counts_sha256"]:
+        return {"present": True, "matches": True, "reason": "", "observed": got,
+                "expected": PRECISE1K_SNAPSHOT}
+    return {"present": True, "matches": False, "observed": got, "expected": PRECISE1K_SNAPSHOT,
+            "reason": ("the local PRECISE-1K counts.csv is NOT the validated snapshot "
+                       f"(sha256[:16] {got['counts_sha256']} vs {PRECISE1K_SNAPSHOT['counts_sha256']}, "
+                       f"{got['counts_bytes']} vs {PRECISE1K_SNAPSHOT['counts_bytes']} bytes). Either the "
+                       "download was partial or upstream `main` moved. Re-fetch before trusting any result.")}
+
+
 def _bnumber_map() -> dict:
     """{gene_symbol: b-number} for the sim-side join (EcoCyc/wcEcoli genes.tsv-derived; committed to data/cache)."""
     return json.loads(BMAP_PATH.read_text(encoding="utf-8")) if BMAP_PATH.exists() else {}
