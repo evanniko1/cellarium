@@ -44,6 +44,12 @@ extend-exclude = [
                        # files must keep tabs to match the tree they are installed into. Linting them under
                        # Cellarium's space convention reports 75 mixed-indentation errors for code that is
                        # correct where it runs. Installed by scripts/apply_model_variants.py.
+    "vendor",          # the v3.0.1 reference tree, for the SAME reason and at a much larger scale: it is
+                       # upstream wcEcoli source, tab-indented, and linting it reports 5093 errors — 94.6%
+                       # of everything ruff finds in this repo. It is a read-only reference that
+                       # scripts/apply_trna_port.py copies FROM; it is never edited here, so Cellarium's
+                       # style rules do not apply to it. Committed (not gitignored) because the port must
+                       # be reproducible from a clone.
 ]
 
 [tool.ruff.lint]
