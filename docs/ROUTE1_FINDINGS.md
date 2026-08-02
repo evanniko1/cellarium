@@ -36,6 +36,20 @@ rate constant cancels identically. Purpose: remove `max_elong_rate` from the str
 calculation so that resolving tRNA cannot leak into ppGpp. It also fixes a live defect — the
 `v_rib == 0` branch applied the zero-waiting limit in the one regime where waiting is maximal.
 
+> **CORRECTION — the starvation test does not support the "sign correction" reading.**
+> An earlier draft of this document described this change as fixing a *sign error* under stress: the
+> argument being that the old form fed RelA the *realized* throughput, which falls when ribosomes
+> stall, so it would quieten the stringent response exactly when the cell is starving.
+> **That is not supported.** `max_elong_rate` is itself ppGpp-dependent, so as ppGpp rises the rate
+> law falls *with* realized throughput (kmax 19.09 → 3.61 aa/s, −81%) instead of staying high —
+> **the rate law contains the stall.** Measured over 36/36 cells reaching ppGpp 56.6 → 353.5 µM and
+> LEU 98.2% uncharged, the systematic effect *vanishes* under starvation rather than growing: the
+> fraction of steps with Φ < 1 falls from **0.782 (p = 4.5e-33) to 0.503 (p = 0.89)**, a coin flip.
+> The measured direct effect is **+92.88 ppm** and does not grow with depth.
+> **This change is hygiene plus a limit-behaviour correction, not a sign correction.** See
+> ROUTE1-83..88; the deep-stall regime itself remains unmeasurable, because the bitwise-clean window
+> collapses to 2.3 steps while ppGpp does not double until step 17–30.
+
 *Validated:* two-image A/B, 3 seeds × 2 operon settings, images differing in exactly 1 of 706 `.py`
 files. Effect is a uniform scalar of +0.004%, with the per-amino-acid ratio spread ~1e-5 of the effect
 — i.e. a rescaling, not a redistribution. Stop rule never approached.
