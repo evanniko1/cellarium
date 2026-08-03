@@ -22,13 +22,33 @@ jobs:
 
       # H-4: fail fast on a committed secret (high-signal, known-prefix patterns — Anthropic / AWS / GitHub / Slack
       # tokens + private keys). Dependency-free; gitleaks can be layered on later for entropy-based coverage.
+      #
+      # SCOPE — two directories are excluded, and one conspicuously is not:
+      #   vendor/, model_overlay/  EXCLUDED. Both are upstream wcEcoli source, not ours to hold secrets. They
+      #     produced 40 false positives, all in vendor/v301/reconstruction/ecoli/flat/proteins.tsv, where
+      #     AKIA[0-9A-Z]{16} matches amino-acid single-letter sequences (e.g. the 20-mer AKIA<AILEEPPRMGNSDLGV>,
+      #     written split here because an intact one in this file trips the scanner — a protein, not an AWS
+      #     key). Because the step exits 1 on ANY match, this blocked ruff and pytest from ever
+      #     running. model_overlay/ is excluded on the same upstream-source grounds AND is independently
+      #     covered: every file's sha256 is pinned in model_overlay/MANIFEST.json, so any change there is
+      #     caught by the overlay guard (docs/OVERLAY.md:83,113-114) rather than by this regex.
+      #   data/  DELIBERATELY NOT EXCLUDED. This is the one directory with a KNOWN disclosure problem: the
+      #     manifest published to HuggingFace carries local absolute paths in its `note` column (14 rows with
+      #     the C:\dev\anthropic_hackathon\runs host path, 12 with /wcEcoli/out). Blinding the scanner to the
+      #     only directory that has actually leaked would be exactly the wrong trade — see BACKLOG H-15.
+      #
+      # The regex itself is the wrong long-term instrument over TSV biological data (gitleaks, entropy- and
+      # file-type-aware, would not fire on a protein sequence) — BACKLOG H-14.
+      #
+      # This is a SCOPING change, not a weakening: the pattern set is untouched, and a planted key in any
+      # non-excluded path (data/ included) still fails the build.
       - name: Secret scan
         run: |
-          if git grep -nIE 'sk-ant-[A-Za-z0-9_-]{24,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[baprs]-[0-9A-Za-z-]{10,}' -- .; then
+          if git grep -nIE 'sk-ant-[A-Za-z0-9_-]{24,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[baprs]-[0-9A-Za-z-]{10,}' -- . ':(exclude)vendor/' ':(exclude)model_overlay/'; then
             echo "::error::A potential secret was found in tracked files — remove it from git history and rotate the key."
             exit 1
           fi
-          echo "No high-signal secrets in tracked files."
+          echo "No high-signal secrets in tracked files (vendor/ and model_overlay/ excluded as upstream source; data/ IS scanned)."
 
       - name: Lint — ruff
         run: ruff check .
