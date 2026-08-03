@@ -55,6 +55,13 @@ extend-exclude = [
                        # scripts/apply_trna_port.py copies FROM; it is never edited here, so Cellarium's
                        # style rules do not apply to it. Committed (not gitignored) because the port must
                        # be reproducible from a clone.
+    "archive",         # preserved EVIDENCE, not code. archive/route1_analysis_scripts/ holds 17 files copied
+                       # VERBATIM out of C:/dev/wcEcoli/out before the ROUTE1 runs were deleted, and verified
+                       # byte-identical to their originals by md5 (see its README + docs/ROUTE1_CORPUS_RECORD.md,
+                       # which cites them by name as the definitions of the interventions it reports). Ruff finds
+                       # 14 errors in them (13 import-sort, 1 unused local); every available "fix" would edit a
+                       # file whose whole value is that it is unmodified, breaking the md5 claim the record rests
+                       # on. Nothing in Cellarium imports them and no test covers them.
 ]
 
 [tool.ruff.lint]
