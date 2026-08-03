@@ -9,7 +9,14 @@ preserved anywhere is the **numbers** — they exist only as bytes in `C:/dev/wc
 makes them citable without a re-run.
 
 **Order of operations, non-negotiable.** Record first, verify the record is complete, delete only then.
-Nothing has been deleted at the time of writing. §7 is the candidate list; §8 is the manifest impact.
+That order was followed. Sections 1–11 were written and committed (`65137bf`) **before** anything was
+deleted; the deletion was executed afterwards, against a list re-derived from scratch rather than read
+back out of this document. §7 records what was deleted and what was held back; §8 the manifest impact.
+
+> **STATUS: EXECUTED, 2026-08-03.** 127 of the 128 candidates were deleted — **72.385 GB, 43 261 files**.
+> `_r1s_npz` was retained, and the 17 analysis scripts were copied into this repository before their
+> originals were removed. Everything below §7 describes runs that **no longer exist on this machine**;
+> the numbers in §2–§6 are now the only record of them.
 
 **Evidential standing** is labelled on every claim: **SIMULATED** (came out of a run on disk) ·
 **ALGEBRAIC** (arithmetic we did on run outputs) · **CODE-READ** (read off model source) ·
@@ -365,9 +372,10 @@ Effective independent runs: **94**, not 103.
 
 ---
 
-## 7. Deletion candidates — exact list and size
+## 7. What was deleted — exact list and size
 
-**NOTHING HAS BEEN DELETED.** All paths are under `C:/dev/wcEcoli/out/`.
+**DELETED 2026-08-03.** All paths were under `C:/dev/wcEcoli/out/`. The table below is the candidate
+list as measured *before* deletion; the reconciliation against what was actually removed follows it.
 
 | group | entries | GB | files |
 |---|---|---|---|
@@ -414,16 +422,54 @@ _starve_families.py _starve_readout.py ab_analyze.py ab_analyze_off_s2.py ab_ana
   `kinetic_parca_operons_off` — see §1.
 - Everything under `C:/dev/anthropic_hackathon/runs`, which contains no ROUTE1 run directory.
 
-### Before deleting
+**All nine survived, verified by name after the deletion (MEASURED).** `C:/dev/wcEcoli/out` now holds
+exactly `kinetic_parca`, `operonsON_kin_probe`, `operons_off_parca`, `kinetic_parca_operons_off`,
+`refit_none`, `refit2_none`, `refit_A055w3`, `refit_shipped` and `_r1s_npz` — nothing else.
+`runs/cellarium` still holds its 52 entries. The five held-back directories remain **NEEDS-DECISION**:
+they were not deleted and no decision about them has been made here.
 
-1. The **17 loose scripts** are what make these numbers reproducible (`_aa_kcat_throttle.py` and
-   `_ks_throttle.py` define the interventions; `_r1s_extract.py` defines the derived quantities). They
-   total 80 KB. Copy them somewhere durable first — this record cites them by name and would otherwise
-   cite files that no longer exist anywhere reachable from this machine.
-2. `_r1s_npz` (26 MB, 36 files) is a per-timestep extraction of the entire `mf` ladder — `phi`, `D`,
-   `kmax`, `v_real`/`v_law`, reconstructed `rbu_new`/`rbu_old`, raw per-species uncharged fractions. It is
-   0.036 % of the candidate bytes and preserves per-timestep detail this document only summarises.
-   Recommend retaining it rather than deleting it with the rest.
+### Execution, and its reconciliation (MEASURED)
+
+**Re-verification before deleting, independent of this document.** The deletion script did not read the
+list above. It re-walked `C:/dev/wcEcoli/out` and re-derived the 103 ROUTE1 directories from each run's
+own `metadata/metadata.json`, and it aborted rather than deleted if that count was not exactly 103, if
+the target list was not exactly 127 entries, or if any protected name appeared in it. The three
+metadata-less groups were re-confirmed by kb md5 in a separate pass, reproducing §1 exactly:
+`sk_f050`…`sk_f090` each hash equal to exactly their six `mf<rung>_*` runs; `sk_f100` hashes equal to the
+untouched `km_parca` kb (shared with 21 ROUTE1 runs and **no** protected directory); `_a1kb_thr` hashes
+equal to `a1t_s{0,1,2}` **and nothing else**. `_r1s_npz` holds exactly the 36 `mf*.npz` and no
+`simData.cPickle` — the `mf`-ladder extraction, as §1 states.
+
+**Result: 127 of 128 deleted, 0 failures.** MEASURED at deletion time: **72.385 GB, 43 261 files**.
+Each entry was re-checked for existence after its own removal; an entry still present would have been
+counted a failure, and none were. `C:/dev/wcEcoli/out` went from 136 entries / 80.700 GB / 49 407 files
+to **9 entries / 8.315 GB / 6 146 files** — an independent confirmation of the same 72.385 GB.
+
+The 72.385 GB deleted differs from the 72.411 GB estimated above by **0.026 GB**: that is `_r1s_npz`,
+which was retained (below). The two preservation actions §7 called for were both carried out:
+
+1. **The 17 loose scripts were copied into this repository** at `archive/route1_analysis_scripts/`
+   (109 KB with its README), and **all 17 were verified byte-identical by md5 to their originals before
+   the originals were deleted**. They are what make these numbers reproducible — `_aa_kcat_throttle.py`
+   and `_ks_throttle.py` *define* the interventions §4a/§4b report, `_r1s_extract.py` defines the derived
+   quantities. Preserved and committed (`a32c590`) *before* the deletion ran, not after.
+2. **`_r1s_npz` was NOT deleted.** It survives in place at `C:/dev/wcEcoli/out/_r1s_npz` (25 MB, 36
+   files) — the only per-timestep record of the `mf` ladder that still exists.
+
+**A distinct knowledge base that did NOT survive.** §1 established that 2 of the 14 distinct kb pickles
+are the retained reference kbs. The other 12 were ROUTE1-specific and went with the runs — including
+`afb48d8c…`, the `km_parca` K_M-modified kb, which was present only in ROUTE1 directories. Regenerating
+it requires re-running the extension repo's ParCa. Stated so a later reader does not assume every kb
+referenced above is still openable.
+
+**Free-space accounting, honestly.** Disk free on `C:` went **79.172 GB → 138.099 GB (+58.927)**, which
+is **13.458 GB less than the 72.385 GB removed**. That gap is *not* explained by the usual causes: 0
+files in `out/` carry `nlink > 1`, and 0 of a 200-file sample carry the NTFS `Compressed` or `SparseFile`
+attribute. Volume Shadow Copy retention is the remaining candidate and **could not be checked** —
+`vssadmin list shadowstorage` exits 2, "You don't have the correct permissions", and this shell is not
+elevated. Concurrent writes elsewhere on `C:` during the 31 s deletion window are also possible. **The
+cause is UNKNOWN**; it is recorded as unknown rather than attributed. The bytes-removed figure does not
+depend on it — it is corroborated by the `out/` before/after walk above.
 
 ---
 
@@ -442,6 +488,12 @@ this is the superset):
 invoked** — a tombstone for a run the manifest never indexed would create a record of a decision about
 nothing. The tombstone mechanism (`src/cellarium/manifest.py:100` `drop_run`,
 `tests/test_tombstone_prune.py`) stays unused here.
+
+**Re-checked AFTER the deletion, not only before (MEASURED).** The same query over all 322 raw rows,
+run once the 127 entries were gone: **0** rows resolve under `C:/dev/wcEcoli/out`, and **0** rows name
+any of the 127 deleted entries in any path component. `data/manifest/dropped.json` still does not exist
+and no tombstone was written. This is the check that matters — orphaning is a property of the state
+*after* deletion, and predicting it beforehand is not the same as confirming it.
 
 The only ROUTE1 trace anywhere in the manifest is textual: 12 rows carry the Docker command line in their
 `note` column, which mentions `-v C:\dev\anthropic_hackathon\runs:/wcEcoli/out`. That is the known
@@ -466,8 +518,11 @@ today, before any deletion, and is outside this task's scope.
   `smoke_trna_parca_step.py`), `vendor/v301/`, `tests/test_trna.py`, `tests/test_elongation_axis.py`.
   This is what makes `capability.ELONGATION_MODES`' `kinetic` and `coarse_kinetic` reproducible from a
   fresh clone.
-- **On this machine only** — the 17 loose analysis scripts in `C:/dev/wcEcoli/out` listed in §7. Whether
-  they are also in the extension repo has **not** been checked from here; treat them as unique until it is.
+- **In this repository, preserved** — the 17 loose analysis scripts listed in §7 now live at
+  `archive/route1_analysis_scripts/` (commit `a32c590`), copied verbatim and md5-verified before their
+  originals in `C:/dev/wcEcoli/out` were deleted. Whether they are *also* in the extension repo has
+  **not** been checked from here — the remote is gone and no clone is present — which is exactly why
+  they were treated as unique and copied.
 - **The `extension` git remote has been removed** from `C:/dev/anthropic_hackathon/.git/config`. It was the
   last live push target for the extension repo on this machine, and `git push --all` would have overwritten
   that repo with Cellarium's history. The URL survives as prose in `BACKLOG.md` (`EXT-ISO-1`),
