@@ -134,6 +134,9 @@ may be. (Open reconciliation for a later pass: whether `loop_live` should option
 
 ## D6 — Exposing the corpus to third-party agents: MCP surface shape (DECIDED — sub-agent behind a single tool)
 
+*Extended 2026-08-03 with **D6a** (Surface A — Cellarium-as-is, assessed against the blindness invariant) and
+**D6b** (Surface B — a data-only MCP over the HF corpus). The 2026-07 decision below is unchanged.*
+
 **Decision: one MCP tool that runs Cellwright locally, BYOK.** Superseded an earlier three-tier draft whose
 Tier-1 write-up quietly assumed a hosted, always-on server. It should not have — **a central always-on session
 is not in this project's deliverables**, and assuming one produced a design that answered the wrong question
@@ -202,6 +205,134 @@ responsibility knowingly.
 **Sequence:** HF dataset + `pip install cellarium` first (an agent that can run code needs no protocol at all),
 then the MCP server as a thin wrapper. **Blocked on WELL-1 + WELL-9** — do not publish a surface built on a
 keying scheme still in motion.
+
+### D6a — Surface A (Cellarium-as-is): the split survives, but the blindness argument does NOT carry over unchanged
+
+**Proposal assessed.** Three agent calls — Council only, Cellwright only, both — plus readers for the recorded
+Investigations (Cellwright chats) and Hypotheses (Council chats).
+
+**Verdict: the split is sound; the *justification* for calling the Council blind is not, once the caller is an
+agent instead of a human.** The quarantine we rely on is a property of what the **server composes into the
+payload**, not of what the **caller supplies**:
+
+- `instrument.py` is import-quarantined from every result-bearing module (`src/cellarium/instrument.py:9-12`;
+  `tests/test_council.py::test_instrument_imports_no_result_bearing_modules`, cited in **D5** above), and
+  `dial_labels()` is asserted to carry no numeric reading and no run reference
+  (`tests/test_blindness.py:153-168`).
+- But `tests/test_blindness.py:19-24` lists `"question"` in `_ALLOWED_KEYS` **unconditionally**. The test checks
+  that no *unexpected key* appears and that the dial labels are structure-not-data; it asserts **nothing about
+  the contents of the question**. `council.deliberate(question: str, ...)` (`src/cellarium/council.py:735`)
+  takes free text and hands it to the proposer.
+
+In-process that gap is closed by who is typing: the question comes from a human via `cli.py` or the SPA, and the
+only composed path is Council → Cellwright (`src/cellarium/orchestrate.py:50-57`) — the safe direction. **MCP
+removes both protections at once.** The caller is an LLM, which pastes context by default, and two of the
+proposed calls make it corpus-aware before it ever calls the Council:
+
+1. `ask_cellwright` returns grounded numbers plus the run ids behind them (that is its whole point);
+2. `read_investigation` returns a stored Cellwright transcript, which by construction is *"the model's full
+   context (every tool input and result)"* (`apps/sessions.py:66-68`).
+
+Then `convene_council(question=<that text>)` is a perfectly legal call. **The leak is by composition, not by
+any single tool being wrong**, and the transcript reader is the high-density version of it.
+
+**What does NOT prevent it.** Screening the question text for readings. A reading can arrive as a paraphrase —
+"the knockout looked much worse once you go deeper in generations" — carrying no number, no channel name and no
+run id. A substring/regex screen would return clean and we would have bought a false assurance; a string search
+is not a dependency proof.
+
+**What does prevent it — provenance of the question, not inspection of it.** A per-server-process blindness
+ledger:
+
+- The server marks itself `corpus_touched` the first time it serves **any** corpus-reading call
+  (`ask_cellwright`, `read_investigation`, or any of the available-but-unlisted read tools).
+- Every `convene_council` result carries a **`blindness`** field: `blind` only when no corpus-reading call has
+  been served in this session *and* the question was not derived from a returned investigation id; `unblinded`
+  otherwise. Investigation/Hypothesis reads return `contains_readings: true` so the derivation is mechanical
+  rather than guessed.
+- The field is stamped into the persisted `council_runs` row (`apps/hypotheses.py:36-38` already carries a
+  `meta` column), so an unblinded run cannot be laundered into the record as blind afterwards.
+- **It stamps; it never blocks.** Refusing would break the legitimate read-then-re-ask loop, and the project's
+  own precedent is that this class of gate must stay advisory (`council.missing_axes` / `sharpening_hint` —
+  M-7, "deterministic, blind, non-blocking").
+
+**One hard rule.** The server may expose a **`both`** call only in the server-ordered direction, Council →
+Cellwright. A single tool that runs Cellwright first and the Council second must not exist: that would make the
+leak the advertised behaviour rather than an accident of composition.
+
+**Why this is P1-before-ship and not polish.** The paper's methodological claim (`COUNCIL_AB_METHODOLOGY.md`)
+rests on the Council being blind. If the MCP surface ships without the stamp, `council_runs` becomes a mixture
+of blind and unblinded deliberations **with no column that separates them** — which retroactively contaminates
+the evidence base for the central claim, not just future runs.
+
+**Additional calls worth adding — each with what it is FOR.**
+
+| Call | What it is FOR | Why it belongs on the surface |
+|---|---|---|
+| `corpus_coverage(design_or_id)` → `support.coverage` (`src/cellarium/support.py:36`) | Answer "can the corpus support a claim about this at all?" in one cheap call — `n_seeds` / `n_generations` against `MIN_SEEDS = 2` / `MIN_GENERATIONS = 2` (`support.py:33-34`) | Lets a caller refuse *before* spending a full Cellwright loop, and it is the refusal primitive **PLAT-2** needs anyway |
+| `evidence_for(run_ids \| claim)` → the append-only evidence ledger (`src/cellarium/evidence.py`) | The reviewer question the ledger was built for: *"Figure 3 says the argS knockout lowers ppGpp — show me the runs"* (`evidence.py:7`) | Makes a claim written in **someone else's** document traceable without re-running the agent |
+| `list_investigations` / `read_investigation` (owner's proposal) | Re-reading recorded work | Keep — but these are the calls that set `corpus_touched`, and their results must carry `contains_readings: true` |
+| — *not* proposed — | launch / write / vault access | Already answered above: the shipped default is that a third-party agent cannot launch, write, or reach the vault without its human |
+
+`convene_council` is also the one call that works with **no dataset downloaded at all** (the Council reads
+nothing). The tool description should say so, and the server must not fail it on a missing manifest.
+
+### D6b — Surface B (a data-only MCP over the HF corpus): what it needs to be honest
+
+For users who want the **data** without the agents. The generic advice ("expose a read-only SQL tool over the
+Parquet") is actively wrong here, and the reasons are all in how this corpus is actually shaped.
+
+**B1 — Schema discovery cannot return a static schema.** The corpus is the union of per-contributor Parquet
+shards read with `union_by_name=true` (`src/cellarium/manifest.py:236`, `:449`, `:712`), so columns are
+*partially populated* — `manifest.py:874` and `:892` exist precisely to find rows where `kb_sha256 IS NULL` and
+`elongation_model IS NULL`. `describe_corpus` must therefore report, per column, the non-null fraction of the
+deduped rows **and which shards supply it**. Without that, a caller joins on a column present for a third of the
+corpus and reports the subset as the whole.
+
+**B2 — The dedup rule is not the caller's to skip.** `DEDUP_QUALIFY` (`manifest.py:72`) partitions on the
+**pair** `(id, normalised simout_path)` because *neither half is unique* (`manifest.py:37-49`). The recorded
+damage from getting this wrong: nine duplicate rows inflated `wildtype/basal` — the reference for **every**
+comparison — from 26 seeds to 34, and every interval on it. **Consequence: no raw `read_parquet`, no arbitrary
+SQL over the shard glob.** Every query runs over the deduped view and the result states that it did, plus how
+many raw rows collapsed. A read-only SQL passthrough is the tool that looks most honest and is the easiest way
+to make this corpus lie.
+
+**B3 — Tombstones are a third population, not a second.** `dropped_keys()` (`manifest.py:88`): a dropped run is
+**excluded from ranking and comparison but kept in coverage** — the DB never forgets it existed or why. So every
+count declares which population it counted (deduped-live · deduped-live + tombstoned · raw rows), and "how many
+runs are there" returns all three. **WELL-9** is the standing evidence for what happens otherwise: three tools,
+three different design counts (49 / 60 / 37).
+
+**B4 — Per-run provenance rides on every row.** `provenance.classify` (`src/cellarium/provenance.py:46`) tags
+`in_sample` vs `out_of_sample`; the H1/H2 pair is the recorded reason (`provenance.py:3-6`) — reading an
+in-sample agreement as predictive validation is the specific error a bare manifest row invites. A data-only
+consumer has no Cellwright system prompt to supply that caveat, so it must be **in the payload**, not in a
+lookup the caller may not make.
+
+**B5 — Refusal has three distinct forms and conflating them is the failure.**
+1. *Not in the corpus* — no such design / species / condition.
+2. *In the corpus but not readable here* — the shard answers panel-species, summary channels, viability and a
+   coarse trajectory; arbitrary species, full-resolution trajectories and FBA fluxes need raw `simOut`
+   (`src/cellarium/hf.py:23-24`), which is either on HF or regenerable. `_full_simout_local` (`hf.py:27`) is the
+   honest check: a run directory that exists but has no `simOut/MonomerCounts` is **not** readable. The refusal
+   must name the recovery route (HF pull vs regenerate). `raw_available = 0` ≠ absent.
+3. *Answerable, but below the evidential floor* — under `support.MIN_SEEDS` / `MIN_GENERATIONS`
+   (`support.py:33-34`). That is a **refusal at that scope**, not a footnote (see **PLAT-2**).
+
+**B6 — Truncation with named omissions is a requirement of the data surface too**, not only of the agent: any
+list result names which seeds / generations / conditions were dropped, inside the tool's declared output schema.
+Full spec in **PLAT-2**.
+
+**B7 — Mapping onto MCP mechanics** (design guidance, not verified against a spec file in this repo): expose the
+dataset card and the per-shard schema report as MCP **resources** with stable URIs; expose queries as **tools**
+with a declared `outputSchema` so the structured result is machine-checkable; mark every tool `readOnlyHint` —
+this surface has no write path at all; use **cursor-based pagination** for list results, with the B6 omission
+stamp for the cases where a cursor is not offered; and return **resource links** to the HF files backing a row
+so the caller can pull raw itself. The one place the standard playbook must be overridden is B2.
+
+**Sequencing.** Surface B is *less* blocked than Surface A on the agent side but *more* blocked on **WELL-1 +
+WELL-9**: a data-only MCP is nothing but published schema, so it commits the keying scheme completely. Ship it
+after those land, and after **PLAT-2**, whose omission stamp it depends on.
 
 ## D7 — The reporting & comparison contract (Cellwright's statistical manual) — ACCEPTED 2026-07-27
 **Status:** Accepted · **Deciders:** Evangelos · **Supersedes:** the ad-hoc depth handling in WELL-6x/6y/6z.
