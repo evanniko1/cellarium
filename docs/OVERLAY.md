@@ -159,13 +159,20 @@ is 34 files totalling 1,120,900 bytes (1.12 MB).
 These five were blocked by gate 1 and named on every `apply_model_overlay.py` run. They now ship,
 from de-ROUTE1'd copies in `model_overlay/cleaned/`:
 
-| file | ROUTE1 markers (worktree → cleaned) | route |
-|---|---|---|
-| `models/ecoli/processes/polypeptide_elongation.py` | 28 → 0 | re-derive |
-| `wholecell/utils/scriptBase.py` | 5 → 0 | revert |
-| `wholecell/sim/simulation.py` | 3 → 0 | revert |
-| `wholecell/fireworks/firetasks/simulation.py` | 1 → 0 | revert |
-| `wholecell/fireworks/firetasks/simulationDaughter.py` | 1 → 0 | revert |
+| file | ROUTE1 markers (worktree → cleaned) | edits | route |
+|---|---|---|---|
+| `models/ecoli/processes/polypeptide_elongation.py` | 28 → 0 | 23 | revert + re-derive |
+| `wholecell/utils/scriptBase.py` | 5 → 0 | 2 | revert |
+| `wholecell/sim/simulation.py` | 3 → 0 | 2 | revert |
+| `wholecell/fireworks/firetasks/simulation.py` | 1 → 0 | 2 | revert |
+| `wholecell/fireworks/firetasks/simulationDaughter.py` | 1 → 0 | 2 | revert |
+
+"Revert" = delete a ROUTE1-only block that was purely additive. "Re-derive" = restore the exact
+upstream `a4497e17` text where ROUTE1 had *rewritten* an existing line — 12 of the 23 edits in
+`polypeptide_elongation.py`, including the `ribosome_conc_a_site` occupancy rewrite, the branched
+`calculate_trna_charging` call and the `dcdt` state slice. Every edit was applied by anchored
+exact-match with a "matched exactly once" assertion; the acceptance proof is that the finished file
+diffs against upstream as **insertions only** (the port), with no modified or deleted lines.
 
 The ROUTE1 isoacceptor exploration was deliberately extracted to
 `github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors` (`BACKLOG.md:176`); only the port stayed.
