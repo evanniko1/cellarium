@@ -28,9 +28,14 @@ and might be hiding a real upstream fix — so it stops and names the file rathe
 
 ## Status
 
-30 files ship. **5 are deliberately withheld** and are named on every run; a checkout built from this
-overlay is incomplete until they are resolved. Category (c) — including
-`multi_gene_knockout.py`, which is on Cellarium's live launch path — is out of scope here.
+35 files ship, **0 blocked**. The five files the ROUTE1 gate used to withhold —
+`polypeptide_elongation.py`, `scriptBase.py`, `wholecell/sim/simulation.py` and the two simulation
+firetasks — now ship from de-ROUTE1'd sources in `cleaned/`, so the kinetic elongation model
+(`--kinetic-trna-charging`) is live on a public clone. `scripts/verify_overlay_route1.py` asserts
+both halves of that: no ROUTE1 markers *and* the kinetic classes still present.
+
+Category (c) — including `multi_gene_knockout.py`, which is on Cellarium's live launch path — is
+still out of scope here, and `runscripts/manual/runSim.py` is still not shipped.
 
 Full account, including the four measured defects that retired the old mechanism:
 **[`docs/OVERLAY.md`](../docs/OVERLAY.md)**.

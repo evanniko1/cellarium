@@ -24,6 +24,30 @@ produced the published corpus), gates it, and writes `model_overlay/files/<wcEco
      named by `apply_model_overlay.py --check`. It is NOT silently stripped: removing interwoven
      model code without review is how a tree that runs becomes a tree that is quietly wrong.
 
+     THE REVIEW HAS NOW BEEN DONE for the five files this gate used to block, and its OUTPUT lives
+     in `model_overlay/cleaned/` — see the note on CLEANED below. The gate itself is unchanged and
+     still runs against the cleaned bodies, so a cleaned file that reacquired a ROUTE1 marker would
+     be blocked exactly as before.
+
+CLEANED. `harvest()` reads each file from `model_overlay/cleaned/<wcEcoli path>` when that file
+exists, and from `--source` otherwise. It exists for exactly one reason: five port files in the
+working tree are ROUTE1-contaminated, the working tree is the ONLY artifact the port was ever
+written into, and `C:/dev/wcEcoli` is not ours to edit. The cleaned copies are those five files with
+every ROUTE1 addition reverted to upstream `a4497e17` and NOTHING else changed — measured as a diff
+against upstream that contains only insertions (the port, plus the `initial_condition` runtime
+alignment), with the kinetic elongation model intact:
+
+    models/ecoli/processes/polypeptide_elongation.py    28 ROUTE1 markers -> 0
+    wholecell/utils/scriptBase.py                        5 -> 0
+    wholecell/sim/simulation.py                          3 -> 0
+    wholecell/fireworks/firetasks/simulation.py          1 -> 0
+    wholecell/fireworks/firetasks/simulationDaughter.py  1 -> 0
+
+A cleaned file is a SOURCE, not a shipped artifact: it still passes through every gate below, and
+its `upstream_sha256` is still taken against `--upstream`, so upstream drift still invalidates it.
+Records harvested this way carry `"source": "model_overlay/cleaned"` so the manifest says where each
+body came from rather than leaving it to be inferred.
+
   2. CONDITION ORDERING. `models/ecoli/sim/variants/condition.py` reads `sim_data.ordered_conditions`,
      which is TSV ROW ORDER, and Cellarium hardcodes condition INDICES
      (`src/cellarium/generate.py:50,74,118-121`). The working-tree `condition_defs.tsv` INSERTS the
@@ -63,6 +87,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 OVERLAY = os.path.join(REPO, "model_overlay")
 FILES = os.path.join(OVERLAY, "files")
+CLEANED = os.path.join(OVERLAY, "cleaned")
 MANIFEST = os.path.join(OVERLAY, "MANIFEST.json")
 
 # The upstream commit every `upstream_sha256` below is taken against. This is the last
@@ -176,6 +201,28 @@ NOTES = {
         "the extension.",
 }
 
+# The five files the ROUTE1 gate used to block, now harvested from model_overlay/cleaned/. The note
+# records what was removed and what had to survive, per file, because "de-ROUTE1'd" on its own does
+# not say whether the KINETIC MODEL came out with it — which is the whole point of the exercise:
+# src/cellarium/capability.py maps mode "kinetic" -> --kinetic-trna-charging, and that flag is dead
+# on a public clone unless these five ship.
+_DE_ROUTE1 = (
+    "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from "
+    "model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream %s; the diff against "
+    "upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, "
+    "CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / "
+    "coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS "
+    "and both firetask optional_params). What is GONE is the isoacceptor exploration: "
+    "trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/"
+    "KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of "
+    "ribosome_conc_a_site." % UPSTREAM_COMMIT)
+for _p in ("models/ecoli/processes/polypeptide_elongation.py",
+           "wholecell/utils/scriptBase.py",
+           "wholecell/sim/simulation.py",
+           "wholecell/fireworks/firetasks/simulation.py",
+           "wholecell/fireworks/firetasks/simulationDaughter.py"):
+    NOTES[_p] = _DE_ROUTE1
+
 
 def read_lf(path: str) -> bytes | None:
     """File bytes with CRLF collapsed to LF, or None if absent. Every hash in the manifest is over
@@ -264,7 +311,11 @@ def harvest(source: str, upstream: str) -> tuple[list[dict], dict[str, bytes]]:
     )
 
     for rel, category, action in plan:
-        src = read_lf(os.path.join(source, rel.replace("/", os.sep)))
+        # See CLEANED in the module docstring. A de-ROUTE1'd copy in model_overlay/cleaned/ WINS over
+        # the source tree; everything downstream of here, gates included, is identical either way.
+        cleaned = read_lf(os.path.join(CLEANED, rel.replace("/", os.sep)))
+        src = cleaned if cleaned is not None else read_lf(
+            os.path.join(source, rel.replace("/", os.sep)))
         ups = read_lf(os.path.join(upstream, rel.replace("/", os.sep)))
         rec: dict = {
             "path": rel,
@@ -273,6 +324,8 @@ def harvest(source: str, upstream: str) -> tuple[list[dict], dict[str, bytes]]:
             "upstream_sha256": sha256(ups),
             "upstream_bytes": len(ups) if ups is not None else None,
         }
+        if cleaned is not None:
+            rec["source"] = "model_overlay/cleaned"
         if NOTES.get(rel):
             rec["note"] = NOTES[rel]
 

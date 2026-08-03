@@ -79,16 +79,24 @@ still cannot produce the whole port.
 ## 3. How the overlay is built and applied
 
 ```
-scripts/build_model_overlay.py     # harvest + gate + write model_overlay/ and MANIFEST.json
-model_overlay/MANIFEST.json        # pinned upstream commit + every expected sha256
-model_overlay/files/<wcEcoli path> # the finished files, verbatim, LF
-scripts/apply_model_overlay.py     # copy them onto a checkout, verifying first
+scripts/build_model_overlay.py       # harvest + gate + write model_overlay/ and MANIFEST.json
+model_overlay/MANIFEST.json          # pinned upstream commit + every expected sha256
+model_overlay/cleaned/<wcEcoli path> # de-ROUTE1'd SOURCES for five port files — see §5a
+model_overlay/files/<wcEcoli path>   # the finished files, verbatim, LF
+scripts/apply_model_overlay.py       # copy them onto a checkout, verifying first
+scripts/verify_overlay_route1.py     # assert the five are ROUTE1-free AND still kinetic
 ```
+
+`harvest()` reads each file from `model_overlay/cleaned/` when a copy exists there and from
+`--source` otherwise. Only the five files of §5a have one. A cleaned copy is a *source*, not a
+shipped artifact: it passes through every gate below, and its `upstream_sha256` is still taken
+against `--upstream`, so upstream drift still invalidates it. Records harvested this way carry
+`"source": "model_overlay/cleaned"` in the manifest.
 
 `build_model_overlay.py` applies three gates, each from a measured defect:
 
 1. **ROUTE1 refusal.** Any file containing the marker `ROUTE1` is refused and recorded as `blocked`.
-   It is never silently stripped — see §5.
+   It is never silently stripped — see §5a for how the five it used to block were cleared.
 2. **Condition ordering.** `condition_defs.tsv` is *rebuilt*, not copied, with the three amino-acid
    dropout rows **appended**. Row order is the condition index space, and Cellarium hardcodes those
    indices. The build asserts the 21-row order against `data/cache/variant_map.json` and dies if they
@@ -117,25 +125,26 @@ freshly-archived **CRLF** tree reports `0 problems`.
 
 ## 4. What ships
 
-30 files, 5.87 MB, in three categories (`model_overlay/MANIFEST.json` is authoritative):
+35 files, 6,059,525 bytes (6.06 MB), in three categories (`model_overlay/MANIFEST.json` is
+authoritative; every size below is that file's `overlay_bytes`, decimal MB):
 
-- **`port`** (26) — the v3.0.1 kinetic tRNA-charging port (EXT-PORT 1/10/11) plus EXT-PORT-12
+- **`port`** (28) — the v3.0.1 kinetic tRNA-charging port (EXT-PORT 1/10/11) plus EXT-PORT-12
   (UNIFY-2): the elongation-flag split and the RNG determinism fix. Derived from
   CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, *NAR* 51(12):5911,
   doi:10.1093/nar/gkad435) under its non-commercial `LICENSE.md`, redistributed with Prof. Covert's
   permission.
-- **`script-written`** (3) — what `apply_model_patches.py`/`apply_model_variants.py` used to produce:
+- **`script-written`** (4) — what `apply_model_patches.py`/`apply_model_variants.py` used to produce:
   `condition_defs.tsv`, `media_recipes.tsv`, `variants/__init__.py`, plus `graded_gene_knockout.py`.
 - **`dependency`** (3) — `MIX0-57-GLC-{20,5,2}mM.tsv`. Not category (b), but the category (b)
   `condition_defs.tsv` rows 1/2/3 (Cellarium's `variant_map` indices 1, 2, 3) are invalid without
   them. 512 bytes each.
 
-**80% of the byte weight is one file.**
-`reconstruction/ecoli/flat/optimization/trna_charging_kinetics_solutions.tsv` is 4.71 MB — 4.7 of the
-5.87 MB. It is an *optimiser output*, not a hand-authored input, and
+**81% of the byte weight is one file.**
+`reconstruction/ecoli/flat/optimization/trna_charging_kinetics_solutions.tsv` is 4,938,625 bytes
+(4.94 MB) of the 6.06 MB. It is an *optimiser output*, not a hand-authored input, and
 `scripts/verify_trna_objective.py` reproduces its rows. It is kept in-tree so that a clone reproduces
 the corpus without a refit, but it is the obvious candidate for out-of-band hosting. Everything else
-is 52 files totalling 1.19 MB.
+is 34 files totalling 1,120,900 bytes (1.12 MB).
 
 **Not shipped, deliberately:** `wholecell/utils/_trna_charging.cpython-310-x86_64-linux-gnu.so`
 (1.47 MB, Linux-only). It is compiled inside the model image by `setup.py`, which the overlay's
@@ -145,32 +154,62 @@ is 52 files totalling 1.19 MB.
 
 ## 5. What is still missing — read this before trusting a checkout
 
-### 5a. Five files are BLOCKED on ROUTE1
+### 5a. The five ROUTE1-blocked files — CLEARED
 
-`apply_model_overlay.py` names these on every run and never reports success while they are
-outstanding:
+These five were blocked by gate 1 and named on every `apply_model_overlay.py` run. They now ship,
+from de-ROUTE1'd copies in `model_overlay/cleaned/`:
 
-| file | ROUTE1 markers (worktree / HEAD / upstream) |
-|---|---|
-| `models/ecoli/processes/polypeptide_elongation.py` | 28 / 0 / 0 |
-| `wholecell/utils/scriptBase.py` | 5 / 0 / 0 |
-| `wholecell/sim/simulation.py` | 3 / 0 / 0 |
-| `wholecell/fireworks/firetasks/simulation.py` | 1 / 0 / 0 |
-| `wholecell/fireworks/firetasks/simulationDaughter.py` | 1 / 0 / 0 |
+| file | ROUTE1 markers (worktree → cleaned) | route |
+|---|---|---|
+| `models/ecoli/processes/polypeptide_elongation.py` | 28 → 0 | re-derive |
+| `wholecell/utils/scriptBase.py` | 5 → 0 | revert |
+| `wholecell/sim/simulation.py` | 3 → 0 | revert |
+| `wholecell/fireworks/firetasks/simulation.py` | 1 → 0 | revert |
+| `wholecell/fireworks/firetasks/simulationDaughter.py` | 1 → 0 | revert |
 
 The ROUTE1 isoacceptor exploration was deliberately extracted to
 `github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors` (`BACKLOG.md:176`); only the port stayed.
-Shipping these verbatim would re-import exactly what was extracted, including references to
-`scripts/route1_step2_patch.py`, which does not exist in this repo.
+Shipping the working-tree files verbatim would have re-imported exactly what was extracted. The
+extension repo is **not** a dependency of Cellarium and the cleaning did not use it: each ROUTE1
+addition was reverted against upstream `a4497e17` directly.
 
-**No clean port-only version exists in any commit.** The port was never committed — measured, HEAD is
-byte-identical to upstream for `polypeptide_elongation.py`, `wholecell/sim/simulation.py`,
-`transcription.py` and `parameters.tsv` — so its only artifact anywhere is the mixed working tree. In
-`polypeptide_elongation.py` the ROUTE1 changes are **interwoven** with the port (28 markers inside
-function bodies and signatures), not appended to it. Stripping them is code surgery, and doing it
-silently is how a tree that runs becomes a tree that is quietly wrong.
+**What came out** — every marker in the removal brief: `ROUTE1-21`, `ROUTE1 step 2`,
+`trna_charging_resolution`, `trna_demand_split`, `dcdt_jit_iso`, `clamp_charging_shared`,
+`T2A`/`A2T`/`KMtf_trna`/`n_trna_per_aa`/`trna_charging_mask`, and the occupancy-form rewrite of
+`ribosome_conc_a_site` in `ppgpp_metabolite_changes`.
 
-Regenerating them from the recipe does not work either, because:
+**What stayed** — the kinetic elongation model, which is the whole point:
+`KineticTrnaChargingModel`, `CoarseKineticTrnaChargingModel`, `resolve_elongation_flags`, and the
+`kinetic_trna_charging` / `coarse_kinetic_elongation` flags on all four allow-lists
+(`scriptBase.METADATA_KEYS`, `scriptBase.SIM_KEYS`, and both firetask `optional_params`).
+`src/cellarium/capability.py` maps mode `kinetic` → `--kinetic-trna-charging`; that flag was **dead
+on a public clone** before this and is live now.
+
+**Verification** — `scripts/verify_overlay_route1.py` checks both halves, because a marker count
+alone cannot distinguish "the isoacceptor work was removed" from "the kinetic model was removed
+along with it", and the second failure is silent (the flag still parses, the run quietly selects
+`SteadyStateElongationModel`). Measured on the shipped sources and on a clean `a4497e17` checkout
+with the overlay applied: 0 markers, all five parse, kinetic model present, and the whole overlaid
+tree greps to zero `ROUTE1` and zero dangling ROUTE1 identifiers. Against the contaminated working
+tree the same script exits 1 — the check has a working negative control.
+
+**Measured on the overlaid clean checkout:** `--kinetic-trna-charging` and
+`--coarse-kinetic-elongation` are accepted by the `runSim.py` parser and
+`--trna-charging-resolution` / `--trna-demand-split` are rejected; every `SIM_KEYS` and
+`METADATA_KEYS` name is defined by the parser (`data.select_keys` does `mapping[key]` with no
+default, so a missing one is a `KeyError` on *every* launch); both firetask `optional_params`
+lists cover `SIM_KEYS` (Fireworks raises on an unlisted kwarg); and `resolve_elongation_flags`
+returns `KineticTrnaChargingModel` / `CoarseKineticTrnaChargingModel` / `SteadyStateElongationModel`
+for the three flag combinations.
+
+**Still open, and NOT closed by this:** `runscripts/manual/runSim.py` is not in the overlay, and the
+fork's copy is 134 insertions / 54 deletions ahead of upstream. Two consequences. First, the fork's
+`runSim.py` is where `--multi-ko-indices` lives (§5c). Second, it is the *second* call site of
+`resolve_elongation_flags` — the one that writes the **resolved** flags into `metadata.json` — so on
+a public clone a `--kinetic-trna-charging` run simulates correctly but records
+`"trna_charging": true` in its metadata. That is a provenance defect, not a simulation defect.
+
+Regenerating these files from the recipe would not have worked either, because:
 
 ### 5b. EXT-PORT-12 has no applier at all
 
@@ -185,8 +224,8 @@ Measured on a completed recipe run against clean upstream, 9 of the 20 modified 
 - `models/ecoli/processes/metabolism.py` (49), `listeners/growth_limits.py` (52),
   `sim/initial_conditions.py` (20) — never touched by the recipe at all
 
-The overlay ships the working-tree versions of the ROUTE1-free ones, which is why 26 port files ship
-while 5 are blocked.
+The overlay ships the working-tree versions of the ROUTE1-free ones and the `model_overlay/cleaned/`
+versions of the five in §5a, which is how all 28 port files ship with nothing blocked.
 
 ### 5c. Category (c) — the gap — is not in this overlay
 

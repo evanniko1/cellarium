@@ -6,9 +6,9 @@
   "generated_by": "scripts/build_model_overlay.py",
   "licence": "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab academic non-commercial licence.",
   "counts": {
-    "ship": 30,
-    "blocked": 5,
-    "ship_bytes": 5870112
+    "ship": 35,
+    "blocked": 0,
+    "ship_bytes": 6059525
   },
   "files": [
     {
@@ -117,9 +117,11 @@
       "action": "modify",
       "upstream_sha256": "dc0bf7208a313c8b85c16d6e2cc8d25e070159615a53c3d917779c605df15468",
       "upstream_bytes": 3785,
-      "status": "blocked",
-      "route1_markers": 1,
-      "reason": "carries 1 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+      "source": "model_overlay/cleaned",
+      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+      "status": "ship",
+      "overlay_sha256": "1a41cbc0b314d1a885ac26fea031273b32ba81acaf91bf6926b4fd5e4153cf7f",
+      "overlay_bytes": 4545
     },
     {
       "path": "wholecell/fireworks/firetasks/simulationDaughter.py",
@@ -127,9 +129,11 @@
       "action": "modify",
       "upstream_sha256": "092bc776a563f9658444060ed8862b7c5555f4c7b00ddc0681a7ca02938359e5",
       "upstream_bytes": 3907,
-      "status": "blocked",
-      "route1_markers": 1,
-      "reason": "carries 1 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+      "source": "model_overlay/cleaned",
+      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+      "status": "ship",
+      "overlay_sha256": "2d567ebec3d4297b1735a258336511437353cb4bd220f39319e45397a939ac41",
+      "overlay_bytes": 4667
     },
     {
       "path": "wholecell/sim/simulation.py",
@@ -137,9 +141,11 @@
       "action": "modify",
       "upstream_sha256": "97b68913a80e682a389b3b035e606c5335a4697c82194d5403a98064ea50b458",
       "upstream_bytes": 15460,
-      "status": "blocked",
-      "route1_markers": 3,
-      "reason": "carries 3 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+      "source": "model_overlay/cleaned",
+      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+      "status": "ship",
+      "overlay_sha256": "c67bec7b442a37cf5e74b62db7abffa48d3ab8dca3c216bd5106cc09d031617d",
+      "overlay_bytes": 22101
     },
     {
       "path": "wholecell/utils/scriptBase.py",
@@ -147,9 +153,11 @@
       "action": "modify",
       "upstream_sha256": "218fa3d91e5b46e77a2e7d0ea16b31a500aa5c4d23e55fe2bc24d55c4d279094",
       "upstream_bytes": 27101,
-      "status": "blocked",
-      "route1_markers": 5,
-      "reason": "carries 5 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+      "source": "model_overlay/cleaned",
+      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+      "status": "ship",
+      "overlay_sha256": "8b8b02a09f28cb4acb0d2facb39cfba5588bdb37b2bbc2528e053e8875e73361",
+      "overlay_bytes": 30659
     },
     {
       "path": "models/ecoli/sim/simulation.py",
@@ -167,9 +175,11 @@
       "action": "modify",
       "upstream_sha256": "fb62fc222936b14ca2e210094684efaf56016d59095662adb7b84d0f4014f33c",
       "upstream_bytes": 55144,
-      "status": "blocked",
-      "route1_markers": 28,
-      "reason": "carries 28 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+      "source": "model_overlay/cleaned",
+      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+      "status": "ship",
+      "overlay_sha256": "9c44acdb034c5b9985d64c979a429da6ce66619bac82073e91e8ae09229142ac",
+      "overlay_bytes": 127441
     },
     {
       "path": "models/ecoli/processes/metabolism.py",
