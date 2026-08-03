@@ -1,0 +1,29 @@
+# active TFs should be TFs that are inactive in basal condition and active in the specified condition
+# inactive TFs should be TFs that are active in basal condition and inactive in the specified condition
+# TFs in a condition that are the same as basal (inactive/active) should not be included here
+# Basal should not have any active or inactive TFs specified
+"condition"	"nutrients"	"genotype perturbations"	"doubling time (units.min)"	"active TFs"	"inactive TFs"
+"basal"	"minimal"	{}	44.0	[]	[]
+"glc_20mM"	"minimal_GLC_20mM"	{}	44.0	[]	[]
+"glc_5mM"	"minimal_GLC_5mM"	{}	44.0	[]	[]
+"glc_2mM"	"minimal_GLC_2mM"	{}	44.0	[]	[]
+"with_aa"	"minimal_plus_amino_acids"	{}	25.0	["CPLX-125", "MONOMER0-162", "CPLX0-228", "MONOMER0-155", "CPLX0-7796"]	["CPLX0-7669", "PUTA-CPLX", "EG12123-MONOMER"]
+"acetate"	"minimal_acetate"	{}	136.0	["CPLX0-226"]	[]
+"succinate"	"minimal_succinate"	{}	82.0	["CPLX0-226", "PHOSPHO-DCUR"]	[]
+"no_oxygen"	"minimal_minus_oxygen"	{}	100.0	["FNR-4FE-4S-CPLX", "PHOSPHO-ARCA", "CPLX0-226"]	[]
+"fumarate"	"minimal_fumarate"	{}	82.0	[]	[]
+"malate"	"minimal_malate"	{}	82.0	[]	[]
+"minus_calcium"	"minimal_minus_calcium"	{}	44.0	[]	[]
+"minus_magnesium"	"minimal_minus_magnesium"	{}	44.0	[]	[]
+"minus_phosphate"	"minimal_minus_phosphate"	{}	100.0	[]	[]
+"no_glucose"	"minimal_no_glucose"	{}	100.0	[]	[]
+"plus_arabinose"	"minimal_plus_arabinose"	{}	44.0	["CPLX-172"]	[]
+"plus_gallate"	"minimal_plus_gallate"	{}	44.0	[]	[]
+"plus_indole"	"minimal_plus_indole"	{}	44.0	["PHOSPHO-BAER"]	[]
+"plus_nitrate"	"minimal_plus_nitrate"	{}	44.0	["PHOSPHO-NARL"]	[]
+"plus_nitrite"	"minimal_plus_nitrite"	{}	44.0	[]	[]
+"plus_quercetin"	"minimal_plus_quercetin"	{}	44.0	[]	[]
+"plus_tungstate"	"minimal_plus_tungstate"	{}	44.0	[]	[]
+"minus_leu"	"minimal_aa_minus_leu"	{}	25.0	[]	[]
+"minus_thr"	"minimal_aa_minus_thr"	{}	25.0	[]	[]
+"minus_arg"	"minimal_aa_minus_arg"	{}	25.0	[]	[]

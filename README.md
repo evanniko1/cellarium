@@ -187,14 +187,36 @@ python -m cellarium.cli "Does an argS knockout raise or lower ppGpp versus wildt
 ### Tier 2 — add Docker + the wcEcoli model (deep reads + new simulations)
 
 The last tier unlocks **per-species raw reads** and **running brand-new whole-cell simulations**. It is the only
-part **not spawnable from the repo alone** — by design, Cellarium bundles **no model code or model-derived data**
-for licensing reasons. Steps (full guide: **[docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md)**):
+part **not spawnable from the repo alone**: you clone the model yourself and accept its licence.
+Full guide: **[docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md)**.
+
+Stock wcEcoli is **not sufficient** — Cellarium needs the v3.0.1 kinetic tRNA-charging port and several
+condition/media definitions that upstream does not have. Those finished files live in
+**[`model_overlay/`](model_overlay/)** and are copied onto a clean checkout by `apply_model_overlay.py`, which
+verifies each file against a pinned upstream SHA256 first and **stops rather than overwrite** a file upstream has
+since changed. See **[docs/OVERLAY.md](docs/OVERLAY.md)**.
 
 1. Install **Docker** — <https://docs.docker.com/get-started/>.
-2. Clone the whole-cell model, **[Covert-lab wcEcoli](https://github.com/CovertLab/wcEcoli)** (Stanford academic,
-   non-commercial license — you accept it by running it), and **build a local image** (`docker build -t
-   wcecoli-sim -f docker/local/Dockerfile .`); calibrate once with ParCa; run the smoke test.
-3. Point Cellarium at it: `WCECOLI_DOCKER=wcecoli-sim python apps/server.py`.
+2. Clone **[CovertLab/wcEcoli](https://github.com/CovertLab/wcEcoli)** (Stanford academic, non-commercial
+   licence — you accept it by running it) and check out the pinned commit:
+   ```bash
+   git clone https://github.com/CovertLab/wcEcoli && git -C wcEcoli checkout a4497e17
+   ```
+3. **Apply the overlay**, from the Cellarium repo root:
+   ```bash
+   python scripts/apply_model_overlay.py --wcecoli ../wcEcoli --check   # verify, writes nothing
+   python scripts/apply_model_overlay.py --wcecoli ../wcEcoli
+   ```
+4. **Build the image** using wcEcoli's own local build (`cloud/build-containers-locally.sh`, which produces
+   `${USER}-wcm-code`), then calibrate once with ParCa and run the smoke test — all in
+   [docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md).
+5. Point Cellarium at it: `WCECOLI_DOCKER=${USER}-wcm-code python apps/server.py`.
+
+> **The overlay is currently incomplete, and says so.** Five files are withheld because they still carry the
+> ROUTE1 isoacceptor code that was extracted to a separate repo, and the `multi_gene_knockout` variant on
+> Cellarium's launch path is not yet shipped. `apply_model_overlay.py` names every gap on every run and never
+> reports success while one is outstanding. Read [docs/OVERLAY.md §5](docs/OVERLAY.md) before relying on a
+> generated run.
 
 You usually don't need to *generate* — most deep-dive designs can be pulled from the open **Hugging Face dataset**
 instead of re-run (see below); Docker/ParCa is only for designs not already in the corpus or on HF, and for the
@@ -244,8 +266,13 @@ simulation. Organism: *E. coli* K-12 MG1655 (a lab strain).
 
 **Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not** MIT: it is
 the [Covert-lab wcEcoli model](https://github.com/CovertLab/wcEcoli) under Stanford's academic (non-commercial)
-license, obtained and run separately by the user — Cellarium bundles no model code or model-derived data (see
-[docs/DECISIONS.md](docs/DECISIONS.md) D3). Vendored literature skills under `skills/vendor/k-dense/` are MIT, from
+license, obtained and run separately by the user (see [docs/DECISIONS.md](docs/DECISIONS.md) D3). Cellarium ships
+**no model image and no model-derived data**, but it does redistribute 30 **model source files** under
+[`model_overlay/`](model_overlay/) — the changes without which its designs cannot run. Most derive from
+CovertLab/WholeCellEcoliRelease **v3.0.1** (Choi & Covert 2023, *NAR* 51(12):5911, doi:10.1093/nar/gkad435),
+redistributed **with Prof. Covert's permission** under the same non-commercial terms; the rest are Cellarium's own
+condition/media/variant definitions. Provenance and per-file licence: `model_overlay/MANIFEST.json`.
+Vendored literature skills under `skills/vendor/k-dense/` are MIT, from
 [K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills) (attribution + license
 retained).
 

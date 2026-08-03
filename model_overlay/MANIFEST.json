@@ -1,0 +1,370 @@
+{
+  "schema": 1,
+  "upstream_repo": "https://github.com/CovertLab/wcEcoli",
+  "upstream_commit": "a4497e17",
+  "hash": "sha256 over CRLF-normalised (LF) bytes",
+  "generated_by": "scripts/build_model_overlay.py",
+  "licence": "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab academic non-commercial licence.",
+  "counts": {
+    "ship": 30,
+    "blocked": 5,
+    "ship_bytes": 5870112
+  },
+  "files": [
+    {
+      "path": "reconstruction/ecoli/dataclasses/relation.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "533f57b6f092f772781d32ddec4fa69af0c6d2bff02df7b112607ce8c2fd1e04",
+      "upstream_bytes": 5013,
+      "status": "ship",
+      "overlay_sha256": "5aadd5280f2d6e283699912ac746fc3154594c499dacc048ec2d380f60d0678e",
+      "overlay_bytes": 79812
+    },
+    {
+      "path": "reconstruction/ecoli/dataclasses/molecule_groups.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "745133e8376eb6e6d15bd04465a67c54dfcbdba69acbbb2924b94a3aa34b1fa1",
+      "upstream_bytes": 6798,
+      "status": "ship",
+      "overlay_sha256": "376ae8610d5ea4484246c6fd5968d6a59b66da093f9da39cb250b419085a1fb3",
+      "overlay_bytes": 7640
+    },
+    {
+      "path": "reconstruction/ecoli/dataclasses/molecule_ids.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "23d9ef85df8be268980f65fdc7398aca40e42fd2a132e158f55e842fb07894f8",
+      "upstream_bytes": 860,
+      "status": "ship",
+      "overlay_sha256": "e17a38f6faaee56c1af6264461ab00fc995060ebc2f8a5b569942c66fad6f3a0",
+      "overlay_bytes": 887
+    },
+    {
+      "path": "reconstruction/ecoli/dataclasses/process/translation.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "2b20bd3f62c3d4854f2e92901e8ced92977922e8ea6695c010da58640f5e7bec",
+      "upstream_bytes": 17094,
+      "status": "ship",
+      "overlay_sha256": "5120ba4b487990f6c39f971e0c6eee7df6353181fe19e6a61a52e90f8979aa2d",
+      "overlay_bytes": 17860
+    },
+    {
+      "path": "reconstruction/ecoli/simulation_data.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "ae045bca6ed131c2cfad23a4a8e1b68da418ab6fe744a2413b513adf53545ebb",
+      "upstream_bytes": 15420,
+      "status": "ship",
+      "overlay_sha256": "f824da1fbfcb07c95f94a1852945bb9fb2a2ed1a45dc68f41c9bf5a28e95778c",
+      "overlay_bytes": 15919
+    },
+    {
+      "path": "reconstruction/ecoli/knowledge_base_raw.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "cb1c647c6059f38ed74d73ef08570a51d9deca4e2fadb8048c961d1fa29ab4a3",
+      "upstream_bytes": 23691,
+      "status": "ship",
+      "overlay_sha256": "0953c1802a06d662407f86a783419d1536f6620cffc940de74045c506c10059f",
+      "overlay_bytes": 24472
+    },
+    {
+      "path": "reconstruction/ecoli/fit_sim_data_1.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "0fbd56e0df50bc653292b6d93a7b28e440c29289e8863a9bb5a5762d01cfc76c",
+      "upstream_bytes": 148171,
+      "status": "ship",
+      "overlay_sha256": "da17718fad41644fd03ff9eb7551e2c6c0d73b95c159554abcc96e28af46e7e1",
+      "overlay_bytes": 160770
+    },
+    {
+      "path": "reconstruction/ecoli/flat/rnas.tsv",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "1c175822e773c34afd5167236e031f3afd83dc5477c633869b88cbdf840bae3b",
+      "upstream_bytes": 483189,
+      "status": "ship",
+      "overlay_sha256": "181b1f01e67886ae877dfa6656eb5082cba00a1af15f9dd789a6cb07c765256d",
+      "overlay_bytes": 484276
+    },
+    {
+      "path": "wholecell/fireworks/firetasks/parca.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "7ec3a43e648f8b38fc97dc02f00d9ddbf0c75ad5635cb4ea41edd901683a5f91",
+      "upstream_bytes": 3066,
+      "status": "ship",
+      "overlay_sha256": "dccd77ee83e05107e65d880e8531c2f0070c9dcbca8ff10743e75f1fa8ae4920",
+      "overlay_bytes": 3925
+    },
+    {
+      "path": "wholecell/fireworks/firetasks/fitSimData.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "955eab349884d245ff6cc262b31696bf7d0b8e7585f8cfd5c55f3d01bc8a1ce9",
+      "upstream_bytes": 2614,
+      "status": "ship",
+      "overlay_sha256": "3253a41d1ac95fb21d7c5b78f8eda3c1e6618f4597bcc9c769f4441a5323f38b",
+      "overlay_bytes": 3356
+    },
+    {
+      "path": "wholecell/fireworks/firetasks/simulation.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "dc0bf7208a313c8b85c16d6e2cc8d25e070159615a53c3d917779c605df15468",
+      "upstream_bytes": 3785,
+      "status": "blocked",
+      "route1_markers": 1,
+      "reason": "carries 1 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+    },
+    {
+      "path": "wholecell/fireworks/firetasks/simulationDaughter.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "092bc776a563f9658444060ed8862b7c5555f4c7b00ddc0681a7ca02938359e5",
+      "upstream_bytes": 3907,
+      "status": "blocked",
+      "route1_markers": 1,
+      "reason": "carries 1 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+    },
+    {
+      "path": "wholecell/sim/simulation.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "97b68913a80e682a389b3b035e606c5335a4697c82194d5403a98064ea50b458",
+      "upstream_bytes": 15460,
+      "status": "blocked",
+      "route1_markers": 3,
+      "reason": "carries 3 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+    },
+    {
+      "path": "wholecell/utils/scriptBase.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "218fa3d91e5b46e77a2e7d0ea16b31a500aa5c4d23e55fe2bc24d55c4d279094",
+      "upstream_bytes": 27101,
+      "status": "blocked",
+      "route1_markers": 5,
+      "reason": "carries 5 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+    },
+    {
+      "path": "models/ecoli/sim/simulation.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "f3d79ae8c04403bfaf7c35373c2027288693b6c48d2eea604f60540febe8d8f4",
+      "upstream_bytes": 4639,
+      "status": "ship",
+      "overlay_sha256": "d204d8d16cd62e4312e98a1e6e1316a8c5192fa6edc18fa368e84007ac33b4f7",
+      "overlay_bytes": 4717
+    },
+    {
+      "path": "models/ecoli/processes/polypeptide_elongation.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "fb62fc222936b14ca2e210094684efaf56016d59095662adb7b84d0f4014f33c",
+      "upstream_bytes": 55144,
+      "status": "blocked",
+      "route1_markers": 28,
+      "reason": "carries 28 ROUTE1 marker(s). The isoacceptor exploration was extracted to github.com/evanniko1/wcecoli-extension-tRNA-isoacceptors (BACKLOG.md:176) and only the port stayed; shipping this file verbatim would re-import it. No clean port-only version of this file exists in ANY commit \u2014 the port was never committed, so its only artifact anywhere is the mixed working tree. Producing one is code surgery on interwoven changes and is not done silently here."
+    },
+    {
+      "path": "models/ecoli/processes/metabolism.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "8a0909ac558d510a3bd983a11dade284e0ce4e3dad761c64154583dea9e0f5db",
+      "upstream_bytes": 25905,
+      "status": "ship",
+      "overlay_sha256": "bd61e7f5f0e25cef2b8ec86088f8022ab4e2133d749cecb2e8c9a88252d74c0b",
+      "overlay_bytes": 28828
+    },
+    {
+      "path": "models/ecoli/listeners/growth_limits.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "012700a81eadf9bd1cb2b3c1d98eb378fd50c1e9f7afe638aaaa601c25f53c83",
+      "upstream_bytes": 6038,
+      "status": "ship",
+      "overlay_sha256": "dae799979e50945781ea0593056a76698a1abaf1f7c1ea3e2a9be428aa4e8acb",
+      "overlay_bytes": 9315
+    },
+    {
+      "path": "models/ecoli/sim/initial_conditions.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "8d5a3b0dc2ada332de8fbc6303a8180a2b21d1a1c7e690d9ee7ad71a3a95578d",
+      "upstream_bytes": 6486,
+      "status": "ship",
+      "overlay_sha256": "73f57d39c8e915d94aaffe8f47470444db73533b833afd1cf2fee48056f45089",
+      "overlay_bytes": 7949
+    },
+    {
+      "path": "setup.py",
+      "category": "port",
+      "action": "modify",
+      "upstream_sha256": "0a8c67accbb61375b1b45bef3b0e4a9c26b1974ced18621f2ed0206de7b76a22",
+      "upstream_bytes": 1139,
+      "note": "Registers _trna_charging.pyx with cythonize, so `make compile` and any image build produce the extension.",
+      "status": "ship",
+      "overlay_sha256": "4c8c59406844161755d96f298e65bb4facf60e81e07e55e519ec625e82f0cbf7",
+      "overlay_bytes": 1353
+    },
+    {
+      "path": "models/ecoli/listeners/trna_charging.py",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "07fa9ed1e3292481b041737710afe1b04a97ea4b47ad36e908e1f7645edcebb6",
+      "overlay_bytes": 7165
+    },
+    {
+      "path": "wholecell/utils/_trna_charging.pyx",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "note": "Cython source only. The built .so is Linux-specific and is compiled INSIDE the model image by setup.py; it is deliberately not shipped.",
+      "status": "ship",
+      "overlay_sha256": "a0bb317d616947676a027dc1157cd36599d33e9d06bc62c6b9d257f9a01426fb",
+      "overlay_bytes": 18576
+    },
+    {
+      "path": "reconstruction/ecoli/flat/trna_charging_kinetics.tsv",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "2cdd97a295f20af7b06fd7e6ef089c7b32caf1e5900ad970ff5dca171bd972e0",
+      "overlay_bytes": 10535
+    },
+    {
+      "path": "reconstruction/ecoli/flat/trna_charging_kinetics_curated.tsv",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "82ad041d0ca28d1b03565dc42e505c24a8c040d8ca0d51e5e78a36d31ad74acc",
+      "overlay_bytes": 499
+    },
+    {
+      "path": "reconstruction/ecoli/flat/optimization/trna_charging_kinetics_constants.tsv",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "44be927ac48c1a58f2b13b94998998746ed5117ed1951d896b82e20c93af6eef",
+      "overlay_bytes": 11803
+    },
+    {
+      "path": "reconstruction/ecoli/flat/optimization/trna_charging_kinetics_solutions.tsv",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "note": "4.7 MB, ~80% of the whole overlay. It is a tRNA-charging OPTIMISER OUTPUT, not a hand-authored input; scripts/verify_trna_objective.py reproduces its rows. Kept in-tree so a clone reproduces the corpus without a refit, but it is the obvious candidate for out-of-band hosting if repo size becomes a problem.",
+      "status": "ship",
+      "overlay_sha256": "b357525078018a8ad5a283d6a0b5214cddedc69dbf411b0242f097299717cdb5",
+      "overlay_bytes": 4938625
+    },
+    {
+      "path": "reconstruction/ecoli/flat/optimization/trna_synthetase_dynamic_range.tsv",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "8ab69939474085f186af524fe5d6aa5b7bfec57630f9f0c79ab288d34d1519fb",
+      "overlay_bytes": 3944
+    },
+    {
+      "path": "validation/ecoli/flat/trna_synthetase_kinetics.tsv",
+      "category": "port",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "cd64fc2c72a8d38af47d76a694108befdeb489e9697c570e9f3c6e2a2d9b574a",
+      "overlay_bytes": 10712
+    },
+    {
+      "path": "models/ecoli/sim/variants/graded_gene_knockout.py",
+      "category": "script-written",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "1e6dc3876463b4b85b17c1442d8be1f41eb05d7529044f70a4600a95955db9ca",
+      "overlay_bytes": 10187
+    },
+    {
+      "path": "models/ecoli/sim/variants/__init__.py",
+      "category": "script-written",
+      "action": "modify",
+      "upstream_sha256": "9c56d6fb8e82af96f81ee41cbd3b3974e9799d0f8581279afc385c9134d0b757",
+      "upstream_bytes": 1112,
+      "note": "Rewritten, not copied \u2014 see gate 3. Registers upstream's variants plus graded_gene_knockout.",
+      "status": "ship",
+      "overlay_sha256": "7029a152dc7dd3eda3cb21d63863da003f7a0a547e2d58fa4bdd29cd0eb16e64",
+      "overlay_bytes": 1530
+    },
+    {
+      "path": "reconstruction/ecoli/flat/condition/media_recipes.tsv",
+      "category": "script-written",
+      "action": "modify",
+      "upstream_sha256": "d49b9872946a0f7462e068d359337c41720dafb3ea8f5110567cf4c7feca5d67",
+      "upstream_bytes": 1685,
+      "status": "ship",
+      "overlay_sha256": "bb890103cb42743de6641d07dd202cee519ceaf2eba82e5e0dd50c7d1f1ee526",
+      "overlay_bytes": 2116
+    },
+    {
+      "path": "reconstruction/ecoli/flat/condition/condition_defs.tsv",
+      "category": "script-written",
+      "action": "modify",
+      "upstream_sha256": "d28d181e2e7674101b47ccfaca21d7e119571ab902f9370723e671656e7f8844",
+      "upstream_bytes": 885,
+      "note": "Row order IS the condition index space (models/ecoli/sim/variants/condition.py reads sim_data.ordered_conditions). Rebuilt here rather than copied \u2014 see gate 2.",
+      "status": "ship",
+      "overlay_sha256": "1ce0b0f0379a37af7da02e17c4862975e7d368bd1dd0d389ed4b3eedffdf7b2c",
+      "overlay_bytes": 1876
+    },
+    {
+      "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-20mM.tsv",
+      "category": "dependency",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "1fe605ed77a9265f6d890230b80f9ea6b3918e904d0d9de64b5ea9fc4903c5b2",
+      "overlay_bytes": 489
+    },
+    {
+      "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-5mM.tsv",
+      "category": "dependency",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "3082a59291aeaf0e677b4f5e57519d48f9d8ff6a3d1ff3882a73a984a3a6ea82",
+      "overlay_bytes": 488
+    },
+    {
+      "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-2mM.tsv",
+      "category": "dependency",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "status": "ship",
+      "overlay_sha256": "404969c8d0e63ba15d213f103ae8e2cb75a020968793efb536c8c7255d4065c5",
+      "overlay_bytes": 488
+    }
+  ]
+}

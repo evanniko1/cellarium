@@ -1,4 +1,22 @@
-"""EXT-PORT-10 — close the four items blocking the codon-aware (kinetic tRNA charging) path.
+"""SUPERSEDED by the overlay (scripts/apply_model_overlay.py). Kept as the GENERATOR OF RECORD, not
+as an install path.
+
+DO NOT use this to set up a wcEcoli checkout. Use:
+
+    python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli
+
+MEASURED, against upstream a4497e17 on a stock checkout: this recipe aborted FOUR separate times and
+therefore replayed on NO committed tree. The only place it had ever fully run was one working copy
+that had been hand-patched incrementally. The four defects are recorded, and fixed, in
+docs/OVERLAY.md; the recipe now completes, which is what made the overlay harvestable at all. But it
+still cannot produce the full port -- EXT-PORT-12 (UNIFY-2) has no applier of any kind -- so what it
+emits is a subset, not the shipped tree.
+
+Why keep it. Deleting it would make the overlay unauditable: a reviewer could no longer see how the
+v3.0.1 code was adapted, only that some bytes are vendored. The ADAPTATIONS are the part worth
+reading and they are recorded here.
+
+EXT-PORT-10 — close the four items blocking the codon-aware (kinetic tRNA charging) path.
 
 Idempotent, marker-guarded, and CRLF/TAB preserving, in the style of scripts/apply_trna_port.py.
 Every anchor is asserted to match EXACTLY ONCE before anything is written; a partial application
@@ -538,5 +556,19 @@ def main(argv=None) -> int:
     return 0
 
 
+
+def _superseded_banner() -> None:
+    """Say it on stderr, every run. A superseded tool that runs silently is a documented path."""
+    sys.stderr.write(
+        "\n"
+        "=================================================================================\n"
+        " SUPERSEDED. This is the generator of record, not the install path.\n"
+        " To set up a wcEcoli checkout, use:\n"
+        "     python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli\n"
+        " See docs/OVERLAY.md for why anchor-matching was retired.\n"
+        "=================================================================================\n"
+        "\n")
+
 if __name__ == "__main__":
+    _superseded_banner()
     sys.exit(main())

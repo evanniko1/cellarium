@@ -1,0 +1,52 @@
+# Cellarium overlay: this file registers upstream's variants plus the variant modules the
+# overlay ships (graded_gene_knockout). Registration is EAGER --
+# nameToFunctionMapping imports every name below at import time -- so a name here whose
+# module is absent is an ImportError on every variant run, not a lazy failure. Do not add a
+# name without adding its module to model_overlay/files/.
+import importlib
+
+
+variants = [
+	'aa_synthesis_ko',
+	'aa_synthesis_ko_shift',
+	'aa_synthesis_sensitivity',
+	'aa_uptake_sensitivity',
+	'add_one_aa',
+	'add_one_aa_shift',
+	'condition',
+	'gene_knockout',
+	'graded_gene_knockout',
+	'mene_params',
+	'metabolism_kinetic_objective_weight',
+	'metabolism_secretion_penalty',
+	'new_gene_internal_shift',
+	'param_sensitivity',
+	'ppgpp_conc',
+	'ppgpp_limitations',
+	'ppgpp_limitations_ribosome',
+	'remove_aa_inhibition',
+	'remove_aas_shift',
+	'remove_one_aa',
+	'remove_one_aa_shift',
+	'rrna_location',
+	'rrna_operon_knockout',
+	'rrna_orientation',
+	'tf_activity',
+	'time_step',
+	'timelines',
+	'wildtype',
+	]
+
+def get_function(variant):
+	module = importlib.import_module(f'models.ecoli.sim.variants.{variant}')
+	return getattr(module, variant)
+
+nameToFunctionMapping = {v: get_function(v) for v in variants}
+
+# Support the old names for compatibility with existing shell scripts.
+nameToFunctionMapping.update({
+	'geneKnockout': get_function('gene_knockout'),
+	'meneParams': get_function('mene_params'),
+	'nutrientTimeSeries': get_function('timelines'),
+	'tfActivity': get_function('tf_activity'),
+	})

@@ -1,0 +1,9 @@
+# The overlay ships BYTES, not text that git may reformat.
+#
+# Without this, git's eol handling checks these files out as CRLF on Windows. They would still INSTALL
+# correctly -- apply_model_overlay.py hashes CRLF-normalised, so the verification is unaffected -- but the
+# working tree would no longer be byte-identical to what build_model_overlay.py wrote, and
+# `build_model_overlay.py --check` compares against the manifest. Pinning eol=lf keeps one canonical form
+# on every platform, which is the whole premise of shipping finished files instead of patches.
+files/** text eol=lf
+MANIFEST.json text eol=lf

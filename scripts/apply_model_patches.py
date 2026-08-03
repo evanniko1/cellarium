@@ -1,4 +1,16 @@
-"""Apply Cellarium's model-level additions to a wcEcoli checkout — idempotently, and verifiably.
+"""SUPERSEDED by the overlay (scripts/apply_model_overlay.py). Kept for provenance, not as an install
+path.
+
+DO NOT use this to set up a wcEcoli checkout. Use:
+
+    python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli
+
+The overlay ships the FINISHED condition_defs.tsv / media_recipes.tsv / variants, so there is no
+append step to get wrong. It also fixes a data-integrity bug this script's ordering could not: see
+gate 2 in scripts/build_model_overlay.py -- the dropout condition rows must be APPENDED, because
+row order IS the condition index space that src/cellarium/generate.py hardcodes.
+
+Apply Cellarium's model-level additions to a wcEcoli checkout — idempotently, and verifiably.
 
 Cellarium needs three media that stock wcEcoli does not define (SCI-TRNA-3: single-amino-acid dropouts). The
 definition has to live HERE, not only in a working copy, or the experiment is unreproducible: the wcEcoli
@@ -152,5 +164,19 @@ def main(argv=None) -> int:
     return 0 if (media.get("ok") and conds.get("ok")) else 1
 
 
+
+def _superseded_banner() -> None:
+    """Say it on stderr, every run. A superseded tool that runs silently is a documented path."""
+    sys.stderr.write(
+        "\n"
+        "=================================================================================\n"
+        " SUPERSEDED. This is the generator of record, not the install path.\n"
+        " To set up a wcEcoli checkout, use:\n"
+        "     python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli\n"
+        " See docs/OVERLAY.md for why anchor-matching was retired.\n"
+        "=================================================================================\n"
+        "\n")
+
 if __name__ == "__main__":
+    _superseded_banner()
     sys.exit(main())

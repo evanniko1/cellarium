@@ -1,4 +1,22 @@
-"""EXT-PORT — apply the kinetic tRNA charging port (per-isoacceptor) to a wcEcoli checkout.
+"""SUPERSEDED by the overlay (scripts/apply_model_overlay.py). Kept as the GENERATOR OF RECORD, not
+as an install path.
+
+DO NOT use this to set up a wcEcoli checkout. Use:
+
+    python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli
+
+MEASURED, against upstream a4497e17 on a stock checkout: this recipe aborted FOUR separate times and
+therefore replayed on NO committed tree. The only place it had ever fully run was one working copy
+that had been hand-patched incrementally. The four defects are recorded, and fixed, in
+docs/OVERLAY.md; the recipe now completes, which is what made the overlay harvestable at all. But it
+still cannot produce the full port -- EXT-PORT-12 (UNIFY-2) has no applier of any kind -- so what it
+emits is a subset, not the shipped tree.
+
+Why keep it. Deleting it would make the overlay unauditable: a reviewer could no longer see how the
+v3.0.1 code was adapted, only that some bytes are vendored. The ADAPTATIONS are the part worth
+reading and they are recorded here.
+
+EXT-PORT — apply the kinetic tRNA charging port (per-isoacceptor) to a wcEcoli checkout.
 
 Source: CovertLab/WholeCellEcoliRelease **v3.0.1** — Choi & Covert 2023, *NAR* 51(12):5911,
 doi:10.1093/nar/gkad435. Applied with permission from Prof. Covert.
@@ -192,6 +210,95 @@ REL_WEIGHTS_NEW = "\t\t# Describe residue masses\n\t\t# EXT-PORT-7: the loop bel
 #   * BaseElongationModel gains `protein_lengths` and `next_amino_acids`. v3.0.1 carries both on ITS
 #     base class; ours predates them, and KineticTrnaChargingModel inherits from ours.
 TRL_EDITS = [('\t\tmonomer_data = np.zeros(\n', "\t\t# EXT-PORT-8: needed by KineticTrnaChargingModel, which reads it per monomer. Already present on\n\t\t# raw_data.proteins and already used above for the N-end rule; it just never reached monomer_data.\n\t\tcleavage_of_initial_methionine = np.zeros(len(all_proteins), dtype=bool)\n\t\tfor i, protein in enumerate(all_proteins):\n\t\t\tcleavage_of_initial_methionine[i] = protein['cleavage_of_initial_methionine']\n\n\t\tmonomer_data = np.zeros(\n"), ("\t\t\t\t('mw', 'f8'),\n\t\t\t\t]\n", "\t\t\t\t('mw', 'f8'),\n\t\t\t\t('cleavage_of_initial_methionine', 'bool'),\n\t\t\t\t]\n"), ("\t\tmonomer_data['mw'] = mws\n", "\t\tmonomer_data['mw'] = mws\n\t\tmonomer_data['cleavage_of_initial_methionine'] = cleavage_of_initial_methionine\n"), ("\t\t\t'mw': units.g / units.mol,\n", "\t\t\t'mw': units.g / units.mol,\n\t\t\t# None, not a unit: UnitStructArray raises on a field absent from field_units, so a new column\n\t\t\t# added to the dtype alone would fail at construction rather than being quietly unitless.\n\t\t\t'cleavage_of_initial_methionine': None,\n")]
+# The CoarseKineticTrnaChargingModel codon-aware surface. v3.0.1 carries all of this on
+# BaseElongationModel (vendor/v301/models/ecoli/processes/polypeptide_elongation.py:462 for
+# `codon_sequences_width`), and its coarse model defines only __init__ and monomer_limit. This
+# tree's BaseElongationModel still has to carry the STEADY-STATE 0-arg elongation_rate / 1-arg
+# request / 5-arg evolve that the unchanged calculateRequest and evolveState call, so the
+# codon-aware arities cannot go there. They go on the coarse model itself.
+#
+# This step was MISSING. Without it `ext_port_10_patch.py`'s "coarse_next_amino_acids" edit --
+# which anchors on `codon_sequences_width` returning `elongation_rates` -- matched 0 times and
+# the whole chain aborted on a clean checkout, which is why this recipe replayed on no committed
+# tree. `next_amino_acids` is deliberately NOT included here: ext_port_10 inserts it against that
+# same anchor, and including it would give that edit two candidate sites.
+PE_COARSE_ANCHOR = "\t\tself.not_curated = np.logical_not(curated)\n"
+PE_COARSE_NEW = (
+    PE_COARSE_ANCHOR +
+    "\n"
+    "\t\t# EXT-PORT-8: the codon-aware surface v3.0.1 keeps on BaseElongationModel. It cannot go\n"
+    "\t\t# there in this tree: our BaseElongationModel still has to carry the steady-state\n"
+    "\t\t# 0-arg elongation_rate / 1-arg request / 5-arg evolve that the unchanged\n"
+    "\t\t# calculateRequest and evolveState call. KineticTrnaChargingModel defines all of this\n"
+    "\t\t# itself; this class defined only __init__ and monomer_limit, so without the block below\n"
+    "\t\t# --coarse-kinetic-elongation TypeErrors on its first step.\n"
+    "\t\t#\n"
+    "\t\t# The semantics are v3.0.1's Base verbatim, i.e. the identity/no-op set: for this model a\n"
+    "\t\t# monomer IS an amino acid.\n"
+    "\t\ttranslation = sim_data.process.translation\n"
+    "\t\tself.protein_sequences = translation.translation_sequences\n"
+    "\t\tself.monomer_weights_incorporated = translation.translation_monomer_weights\n"
+    "\t\tself.n_monomers = len(sim_data.molecule_groups.amino_acids)\n"
+    "\t\t# 86 entries. GrowthLimits.fraction_trna_charged and net_charged are both allocated at\n"
+    "\t\t# len(uncharged_trna_names) (growth_limits.py:60-62); our Base's steady-state\n"
+    "\t\t# np.zeros(len(self.aaNames)) is 21 and would be written into an 86-wide column.\n"
+    "\t\tself.zero_charged_holder = np.zeros(len(self.uncharged_trna_names))\n"
+    "\n"
+    "\tdef record_mass(self):\n"
+    "\t\treturn\n"
+    "\n"
+    "\tdef elongation_rate(self, current_media_id, protein_indexes, peptide_lengths):\n"
+    "\t\t\"\"\"\n"
+    "\t\tEXT-PORT-8: the 3-arg convention the codon-aware host uses. Same value as the inherited\n"
+    "\t\t0-arg TranslationSupplyElongationModel.elongation_rate, which stays where it is for the\n"
+    "\t\tsteady-state host.\n"
+    "\t\t\"\"\"\n"
+    "\t\treturn self.basal_elongation_rate\n"
+    "\n"
+    "\tdef request(self, monomers_in_sequences, protein_indexes, current_media_id,\n"
+    "\t\t\tpeptide_lengths):\n"
+    "\t\t\"\"\"\n"
+    "\t\tEXT-PORT-8: the 4-arg convention. amino_acid_counts resolves to\n"
+    "\t\tTranslationSupplyElongationModel's np.fmin(process.aa_supply, ...), which is why\n"
+    "\t\t_calculateRequest_codon_aware still has to compute self.aa_supply.\n"
+    "\t\t\"\"\"\n"
+    "\t\taa_request = self.amino_acid_counts(monomers_in_sequences)\n"
+    "\n"
+    "\t\tself.process.aas.requestIs(aa_request)\n"
+    "\n"
+    "\t\t# Not modeling charging so set fraction charged to 0 for all tRNA\n"
+    "\t\treturn self.zero_charged_holder, aa_request\n"
+    "\n"
+    "\tdef monomer_to_aa(self, monomer):\n"
+    "\t\treturn monomer\n"
+    "\n"
+    "\tdef codon_sequences_width(self, elongation_rates):\n"
+    "\t\treturn elongation_rates\n"
+    "\n"
+    "\tdef reconcile(self, result):\n"
+    "\t\taas_used = result.monomerUsages\n"
+    "\t\treturn result, aas_used, []\n"
+    "\n"
+    "\tdef sequences(self, sequences):\n"
+    "\t\treturn sequences\n"
+    "\n"
+    "\tdef protein_maturation(self, did_terminate, terminated_proteins, protein_indexes):\n"
+    "\t\treturn did_terminate, terminated_proteins, 0\n"
+    "\n"
+    "\tdef evolve(self, total_aa_counts, aas_used, next_amino_acid_count,\n"
+    "\t\t\tnElongations, nInitialized, trna_changes, monomerUsages,\n"
+    "\t\t\tinitial_methionines_cleaved):\n"
+    "\t\t\"\"\"EXT-PORT-8: the 8-arg convention, v3.0.1 BaseElongationModel.evolve verbatim.\"\"\"\n"
+    "\t\t# Update counts of amino acids and water to reflect polymerization reactions\n"
+    "\t\tself.process.aas.countsDec(aas_used)\n"
+    "\t\tself.water.countInc(nElongations - nInitialized)\n"
+    "\n"
+    "\t\treturn self.zero_charged_holder, {}\n"
+    "\n"
+    "\t# next_amino_acids (returns 0) and protein_lengths are already provided by our\n"
+    "\t# BaseElongationModel, so they are not repeated here.\n"
+    "\n")
+
 PE_BASE_EDITS = [('\t\tself.water = self.process.bulkMoleculeView(sim_data.molecule_ids.water)\n', "\t\tself.water = self.process.bulkMoleculeView(sim_data.molecule_ids.water)\n\t\t# EXT-PORT-8: v3.0.1 carries this on its BaseElongationModel and our base predates it.\n\t\t# KineticTrnaChargingModel inherits from THIS class, so without it the codon-aware host path\n\t\t# raises AttributeError on its first step. Additive: nothing on the steady-state path reads it.\n\t\tself.protein_lengths = sim_data.process.translation.monomer_data['length'].asNumber()\n")]
 PE_METHOD_ANCHOR = "\tdef elongation_rate(self):\n\t\tcurrent_media_id = self.process._external_states['Environment'].current_media_id\n"
 PE_METHOD_NEW = '\tdef next_amino_acids(self, all_sequences, sequence_elongations):\n\t\t"""EXT-PORT-8: v3.0.1 BaseElongationModel\'s own implementation, verbatim. Only the codon-aware\n\t\tpath calls it; KineticTrnaChargingModel overrides it where it means something."""\n\t\treturn 0\n\n\tdef elongation_rate(self):\n\t\tcurrent_media_id = self.process._external_states[\'Environment\'].current_media_id\n'
@@ -449,6 +556,9 @@ def status(wcecoli: str) -> dict:
             os.path.join(wcecoli, "wholecell", "utils", "_trna_charging*.so"))),
         "pe_import": _has(wcecoli, PE, "wholecell.utils._trna_charging"),
         "pe_classes": _has(wcecoli, PE, "class KineticTrnaChargingModel"),
+        # The coarse model's codon-aware surface. Checked separately from `pe_classes`
+        # because the classes come from the reference verbatim and this block does not.
+        "coarse_surface": _has(wcecoli, PE, "the codon-aware surface v3.0.1 keeps"),
         "pe_selector": _has(wcecoli, PE, "kinetic_trna_charging = getattr"),
         "pe_guard": _has(wcecoli, PE, "if not (trna_charging or kinetic_trna_charging):"),
         "listener_installed": os.path.isfile(os.path.join(wcecoli, LIS)),
@@ -609,8 +719,15 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         if t.count(a) != 1:
             return {"ok": False, "why": f"{SD}: expected one translation_supply_rate anchor"}
         _write(os.path.join(wcecoli, SD), t.replace(
-            a, a + "\t\t# Populated by the kinetic tRNA charging model; empty under the default\n"
-                   "\t\t# SteadyStateElongationModel, which never reads it.\n"
+            # WORDING IS LOAD-BEARING. `ext_port_11_patch.py`'s SD_01 edit anchors on these two
+            # comment lines VERBATIM (SD_01_OLD, ext_port_11_patch.py:224) in order to replace them.
+            # The two copies had drifted apart -- this one said "; empty under the default" on one
+            # line, that one expects "(EXT-PORT, from WholeCellEcoliRelease v3.0.1)." and a second
+            # sentence -- so SD_01 matched 0 times and the chain aborted here on a clean checkout.
+            # Do not reword without rewording SD_01_OLD in the same commit.
+            a, a + "\t\t# Populated by the kinetic tRNA charging model (EXT-PORT, from "
+                   "WholeCellEcoliRelease v3.0.1).\n"
+                   "\t\t# Empty under the default SteadyStateElongationModel, which never reads it.\n"
                    "\t\tself.codon_read_rate = {}\n", 1), n2)
         wrote.append("simulation_data.py: codon_read_rate")
 
@@ -703,7 +820,7 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
     if not st["monomer_cleavage_column"]:
         t, n2 = _read(os.path.join(wcecoli, TRL))
         for old, new in TRL_EDITS:
-            o, n = old.replace("\n", n2), new.replace("\n", n2)
+            o, n = old, new
             if t.count(o) != 1:
                 return {"ok": False, "why": f"{TRL}: expected exactly one {old.strip()[:44]!r}, "
                                             f"found {t.count(o)}"}
@@ -713,13 +830,24 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
     if not st["base_model_members"]:
         t, n2 = _read(os.path.join(wcecoli, PE))
         for old, new in list(PE_BASE_EDITS) + [(PE_METHOD_ANCHOR, PE_METHOD_NEW)]:
-            o, n = old.replace("\n", n2), new.replace("\n", n2)
+            o, n = old, new
             if t.count(o) != 1:
                 return {"ok": False, "why": f"{PE}: expected exactly one {old.strip()[:44]!r}, "
                                             f"found {t.count(o)}"}
             t = t.replace(o, n, 1)
         _write(os.path.join(wcecoli, PE), t, n2)
         wrote.append("polypeptide_elongation.py: BaseElongationModel protein_lengths + next_amino_acids")
+    if not st["coarse_surface"]:
+        t, n2 = _read(os.path.join(wcecoli, PE))
+        if t.count(PE_COARSE_ANCHOR) != 1:
+            return {"ok": False, "why": f"{PE}: expected exactly one "
+                                        f"{PE_COARSE_ANCHOR.strip()[:44]!r} to anchor the coarse "
+                                        f"codon-aware surface on, found {t.count(PE_COARSE_ANCHOR)} "
+                                        f"-- has the reference's CoarseKineticTrnaChargingModel been "
+                                        f"appended yet?"}
+        t = t.replace(PE_COARSE_ANCHOR, PE_COARSE_NEW, 1)
+        _write(os.path.join(wcecoli, PE), t, n2)
+        wrote.append("polypeptide_elongation.py: CoarseKineticTrnaChargingModel codon-aware surface")
 
     # 9b) the runtime tRNA id space, in BOTH the process and the listener.
     #
@@ -733,18 +861,18 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         for old, new, want in ((PE_TRNA_OLD, PE_TRNA_NEW, st["runtime_trna_space"]),):
             if want:
                 continue
-            o = old.replace("\n", n2)
+            o = old
             if t.count(o) != 1:
                 return {"ok": False, "why": f"{PE}: expected exactly one {old.strip()[:44]!r}, "
                                             f"found {t.count(o)}"}
-            t = t.replace(o, new.replace("\n", n2), 1)
+            t = t.replace(o, new, 1)
         _write(os.path.join(wcecoli, PE), t, n2)
         wrote.append("polypeptide_elongation.py: tRNA cistron space")
         if not st["runtime_trna_space"] and os.path.isfile(os.path.join(wcecoli, LIS)):
             t, n2 = _read(os.path.join(wcecoli, LIS))
-            o = LIS_TRNA_OLD.replace("\n", n2)
+            o = LIS_TRNA_OLD
             if t.count(o) == 1:
-                _write(os.path.join(wcecoli, LIS), t.replace(o, LIS_TRNA_NEW.replace("\n", n2), 1), n2)
+                _write(os.path.join(wcecoli, LIS), t.replace(o, LIS_TRNA_NEW, 1), n2)
                 wrote.append("listeners/trna_charging.py: tRNA cistron space")
 
     # 10) the TrnaCharging listener — copied AND registered in one step
@@ -773,11 +901,11 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         wrote.append(f"{WSIM}: kinetic_trna_charging / coarse_kinetic_elongation kwargs")
     if not st["flags_mutually_exclusive"]:
         t, n2 = _read(os.path.join(wcecoli, WSIM))
-        o = WSIM_RESOLVE_ANCHOR.replace("\n", n2)
+        o = WSIM_RESOLVE_ANCHOR
         if t.count(o) != 1:
             return {"ok": False, "why": f"{WSIM}: expected exactly one kwargs-unpacking anchor to place the "
                                         f"flag resolution before, found {t.count(o)}"}
-        _write(os.path.join(wcecoli, WSIM), t.replace(o, WSIM_RESOLVE.replace("\n", n2) + o, 1), n2)
+        _write(os.path.join(wcecoli, WSIM), t.replace(o, WSIM_RESOLVE + o, 1), n2)
         wrote.append(f"{WSIM}: kinetic flags force trna_charging / translation_supply False")
     if not st["cli_flags"]:
         t, n2 = _read(os.path.join(wcecoli, SB))
@@ -797,11 +925,11 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
         for f in FIRETASKS:
             t, n2 = _read(os.path.join(wcecoli, f))
             for old, new in ((FT_LIST_OLD, FT_LIST_NEW), (FT_OPT_OLD, FT_OPT_NEW)):
-                o = old.replace("\n", n2)
+                o = old
                 if t.count(o) != 1:
                     return {"ok": False, "why": f"{f}: expected exactly one {old.strip()[:40]!r}, "
                                                 f"found {t.count(o)}"}
-                t = t.replace(o, new.replace("\n", n2), 1)
+                t = t.replace(o, new, 1)
             _write(os.path.join(wcecoli, f), t, n2)
             wrote.append(f"{f}: kinetic flags added to the firetask allow-list")
 
@@ -915,5 +1043,19 @@ def main(argv=None) -> int:
     return 0 if res.get("ok") else 1
 
 
+
+def _superseded_banner() -> None:
+    """Say it on stderr, every run. A superseded tool that runs silently is a documented path."""
+    sys.stderr.write(
+        "\n"
+        "=================================================================================\n"
+        " SUPERSEDED. This is the generator of record, not the install path.\n"
+        " To set up a wcEcoli checkout, use:\n"
+        "     python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli\n"
+        " See docs/OVERLAY.md for why anchor-matching was retired.\n"
+        "=================================================================================\n"
+        "\n")
+
 if __name__ == "__main__":
+    _superseded_banner()
     sys.exit(main())

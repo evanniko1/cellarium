@@ -44,6 +44,11 @@ extend-exclude = [
                        # files must keep tabs to match the tree they are installed into. Linting them under
                        # Cellarium's space convention reports 75 mixed-indentation errors for code that is
                        # correct where it runs. Installed by scripts/apply_model_variants.py.
+    "model_overlay",   # the FINISHED wcEcoli files this repo ships (see docs/OVERLAY.md). Same reason as
+                       # model_patches, at the scale of the whole port: it is wcEcoli source, tab-indented,
+                       # and byte-identical to what gets copied into the checkout. Linting it would be
+                       # linting upstream's style, and any "fix" would silently desynchronise the file from
+                       # the sha256 recorded in model_overlay/MANIFEST.json.
     "vendor",          # the v3.0.1 reference tree, for the SAME reason and at a much larger scale: it is
                        # upstream wcEcoli source, tab-indented, and linting it reports 5093 errors — 94.6%
                        # of everything ruff finds in this repo. It is a read-only reference that

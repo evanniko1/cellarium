@@ -84,27 +84,70 @@ def test_double_centering_beats_raw_z_cosine_on_the_confound():
 
     The baseline is now genuinely available (`_matrix()["z_raw"]`, the column-z profile before double-centering)
     and both numbers go through the SAME estimator, `similarity.severity_confound`. The relative claim is what
-    this test is for, and it is robust where the absolute one is not: measured 483/500 species split-halves and
-    43/44 leave-one-design-out folds favour double-centering, mean margin ~+0.31. The absolute 'near zero' clause
-    is not dropped — it lives on, unrelaxed, in the xfailed acceptance test, which is the honest place for it."""
+    this test is for, and it is robust where the absolute one is not. The absolute 'near zero' clause is not
+    dropped — it lives on, unrelaxed, in the xfailed acceptance test, which is the honest place for it.
+
+    NO MAGIC NUMBERS. This test used to carry two hardcoded constants — `abs(baseline) > 0.3` and
+    `abs(baseline) - abs(shipped) > 0.15` — that were neither derived nor justified, and which would silently
+    become wrong as the corpus grows. Both are now computed from the corpus itself:
+
+      * the PRECONDITION (is there a confound to remove at all?) is a significance test at the corpus's own n,
+        via the Fisher-z standard error 1/sqrt(n-3). It asks whether the baseline confound is distinguishable
+        from zero, not whether it clears an invented constant.
+      * the MARGIN (is the win real, or a rounding artifact?) is a leave-one-design-out sign test. Recompute both
+        confounds with each design dropped in turn and count how often double-centering wins; require that count
+        to beat a fair coin by an exact binomial tail. This is the estimator the xfail marker already cites as
+        the robust claim, and it is the reason a bare `abs(shipped) < abs(baseline)` is not enough on its own:
+        a single leverage point could deliver that on the full sample and nowhere else.
+
+    The only constants left are conventional significance levels (0.05, 0.001), which are not tuned to this
+    corpus and do not move when it grows."""
     _corpus()
+    import math
+
     from cellarium import similarity
     m = similarity._matrix()
     if not m:
         pytest.skip("no matrix")
     g, designs = m["growth"], m["designs"]
+
+    # The designs that actually enter the correlation — the same filter severity_confound applies, so `n` is the
+    # real sample size rather than len(designs).
+    usable = [d for d in designs if d in g and d != similarity.REFERENCE and d in m["z"]]
+    n = len(usable)
+    if n < 8:
+        pytest.skip(f"only {n} designs carry growth — too few to compare two estimators")
+
     shipped = similarity.severity_confound(m["z"], g, designs)
     baseline = similarity.severity_confound(m["z_raw"], g, designs)
-    assert abs(baseline) > 0.3, (
-        f"the pre-transform baseline confound is only {baseline:+.3f} — there is no severity confound left for "
-        "double-centering to remove, so this corpus can no longer demonstrate the transform's purpose")
+
+    # (1) PRECONDITION, derived: is the pre-transform confound distinguishable from zero at THIS n?
+    # Fisher-z transform; SE = 1/sqrt(n-3); two-sided 0.05 => |z| > 1.96 * SE.
+    se = 1.0 / math.sqrt(n - 3)
+    z_baseline = 0.5 * math.log((1 + baseline) / (1 - baseline)) if abs(baseline) < 1 else math.inf
+    assert abs(z_baseline) > 1.96 * se, (
+        f"the pre-transform baseline confound is {baseline:+.3f} (Fisher z={z_baseline:+.3f}), which is not "
+        f"distinguishable from zero at n={n} (SE={se:.3f}). There is no severity confound left for "
+        "double-centering to remove, so this corpus can no longer demonstrate the transform's purpose.")
+
+    # (2) THE CLAIM IN THE NAME: the shipped transform must have the smaller confound.
     assert abs(shipped) < abs(baseline), (
         f"double-centering did not reduce the severity confound: baseline {baseline:+.3f} -> shipped "
         f"{shipped:+.3f}. The transform bought nothing.")
-    # ...and the reduction must be substantial, not a rounding win.
-    assert abs(baseline) - abs(shipped) > 0.15, (
-        f"the confound reduction is only {abs(baseline) - abs(shipped):.3f} (baseline {baseline:+.3f} -> shipped "
-        f"{shipped:+.3f})")
+
+    # (3) MARGIN, derived: the win must survive dropping any single design, more often than chance.
+    wins = 0
+    for d in usable:
+        sub = [x for x in designs if x != d]
+        if abs(similarity.severity_confound(m["z"], g, sub)) < \
+                abs(similarity.severity_confound(m["z_raw"], g, sub)):
+            wins += 1
+    # Exact one-sided binomial tail under a fair coin: P(X >= wins).
+    p = sum(math.comb(n, k) for k in range(wins, n + 1)) / (2.0 ** n)
+    assert p < 0.001, (
+        f"double-centering wins only {wins}/{n} leave-one-design-out folds (binomial p={p:.3g}) — the "
+        f"full-sample reduction ({abs(baseline) - abs(shipped):.3f}: baseline {baseline:+.3f} -> shipped "
+        f"{shipped:+.3f}) is not robust to dropping a single design, so it may rest on one leverage point.")
 
 
 def test_similar_designs_reports_growth_alongside_every_neighbour_guard_a():

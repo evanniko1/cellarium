@@ -3,12 +3,17 @@
 Cellarium's **reasoning** (Council, Cellwright, corpus) is fresh code and runs with just Python + the committed
 shards — **no Docker needed** to browse the corpus, chat, or convene the Council. Docker is required only to
 **execute new simulations**: the launch airlock's approved experiments, ParCa (re‑calibration), and any
-regenerate‑locally path. Those call the **public Covert‑lab wcEcoli model**, which Cellarium bundles no code
-from — you obtain it yourself and build a **local** image from your own checkout.
+regenerate‑locally path. Those call the **public Covert‑lab wcEcoli model** — you obtain it yourself and build a
+**local** image from your own checkout.
 
 > **License (docs/DECISIONS.md D3).** wcEcoli is under Stanford's **academic, non‑commercial** license and is
 > **not** open source. Clone it yourself, accept that license, and run it locally. Any image you build below is
-> built from *your* checkout and **must never be published**. Cellarium redistributes no model code or image.
+> built from *your* checkout and **must never be published**. Cellarium redistributes **no image**.
+>
+> It does redistribute a small set of **model source files** — [`model_overlay/`](../model_overlay/), 30 files —
+> without which Cellarium's designs cannot run. Most of it derives from CovertLab/WholeCellEcoliRelease **v3.0.1**
+> (Choi & Covert 2023, *NAR* 51(12):5911) and is redistributed **with Prof. Covert's permission**, under the same
+> non‑commercial terms. It is model source, not a model, and not model‑derived *data*.
 
 ---
 
@@ -19,33 +24,63 @@ from — you obtain it yourself and build a **local** image from your own checko
 - **8 GB+ RAM** available to Docker (a single sim fits comfortably; parallelism needs more — see Tuning).
 - Cellarium checked out and its Python env ready (`.venv`), able to `import cellarium`.
 
-## 1. Clone the model
+## 1. Clone the model, at the pinned commit
 
 ```bash
 git clone https://github.com/CovertLab/wcEcoli        # Stanford academic, non-commercial license
 cd wcEcoli
+git checkout a4497e17                                  # the commit the overlay is pinned to
 ```
 
-The local Docker runtime lives in [`docker/local/`](https://github.com/CovertLab/wcEcoli) of that repo
-(`Dockerfile`, `run.sh`, `entrypoint.sh`): a Python 3.10 image that installs the model's requirements, compiles
-its Cython/Fortran, and bakes the model in at `/wcEcoli`. If your checkout lacks `docker/local/`, use the
-`Dockerfile` the model ships with (the requirement is only that the image can run
-`runscripts/manual/{runParca,runSim}.py`).
+`a4497e17` is the commit every SHA256 in `model_overlay/MANIFEST.json` is taken against. A different commit is
+not fatal — step 2 will tell you exactly which files moved — but it is the state this path is verified on.
 
-## 2. Build the local image
+## 2. Apply the Cellarium overlay
 
-From the **wcEcoli** repo root (this compiles the model — first build is slow, ~15–30 min):
+**Stock wcEcoli cannot run Cellarium's designs.** It has no kinetic tRNA-charging model, and its condition table
+has 5 rows where Cellarium's hardcoded indices expect 21. The finished files live in Cellarium's
+[`model_overlay/`](../model_overlay/); they are copied over the checkout, not patched into it.
+
+From the **Cellarium** repo root:
 
 ```bash
-docker build -t wcecoli-sim -f docker/local/Dockerfile .
-docker image inspect wcecoli-sim >/dev/null && echo "image OK"
+python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli --check   # verify, writes nothing
+python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli
 ```
 
-> **Windows line endings.** The build strips CRLF from the entrypoint, but if a build step fails with
-> `\r: command not found`, set `git config core.autocrlf input` in the wcEcoli checkout and re‑clone/reset so
-> shell scripts land LF. (Cellarium's own scripts are unaffected — this is a model‑repo build concern.)
+`--check` hashes every target file first. If upstream has changed a file the overlay ships, our copy is stale and
+may be hiding a real upstream fix, so the tool **stops and names the file** instead of overwriting it. `--force`
+proceeds anyway and prints each file it overwrote.
 
-## 3. Point Cellarium at the image
+Expect it to exit non-zero and list files it is *not* shipping: that is the point, and
+[docs/OVERLAY.md §5](OVERLAY.md) explains each one. There is **no** `docker/local/` in upstream wcEcoli — earlier
+versions of this guide told you to build from `docker/local/Dockerfile`, which does not exist. Use step 3.
+
+## 3. Build the local image
+
+wcEcoli ships its own two-stage local build (`cloud/docker/runtime/Dockerfile` for the Python environment,
+`cloud/docker/wholecell/Dockerfile` for the model on top of it). From the **wcEcoli** repo root — this compiles
+the model, so the first build is slow, ~15–30 min:
+
+```bash
+cloud/build-containers-locally.sh          # builds ${USER}-wcm-runtime, then ${USER}-wcm-code
+docker image inspect "${USER}-wcm-code" >/dev/null && echo "image OK"
+docker tag "${USER}-wcm-code" wcecoli-sim   # the name the rest of this guide uses
+```
+
+Apply the overlay **before** building: the image bakes the model in at `/wcEcoli`, and the Cython extension
+`_trna_charging.pyx` the overlay installs is compiled during the build by the `setup.py` the overlay also
+installs. Overlaying after the build leaves you with an image running stock code.
+
+Any image works as long as it can run `runscripts/manual/{runParca,runSim}.py`. The rest of this guide says
+`wcecoli-sim`, which is why the `docker tag` line above exists — `build-containers-locally.sh` names its output
+`${USER}-wcm-code`.
+
+> **Windows line endings.** If a build step fails with `\r: command not found`, set
+> `git config core.autocrlf input` in the wcEcoli checkout and re-clone/reset so shell scripts land LF. The
+> overlay itself is unaffected — it writes LF and hashes CRLF-normalised, so it behaves identically on either.
+
+## 4. Point Cellarium at the image
 
 Cellarium's `runner` mounts **only the output dir** into the image and calls the model's scripts. Set:
 
@@ -58,7 +93,7 @@ export CELLARIUM_OUT="$(pwd)/runs"           # host dir where simOut + sim_data 
 The runner never mounts your checkout over `/wcEcoli` (that would shadow the compiled model): it runs
 `docker run --rm -v "$CELLARIUM_OUT:/wcEcoli/out" -e PYTHONPATH=/wcEcoli -w /wcEcoli wcecoli-sim python …`.
 
-## 4. Calibrate once (ParCa)
+## 5. Calibrate once (ParCa)
 
 `sim_data` (the fitted parameters, incl. the gene→variant‑index map) is built once and cached under
 `$CELLARIUM_OUT/cellarium/kb`. This is also what `data/cache/gene_scope.json` is derived from.
@@ -67,7 +102,7 @@ The runner never mounts your checkout over `/wcEcoli` (that would shadow the com
 python -m cellarium.runner            # ensure_parca — first run ~20–40 min; cached thereafter
 ```
 
-## 5. Smoke‑test the loop
+## 6. Smoke‑test the loop
 
 Confirm Docker → sim → output → read‑back works before committing to a campaign:
 
@@ -78,7 +113,7 @@ python scripts/docker_smoke.py --sim       # runs ONE wildtype/basal seed × 1 g
 
 A green `--sim` means the launch airlock and the regenerate path will work.
 
-## 6. Use it
+## 7. Use it
 
 - **Run a campaign** (build corpus): see [`docs/GENERATE.md`](GENERATE.md) —
   `python -m cellarium.generate --seeds 4 --generations 1 --parallel 3`.
