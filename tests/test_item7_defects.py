@@ -242,3 +242,13 @@ def test_kb_provenance_does_not_spawn_a_container_when_there_is_no_kb():
     with mock.patch("cellarium.reader.kb_content_hash", side_effect=AssertionError("must not be called")):
         out = provenance.kb_provenance("definitely-not-a-real-sim-path")
     assert out["kb_sha256"] is None and out["kb_content_sha256"] is None
+
+
+def test_the_manifest_row_carries_the_content_hash():
+    """The predicate is useless if the corpus never STORES the field. `union_by_name=true` on every read means
+    a new column is NULL on older shards rather than an error — the codebase already relies on that for
+    `elongation_model`."""
+    src = io.open(ROOT / "src" / "cellarium" / "manifest.py", encoding="utf-8").read()
+    assert '"kb_content_sha256": _kb.get("kb_content_sha256")' in src, \
+        "manifest rows do not store kb_content_sha256 — only the file hash reaches the corpus"
+    assert "union_by_name=true" in src, "reads are no longer union_by_name — a new column would now break them"

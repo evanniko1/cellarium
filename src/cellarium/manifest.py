@@ -377,6 +377,15 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
     _kb = _kb_prov(sim_path or _sim_path_of(run_root))
     row = {"id": rec.id, "label": rec.label,
            "kb_sha256": _kb.get("kb_sha256"), "operons": _kb.get("operons"),
+           # The FILE hash above is sound only as "same hash => same kb". MEASURED 2026-08-03: two ParCa runs
+           # of identical code, inputs and cpu count produced different file hashes whose sim_data content was
+           # identical and whose simulations matched bitwise over all 2530 timesteps — so a differing
+           # `kb_sha256` is NOT evidence of a different experiment, and a comparability guard built on it would
+           # refuse valid pooling and overcount baselines. `kb_content_sha256` hashes what a simulation reads
+           # (provenance._cached_content_hash -> reader.kb_content_hash) and is the field
+           # `provenance.same_kb()` prefers. NULL on rows written before this column existed, and on any host
+           # without the model image — `same_kb` treats NULL as UNDECIDABLE, never as agreement.
+           "kb_content_sha256": _kb.get("kb_content_sha256"),
            # WHICH ELONGATION MODEL produced this row, stored beside kb_sha256/operons and for the same
            # reason the comment below argues for design_key: identity is STORED, not left to be re-derived.
            # A reader that had to recover it by parsing `label` would be keying on a string that already
