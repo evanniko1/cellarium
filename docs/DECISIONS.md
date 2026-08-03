@@ -208,6 +208,45 @@ keying scheme still in motion.
 
 ### D6a — Surface A (Cellarium-as-is): the split survives, but the blindness argument does NOT carry over unchanged
 
+> ### ⚠️ SUPERSEDED IN PART — 2026-08-03, by **D10** (below). Read this banner before the section.
+>
+> **What is withdrawn:** the **blindness stamp** — the `corpus_touched` process ledger, the
+> `blindness: blind|unblinded` field, the stamping of that field into `council_runs`, the hard prohibition on a
+> Cellwright-then-Council composite, and the "P1-before-ship" framing that rested on all of it. Those are the
+> three blocks marked **⛔ WITHDRAWN** inline below.
+>
+> **Why.** The stamp was defending a claim that does not depend on it. D6a argued that without the stamp
+> `council_runs` "becomes a mixture with no column that separates them, which retroactively contaminates the
+> evidence base." **It does not:** the A/B cohort is designated **at creation** — `evals/run_ab.py:167-168`
+> mints the run id and `:208`/`:323` write it into `evals/results/ab_ledger.json`, which is what
+> `evals/aggregate_ab.py:24-36` actually reads — so the powered comparison never touches the table at all
+> (**D10.1**, CODE-READ and independently re-verified 2026-08-03). Pre-registration at creation makes the
+> stamping question moot.
+>
+> **And the framing was wrong, not just the mechanism.** D6a treated an *informed* Council — one whose question
+> carries findings from a prior Cellwright investigation — as **contamination to be detected**. That is the
+> working method of research, not a leak: broad hypotheses → check against simulation results → re-convene with
+> a sharper question. Cellarium should **represent** the loop, not police it. The project already learned this
+> lesson once, in the same shape: a **blocking** Council sufficiency gate parked ~23 of 25 canonical questions
+> and was made advisory (`apps/hypotheses.py:138-143`; M-7).
+>
+> **What replaces it:** a **typed lineage**, not a boolean — `thread_id` / `round_index` / `informed_by` on
+> `council_runs`, so blindness becomes a *query over the chain* rather than a stamp on a row. Full design:
+> **D10** below and [`docs/INVESTIGATION_LOOP.md`](INVESTIGATION_LOOP.md); build thread `SP-3`/`SP-3a…e` in
+> BACKLOG.
+>
+> **What SURVIVES from D6a, unchanged and still binding:** (i) the three-way call split; (ii) the composition
+> analysis — no single tool is wrong, the leak is by composition; (iii) *"a text screen on the question does not
+> fix it"* (a reading arrives as a paraphrase; a string search is not a dependency proof); (iv) provenance
+> metadata on a legitimate artifact is the right idea — D10 keeps it and only changes its **data structure**;
+> (v) the additional-calls table at the end of the section.
+>
+> **One real defect the stamp would NOT have fixed**, found while assessing this: `scripts/ab_score.py:67` reads
+> `council_runs`, selects the "Arm B" row by **substring match on the question text** (`:74`) and then prints
+> `"PRE-REGISTERED (0 corpus reads, blind)"` from `status == "done"` alone (`:86`) — a status that only means the
+> deliberation finished. Reachable today by any user typing a matching question; no MCP involved. Filed as
+> **`M-10`** (P1). *Nothing below is deleted — the reasoning chain is kept visible on purpose.*
+
 **Proposal assessed.** Three agent calls — Council only, Cellwright only, both — plus readers for the recorded
 Investigations (Cellwright chats) and Hypotheses (Council chats).
 
@@ -244,6 +283,16 @@ is not a dependency proof.
 **What does prevent it — provenance of the question, not inspection of it.** A per-server-process blindness
 ledger:
 
+> ⛔ **WITHDRAWN 2026-08-03 (D10).** The instinct — *provenance of the question, not inspection of it* — is
+> right and is kept. The **mechanism below is not**: a per-process `corpus_touched` flag collapsing to a
+> `blind|unblinded` boolean is the wrong data structure. It (a) records a property of the *server session*
+> rather than of the *chain* (which investigation, which runs, which prior Council); (b) is **lossier than what
+> the codebase already encodes** — blindness here is typed by input class, *literature-informed, corpus-blind*
+> (`docs/HYPOTHESIS_MODE_PLAN.md:32-34`; `tests/test_blindness.py:19-24` admits `library_brief` at `:23` for
+> exactly that reason), and a boolean cannot express it; and (c) answers only the question we thought to stamp,
+> where a stored lineage can be re-queried later with a different one. Replaced by `informed_by` (typed) +
+> `thread_id` + `round_index`, with `blindness_of(run_id)` computed over the chain — **D10.3**.
+
 - The server marks itself `corpus_touched` the first time it serves **any** corpus-reading call
   (`ask_cellwright`, `read_investigation`, or any of the available-but-unlisted read tools).
 - Every `convene_council` result carries a **`blindness`** field: `blind` only when no corpus-reading call has
@@ -260,16 +309,35 @@ ledger:
 Cellwright. A single tool that runs Cellwright first and the Council second must not exist: that would make the
 leak the advertised behaviour rather than an accident of composition.
 
+> ⛔ **CONVERTED, not kept — 2026-08-03 (D10.3).** A prohibition became a **representation requirement**. A
+> Cellwright-then-Council composite is *legitimate and desirable* — it is the second half of the research loop.
+> What must not ship is an **opaque** one: the composite must be recorded as **two rounds with an edge between
+> them** (`informed_by=[{"kind":"investigation","id":…}]`), never as one call whose inputs cannot be recovered.
+> **Auditability is the deliverable, not prohibition.**
+
 **Why this is P1-before-ship and not polish.** The paper's methodological claim (`COUNCIL_AB_METHODOLOGY.md`)
 rests on the Council being blind. If the MCP surface ships without the stamp, `council_runs` becomes a mixture
 of blind and unblinded deliberations **with no column that separates them** — which retroactively contaminates
 the evidence base for the central claim, not just future runs.
 
+> ⛔ **WITHDRAWN 2026-08-03 (D10.1) — this paragraph is factually wrong about its own evidence base.** The
+> paper's A/B claim does **not** read `council_runs`. `evals/run_ab.py:167` mints the run id with
+> `hstore.new_id()`, `:168` inserts the row, `:183` deliberates on a question from the committed
+> `evals/cases.py`, `:208` returns `{"run_id": run_id, …}` and `:323` persists it via `_save_ledger` into
+> `evals/results/ab_ledger.json`; `evals/aggregate_ab.py:_flatten` (`:24-36`) walks **that ledger dict**, and
+> the string `council_runs` does not appear anywhere in that file. **Cohort membership is the ledger's key set —
+> by construction, not by inspection**, the same pre-registration discipline
+> `evals/preregister/PREREGISTRATION.md` already applies to the endpoints. A later informed round accumulating
+> in `council_runs` therefore cannot contaminate it. Two changes make that robust rather than merely lucky:
+> `M-10` (select by ledger `run_id`, not substring) and `run_ab.py` writing `round_index=0` + `informed_by=[]`
+> at creation — a *record* of the designation, not a *recovery* of it (**D10.3**). This item is consequently
+> **no longer P1-before-ship**; `M-10` is, and `SP-3` is P2.
+
 **Additional calls worth adding — each with what it is FOR.**
 
 | Call | What it is FOR | Why it belongs on the surface |
 |---|---|---|
-| `corpus_coverage(design_or_id)` → `support.coverage` (`src/cellarium/support.py:36`) | Answer "can the corpus support a claim about this at all?" in one cheap call — `n_seeds` / `n_generations` against `MIN_SEEDS = 2` / `MIN_GENERATIONS = 2` (`support.py:33-34`) | Lets a caller refuse *before* spending a full Cellwright loop, and it is the refusal primitive **PLAT-2** needs anyway |
+| `corpus_coverage(design_or_id)` → `support.coverage` (`src/cellarium/support.py:36`) | Answer "can the corpus support a claim about this at all?" in one cheap call — `n_seeds` / `n_generations` against `MIN_SEEDS = 2` / `MIN_GENERATIONS = 2` (`support.py:32-33`) | Lets a caller refuse *before* spending a full Cellwright loop, and it is the refusal primitive **PLAT-2** needs anyway |
 | `evidence_for(run_ids \| claim)` → the append-only evidence ledger (`src/cellarium/evidence.py`) | The reviewer question the ledger was built for: *"Figure 3 says the argS knockout lowers ppGpp — show me the runs"* (`evidence.py:7`) | Makes a claim written in **someone else's** document traceable without re-running the agent |
 | `list_investigations` / `read_investigation` (owner's proposal) | Re-reading recorded work | Keep — but these are the calls that set `corpus_touched`, and their results must carry `contains_readings: true` |
 | — *not* proposed — | launch / write / vault access | Already answered above: the shipped default is that a third-party agent cannot launch, write, or reach the vault without its human |
@@ -317,7 +385,7 @@ lookup the caller may not make.
    honest check: a run directory that exists but has no `simOut/MonomerCounts` is **not** readable. The refusal
    must name the recovery route (HF pull vs regenerate). `raw_available = 0` ≠ absent.
 3. *Answerable, but below the evidential floor* — under `support.MIN_SEEDS` / `MIN_GENERATIONS`
-   (`support.py:33-34`). That is a **refusal at that scope**, not a footnote (see **PLAT-2**).
+   (`support.py:32-33`). That is a **refusal at that scope**, not a footnote (see **PLAT-2**).
 
 **B6 — Truncation with named omissions is a requirement of the data surface too**, not only of the agent: any
 list result names which seeds / generations / conditions were dropped, inside the tool's declared output schema.
@@ -358,12 +426,12 @@ survive.
 |---|---|---|---|---|
 | **I1** | **Identity is stored, never re-derived** | keying a design on `label` / `condition` string-parsing | every tool takes an opaque `design_key` token; none accepts a `WHERE` on `label` | `manifest._flat_row` `:386-390` — `condition` is NULL for timelines and `'basal'` for propose-path KOs; two opposite nutrient shifts once merged, a gltX KO was filed as a control |
 | **I2** | **Comparability partition** — `(kb_sha256, operons, elongation_model, medium)` | pooling runs from two knowledge bases into one mean | `check_comparability` (T3), enforced as a **refusal** inside `contrast` (T6) | MEASURED below — `wildtype/basal` currently pools two `kb_sha256` values |
-| **I3** | **Independence** — seeds exchangeable, generations **not** | `COUNT(*)` as *n* over a (seed × generation) grid | `get_measurements` (T5) has no cross-generation aggregate; `contrast` (T6) reports `n_seeds` and has no `n_observations` field | D7 axes, `DECISIONS.md:344-350`; `stats.py:119-124` records that depth is a **fixed** effect and `survey` stratifies instead of pooling |
+| **I3** | **Independence** — seeds exchangeable, generations **not** | `COUNT(*)` as *n* over a (seed × generation) grid | `get_measurements` (T5) has no cross-generation aggregate; `contrast` (T6) reports `n_seeds` and has no `n_observations` field | **D7**, *The three axes* (this file, D7 §axes); `stats.py:119-124` records that depth is a **fixed** effect and `survey` stratifies instead of pooling |
 | **I4** | **Three populations** — reportable · non-reportable-but-real · tombstoned | `WHERE reportable` silently deleting the lethality phenotype | every count declares its population; `viability` (T7) is the only route to collapsed runs | `survey.lethality` `:244-258` — a run that divides then collapses is correctly non-reportable, and the collapse **is the data** |
 | **I5** | **Evidential floor** | quoting a mean from one seed / one generation | `support.coverage` block on every numeric return; `refused: below_evidential_floor` | `support.py:32-33` (`MIN_SEEDS=2`, `MIN_GENERATIONS=2`) and the three incidents in `support.py:6-14` |
 | **I6** | **Representability** — a missing mechanism must refuse, not return a number | `SELECT stddev(fraction_trna_charged)` returning `0.0` as a finding | `model_capabilities` (T8), called **inline** by T5/T6 for mode-dependent channels | `capability.py:1-13` — within-family charging spread of exactly `0.00e+00` was reported as a result and was an **algebraic identity** |
 | **I7** | **In-sample vs out-of-sample** | reading a fitted condition's agreement as predictive validation | `provenance.classify` tag rides on every returned row | `provenance.py:1-7` — the H1/H2 pair |
-| **I8** | **Projection / granularity** — channels are last-generation time-means; the species panel is last-generation **only** | "species X at generation 3" answered from data the manifest never stored | `species` (T9) refuses any non-terminal generation | `_reader_worker.py:213,219-220` (`gs[-1]` for dynamics, pathways **and** `species_panel`); D7 item 3, `DECISIONS.md:366-368` |
+| **I8** | **Projection / granularity** — channels are last-generation time-means; the species panel is last-generation **only** | "species X at generation 3" answered from data the manifest never stored | `species` (T9) refuses any non-terminal generation | `_reader_worker.py:213,219-220` (`gs[-1]` for dynamics, pathways **and** `species_panel`); **D7** decision item 3 (curated panel is last-generation only) |
 | **I9** | **Declared ≠ executed** | trusting the `timeline` column as what ran | `experiment_integrity` (T11), which separates `recorder_truncation` from `violation` | `miase.py:14-24` — `media_id` is fixed-width `<U7`, and `'minimal_plus_amino_acids'[:7] == 'minimal'`, so an upshift vanishes from the record while the run is fine |
 | **I10** | **Not-readable ≠ absent** | `raw_available = 0` read as "this run does not exist" | `raw_access` (T10), tri-state | `hf.py:28-42` (`_full_simout_local` — a run dir with no `simOut/MonomerCounts` is **not** readable) and `hf.py:193-201` (`hf_exists` is `True`/`False`/`None`, and `None` never emits a download command) |
 
@@ -380,7 +448,10 @@ partitions on it: `survey._deduped_rows` (`survey.py:129-162`) does not even sel
 ("different knowledge bases … MUST NOT be pooled"; a mode switch "changes `kb_sha256`" so the campaign "is not
 poolable"); nothing checks it. This is the same shape as the dedup incident D6b cites (26 → 34 seeds on the same
 reference) and it is a **semantic** partition, so unlike dedup it does not go away in a clean corpus — any corpus
-built from more than one ParCa pass will have several hashes. Filed as **M-10**.
+built from more than one ParCa pass will have several hashes. Filed as **M-11** (BACKLOG class A).
+*(This
+paragraph read "Filed as M-10" when written; `M-10` had been taken the same day by the A/B cohort-selection
+defect recorded in D10.1. Corrected here so the pointer resolves.)*
 
 #### The tools
 
@@ -391,6 +462,27 @@ block from `support.coverage` (`support.py:36`) and a `projection` block naming 
 Truncation follows PLAT-2/B6: **named** omissions (which seeds, which generations, which designs — by id), and
 if truncation drops the surviving set below `MIN_SEEDS`/`MIN_GENERATIONS` the tool **refuses at that scope**
 rather than answering with a footnote.
+
+**The tool table** — the index. Each row's full contract is the spec below it; **a tool with no invariant does
+not ship**, which is why the last column is never empty.
+
+| # | Tool | Args | Returns | Refuses — and why | Enforces |
+|---|---|---|---|---|---|
+| **T0** | ~~`query(sql)`~~ | — | — | **Does not exist.** A server-side SQL passthrough lets a skipped invariant come back wearing this project's name on the answer. Its absence is reported *in `describe_corpus`* so a caller is told why, not left to assume immaturity | — |
+| **T1** | `describe_corpus` | `include_columns` | build id; the three population counts; **per-column non-null fraction** + supplying shards; the partition inventory; channel dictionary; projection semantics; floor constants; the T0 note | a **static** schema (shards union `union_by_name=true`, so columns are partial: MEASURED `species_panel` 240/322, `growth_rate` 253/322, `design_key` 51/322, `crash_type` 11/322); and an **empty** schema when the manifest is unreadable — returns `readable:false` + reason | B1, I4 |
+| **T2** | `list_designs` | `perturbation?`, `gene?`, `condition?`, `medium?`, `contains?`, `population`, `cursor?`, `limit` | per design: opaque `design_key`, `n_seeds`, the **list** of generation depths, `reportable_seeds`, `collapse_seeds`, `tombstoned_seeds`, `partition`, `provenance`, `raw_available` | a design row without its **population split** — "how many runs are there" has three answers, and returning one is how WELL-9 got 49/60/37 from three tools; filtering on a partially-populated column without a `filter_coverage` block | I1, I4, I7 |
+| **T3** | `check_comparability` | `design_keys[]` | `poolable`, each key's partition tuple, the **named** differing axes, and a poolable subset if not | nothing — it is a predicate. Its value is that **T6 refuses on its verdict** | I2 |
+| **T4** | `controls_for` | `design_key` | designs differing in **exactly one factor**, in dose order (`factors.one_factor_neighbours`) | to fall back to **response similarity** — SQL is exact 7/7 here, similarity ~5/7 and its clusters are lethality-confounded (D8). "Most similar run" as a control is the error this tool pre-empts | control selection |
+| **T5** | `get_measurements` | `design_key`, `channel`, `generation`, `seeds?`, `include_nonreportable`, `cursor?` | **per-seed, per-depth rows** `{run_id, seed, generation_depth, value, qc, reportable}`; `n_seeds` and `n_generations` as separate fields; `support`; `projection`; `partition`; `provenance` | **(a)** any cross-generation pooled number — *unrepresentable in the signature*; **(b)** below `MIN_SEEDS`/`MIN_GENERATIONS` → `refused: below_evidential_floor` naming a scope that would qualify; **(c)** a mode-dependent channel → `capability.check`'s refusal **inline instead of the value** | I3, I5, I6, I7, I8 |
+| **T6** | `contrast` | `target`, `reference`, `channel`, `at_generation` | per-seed values **both sides** at matched depth, effect, Welch *t* with a **t-distribution** CI (not 1.96 — wrong at n=4–8), `n_seeds` per side, depth note + reference drift | **(a)** different comparability partitions, **naming the axis** — this is what makes the measured `wildtype/basal` kb-pooling impossible over the wire; **(b)** unmatched depths, offering the common depth; **(c)** it has **no `n_observations` field at all**. The depth note stays a soft, quantified signal — **never a gate** | I2, I3 |
+| **T7** | `viability` / `lethality_landscape` | `design_key` (or a reference) | the **pre-collapse** signature only: per-generation QC verdicts + the growth/ppGpp trajectory read at the collapse generation | channel means from a collapsed generation. *Why it must be a tool:* `WHERE reportable` deletes the lethality phenotype — `is_reportable` needs **every** generation ok (`qc.py:62-65`), and MEASURED 101/322 rows are non-reportable (crashed 63 · no_division 14 · implausible_channel 11 · noop_knockout 7 · over_replicated 4 · empty 2). Some of those are **results, not failures** | I4 |
+| **T8** | `model_capabilities` | `mechanism?`, `elongation_model?` | `can_answer`; when false, the gap, what the model does **instead**, what a naive read would wrongly conclude, and the `switch` route — all mode-keyed | to answer unconditionally on the elongation axis; and to treat an **undeclared** mechanism as evidence of absence — `can_answer` is `None`, never `False` | I6 |
+| **T9** | `species` | `design_key`, `species_id`\|`search`, `kind`, `generation?` | panel membership, per-seed terminal value, and whether the species needs raw | any `generation` other than terminal — panel, pathways and dynamics are all read from `gs[-1]`, so per-generation species values **were never stored**. A non-panel species is refusal form **2** (not readable *here*, recovery route named), never form 1 | I8 |
+| **T10** | `raw_access` | `design_key`\|`run_id` | per run: `readable_here` (an honest `simOut/MonomerCounts` check), `hf_path`, `hf_verified: true\|false\|null`, size, `recovery`, + resource links | to emit a download command for an **unverified** archive. `hf_exists = None` means *could not verify*, never *absent* — precedent `hf.py:78-85`, where a stale OAuth token made a **public** dataset report unavailable and the wrong diagnosis was filed | I10 |
+| **T11** | `experiment_integrity` | `design_key?` | per design: declared media events vs recovered, classified `ok` · `recorder_truncation` · `violation` · `undetermined` | to conflate a bad **record** with a bad **experiment**; and to report per-segment means for a truncation-affected design without the stamp (those means average pre- and post-shift timesteps together) | I9 |
+| **T12** | `run_environment` | `run_id` | `kb_sha256`, `kb_bytes`, `operons` **with its evidence string**, `elongation_model`, python version, git commit, pinned versions | to assert the operon mode without the evidence that settled it — "operons on" was previously filesystem inference, not provenance a reviewer could check | reproducibility; supplies the I2 partition key |
+
+---
 
 **T0 — the tool that does not exist: `query(sql)`.** Deliberately absent, and the absence is documented in
 `describe_corpus`'s output so a caller is told *why* rather than left to assume the surface is immature. The
@@ -438,7 +530,7 @@ key, which is stated today in prose in two modules and enforced in none (see M-1
 `returns:` designs differing in **exactly one factor**, in dose order (`factors.one_factor_neighbours`,
 `factors.py:233`; wrapped today as `tools.comparable_designs`, `tools.py:116-136`).
 `refuses:` to fall back to response similarity. Recorded reason, `tools.py:133-136` and D8
-(`DECISIONS.md:395-397`): SQL is exact 7/7 on this question, response similarity measured ~5/7 and its
+(**D8**, the measured bake-off table): SQL is exact 7/7 on this question, response similarity measured ~5/7 and its
 mechanistic clusters are confounded with lethality. A data-only caller reaching for "most similar run" as a
 control is the error this tool exists to pre-empt.
 
@@ -450,7 +542,7 @@ control is the error this tool exists to pre-empt.
 `partition`; `provenance`.
 `refuses:` **(a)** there is no argument that returns one number pooled across generation depths — the
 cross-generation aggregate is *unrepresentable in the signature*, because generations are ordered and
-autocorrelated (D7, `DECISIONS.md:347-348`). Aggregation over **seeds within one depth** is offered; aggregation
+autocorrelated (**D7**, *Generations — a trajectory, NOT exchangeable*). Aggregation over **seeds within one depth** is offered; aggregation
 across depths is not. **(b)** below `MIN_SEEDS`/`MIN_GENERATIONS` it returns `refused: below_evidential_floor`
 naming the scope it refused and a narrower or deeper scope that would qualify — a refusal at that scope, not a
 footnote (B5.3). **(c)** for a channel whose meaning is elongation-model-dependent it returns
@@ -466,10 +558,10 @@ wrong at n = 4–8 seeds), `n_seeds` per side, the depth note and the reference'
 (`differential._depth_note`, `differential.py:98`; `_reference_drift_pct`, `:86`).
 `refuses:` **(a)** if `check_comparability` says the two sides sit in different partitions — naming the axis.
 **(b)** if the depths cannot be matched — offering the common depth, per D7's *1-to-1 generation* operation
-(`DECISIONS.md:356-358`). **(c)** it has **no `n_observations` field at all**: the count is seeds, and the
+(**D7** decision item 1, the *1-to-1 generation* operation). **(c)** it has **no `n_observations` field at all**: the count is seeds, and the
 signature makes counting a (seed × generation) grid as *n* impossible to express. The depth note is a **soft,
 quantified** signal and never a gate — same never-block invariant as the Council gate
-(`DECISIONS.md:359-364`).
+(**D7** decision item 2 — *never a gate, never a "finding"*).
 
 **T7 `viability(design_key)` / `lethality_landscape(reference)`** · *enforces I4*
 `args:` `design_key` (or a reference for the landscape)
@@ -496,7 +588,7 @@ evidence of absence — `can_answer` is `None`, never `False`, for anything unde
 raw.
 `refuses:` any `generation` other than terminal. The panel, the pathway fractions and the dynamics are all read
 from `gs[-1]` (`_reader_worker.py:213,219-220`), so per-generation species values **were never stored**;
-answering would be D7 item 3's named failure (`DECISIONS.md:366-368`). A non-panel species is refusal form 2,
+answering would be **D7** decision item 3's named failure. A non-panel species is refusal form 2,
 not form 1 — it exists, it is not readable *here*, and the recovery route is named (T10).
 
 **T10 `raw_access(design_key | run_id)`** · *enforces I10 — the three refusal forms*
@@ -537,7 +629,7 @@ JSON, so a consumer can see what the model cannot represent **before** querying;
 #### What this deliberately does not include
 
 No launch, no write, no vault access — D6's shipped default already answers that
-(`DECISIONS.md:186-190`). No `query(sql)` (T0). No response-similarity retrieval as a *control* query (T4).
+(**D6**, *the shipped default and the agent boundary*). No `query(sql)` (T0). No response-similarity retrieval as a *control* query (T4).
 
 ## D7 — The reporting & comparison contract (Cellwright's statistical manual) — ACCEPTED 2026-07-27
 **Status:** Accepted · **Deciders:** Evangelos · **Supersedes:** the ad-hoc depth handling in WELL-6x/6y/6z.
@@ -654,6 +746,11 @@ test WHEN the similarity feature is scheduled; re-run the bake-off once pgi land
 
 ## D10 — The investigation LOOP as a first-class feature (supersedes D6a's blindness *stamp*)
 
+**Status:** DESIGNED 2026-08-03, **not built.** · **Supersedes:** D6a's blindness stamp (see the banner and the
+three ⛔ blocks in D6a above — nothing there was deleted). · **Build spec, migration, API and acceptance tests:**
+[`docs/INVESTIGATION_LOOP.md`](INVESTIGATION_LOOP.md). · **Backlog:** `SP-3` → `SP-3a…SP-3f` (class D, `D-LOOP`).
+This section is the *decision and its reasoning*; the build detail lives in the spec so the two do not drift.
+
 **Origin.** D6a (above) treated a Council run whose question carries findings from a prior Cellwright
 investigation as *contamination* — something to detect and stamp. That framing is **withdrawn**. Looping
 (broad hypotheses → check against simulation results → re-convene with a targeted question) is not a leak; it
@@ -669,7 +766,7 @@ lineage is displayed, never enforced.**
 
 Assessed against what the A/B evidence base actually reads. **CODE-READ, all of it:**
 
-- **The A/B cohort is designated at creation.** `evals/run_ab.py:166-168` mints the run id itself
+- **The A/B cohort is designated at creation.** `evals/run_ab.py:167-168` mints the run id itself
   (`hstore.new_id()`), inserts the row, then calls `council.deliberate` at `:183` with the case question from
   the committed `evals/cases.py` and nothing corpus-derived. The returned row carries `"run_id": run_id`
   (`:208`) and is written into `evals/results/ab_ledger.json` (`_save_ledger`, `:323`). **Cohort membership is
@@ -707,13 +804,13 @@ the writers:**
 | Edge | Stored? | Where |
 |---|---|---|
 | Council run → queued falsifier run | **Yes** | `launch.stamp_provenance(request_id, session_id, question, hyp_id)` writes `hyp_id` / `session_id` / `from_question` onto the queue row (`src/cellarium/launch.py:163-178`); the SPA supplies it via `state._hypSource = {hyp_id, question}` (`apps/web/app.js:1154`, used `:802`, `:870`); `apps/server.py:304-328` reflects the lifecycle back onto the hypothesis |
-| Investigation → runs it read | **Yes** (opt-in) | `src/cellarium/evidence.py` — append-only JSONL, one line per tool call, **ids not values**, field names mapped to W3C PROV `activity`/`entity`/`wasGeneratedBy` (`:19-22`); off unless `CELLARIUM_EVIDENCE=1` (`:24-26`) |
+| Investigation → runs it read | **Yes** (opt-in) | `src/cellarium/evidence.py` — append-only JSONL, one line per tool call, **ids not values**, field names mapped to W3C PROV `activity`/`entity`/`wasGeneratedBy` (`:20-22`); off unless `CELLARIUM_EVIDENCE=1` (`:25-26`) |
 | **Council run → investigation** | **No** | `openInCellwright` has `run.id` in hand (`apps/web/app.js:1173`) but `send()` posts only `{session_id, question, use_council, model, reasoning}` (`:320`), and `sessions` has columns `sid, model, used_council, title, messages, updated` (`apps/sessions.py:35-37`) — **there is nowhere to put it.** The edge survives as an English sentence at the head of the transcript (`app.js:1180`), which `scripts/ab_score.py:42,73` then substring-matches to exclude Arm A |
 | **Council run → prior Council run** | **No, and worse** | see below |
 
 **The one loop primitive that exists is destructive.** `run_council(..., reuse_id=X)` sets
 `run_id = reuse_id` (`apps/hypotheses.py:163`) and calls `store.create`, which is an `INSERT OR REPLACE`
-resetting `rounds="[]"`, `hypothesis="{}"`, `designs="[]"`, `meta="{}"` (`apps/hypotheses.py:71-74`). **A
+resetting `rounds="[]"`, `hypothesis="{}"`, `designs="[]"`, `meta="{}"` (`apps/hypotheses.py:69-74`). **A
 re-convene overwrites the deliberation it was refining.** M-7's progressive narrowing
 (`tests/test_narrowing.py:73-78`) therefore leaves no record of what was narrowed *from*.
 
@@ -742,14 +839,14 @@ strictly better than today even if nothing else in D10 is built.
 
 **Lineage is derived, never stored twice.** The chain walks the edges — `council_run → informed_by →
 session → evidence.jsonl lines for that sid → run ids → manifest rows`. No node caches its ancestors'
-contents; ids only, which is `evidence.py`'s own stated rule (`:15-17`).
+contents; ids only, which is `evidence.py`'s own stated rule (`:14-16`).
 
 **Blindness becomes a query, not a stamp.** `blindness_of(run_id)` returns the transitive **set of input
 classes** — `{"literature"}` for a corpus-blind round, `{"literature","corpus"}` for an informed one. This
 keeps D6a's point (c) (provenance metadata on a legitimate artifact) while dropping the boolean, and it lets a
 later reader ask a *different* question of the same record than the one we thought to stamp — e.g. *was this
 round informed by an investigation that only ever read designs below `MIN_SEEDS`/`MIN_GENERATIONS`
-(`src/cellarium/support.py:33-34`)?*
+(`src/cellarium/support.py:32-33`)?*
 
 **Surface.**
 - `GET /api/thread?id=` — the ordered chain; a new route beside the hypothesis/session routes at
@@ -780,7 +877,7 @@ A/B cohort and can serve as an observational replication.
 2. **"Which of my hypotheses were refined *after* seeing data, and what did they see?"** Unanswerable today:
    `reuse_id` deleted the predecessor (`apps/hypotheses.py:163` + `:71-74`).
 3. **"Did this conclusion ever leave the runs it started from?"** — i.e. was round 3 informed by an
-   investigation that only read below the evidential floor (`support.py:33-34`)? A graph query under D10; a
+   investigation that only read below the evidential floor (`support.py:32-33`)? A graph query under D10; a
    manual transcript read today.
 4. **"Round 0 vs round 3, side by side."** The honest exhibit for what the loop bought — the uninformed
    hypothesis next to the informed one. Today round 0 is gone.
