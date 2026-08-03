@@ -125,7 +125,7 @@ freshly-archived **CRLF** tree reports `0 problems`.
 
 ## 4. What ships
 
-35 files, 6,059,525 bytes (6.06 MB), in three categories (`model_overlay/MANIFEST.json` is
+44 files, 6,090,304 bytes (6.09 MB), in four categories (`model_overlay/MANIFEST.json` is
 authoritative; every size below is that file's `overlay_bytes`, decimal MB):
 
 - **`port`** (28) — the v3.0.1 kinetic tRNA-charging port (EXT-PORT 1/10/11) plus EXT-PORT-12
@@ -135,6 +135,12 @@ authoritative; every size below is that file's `overlay_bytes`, decimal MB):
   permission.
 - **`script-written`** (4) — what `apply_model_patches.py`/`apply_model_variants.py` used to produce:
   `condition_defs.tsv`, `media_recipes.tsv`, `variants/__init__.py`, plus `graded_gene_knockout.py`.
+- **`cellarium`** (9) — the model changes Cellarium needs that are *not* part of the v3.0.1 port, and
+  every one of them is on the live launch path. Three clusters, detailed in §5c:
+  the **multi-KO channel** (`multi_gene_knockout.py` + the `variant_kwargs` route through
+  `runSim.py` → `variantSimData.py` → `apply_variant.py`); the **positional-condition fixes**
+  (`ppgpp_conc.py`, `aa_synthesis_ko.py`, `rrna_operon_knockout.py`, plus an upstream `AttributeError`
+  in `tf_activity.py`); and the **container-build fix** (`cloud/docker/runtime/Dockerfile`).
 - **`dependency`** (3) — `MIX0-57-GLC-{20,5,2}mM.tsv`. Not category (b), but the category (b)
   `condition_defs.tsv` rows 1/2/3 (Cellarium's `variant_map` indices 1, 2, 3) are invalid without
   them. 512 bytes each.
@@ -144,7 +150,7 @@ authoritative; every size below is that file's `overlay_bytes`, decimal MB):
 (4.94 MB) of the 6.06 MB. It is an *optimiser output*, not a hand-authored input, and
 `scripts/verify_trna_objective.py` reproduces its rows. It is kept in-tree so that a clone reproduces
 the corpus without a refit, but it is the obvious candidate for out-of-band hosting. Everything else
-is 34 files totalling 1,120,900 bytes (1.12 MB).
+is 43 files totalling 1,151,679 bytes (1.15 MB).
 
 **Not shipped, deliberately:** `wholecell/utils/_trna_charging.cpython-310-x86_64-linux-gnu.so`
 (1.47 MB, Linux-only). It is compiled inside the model image by `setup.py`, which the overlay's
@@ -153,6 +159,12 @@ is 34 files totalling 1,120,900 bytes (1.12 MB).
 ---
 
 ## 5. What is still missing — read this before trusting a checkout
+
+> **Status, 2026-08-03: nothing is blocked and nothing on Cellarium's launch path is absent.**
+> `apply_model_overlay.py` reports `44 shipped, 0 blocked`. §5a (the five ROUTE1-blocked port files)
+> and §5c (the multi-KO channel and the condition/build fixes) are both **cleared**; they are kept
+> below because *how* they were cleared is the evidence. What remains genuinely open is listed in
+> §5b and at the end of §5c.
 
 ### 5a. The five ROUTE1-blocked files — CLEARED
 
@@ -209,12 +221,12 @@ lists cover `SIM_KEYS` (Fireworks raises on an unlisted kwarg); and `resolve_elo
 returns `KineticTrnaChargingModel` / `CoarseKineticTrnaChargingModel` / `SteadyStateElongationModel`
 for the three flag combinations.
 
-**Still open, and NOT closed by this:** `runscripts/manual/runSim.py` is not in the overlay, and the
-fork's copy is 134 insertions / 54 deletions ahead of upstream. Two consequences. First, the fork's
-`runSim.py` is where `--multi-ko-indices` lives (§5c). Second, it is the *second* call site of
-`resolve_elongation_flags` — the one that writes the **resolved** flags into `metadata.json` — so on
-a public clone a `--kinetic-trna-charging` run simulates correctly but records
-`"trna_charging": true` in its metadata. That is a provenance defect, not a simulation defect.
+**~~Still open~~ — CLOSED:** this used to record that `runscripts/manual/runSim.py` was not in the
+overlay, with two consequences: it is where `--multi-ko-indices` lives, and it is the *second* call
+site of `resolve_elongation_flags` — the one that writes the **resolved** flags into `metadata.json`,
+without which a public-clone `--kinetic-trna-charging` run simulates correctly and records
+`"trna_charging": true`. It now ships as category `cellarium` (§5c). It carries **0** ROUTE1 markers,
+so it needed no surgery, only review of its 134/54 delta against upstream.
 
 Regenerating these files from the recipe would not have worked either, because:
 
@@ -234,26 +246,72 @@ Measured on a completed recipe run against clean upstream, 9 of the 20 modified 
 The overlay ships the working-tree versions of the ROUTE1-free ones and the `model_overlay/cleaned/`
 versions of the five in §5a, which is how all 28 port files ship with nothing blocked.
 
-### 5c. Category (c) — the gap — is not in this overlay
+### 5c. Category (c) — the gap — is now the `cellarium` category, and it is CLOSED
 
-By scope, this overlay carries the port and the script-written files only. The following are needed
-by Cellarium and are **not** here:
+This section used to list what Cellarium needed and the overlay did not carry. All of it now ships as
+category **`cellarium`** (9 files). Kept as a section rather than deleted, because *why* each file has
+to be here is the part a reader needs.
 
-- `models/ecoli/sim/variants/multi_gene_knockout.py` — **on the live launch path**
-  (`src/cellarium/runner.py:94` emits `--variant multi_gene_knockout`), 23 references in
-  `src/cellarium`
-- `runscripts/manual/runSim.py --multi-ko-indices`
-- `apply_variant.py` / `variantSimData.py` — the `variant_kwargs` channel `ko_indices` travels
-  through; without both, `--multi-ko-indices` is inert
-- `rrna_operon_knockout.py` / `ppgpp_conc.py` / `aa_synthesis_ko.py` — replace **positional**
-  condition lookups with **name** lookups. Upstream's positional form silently resolves to
-  `glc_20mM` instead of `with_aa` once the condition table grows past 5 rows.
-- `tf_activity.py` — fixes an upstream `AttributeError`
-- `docker/local/` — the image `README.md` tells users to build
+**The multi-KO channel — four files, and three of the four failure modes are quiet.**
+`src/cellarium/runner.py:94` emits `--variant multi_gene_knockout 0 0 --multi-ko-indices <i> <j> …`
+on the live launch path. The gene set is **not** the variant index; it travels as a `variant_kwargs`
+dict across four files, and each one shipping is load-bearing:
 
-Because `variants/__init__.py` is rewritten to register only what ships, a checkout built from this
-overlay **imports cleanly** and fails with a clear unknown-variant error rather than an `ImportError`
-at startup. It is incomplete, and it says so.
+| file | action | what it contributes | if it is missing |
+|---|---|---|---|
+| `runscripts/manual/runSim.py` | modify | `--multi-ko-indices` + `multi_ko_variant_kwargs()` validation | `unrecognized arguments` at launch |
+| `wholecell/fireworks/firetasks/variantSimData.py` | modify | `variant_kwargs` in `optional_params`, passed on | Fireworks raises on the undeclared kwarg, at variant creation |
+| `models/ecoli/sim/variants/apply_variant.py` | modify | the `variant_kwargs` parameter, splatted into the variant | `TypeError` inside the firetask |
+| `models/ecoli/sim/variants/multi_gene_knockout.py` | **create** | the variant itself | `ImportError` on **every** variant run — registration is eager |
+
+The worst case is none of those: a tree where the flag parses and the gene set is dropped on the way
+down runs a **wild type wearing a knockout's label** — the WELL-NOOP-1 pattern already in the backlog.
+`scripts/verify_overlay_variants.py` therefore checks the channel link by link rather than checking
+that a run completed.
+
+`runSim.py` ships for a **second, independent** reason: it is the other call site of
+`resolve_elongation_flags`, the one that writes the **resolved** elongation flags into `metadata.json`.
+Without it, a `--kinetic-trna-charging` run on a public clone simulates correctly and records
+`"trna_charging": true` — a provenance defect that every corpus row would inherit. It carries **0**
+ROUTE1 markers, so it needed no surgery.
+
+**The positional-condition fixes — four files.** Upstream looks conditions up by **row number**:
+`condition(sim_data, 2)` for `with_aa`, `ordered_conditions[1]` for rich media,
+`sorted(saved_timelines)[28]` for the minimal-to-rich shift. Those literals are correct against
+upstream's **5-row** `condition_defs.tsv`. This overlay ships **24 rows** (gate 2), where index 1 is
+`glc_20mM` and index 2 is `glc_5mM` — so every one of them now resolves to a *different condition*,
+the run completes, and it answers a question nobody asked. `ppgpp_conc.py` and
+`rrna_operon_knockout.py` are both in `envelope.VALIDATED_PERTURBATIONS`, i.e. on the live path;
+`aa_synthesis_ko.py` is not, and its *other* known defect (cistron indices into a TU-indexed function,
+`docs/KNOCKOUT_SEMANTICS.md`) is deliberately **not** fixed here. `tf_activity.py` fixes an upstream
+`AttributeError` — it wrote through `sim_data.external_state.environment`, which does not exist.
+
+**The container-build fix — one file, and it is the one that decides whether any of this is
+reachable.** Measured 2026-08-03 on a fresh `git clone` of the public repo at `a4497e17`: upstream's
+own `cloud/build-containers-locally.sh` **fails**, twice over, before any Cellarium code is involved.
+`Equation==1.2.1` (an sdist-only pin, imported by `wholecell/utils/enzymeKinetics.py:10`) runs a
+2013-era `ez_setup` that downloads setuptools from a `pypi.python.org` path now serving HTML →
+`zipfile.BadZipFile`. Fix that and `stochastic-arrow==1.0.0` fails next: its `setup.py` imports numpy
+with no build-requires, so PEP 517 isolation hides the numpy installed one line earlier. The overlay
+ships `cloud/docker/runtime/Dockerfile` with **four added `pip` lines and no other change**; the
+measurement and the reasoning are in the file's own banner.
+
+That file comes from a third source directory, `model_overlay/authored/`, which `harvest()` checks
+before `cleaned/` and before `--source`. `cleaned/` carries an implicit claim — "the source tree minus
+ROUTE1, diff against upstream is insertions only" — that an authored file does not satisfy and must
+not be read as making. The manifest records `"source": "model_overlay/authored"` per file.
+
+**Verified end to end**, on a fresh public clone (not a `git archive` of the fork): overlay applied
+(`31 to replace, 13 to create, 0 problems`, idempotent on re-run), image built with
+`cloud/build-containers-locally.sh` (exit 0), and inside the image `import models.ecoli.sim.variants`
+succeeds with 29 variants registered — `gene_knockout`, `graded_gene_knockout` and
+`multi_gene_knockout` all resolving — `wholecell.utils._trna_charging` imports (the Cython extension
+compiled), `resolve_elongation_flags` returns `KineticTrnaChargingModel`, and `runSim.py --help`
+lists `--multi-ko-indices`, `--kinetic-trna-charging` and `--coarse-kinetic-elongation`.
+
+**Still not here, and still a gap:** `docker/local/` does not exist upstream and is not shipped. It is
+also no longer needed — `cloud/build-containers-locally.sh` is the supported route and is what
+`README.md` and `docs/DOCKER_SETUP.md` now tell users to run.
 
 ---
 

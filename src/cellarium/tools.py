@@ -762,6 +762,17 @@ def provenance(perturbation: str, condition: str | None = None) -> dict:
     return _prov.classify(perturbation, condition)
 
 
+def operon_mode_advice(question: str | None = None, compare_with_corpus: bool = True) -> dict:
+    """Should a run be built with operons ON or OFF — the one configuration choice that changes what every
+    other answer MEANS rather than what it is. Under operons ON a `gene_knockout` zeroes one TRANSCRIPTION
+    UNIT (so `KO:rpoB` leaves rpoB expressed and `KO:rpmJ` silences secY); under OFF it is a true single-gene
+    knockout. The flag is set at PARCA time only — there is no runSim override — so switching means a
+    different knowledge base and a separate arm, never a comparable row. Returns a `recommendation` token,
+    the code path that sets the flag, the measured consequences, and the gaps that are NOT established."""
+    from . import operons
+    return operons.advise(question, compare_with_corpus)
+
+
 def mechanistic_scope(symbol: str) -> dict:
     """Is a gene's function SIMULATED (metabolic enzyme / modeled TF / central-dogma machinery) or expressed-but-
     inert? Returns a calibrated `ko_effect_prior` for the three single-KO regimes: non-mechanistic -> no phenotype
@@ -1314,6 +1325,8 @@ TOOLS = [
     {"name": "provenance", "description": "Is a design's result IN-SAMPLE (a ParCa-fitted condition — model was calibrated to match it, so agreement is consistency NOT prediction) or OUT-OF-SAMPLE (a perturbation the fit didn't target — a genuine prediction)? Check before claiming the model 'predicts' or 'validates' something.",
      "input_schema": {"type": "object", "properties": {"perturbation": {"type": "string"}, "condition": {"type": "string"}},
                       "required": ["perturbation"]}},
+    {"name": "operon_mode_advice", "description": "OPERONS ON or OFF for a proposed run — and what changes if you switch. CALL THIS before advising on any knockout/deletion/reduced-genome design, and before proposing a ParCa rebuild. The operon option is set at PARCA time only (`runParca.py --operons {off,on}`, default 'on'); `runSim.py` has NO such option, so switching means a DIFFERENT knowledge base (different kb_sha256) whose rows are a SEPARATE ARM and cannot be pooled with the corpus — measured: 322 of 322 shipped rows are operons='on'. Why it matters: under ON, `rna_data` rows are TRANSCRIPTION UNITS (3,276 rows for 4,724 genes), so `gene_knockout` zeroes a whole operon — measured, `KO:rpoB` leaves rpoB EXPRESSED and `KO:rpmJ` silences `secY`. Returns `recommendation` as a fixed token — branch on it, not on prose: 'keep_operons_on' (the result must be comparable with the corpus), 'use_graded_gene_knockout' (a knockout question — the cheaper fix is a variant, not a rebuild: it suppresses every TU carrying the cistron), 'separate_arm_operons_off' (defensible only as a self-contained arm, and UNTESTED in this tree). Also returns `not_established`: no operons-OFF run exists here, so how much a phenotype changes between the two is a GAP (BACKLOG OPERONS-1, open) and no number is offered for it.",
+     "input_schema": {"type": "object", "properties": {"question": {"type": "string", "description": "the design or question being advised on — surfaces the knockout-specific guidance"}, "compare_with_corpus": {"type": "boolean", "description": "will the result be compared against an existing corpus row? default true, and when true the setting is FORCED"}}}},
     {"name": "mechanistic_scope", "description": "Is a gene's FUNCTION mechanistically simulated (metabolic enzyme or one of the ~23 modeled TFs) or expressed-but-inert? A knockout of a non-mechanistic gene shows no phenotype BY CONSTRUCTION — a null there is model scope, NOT biological dispensability. Check before interpreting a KO. Also returns a ground-truth essentiality benchmark (`benchmark`): watch for agreement=='model_UNDER_predicts' (essential gene the model would call viable).",
      "input_schema": {"type": "object", "properties": {"symbol": {"type": "string"}}, "required": ["symbol"]}},
     {"name": "viability", "description": "Does a KO/perturbation produce a VIABLE, dividing cell? Cross-seed division verdict (viable/impaired/inviable) per design from the manifest — the KO readout that does NOT reroute away like a growth channel (a metabolic KO reroutes = viable; a machinery KO collapses). Omit condition to get every variant under a perturbation (e.g. all gene_knockouts). For a KO, pair with mechanistic_scope: a 'viable' verdict can be a model_UNDER_predicts case (essential in vivo, viable in silico).",
@@ -1389,6 +1402,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "system_resources": system_resources, "estimate_sim_resources": estimate_sim_resources,
              "data_availability": data_availability, "prune_candidates": prune_candidates, "provenance": provenance,
              "mechanistic_scope": mechanistic_scope, "viability": viability,
+             "operon_mode_advice": operon_mode_advice,
              "reroute_diagnosis": reroute_diagnosis,
              "fba_growth": fba_growth, "fba_gene_knockout": fba_gene_knockout,
              "fba_flux": fba_flux, "fba_essentiality_panel": fba_essentiality_panel,

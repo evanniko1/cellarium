@@ -14,7 +14,7 @@ report at [`docs/report/index.html`](report/index.html).
 ## Act 1 — The instrument (~20s)
 
 Cellarium pairs a **blind Socratic Council** (Proposer → Skeptic → Judge; frames a falsifiable hypothesis *without
-seeing the data*) with a **grounded Cellwright** agent (asserts nothing from memory — only through **38 tools** over
+seeing the data*) with a **grounded Cellwright** agent (asserts nothing from memory — only through **70 tools** over
 the corpus, the raw simulation traces, and the literature), under a **provenance guard** that separates what the
 model was *fitted* to from what it genuinely *predicts*. Two ways in: a Council-framed hypothesis, or a direct data
 question.

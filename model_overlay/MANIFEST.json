@@ -4,11 +4,11 @@
   "upstream_commit": "a4497e17",
   "hash": "sha256 over CRLF-normalised (LF) bytes",
   "generated_by": "scripts/build_model_overlay.py",
-  "licence": "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab academic non-commercial licence.",
+  "licence": "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab academic non-commercial licence. The `cellarium` and `script-written` categories are Cellarium's own work; where they MODIFY a wcEcoli file they are derivative of it and inherit the same non-commercial terms.",
   "counts": {
-    "ship": 35,
+    "ship": 44,
     "blocked": 0,
-    "ship_bytes": 6059525
+    "ship_bytes": 6090304
   },
   "files": [
     {
@@ -320,10 +320,10 @@
       "action": "modify",
       "upstream_sha256": "9c56d6fb8e82af96f81ee41cbd3b3974e9799d0f8581279afc385c9134d0b757",
       "upstream_bytes": 1112,
-      "note": "Rewritten, not copied \u2014 see gate 3. Registers upstream's variants plus graded_gene_knockout.",
+      "note": "Rewritten, not copied \u2014 see gate 3. Registers upstream's variants plus graded_gene_knockout, multi_gene_knockout.",
       "status": "ship",
-      "overlay_sha256": "7029a152dc7dd3eda3cb21d63863da003f7a0a547e2d58fa4bdd29cd0eb16e64",
-      "overlay_bytes": 1530
+      "overlay_sha256": "a6c6d87349ba5ffc3affec0f53099f9387b63bcbe2b17a95b079252e5401a192",
+      "overlay_bytes": 1575
     },
     {
       "path": "reconstruction/ecoli/flat/condition/media_recipes.tsv",
@@ -345,6 +345,106 @@
       "status": "ship",
       "overlay_sha256": "1ce0b0f0379a37af7da02e17c4862975e7d368bd1dd0d389ed4b3eedffdf7b2c",
       "overlay_bytes": 1876
+    },
+    {
+      "path": "models/ecoli/sim/variants/multi_gene_knockout.py",
+      "category": "cellarium",
+      "action": "create",
+      "upstream_sha256": null,
+      "upstream_bytes": null,
+      "note": "Cellarium-authored. Index-0-only variant that zeroes several gene_knockout indexes at once via sim_data.adjust_final_expression. The gene set arrives as the ko_indices kwarg, NOT as the variant index \u2014 so it needs the variant_kwargs channel (runSim.py -> variantSimData.py -> apply_variant.py) to be shipped with it or it is unreachable. NOTE the semantics: adjust_final_expression indexes rna_data, whose rows are TRANSCRIPTION UNITS, so a k-target multi-KO can silence more than k genes \u2014 see docs/KNOCKOUT_SEMANTICS.md.",
+      "status": "ship",
+      "overlay_sha256": "385ec5c373d1f40334558454d35e4efb7649f75ed48626a0922043b53955ac48",
+      "overlay_bytes": 2169
+    },
+    {
+      "path": "cloud/docker/runtime/Dockerfile",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "c88cf1b580ee3d9b71bc70349aac24e297da20e56266cff91aa6b7e5cfedccde",
+      "upstream_bytes": 3462,
+      "source": "model_overlay/authored",
+      "note": "AUTHORED (model_overlay/authored/), not harvested \u2014 the change exists in no tree. Upstream's own cloud/build-containers-locally.sh FAILS on a clean a4497e17, for two independent reasons and before any Cellarium code is reached. (1) requirements.txt:79 pins Equation==1.2.1, an sdist-only package whose setup.py downloads setuptools from a pypi.python.org path that now returns HTML -> BadZipFile; it is imported by wholecell/utils/enzymeKinetics.py:10 so it cannot be dropped. (2) requirements.txt:98 pins stochastic-arrow==1.0.0, whose setup.py imports numpy with no build-requires, so PEP 517 build isolation hides the numpy installed one line earlier. Four added pip lines install both with --no-build-isolation (Equation against a temporarily pinned setuptools<66, restored immediately) BEFORE the requirements pass, so every other requirement installs exactly as upstream intended. Nothing else in the file differs from upstream.",
+      "status": "ship",
+      "overlay_sha256": "c3ffc6a04a4ec10707599fabcdf0fae29b89f67c60b5671e5692d3de66a5f6e7",
+      "overlay_bytes": 5840
+    },
+    {
+      "path": "runscripts/manual/runSim.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "b871aa3a515f0044145984259d56850e64b62269fbf5a3c735cefea91ab710e1",
+      "upstream_bytes": 6430,
+      "note": "Two independent reasons, either of which alone would require shipping it. (1) It defines --multi-ko-indices and multi_ko_variant_kwargs(), which is where the multi-KO gene set is validated and turned into variant_kwargs. (2) It is the SECOND call site of resolve_elongation_flags \u2014 the one that writes the RESOLVED elongation flags into metadata.json. Without it a --kinetic-trna-charging run simulates correctly and records \"trna_charging\": true, and every corpus row inherits that. It also wraps the per-variant loop in try/except so one failing variant does not abandon the rest of a sweep. 0 ROUTE1 markers, so it harvests directly with no cleaning.",
+      "status": "ship",
+      "overlay_sha256": "fd431ec8f8661f8a60dbeeadce908db576807ab3384634206fa959e52794a411",
+      "overlay_bytes": 10477
+    },
+    {
+      "path": "wholecell/fireworks/firetasks/variantSimData.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "752f36620cbf5d30b705812177b4260193ea186ddec6f8e83b9a80beeda82217",
+      "upstream_bytes": 1175,
+      "note": "Adds variant_kwargs to optional_params and passes it to apply_variant. Fireworks raises on any kwarg not listed in required_params/optional_params, so without this the multi-KO run does not silently ignore the gene set \u2014 it dies at variant creation.",
+      "status": "ship",
+      "overlay_sha256": "8f4e0baf010674834980a32e8a917d755a26ee0fa79dd065668bfa5281787e5e",
+      "overlay_bytes": 1251
+    },
+    {
+      "path": "models/ecoli/sim/variants/apply_variant.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "b9d0393924ffced06ec4a0f943a588ee120f652c741ff45f9f8008cd83ec5797",
+      "upstream_bytes": 1041,
+      "note": "Adds the variant_kwargs parameter and splats it into the variant function. This is the last link of the multi-KO channel; upstream's signature takes (sim_data, index) only.",
+      "status": "ship",
+      "overlay_sha256": "55c4ce8b7907f1f4a37346a806f985cfb0e2f75edf6c0ff8c78621bc91cb7d5e",
+      "overlay_bytes": 1091
+    },
+    {
+      "path": "models/ecoli/sim/variants/rrna_operon_knockout.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "82726858fad2d8b0ada3c3cd3ef566336773530e04f1d16bb637e1deebc6cefb",
+      "upstream_bytes": 3040,
+      "note": "Two positional lookups, both wrong against a 21-row condition table: ordered_conditions[1] for the rich-media condition (now the named 'with_aa') and sorted(saved_timelines)[28] for the minimal-to-rich shift (now the named '000028_add_aa_long', which also RAISES rather than shifting silently if the timeline set changes). Cellarium runs this variant (envelope.VALIDATED_PERTURBATIONS), so the fix is on the live path.",
+      "status": "ship",
+      "overlay_sha256": "a9ea4eb06240562a97f5712a9ed8e00e7f83f6d2ef80b1d5a72bc0cf6b09bba0",
+      "overlay_bytes": 3437
+    },
+    {
+      "path": "models/ecoli/sim/variants/ppgpp_conc.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "09dbc031e98e0598527e5ac4bde6fc21c5160eaf2109f62828ad91e4a07f4ce4",
+      "upstream_bytes": 2363,
+      "note": "CONDITIONS was [0, 2] \u2014 POSITIONAL row numbers into condition_defs.tsv, meaning basal/with_aa in upstream's 5-row table. This overlay ships 21 rows (gate 2), where row 2 is glc_5mM, so upstream's literal silently runs the wrong condition and the run still succeeds. Rewritten to CONDITIONS = ['basal', 'with_aa'] resolved through sim_data.ordered_conditions.",
+      "status": "ship",
+      "overlay_sha256": "50b73e3d35bcf948a81ae686bdd56100a10b33aaa66baf5f9ece57bac339b43c",
+      "overlay_bytes": 2513
+    },
+    {
+      "path": "models/ecoli/sim/variants/aa_synthesis_ko.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "4cbd639d4e1a4e2ecdcca71394ce11b512e1a261fda0f9b32497acc996f1c981",
+      "upstream_bytes": 1893,
+      "note": "Same defect as ppgpp_conc: `condition(sim_data, 2)` meant with_aa in a 5-row table and means glc_5mM in ours. Rewritten to look 'with_aa' up by name. (Its OTHER known defect \u2014 cistron indices passed into a TU-indexed adjust_final_expression, docs/KNOCKOUT_SEMANTICS.md \u2014 is NOT fixed here; Cellarium does not use this variant.)",
+      "status": "ship",
+      "overlay_sha256": "1e8e93a80976c59ddc5a1df9a25a093c13c5c114b426be29b52402630b9a90f3",
+      "overlay_bytes": 2037
+    },
+    {
+      "path": "models/ecoli/sim/variants/tf_activity.py",
+      "category": "cellarium",
+      "action": "modify",
+      "upstream_sha256": "11eda954b855b7a524726394c39b3d29d483d1cdcf0f8ad8565187d8e1f47e06",
+      "upstream_bytes": 1980,
+      "note": "Fixes an upstream AttributeError: it wrote through sim_data.external_state.environment.current_timeline_id, and external_state has no `environment` attribute. Cellarium runs this variant (envelope.VALIDATED_PERTURBATIONS).",
+      "status": "ship",
+      "overlay_sha256": "7ef7f80b7b765e08b7c0505f34ffd4380fd5d34eb73839c6e75fc44bb7746db4",
+      "overlay_bytes": 1919
     },
     {
       "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-20mM.tsv",

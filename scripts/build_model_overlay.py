@@ -43,7 +43,20 @@ alignment), with the kinetic elongation model intact:
     wholecell/fireworks/firetasks/simulation.py          1 -> 0
     wholecell/fireworks/firetasks/simulationDaughter.py  1 -> 0
 
-A cleaned file is a SOURCE, not a shipped artifact: it still passes through every gate below, and
+AUTHORED. `model_overlay/authored/<wcEcoli path>` is checked BEFORE `cleaned/` and before `--source`.
+It is for files Cellarium wrote outright because the change exists in no tree at all — as opposed to
+`cleaned/`, which is a working-tree file with ROUTE1 removed. Today it holds exactly one:
+
+    cloud/docker/runtime/Dockerfile   three added pip lines, because upstream's own local image build
+                                      is BROKEN on a clean a4497e17 (Equation==1.2.1's sdist downloads
+                                      a setuptools from a dead pypi.python.org path; see the banner in
+                                      the file itself for the measurement and the fix)
+
+Keeping the two directories separate matters: `cleaned/` carries an implicit claim ("this is the
+source tree minus ROUTE1, and the diff against upstream is insertions only") that an authored file
+does not satisfy and should not be read as making.
+
+A cleaned or authored file is a SOURCE, not a shipped artifact: it still passes through every gate below, and
 its `upstream_sha256` is still taken against `--upstream`, so upstream drift still invalidates it.
 Records harvested this way carry `"source": "model_overlay/cleaned"` so the manifest says where each
 body came from rather than leaving it to be inferred.
@@ -60,6 +73,9 @@ body came from rather than leaving it to be inferred.
      EAGERLY (`nameToFunctionMapping = {v: get_function(v) for v in variants}`), so registering a
      variant whose module is not shipped is an ImportError on every run, not a lazy failure. The
      shipped `__init__.py` is rewritten to register exactly the variant modules the overlay carries.
+     `harvest()` asserts the correspondence in BOTH directions: a registered name with no module is
+     that ImportError, and a shipped module with no registration is a checkout that carries
+     `multi_gene_knockout.py` and still answers "unknown variant" — the quieter of the two.
 
 Run it after changing anything under `model_overlay/`, and commit the result:
 
@@ -88,6 +104,7 @@ REPO = os.path.dirname(HERE)
 OVERLAY = os.path.join(REPO, "model_overlay")
 FILES = os.path.join(OVERLAY, "files")
 CLEANED = os.path.join(OVERLAY, "cleaned")
+AUTHORED = os.path.join(OVERLAY, "authored")
 MANIFEST = os.path.join(OVERLAY, "MANIFEST.json")
 
 # The upstream commit every `upstream_sha256` below is taken against. This is the last
@@ -141,6 +158,47 @@ PORT_NEW = [
     "validation/ecoli/flat/trna_synthetase_kinetics.tsv",
 ]
 
+# CATEGORY (c) CELLARIUM — the model changes Cellarium itself needs and that are NOT part of the
+# v3.0.1 port. Two clusters, and both are on the LIVE launch path rather than nice-to-haves:
+#
+#   THE MULTI-KO CHANNEL. `src/cellarium/runner.py:94` emits
+#   `--variant multi_gene_knockout 0 0 --multi-ko-indices …` for every multi-gene design, and the gene
+#   set has to travel from that command line down to the variant function. It crosses FOUR files, and
+#   any one of them missing makes the flag INERT rather than loud:
+#     runSim.py                  parses --multi-ko-indices, validates it, builds variant_kwargs
+#     variantSimData.py          carries variant_kwargs as an optional_param (Fireworks raises on an
+#                                unlisted kwarg, so an un-updated firetask is a hard error)
+#     apply_variant.py           splats variant_kwargs into the variant function
+#     multi_gene_knockout.py     the variant itself
+#   runSim.py additionally carries the EXT-PORT-12 metadata fix — it is the SECOND call site of
+#   `resolve_elongation_flags`, the one that writes the RESOLVED flags into metadata.json. Without it
+#   a `--kinetic-trna-charging` run simulates correctly and RECORDS `"trna_charging": true`.
+#
+#   THE POSITIONAL-CONDITION FIXES. Upstream's `ppgpp_conc` / `aa_synthesis_ko` look conditions up by
+#   ROW NUMBER (`condition(sim_data, 2)` meaning "with_aa"), and `rrna_operon_knockout` indexes
+#   `ordered_conditions[1]` and `sorted(saved_timelines)[28]` the same way. This overlay ships a
+#   21-row `condition_defs.tsv` (gate 2), so `with_aa` is row 4 and every one of those literals now
+#   resolves to a DIFFERENT condition — silently, with the run completing and reporting success. They
+#   are rewritten to look up by NAME. `tf_activity.py` fixes an upstream `AttributeError`
+#   (`sim_data.external_state.environment` does not exist).
+#
+# These are modifications of CovertLab-licensed files and inherit that licence; `multi_gene_knockout.py`
+# is Cellarium-authored. None of them is ROUTE1-contaminated — measured 0 markers in all eight — so
+# they harvest straight from the source tree with no `cleaned/` intermediate.
+CELLARIUM_NEW = [
+    "models/ecoli/sim/variants/multi_gene_knockout.py",
+]
+CELLARIUM_MODIFIED = [
+    "cloud/docker/runtime/Dockerfile",
+    "runscripts/manual/runSim.py",
+    "wholecell/fireworks/firetasks/variantSimData.py",
+    "models/ecoli/sim/variants/apply_variant.py",
+    "models/ecoli/sim/variants/rrna_operon_knockout.py",
+    "models/ecoli/sim/variants/ppgpp_conc.py",
+    "models/ecoli/sim/variants/aa_synthesis_ko.py",
+    "models/ecoli/sim/variants/tf_activity.py",
+]
+
 # CATEGORY (b) SCRIPT-WRITTEN — what apply_model_variants.py and apply_model_patches.py produce.
 SCRIPT_WRITTEN_NEW = [
     "models/ecoli/sim/variants/graded_gene_knockout.py",
@@ -163,8 +221,10 @@ DEPENDENCIES_NEW = [
 ]
 
 # The variant modules the overlay actually carries. `__init__.py` is rewritten to register upstream's
-# list plus exactly these — see gate 3 in the module docstring.
-OVERLAY_VARIANTS = ["graded_gene_knockout"]
+# list plus exactly these — see gate 3 in the module docstring. Gate 3 now checks BOTH directions:
+# every name here must have a shipped module (else ImportError on every variant run), and every shipped
+# variant module must be named here (else the module ships and `--variant <it>` reports "unknown").
+OVERLAY_VARIANTS = ["graded_gene_knockout", "multi_gene_knockout"]
 
 # The three amino-acid dropout condition rows, APPENDED (never inserted) — see gate 2.
 DROPOUT_CONDITION_ROWS = [
@@ -199,6 +259,62 @@ NOTES = {
     "setup.py":
         "Registers _trna_charging.pyx with cythonize, so `make compile` and any image build produce "
         "the extension.",
+    "cloud/docker/runtime/Dockerfile":
+        "AUTHORED (model_overlay/authored/), not harvested — the change exists in no tree. Upstream's "
+        "own cloud/build-containers-locally.sh FAILS on a clean a4497e17, for two independent reasons "
+        "and before any Cellarium code is reached. (1) requirements.txt:79 pins Equation==1.2.1, an "
+        "sdist-only package whose setup.py downloads setuptools from a pypi.python.org path that now "
+        "returns HTML -> BadZipFile; it is imported by wholecell/utils/enzymeKinetics.py:10 so it "
+        "cannot be dropped. (2) requirements.txt:98 pins stochastic-arrow==1.0.0, whose setup.py "
+        "imports numpy with no build-requires, so PEP 517 build isolation hides the numpy installed "
+        "one line earlier. Four added pip lines install both with --no-build-isolation (Equation "
+        "against a temporarily pinned setuptools<66, restored immediately) BEFORE the requirements "
+        "pass, so every other requirement installs exactly as upstream intended. Nothing else in the "
+        "file differs from upstream.",
+    "models/ecoli/sim/variants/multi_gene_knockout.py":
+        "Cellarium-authored. Index-0-only variant that zeroes several gene_knockout indexes at once "
+        "via sim_data.adjust_final_expression. The gene set arrives as the ko_indices kwarg, NOT as "
+        "the variant index — so it needs the variant_kwargs channel (runSim.py -> variantSimData.py "
+        "-> apply_variant.py) to be shipped with it or it is unreachable. NOTE the semantics: "
+        "adjust_final_expression indexes rna_data, whose rows are TRANSCRIPTION UNITS, so a k-target "
+        "multi-KO can silence more than k genes — see docs/KNOCKOUT_SEMANTICS.md.",
+    "runscripts/manual/runSim.py":
+        "Two independent reasons, either of which alone would require shipping it. (1) It defines "
+        "--multi-ko-indices and multi_ko_variant_kwargs(), which is where the multi-KO gene set is "
+        "validated and turned into variant_kwargs. (2) It is the SECOND call site of "
+        "resolve_elongation_flags — the one that writes the RESOLVED elongation flags into "
+        "metadata.json. Without it a --kinetic-trna-charging run simulates correctly and records "
+        "\"trna_charging\": true, and every corpus row inherits that. It also wraps the per-variant "
+        "loop in try/except so one failing variant does not abandon the rest of a sweep. 0 ROUTE1 "
+        "markers, so it harvests directly with no cleaning.",
+    "wholecell/fireworks/firetasks/variantSimData.py":
+        "Adds variant_kwargs to optional_params and passes it to apply_variant. Fireworks raises on "
+        "any kwarg not listed in required_params/optional_params, so without this the multi-KO run "
+        "does not silently ignore the gene set — it dies at variant creation.",
+    "models/ecoli/sim/variants/apply_variant.py":
+        "Adds the variant_kwargs parameter and splats it into the variant function. This is the last "
+        "link of the multi-KO channel; upstream's signature takes (sim_data, index) only.",
+    "models/ecoli/sim/variants/ppgpp_conc.py":
+        "CONDITIONS was [0, 2] — POSITIONAL row numbers into condition_defs.tsv, meaning "
+        "basal/with_aa in upstream's 5-row table. This overlay ships 21 rows (gate 2), where row 2 is "
+        "glc_5mM, so upstream's literal silently runs the wrong condition and the run still succeeds. "
+        "Rewritten to CONDITIONS = ['basal', 'with_aa'] resolved through sim_data.ordered_conditions.",
+    "models/ecoli/sim/variants/aa_synthesis_ko.py":
+        "Same defect as ppgpp_conc: `condition(sim_data, 2)` meant with_aa in a 5-row table and means "
+        "glc_5mM in ours. Rewritten to look 'with_aa' up by name. (Its OTHER known defect — cistron "
+        "indices passed into a TU-indexed adjust_final_expression, docs/KNOCKOUT_SEMANTICS.md — is "
+        "NOT fixed here; Cellarium does not use this variant.)",
+    "models/ecoli/sim/variants/rrna_operon_knockout.py":
+        "Two positional lookups, both wrong against a 21-row condition table: ordered_conditions[1] "
+        "for the rich-media condition (now the named 'with_aa') and sorted(saved_timelines)[28] for "
+        "the minimal-to-rich shift (now the named '000028_add_aa_long', which also RAISES rather than "
+        "shifting silently if the timeline set changes). Cellarium runs this variant "
+        "(envelope.VALIDATED_PERTURBATIONS), so the fix is on the live path.",
+    "models/ecoli/sim/variants/tf_activity.py":
+        "Fixes an upstream AttributeError: it wrote through "
+        "sim_data.external_state.environment.current_timeline_id, and external_state has no "
+        "`environment` attribute. Cellarium runs this variant "
+        "(envelope.VALIDATED_PERTURBATIONS).",
 }
 
 # The five files the ROUTE1 gate used to block, now harvested from model_overlay/cleaned/. The note
@@ -307,15 +423,38 @@ def harvest(source: str, upstream: str) -> tuple[list[dict], dict[str, bytes]]:
         + [(p, "port", "create") for p in PORT_NEW]
         + [(p, "script-written", "create") for p in SCRIPT_WRITTEN_NEW]
         + [(p, "script-written", "modify") for p in SCRIPT_WRITTEN_MODIFIED]
+        + [(p, "cellarium", "create") for p in CELLARIUM_NEW]
+        + [(p, "cellarium", "modify") for p in CELLARIUM_MODIFIED]
         + [(p, "dependency", "create") for p in DEPENDENCIES_NEW]
     )
 
+    # Gate 3, the direction the old check could not see. `__init__.py` is built from OVERLAY_VARIANTS,
+    # so a name there with no module is an ImportError on every run — but a MODULE with no name is
+    # just as broken and fails much later: `--variant multi_gene_knockout` reports "unknown variant"
+    # from a checkout that is carrying the file. Both are asserted here, before anything is written.
+    shipped_variant_modules = {
+        os.path.basename(p)[:-3]
+        for p in (PORT_NEW + SCRIPT_WRITTEN_NEW + CELLARIUM_NEW)
+        if p.startswith("models/ecoli/sim/variants/") and p.endswith(".py")
+    }
+    if shipped_variant_modules != set(OVERLAY_VARIANTS):
+        raise SystemExit(
+            "OVERLAY_VARIANTS and the shipped variant modules disagree.\n"
+            "  registered but not shipped: %s   (ImportError on EVERY variant run)\n"
+            "  shipped but not registered: %s   (module present, `--variant <it>` says unknown)\n"
+            % (sorted(set(OVERLAY_VARIANTS) - shipped_variant_modules),
+               sorted(shipped_variant_modules - set(OVERLAY_VARIANTS))))
+
     for rel, category, action in plan:
-        # See CLEANED in the module docstring. A de-ROUTE1'd copy in model_overlay/cleaned/ WINS over
-        # the source tree; everything downstream of here, gates included, is identical either way.
+        # Three possible bodies, in priority order — see CLEANED and AUTHORED in the module docstring.
+        # Everything downstream of here, gates included, is identical whichever one wins; only the
+        # recorded `source` differs, so the manifest says where each body came from rather than
+        # leaving it to be inferred.
+        authored = read_lf(os.path.join(AUTHORED, rel.replace("/", os.sep)))
         cleaned = read_lf(os.path.join(CLEANED, rel.replace("/", os.sep)))
-        src = cleaned if cleaned is not None else read_lf(
-            os.path.join(source, rel.replace("/", os.sep)))
+        src = authored if authored is not None else (
+            cleaned if cleaned is not None else read_lf(
+                os.path.join(source, rel.replace("/", os.sep))))
         ups = read_lf(os.path.join(upstream, rel.replace("/", os.sep)))
         rec: dict = {
             "path": rel,
@@ -324,7 +463,9 @@ def harvest(source: str, upstream: str) -> tuple[list[dict], dict[str, bytes]]:
             "upstream_sha256": sha256(ups),
             "upstream_bytes": len(ups) if ups is not None else None,
         }
-        if cleaned is not None:
+        if authored is not None:
+            rec["source"] = "model_overlay/authored"
+        elif cleaned is not None:
             rec["source"] = "model_overlay/cleaned"
         if NOTES.get(rel):
             rec["note"] = NOTES[rel]
@@ -401,7 +542,9 @@ def write_overlay(records: list[dict], bodies: dict[str, bytes]) -> None:
             "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert "
             "2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, "
             "redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab "
-            "academic non-commercial licence."),
+            "academic non-commercial licence. The `cellarium` and `script-written` categories are "
+            "Cellarium's own work; where they MODIFY a wcEcoli file they are derivative of it and "
+            "inherit the same non-commercial terms."),
         "counts": {
             "ship": len(shipped),
             "blocked": len(blocked),

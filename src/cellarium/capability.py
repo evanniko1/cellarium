@@ -665,24 +665,116 @@ def probe_corpus_modes() -> dict:
                      "warning — update MODES_IN_CORPUS in either case.")}
 
 
+# The variant MODULES Cellarium's launcher names on a command line. `envelope.VALIDATED_PERTURBATIONS` is
+# the policy list (what we allow); this is the mechanism list (what the checkout must actually contain), and
+# it deliberately holds only names that are files under models/ecoli/sim/variants/ — `wildtype`, `timeline`
+# and `amino_acid_shift` are Cellarium-side spellings, not modules, so asserting them would fail on a
+# perfectly good checkout.
+LAUNCHED_VARIANT_MODULES = ("gene_knockout", "graded_gene_knockout", "multi_gene_knockout",
+                            "condition", "tf_activity", "ppgpp_conc", "rrna_operon_knockout")
+
+
+def probe_launch_surface(wcecoli: str | None = None) -> dict:
+    """Check that every command-line surface Cellarium EMITS exists in the checkout it will emit it to.
+
+    This is the generalisation of a defect we shipped. `MODE_FLAGS` mapped mode `kinetic` to
+    `--kinetic-trna-charging` while the file defining that option was withheld from the overlay, so on a
+    public clone the flag was DEAD: `capability.check()` answered "yes, run it in kinetic mode", the launcher
+    emitted the flag, and argparse rejected the command line. Nothing in this module could see that, because
+    `probe()` only greps for capability MARKERS and a flag is not a marker.
+
+    The same shape applies to the variant modules. `runner.py` emits `--variant multi_gene_knockout`, and a
+    checkout without that module answers "unknown variant" — or, if the module ships but the `variant_kwargs`
+    channel does not, silently drops the gene set and runs a WILD TYPE under a knockout's label. So both are
+    probed here: the option NAME must be defined in `scriptBase` (that is what argparse builds the flag from),
+    and the variant module must be both present on disk and registered in `variants/__init__.py`, because
+    registration is eager and either half alone is a failure.
+
+    An unreadable checkout reports `verified: False`. It does NOT report success — a "could not read"
+    presented as a fact is the silent-absence bug this repo keeps re-encountering.
+    """
+    root = wcecoli or os.environ.get("WCECOLI_DIR") or os.environ.get("WCECOLI_PATH") or ""
+    out: dict = {"ok": True, "verified": False, "flags": {}, "variants": {},
+                 "note": "MODE_FLAGS and the launcher's --variant names, checked against the checkout they "
+                         "would be emitted to. A flag this module advertises and the checkout does not "
+                         "define is dead on arrival, and `check()` would have said yes."}
+    if not root or not os.path.isdir(root):
+        out["why"] = "no checkout to probe (set WCECOLI_DIR or pass wcecoli=)"
+        return out
+
+    def _read(rel: str) -> str | None:
+        p = os.path.join(root, *rel.split("/"))
+        if not os.path.isfile(p):
+            return None
+        try:
+            with open(p, encoding="utf-8", errors="replace") as fh:
+                return fh.read()
+        except OSError:
+            return None
+
+    script_base = _read("wholecell/utils/scriptBase.py")
+    variants_init = _read("models/ecoli/sim/variants/__init__.py")
+    if script_base is None or variants_init is None:
+        out["why"] = ("could not read wholecell/utils/scriptBase.py and/or "
+                      "models/ecoli/sim/variants/__init__.py under %r" % root)
+        return out
+    out["verified"] = True
+
+    for mode, flag in MODE_FLAGS.items():
+        if not flag.startswith("--"):
+            out["flags"][mode] = {"flag": flag, "defined": True,
+                                  "note": "no flag — the model default; nothing to define"}
+            continue
+        # argparse builds `--kinetic-trna-charging` from the option NAME `kinetic_trna_charging`
+        # (scriptBase.define_parameter_bool dashizes it), so the name is what must be present.
+        option = flag[2:].replace("-", "_")
+        defined = option in script_base
+        out["flags"][mode] = {"flag": flag, "option": option, "defined": defined}
+        if not defined:
+            out["ok"] = False
+            out["flags"][mode]["note"] = (
+                f"DEAD FLAG: capability mode {mode!r} advertises {flag}, and the checkout's scriptBase does "
+                f"not define {option!r}. Every launch in this mode would fail at argparse.")
+
+    for name in LAUNCHED_VARIANT_MODULES:
+        module = os.path.isfile(os.path.join(root, "models", "ecoli", "sim", "variants", name + ".py"))
+        registered = f"'{name}'" in variants_init or f'"{name}"' in variants_init
+        rec = {"module": module, "registered": registered}
+        if not (module and registered):
+            out["ok"] = False
+            rec["note"] = (
+                "module present but UNREGISTERED — `--variant %s` answers 'unknown variant'" % name
+                if module else
+                ("REGISTERED WITH NO MODULE — registration is eager, so this is an ImportError on EVERY "
+                 "variant run" if registered else
+                 "ABSENT — the launcher emits `--variant %s` and the checkout cannot run it" % name))
+        out["variants"][name] = rec
+    return out
+
+
 def audit(wcecoli: str | None = None) -> dict:
     """Every declaration checked against the checkout AND the corpus. `ok` false means the registry is lying."""
     res = probe(wcecoli)
     bad = [r for r in res if not r.agrees]
     modes = probe_corpus_modes()
+    launch = probe_launch_surface(wcecoli)
     bad_modes = [c.key for c in CAPABILITIES if any(m not in ELONGATION_MODES for m in c.holds_in)]
     # A prose table keyed by a mode that does not exist — a typo, or a field reverted to a bare string — makes
     # that sentence unreachable in every mode, and an unreachable `instead` degrades a refusal to a bare "no"
     # with nothing raising. Same failure shape as a stale `present=True`, so it is probed the same way.
     bad_prose = [f"{c.key}.{name}[{m!r}]" for c in CAPABILITIES for name in ("instead", "consequence")
                  for m in _prose_keys(getattr(c, name)) if m not in ELONGATION_MODES]
-    return {"ok": (not bad) and modes["ok"] and not bad_modes and not bad_prose,
+    return {"ok": (not bad) and modes["ok"] and launch["ok"] and not bad_modes and not bad_prose,
             "n_capabilities": len(CAPABILITIES), "n_missing": len(missing()),
             "disagreements": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "note": r.note}
                               for r in bad],
             "undeclared_holds_in_modes": bad_modes,
             "undeclared_prose_modes": bad_prose,
             "corpus_modes": modes,
+            # `launch["ok"]` is True when there is no checkout to probe (`verified: False`), so an audit run
+            # without WCECOLI_DIR stays green rather than reporting a failure it did not measure — read
+            # `launch_surface.verified` before treating this as evidence.
+            "launch_surface": launch,
             "probed": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "note": r.note}
                        for r in res],
             "note": "Capabilities are DECLARED and PROBED. A disagreement means the registry no longer matches "

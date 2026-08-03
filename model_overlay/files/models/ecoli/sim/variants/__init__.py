@@ -1,5 +1,5 @@
 # Cellarium overlay: this file registers upstream's variants plus the variant modules the
-# overlay ships (graded_gene_knockout). Registration is EAGER --
+# overlay ships (graded_gene_knockout, multi_gene_knockout). Registration is EAGER --
 # nameToFunctionMapping imports every name below at import time -- so a name here whose
 # module is absent is an ImportError on every variant run, not a lazy failure. Do not add a
 # name without adding its module to model_overlay/files/.
@@ -19,6 +19,7 @@ variants = [
 	'mene_params',
 	'metabolism_kinetic_objective_weight',
 	'metabolism_secretion_penalty',
+	'multi_gene_knockout',
 	'new_gene_internal_shift',
 	'param_sensitivity',
 	'ppgpp_conc',

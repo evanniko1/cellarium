@@ -133,6 +133,13 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     # exposing it would stop the Council proposing hypotheses the model cannot test. That is a change to the
     # blindness invariant and belongs to whoever owns it, not to this classification.
     "model_capabilities",
+    # Same class as model_capabilities, and classified here for the same reason: it is a statement about the
+    # model's CONFIGURATION, not a test whose result could falsify anything. It is Cellwright-side rather than
+    # Council-visible on the stricter of the two available readings — it reports how many corpus rows carry
+    # each operon mode, and a corpus row count is a grounded observation, which is exactly what the Council is
+    # blind to. The advice itself would be safe to expose; the row count is not, and splitting the payload to
+    # expose half of it is a change to the blindness invariant, which is not this classification's to make.
+    "operon_mode_advice",
     # independent FBA cross-check family
     "fba_growth", "fba_gene_knockout", "fba_flux", "fba_essentiality_panel", "fba_synthetic_lethal",
     "fba_gene_deletion", "fba_sensitivity", "fba_qc", "rnaseq_concordance",

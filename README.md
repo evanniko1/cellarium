@@ -58,7 +58,7 @@ Cellwright.
 ### Cellwright — the grounded wright
 
 **Cellwright** is a *wright* — a **maker, a craftsman**, as in ship-*wright*, play-*wright*, wheel-*wright* — one
-who *works the cell*. It is the grounded half: it **asserts nothing from memory**, only through **38 tools** over
+who *works the cell*. It is the grounded half: it **asserts nothing from memory**, only through **70 tools** over
 the corpus, the raw simulation traces, and the literature (statistics, differential expression, viability,
 provenance, regulon and flux reads, PubMed/OpenAlex/bioRxiv retrieval). Two guardrails make its answers
 trustworthy:
@@ -188,35 +188,101 @@ python -m cellarium.cli "Does an argS knockout raise or lower ppGpp versus wildt
 
 The last tier unlocks **per-species raw reads** and **running brand-new whole-cell simulations**. It is the only
 part **not spawnable from the repo alone**: you clone the model yourself and accept its licence.
-Full guide: **[docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md)**.
+Deeper guide (tuning, deep-dive reads, native fallback): **[docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md)**.
 
-Stock wcEcoli is **not sufficient** — Cellarium needs the v3.0.1 kinetic tRNA-charging port and several
-condition/media definitions that upstream does not have. Those finished files live in
-**[`model_overlay/`](model_overlay/)** and are copied onto a clean checkout by `apply_model_overlay.py`, which
-verifies each file against a pinned upstream SHA256 first and **stops rather than overwrite** a file upstream has
-since changed. See **[docs/OVERLAY.md](docs/OVERLAY.md)**.
+Stock wcEcoli is **not sufficient** — Cellarium needs the v3.0.1 kinetic tRNA-charging port, a 21-row condition
+table, the `multi_gene_knockout` variant, and two fixes without which upstream's own image build fails today.
+Those finished files live in **[`model_overlay/`](model_overlay/)** (44 files) and are copied onto a clean
+checkout by `apply_model_overlay.py`, which verifies each target against a pinned upstream SHA256 first and
+**stops rather than overwrite** a file upstream has since changed. See **[docs/OVERLAY.md](docs/OVERLAY.md)**.
 
-1. Install **Docker** — <https://docs.docker.com/get-started/>.
-2. Clone **[CovertLab/wcEcoli](https://github.com/CovertLab/wcEcoli)** (Stanford academic, non-commercial
-   licence — you accept it by running it) and check out the pinned commit:
-   ```bash
-   git clone https://github.com/CovertLab/wcEcoli && git -C wcEcoli checkout a4497e17
-   ```
-3. **Apply the overlay**, from the Cellarium repo root:
-   ```bash
-   python scripts/apply_model_overlay.py --wcecoli ../wcEcoli --check   # verify, writes nothing
-   python scripts/apply_model_overlay.py --wcecoli ../wcEcoli
-   ```
-4. **Build the image** using wcEcoli's own local build (`cloud/build-containers-locally.sh`, which produces
-   `${USER}-wcm-code`), then calibrate once with ParCa and run the smoke test — all in
-   [docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md).
-5. Point Cellarium at it: `WCECOLI_DOCKER=${USER}-wcm-code python apps/server.py`.
+Every command below was run end-to-end, in this order, against a **fresh `git clone` of the public repo** on
+Windows 11 + Docker 29.4.2. Where a step has a trap, the trap is named — each one was hit for real.
 
-> **The overlay is currently incomplete, and says so.** Five files are withheld because they still carry the
-> ROUTE1 isoacceptor code that was extracted to a separate repo, and the `multi_gene_knockout` variant on
-> Cellarium's launch path is not yet shipped. `apply_model_overlay.py` names every gap on every run and never
-> reports success while one is outstanding. Read [docs/OVERLAY.md §5](docs/OVERLAY.md) before relying on a
-> generated run.
+**1. Install Docker** — <https://docs.docker.com/get-started/>. Budget ~30 GB disk and 8 GB RAM for Docker.
+
+**2. Clone the model at the pinned commit — onto a BRANCH, not a detached HEAD.**
+
+```bash
+git clone https://github.com/CovertLab/wcEcoli        # Stanford academic, non-commercial licence
+cd wcEcoli
+git checkout -b cellarium-pin a4497e17                # a BRANCH at the pinned commit — see below
+```
+
+> **Why `-b`.** The plain `git checkout a4497e17` leaves a detached HEAD, and wcEcoli's own
+> `cloud/locally-build-wcm.sh` runs `GIT_BRANCH=$(git symbolic-ref --short HEAD)` under `set -eu` — which exits
+> 128 on a detached HEAD and aborts the build. Creating a branch at the same commit costs nothing and removes it.
+
+**3. Apply the overlay** — from the **Cellarium** repo root:
+
+```bash
+python scripts/apply_model_overlay.py --wcecoli ../wcEcoli --check   # verify, writes nothing
+python scripts/apply_model_overlay.py --wcecoli ../wcEcoli
+```
+
+Expected on a clean `a4497e17`: `44 shipped, 0 blocked` then `31 to replace, 13 to create, 0 problems`. Re-running
+is idempotent (`0 to replace, 0 to create, 44 already applied, 0 problems`). If it refuses with `!! STALE`, upstream changed a file the
+overlay ships — read [docs/OVERLAY.md](docs/OVERLAY.md) before reaching for `--force`.
+
+**4. Build the image** — from the **wcEcoli** root. First build is slow (~15–30 min; it compiles OpenBLAS-free
+numpy/scipy wheels, the Cython extensions and the model):
+
+```bash
+export USER=${USER:-$USERNAME}             # Git Bash on Windows leaves $USER EMPTY — see below
+cloud/build-containers-locally.sh          # builds ${USER}-wcm-runtime, then ${USER}-wcm-code
+docker image inspect "${USER}-wcm-code" > /dev/null && echo "image OK"
+```
+
+> **Why `export USER`.** Both build scripts name their images `${USER}-wcm-runtime` / `${USER}-wcm-code`. In Git
+> Bash on Windows `$USER` is unset (`$USERNAME` holds the login name), so the tag degenerates to `-wcm-runtime`
+> and `docker build -t` reads the leading dash as a flag.
+>
+> **Apply the overlay BEFORE building.** The image bakes the model in at `/wcEcoli` and compiles
+> `_trna_charging.pyx` during the build via the `setup.py` the overlay installs. Build first and you get an image
+> running stock code that *looks* fine.
+>
+> **Two upstream dependencies have bit-rotted, and the overlay fixes both.** Measured on a clean `a4497e17`:
+> `Equation==1.2.1`'s sdist downloads a setuptools from a `pypi.python.org` path that now returns HTML
+> (`zipfile.BadZipFile`), and `stochastic-arrow==1.0.0` imports numpy at build time with no build-requires, so
+> PEP 517 isolation hides it (`ModuleNotFoundError: No module named 'numpy'`). Either one stops the build dead.
+> The overlay ships `cloud/docker/runtime/Dockerfile` with four added `pip` lines and no other change; the
+> reasoning is in the file's own banner.
+
+**5. Verify the overlaid checkout before you trust a run** — from the **Cellarium** root:
+
+```bash
+python scripts/verify_overlay_route1.py  --tree ../wcEcoli   # kinetic model present, isoacceptor code gone
+python scripts/verify_overlay_variants.py --tree ../wcEcoli   # single / graded / multi KO ship AND register
+```
+
+Both must exit `0`. The second one runs the shipped `multi_gene_knockout` against a recording stub, replays
+Cellarium's own launch argv through runSim's real parser, and checks that the multi-KO gene set survives all four
+files it has to cross. Both have working negative controls: run either against a bare, un-overlaid checkout and
+they exit `1` (24 named failures for the variants check).
+
+Then confirm the *image* — this is the check that the Cython extension compiled and that eager variant
+registration did not blow up:
+
+```bash
+docker run --rm "${USER}-wcm-code" bash -lc 'cd /wcEcoli
+  python -c "import wholecell.utils._trna_charging; print(\"cython OK\")"
+  python -c "import models.ecoli.sim.variants as V; print([n for n in (\"gene_knockout\",\"graded_gene_knockout\",\"multi_gene_knockout\") if n in V.nameToFunctionMapping])"
+  python -c "from wholecell.sim.simulation import resolve_elongation_flags as r; print(r(False,False,True,False,True)[\"elongation_model\"])"
+  python runscripts/manual/runSim.py --help | grep -E "multi-ko-indices|kinetic-trna-charging"'
+```
+
+Expected: `cython OK`, all three knockout variants listed, `KineticTrnaChargingModel`, and the two flags present.
+`import models.ecoli.sim.variants` is the strict test — registration is eager, so a registered variant with a
+missing module raises there rather than at run time.
+
+**6. Point Cellarium at it.**
+
+```bash
+export WCECOLI_DOCKER=${USER}-wcm-code
+python apps/server.py
+```
+
+Then calibrate once with ParCa and run the smoke test — [docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md) §5–§6.
 
 You usually don't need to *generate* — most deep-dive designs can be pulled from the open **Hugging Face dataset**
 instead of re-run (see below); Docker/ParCa is only for designs not already in the corpus or on HF, and for the
@@ -239,7 +305,7 @@ Two layers — reasoning agents on top, the data + model substrate below.
 ```
 ① REASONING (Claude agents)
    Socratic Council (BLIND)         →  handoff  →   Cellwright (GROUNDED)      →  Launch airlock (HUMAN)
-   gate · Proposer→Skeptic→Judge                    38 corpus + literature tools    approval + biosecurity;
+   gate · Proposer→Skeptic→Judge                    70 corpus + literature tools    approval + biosecurity;
    sees dial_labels, never readings                 propose_experiments             the agent never launches
 
 ② SUBSTRATE (data + model)
@@ -251,9 +317,62 @@ Two layers — reasoning agents on top, the data + model substrate below.
 ```
 
 Key modules: `src/cellarium/council.py` (the Council + blindness invariant), `agent.py` (Cellwright), `tools.py`
-(the 38 grounded tools), `skills.py` + `skills/vendor/k-dense/` (literature skills, MIT), `manifest.py` / `store.py`
+(the 70 grounded tools), `skills.py` + `skills/vendor/k-dense/` (literature skills, MIT), `manifest.py` / `store.py`
 (corpus), `instrument.py` (the capability view the Council sees), `launch.py` (the airlock). `apps/server.py` serves
 the SPA; `apps/sessions.py` + `apps/hypotheses.py` persist Cellwright + Council runs.
+
+## Known limitations
+
+Reported here because a user should meet them before a result does, not after. Each row points at the backlog
+entry that carries the evidence and the next action — the numbers are not restated twice.
+
+**1. The steady-state charging LEVEL is outside every measurement, and the kinetic spread is unvalidated.**
+Like-for-like at identical state, the two elongation models give aggregate tRNA charging **0.9795 (steady-state)
+vs 0.8295 (kinetic)**. Avcilar-Kucukgoze et al. 2016 (*NAR* 44(17):8324) measure 50–60% in essentially our basal
+condition, and Choi & Covert's own published aggregate is **78.8%** — so the steady-state figure is outside the
+measured band entirely and the kinetic one sits four points high. Separately, our kinetic within-family spread
+(**LEU 0.25, GLY 0.32**) is about twice the widest published spread (0.16, Dittmar et al. 2005). *The capability
+is real; the magnitudes are not validated.* → [`BACKLOG.md` EXT-PORT-12](BACKLOG.md) (open).
+
+**2. The kinetic model's parameters are not identified against this knowledge base.** The shipped `K_T` values
+were optimised against tRNA abundances this KB no longer carries — `trpT` was assumed at 3.68 µM and this KB has
+1.10 µM, a **3.3× shortfall** — and because `K_T` (8.75 µM) already exceeds the pool, charging is first-order in
+abundance and the error passes straight through to the output. No ppGpp refit should be attempted before that is
+closed. → [`BACKLOG.md` EXT-PORT-13](BACKLOG.md) (open, next action), and EXT-4 behind it.
+
+**3. Codon identity does not reach the elongation rate in any run that exists.** The codon × anticodon reading
+matrix and its consumer are both in the checkout, but only the **kinetic** path elongates by codon; under
+**steady_state** and **coarse_kinetic** elongation draws from per-amino-acid pools and codon identity has no
+effect on rate. Every row in the shipped corpus is `steady_state`. The same asymmetry governs charging: under
+steady_state one per-amino-acid scalar is broadcast across all 86 isoacceptor columns, so within-family spread is
+**0.00 by construction, not by measurement**; under coarse_kinetic those columns are **exact zeros**, which is the
+absence of a model rather than total de-acylation. Any codon-usage or codon-bias claim from a corpus row would be
+inferred from sequence, not simulated. `model_capabilities` refuses these rather than returning a number — that
+refusal machinery exists *because* we once published the 0.00 as a result.
+→ [`src/cellarium/capability.py`](src/cellarium/capability.py) (`codon_level_elongation`,
+`per_isoacceptor_trna_charging`) and [`BACKLOG.md` SCI-TRNA-1 / SCI-TRNA-5](BACKLOG.md).
+
+**4. Some corpus rows are not reproducible from a fresh build, and some are thinner than the manifest suggests.**
+The corpus's cached knowledge base does **not** rebuild bit-identically from the current model image: exactly 1 of
+67 conditions differs (`minus_phosphate`), and a run added to the corpus today would silently use a different fit
+for it. The blast radius is bounded and stated — all four `minus_phosphate` runs are `qc=crashed`, **0 reportable**
+— so no published result rests on it, but *reproducibility of the published dataset depends on closing it*.
+Separately, the aaRS panel lists 4 seeds each for argS/pheS/alaS/lysS/gltX and only seed 0 is on disk, so
+`KO:lysS` is **n=1**. → [`BACKLOG.md` WELL-KBDRIFT-1](BACKLOG.md) (open) and
+[`BACKLOG.md` SCI-TRNA-2](BACKLOG.md) (open).
+
+**5. A `gene_knockout` is an operon knockout.** Under operons-ON — the model's default and the configuration all
+322 corpus rows were built in — `gene_knockout` zeroes one *transcription unit*. Measured: `KO:rpoB` leaves rpoB
+expressed, `KO:rpmJ` silences `secY`, `KO:flgB` deletes nine flagellar genes. Cellarium's `graded_gene_knockout`
+variant fixes the first two classes; nothing fixes the third short of a different knowledge base. The agent tool
+`operon_mode_advice` returns this decision with its citations and its gaps.
+→ [`docs/KNOCKOUT_SEMANTICS.md`](docs/KNOCKOUT_SEMANTICS.md), [`BACKLOG.md` OPERONS-1 / OPERONS-3](BACKLOG.md).
+
+**6. Upstream's own container build is broken today, and the overlay is what fixes it.** Two dependencies pinned
+in wcEcoli's `requirements.txt` have bit-rotted (`Equation`, `stochastic-arrow`); a clean `a4497e17` checkout
+cannot build its image without the overlay's `cloud/docker/runtime/Dockerfile`. That means **the model half of
+this project is only reproducible through Cellarium's overlay right now**, which is a dependency worth stating
+plainly rather than discovering. → [`docs/OVERLAY.md`](docs/OVERLAY.md).
 
 ## Scope, honesty & biosecurity
 
@@ -267,7 +386,7 @@ simulation. Organism: *E. coli* K-12 MG1655 (a lab strain).
 **Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not** MIT: it is
 the [Covert-lab wcEcoli model](https://github.com/CovertLab/wcEcoli) under Stanford's academic (non-commercial)
 license, obtained and run separately by the user (see [docs/DECISIONS.md](docs/DECISIONS.md) D3). Cellarium ships
-**no model image and no model-derived data**, but it does redistribute 30 **model source files** under
+**no model image and no model-derived data**, but it does redistribute 44 **model source files** under
 [`model_overlay/`](model_overlay/) — the changes without which its designs cannot run. Most derive from
 CovertLab/WholeCellEcoliRelease **v3.0.1** (Choi & Covert 2023, *NAR* 51(12):5911, doi:10.1093/nar/gkad435),
 redistributed **with Prof. Covert's permission** under the same non-commercial terms; the rest are Cellarium's own

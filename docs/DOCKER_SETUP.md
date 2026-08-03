@@ -10,7 +10,7 @@ regenerate‑locally path. Those call the **public Covert‑lab wcEcoli model** 
 > **not** open source. Clone it yourself, accept that license, and run it locally. Any image you build below is
 > built from *your* checkout and **must never be published**. Cellarium redistributes **no image**.
 >
-> It does redistribute a small set of **model source files** — [`model_overlay/`](../model_overlay/), 30 files —
+> It does redistribute a small set of **model source files** — [`model_overlay/`](../model_overlay/), 44 files —
 > without which Cellarium's designs cannot run. Most of it derives from CovertLab/WholeCellEcoliRelease **v3.0.1**
 > (Choi & Covert 2023, *NAR* 51(12):5911) and is redistributed **with Prof. Covert's permission**, under the same
 > non‑commercial terms. It is model source, not a model, and not model‑derived *data*.
@@ -29,11 +29,15 @@ regenerate‑locally path. Those call the **public Covert‑lab wcEcoli model** 
 ```bash
 git clone https://github.com/CovertLab/wcEcoli        # Stanford academic, non-commercial license
 cd wcEcoli
-git checkout a4497e17                                  # the commit the overlay is pinned to
+git checkout -b cellarium-pin a4497e17                 # a BRANCH at the pinned commit -- see the note below
 ```
 
 `a4497e17` is the commit every SHA256 in `model_overlay/MANIFEST.json` is taken against. A different commit is
 not fatal — step 2 will tell you exactly which files moved — but it is the state this path is verified on.
+
+> **Use `-b`, not a bare `git checkout a4497e17`.** A detached HEAD makes step 3 fail: wcEcoli's own
+> `cloud/locally-build-wcm.sh` runs `GIT_BRANCH=$(git symbolic-ref --short HEAD)` under `set -eu`, and that exits
+> 128 on a detached HEAD, aborting the build before Docker is invoked. Measured on a fresh clone.
 
 ## 2. Apply the Cellarium overlay
 
@@ -52,9 +56,10 @@ python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli
 may be hiding a real upstream fix, so the tool **stops and names the file** instead of overwriting it. `--force`
 proceeds anyway and prints each file it overwrote.
 
-Expect it to exit non-zero and list files it is *not* shipping: that is the point, and
-[docs/OVERLAY.md §5](OVERLAY.md) explains each one. There is **no** `docker/local/` in upstream wcEcoli — earlier
-versions of this guide told you to build from `docker/local/Dockerfile`, which does not exist. Use step 3.
+Expected on a clean `a4497e17`: `44 shipped, 0 blocked`, then `31 to replace, 13 to create, 0 problems`.
+Re-running is idempotent. Earlier versions of this guide warned that the overlay would exit non-zero and name
+files it was withholding; **nothing is withheld now** — see [docs/OVERLAY.md §5](OVERLAY.md) for what was cleared
+and what remains open. There is still **no** `docker/local/` in upstream wcEcoli; step 3 is the supported route.
 
 ## 3. Build the local image
 
@@ -63,10 +68,21 @@ wcEcoli ships its own two-stage local build (`cloud/docker/runtime/Dockerfile` f
 the model, so the first build is slow, ~15–30 min:
 
 ```bash
+export USER=${USER:-$USERNAME}             # Git Bash on Windows leaves $USER EMPTY -- see below
 cloud/build-containers-locally.sh          # builds ${USER}-wcm-runtime, then ${USER}-wcm-code
 docker image inspect "${USER}-wcm-code" >/dev/null && echo "image OK"
 docker tag "${USER}-wcm-code" wcecoli-sim   # the name the rest of this guide uses
 ```
+
+> **Why `export USER`.** Both build scripts tag their images `${USER}-wcm-runtime` / `${USER}-wcm-code`. In Git
+> Bash on Windows `$USER` is unset (`$USERNAME` holds the login name), so the tag degenerates to `-wcm-runtime`
+> and `docker build -t` reads the leading dash as a flag.
+>
+> **Two upstream pins have bit-rotted, and the overlay fixes both.** On a clean `a4497e17` this build fails
+> twice: `Equation==1.2.1` downloads a setuptools from a dead `pypi.python.org` path (`zipfile.BadZipFile`), and
+> `stochastic-arrow==1.0.0` imports numpy at build time with no build-requires (`ModuleNotFoundError: No module
+> named 'numpy'`). The overlay ships `cloud/docker/runtime/Dockerfile` with four added `pip` lines and no other
+> change — which is another reason step 2 must come first.
 
 Apply the overlay **before** building: the image bakes the model in at `/wcEcoli`, and the Cython extension
 `_trna_charging.pyx` the overlay installs is compiled during the build by the `setup.py` the overlay also
