@@ -81,6 +81,18 @@ def variant_map(sim_path: str = "cellarium") -> dict:
     return _invoke("variant_map", OUT_ROOT / sim_path)
 
 
+def kb_content_hash(sim_path: str = "cellarium") -> dict:
+    """A hash of sim_data's CONTENT, stable across ParCa refits — unlike the file hash.
+
+    `provenance.kb_provenance()["kb_sha256"]` hashes the pickle bytes and is therefore only sound in one
+    direction: same hash => same kb, but a DIFFERENT hash does NOT mean a different experiment. Two fits of
+    identical code produced different file hashes and bitwise-identical simulations (measured 2026-08-03).
+    Use this when deciding whether two runs are comparable; use the file hash only to prove identity.
+
+    Heavy — it unpickles sim_data and walks it. Cache the result."""
+    return _invoke("kb_content_hash", OUT_ROOT / sim_path)
+
+
 def gene_map(sim_path: str = "cellarium") -> dict:
     """{symbol: monomer_id} from sim_data — for resolving the curated pathway panel. Heavy; cache it."""
     return _invoke("gene_map", OUT_ROOT / sim_path)

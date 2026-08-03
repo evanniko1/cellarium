@@ -65,6 +65,13 @@ class GenerationResult(BaseModel):
     divided: bool = True
     division_time_sec: float | None = None
     n_steps: int = 2500
+    # First and last recorded timestep. Present so `qc.check_result` can test that generation n's data actually
+    # REACHES generation n+1: an end-truncated generation still satisfies the division test (full_chromosome
+    # ends at 2 over a long trajectory), so `divided` is True and `division_time_sec` quietly becomes the last
+    # step that survived rather than the real division. Optional because pre-existing manifest rows have no
+    # such fields — absent means "not checkable", never "continuous".
+    t_start: float | None = None
+    t_end: float | None = None
     fba_ok: bool = True
     is_dead: bool = False
     growth_mean: float | None = None        # per-generation means -> approach to steady state in multi-gen runs

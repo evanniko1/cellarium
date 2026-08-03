@@ -522,6 +522,48 @@ def harvest(source: str, upstream: str) -> tuple[list[dict], dict[str, bytes]]:
     return records, bodies
 
 
+def carry_patches(records: list[dict], bodies: dict[str, bytes]) -> list[str]:
+    """Re-apply Cellarium-authored edits over the freshly harvested bodies. Returns the paths carried.
+
+    `harvest` copies from --source (the finished wcEcoli checkout) and `write_overlay` rmtree's
+    model_overlay/files first, so ANY edit made to a shipped file here is silently reverted by the next
+    rebuild — the file would go back to the harvested body and the manifest hash would follow it, leaving
+    nothing to notice. That is not hypothetical: the EXT-PORT-13 listener gate is exactly such an edit, and
+    without this it would vanish on the next `python scripts/build_model_overlay.py` with a clean exit.
+
+    A patched file is declared by a `cellarium_patch` block on its record in the EXISTING manifest, which
+    records the pre-patch (`harvested_*`) hash. When the harvest still produces that pre-patch body the
+    patch is carried forward silently. When the harvest produces something ELSE the upstream file has moved
+    underneath the patch, so the patch is dropped and the path is reported — re-applying a stale edit to a
+    changed file is worse than losing it, and it must be a human decision either way."""
+    if not os.path.isfile(MANIFEST):
+        return []
+    prior = {r["path"]: r for r in json.load(io.open(MANIFEST, encoding="utf-8")).get("files", [])
+             if r.get("cellarium_patch")}
+    carried, dropped = [], []
+    for rec in records:
+        rel = rec["path"]
+        p = prior.get(rel)
+        if not p or rel not in bodies:
+            continue
+        patch = p["cellarium_patch"]
+        if sha256(bodies[rel]) != patch.get("harvested_sha256"):
+            dropped.append(rel)
+            continue
+        kept = read_lf(os.path.join(FILES, rel.replace("/", os.sep)))
+        if kept is None or sha256(kept) != p["overlay_sha256"]:
+            dropped.append(rel)                      # the patched file on disk is not what the manifest says
+            continue
+        bodies[rel] = kept
+        rec.update(overlay_sha256=p["overlay_sha256"], overlay_bytes=p["overlay_bytes"],
+                   cellarium_patch=patch)
+        carried.append(rel)
+    for rel in dropped:
+        print("  PATCH DROPPED  %-58s upstream moved, or the patched file is not what the manifest "
+              "records — re-apply by hand" % rel, file=sys.stderr)
+    return carried
+
+
 def write_overlay(records: list[dict], bodies: dict[str, bytes]) -> None:
     if os.path.isdir(FILES):
         shutil.rmtree(FILES)
@@ -572,8 +614,11 @@ def main(argv=None) -> int:
             return 2
 
     records, bodies = harvest(a.source, a.upstream)
+    carried = carry_patches(records, bodies)         # BEFORE the ship/blocked split: it rewrites hashes
     shipped = [r for r in records if r["status"] == "ship"]
     blocked = [r for r in records if r["status"] == "blocked"]
+    for rel in carried:
+        print("  patch carried  %s" % rel)
 
     if a.check:
         stale = []

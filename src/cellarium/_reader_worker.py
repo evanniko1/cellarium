@@ -131,7 +131,14 @@ def _generation(so, i):
     except Exception:
         fba_ok = True
     divided = fc == 2 and n > 10
+    # t_start/t_end are what let qc.check_result see END-TRUNCATION: a generation whose data stops before the
+    # division that ended it still satisfies `fc == 2 and n > 10`, so `divided` is True and division_time_sec
+    # is silently the last RECORDED step rather than the real division. Only the NEXT generation's start time
+    # reveals the gap, so the times have to travel with the generation. MEASURED 2026-08-03:
+    # wildtype_374656/000000 gen 0 stops at 2047 s while gen 1 starts at 2530 s (19% of the generation
+    # missing) and was recorded qc='ok', reportable=True.
     return {"index": i, "n_steps": n, "full_chromosome_end": fc, "fba_ok": fba_ok,
+            "t_start": (float(t[0]) if n else None), "t_end": (float(t[-1]) if n else None),
             "divided": divided, "division_time_sec": (float(t[-1]) if divided else None),
             "growth_mean": _chan_mean(so, "growth_rate"),   # per-gen trajectory -> see approach to steady state
             "ppgpp_mean": _chan_mean(so, "ppgpp_conc")}
@@ -240,6 +247,7 @@ def _cell_viability(so):
     divided = bool(fc == 2 and n > 10)
     return {"n_steps": n, "divided": divided, "fba_ok": fba_ok,
             "division_time_sec": (float(t[-1]) if divided else None),
+            "t_start": (float(t[0]) if n else None), "t_end": (float(t[-1]) if n else None),
             "full_chromosome_end": int(fc), "readable": True}
 
 
@@ -676,6 +684,110 @@ def mode_reroute_diagnosis(gene, ko_csv, wt_csv):
                      "No artifact signature: the enzyme carried no WT flux, or the KO did not zero it.")}
 
 
+def mode_kb_content_hash(root):
+    """A hash of what a SIMULATION reads out of sim_data, not of the pickle's bytes.
+
+    Why this exists. `provenance.kb_provenance` hashes `simData.cPickle` byte-for-byte, and the corpus uses
+    that `kb_sha256` to decide which runs are comparable. MEASURED 2026-08-03: two ParCa runs of the SAME
+    image, same inputs, same `--cpus 14`, minutes apart, produced DIFFERENT file hashes
+    (`94325a1e…` / `9881c39e…`) whose `exp_ppgpp` was bit-identical (0 of 3276 entries differing) and whose
+    simulations were bitwise identical over all 2530 timesteps on both ppGpp and cellMass. So ParCa's
+    behaviour is deterministic and only its serialisation is not: the file hash is sound as
+    "same hash => same kb" but UNSOUND as "different hash => different experiment". Left uncorrected it
+    refuses legitimate pooling and overcounts distinct baselines.
+
+    The hash walks the object graph rather than naming fields, because any hand-picked field list is a guess
+    about what matters and would silently miss whatever it omitted. Ordering is by attribute/key name so it
+    does not depend on dict insertion order; numpy arrays contribute dtype, shape and raw bytes. Callables,
+    modules and anything that raises on access are skipped and COUNTED — a hash that quietly skipped half the
+    object would compare equal for the wrong reason, so the counts are returned and must be checked.
+
+    VERIFIED 2026-08-03, both directions:
+      * the two ParCa fits above, with DIFFERENT file hashes, hash IDENTICALLY here (`99ab9368…`) — the false
+        difference the file hash reports is gone;
+      * a knowledge base that genuinely differs (native tree with phnE1 reverted to `mRNA`) hashes
+        differently (`624d5a9f…`) — the real difference is preserved.
+      * coverage on a real sim_data: 415,137 nodes walked, 17,714 arrays, 311,048 scalars, 20 skipped,
+        0 hit the depth cap.
+
+    KNOWN LIMIT, also measured: this answers "same knowledge base", NOT "same simulation output". The fork kb
+    (`c1bd1018…`) and the phnE1-reverted native kb (`624d5a9f…`) hash differently yet give bitwise identical
+    simulations for `gltX+relA+spoT`, because they differ only in fields that design never reads. Same hash
+    implies same output; different hash does not imply different output.
+    """
+    import hashlib
+    import pickle
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": f"no sim_data at {kb} (run ParCa first)"}
+    with open(kb, "rb") as f:
+        sim_data = pickle.load(f)
+
+    h = hashlib.sha256()
+    stats = {"arrays": 0, "scalars": 0, "skipped": 0, "max_depth_hit": 0, "nodes": 0}
+    seen: set[int] = set()
+    MAX_DEPTH = 12
+
+    def walk(obj, depth: int) -> None:
+        stats["nodes"] += 1
+        if depth > MAX_DEPTH:
+            stats["max_depth_hit"] += 1
+            h.update(b"<depth>")
+            return
+        if obj is None or isinstance(obj, (bool, int, float, complex, str, bytes)):
+            h.update(repr(obj).encode("utf-8", "replace"))
+            stats["scalars"] += 1
+            return
+        if isinstance(obj, np.ndarray):
+            a = np.ascontiguousarray(obj)
+            h.update(f"ndarray|{a.dtype.str}|{a.shape}|".encode())
+            h.update(a.tobytes() if a.dtype.kind != "O" else repr(a.tolist()).encode("utf-8", "replace"))
+            stats["arrays"] += 1
+            return
+        if isinstance(obj, np.generic):
+            h.update(f"npscalar|{obj.dtype.str}|{obj!r}".encode("utf-8", "replace"))
+            stats["scalars"] += 1
+            return
+        if callable(obj) or isinstance(obj, type(os)):        # bound methods, functions, modules
+            stats["skipped"] += 1
+            return
+        if id(obj) in seen:                                    # cycles, and shared sub-objects counted once
+            h.update(b"<seen>")
+            return
+        seen.add(id(obj))
+        try:
+            if isinstance(obj, dict):
+                h.update(b"{")
+                for k in sorted(obj, key=repr):
+                    h.update(repr(k).encode("utf-8", "replace"))
+                    walk(obj[k], depth + 1)
+                h.update(b"}")
+                return
+            if isinstance(obj, (list, tuple, set, frozenset)):
+                items = sorted(obj, key=repr) if isinstance(obj, (set, frozenset)) else obj
+                h.update(b"[")
+                for v in items:
+                    walk(v, depth + 1)
+                h.update(b"]")
+                return
+            d = getattr(obj, "__dict__", None)
+            if isinstance(d, dict):
+                h.update(f"<{type(obj).__name__}>".encode())
+                for k in sorted(d):
+                    if k.startswith("__"):
+                        continue
+                    h.update(k.encode())
+                    walk(d[k], depth + 1)
+                return
+            h.update(repr(obj).encode("utf-8", "replace"))     # units, Decimal, anything with a stable repr
+            stats["scalars"] += 1
+        except Exception:
+            stats["skipped"] += 1
+
+    walk(sim_data, 0)
+    return {"kb_content_sha256": h.hexdigest(), "kb_path": kb, "max_depth": MAX_DEPTH, "stats": stats}
+
+
 def mode_variant_map(root):
     """Load sim_data (kb) and dump the variant index maps the model uses, so KO/condition design panels can
     be built with indices that match the model's own ordering (gene_knockout: idx = gene position + 1, 0 =
@@ -802,6 +914,8 @@ if __name__ == "__main__":
         out = mode_list_species(run_root, sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "")
     elif mode == "variant_map":
         out = mode_variant_map(run_root)
+    elif mode == "kb_content_hash":
+        out = mode_kb_content_hash(run_root)
     elif mode == "gene_map":
         out = mode_gene_map(run_root)
     elif mode == "gene_scope":

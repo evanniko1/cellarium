@@ -923,3 +923,76 @@ misread as a finding later.** It is a degenerate-NNLS tie-break, it is real, and
 Consequence for the corpus: any run produced after this change is on a new baseline and is not poolable
 with earlier rows without checking `kb_sha256`. The degeneracy itself is a pre-existing fragility of the
 ParCa fit that this change merely exposed, and it deserves its own investigation.
+
+### MEASURED END TO END, 2026-08-03 (item 7) — the phenotype cost, the causal proof, and a hole in the mitigation
+
+The paragraphs above were written from the knowledge base. Reproducing the corpus's multi-gene knockouts on
+the Cellarium-native tree measured what they cost a *simulation*, and closed the causal chain by reversion.
+
+**1. The phenotype cost.** `gltX+relA+spoT`, seed 0, 1 generation, steady-state, operons on, everything else
+held fixed:
+
+| arm | ppGpp mean | cellMass mean | vs fork |
+|---|---|---|---|
+| fork code + fork kb (`3b2f8ebd…`) | 372.0503 | 1413.5835 | — |
+| **native code + fork kb** | **372.0503** | **1413.5835** | **2529/2529 timesteps bitwise identical** |
+| native code + native kb, ParCa fit 1 | 267.5788 | 1421.6972 | **−28.08%** |
+| native code + native kb, ParCa fit 2 | 267.5788 | 1421.6972 | −28.08% |
+
+So **the ported CODE is inert** — on the wildtype control, 212 of 212 comparable biological columns are
+bitwise identical, the only 17 that differ being `EvaluationTime/*` wall-clock instrumentation. **100% of the
+observed difference is this one row of `rnas.tsv`.** The ppGpp gap is *systematic, not chaotic*: it grows
+monotonically (−0.5% → −30.5%) while cellMass never diverges more than **0.925%**, unlike a genuine chaotic
+split (the wildtype control's ppGpp sign-flips −15 → −1 → +10 → +25% and only opens *after* the masses
+separate at step 1395).
+
+**2. The causal proof.** Reverting `EG11283_RNA` to `mRNA` — one row, nothing else — and refitting:
+
+| `exp_ppgpp` | fork (mRNA) | native (pseudo) | native + REVERTED |
+|---|---|---|---|
+| `gatZABC[c]` | 3.514768e-05 | **0.000000e+00** | **3.514768e-05** |
+| `TU874[c]` | 2.351765e-06 | **0.000000e+00** | **2.351765e-06** |
+| `TU0-1281[c]` (uof-fur) | 1.460350e-05 | 1.057383e-05 | 1.460350e-05 |
+| cistrons | 4539 | 4538 | 4539 |
+| entries differing vs fork | — | 2905/3276 (max 316.56%) | **0/3276 (max 0.00%)** |
+
+**And it closes output-side, bitwise.** Running the same knockout on the reverted knowledge base reproduces
+the fork EXACTLY: ppGpp mean **372.0503**, cellMass mean **1413.5835**, and **2529/2529 timesteps bitwise
+identical on BOTH channels** (leading identical run = 2529 — the whole generation). One row of a TSV accounts
+for **100%** of the difference between the fork tree and the Cellarium-native tree.
+
+Note `gatZABC` and `TU874` are driven to **EXACTLY ZERO** in the ppGpp expression basis. The table above this
+section lists the *degradation-rate* movers (fur/tnaC); these are *expression-basis* movers, and they are a
+distinct consequence of the same degenerate solve. `TU0-1281` appears in both.
+
+**3. The hole in the mitigation.** The paragraph above says to check `kb_sha256`. **`kb_sha256` cannot carry
+that weight as written.** Two ParCa runs of the SAME image, same inputs, same `--cpus 14`, minutes apart:
+
+    fit 1  94325a1e547f4ec631d1c9b1…      fit 2  9881c39e4528e74d7eb58be1…
+
+Different hashes — but their `exp_ppgpp` is **bit-identical (0/3276)** and their simulations are **bitwise
+identical over all 2530 timesteps** on both ppGpp and cellMass. So ParCa's *behaviour* is deterministic and
+only its *serialisation* is not. `kb_sha256` is therefore sound as "same hash ⇒ same kb" but **UNSOUND as
+"different hash ⇒ different experiment"**: it reports FALSE partitions. A comparability guard built on it
+will refuse legitimate pooling and will silently inflate the count of distinct baselines. Invariant 2 in
+`BACKLOG.md` (`F-HYG`) and the open `M-11` enforcement item both need this qualifier.
+
+**4. Support standing — this is a SINGLE POINT, by Cellarium's own bar.** `support.coverage` on the design
+the numbers come from (`multi_gene_knockout_0_8567d1a0`) returns `sufficient: false`, `n_seeds: 1`,
+`max_generations: 1`, with its own warning: *"a value measured inside one generation is a TRANSIENT, not a
+steady state, and adding seeds will not fix that."* The companion design
+(`multi_gene_knockout_0_8dacc4fb`, pfkA+pfkB) returns `n_seeds: 0` — its raw is HF-only — *"This is an
+ABSENCE, not a finding of zero."* Classify accordingly:
+
+* **Identities, where n=1 is sufficient by construction** (a bitwise match cannot be seed-dependent): the
+  code's inertness (2529/2529; 212/212 columns), `exp_ppgpp` 0/3276 after reversion, the cistron counts, and
+  fit1≡fit2 (2530/2530).
+* **Quantities that do NOT clear the bar and must be reported as one point**: the **−28.08% ppGpp
+  magnitude** (1 seed × 1 generation × 1 genotype, on a cell with zero elongation for 100% of timesteps),
+  and the graded dose values below. **Owed: ≥2 seeds × ≥2 generations, and at least one live-cell genotype,
+  before this magnitude is quoted anywhere.**
+
+**DECISION: phnE1 stays `pseudo`.** Reverting would put a stop-codon-bearing pseudogene back into
+translation, which is worse biology than a shifted ppGpp basis, and the correction matches v3.0.1. It is
+retained as the worked example of a *model correction whose blast radius exceeded its subject* — a
+phosphonate pseudogene that moves the stringent response — alongside the tRNA charging port.

@@ -74,7 +74,7 @@ def _elongation_args(design: Design) -> list[str]:
 
     Emitting nothing for "steady_state" is what preserves byte-identical command lines, and therefore
     byte-identical behaviour, for every design that existed before this axis. These are SIM options like
-    `--timeline`, not env vars, so they belong on the command line and never in `_EXEC_ENV`.
+    `--timeline`, not env vars, so they belong on the command line and never in the per-run exec env.
 
     Exactly one flag is ever emitted. The two are mutually exclusive alternatives rather than modifiers — with
     both passed, argparse accepts them and `polypeptide_elongation.py` silently picks kinetic while
@@ -229,9 +229,24 @@ def _flat_file_mounts() -> list[str]:
     return out
 
 
-# Per-invocation env for the model process, set by run_one around _exec. A module global rather than a
-# parameter because _exec is called from several places and only one of them needs it.
-_EXEC_ENV: dict | None = None
+# Per-invocation env for the model process, set by run_one around _exec. Not a parameter because _exec is
+# called from several places and only one of them needs it — but THREAD-LOCAL, not a module global.
+#
+# `manifest.campaign(parallel>1)` runs jobs in a ThreadPoolExecutor (manifest.py), so a module global here is
+# shared mutable state across concurrent runs. Two `graded_gene_knockout` designs for DIFFERENT genes could
+# interleave — A sets GRADED_KO_CISTRON, B overwrites it, A's container then suppresses B's gene — producing a
+# complete, plausible run labelled with the wrong knockout. That is the worst failure shape this project has:
+# it looks exactly like data. Thread-local storage makes each worker's env private, so the interleaving is
+# harmless. (Found 2026-08-03; never triggered, because every graded run so far targeted one gene.)
+_EXEC_LOCAL = threading.local()
+
+
+def _get_exec_env() -> dict | None:
+    return getattr(_EXEC_LOCAL, "env", None)
+
+
+def _set_exec_env(env: dict | None) -> None:
+    _EXEC_LOCAL.env = env
 
 
 def _exec(script_args: list[str]) -> None:
@@ -246,7 +261,7 @@ def _exec(script_args: list[str]) -> None:
     if WCECOLI_DOCKER:
         OUT_ROOT.mkdir(parents=True, exist_ok=True)
         extra_env: list[str] = []
-        for k, v in (_EXEC_ENV or {}).items():
+        for k, v in (_get_exec_env() or {}).items():
             extra_env += ["-e", f"{k}={v}"]
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
                *_flat_file_mounts(), *extra_env,
@@ -372,13 +387,12 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         if evac and not evac.get("evacuated"):
             raise RuntimeError(
                 f"Refusing to run: {evac['why']}. Running would overwrite it. Move or delete it deliberately.")
-        global _EXEC_ENV
-        _EXEC_ENV = _graded_ko_env(design)      # raises if a graded design cannot be fully specified
+        _set_exec_env(_graded_ko_env(design))   # raises if a graded design cannot be fully specified
         try:
             _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
                    "--generations", str(generations), *_variant_args(design)])
         finally:
-            _EXEC_ENV = None
+            _set_exec_env(None)
         # Move the model's output into the CANONICAL dir, mirroring what multi_gene_knockout already does.
         if model_dir != run_root and model_dir.exists():
             for child in list(model_dir.iterdir()):
@@ -389,16 +403,6 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
                 model_dir.rmdir()                  # only when empty — never remove another design's output
             except OSError:
                 pass
-    # Record what this run ACTUALLY cost, so `estimate_sim_resources` stops guessing. Wall-clock per generation
-    # and GB per generation were both hard constants; a campaign that never reports its own cost can never
-    # correct them. Never allowed to break a completed run — the sim finishing is the valuable part.
-    try:
-        from . import calibration
-        _reached = len(glob.glob(os.path.join(str(run_root), "**", "simOut"), recursive=True)) or generations
-        calibration.observe_run(str(run_root), generations=_reached, elapsed_sec=time.time() - _t0,
-                                arrested=bool(_reached < generations))
-    except Exception:
-        pass
     if design.perturbation == "multi_gene_knockout":
         # the index-0 variant writes to multi_gene_knockout_000000/<seed>; move its generations into the hashed
         # run_root so distinct gene sets don't overwrite each other. Run multi-gene batches with --parallel 1.
@@ -408,6 +412,23 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
                 dest = run_root / child.name
                 if not dest.exists():
                     shutil.move(str(child), str(dest))
+    # Record what this run ACTUALLY cost, so `estimate_sim_resources` stops guessing. Wall-clock per generation
+    # and GB per generation were both hard constants; a campaign that never reports its own cost can never
+    # correct them. Never allowed to break a completed run — the sim finishing is the valuable part.
+    #
+    # MUST run AFTER the multi_gene_knockout move above, not before it. `observe_run` sizes `run_root`, and for a
+    # multi-gene KO the output is still sitting in the transit dir at that point — so measuring first recorded
+    # gb_per_generation = 3.26e-07 for a run that wrote ~0.5 GB, i.e. every multi-gene KO fed the resource
+    # estimator a value ~1.5e6x too small. Measured 2026-08-03; the polluted observations were discarded.
+    # `_reached` is counted here too, for the same reason: before the move it would count zero simOut dirs and
+    # fall back to `generations`, hiding a partial run behind the requested depth.
+    try:
+        from . import calibration
+        _reached = len(glob.glob(os.path.join(str(run_root), "**", "simOut"), recursive=True)) or generations
+        calibration.observe_run(str(run_root), generations=_reached, elapsed_sec=time.time() - _t0,
+                                arrested=bool(_reached < generations))
+    except Exception:
+        pass
     return run_root
 
 

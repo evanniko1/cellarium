@@ -229,8 +229,14 @@
       "upstream_sha256": null,
       "upstream_bytes": null,
       "status": "ship",
-      "overlay_sha256": "07fa9ed1e3292481b041737710afe1b04a97ea4b47ad36e908e1f7645edcebb6",
-      "overlay_bytes": 7165
+      "overlay_sha256": "f27881b4a13494b89f069f89218f8de7df96a09347e692f779061cee934b9a32",
+      "overlay_bytes": 8496,
+      "cellarium_patch": {
+        "why": "EXT-PORT-13. This listener is registered unconditionally (models/ecoli/sim/simulation.py _listenerClasses) and read sim_data.relation.codons in initialize(), so a STEADY-STATE run -- which writes none of the columns those attributes size -- could not start against a pre-port sim_data. Measured: both fork-era multi_gene_knockout baselines died in 6 s with AttributeError on kb_sha256 3b2f8ebd..., the kb behind 279 of the corpus's 322 rows. The read is now gated on the _kinetic_path flag the listener already computes 8 lines above it: REQUIRED (and still raising) on the kinetic path, optional on the steady-state path.",
+        "harvested_sha256": "07fa9ed1e3292481b041737710afe1b04a97ea4b47ad36e908e1f7645edcebb6",
+        "harvested_bytes": 7165,
+        "verified_by": "tests/test_trna_listener_gate.py"
+      }
     },
     {
       "path": "wholecell/utils/_trna_charging.pyx",

@@ -37,8 +37,27 @@ class TrnaCharging(wholecell.listeners.listener.Listener):
 		# wrong width against data that is 86 wide.
 		trnas = sim_data.process.transcription.uncharged_trna_names
 		self.n_trnas = len(trnas)
-		self.n_codons = len(sim_data.relation.codons)
-		self.trna_codon_pairs = sim_data.relation.trna_codon_pairs
+
+		# EXT-PORT-13: `relation.codons` / `relation.trna_codon_pairs` exist ONLY in a sim_data fitted by
+		# THIS tree's ParCa. They are read here, in a listener that is registered unconditionally
+		# (models/ecoli/sim/simulation.py:_listenerClasses), so before this gate a STEADY-STATE run — which
+		# writes none of the columns they size, as `_kinetic_path` above already records — could not even
+		# START against a pre-port sim_data. Measured: both fork-era multi_gene_knockout baselines died in
+		# 6 s with `AttributeError: 'Relation' object has no attribute 'codons'` on kb_sha256 3b2f8ebd…,
+		# which backs 279 of the corpus's 322 rows. The gate existed 8 lines above the read.
+		#
+		# On the KINETIC path these are REQUIRED and a missing attribute is a real misconfiguration, so it
+		# must still raise. On the steady-state path they size columns that are allocate()-time zeros for
+		# the whole run, so an empty relation degrades to zero-width columns — absence stays absence, and
+		# `unwritten_columns` in tableCreate already carries that caveat into the output.
+		relation = sim_data.relation
+		if self._kinetic_path:
+			codons = relation.codons                                  # must exist; AttributeError is correct
+			self.trna_codon_pairs = relation.trna_codon_pairs
+		else:
+			codons = getattr(relation, 'codons', ())
+			self.trna_codon_pairs = getattr(relation, 'trna_codon_pairs', ())
+		self.n_codons = len(codons)
 		self.n_trna_codon_pairs = len(self.trna_codon_pairs)
 		self.n_amino_acids = len(sim_data.molecule_groups.amino_acids)
 

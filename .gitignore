@@ -18,6 +18,10 @@ dist/
 
 # Model output — full simOut + ParCa cache stay LOCAL (huge; license-restricted). Never commit.
 runs/
+# comparison / scratch output roots (runs_native, runs_codeonly, ...). .gitignore has no inline
+# comments, so these must sit on their own lines. manifest.py's _NORM_PATH already treats
+# `runs_<suffix>` as a run root, so the naming is not new here.
+runs_*/
 out/
 
 # Do NOT ignore data/cache — the cached demo results are committed for reproducibility.
