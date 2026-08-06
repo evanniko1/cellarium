@@ -53,8 +53,24 @@ def list_results() -> list[dict]:
                  "condition": r.design.condition, "timeline": r.design.timeline,
                  "seed": r.design.seeds, "qc": "ok", "reportable": True,
                  "elongation_model": r.design.elongation_model} for r in _json.list()]
+    # TOMBSTONE ANNOTATION. `manifest.drop_run` deliberately keeps the parquet row — a dropped run must stay
+    # auditable — but until now NOTHING on a read path consulted the tombstone set, so a dropped run came back
+    # here indistinguishable from a good one, carrying whatever `reportable` it was written with. MEASURED
+    # 2026-08-06: 20 runs tombstoned as mislabelled knockouts (they silenced unrelated transcription units)
+    # were still returned by `list_results(gene="argS")` with qc="ok" and reportable=true, alongside the
+    # correct re-runs which are legitimately crashed/false — so the naive read preferred the WRONG rows. This
+    # is the row source for integrity_check, reconcile_disk, hf._design_seeds and the UI, so annotating here
+    # fixes all of them at once. `reportable` is forced False because that is the field every downstream gate
+    # actually tests; the `dropped` flag and the reason ride along so nothing has to guess why.
+    tombstones = manifest.dropped_keys()
+    by_id = {t.get("id"): t for t in tombstones.values()} if isinstance(tombstones, dict) else {}
     for r in rows:  # tag each result in-sample (fitted) vs out-of-sample (predicted)
         r["provenance"] = provenance.tag(r.get("perturbation"), r.get("condition"))
+        t = by_id.get(r.get("id"))
+        r["dropped"] = bool(t)
+        if t:
+            r["reportable"] = False
+            r["dropped_reason"] = t.get("reason", "")
     return rows
 
 

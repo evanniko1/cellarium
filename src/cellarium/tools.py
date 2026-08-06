@@ -33,12 +33,19 @@ _INTERNAL_DEFECT = (AttributeError, NameError, UnboundLocalError, IndexError, As
 _SPECIES_KINDS = ["protein", "mrna", "metabolite", "reaction_flux", "exchange_flux", "unique"]
 
 
-def list_results(gene: str | None = None, perturbation: str | None = None, contains: str | None = None) -> dict:
+def list_results(gene: str | None = None, perturbation: str | None = None, contains: str | None = None,
+                 include_dropped: bool = False) -> dict:
     """List simulation results (id, label, QC). FILTER rather than dump the whole corpus: gene='pfkA' returns just
     that KO's runs, perturbation='gene_knockout' narrows to KOs, contains='<label substring>' is a free search.
     The full unfiltered list is long and may be truncated in context — so to ask 'are there results for X?', pass
     gene=X and read `n` (0 = genuinely absent). Reads the same manifest as the Corpus Browser."""
     rows = store.list_results()
+    # Dropped runs are EXCLUDED by default and COUNTED in the reply. Returning them was how a tombstoned,
+    # mislabelled knockout could be read back as a result; silently dropping them without saying so would be
+    # the opposite failure, an absence reported as a fact. `n_dropped_hidden` keeps the omission visible.
+    hidden = sum(1 for r in rows if r.get("dropped"))
+    if not include_dropped:
+        rows = [r for r in rows if not r.get("dropped")]
     if gene:
         g = gene.strip().lower().replace("ko:", "")
         rows = [r for r in rows if g in (r.get("label") or "").lower() or g in (r.get("condition") or "").lower()]
@@ -47,7 +54,12 @@ def list_results(gene: str | None = None, perturbation: str | None = None, conta
     if contains:
         c = contains.strip().lower()
         rows = [r for r in rows if c in (r.get("label") or "").lower()]
-    return {"n": len(rows), "results": rows}
+    out = {"n": len(rows), "results": rows}
+    if hidden:
+        out["n_dropped_hidden"] = hidden
+        out["note"] = (f"{hidden} tombstoned run(s) excluded; pass include_dropped=True to see them "
+                       f"and their recorded reason.")
+    return out
 
 
 _VARIANT_TYPES = {
