@@ -14,11 +14,20 @@ from src.cellarium import capability as C
 
 
 def _case_c_refusal() -> str:
-    """The refusal for a capability the asked-for model HAS but no corpus run used."""
-    cap = next(c for c in C.CAPABILITIES if c.key == "per_isoacceptor_trna_charging")
-    assert "kinetic" in cap.holds_in and "kinetic" not in C.MODES_IN_CORPUS, (
-        "fixture assumption broken: this test needs a capability held by a NON-corpus mode")
-    return cap.refusal("kinetic")
+    """The refusal for a capability the asked-for model HAS but no corpus run used.
+
+    This deliberately RESOLVES the case rather than naming one capability. It used to pin
+    per_isoacceptor_trna_charging under kinetic, and when the proposed kinetic campaign actually ran, that
+    stopped being case (c) and these tests failed for the right reason but the wrong cause. The fixture now
+    finds whatever is still in case (c); if the corpus ever covers every declared mode, there is no case (c)
+    left to test and the tests skip rather than asserting against a branch that cannot be reached.
+    """
+    import pytest
+    for cap in C.CAPABILITIES:
+        for mode in cap.holds_in:
+            if mode not in C.MODES_IN_CORPUS:
+                return cap.refusal(mode)
+    pytest.skip("no capability is in case (c): the corpus now covers every mode any capability holds in")
 
 
 def test_refusal_does_not_claim_the_kb_hash_changes():

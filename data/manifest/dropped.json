@@ -1,0 +1,162 @@
+[
+  {
+    "key": "gene_knockout_1_e4a7ece7@@runs_seed_aars/cellarium/gene_knockout_736336/000001",
+    "id": "gene_knockout_1_e4a7ece7",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.0815146,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_736336/000001",
+    "design_key": "gene_knockout/KO:alaS"
+  },
+  {
+    "key": "gene_knockout_3_4545c219@@runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000003",
+    "id": "gene_knockout_3_4545c219",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.3929067,
+    "simout_path": "runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000003",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_0_a7747e11@@runs_seed_aars/cellarium/gene_knockout_674307/000000",
+    "id": "gene_knockout_0_a7747e11",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.4799206,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_674307/000000",
+    "design_key": "gene_knockout/KO:pheS"
+  },
+  {
+    "key": "gene_knockout_2_9d5e1ce3@@runs_seed_aars/cellarium/gene_knockout_383082/000002",
+    "id": "gene_knockout_2_9d5e1ce3",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.6152432,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_383082/000002",
+    "design_key": "gene_knockout/KO:gltX"
+  },
+  {
+    "key": "gene_knockout_2_c19c7305@@runs_seed_aars/cellarium/gene_knockout_736336/000002",
+    "id": "gene_knockout_2_c19c7305",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.7089856,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_736336/000002",
+    "design_key": "gene_knockout/KO:alaS"
+  },
+  {
+    "key": "gene_knockout_0_9d7dc5a8@@runs_seed_aars/cellarium/gene_knockout_383082/000000",
+    "id": "gene_knockout_0_9d7dc5a8",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.8348727,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_383082/000000",
+    "design_key": "gene_knockout/KO:gltX"
+  },
+  {
+    "key": "gene_knockout_2_7fad4abd@@runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000002",
+    "id": "gene_knockout_2_7fad4abd",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992485.9176512,
+    "simout_path": "runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000002",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_3_b6f94703@@runs_seed_aars/cellarium/gene_knockout_106433/000003",
+    "id": "gene_knockout_3_b6f94703",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.0220692,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_106433/000003",
+    "design_key": "gene_knockout/KO:argS"
+  },
+  {
+    "key": "gene_knockout_3_02bc9b48@@runs_seed_aars/cellarium/gene_knockout_383082/000003",
+    "id": "gene_knockout_3_02bc9b48",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.1538794,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_383082/000003",
+    "design_key": "gene_knockout/KO:gltX"
+  },
+  {
+    "key": "gene_knockout_1_dbc2b1ac@@runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000001",
+    "id": "gene_knockout_1_dbc2b1ac",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.2257197,
+    "simout_path": "runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000001",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_1_56bc58cd@@runs_seed_aars/cellarium/gene_knockout_106433/000001",
+    "id": "gene_knockout_1_56bc58cd",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.2992032,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_106433/000001",
+    "design_key": "gene_knockout/KO:argS"
+  },
+  {
+    "key": "gene_knockout_3_acde7d4e@@runs_seed_aars/cellarium/gene_knockout_736336/000003",
+    "id": "gene_knockout_3_acde7d4e",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.4126196,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_736336/000003",
+    "design_key": "gene_knockout/KO:alaS"
+  },
+  {
+    "key": "gene_knockout_1_b1670b12@@runs_seed_aars/cellarium/gene_knockout_674307/000001",
+    "id": "gene_knockout_1_b1670b12",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.4930325,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_674307/000001",
+    "design_key": "gene_knockout/KO:pheS"
+  },
+  {
+    "key": "gene_knockout_0_f34ad1bc@@runs_seed_aars/cellarium/gene_knockout_106433/000000",
+    "id": "gene_knockout_0_f34ad1bc",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.644298,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_106433/000000",
+    "design_key": "gene_knockout/KO:argS"
+  },
+  {
+    "key": "gene_knockout_1_919eb66c@@runs_seed_aars/cellarium/gene_knockout_383082/000001",
+    "id": "gene_knockout_1_919eb66c",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.7833118,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_383082/000001",
+    "design_key": "gene_knockout/KO:gltX"
+  },
+  {
+    "key": "gene_knockout_0_9ad0b58c@@runs_seed_aars/cellarium/gene_knockout_736336/000000",
+    "id": "gene_knockout_0_9ad0b58c",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992486.8740468,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_736336/000000",
+    "design_key": "gene_knockout/KO:alaS"
+  },
+  {
+    "key": "gene_knockout_0_45ddf714@@runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000000",
+    "id": "gene_knockout_0_45ddf714",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992487.0261657,
+    "simout_path": "runs_kinetic_seeds/cellarium/gene_knockout_387439__elkinetic/000000",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_2_6c787763@@runs_seed_aars/cellarium/gene_knockout_106433/000002",
+    "id": "gene_knockout_2_6c787763",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992487.1228113,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_106433/000002",
+    "design_key": "gene_knockout/KO:argS"
+  },
+  {
+    "key": "gene_knockout_2_5a181cc7@@runs_seed_aars/cellarium/gene_knockout_674307/000002",
+    "id": "gene_knockout_2_5a181cc7",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992487.291397,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_674307/000002",
+    "design_key": "gene_knockout/KO:pheS"
+  },
+  {
+    "key": "gene_knockout_3_889f460e@@runs_seed_aars/cellarium/gene_knockout_674307/000003",
+    "id": "gene_knockout_3_889f460e",
+    "reason": "MISLABELLED KNOCKOUT (WELL-NOOP-1 class). Launched via Design(condition='KO:<gene>') with no params['variant_index'], so runner._variant_index fell back to a content hash. gene_knockout.py takes geneIndex=(index-1)%(len(rna_data)+1), so the hash silenced an unrelated transcription unit: argS hit TU0-14745 not TU0-13444, alaS TU0-8508 not TU0-6441, pheS TU0-8778 not TU0-14257, gltX TU4 not TU0-6409. The rows carry a knockout label over a different perturbation entirely. Re-run with explicit indices argS=644, alaS=2078, gltX=2074, pheS=1340.",
+    "ts": 1785992487.4639654,
+    "simout_path": "runs_seed_aars/cellarium/gene_knockout_674307/000003",
+    "design_key": "gene_knockout/KO:pheS"
+  }
+]

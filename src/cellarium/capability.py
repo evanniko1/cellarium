@@ -87,7 +87,14 @@ MODE_SUMMARY = {
 # declaration here that a routine action — running a campaign — invalidates without anyone touching this file,
 # so `audit()` probes it against the manifest rather than trusting it. A new campaign in another mode must
 # extend this tuple.
-MODES_IN_CORPUS = ("steady_state",)
+# UPDATED 2026-08-06: a kinetic campaign landed. `manifest.corpus_elongation_modes()` now reports
+# {'verified': True, 'modes': ['kinetic', 'steady_state']} — 12 kinetic generation-runs (wild type and
+# KO:argS, 4 seeds x 3 generations) produced by the very campaign this registry PROPOSED when it declined
+# the isoacceptor question. Leaving the tuple at ("steady_state",) would have made every refusal claim
+# "no run in the corpus used it" while those rows sat in the manifest: the silent-absence shape, emitted
+# from the component whose job is to prevent it. `test_corpus_modes_match_manifest` fails loudly if this
+# tuple and the verified probe ever disagree again, so the next campaign cannot land silently.
+MODES_IN_CORPUS = ("steady_state", "kinetic")
 
 
 def corpus_modes_phrase() -> str:
@@ -283,6 +290,19 @@ class Capability:
                        f"No run in the corpus used it ({corpus_modes_phrase()}), so this is a NEW RUN to "
                        f"propose, not a query to re-issue. ")
                     + (f"Where it comes from: {self.available_in}" if self.available_in else ""))
+        # Case (c) is "no run used this mode". Once a campaign lands in `mode`, that is FALSE, and the
+        # sentence below would render "NO run in the corpus was produced by that model" immediately followed
+        # by a phrase listing that very mode as a corpus mode — self-contradicting, and exactly the
+        # silent-absence shape this registry exists to prevent. `check()` never reaches here in that state
+        # (answerable_in already returned True and it returns can_answer without a refusal), but `refusal()`
+        # is public and callable directly; this guard is what keeps a direct caller from being told a
+        # falsehood. MEASURED 2026-08-06: the kinetic campaign this registry proposed landed 12
+        # generation-runs, which turned this branch from true into false with nobody editing this file.
+        if mode in MODES_IN_CORPUS:
+            return (f"{self.key} IS answerable here: the mechanism is present ({self.available_in or 'ported'}), "
+                    f"the {mode} elongation model represents it, and the corpus now contains {mode} runs "
+                    f"({corpus_modes_phrase()}). Query them — do not propose a new campaign, and do not treat "
+                    f"this as a refusal.")
         return (f"The mechanism for {self.key} IS present in the model ({self.available_in or 'ported'}) and "
                 f"the {mode} elongation model represents it, but NO run in the corpus was produced by that "
                 f"model — {corpus_modes_phrase()} — so the corpus CANNOT answer this. "
