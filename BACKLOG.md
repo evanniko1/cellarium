@@ -1021,3 +1021,36 @@ This backlog replaced three task docs, now **removed** (recoverable from git his
 `docs/AUDIT.md` (the 2026-07-10 harness audit). `docs/ROADMAP.md` is **kept** as cited design-history — it is
 referenced by `docs/SOCRATIC_COUNCIL.md` and the code, not a task source; its open items (M-8/M-9/H-6/SCI-1/4/5)
 now live here.
+
+## Carry-overs from KISS (arXiv:2605.17856), recorded 2026-08-06
+
+The closest prior system we found — agents operating a process-based Earth-science model rather than a
+surrogate. Read for what it does that we do not. None of these are NeurIPS-submission blockers; all of them
+are what the journal version needs.
+
+- **KISS-1 — the ungrounded ablation.** They report agents with the scaffold succeeding in up to 84% of
+  trials against under 40% without it. That with/without comparison is the field's expected evidence shape and
+  our blind reviewer asked for it independently. `scripts/run_ablation.py` runs the ungrounded arm and scores
+  it with the same rubric judges as the grounded arm. Extend it to the full design space, not just the nine
+  discrimination questions.
+- **KISS-2 — trial count.** 3,000 trials against our nine questions x two models x one run. Generating a few
+  hundred questions programmatically over the design space would move the limits test from a discrimination
+  check to a benchmark, and would give per-item variance, which we currently cannot report.
+- **KISS-3 — generalisation across models.** They extend to 117 process-based models across 14 domains to
+  argue that operational expertise is "structured and extractable rather than ad hoc". Our analogue is the
+  elongation-model axis: run the nine-question test systematically under both versions and report whether the
+  registry's verdicts track the model's actual representational reach. Beyond that, other mechanistic models —
+  Vivarium colony-scale [13, 14] for the antibiotic crossing, a genome-scale FBA model, a second organism.
+- **KISS-4 — access-barrier framing, evidenced.** They open on who cannot use these models and treat the
+  access claim as demonstrable. We assert the capability and show no user. A study with biologists who did not
+  build the simulator — even three or four, with recorded sessions — converts our capability claim into a
+  finding, and is the single cheapest thing that would justify the framing.
+- **KISS-5 — a comparative figure.** Their load-bearing exhibit is a success-rate comparison; our only figure
+  is an architecture schematic, which carries no evidence. The ablation produces the comparative figure the
+  paper currently lacks.
+- **KISS-6 — bounded numeric hedging.** They write "up to 84%" and ground generalisation in convergence of
+  decisions across models. Our hedges are qualitative. Prefer a bounded number to a careful sentence.
+- **KISS-7 — extension as contribution.** Our multi-transcription-unit knockout and the isoacceptor/ppGpp
+  work are extensions to the simulator, not just analyses of it. KISS frames its toolkit as lowering the
+  integration barrier between modelling communities; the same framing fits our extensions and is currently
+  absent from the paper.
