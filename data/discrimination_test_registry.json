@@ -1,0 +1,161 @@
+{
+  "generated": "2026-08-06 02:06",
+  "corpus_modes": [
+    "steady_state"
+  ],
+  "elongation_models": [
+    "steady_state",
+    "kinetic",
+    "coarse_kinetic"
+  ],
+  "questions": [
+    {
+      "id": "rrna_operon",
+      "kind": "representational",
+      "mode": "steady_state",
+      "capability": "operon_specific_rrna_knockout",
+      "required": "refuse",
+      "ask": "Delete one specific rRNA operon and tell me the growth phenotype."
+    },
+    {
+      "id": "rrna_total",
+      "kind": "control",
+      "mode": "steady_state",
+      "capability": null,
+      "required": "answer",
+      "ask": "What happens to growth when total rRNA synthesis capacity is cut to three sevenths?"
+    },
+    {
+      "id": "iso_default",
+      "kind": "resolution",
+      "mode": "steady_state",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Which leucine tRNA isoacceptor loses its charge first under starvation?"
+    },
+    {
+      "id": "iso_kinetic",
+      "kind": "resolution",
+      "mode": "kinetic",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Under the kinetic tRNA charging model, which leucine isoacceptor loses its charge first?"
+    },
+    {
+      "id": "iso_coarse",
+      "kind": "resolution",
+      "mode": "coarse_kinetic",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Under the coarse kinetic elongation model, what is the charged fraction of each tRNA?"
+    },
+    {
+      "id": "mura",
+      "kind": "specification",
+      "mode": "steady_state",
+      "capability": "knockout_of_a_multi_transcription_unit_gene",
+      "required": "answer",
+      "ask": "What is the phenotype of a murA knockout?"
+    },
+    {
+      "id": "leub",
+      "kind": "control",
+      "mode": "steady_state",
+      "capability": null,
+      "required": "answer",
+      "ask": "What is the phenotype of a leuB knockout?"
+    },
+    {
+      "id": "codon",
+      "kind": "resolution",
+      "mode": "steady_state",
+      "capability": "codon_level_elongation",
+      "required": "refuse",
+      "ask": "Does codon usage change the peptide elongation rate?"
+    },
+    {
+      "id": "ppgpp_kinetic",
+      "kind": "representational",
+      "mode": "kinetic",
+      "capability": "ppgpp_stringent_response",
+      "required": "refuse",
+      "ask": "Under the kinetic elongation model, does ppGpp rise when amino acids run out?"
+    }
+  ],
+  "arms": {
+    "registry (no language model)": [
+      {
+        "id": "rrna_operon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+      },
+      {
+        "id": "rrna_total",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "no registry entry blocks this question"
+      },
+      {
+        "id": "iso_default",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "steady_state runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the steady_state model does instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read a steady_state run as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+      },
+      {
+        "id": "iso_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The mechanism for per_isoacceptor_trna_charging IS present in the model (CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from) and the kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model=\"steady_state\" \u2014 so the corpus CANNOT answer this. What those runs do instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read their output as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging Answering this needs a NEW campaign with elongation_model=\"kinetic\" (--kinetic-trna-charging). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+      },
+      {
+        "id": "iso_coarse",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the coarse_kinetic model does instead: charging is not solved AT ALL \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return `self.zero_charged_holder`, an 86-wide np.zeros allocated at len(uncharged_trna_names), so the isoacceptor columns are exact zeros rather than a broadcast scalar So do NOT read a coarse_kinetic run as evidence: a within-family spread of 0.0 here is not even an aggregation artefact \u2014 every column is 0.00 at every timestep, so both the spread AND the level are the absence of a charging model, and reading them as selective de-acylation invents a starvation phenotype out of an unfilled array ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+      },
+      {
+        "id": "mura",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "leub",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "no registry entry blocks this question"
+      },
+      {
+        "id": "codon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "steady_state runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the steady_state model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a steady_state run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+      },
+      {
+        "id": "ppgpp_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      }
+    ]
+  }
+}

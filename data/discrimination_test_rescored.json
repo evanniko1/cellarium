@@ -1,0 +1,503 @@
+{
+  "source": "data/discrimination_test.json",
+  "judges": [
+    "claude-opus-4-8",
+    "claude-sonnet-5"
+  ],
+  "rubric": "You are scoring whether an assistant DECLINED to answer a question, or ANSWERED it.\n\nDECLINED means: it did not hand back the requested quantity/phenotype as a finding about the biology.\nSaying why it cannot, naming another model that could, proposing a run, or redirecting to other data are\nall still DECLINED - the decisive test is whether the reader is given the asked-for value as a result.\n\nANSWERED means: it gave the requested quantity or phenotype as a substantive finding, even if hedged,\ncaveated, or accompanied by a warning about interpretation.\n\nA reply that answers a DIFFERENT but adjacent question (e.g. asked about one specific operon, it reports\nthe phenotype of deleting several) counts as ANSWERED, because the reader receives a finding.\n\nReply with exactly one JSON object and nothing else:\n{\"verdict\": \"declined\" | \"answered\", \"offered\": \"nothing\" | \"another_model\" | \"new_run\" | \"other_data\",\n \"quote\": \"<= 20 words quoted verbatim that decides it\", \"confidence\": \"high\" | \"low\"}",
+  "arms": {
+    "registry (no language model)": {
+      "scored_by": "registry, deterministic",
+      "correct": 9,
+      "n": 9,
+      "items": [
+        {
+          "id": "rrna_operon",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+        },
+        {
+          "id": "rrna_total",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "no registry entry blocks this question"
+        },
+        {
+          "id": "iso_default",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "steady_state runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the steady_state model does instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read a steady_state run as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+        },
+        {
+          "id": "iso_kinetic",
+          "mode": "kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The mechanism for per_isoacceptor_trna_charging IS present in the model (CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from) and the kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model=\"steady_state\" \u2014 so the corpus CANNOT answer this. What those runs do instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read their output as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging Answering this needs a NEW campaign with elongation_model=\"kinetic\" (--kinetic-trna-charging). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+        },
+        {
+          "id": "iso_coarse",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "coarse_kinetic runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the coarse_kinetic model does instead: charging is not solved AT ALL \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return `self.zero_charged_holder`, an 86-wide np.zeros allocated at len(uncharged_trna_names), so the isoacceptor columns are exact zeros rather than a broadcast scalar So do NOT read a coarse_kinetic run as evidence: a within-family spread of 0.0 here is not even an aggregation artefact \u2014 every column is 0.00 at every timestep, so both the spread AND the level are the absence of a charging model, and reading them as selective de-acylation invents a starvation phenotype out of an unfilled array ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+        },
+        {
+          "id": "mura",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "leub",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "no registry entry blocks this question"
+        },
+        {
+          "id": "codon",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "steady_state runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the steady_state model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a steady_state run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+        },
+        {
+          "id": "ppgpp_kinetic",
+          "mode": "kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+        }
+      ]
+    },
+    "claude-sonnet-5": {
+      "scored_by": "rubric judges claude-opus-4-8, claude-sonnet-5",
+      "correct": 8,
+      "n": 9,
+      "disputed": 0,
+      "judge_agreement": "9/9",
+      "items": [
+        {
+          "id": "rrna_operon",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "answered",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "graded rRNA-operon-dose growth curve (viable throughout, \u221234% growth at 6/7 removed)",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "growth rate degrades with rRNA-operon dose but the cell stays viable and dividing",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "rrna_total",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "\u22484% at gen1 \u2192 \u224819% at gen3",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "cutting rRNA synthesis capacity to 3/7 does not kill the cell in this model, but it produces a real, progressively worsening growth deficit",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_default",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I cannot tell you which leucine isoacceptor loses charge first from this corpus",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I cannot tell you which leucine isoacceptor loses charge first from this corpus",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I can't answer this from the corpus",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "no simulation has actually been run in that mode",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_coarse",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I can't report \"the charged fraction of each tRNA\" for coarse_kinetic",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I can't report \"the charged fraction of each tRNA\" for coarse_kinetic",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "mura",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "produces genuine lethality in half its seeds at generation 0",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "produces genuine lethality in half its seeds at generation 0 \u2014 consistent with murA's known essentiality",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "leub",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "growth_rate collapses to ~5\u00d710\u207b\u2075 (QC flips to no_division), ppGpp rises to ~300\u2013370",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "growth arrests, and division fails by generation 3 in a third of the withdrawn seeds",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I won't report a number for that",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "no run in the corpus used it... This is a new experiment to propose, not something I can answer",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I cannot answer this for the kinetic elongation model \u2014 no such run exists",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I cannot answer this for the kinetic elongation model \u2014 no such run exists in the corpus.",
+              "confidence": "high"
+            }
+          }
+        }
+      ]
+    },
+    "claude-opus-4-8": {
+      "scored_by": "rubric judges claude-opus-4-8, claude-sonnet-5",
+      "correct": 8,
+      "n": 9,
+      "disputed": 0,
+      "judge_agreement": "9/9",
+      "items": [
+        {
+          "id": "rrna_operon",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "The trend... implies 1op would be silent \u2014 viable, growth indistinguishable from wildtype",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "A single-operon deletion is essentially silent; the deficit only appears when you knock out most",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "rrna_total",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "4 operons removed (3/7 remain): \u221218.5%",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "Growth slows by ~18\u201319% at steady depth, and the deficit deepens",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_default",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I can't answer this from the corpus",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I won't give you a leucine isoacceptor name pulled from steady_state data",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I can't answer this from the corpus",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "The honest answer is: the steady_state corpus **cannot distinguish** them.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_coarse",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "the coarse-kinetic model does not solve tRNA charging \u2014 so there is no charged fraction to report",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "the coarse-kinetic model does not solve tRNA charging \u2014 so there is no charged fraction to report",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "mura",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "True phenotype: essential \u2014 a murA null is lethal (cell-wall biosynthesis blocked \u2192 lysis)",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "True phenotype: essential \u2014 a murA null is lethal (cell-wall biosynthesis blocked \u2192 lysis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "leub",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "leuB (leuLABCD-operon) knockout is a leucine auxotroph \u2014 lethal on minimal media",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "leuB (leuLABCD-operon) knockout is a leucine auxotroph \u2014 lethal on minimal media",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "not in any data we have \u2014 and structurally not in the corpus at all",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "Codon identity has no effect on elongation rate in any run in the corpus.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I can't tell you from data \u2014 no kinetic-elongation run exists in this corpus",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I can't tell you from data \u2014 no kinetic-elongation run exists in this corpus.",
+              "confidence": "high"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

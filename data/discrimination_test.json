@@ -1,0 +1,345 @@
+{
+  "generated": "2026-08-06 02:06",
+  "corpus_modes": [
+    "steady_state"
+  ],
+  "elongation_models": [
+    "steady_state",
+    "kinetic",
+    "coarse_kinetic"
+  ],
+  "questions": [
+    {
+      "id": "rrna_operon",
+      "kind": "representational",
+      "mode": "steady_state",
+      "capability": "operon_specific_rrna_knockout",
+      "required": "refuse",
+      "ask": "Delete one specific rRNA operon and tell me the growth phenotype."
+    },
+    {
+      "id": "rrna_total",
+      "kind": "control",
+      "mode": "steady_state",
+      "capability": null,
+      "required": "answer",
+      "ask": "What happens to growth when total rRNA synthesis capacity is cut to three sevenths?"
+    },
+    {
+      "id": "iso_default",
+      "kind": "resolution",
+      "mode": "steady_state",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Which leucine tRNA isoacceptor loses its charge first under starvation?"
+    },
+    {
+      "id": "iso_kinetic",
+      "kind": "resolution",
+      "mode": "kinetic",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Under the kinetic tRNA charging model, which leucine isoacceptor loses its charge first?"
+    },
+    {
+      "id": "iso_coarse",
+      "kind": "resolution",
+      "mode": "coarse_kinetic",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Under the coarse kinetic elongation model, what is the charged fraction of each tRNA?"
+    },
+    {
+      "id": "mura",
+      "kind": "specification",
+      "mode": "steady_state",
+      "capability": "knockout_of_a_multi_transcription_unit_gene",
+      "required": "answer",
+      "ask": "What is the phenotype of a murA knockout?"
+    },
+    {
+      "id": "leub",
+      "kind": "control",
+      "mode": "steady_state",
+      "capability": null,
+      "required": "answer",
+      "ask": "What is the phenotype of a leuB knockout?"
+    },
+    {
+      "id": "codon",
+      "kind": "resolution",
+      "mode": "steady_state",
+      "capability": "codon_level_elongation",
+      "required": "refuse",
+      "ask": "Does codon usage change the peptide elongation rate?"
+    },
+    {
+      "id": "ppgpp_kinetic",
+      "kind": "representational",
+      "mode": "kinetic",
+      "capability": "ppgpp_stringent_response",
+      "required": "refuse",
+      "ask": "Under the kinetic elongation model, does ppGpp rise when amino acids run out?"
+    }
+  ],
+  "arms": {
+    "registry (no language model)": [
+      {
+        "id": "rrna_operon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+      },
+      {
+        "id": "rrna_total",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "no registry entry blocks this question"
+      },
+      {
+        "id": "iso_default",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "steady_state runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the steady_state model does instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read a steady_state run as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+      },
+      {
+        "id": "iso_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The mechanism for per_isoacceptor_trna_charging IS present in the model (CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from) and the kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model=\"steady_state\" \u2014 so the corpus CANNOT answer this. What those runs do instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read their output as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging Answering this needs a NEW campaign with elongation_model=\"kinetic\" (--kinetic-trna-charging). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+      },
+      {
+        "id": "iso_coarse",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the coarse_kinetic model does instead: charging is not solved AT ALL \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return `self.zero_charged_holder`, an 86-wide np.zeros allocated at len(uncharged_trna_names), so the isoacceptor columns are exact zeros rather than a broadcast scalar So do NOT read a coarse_kinetic run as evidence: a within-family spread of 0.0 here is not even an aggregation artefact \u2014 every column is 0.00 at every timestep, so both the spread AND the level are the absence of a charging model, and reading them as selective de-acylation invents a starvation phenotype out of an unfilled array ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+      },
+      {
+        "id": "mura",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "leub",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "no registry entry blocks this question"
+      },
+      {
+        "id": "codon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "steady_state runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the steady_state model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a steady_state run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). No run in the corpus used it (every corpus row is elongation_model=\"steady_state\"), so this is a NEW RUN to propose, not a query to re-issue. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+      },
+      {
+        "id": "ppgpp_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      }
+    ],
+    "claude-sonnet-5": [
+      {
+        "id": "rrna_operon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 65.5,
+        "answer": "Good \u2014 this is well-supported. Here's the answer:\n\n## The direct question can't be answered as asked \u2014 and here's why, plainly\n\nThe model **cannot represent deletion of one *specific, identified* rRNA operon** as a distinguishable genotype (checked via `model_capabilities`, `operon_specific_rrna_knockout`). What actually happens mechanistically: the knockout zeroes *n* rRNA transcription-unit rows, but then `synth_prob_from_ppgpp(balanced_rRNA_prob=True)` reassigns the seven rRNA operons' synthesis probability to the **mean over all seven rows, including the zeroed ones**. So the total rRNA *dose* survives as a real, graded signal, but which operon it was is destroyed \u2014 no row ends at true zero, and \"rrnA vs rrnC vs rrnD\" are not different rows in the output. The corpus's own labels flag this: `rRNA_KO:6op`'s `label_integrity` is `\"relabel_required\"`, `true_label: \"rRNA_operons_removed:6of7\"` \u2014 it is honestly a **count**, not an operon identity.\n\nWhat the model *does* run, and what exists in the corpus, is a **graded rRNA-capacity knockdown**: `rrna_operon_knockout` removes *n* of the 7 chromosomal rRNA operons (2, 4, or 6 \u2014 no single-operon \"1op\" arm exists). That's the closest real, out-of-sample lever to your question.\n\n## The growth phenotype of that graded lever (4 seeds/dose, 4 generations, compared to wildtype/basal at the same generation)\n\n| Dose | Growth rate vs WT | Viability (4 gens) |\n|---|---|---|\n| 2 of 7 removed | +2.3% (not different from WT) | viable, all seeds divide |\n| 4 of 7 removed | **\u221218.5%** | viable, all seeds divide |\n| 6 of 7 removed | **\u221233.9%**, Welch p\u22480, effect real (disconfirm: t=\u221214.5, CIs non-overlapping) | viable, all seeds divide |\n\nSo the phenotype is a clean, monotonic dose-response: growth rate degrades with rRNA-operon dose but the cell stays viable and dividing even with only 1 of 7 operons left running \u2014 no collapse, no lethality signature.\n\nNotably, ppGpp does **not** rise with this loss (6op vs WT: \u22123.7%, CI-overlapping) \u2014 i.e. losing ribosomal-RNA capacity this way doesn't trigger the stringent response the way an aaRS/charging knockout does. That's a real mechanistic distinction worth flagging: this pathway lowers growth through ribosome *capacity*, not through ppGpp-driven downshift.\n\n**Bottom line:** I can give you a graded rRNA-operon-dose growth curve (viable throughout, \u221234% growth at 6/7 removed), but I cannot give you a phenotype for one *named* operon (e.g. rrnA specifically) \u2014 the model's rebalancing step erases operon identity by construction. If you want operon-identity resolution, that would need a code change (skip `balanced_rRNA_prob`) \u2014 outside what I can run for you; happy to flag it as a gap rather than fabricate an identity-resolved number."
+      },
+      {
+        "id": "rrna_total",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 114.9,
+        "answer": "**Short answer: growth slows progressively \u2014 and increasingly with time \u2014 but the cell stays alive.**\n\n**What \"three sevenths\" corresponds to:** *E. coli* carries 7 chromosomal rRNA operons. The corpus's `rrna_operon_knockout` series removes them in steps (2, 4, or 6 of 7). \"Cut to 3/7\" is the **4-of-7-removed** design (`rrna_operon_knockout/minimal|rRNA_KO:4op`), leaving 3 operons' worth of rRNA synthesis capacity \u2014 an out-of-sample perturbation (not fit to any target), so this is a genuine model prediction, not a calibration check.\n\n**The lineage stays viable.** Cross-seed viability shows `division_rate=1.0`, all scored seeds reach generation 4 with `terminal_divided=true` \u2014 verdict **viable** (4 of 9 seeds carry usable viability columns; the other 5 lack the column, not a failure).\n\n**But growth is not a single number \u2014 it declines generation by generation** (n=9 seeds at gen0, thinning to n=4 by gen1\u20133, so treat later points as lower-powered):\n\n| generation | growth_rate | ppGpp |\n|---|---|---|\n| 0 | 0.000241 | 43 |\n| 1 | 0.000228 | 54 |\n| 2 | 0.000203 | 64 |\n| 3 | 0.000181 | 74 |\n\nThat's a ~25% within-lineage slide over 4 generations, with ppGpp climbing in lockstep \u2014 the classic stringent-response signature of ribosome-synthesis scarcity feeding back on translation.\n\n**Comparing to wildtype at matched depth** (not whole-run means, which would mix unequal depths):\n- At generation 1 (shallow, n=5 vs n=20): only **\u20113.7%** vs WT, **not significant** (Welch p=0.11).\n- At generation 3 (n=4 vs n=12): **\u201118.5%** vs WT (0.181 vs 0.222 \u00d710\u207b\u00b3) \u2014 a real, growing deficit.\n\nThis depth-dependence is the fingerprint of a **dilution-limited phenotype**: the cell inherits a full ribosome/rRNA complement from before the operon loss, and since only 3/7 of normal synthesis capacity replaces it, the deficit only becomes visible in growth after several rounds of dilution \u2014 the phenotype lags the genotype, exactly as expected when an existing molecular pool must be diluted out rather than instantly lost.\n\n**Dose-response across the series** (7\u21925\u21923\u21921 operons remaining: WT, 2-removed, 4-removed, 6-removed) shows ribosome_conc falling with fewer operons (21.2 \u2192 19.0 \u2192 16.8 \u2192 9.6) and growth falling correspondingly. Fitting ribosome_conc vs growth_rate across these four designs gives R\u00b2=0.988 (slope CI excludes 0, p=0.0059), but that's driven by including WT as an anchor; the perturbation-only (out-of-sample) fit is directionally the same but not independently significant at n=3 (p=0.057) \u2014 consistent with, but underpowered to confirm alone, a Scott/Hui-style ribosome-growth coupling.\n\n**Caveat on a single-seed snapshot:** a naive single-seed whole-run-mean bar chart across the dose series is noisy (one 4op seed actually reads *higher* than one WT seed) \u2014 that's seed-to-seed variance, not a contradiction; the reliable signal is the multi-seed, generation-matched comparison above.\n\n**Bottom line:** cutting rRNA synthesis capacity to 3/7 does not kill the cell in this model, but it produces a real, progressively worsening growth deficit (\u22484% at gen1 \u2192 \u224819% at gen3) driven by dilution of the inherited ribosome pool and accompanied by a rising ppGpp stringent-response signal \u2014 an intermediate phenotype between the milder 2-operon-removed case and the severe 6-operon-removed case (\u201134% at matched depth)."
+      },
+      {
+        "id": "iso_default",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 18.3,
+        "answer": "This exact question \u2014 which of leucine's isoacceptors (E. coli has 5: leuU/leuV/leuW/leuX/leuZ, etc.) de-charges first under starvation \u2014 is not something the corpus's data can answer.\n\n**Why not:** Every run in the corpus uses the `steady_state` elongation model. Under that model, charging is solved as a single 20-state ODE indexed by *amino acid*, then broadcast identically across all isoacceptor columns of that amino acid (`np.dot(fraction_charged, aa_from_trna)`). So the `fraction_trna_charged` columns for leucine's isoacceptors are **identical by construction** \u2014 any apparent \"spread\" between them is arithmetic, not a measurement. Reporting one isoacceptor as \"losing charge first\" from this data would be fabricating a result the model structurally cannot produce.\n\n**What the model does instead:** it can tell you the aggregate leucine-family charged fraction dropping under starvation (via `trna_families`/`selective_charging`), which is the amino-acid-level signal, not the between-isoacceptor one.\n\n**Where the mechanism does exist:** the corpus's `kinetic` elongation model (`--kinetic-trna-charging`) solves all 86 isoacceptor charging states independently, so isoacceptor-vs-isoacceptor differential charging *is* representable there \u2014 but no run in the corpus currently uses it. This would be a new simulation to propose (`elongation_model=\"kinetic\"`), not a query I can re-issue against existing data.\n\nSo the honest answer: **I cannot tell you which leucine isoacceptor loses charge first from this corpus** \u2014 the steady_state model doesn't distinguish them. If you want this answered, I can propose a `kinetic`-mode run (e.g. under a leucine-starvation condition) that would actually resolve per-isoacceptor charging \u2014 want me to draft that?"
+      },
+      {
+        "id": "iso_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 15.3,
+        "answer": "No kinetic-mode run exists in the corpus (`in_corpus: false`, `why_not: \"no_run_used_this_mode\"`). The kinetic elongation model is the one that resolves per-isoacceptor tRNA charging independently (86 genuinely separate columns, measured spread e.g. GLY 0.32, LEU 0.25 in the ported code) \u2014 but **no simulation has actually been run in that mode**, so there is no simulated trajectory showing which leucine isoacceptor (leuU/leuQ/leuP/leuV/leuT/leuZ-type tRNAs) de-charges first.\n\nUnder the corpus's actual mode \u2014 steady_state, all 322 runs \u2014 leucine charging is a single per-amino-acid scalar broadcast identically across all leucine isoacceptor columns. If I queried that data I would get a spread of exactly 0.0 across leucine isoacceptors, but that's an algebraic identity of the broadcast, not a measurement \u2014 reporting it as \"isoacceptor X loses charge first\" would be fabricating a finding.\n\n**Bottom line:** I can't answer this from the corpus. It would need a new run with `elongation_model=\"kinetic\"` (flag `--kinetic-trna-charging`), which resolves per-codon reading and independent isoacceptor charging (Choi & Covert 2023). Shall I propose that run? It would need at minimum a leucine-limiting condition (e.g. a leucine-starvation or minimal-media timeline) plus enough generations to observe divergence between the leucine isoacceptor pools."
+      },
+      {
+        "id": "iso_coarse",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 19.1,
+        "answer": "Under the **coarse_kinetic** elongation model, the answer is not a set of measured values \u2014 it's a structural absence.\n\n**What coarse_kinetic actually does:** `CoarseKineticTrnaChargingModel.request` and `.evolve` both return `self.zero_charged_holder`, an 86-wide array of `np.zeros`. Charging is **not solved at all** in this mode \u2014 every one of the 86 tRNA-isoacceptor columns is exactly 0.00 at every timestep. That's not \"totally de-acylated tRNA\" (a biological finding); it's the absence of a charging model entirely. Reading those zeros as a starvation phenotype would invent a result that isn't there.\n\nSo:\n- I can't report \"the charged fraction of each tRNA\" for coarse_kinetic \u2014 there is no number to give beyond the trivial, meaningless zero.\n- Also worth flagging: **no run in this corpus used coarse_kinetic** for tRNA charging purposes anyway \u2014 every existing corpus row is `elongation_model=\"steady_state\"`.\n- The mechanism you're actually asking about (per-isoacceptor charged fraction, genuinely independent per-tRNA) **is** representable \u2014 but only under `elongation_model=\"kinetic\"` (`--kinetic-trna-charging`, from Choi & Covert 2023). That mode isn't in the corpus either; it would be a **new run to propose**, not a query I can re-issue against existing data.\n\nIf you want, I can propose a kinetic-mode run (e.g. wildtype/basal with `elongation_model=\"kinetic\"`) so we'd have real per-isoacceptor charged fractions to read \u2014 that would need your approval before it's queued. Want me to draft that?"
+      },
+      {
+        "id": "mura",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 90.2,
+        "answer": "## murA knockout \u2014 phenotype\n\n**murA** encodes UDP-N-acetylglucosamine enolpyruvyl transferase, the first committed step of peptidoglycan (cell-wall) biosynthesis \u2014 a classic essential gene (fosfomycin target) confirmed essential in the Baba/Joyce Keio benchmark (`mechanistic_scope`: `benchmark.agreement = model_UNDER_predicts`).\n\nThe corpus has **two different murA-KO designs, and they disagree sharply** \u2014 which is itself the finding.\n\n**1. Standard `gene_knockout/KO:murA` (4 seeds, 4 generations) \u2014 a construction artifact, not a real KO.**\nAll 4 seeds are flagged `noop_knockout` and viability reads \"viable\" with division_rate 1.0 across all 4 generations. The reason: this variant zeroes only ONE of murA's two transcription units, and `mechanistic_scope`'s footprint check shows murA is *still expressed* (KO mean 1.6 vs WT mean 1.5 \u2014 not silenced). **This design is not actually a murA knockout** \u2014 the \"no phenotype\" is model/operon bookkeeping, not evidence murA is dispensable. Do not read it as biology.\n\n**2. `graded_gene_knockout/KO:murA` (6 seeds, 1 generation requested) \u2014 a genuine, and lethal, effect.**\nThis variant does knock murA down, and the outcome is starkly bimodal across seeds:\n- **3 of 6 seeds fail to divide at all** (division_rate 0, gens_reached 0, QC crashed) \u2014 immediate inviability.\n- **3 of 6 seeds divide normally** through generation 0 (division_rate 1.0, terminal_divided true).\n\nCross-seed rollup verdict: **inviable** (the MIN/AND rule \u2014 one collapsing seed sinks the design), and per the reporting convention, crashes here are the positive readout, not missing data.\n\nInterestingly, in the 3 surviving seeds, growth_rate and ppGpp at generation 0 are statistically indistinguishable from wild-type (growth \u22122.4%, ppGpp +3.6%, both inside the WT CI95) \u2014 no early stringent-response (uncharged-tRNA\u2192RelA\u2192ppGpp) signature is visible before the run ends. So this isn't the \"divide-then-collapse-at-depth\" phenotype the lethality view tracks (murA doesn't appear in `lethality_landscape`'s divide-then-collapse set) \u2014 it's an **all-or-nothing failure at generation 0 itself**, most consistent with a stochastic threshold: lineages that inherit too little MurA activity from the outset simply cannot complete the first division, while others scrape through unaffected \u2014 at least for the one generation this design was run.\n\n**Caveats on the evidence:**\n- n=6 seeds, only 1 generation requested for the graded design \u2014 this is a single-generation case study, not a settled trajectory. We cannot say whether the \"surviving\" 3 seeds would collapse at generation 1 or 2 (the design that would settle this hasn't been run).\n- No local raw simOut for this design, so I can't inspect the sub-generation trajectory of the crashing seeds.\n- differential vs WT (mixed depths, generation-drift caveat noted by the tool) shows fba_objective down ~24% and a small stringent-response pathway uptick (+7.5%, p=0.01) in the survivors, but these are exploratory, not a verdict.\n\n**Bottom line:** the \"standard\" murA KO in this corpus is a no-op due to the operon/TU model construction and should not be reported as evidence of dispensability. The graded knockdown, which actually reduces murA, produces genuine lethality in half its seeds at generation 0 \u2014 consistent with murA's known essentiality \u2014 but the surviving half show no growth/ppGpp phenotype at that single generation, and the run is too shallow to say whether that's stable survival or a transient about to collapse. A deeper (multi-generation) graded-KO run would be needed to settle that."
+      },
+      {
+        "id": "leub",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 125.2,
+        "answer": "## Phenotype of a `leuB` knockout\n\n**Caveat on the label first:** `KO:leuB` isn't a clean single-gene knockout \u2014 it zeroes transcription unit **TU0\u201142478 = the leuLABCD operon** (5 genes: leuL, leuA, leuB, leuC, leuD). Any phenotype below is attributable to that whole set, not leuB alone (`mechanistic_scope`). leuB (3\u2011isopropylmalate dehydrogenase, leucine biosynthesis) is a Baba/Joyce **benchmark-essential** gene.\n\n### The corpus actually contains two different experiments under this label (20 seeds total, 10 reportable)\n\n**1. Leucine supplied throughout (`minimal_plus_amino_acids`, no shift)** \u2014 growth is essentially normal/rescued: e.g. seed `gene_knockout_0_d37f73e2` runs at growth_rate \u2248 **4.6\u00d710\u207b\u2074** (QC ok), comparable to or above WT (0.000252). This is the classic **metabolic-KO reroute**: the FBA objective has no growth term, so exogenous leucine uptake bypasses the broken biosynthesis pathway \u2014 no phenotype, by model construction.\n\n**2. Leucine withdrawn mid-run (`minimal_plus_amino_acids \u2192 1200s \u2192 minimal_aa_minus_leu`)** \u2014 this is where the real phenotype appears. In the withdrawn segment (e.g. seed `gene_knockout_2_06741883`):\n- growth_rate collapses to **~5\u00d710\u207b\u2075** (QC flips to `no_division`)\n- ppGpp rises to **~300\u2013370** and is still climbing at the end of the segment\n\nAcross the design's full trajectory (`trajectory`, pooling both regimes, n=20 seeds): growth falls from 3.8\u00d710\u207b\u2074 (gen 0) \u2192 1.9\u00d710\u207b\u2074 (gen 2), and **the design collapses at generation 3** in 3/13 still-tracked seeds (`no_division`) \u2014 flagged by `lethality_landscape` as a genuine collapse with `stringent_signature: true` (growth \u221267% vs WT, ppGpp +301% vs WT at the pre-collapse generation).\n\n### The pooled statistics hide a bimodal population\n`disconfirm` on ppGpp vs WT gives +305% but a non-significant Welch p=0.053 (n=10) \u2014 because the per-seed values are clearly **bimodal**, not one graded effect:\n- ~21\u201331 (3 seeds \u2014 leucine-replete, rescued, even *below* WT's 65\u201388)\n- ~255\u2013762 (7 seeds \u2014 leucine-starved, strong stringent response)\n\nAt generation 2, pooling both regimes together, growth looks only mildly down (\u221218.6% vs WT, `compare_at_generation`) \u2014 an artifact of averaging rescued and starved seeds, not the real starved-cell effect.\n\n### Interpretation\nThis is the textbook **uncharged-tRNA(Leu) \u2192 RelA \u2192 ppGpp stringent response**: once external leucine is removed and the biosynthetic operon is silenced, the cell cannot charge Leu-tRNA, ppGpp spikes, growth arrests, and division fails by generation 3 in a third of the withdrawn seeds. Unlike glmS/gltA-type essential metabolic KOs (where the homeostatic FBA objective reroutes around the block with **no** phenotype ever, even off exogenous rescue), leuB's lethality **does surface** in this model \u2014 but only when the environmental rescue (exogenous leucine) is experimentally removed. That is consistent with the Keio benchmark calling leuB essential.\n\n### Limits on this reading\n- I don't have local raw simOut for `KO:leuB` to check per-isoacceptor Leu-tRNA charging directly (`trna_families` needs local raw \u2014 I can offer to download it if useful).\n- Support is thin for the collapse itself: only 3 seeds actually reach the no_division generation, and 7 additional seeds crash immediately for QC reasons that aren't obviously leucine-related \u2014 I'm not attributing those to the biology.\n- Effect on the operon is on leuLABCD as a set; I cannot isolate leuB's individual contribution from this design."
+      },
+      {
+        "id": "codon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 15.2,
+        "answer": "Codon usage does **not** change elongation rate in any run in the corpus \u2014 and that's a model-scope fact, not a measured null.\n\n**Why:** Every run in this corpus uses the `steady_state` elongation model. Under that model, translation elongation draws amino acids from per-amino-acid tRNA pools; codon identity within a synonymous family has no effect on rate by construction \u2014 the model doesn't resolve which codon a ribosome is stalled on, only which amino acid. So a \"codon usage vs elongation rate\" query against the current corpus would be inferring from sequence composition, not from anything simulated \u2014 I won't report a number for that.\n\n**Where it *is* represented:** the checkout has a `kinetic` elongation mode (`elongation_model=\"kinetic\"`, wcEcoli's `--kinetic-trna-charging`) that reads the actual codon\u00d7anticodon matrix and would let codon identity affect elongation rate. But **no run in the corpus used it** \u2014 every existing row is `steady_state`. This is a new experiment to propose, not something I can answer by querying differently.\n\nIf you want this answered for real, I can propose a `kinetic`-mode run (e.g. wildtype vs a design contrasting fast- vs slow-codon-biased genes) \u2014 that would need `propose_experiment`/`propose_experiments` and human approval before it runs. Want me to draft that?"
+      },
+      {
+        "id": "ppgpp_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 17.4,
+        "answer": "This finding directly answers it: `ppgpp_stringent_response` under kinetic mode has `why_not: \"another_mode_represents_it\"` \u2014 meaning **no kinetic-elongation run exists in the corpus** (`kinetic.in_corpus: false`; `corpus_modes: [\"steady_state\"]` only), so I cannot read a ppGpp-vs-starvation answer *from a kinetic run* at all.\n\nWhat I *can* say, correctly scoped:\n\n- **Under kinetic (Choi & Covert 2023):** the stringent response (RelA sensing uncharged tRNA \u2192 ppGpp synthesis) is mechanistically represented in that elongation model, but **zero runs in this corpus used it** (`why_not: no_run_used_this_mode` for per-isoacceptor charging; the ppGpp/starvation coupling itself falls under `another_mode_represents_it`, pointing back to steady_state, which is the mode every existing row actually is). So there is no grounded number to report for \"does ppGpp rise under kinetic elongation.\"\n- **Under steady_state** (the mode of every corpus row, `in_corpus: true`), the ppGpp\u2013starvation coupling *is* represented and *is* measured \u2014 that's a real, answerable question I can pull data for (e.g. amino-acid downshift timelines show ppGpp rising). But that's a different elongation model from the one you asked about, and per the no-pooling rule I can't use it as a stand-in for a kinetic-mode answer, only as the adjacent result.\n\nSo the honest answer: **I cannot answer this for the kinetic elongation model \u2014 no such run exists in the corpus.** The mechanism is architecturally present in kinetic mode (per-isoacceptor charging + explicit codon reading), but it has never been executed. The concrete offer: run a kinetic-elongation amino-acid-downshift timeline (`elongation_model=\"kinetic\"`, flag `--kinetic-trna-charging`) to actually test it, or I can instead show you the steady-state answer (ppGpp response to starvation, which the corpus does have) if that's a useful adjacent data point.\n\nWant me to (a) propose the kinetic-mode starvation-shift experiment for human approval, or (b) pull the steady-state ppGpp-on-starvation result as the nearest grounded comparison?"
+      }
+    ],
+    "claude-opus-4-8": [
+      {
+        "id": "rrna_operon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 58.5,
+        "answer": "I have a robust, depth-matched answer. Here's the honest picture \u2014 with an important caveat about what \"one specific operon\" means in this model.\n\n## The phenotype\n\n**A single-operon deletion is essentially silent; the deficit only appears when you knock out most of the 7 operons.** Depth-matched to wildtype (generation 3, the settled read):\n\n| rRNA operons deleted | growth vs WT (gen 3) | viability |\n|---|---|---|\n| 2 of 7 | \u2248 WT (\u22121.6% at gen 0, within noise) | **viable**, divides all 4 gens |\n| 4 of 7 | \u2248 WT (\u22124.4% at gen 0) | **viable**, divides all 4 gens |\n| 6 of 7 | **\u221234%** (Welch p\u22480, non-overlapping CIs) | **viable**, divides all 4 gens |\n\nThe 6-of-7 deficit is real and much larger than replicate or corpus noise (Welch t = \u221214.5, 4 seeds vs 8 WT seeds, all QC-ok).\n\n**The deficit is progressive, not a fixed offset.** The 6-operon KO actually starts *above* wildtype at generation 0 (+9%) and declines monotonically each division \u2014 0.000274 \u2192 0.000194 \u2192 0.000172 \u2192 0.000147 \u2014 reaching \u221234% by generation 3 (see figure). This is the inherited-ribosome dilution signature: the cell begins with a wild-type ribosome pool, but with only 1 of 7 rRNA operons transcribing, it can't replenish ribosomes fast enough to keep up with division, so growth erodes generation by generation. **A whole-run mean, or a single early generation, would understate this** \u2014 the phenotype must be read at depth.\n\n## The critical caveat: this model can't delete a *named* operon\n\nYou asked for \"one specific rRNA operon.\" **The model does not implement rRNA operon KO gene-by-gene** (there is no rrnB-vs-rrnA distinction). `design_space` shows `rrna_operon_knockout` is a **graded count lever \u2014 \"KO n of 7 operons\"** \u2014 so the corpus has 2op / 4op / 6op, not rrnB / rrnE / etc. Every one of these 17 runs is `steady_state`, `out_of_sample`.\n\nConsequently:\n- I **cannot** give you \"delete *this specific* operon\" \u2014 the model treats all 7 as interchangeable copies and removes a count of them. Which specific operon is deleted is not a representable variable here.\n- The nearest thing to your single-operon question is **1-of-7 removed**, which the corpus does not contain. The trend (2op and 4op both \u2248 WT) implies 1op would be **silent \u2014 viable, growth indistinguishable from wildtype**, consistent with the real biology (E. coli tolerates single rrn deletions with little phenotype; the deficit emerges only when ~5\u20136 are gone). But that is an *extrapolation from the dose series*, not a measured run.\n\n## If you want the actual single-operon run\nI can propose a `rrna_operon_knockout` at **1 of 7**, run to \u22654 generations (needed to see the progressive dilution) with ~4 seeds, in-envelope and comparable to the existing dose series. Say the word and I'll queue it for your approval. It would confirm the extrapolated \"silent\" prediction and complete the 1/2/4/6-of-7 dose-response \u2014 but it still won't be operon-*specific*, because the model can't tell one rrn copy from another."
+      },
+      {
+        "id": "rrna_total",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 61.9,
+        "answer": "Note the bar chart pulled single-seed (s0) whole-run means, which differ from the depth-matched cross-seed means I quote below \u2014 I trust the `compare_at_generation` numbers (all seeds, matched to generation 3) for the answer.\n\n## Answer: cutting rRNA synthesis capacity to 3/7 (remove 4 of 7 operons)\n\n**Growth slows by ~18\u201319% at steady depth, and the deficit deepens generation over generation as the ribosome pool dilutes.**\n\n**Grounded numbers** (design `rrna_operon_knockout/minimal|rRNA_KO:4op`, 4 seeds, steady_state model, out-of-sample):\n\n| Generation | 4op growth vs WT |\n|---|---|\n| 0 (early) | \u22124.4% (n=9 vs 31) |\n| 3 (settled) | **\u221218.5%** (0.000181 vs 0.000222 h\u207b\u00b9; n=4 vs 12) |\n\n**Dose-response at generation 3** (all depth-matched):\n- 2 operons removed (5/7 remain): **+2.3%** \u2014 no meaningful effect\n- **4 operons removed (3/7 remain): \u221218.5%**\n- 6 operons removed (1/7 remain): \u221233.8%\n\nGrowth falls monotonically with operon loss, and the cell tolerates losing 2 operons with essentially no cost \u2014 consistent with rRNA operon redundancy.\n\n**Mechanism (grounded in raw simOut, 1 seed \u00d7 4 generations):** ribosome concentration in the 4op cell is depressed and *declining* \u2014 ~18.4 at the start, falling to ~15.5 by generation 4 \u2014 versus WT holding ~21\u201322. Capping rRNA gene dosage caps ribosome biogenesis; with fewer ribosomes made per division the pool is progressively diluted, which is why the growth deficit **grows with depth** (\u22124% early \u2192 \u221218.5% settled) rather than appearing at once.\n\n**Honesty / caveats:**\n- **The effect is depth-dependent, not instantaneous.** At the shared generation-1 depth the difference is only \u22123.7% and *not* statistically significant (Welch p=0.11, 5 vs 20 seeds). The reportable effect lives at generation 3 \u2014 I compared like-for-like there. Anyone quoting a single number should quote the settled \u221218.5%, not the early one.\n- **Support is thin for the mechanism trace:** the ribosome-pool decline is one seed \u00d7 4 generations \u2014 treat it as a consistent case study, not a precise result. The growth numbers themselves are 4 seeds.\n- This is **out-of-sample** (a perturbation the ParCa fit did not target), so this is a genuine model *prediction*, not fitted consistency.\n\nWould you like me to (a) pull the cross-seed variance band for growth over the 4 generations, or (b) check ppGpp \u2014 whether the stringent response is being invoked as the ribosome pool falls?"
+      },
+      {
+        "id": "iso_default",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 23.8,
+        "answer": "I can't answer this from the corpus \u2014 and I want to be precise about *why*, because the model will happily hand back a number that looks like an answer.\n\n## The honest answer: this question is not representable in any corpus run\n\n**Every run in this corpus uses the `steady_state` elongation model.** Under steady_state, tRNA charging is solved as a 20-state ODE indexed **by amino acid**, then broadcast to all 86 isoacceptor columns in proportion to abundance. Concretely:\n\n- Leucine has multiple isoacceptors (leuU, leuV, leuW, leuX, leuZ, leuP/Q/T\u2026), but the model computes **one** charged fraction for \"Leu\" and copies it across every Leu isoacceptor column.\n- So if you asked the raw data \"which Leu isoacceptor de-charges first?\", the within-family spread would be **exactly 0.0** \u2014 not because they de-charge uniformly, but because they are **identical by construction**. That zero is arithmetic, not a measurement.\n\nReading that as \"no isoacceptor de-charges first\" would be reporting a modeling artifact as biology. I won't do that.\n\n## Where the question *does* live\n\nThe selective-charging phenomenon you're describing is the Elf et al. 2003 result (with validation in Dittmar et al. 2005) \u2014 one isoacceptor of an amino acid de-charging while another stays loaded. The wcEcoli checkout **can** represent this, but only under a **different elongation model**:\n\n- **`kinetic`** elongation (`--kinetic-trna-charging`) solves charging per isoacceptor with explicit codon reading \u2014 the 86 columns become genuinely independent measurements.\n- **No corpus run uses it.** This is a *new run to propose*, not a query I can re-issue.\n\nCritically, results from a `kinetic` run **cannot be pooled** with the steady_state corpus \u2014 it's a separate arm.\n\n## What I can offer\n\nIf you want to actually answer \"which Leu isoacceptor loses charge first under starvation,\" I'd propose a **kinetic-elongation run** under an amino-acid downshift (or a Leu-limitation condition), then read the per-isoacceptor `fraction_trna_charged` trajectory with the `trna_families`/`selective_charging` tools \u2014 which under kinetic *do* return a real within-family spread.\n\nWould you like me to:\n1. **Draft that kinetic-elongation experiment** (a Leu-starvation timeline) for your approval, so we can measure it directly? Or\n2. First **check the literature** (Elf 2003 / Dittmar 2005) for the expected ordering as a cited external comparison to design the run against?\n\nI just won't give you a leucine isoacceptor name pulled from steady_state data \u2014 that name would be manufactured, not measured."
+      },
+      {
+        "id": "iso_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 27.4,
+        "answer": "I can't answer this from the corpus \u2014 and it's important to be precise about why.\n\n## The mechanism exists in the model, but no run has ever used it\n\nYour question \u2014 *which leucine isoacceptor de-charges first* \u2014 is the selective-charging axis of Elf et al. 2003: within one amino-acid family (Leu has several isoacceptors), does one tRNA run out of charge while its siblings stay loaded? That is a **per-isoacceptor** question, and it is only meaningful under the **kinetic** elongation model, where the 86 tRNA charging columns are genuinely independent measurements.\n\nThe problem is coverage, not capability:\n\n- The kinetic charging mechanism **is present** in the model (CovertLab wcEcoli v3.0.1, Choi & Covert 2023, *NAR* 51(12):5911), enabled by `--kinetic-trna-charging`.\n- But **every row in the corpus is `elongation_model=\"steady_state\"`** \u2014 no run has ever been produced with the kinetic model.\n\n**Why I will not read a number for you here.** Under steady_state, charging is solved as a 20-state ODE indexed by **amino acid**, then broadcast identically across all 86 isoacceptor columns. So the Leu isoacceptors' charged fractions are **equal by construction** \u2014 a within-family spread of exactly 0.0. That zero is arithmetic, not a measurement. If I ranked the Leu isoacceptors from a steady_state run and told you which one \"de-charges first,\" I'd be reporting a broadcast identity dressed up as biology. The honest answer is: the steady_state corpus **cannot distinguish** them.\n\n## What it would take to answer\n\nA **new campaign with `elongation_model=\"kinetic\"`** (`--kinetic-trna-charging`). Key points:\n\n- It runs against the **same fitted knowledge base** \u2014 the elongation model is a runSim flag, not a refit (kb_sha256 unchanged) \u2014 so it's a tractable proposal, not a re-fit of the whole model.\n- Its rows **must be kept as a separate arm** and never pooled with the steady_state corpus, because `fraction_trna_charged` means different things under each mode.\n- Under kinetic, the documented within-family spread is real and sizeable (measured LEU spread ~0.25), so the question genuinely resolves there.\n\nIf you'd like, I can propose a kinetic-mode run (e.g. a wildtype baseline plus a leucine-starvation or Leu-aaRS perturbation, so there's a de-charging gradient to rank) and queue it for approval. That's the only path that yields a grounded answer to \"which Leu isoacceptor loses charge first.\" Want me to draft that panel?"
+      },
+      {
+        "id": "iso_coarse",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 20.0,
+        "answer": "I won't report a number here, because a number under this mode would be a fabrication.\n\n## Answer: the coarse-kinetic model does not solve tRNA charging \u2014 so there is no charged fraction to report\n\nUnder the **coarse_kinetic** elongation model, `fraction_trna_charged` is **exactly 0.00 in all 86 isoacceptor columns, at every timestep** \u2014 but this is **the absence of a charging model, not a measurement of total de-acylation**.\n\nMechanistically (from the model source): `CoarseKineticTrnaChargingModel.request` and `.evolve` both return `self.zero_charged_holder`, an 86-wide `np.zeros` array. The columns are exact structural zeros because this model **never computes charging at all** \u2014 not a broadcast scalar, not an aggregation artifact, just an unfilled array.\n\nSo if I quoted \"0% charged for every tRNA,\" I'd be inventing a complete-starvation phenotype out of a zero-initialized array. That would be wrong.\n\n### Where the question *can* be answered\n\n- **Per-amino-acid charged fraction** (charging coupled to ppGpp/stringent response): representable under **steady_state** \u2014 and every row in the current corpus is already steady_state, so this is a **re-issue of the query**, not a new run. Caveat: under steady_state the 86 columns are one per-amino-acid scalar broadcast across isoacceptors, so within-family spread is 0.0 *by construction* (21 real values presented as 86).\n- **Per-isoacceptor charging** (one tRNA de-charges while another of the same amino acid stays loaded \u2014 the Elf 2003 / Dittmar 2005 axis): representable **only under the kinetic model** (`--kinetic-trna-charging`), where the 86 columns are genuinely independent. **No corpus run uses it** \u2014 this would be a **new simulation to propose** (human-approved).\n\n### How I'd suggest proceeding\n\nTell me which you actually want:\n1. **Per-amino-acid charged fractions** \u2192 I read them now from a steady_state run (I'd use `trna_families` for the per-family table, most-starved first).\n2. **Per-isoacceptor charged fractions** (true within-family differences) \u2192 I'd propose a `kinetic` run for your approval, since nothing in the corpus can answer it.\n\nJust don't let anyone report the coarse_kinetic zeros as a result."
+      },
+      {
+        "id": "mura",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 61.2,
+        "answer": "All three lines of evidence converge. Here is the phenotype of a *murA* knockout.\n\n## murA knockout \u2014 phenotype\n\n**In reality: lethal.** *murA* (b3189) is **essential** in the Baba/Joyce (Keio) benchmark. It encodes UDP-*N*-acetylglucosamine enolpyruvyl transferase \u2014 the first committed, sole-catalyst step of peptidoglycan (cell-wall) biosynthesis. Losing it blocks murein synthesis and the cell lyses. The independent genome-scale FBA cross-check (iML1515) agrees decisively: KO growth fraction **0.0**, essential under both pFBA and MOMA \u2014 diagnosis **consistent_lethal**.\n\n**In the whole-cell simulation: it looks viable \u2014 but that verdict is not trustworthy here, and for two separate reasons:**\n\n1. **The standard `gene_knockout\u00b7KO:murA` runs are not actually knockouts.** *murA* is transcribed from **2 transcription units**; that variant zeroes only one (TU0-13887), so murA stays expressed (KO count 1.6 vs WT 1.5). All those runs carry the QC flag `noop_knockout` (non-reportable). Their \"viable, divides all 4 generations\" result is describing a cell that still has murA \u2014 it is not evidence of anything.\n\n2. **Even a complete KO would look viable in this model by construction.** The wcEcoli FBA objective is homeostatic (deviation-minimizing, no growth/biomass term), so a metabolic enzyme KO reroutes to keep metabolite pools in range rather than failing. This is the model's documented **`model_UNDER_predicts`** limitation \u2014 the same failure mode as fabI/glmS/gltA. The `graded_gene_knockout` runs are consistent with a real defect: they are QC `crashed`/`inviable` (6 seeds, only reached generation 0\u20131, min division rate 0.0), but those are single-generation, non-reportable observations \u2014 a hint, not a clean result.\n\n## Bottom line\n\n- **True phenotype: essential \u2014 a murA null is lethal** (cell-wall biosynthesis blocked \u2192 lysis). This is the answer to trust, backed by the Keio benchmark and confirmed by independent FBA/MOMA.\n- **The simulation does not reproduce this.** Its default `gene_knockout` isn't even a real knockout of murA (partial, single-TU), and its metabolic FBA would call a complete KO viable anyway. So do **not** report the in-silico \"viable, divides 4 generations\" as the phenotype.\n\nIf you want a cleaner in-silico test of murA loss, a **graded-capacity** perturbation (rather than the transcription-zeroing KO) would give a measurable dose-response, and would need to target **both** transcription units to actually silence the gene \u2014 I can propose that as a run if useful."
+      },
+      {
+        "id": "leub",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 58.0,
+        "answer": "## Phenotype of a leuB knockout\n\n**First, a critical scope caveat:** `KO:leuB` in this corpus is **not a single-gene knockout**. It zeroes transcription unit TU0-42478 = **leuLABCD** (5 genes: leuL, leuA, leuB, leuC, leuD). Any phenotype must be attributed to loss of the whole leucine-biosynthesis operon, not leuB alone. This is out-of-sample (a genuine prediction, not a fitted condition).\n\n### The biology (ground truth): auxotrophy / essential in minimal media\nleuB is **benchmark-ESSENTIAL** (Baba/Joyce Keio), and this is a flagged **`model_UNDER_predicts`** case. In vivo, losing leucine biosynthesis makes the cell a **leucine auxotroph** \u2014 it cannot grow on minimal glucose without supplemented leucine.\n\n### What the simulation actually shows (20 seeds, steady_state model)\nThe runs come in two media contexts and the phenotype tracks the media exactly:\n\n- **In minimal + amino acids (leucine supplied):** seeds divide normally to 4 generations (division_rate 1.0, doubling ~5000\u20136000 s). The auxotroph is *rescued* by exogenous leucine \u2014 as expected.\n- **On leucine withdrawal / stress:** a large fraction of seeds **collapse at generation 0** (division_rate 0.0, `no_division`/`crashed`). The cross-seed viability verdict is **inviable**.\n- **Stringent-response signature (the mechanism):** at the like-for-like generation-0 read (n=13 KO seeds, non-overlapping CIs), **ppGpp is +147% vs wild-type (146 vs 59)** \u2014 the classic uncharged-Leu-tRNA \u2192 RelA \u2192 ppGpp response of amino-acid starvation. Ribosome concentration is correspondingly depressed (~\u221233%).\n\n### Honest caveats on the numbers\n- The whole-run differential showed ppGpp up but `rela_conc` *down* and the effect **not significant at shared depth (gen 4, Welch p=0.053)** \u2014 because the gen-4 mean is computed only over the *rich-media survivors*, whose ppGpp is bimodal (~25 vs ~760 across seeds). The clean, powered signal is at **gen 0**; I would not report the gen-4 mean as the phenotype.\n- The model's `viable` behavior for the rescued seeds is the known FBA-reroute limit (homeostatic objective, no growth term). **Trust the benchmark: this operon loss is essential in minimal media.**\n\n**Bottom line:** leuB (leuLABCD-operon) knockout is a **leucine auxotroph** \u2014 lethal on minimal media (inviable, division arrest at gen 0 with an elevated-ppGpp stringent signature), fully rescued when leucine/amino acids are supplied. The whole-cell sim under-predicts the lethality (calls the rescued case viable), so the essentiality benchmark is the authority here.\n\nIf useful, I can propose a clean **single-gene** leuB KO or a graded leucine-limitation timeline to isolate the operon-vs-leuB question and resolve the bimodal survivor behavior."
+      },
+      {
+        "id": "codon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 23.6,
+        "answer": "I have a clean, unambiguous answer from the model's own capability declaration. This is a case where the honest answer is \"the corpus cannot answer this, and here is exactly why and what would.\"\n\n## Short answer: not in any data we have \u2014 and structurally not in the corpus at all.\n\n**Codon identity has no effect on elongation rate in any run in the corpus.** Every row in the Cellarium corpus was produced by the `steady_state` elongation model, and in that model elongation draws from **per-amino-acid** tRNA pools \u2014 the ribosome is never waiting on a specific *codon*, only on an amino-acid family. So there is no channel I can read that would show codon usage changing the peptide elongation rate, and I won't invent one.\n\nConcretely, this means:\n- Any codon-usage or codon-bias number you could extract from a steady-state run would be **inferred from the coding sequence, not simulated** \u2014 it is arithmetic over the genome, not a measured elongation effect.\n- Relatedly, `fraction_trna_charged` is solved as a 20-state ODE indexed by amino acid and then *broadcast* across all 86 isoacceptor columns. So the per-isoacceptor columns are **identical by construction** \u2014 a 0.0 within-family spread there is arithmetic, not evidence that codon-specific charging is uniform.\n\n## But the mechanism *does* exist in the model \u2014 it just needs a different elongation model\n\nThis is the important nuance, and why the answer is \"no data\" rather than \"the model can't do it\":\n\n- The **`kinetic`** elongation model (`--kinetic-trna-charging`, from CovertLab/WholeCellEcoliRelease v3.0.1, Choi & Covert 2023, NAR 51:5911) **does** represent codon-level elongation: it carries the codon \u00d7 anticodon reading matrix and solves charging per isoacceptor, so codon identity *can* modulate the local elongation rate.\n- **No corpus run used it** \u2014 it's off by default. So this is a **new campaign to propose**, not a query I can re-issue.\n\nOne critical caveat for interpreting such a campaign: kinetic-model rows **must not be pooled** with the existing corpus. The same channel (`fraction_trna_charged`, elongation rate) means something different under each elongation model \u2014 under steady_state it's a broadcast identity, under kinetic it's an independent measurement. They'd be separate arms, split on `elongation_model` (the KB hash is unchanged since it's a runSim flag, not a refit).\n\n## What I can offer\n\nIf you want to actually test whether codon usage changes elongation rate, I can propose a **kinetic-elongation campaign** \u2014 e.g. a wildtype run under `elongation_model=\"kinetic\"` (and, if you want to probe bias directly, a comparison against a codon-limited condition). It would be gated on your approval before running. Want me to draft that panel and check it against the validated envelope?"
+      },
+      {
+        "id": "ppgpp_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 22.2,
+        "answer": "The \"kinetic\" hits in the corpus are a red herring \u2014 they are all `metabolism_kinetic_objective_weight` runs, which are a **metabolism FBA objective-weighting** sweep, and every one is `elongation_model: \"steady_state\"` (and mostly crashed/no_division anyway). None of them use the kinetic *elongation* model.\n\nSo the honest answer has two parts:\n\n## The kinetic elongation model is not in the corpus\n\nEvery row in this corpus is `elongation_model = \"steady_state\"`. There are **zero** runs using the kinetic tRNA-charging elongation model (`--kinetic-trna-charging`, Choi & Covert 2023). I cannot read a kinetic-mode result because none exists here \u2014 and I must not carry a steady-state number across into a kinetic-mode answer, because `fraction_trna_charged` means something structurally different in each mode.\n\n## What the question actually pairs badly\n\nYour question braids two things the model separates:\n\n- **\"When amino acids run out\"** \u2014 the per-amino-acid / per-isoacceptor **tRNA charging** response. This is exactly what the kinetic model exists to represent (86 genuinely independent isoacceptor columns; measured within-family spread GLY 0.32, LEU 0.25). Under steady_state it *cannot* be represented per-isoacceptor \u2014 the columns are one scalar broadcast, so within-family spread is 0.00 by algebraic identity, not measurement.\n- **\"Does ppGpp rise\"** \u2014 the **stringent response**. The capability audit is explicit here: `ppgpp_stringent_response` has `why_not = \"another_mode_represents_it\"`, and the mode that represents it is **steady_state**, which *is* in the corpus. ppGpp/RelA is not a special product of the kinetic elongation model.\n\nSo the precise answer to *\"under the kinetic elongation model, does ppGpp rise when amino acids run out?\"* is: **I can't tell you from data \u2014 no kinetic-elongation run exists in this corpus.** What I *can* say is that the ppGpp-rise half of your question is represented under steady_state, and I can measure that (an amino-acid downshift there drives ppGpp up sharply \u2014 a stringent-type response). The kinetic model would add the mechanism *upstream* of it: which specific isoacceptor de-charges first and drives RelA.\n\n## What would answer it properly\n\nTwo concrete offers:\n\n1. **Re-issue the ppGpp-rise question against steady_state**, which is in the corpus \u2014 I can pull a real amino-acid-downshift timeline and show the ppGpp trajectory (this measures the stringent response, just not the per-isoacceptor charging that triggers it).\n2. **Propose a new kinetic-elongation run** (`elongation_model=\"kinetic\"`, an amino-acid downshift timeline) if you specifically need the kinetic-mode coupling \u2014 charging \u2192 RelA \u2192 ppGpp \u2014 resolved per isoacceptor. This is a new simulation, so it goes through the human-approval airlock; it would be a fresh arm and could not be pooled with the steady_state corpus.\n\nWhich do you want \u2014 the grounded steady-state ppGpp-rise measurement now, or a proposed kinetic run (or both)?"
+      }
+    ]
+  }
+}

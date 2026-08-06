@@ -290,9 +290,22 @@ class Capability:
                 # subject to DEFAULT_MODE for exactly this sentence.
                 + (f"What those runs do instead: {instead} " if instead else "")
                 + (f"So do NOT read their output as evidence: {consequence} " if consequence else "")
+                # The reason such a campaign is not poolable is NOT a different knowledge base. MEASURED
+                # 2026-08-06: `provenance.kb_provenance` over a steady-state run root and over the kinetic
+                # root runs_kin_A both return kb_sha256 5f19d040944a65abf1d9e0bfb05b7def19afc653ddc598bf4b97-
+                # fed2f228c171 on 90,404,578 identical bytes — the elongation model is a runSim FLAG, not a
+                # ParCa refit, so it cannot move the KB hash. This sentence previously asserted that it did,
+                # which sent an operator looking for a KB difference that does not exist and, worse, implied
+                # that a matching kb_sha256 would make the two poolable. What actually forbids pooling is the
+                # channel semantics: `fraction_trna_charged` is 86 columns wide under every model and means a
+                # broadcast identity, 86 measurements, or 86 structural zeros depending which one ran. That is
+                # precisely what the `elongation_model` column exists to keep apart.
                 + f"Answering this needs a NEW campaign with elongation_model=\"{mode}\" "
-                  f"({MODE_FLAGS.get(mode, 'see MODE_FLAGS')}), and because that changes kb_sha256 such a "
-                  f"campaign is not poolable with the existing corpus.")
+                  f"({MODE_FLAGS.get(mode, 'see MODE_FLAGS')}). Such a campaign runs against the SAME fitted "
+                  f"knowledge base — the elongation model is a runSim flag, not a refit, so kb_sha256 is "
+                  f"unchanged — but its rows still must not be pooled with the corpus, because the same "
+                  f"channel carries a different meaning under each elongation model. Separate them on "
+                  f"`elongation_model`, not on the KB hash.")
 
 
 # The registry. `present=False` entries are the ones that matter — each is a question the model will otherwise
