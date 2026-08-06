@@ -1055,9 +1055,13 @@ are what the journal version needs.
   integration barrier between modelling communities; the same framing fits our extensions and is currently
   absent from the paper.
 
-- **CORPUS-PATH-1 — 26 manifest rows carry no `simout_path`.** Measured 2026-08-06: . A row whose raw
-  traces cannot be located from the manifest alone is readable as a result but not re-derivable from source,
-  which is the silent-absence shape in a new place: nothing reports that the trace is unreachable. Decide per
-  row whether the path is recoverable (backfill it), or the run is gone (tombstone it with that reason). Until
-  then, any tool that walks from a manifest row to its raw trace can fail on these without saying why —
-  `raw.seed_runs` and `support.coverage` are the likely first casualties.
+- **CORPUS-PATH-1 — 26 manifest rows carry an absolute path from a collaborator's machine.** Measured
+  2026-08-06: 26 rows have `simout_path` under `/Users/fmenol/Downloads/cellarium/runs/...`, none of which
+  resolves here, and all 26 are `reportable=True`. They include wildtype seeds and the 4-operon rRNA knockout,
+  so they are load-bearing for the corpus rather than stragglers. A row that is reportable but whose raw trace
+  cannot be located is readable as a result and not re-derivable from source, and nothing reports the trace as
+  unreachable — the silent-absence shape in a new place, and one that would bite anyone re-running this work
+  from the published dataset. Fix: rewrite the paths to the portable form used by every other row, or
+  tombstone them with that reason. `raw.seed_runs` and `support.coverage` are the likely first casualties.
+  NOTE: my first version of this entry said the paths were EMPTY. They are not — a `split_part` on '/' returns
+  an empty first field for an absolute path, and I read that as an empty value. The rows were never empty.
