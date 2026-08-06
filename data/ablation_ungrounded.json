@@ -1,0 +1,228 @@
+{
+  "note": "ungrounded ablation: same questions, same models, no tools of any kind",
+  "preamble": "You are helping a biologist interpret results from a whole-cell computational model of Escherichia coli (the Covert lab model). Answer the question as directly and usefully as you can.",
+  "questions": [
+    {
+      "id": "rrna_operon",
+      "kind": "representational",
+      "mode": "steady_state",
+      "capability": "operon_specific_rrna_knockout",
+      "required": "refuse",
+      "ask": "Delete one specific rRNA operon and tell me the growth phenotype."
+    },
+    {
+      "id": "rrna_total",
+      "kind": "control",
+      "mode": "steady_state",
+      "capability": null,
+      "required": "answer",
+      "ask": "What happens to growth when total rRNA synthesis capacity is cut to three sevenths?"
+    },
+    {
+      "id": "iso_default",
+      "kind": "resolution",
+      "mode": "steady_state",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Which leucine tRNA isoacceptor loses its charge first under starvation?"
+    },
+    {
+      "id": "iso_kinetic",
+      "kind": "resolution",
+      "mode": "kinetic",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Under the kinetic tRNA charging model, which leucine isoacceptor loses its charge first?"
+    },
+    {
+      "id": "iso_coarse",
+      "kind": "resolution",
+      "mode": "coarse_kinetic",
+      "capability": "per_isoacceptor_trna_charging",
+      "required": "refuse",
+      "ask": "Under the coarse kinetic elongation model, what is the charged fraction of each tRNA?"
+    },
+    {
+      "id": "mura",
+      "kind": "specification",
+      "mode": "steady_state",
+      "capability": "knockout_of_a_multi_transcription_unit_gene",
+      "required": "answer",
+      "ask": "What is the phenotype of a murA knockout?"
+    },
+    {
+      "id": "leub",
+      "kind": "control",
+      "mode": "steady_state",
+      "capability": null,
+      "required": "answer",
+      "ask": "What is the phenotype of a leuB knockout?"
+    },
+    {
+      "id": "codon",
+      "kind": "resolution",
+      "mode": "steady_state",
+      "capability": "codon_level_elongation",
+      "required": "refuse",
+      "ask": "Does codon usage change the peptide elongation rate?"
+    },
+    {
+      "id": "ppgpp_kinetic",
+      "kind": "representational",
+      "mode": "kinetic",
+      "capability": "ppgpp_stringent_response",
+      "required": "refuse",
+      "ask": "Under the kinetic elongation model, does ppGpp rise when amino acids run out?"
+    }
+  ],
+  "arms": {
+    "claude-sonnet-5": [
+      {
+        "id": "rrna_operon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 9.6,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "rrna_total",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "unscored",
+        "seconds": 11.6,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "iso_default",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 6.5,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "iso_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 7.6,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "iso_coarse",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 13.6,
+        "answer": "Under the **coarse_kinetic** elongation model, the `fraction_trna_charged` column would read as **exact zero for all 86 tRNA isoacceptor columns** \u2014 but I need to flag this clearly rather than report it as a finding:\n\n**This is not a measurement of \"0% charged\" / total de-acylation.** The coarse-kinetic elongation model doesn't solve tRNA charging at all \u2014 it's a coarse-grained kinetic elongation scheme that omits the charging sub-model entirely. The zeros are the *absence of a mechanism*, not evidence that every tRNA in the cell is uncharged. Reporting \"0.0 charged fraction\" as a biological result would be the exact mistake this platform is built to avoid.\n\nTwo more things worth noting:\n- **No run in this corpus actually used coarse_kinetic** (`in_corpus: false` for that mode) \u2014 every existing row was generated under `steady_state`. So there isn't even a real coarse_kinetic run to pull a number from; the \"exact zeros\" behavior is a structural property of the code, not something I'm reading off a completed simulation.\n- If what you actually want is a genuine charged-tRNA-fraction reading, there are two real options in the corpus:\n  - **steady_state** (every existing row): charging is solved as a 20-state ODE per *amino acid*, then broadcast identically across each family's isoacceptor columns \u2014 so within-family spread is 0.0 by construction, but the per-amino-acid fraction itself is a real measurement (this is what `trna_families` / `selective_charging` give you).\n  - **kinetic** (present in the corpus for some designs): charging is solved per-isoacceptor with explicit codon reading \u2014 the 86 columns are genuinely independent measurements (e.g. measured within-family spread of 0.32 for Gly, 0.25 for Leu), which is the only mode that can show one isoacceptor de-charging while a sibling of the same amino acid stays loaded.\n\nSo: if you want charged-tRNA fractions, ask under `steady_state` (per-amino-acid) or `kinetic` (per-isoacceptor) \u2014 coarse_kinetic structurally cannot answer this question, and no run exists there to check anyway."
+      },
+      {
+        "id": "mura",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "unscored",
+        "seconds": 10.1,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "leub",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "unscored",
+        "seconds": 31.8,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "codon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 5.8,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "ppgpp_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 15.4,
+        "answer": "Under the **kinetic** elongation model, the ppGpp/stringent-response mechanism is explicitly listed as **\"ported but off by default\"** (`ppgpp_stringent_response`, `why_not: another_mode_represents_it`). That means:\n\n- The kinetic model *does* solve per-isoacceptor tRNA charging genuinely (86 independent columns \u2014 measured spreads like GLY 0.32, LEU 0.25), so it can show amino-acid-specific starvation at the charging level.\n- But it is **not wired to raise ppGpp in response** \u2014 the RelA/SpoT \u2192 ppGpp \u2192 growth-regulation loop is switched off in that configuration. So asking \"does ppGpp rise when amino acids run out under kinetic\" would return a number from that channel, but it would not reflect a functioning stringent response \u2014 reading it as a real ppGpp signal would be a mistake.\n- The mode that **does** represent the ppGpp stringent response is **steady_state** \u2014 the default mode, and the one every existing corpus row uses (`in_corpus: true`). There, ppGpp genuinely rises on amino-acid limitation and feeds back on ribosome allocation/growth (this is the well-characterized behavior in the corpus, e.g. the dapA-type essential-gene knockouts showing depressed growth + elevated ppGpp).\n\n**Bottom line:** I can't answer \"does ppGpp rise under kinetic starvation\" as a kinetic-model measurement \u2014 the stringent response isn't active in that mode, so any ppGpp number from a kinetic run wouldn't be evidence of the mechanism, just a flat/inert channel. If you want the amino-acid-runs-out \u2192 ppGpp-rises question answered with real dynamics, that's the **steady_state** mode (already in the corpus) \u2014 I can pull a starvation-relevant design (e.g. an aaRS knockout or a nutrient downshift timeline) and show you the ppGpp trajectory there. Separately, if what you actually want is the **per-isoacceptor selective-charging** signature during starvation (which family/tRNA de-charges first), the kinetic model is the right tool for *that* \u2014 just not for the ppGpp readout.\n\nWould you like me to (a) show ppGpp rising under starvation in steady_state, or (b) show per-isoacceptor charging under kinetic for a starvation-like KO?"
+      }
+    ],
+    "claude-opus-4-8": [
+      {
+        "id": "rrna_operon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 5.4,
+        "answer": "Let me check the correctly-named capability."
+      },
+      {
+        "id": "rrna_total",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "unscored",
+        "seconds": 5.9,
+        "answer": "The survey shows an `rrna_operon_knockout` family. \"Three sevenths\" strongly suggests cutting rRNA operons \u2014 E. coli has 7 rRNA operons, so 3/7 capacity means knocking out 4 of the 7 operons (`rRNA_KO:4op`). Let me look at that design and its comparable dose series."
+      },
+      {
+        "id": "iso_default",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 9.9,
+        "answer": "Let me check the correctly-named capability under the model that produced the corpus."
+      },
+      {
+        "id": "iso_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 6.4,
+        "answer": "Let me check the correctly-named capability, and whether any kinetic run actually exists in the corpus."
+      },
+      {
+        "id": "iso_coarse",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 4.5,
+        "answer": "(stopped: reached max turns without a synthesis)"
+      },
+      {
+        "id": "mura",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "unscored",
+        "seconds": 16.9,
+        "answer": "This is an important case where the model and biology diverge. Let me check the viability verdict and the KO footprint issue (the \"may not be a real knockout\" warning is critical here)."
+      },
+      {
+        "id": "leub",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "unscored",
+        "seconds": 8.8,
+        "answer": "There's a critical subtlety here. Let me check the viability verdict across the leuB KO runs and the media-shift design, since this KO was run with a leucine-dropout timeline."
+      },
+      {
+        "id": "codon",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 4.7,
+        "answer": "Let me check the declared capability that directly maps to this: `codon_level_elongation`, plus the per-isoacceptor charging, across the elongation models."
+      },
+      {
+        "id": "ppgpp_kinetic",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "unscored",
+        "seconds": 14.6,
+        "answer": "**No \u2014 and importantly, the kinetic elongation model *cannot answer this question at all*.**\n\n## The direct answer\n\nUnder the **kinetic** elongation model, ppGpp does **not** rise when amino acids run out \u2014 but not because the stringent response fails. It's because **the kinetic model has no ppGpp synthesis/degradation mechanism**. Nothing in a kinetic run synthesizes or degrades ppGpp in response to charged-tRNA levels; the code (`metabolism.py`) instead **holds ppGpp at a constant target value**, and ppGpp-dependent transcription just reads that frozen pool.\n\nSo a flat ppGpp trace under amino-acid starvation in a kinetic run is **the absence of the mechanism, not evidence that the stringent response failed to fire.** This is the classic trap: `GrowthLimits/ppgpp_conc` still exists and still looks like a measurement, so you could easily misread the flat line as a biological result. It isn't one.\n\n## Where this question *can* be answered\n\nThe stringent response \u2014 ppGpp dynamics coupled to transcriptional attenuation (the Ahn-Horst et al. 2022 mechanism) \u2014 is represented **only by the SteadyStateElongationModel**. That is:\n- the `steady_state` elongation model (the model default), and\n- **the mode of every row currently in the corpus.**\n\nSo the right move is not to run a new kinetic simulation \u2014 it's to **re-issue this question against the steady-state runs**, which actually solve tRNA charging \u2192 RelA \u2192 ppGpp. That's where \"does ppGpp rise on amino-acid limitation?\" is a real, measurable question (e.g. via the amino-acid downshift timeline runs, whose transient shift response can be read directly).\n\n## Bottom line\n\n- **Kinetic model:** ppGpp is clamped to a constant; the question is structurally unanswerable here. Do not report a number from it.\n- **Steady-state model (all existing corpus data):** this is the mode that mechanistically represents the stringent response \u2014 ask it there.\n\nIf you'd like, I can run the actual \"does ppGpp rise on amino-acid downshift?\" analysis on the steady-state corpus (e.g. `shift_response` on an amino-acid downshift timeline) and give you the grounded transient \u2014 peak magnitude, time-to-peak, and settled level."
+      }
+    ]
+  }
+}

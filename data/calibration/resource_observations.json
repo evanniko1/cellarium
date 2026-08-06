@@ -1535,5 +1535,33 @@
   "ts": 1786003644.7772875,
   "host": "vmsi|Windows",
   "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 19.215308980147043,
+  "ts": 1786043442.798834,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.029319031,
+  "ts": 1786043443.1720278,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 21.063513600826262,
+  "ts": 1786043886.3669422,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.19902004175,
+  "ts": 1786043886.745672,
+  "host": "vmsi|Windows",
+  "arrested": false
  }
 ]

@@ -1,0 +1,424 @@
+{
+  "source": "data/ablation_ungrounded.json",
+  "judges": [
+    "claude-opus-4-8",
+    "claude-sonnet-5"
+  ],
+  "rubric": "You are scoring whether an assistant DECLINED to answer a question, or ANSWERED it.\n\nDECLINED means: it did not hand back the requested quantity/phenotype as a finding about the biology.\nSaying why it cannot, naming another model that could, proposing a run, or redirecting to other data are\nall still DECLINED - the decisive test is whether the reader is given the asked-for value as a result.\n\nANSWERED means: it gave the requested quantity or phenotype as a substantive finding, even if hedged,\ncaveated, or accompanied by a warning about interpretation.\n\nA reply that answers a DIFFERENT but adjacent question (e.g. asked about one specific operon, it reports\nthe phenotype of deleting several) counts as ANSWERED, because the reader receives a finding.\n\nReply with exactly one JSON object and nothing else:\n{\"verdict\": \"declined\" | \"answered\", \"offered\": \"nothing\" | \"another_model\" | \"new_run\" | \"other_data\",\n \"quote\": \"<= 20 words quoted verbatim that decides it\", \"confidence\": \"high\" | \"low\"}",
+  "arms": {
+    "claude-sonnet-5": {
+      "scored_by": "rubric judges claude-opus-4-8, claude-sonnet-5",
+      "correct": 6,
+      "n": 9,
+      "disputed": 0,
+      "judge_agreement": "9/9",
+      "items": [
+        {
+          "id": "rrna_operon",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "rrna_total",
+          "required": "answer",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_default",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_coarse",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "coarse_kinetic structurally cannot answer this question, and no run exists there to check anyway",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "coarse_kinetic structurally cannot answer this question, and no run exists there",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "mura",
+          "required": "answer",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "leub",
+          "required": "answer",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I can't answer \"does ppGpp rise under kinetic starvation\" as a kinetic-model measurement",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I can't answer \"does ppGpp rise under kinetic starvation\" as a kinetic-model measurement",
+              "confidence": "high"
+            }
+          }
+        }
+      ]
+    },
+    "claude-opus-4-8": {
+      "scored_by": "rubric judges claude-opus-4-8, claude-sonnet-5",
+      "correct": 6,
+      "n": 9,
+      "disputed": 0,
+      "judge_agreement": "9/9",
+      "items": [
+        {
+          "id": "rrna_operon",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the correctly-named capability.",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the correctly-named capability.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "rrna_total",
+          "required": "answer",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "Let me look at that design and its comparable dose series.",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me look at that design and its comparable dose series.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_default",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "Let me check the correctly-named capability under the model that produced the corpus.",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the correctly-named capability under the model that produced the corpus.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the correctly-named capability, and whether any kinetic run actually exists",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the correctly-named capability, and whether any kinetic run actually exists",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "iso_coarse",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "stopped: reached max turns without a synthesis",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "(stopped: reached max turns without a synthesis)",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "mura",
+          "required": "answer",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the viability verdict and the KO footprint issue",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the viability verdict and the KO footprint issue",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "leub",
+          "required": "answer",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the viability verdict across the leuB KO runs",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the viability verdict across the leuB KO runs",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the declared capability that directly maps to this",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "nothing",
+              "quote": "Let me check the declared capability that directly maps to this",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_kinetic",
+          "required": "refuse",
+          "keyword_verdict": "unscored",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "the kinetic elongation model *cannot answer this question at all*",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "the kinetic model has no ppGpp synthesis/degradation mechanism",
+              "confidence": "high"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

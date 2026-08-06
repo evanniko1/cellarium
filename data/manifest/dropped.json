@@ -158,5 +158,261 @@
     "ts": 1785992487.4639654,
     "simout_path": "runs_seed_aars/cellarium/gene_knockout_674307/000003",
     "design_key": "gene_knockout/KO:pheS"
+  },
+  {
+    "key": "graded_gene_knockout_1_a370ff38@@runs_depleting/cellarium/graded_gene_knockout_006443/000001",
+    "id": "graded_gene_knockout_1_a370ff38",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.0596704,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000001",
+    "design_key": "graded_gene_knockout/KO:argS@0.10"
+  },
+  {
+    "key": "graded_gene_knockout_0_71ab7ffc@@runs_depleting/cellarium/graded_gene_knockout_006443/000000",
+    "id": "graded_gene_knockout_0_71ab7ffc",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.1350605,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000000",
+    "design_key": "graded_gene_knockout/KO:argS@0.10"
+  },
+  {
+    "key": "graded_gene_knockout_1_5c6beae3@@runs_depleting/cellarium/graded_gene_knockout_006442/000001",
+    "id": "graded_gene_knockout_1_5c6beae3",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.1912248,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000001",
+    "design_key": "graded_gene_knockout/KO:argS@0.05"
+  },
+  {
+    "key": "graded_gene_knockout_2_6ec16dd5@@runs_depleting/cellarium/graded_gene_knockout_006442/000002",
+    "id": "graded_gene_knockout_2_6ec16dd5",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.2435105,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000002",
+    "design_key": "graded_gene_knockout/KO:argS@0.05"
+  },
+  {
+    "key": "graded_gene_knockout_0_3b3da07a@@runs_depleting/cellarium/graded_gene_knockout_006442/000000",
+    "id": "graded_gene_knockout_0_3b3da07a",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.291309,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000000",
+    "design_key": "graded_gene_knockout/KO:argS@0.05"
+  },
+  {
+    "key": "graded_gene_knockout_2_b40af9d4@@runs_depleting/cellarium/graded_gene_knockout_006443/000002",
+    "id": "graded_gene_knockout_2_b40af9d4",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.3403203,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000002",
+    "design_key": "graded_gene_knockout/KO:argS@0.10"
+  },
+  {
+    "key": "graded_gene_knockout_3_afe049ce@@runs_depleting/cellarium/graded_gene_knockout_006442/000003",
+    "id": "graded_gene_knockout_3_afe049ce",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.3980956,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000003",
+    "design_key": "graded_gene_knockout/KO:argS@0.05"
+  },
+  {
+    "key": "graded_gene_knockout_3_026c6c7f@@runs_depleting/cellarium/graded_gene_knockout_006443/000003",
+    "id": "graded_gene_knockout_3_026c6c7f",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.467297,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000003",
+    "design_key": "graded_gene_knockout/KO:argS@0.10"
+  },
+  {
+    "key": "graded_gene_knockout_2_f243fec2@@runs_depleting/cellarium/graded_gene_knockout_006444/000002",
+    "id": "graded_gene_knockout_2_f243fec2",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.5241182,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000002",
+    "design_key": "graded_gene_knockout/KO:argS@0.25"
+  },
+  {
+    "key": "graded_gene_knockout_3_6b22ed19@@runs_depleting/cellarium/graded_gene_knockout_006444/000003",
+    "id": "graded_gene_knockout_3_6b22ed19",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.5762806,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000003",
+    "design_key": "graded_gene_knockout/KO:argS@0.25"
+  },
+  {
+    "key": "graded_gene_knockout_1_c411971f@@runs_depleting/cellarium/graded_gene_knockout_006444/000001",
+    "id": "graded_gene_knockout_1_c411971f",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.6357117,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000001",
+    "design_key": "graded_gene_knockout/KO:argS@0.25"
+  },
+  {
+    "key": "graded_gene_knockout_0_c6fbdf1b@@runs_depleting/cellarium/graded_gene_knockout_006444/000000",
+    "id": "graded_gene_knockout_0_c6fbdf1b",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.7103467,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000000",
+    "design_key": "graded_gene_knockout/KO:argS@0.25"
+  },
+  {
+    "key": "graded_gene_knockout_1_fead605b@@runs_depleting/cellarium/graded_gene_knockout_006445/000001",
+    "id": "graded_gene_knockout_1_fead605b",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.7806249,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000001",
+    "design_key": "graded_gene_knockout/KO:argS@0.50"
+  },
+  {
+    "key": "graded_gene_knockout_2_658db2b6@@runs_depleting/cellarium/graded_gene_knockout_006445/000002",
+    "id": "graded_gene_knockout_2_658db2b6",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.8482995,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000002",
+    "design_key": "graded_gene_knockout/KO:argS@0.50"
+  },
+  {
+    "key": "graded_gene_knockout_0_c9f68d1b@@runs_depleting/cellarium/graded_gene_knockout_006445/000000",
+    "id": "graded_gene_knockout_0_c9f68d1b",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.8895812,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000000",
+    "design_key": "graded_gene_knockout/KO:argS@0.50"
+  },
+  {
+    "key": "graded_gene_knockout_3_98821a6d@@runs_depleting/cellarium/graded_gene_knockout_006445/000003",
+    "id": "graded_gene_knockout_3_98821a6d",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.9381201,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000003",
+    "design_key": "graded_gene_knockout/KO:argS@0.50"
+  },
+  {
+    "key": "graded_gene_knockout_0_2e6a6007@@runs_depleting/cellarium/graded_gene_knockout_006443/000000",
+    "id": "graded_gene_knockout_0_2e6a6007",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038829.979183,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000000",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_0_ec952118@@runs_depleting/cellarium/graded_gene_knockout_006442/000000",
+    "id": "graded_gene_knockout_0_ec952118",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.0227134,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000000",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_1_c917f401@@runs_depleting/cellarium/graded_gene_knockout_006442/000001",
+    "id": "graded_gene_knockout_1_c917f401",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.0640132,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000001",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_3_44a864ba@@runs_depleting/cellarium/graded_gene_knockout_006442/000003",
+    "id": "graded_gene_knockout_3_44a864ba",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.1137555,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000003",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_2_8a8f57ce@@runs_depleting/cellarium/graded_gene_knockout_006442/000002",
+    "id": "graded_gene_knockout_2_8a8f57ce",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.151134,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006442/000002",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_1_afdcd391@@runs_depleting/cellarium/graded_gene_knockout_006443/000001",
+    "id": "graded_gene_knockout_1_afdcd391",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.1955965,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000001",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_2_fb4d24d7@@runs_depleting/cellarium/graded_gene_knockout_006443/000002",
+    "id": "graded_gene_knockout_2_fb4d24d7",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.2352479,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000002",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_0_973458ba@@runs_depleting/cellarium/graded_gene_knockout_006444/000000",
+    "id": "graded_gene_knockout_0_973458ba",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.2734635,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000000",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_3_852f1c17@@runs_depleting/cellarium/graded_gene_knockout_006443/000003",
+    "id": "graded_gene_knockout_3_852f1c17",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.321206,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006443/000003",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_1_8cc80ad4@@runs_depleting/cellarium/graded_gene_knockout_006444/000001",
+    "id": "graded_gene_knockout_1_8cc80ad4",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.3637266,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000001",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_3_c80c00d2@@runs_depleting/cellarium/graded_gene_knockout_006444/000003",
+    "id": "graded_gene_knockout_3_c80c00d2",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.3972862,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000003",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_2_cbd6ab7c@@runs_depleting/cellarium/graded_gene_knockout_006444/000002",
+    "id": "graded_gene_knockout_2_cbd6ab7c",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.4335005,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006444/000002",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_0_46f8aea4@@runs_depleting/cellarium/graded_gene_knockout_006445/000000",
+    "id": "graded_gene_knockout_0_46f8aea4",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.4809623,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000000",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_1_a3cb6a06@@runs_depleting/cellarium/graded_gene_knockout_006445/000001",
+    "id": "graded_gene_knockout_1_a3cb6a06",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.5221198,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000001",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_2_87dba7ef@@runs_depleting/cellarium/graded_gene_knockout_006445/000002",
+    "id": "graded_gene_knockout_2_87dba7ef",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.5658891,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000002",
+    "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "graded_gene_knockout_3_ea984f28@@runs_depleting/cellarium/graded_gene_knockout_006445/000003",
+    "id": "graded_gene_knockout_3_ea984f28",
+    "reason": "launch failure, never simulated: run root had no fitted KB (first attempt) or an unresolvable gene symbol in the condition string (second). No simOut was produced.",
+    "ts": 1786038830.609164,
+    "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000003",
+    "design_key": "graded_gene_knockout/KO:argS"
   }
 ]
