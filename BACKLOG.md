@@ -1054,3 +1054,10 @@ are what the journal version needs.
   work are extensions to the simulator, not just analyses of it. KISS frames its toolkit as lowering the
   integration barrier between modelling communities; the same framing fits our extensions and is currently
   absent from the paper.
+
+- **CORPUS-PATH-1 — 26 manifest rows carry no `simout_path`.** Measured 2026-08-06: . A row whose raw
+  traces cannot be located from the manifest alone is readable as a result but not re-derivable from source,
+  which is the silent-absence shape in a new place: nothing reports that the trace is unreachable. Decide per
+  row whether the path is recoverable (backfill it), or the run is gone (tombstone it with that reason). Until
+  then, any tool that walks from a manifest row to its raw trace can fail on these without saying why —
+  `raw.seed_runs` and `support.coverage` are the likely first casualties.
