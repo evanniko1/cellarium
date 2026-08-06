@@ -570,6 +570,38 @@ def _classify_crash(exc: Exception) -> str:
     return "model"
 
 
+def _exc_text(exc: BaseException, limit: int = 400) -> str:
+    """A failure message that can never be empty.
+
+    `print(f"FAILED: {exc}")` renders as "FAILED: " whenever str(exc) is empty, which several exceptions are:
+    a bare `raise SomeError()`, a CalledProcessError whose child wrote only to a captured stream, anything
+    constructed with no args. MEASURED 2026-08-06: sixteen graded-knockout jobs reported "FAILED:" with
+    nothing after the colon; the real cause (a run root with no fitted simData.cPickle) only surfaced when the
+    design was re-run outside the campaign. A crash report that says nothing is the silent-absence bug wearing
+    an error's clothes, so this always yields at least the exception's type, and appends the deepest traceback
+    frame so the reader gets a file and a line even when the message is blank.
+    """
+    import traceback
+    msg = (str(exc) or "").strip()
+    out = f"{type(exc).__name__}: {msg}" if msg else f"{type(exc).__name__} (no message)"
+    tb = getattr(exc, "__traceback__", None)
+    if tb is not None:
+        frames = traceback.extract_tb(tb)
+        if frames:
+            f = frames[-1]
+            out += f"  [at {f.filename.split(chr(92))[-1]}:{f.lineno} in {f.name}]"
+    for attr in ("stderr", "output"):                       # subprocess errors carry the child's real message
+        extra = getattr(exc, attr, None)
+        if extra:
+            if isinstance(extra, bytes):
+                extra = extra.decode("utf-8", "replace")
+            tail = " ".join(str(extra).split())[-240:]
+            if tail:
+                out += f"  <{attr}: ...{tail}>"
+            break
+    return out[:limit]
+
+
 def _crash_row(design: Design, seed: int, generations: int, exc: Exception,
                sim_path: str = "cellarium") -> dict:
     """A row for a sim that CRASHED (run_one raised) — captures the partial on-disk lineage so the crash is a
@@ -590,7 +622,7 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception,
     if rec is not None:
         row = _flat_row(rec, seed, run_root, requested_generations=generations, crashed=True,
                         sim_path=sim_path)
-        row["qc"], row["reportable"], row["note"] = "crashed", False, f"sim crashed: {str(exc)[:150]}"
+        row["qc"], row["reportable"], row["note"] = "crashed", False, f"sim crashed: {_exc_text(exc, 200)}"
         row["crash_type"] = ctype
         return row
     # The id MUST carry the design tag. Without it, `<perturbation>_<seed>_crash` collides across every variant
@@ -638,7 +670,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
                 rows.append(_run_job(d, s, generations, sim_path))
                 print(f"[{i}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
             except Exception as exc:  # one bad sim must not lose the whole batch — but record it as a crash (§M)
-                print(f"[{i}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
+                print(f"[{i}/{n}] {_label(d, s)} FAILED: {_exc_text(exc)}", flush=True)
                 try:
                     rows.append(_crash_row(d, s, generations, exc, sim_path))
                 except Exception:
@@ -654,7 +686,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
                     rows.append(f.result())
                     print(f"[{k}/{n}] {_label(d, s)} -> qc={rows[-1]['qc']}", flush=True)
                 except Exception as exc:
-                    print(f"[{k}/{n}] {_label(d, s)} FAILED: {exc}", flush=True)
+                    print(f"[{k}/{n}] {_label(d, s)} FAILED: {_exc_text(exc)}", flush=True)
                     try:
                         rows.append(_crash_row(d, s, generations, exc, sim_path))
                     except Exception:
