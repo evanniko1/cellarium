@@ -1,0 +1,146 @@
+[
+ {
+  "id": "EG10339_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG10790_RNA",
+  "floor": 245,
+  "big": 3,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG10823_RNA",
+  "floor": 246,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG10838_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG11164_RNA",
+  "floor": 245,
+  "big": 1,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG11168_RNA",
+  "floor": 245,
+  "big": 1,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG11233_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG11879_RNA",
+  "floor": 245,
+  "big": 1,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG12191_RNA",
+  "floor": 245,
+  "big": 1,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG12272_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "EG12630_RNA",
+  "floor": 244,
+  "big": 1,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G0-10546_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G0-10634_RNA",
+  "floor": 0,
+  "big": 0,
+  "max_ratio": 2.814814814814815
+ },
+ {
+  "id": "G0-10738_RNA",
+  "floor": 244,
+  "big": 0,
+  "max_ratio": 2.0481586497214272
+ },
+ {
+  "id": "G36_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G6332_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G6579_RNA",
+  "floor": 245,
+  "big": 3,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G6764_RNA",
+  "floor": 245,
+  "big": 3,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G6899_RNA",
+  "floor": 245,
+  "big": 3,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G7369_RNA",
+  "floor": 245,
+  "big": 1,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G7422_RNA",
+  "floor": 245,
+  "big": 3,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G7509_RNA",
+  "floor": 245,
+  "big": 3,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G7686_RNA",
+  "floor": 244,
+  "big": 2,
+  "max_ratio": 228.0
+ },
+ {
+  "id": "G7745_RNA",
+  "floor": 244,
+  "big": 0,
+  "max_ratio": 2.0481586497214277
+ }
+]
