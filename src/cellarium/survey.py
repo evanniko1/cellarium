@@ -149,7 +149,13 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
         # yet), so unlike the `machine` incident recorded above it cannot knock a tier out; and putting it on
         # every tier means a degraded read still says which elongation model each row came from, which is the
         # one field a lower tier must never lose.
-        sel = ", ".join([*(f'"{c}"' for c in cols), manifest.elongation_sql()])
+        # `kb_sha256` and `operons` join `elongation_model` as the ARM columns (corpus_schema.ARM_KEYS): they
+        # decide whether two rows are comparable at all, so a read that omits them cannot refuse a cross-arm
+        # pool. Appended to EVERY tier for the same reason the elongation model is — a degraded read must still
+        # say which instrument each row came from. COALESCE so a pre-column shard reads '?' rather than NULL,
+        # because NULL would silently compare equal to another NULL and merge two unknown arms into one.
+        arm_sel = ["COALESCE(\"kb_sha256\", '?') AS kb_sha256", "COALESCE(\"operons\", '?') AS operons"]
+        sel = ", ".join([*(f'"{c}"' for c in cols), manifest.elongation_sql(), *arm_sel])
         q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
              f"{manifest.DEDUP_QUALIFY}) "
              f"SELECT {sel} FROM d")

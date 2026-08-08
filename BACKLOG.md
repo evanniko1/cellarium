@@ -1096,3 +1096,13 @@ are what the journal version needs.
   86 independent measurements under the other. Live: 2 of the 3 current test failures. This is ARM-1 in one
   tool; fixing the boundary fixes it, but the public signature needs a decision (require an explicit mode, or
   default to the corpus majority and say so).
+
+- **TOMB-1 — move tombstones out of the queried dataset entirely.** The current fix (annotate on read,
+  force `reportable=False`, exclude by default) is NOT structurally safe, and the question that prompted this
+  is the right one. It filters in ONE read path. The `ENFORCEMENT` invariant already records that seven modules
+  issue their own `read_parquet`, and any of them sees tombstoned rows as live — which is exactly how 20
+  mislabelled knockouts came back as reportable results on 2026-08-06. Proposal: `drop_run` MOVES the row to
+  `data/manifest/dropped/*.parquet`, out of the glob every reader uses, so a dropped run cannot be seen by a
+  path that forgot to filter; the record persists and `include_dropped=True` reads the second location
+  explicitly. Structural beats disciplined: the current design requires every future reader to remember, and
+  the failure mode is silent. Blocked on nothing; ~1 day including a migration for the 52 existing tombstones.
