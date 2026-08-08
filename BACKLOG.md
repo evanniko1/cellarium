@@ -1065,3 +1065,34 @@ are what the journal version needs.
   tombstone them with that reason. `raw.seed_runs` and `support.coverage` are the likely first casualties.
   NOTE: my first version of this entry said the paths were EMPTY. They are not — a `split_part` on '/' returns
   an empty first field for an absolute path, and I read that as an empty value. The rows were never empty.
+
+## Tier 1 additions, recorded 2026-08-07
+
+- **ARM-1 — enforce the comparability arm at the read boundary.** `src/cellarium/corpus_schema.py` now defines
+  an ARM as `kb_sha256 + operons + elongation_model` and generates the arm table; `arm_split()` returns a
+  refusal naming the split rather than raising. What remains is routing it: `survey.analysis_rows` already
+  drops non-reportable and tombstoned rows inside the read so no caller can forget, and the arm check belongs
+  in exactly that place. Until it is there, any tool can average across three fitted parameter sets. MEASURED
+  2026-08-07: the corpus has 4 arms over 366 live rows, and a cross-arm comparison was caught only by hand.
+- **ARM-2 — five columns the manifest does not carry.** `model_git_sha` (nothing pins the simulator CODE, only
+  the parameters), `image_digest` (`WCECOLI_DOCKER` is a mutable tag), `parca_ts`, `reconstruction_sha` (the
+  INPUT whose change explains why an arm exists), `runsim_argv` (a flag added later would split an arm
+  invisibly). Rationale per column is in `corpus_schema.MISSING_COLUMNS`.
+- **PARCA-3 — make a knowledge-base rebuild a first-class, requestable job.** ParCa is one script, seven
+  minutes, 114 MB out, triggered ONLY by editing `reconstruction/ecoli/flat/`, changing `--operons`, or
+  changing the fitting code. The elongation model does NOT trigger it, which is why the kinetic campaign
+  shares an arm with steady-state runs. Cellwright can propose a SIMULATION and route it to the approval gate;
+  it has no way to propose a REBUILD, so a question like "does this hold with the pseudogene reverted?" is
+  unreachable to the agent. Today's estimator-artefact finding needed 25 rebuilds launched by hand. Cheapest
+  large capability on this list: a rebuild is 7 minutes against hours for a campaign.
+- **PARCA-4 — the saturation defect is open (PARCA-1's second half).** The NNLS arithmetic bug is fixed; the
+  bound is not. MEASURED 2026-08-07 over 24 refits: 244 of 3,276 transcription units sit bit-exactly on
+  91.2 min, 21 of 24 arbitrary mRNA retypes move a half-life 228.0x (= 91.2/0.4, the bound ratio), and
+  retyping `shoB` alone empties the bound (244 -> 0) with no swing. The bound derives from one cistron whose
+  source row has a single fragment, StdDev 0, and no coverage filter. Fix is a coverage filter on the
+  degradation-rate input plus a check that no fitted rate equals the bound bit-exactly.
+- **TRNA-8 — `trna.per_family` pools elongation models.** It takes a design string with no mode filter, so
+  since the kinetic campaign landed it averages a channel that means a broadcast identity under one model and
+  86 independent measurements under the other. Live: 2 of the 3 current test failures. This is ARM-1 in one
+  tool; fixing the boundary fixes it, but the public signature needs a decision (require an explicit mode, or
+  default to the corpus majority and say so).
