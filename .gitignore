@@ -64,3 +64,5 @@ vendor/wcEcoliRelease-v3.0.1.tar.gz
 paper/cellarium_5page.html
 paper/cellarium_appendix.html
 paper/build.py
+paper/check_appendix_refs.py
+paper/html_drafts/
