@@ -1222,7 +1222,34 @@ are what the journal version needs.
     check that no fitted rate equals the bound bit-exactly — address the mechanism. Also: the corpus kb reads
     **245** on the bound where the 24-refit sweep recorded 244; not chased, but do not quote them
     interchangeably.
-- **TRNA-8 — `trna.per_family` pools elongation models.** It takes a design string with no mode filter, so
+- ~~**TRNA-8 — the charged-fraction channel could be averaged across elongation models.**~~ ✅ **DONE
+  2026-08-08 — and the entry below misdiagnosed BOTH halves of it, so the corrections are the record.**
+  - **The stated mechanism was wrong.** `per_family` does NOT take "a design string with no mode filter": the
+    design key carries the model (`wildtype/basal#elong:kinetic`), `factors.parse` reads it, and MEASURED over
+    the whole corpus, **0 of 34 designs with local raw span elongation models** on the exact-key path. That
+    path was never unsafe. **The live hole was `raw.seed_runs`' FALLBACK match** (`raw.py:109`) — perturbation
+    plus a SUBSTRING of condition, neither of which carries the model, while the kinetic `KO:argS` rows carry
+    exactly the same `perturbation` and `condition` as the steady-state ones and differ only in the key.
+    MEASURED: `seed_runs('gene_knockout/KO:arg')` returned **4 steady-state + 4 kinetic**, and `per_family` on
+    it reported `elongation_model: steady_state` (false for half the runs), `arrested: False` while 4 of 8
+    seeds were arrested, and NAMED a most-starved family — a selectivity claim assembled from two instruments,
+    which reads exactly like a result. Fixed at the read boundary (the fallback narrows to the requested
+    model), plus a `per_family` guard that REFUSES when the runs it read are not the model it would report.
+    `seed_runs` now returns `elongation_model` per run so any raw-reading tool can check rather than trust.
+  - **The claim that this caused 2 of the test failures was also wrong.** Each argS seed shows ~3-4e-3
+    row-mean total variation INDIVIDUALLY — nothing was being pooled in that test. The real cause: the test
+    asserted `row_mean_total_variation < 1e-6`, which is one of TWO sufficient arrest detectors
+    (`trna.py:120` is `tv < 1e-6 OR elongation_zero_fraction >= 0.999`), so it pinned WHICH detector fired
+    rather than the contract — and it characterised the original 1-generation runs, where the verified-index
+    re-runs go to 3 generations. Over those, elongation stays exactly 0 and protein mass ends at 0.976x, while
+    the charged pools drift slowly across divisions with nothing consuming them. **The threshold was loosened
+    by the data changing, which is the one reason a threshold must never be quietly widened**, so it was
+    REPLACED rather than relaxed: the test now asserts what the refusal actually rests on — elongation pinned
+    at zero, and the table reproducible from the zeroed-isoacceptor count alone ((86-n)/86, matched to 5e-3;
+    argS 7 zeroed -> 0.9177 vs 0.9186, pheS 2 -> 0.9757 vs 0.9767). 5 new tests; the boundary test fires on an
+    injected regression.
+
+  *(original entry, retained — the diagnosis it records is what turned out to be wrong)* It takes a design string with no mode filter, so
   since the kinetic campaign landed it averages a channel that means a broadcast identity under one model and
   86 independent measurements under the other. Live: 2 of the 3 current test failures. This is ARM-1 in one
   tool; fixing the boundary fixes it, but the public signature needs a decision (require an explicit mode, or

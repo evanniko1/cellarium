@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 from . import stats, store
+from .capability import DEFAULT_MODE
 
 # channel -> (listener table, column). Mirrors _reader_worker.SUMMARY_CHANNELS (which can't be imported here — it
 # pulls `wholecell`). Keep in sync with that dict.
@@ -110,12 +111,33 @@ def seed_runs(design_or_id: str) -> list[dict]:
             pert, _, cond = str(design_or_id).partition("/")   # still pass a perturbation/condition pair
             sel = [r for r in rows if r.get("perturbation") == pert
                    and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
+            # THE FALLBACK MUST NOT MERGE ELONGATION MODELS (TRNA-8). It matches on perturbation + a SUBSTRING
+            # of condition, and neither carries the model — while the kinetic `KO:argS` rows carry exactly the
+            # same `perturbation` and `condition` as the steady-state ones, differing only in the design key.
+            # So any string that misses the exact key lands here and pools two instruments.
+            #
+            # MEASURED 2026-08-08: `seed_runs('gene_knockout/KO:arg')` returned 4 steady-state + 4 kinetic runs,
+            # and `trna.per_family` on it reported `elongation_model: steady_state` (false for half of them),
+            # `arrested: False` while 4 of the 8 seeds were arrested, and NAMED a most-starved family — a
+            # selectivity claim assembled from two different instruments. The charged-fraction channel means a
+            # broadcast identity under one model and 86 independent values under the other, so their mean
+            # describes neither.
+            #
+            # The requested model is whatever the caller's string parses to (default `steady_state`), which is
+            # also what every downstream tool will label the result. Narrowing here keeps the label true.
+            if len({(r.get("elongation_model") or DEFAULT_MODE) for r in sel}) > 1:
+                from . import factors
+                want = factors.parse(design_or_id).get("elongation_model") or DEFAULT_MODE
+                sel = [r for r in sel if (r.get("elongation_model") or DEFAULT_MODE) == want]
     out = []
     for r in sorted(sel, key=lambda r: (r.get("seed") if r.get("seed") is not None else 99)):
         root = _seed_root(r["id"])
         if root:
+            # `elongation_model` rides along so a raw-reading tool can CHECK what it read rather than trusting
+            # the narrowing above — the channel it is about to average means different things per model.
             out.append({"result_id": r["id"], "seed": r.get("seed"), "qc": r.get("qc"),
-                        "root": root, "n_gens": len(simout_dirs(root))})
+                        "root": root, "n_gens": len(simout_dirs(root)),
+                        "elongation_model": r.get("elongation_model") or DEFAULT_MODE})
     return out
 
 

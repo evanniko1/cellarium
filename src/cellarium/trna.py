@@ -170,6 +170,26 @@ def per_family(design: str, seed: int | None = None) -> dict:
     if not sel:
         return {"error": f"seed {seed} has no local raw for '{design}'", "available_seeds":
                 [r.get("seed") for r in runs]}
+
+    # THE RUNS MUST BE THE MODEL WE ARE ABOUT TO CALL THEM (TRNA-8). `mode` above is parsed from the design
+    # STRING; the runs come from `raw.seed_runs`, and nothing tied the two together. `seed_runs`' fallback
+    # match (perturbation + a substring of condition) carries no elongation model, and the kinetic `KO:argS`
+    # rows carry the SAME perturbation and condition as the steady-state ones — so a string that missed the
+    # exact design key pooled both. MEASURED before the fix: `per_family('gene_knockout/KO:arg')` averaged
+    # 4 steady-state with 4 kinetic runs, labelled the result `steady_state`, reported `arrested: False` while
+    # half its seeds were arrested, and named a most-starved family. The boundary is fixed; this is the check
+    # that the label is true, because the cost of it being false is a selectivity claim built from two
+    # instruments, which reads exactly like a result.
+    got = sorted({(r.get("elongation_model") or DEFAULT_MODE) for r in sel})
+    if got != [mode]:
+        return {"design": design, "elongation_model": mode, "most_starved": None,
+                "refused": ("REFUSED: this design's local raw is %s but the request resolves to '%s'. The "
+                            "charged-fraction channel is a broadcast identity under steady_state and 86 "
+                            "independent values under kinetic, so a table built across them describes neither."
+                            % ("+".join(got), mode)),
+                "runs_by_model": {m: sum(1 for r in sel if (r.get("elongation_model") or DEFAULT_MODE) == m)
+                                  for m in got},
+                "fix": "name the design exactly, e.g. append '#elong:kinetic' for the kinetic arm."}
     per_seed_family: dict = defaultdict(list)
     used = []
     for r in sel:
