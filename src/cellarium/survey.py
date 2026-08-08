@@ -13,7 +13,7 @@ import re
 import statistics
 from collections import Counter, defaultdict
 
-from . import manifest, stats
+from . import corpus_schema, manifest, stats
 
 # two conventions are present in the corpus: "…·s0" (current) and "… seed0" (older/contributed)
 _SEED_SUFFIX = re.compile(r"(·s\d+|\s+seed\d+)$")
@@ -155,7 +155,13 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
         # say which instrument each row came from. COALESCE so a pre-column shard reads '?' rather than NULL,
         # because NULL would silently compare equal to another NULL and merge two unknown arms into one.
         arm_sel = ["COALESCE(\"kb_sha256\", '?') AS kb_sha256", "COALESCE(\"operons\", '?') AS operons"]
-        sel = ", ".join([*(f'"{c}"' for c in cols), manifest.elongation_sql(), *arm_sel])
+        # ARM-2 covariates. NOT coalesced — the opposite of the arm keys above, deliberately. An arm key must
+        # never be NULL because two NULLs would merge two unknown arms; these must STAY NULL because they are
+        # unknown on every pre-ARM-2 row, and `corpus_schema.arm_conflicts` only compares KNOWN against KNOWN.
+        # Projected at all because a detector that never sees the column reports "no conflicts" whatever the
+        # data says — a test asserting that would pass vacuously, which is how this was nearly shipped.
+        arm2_sel = [manifest.optional_col_sql(c) for c in corpus_schema.ARM2_COLUMNS]
+        sel = ", ".join([*(f'"{c}"' for c in cols), manifest.elongation_sql(), *arm_sel, *arm2_sel])
         q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) "
              f"{manifest.DEDUP_QUALIFY}) "
              f"SELECT {sel} FROM d")
@@ -237,6 +243,24 @@ def analysis_rows(arm: "tuple | str | None" = None) -> tuple[list[dict], list[st
                                          if k != chosen],
                           "why": "a fitted parameter set, operon build mode and elongation model each change "
                                  "what a channel means; averaging across them describes no instrument."})
+
+    # ARM-2. Having filtered to one arm, ask whether that arm is actually homogeneous. The three ARM_KEYS are
+    # the splits we KNOW about; `arm_conflicts` finds a split they miss — rows agreeing on all three while
+    # carrying known and DIFFERENT model source, image, flat-file inputs or flags.
+    #
+    # Wired HERE rather than left as a library function, and that is the whole lesson of TOMB-1: a check every
+    # caller has to remember to run is a check that does not run. `arm_conflicts` had no caller at all when it
+    # was written, so it would have reported nothing forever while looking like a safeguard. It is empty on
+    # today's corpus because four of the five columns are NULL everywhere; it stops being empty the first time
+    # two runs from different model source land in one arm, which is the case it exists for.
+    conflicts = corpus_schema.arm_conflicts(keep)
+    if conflicts:
+        _ARM_NOTE["arm_incomplete"] = conflicts
+        _ARM_NOTE.setdefault("arm", dict(zip(corpus_schema.ARM_KEYS, chosen)))
+        _ARM_NOTE["why_incomplete"] = (
+            "these rows share an arm but disagree on %s, so the arm keys do NOT separate them and this set is "
+            "still not poolable. Report per group or promote the column into ARM_KEYS."
+            % ", ".join(sorted({c["column"] for c in conflicts})))
     return keep, CHANNELS + [f"pw:{k}" for k in sorted(pw_keys)]
 
 

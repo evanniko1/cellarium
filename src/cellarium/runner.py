@@ -249,6 +249,16 @@ def _set_exec_env(env: dict | None) -> None:
     _EXEC_LOCAL.env = env
 
 
+def last_argv() -> str | None:
+    """The model command line this thread last executed, as a string, or None (ARM-2).
+
+    None on any row built by `record_existing` or a re-index, because those never launched anything — the flags
+    are genuinely unknown there and must read as unknown, not as "no flags".
+    """
+    a = getattr(_EXEC_LOCAL, "argv", None)
+    return " ".join(a) if a else None
+
+
 def _exec(script_args: list[str]) -> None:
     """Run a model script (e.g. ['runscripts/manual/runSim.py', ...]).
 
@@ -258,6 +268,11 @@ def _exec(script_args: list[str]) -> None:
     is redistributed. Native mode runs in WCECOLI_DIR with your interpreter. Pattern mirrors the model's
     standard invocation (bind output, PYTHONPATH=/wcEcoli, -w /wcEcoli).
     """
+    # ARM-2: record the flags this row actually ran with. The elongation model was already stored; nothing else
+    # was, so a flag added later would split an arm invisibly — two rows would look identical in every recorded
+    # column and be different experiments. Thread-local for the same reason `_EXEC_LOCAL` is: `campaign` runs
+    # jobs in a ThreadPoolExecutor, and a module global here would attribute one worker's flags to another's row.
+    _EXEC_LOCAL.argv = list(script_args)
     if WCECOLI_DOCKER:
         OUT_ROOT.mkdir(parents=True, exist_ok=True)
         extra_env: list[str] = []

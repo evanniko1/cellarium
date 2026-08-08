@@ -1081,10 +1081,61 @@ are what the journal version needs.
   zero added spread, n 4→8, which halves the interval: growth halfwidth 1.61e-05 → 7.82e-06, ppGpp 7.08 →
   3.45, factor 2.06 on both. `tests/test_arm_enforcement.py`, 7 tests; the reference-cell test was checked
   against an injected regression.
-- **ARM-2 — five columns the manifest does not carry.** `model_git_sha` (nothing pins the simulator CODE, only
-  the parameters), `image_digest` (`WCECOLI_DOCKER` is a mutable tag), `parca_ts`, `reconstruction_sha` (the
-  INPUT whose change explains why an arm exists), `runsim_argv` (a flag added later would split an arm
-  invisibly). Rationale per column is in `corpus_schema.MISSING_COLUMNS`.
+- ~~**ARM-2 — five columns the manifest does not carry.**~~ ✅ **DONE 2026-08-08.** All five are now written on
+  every new row: `model_sha256`, `image_digest`, `reconstruction_sha`, `parca_ts`, `runsim_argv`
+  (`corpus_schema.ARM2_COLUMNS`). Four decisions worth keeping:
+  - **`model_git_sha` shipped as `model_sha256`, and is NOT a git sha.** This tree is public wcEcoli at
+    `a4497e17` PLUS the 44 files in `model_overlay/`, so a bare commit would compare EQUAL across two different
+    overlay states — manufactured agreement, the thing ARM-1 exists to prevent. The value is
+    `<upstream_commit>+<digest over the overlay's recorded file hashes>`; on this tree, `a4497e17+eeb33fef02066753`.
+  - **None of them joins `ARM_KEYS`, deliberately.** Every existing row is NULL on them and `arm_of` coalesces
+    None to `'?'`, so promoting one today would not partition the corpus — it would create one enormous
+    "unknown" arm whose members all compare equal. What they do instead is the reverse: `arm_conflicts()`
+    flags rows that SHARE an arm but carry known and DIFFERENT values, i.e. an arm the current keys miss. Only
+    KNOWN-vs-KNOWN counts; a NULL is unknown, never agreement and never a mismatch. Promote a column into
+    `ARM_KEYS` once the rows being compared actually carry it.
+  - **`parca_ts` is the one backfillable column, under a gate that is the whole point.** The obvious backfill
+    — stamp each row from the kb at its campaign path — is measurably wrong: `runs/cellarium/kb` now hashes to
+    `3b2f8ebd…` while 44 live rows produced under that same path carry `5f19d040…`, a fit since replaced. A row
+    is stamped only when the kb on disk hashes EQUAL to its own `kb_sha256`. Result: 279 of 366 live rows
+    stamped, 44 skipped (kb replaced), 43 skipped (`runs/aadrop/kb` gone). Those 87 stay NULL — unknown, not
+    guessed. `manifest.backfill_parca_ts(dry_run=False)`.
+  - **`reconstruction_sha` has a stated limit rather than an implied guarantee.** It hashes the EFFECTIVE flat
+    dir with `_flat_file_mounts()` applied, so it describes what a run would actually see — but it cannot see a
+    mutation applied inside the container after startup, which `scripts/refit_sweep.py` does. Those are
+    throwaway rebuilds that never enter the corpus; `kb_content_sha256` remains the authority on what a fit IS.
+
+  - **The detector had no caller, which would have made it decoration.** `arm_conflicts()` was written, tested
+    and referenced only in comments — nothing ran it, so it would have reported nothing forever while looking
+    like a safeguard. That is TOMB-1's lesson one level up: a check every caller must remember is a check that
+    does not run. It is now called inside `survey.analysis_rows` after the arm filter, and a hit lands in
+    `last_arm_note()["arm_incomplete"]` with the columns that disagree. Empty on today's corpus because four of
+    the five columns are NULL everywhere; it stops being empty the first time two runs from different model
+    source share an arm. Pinned by a test that unwires the call and fails.
+  - **The artefact is generated to `docs/CORPUS_ARMS.md`** — `python -m cellarium.corpus_schema --write`, never
+    hand-edited, because a hand-maintained table stays plausible while the corpus moves underneath it. It now
+    carries `kb built` (from `parca_ts`) as a column SEPARATE from `first run`, and arms are ordered by it.
+    They are different facts: the earliest run that used an arm is only a lower bound on when the arm existed,
+    and ordering by it misreads any fit that sat unused. On this corpus `3b2f8ebd` reads built 2026-07-08,
+    first run 2026-07-09; the other three read `?` because their kb was replaced or removed — the gate above
+    doing its job rather than a gap.
+
+  `tests/test_arm2_columns.py`, 16 tests. Suite after ARM-2: 724 passed, 11 failed, 9 skipped — the 11 are the
+  unchanged pre-existing baseline (see QC-1), verified by diffing the FAILED list against the pre-ARM-2 run.
+  One apparent twelfth failure, `test_generation_depth::test_a_crash_id_names_its_design`, was an artefact of
+  running the suite WHILE `manifest.py` was being edited: it asserts over `inspect.getsource(_crash_row)`, and
+  the diff never touched `_crash_row`. It passes on the settled tree.
+
+- **APPEND-1 — `append_shard` silently dropped columns, and did so reporting success.** ✅ **FIXED 2026-08-08,
+  recorded because the shape recurs.** `pa.Table.from_pylist` infers its schema from the FIRST ROW ONLY;
+  a key present on later rows is dropped with no error. MEASURED: `from_pylist([{'a':1},{'a':2,'b':99}])`
+  returns columns `['a']`. Every existing caller survived by accident — rows read through
+  `read_parquet(..., union_by_name=true)` come back with the same key set on every row, so the first row's
+  schema was already complete. The accident ended with `backfill_parca_ts`, which stamps only SOME rows: its
+  first run dropped `parca_ts` from the parquet entirely and still returned `backfilled: 279`. Two defects,
+  both mine, both the same class — an absence counted as a success. `append_shard` now takes the union of all
+  rows' keys and raises if pyarrow loses one; the backfill counts the VALUE, not the assignment. Checked: no
+  column was lost by the earlier TOMB-1 compaction (48 columns before and after, quarantine included).
 - **PARCA-3 — make a knowledge-base rebuild a first-class, requestable job.** ParCa is one script, seven
   minutes, 114 MB out, triggered ONLY by editing `reconstruction/ecoli/flat/`, changing `--operons`, or
   changing the fitting code. The elongation model does NOT trigger it, which is why the kinetic campaign

@@ -232,6 +232,21 @@ def elongation_sql(alias: str = "elongation_model") -> str:
     return f"'{DEFAULT_MODE}' AS {alias}"
 
 
+def optional_col_sql(name: str) -> str:
+    """A SELECT expression for a column that may not exist in any shard yet (ARM-2).
+
+    Same contract as `elongation_sql` and for the same recorded reason: naming a bare column no shard carries
+    raises a Binder Error, and the `machine` incident showed what that costs — tier 1 failed on EVERY read and
+    fell through to a tier that also lacked `contributor`, so provenance was guessed from the path and reported
+    18/16 against a truth of 10/24. Ask `manifest_columns()` what exists, then synthesise.
+
+    UNLIKE `elongation_sql` there is NO default value here. The ARM-2 columns synthesise to NULL, because NULL
+    is the honest answer for a row written before they existed — "which image ran this?" has no safe fallback,
+    and `corpus_schema.arm_conflicts` is built to treat NULL as unknown rather than as agreement.
+    """
+    return f'"{name}"' if name in manifest_columns() else f"NULL AS {name}"
+
+
 def corpus_elongation_modes() -> dict:
     """Which elongation models actually produced rows — probed, for `capability.probe_corpus_modes()`.
 
@@ -349,6 +364,54 @@ def _kb_prov(sim_path: str = "cellarium") -> dict:
     return _KB_PROV_CACHE[sim_path]
 
 
+_RUN_PROV_CACHE: dict = {}
+
+
+_ABSENT_RUN_PROV = {"model_sha256": None, "model_upstream_commit": None,
+                    "image_digest": None, "reconstruction_sha": None}
+
+
+def _run_prov() -> dict:
+    """`model_sha256` + `image_digest` + `reconstruction_sha` — but ONLY for a run this process actually executed.
+
+    THE GUARD IS THE POINT, and it is the same one `backfill_parca_ts` needed. These three describe WHAT RAN A
+    SIMULATION. `record_existing` builds rows for runs ALREADY ON DISK without re-simulating any of them, so
+    stamping there would assert that a run from July used today's model source, today's image and today's flat
+    files — a confident, plausible, false claim, and precisely the kind the arm keys are supposed to catch
+    rather than manufacture.
+
+    `runner.last_argv()` is the signal: it is non-None only on a thread that launched a run through `_exec`.
+    A row therefore carries the whole "what executed this" set or none of it, never a mixture — a row half
+    described by the current process would be worse than one that says nothing.
+
+    Cached because `_flat_row` runs per row and `reconstruction_sha` spawns a container: a ~1 s spawn per row
+    would tax every campaign, and all three describe the PROCESS, not the row.
+    """
+    if not _runsim_argv():
+        return dict(_ABSENT_RUN_PROV)
+    if not _RUN_PROV_CACHE:
+        try:
+            from . import provenance
+            m = provenance.model_provenance()
+            _RUN_PROV_CACHE.update({"model_sha256": m.get("model_sha256"),
+                                    "model_upstream_commit": m.get("model_upstream_commit"),
+                                    "image_digest": provenance.image_digest(),
+                                    "reconstruction_sha": provenance.reconstruction_sha()})
+        except Exception:
+            _RUN_PROV_CACHE.update({"model_sha256": None, "model_upstream_commit": None,
+                                    "image_digest": None, "reconstruction_sha": None})
+    return dict(_RUN_PROV_CACHE)
+
+
+def _runsim_argv() -> str | None:
+    """The flags this row's run executed with, or None when the row was built without launching anything."""
+    try:
+        from . import runner
+        return runner.last_argv()
+    except Exception:
+        return None
+
+
 def _machine_of(run_root) -> str:
     """A stable id for the machine that produced a run, from the run path's home directory. Everything under
     this checkout is "local"; a contributed shard carries its own absolute path.
@@ -406,6 +469,15 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            # `provenance.same_kb()` prefers. NULL on rows written before this column existed, and on any host
            # without the model image — `same_kb` treats NULL as UNDECIDABLE, never as agreement.
            "kb_content_sha256": _kb.get("kb_content_sha256"),
+           # ARM-2 — the five columns the manifest did not carry. `kb_sha256` pins the PARAMETERS; these pin
+           # the CODE, the CONTAINER, the INPUTS the fit was built from, WHEN it was built, and the FLAGS.
+           # Every one is NULL-when-unknown by design: a row from `record_existing` never launched anything, so
+           # its argv is genuinely unknown and must read as unknown. Rationale per column is in
+           # `corpus_schema.MISSING_COLUMNS`, and none of them joins ARM_KEYS yet — see `arm_conflicts()` for
+           # why a column that is NULL on every existing row cannot partition anything but CAN detect a split.
+           **_run_prov(),
+           "parca_ts": _kb.get("parca_ts"),
+           "runsim_argv": _runsim_argv(),
            # WHICH ELONGATION MODEL produced this row, stored beside kb_sha256/operons and for the same
            # reason the comment below argues for design_key: identity is STORED, not left to be re-derived.
            # A reader that had to recover it by parsing `label` would be keying on a string that already
@@ -525,16 +597,44 @@ def quarantine_tombstones(dry_run: bool = True) -> dict:
     return res
 
 
-def append_shard(rows: list[dict], name: str | None = None) -> Path:
+def append_shard(rows: list[dict], name: str | None = None, directory: Path | None = None) -> Path:
+    """Write rows to a parquet shard, keeping EVERY column any row carries.
+
+    `pa.Table.from_pylist` infers its schema from the FIRST ROW ONLY: a key that appears on later rows is
+    silently dropped, no error, no warning. MEASURED 2026-08-08 — `from_pylist([{'a':1},{'a':2,'b':99}])`
+    returns columns `['a']`. That is a data-loss bug with the worst possible signature, because the write
+    reports success and the column simply is not there afterwards.
+
+    Existing callers survived it by accident rather than by design: rows read through
+    `read_parquet(..., union_by_name=true)` all come back with the same key set (DuckDB fills NULL), so the
+    first row's schema was already complete. The accident ends the moment Python adds a key to SOME rows —
+    which is what `backfill_parca_ts` does, since it stamps only rows whose kb is provably their own. Its first
+    write dropped `parca_ts` entirely and still reported 279 rows backfilled.
+
+    So the schema is the union over all rows, and the write asserts the column set survived.
+    """
     import pyarrow as pa
     import pyarrow.parquet as pq
 
     if not rows:
         raise RuntimeError("nothing to write (no rows)")
-    MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
+    target_dir = directory or MANIFEST_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
     fname = f"{name}.parquet" if name else f"{getpass.getuser()}-{int(time.time())}-{uuid.uuid4().hex[:6]}.parquet"
-    shard = MANIFEST_DIR / fname
-    pq.write_table(pa.Table.from_pylist(rows), shard)
+    shard = target_dir / fname
+    keys: list[str] = []
+    seen: set[str] = set()
+    for r in rows:                       # first-seen order, so an existing shard's column order is preserved
+        for k in r:
+            if k not in seen:
+                seen.add(k)
+                keys.append(k)
+    table = pa.Table.from_pylist([{k: r.get(k) for k in keys} for r in rows])
+    missing = seen - set(table.column_names)
+    if missing:
+        raise RuntimeError(f"refusing to write a shard missing {sorted(missing)} — pyarrow dropped columns "
+                           f"present on the input rows")
+    pq.write_table(table, shard)
     return shard
 
 
@@ -924,6 +1024,79 @@ def backfill_elongation_model(dry_run: bool = True) -> dict:
            "note": ("Every pre-axis row was produced by the steady-state elongation model — that is known, "
                     "not assumed. Reads already resolve it; this makes the parquet row self-describing.")}
     if dry_run:
+        return res
+    new = append_shard(rows, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
+
+
+def backfill_parca_ts(dry_run: bool = True) -> dict:
+    """Stamp `parca_ts` onto existing rows — but ONLY where the kb on disk is provably the row's own (ARM-2).
+
+    Of the five ARM-2 columns this is the one that is backfillable at all, and it is the one most worth having:
+    it orders the arms CAUSALLY, so a reader can see which fit came first instead of inferring it from the
+    earliest run that happens to use each one.
+
+    THE GATE IS THE WHOLE POINT. `parca_ts` is the mtime of `runs/<sim_path>/kb/simData.cPickle`, and the
+    obvious backfill — stamp every row from the kb sitting at its campaign path — is WRONG here, measurably.
+    A campaign path is reused across rebuilds: `runs/cellarium/kb` currently hashes to `3b2f8ebd…`, but 18
+    corpus rows produced under that same path carry `5f19d040…`, a fit that has since been replaced. Stamping
+    those with today's mtime would assert a build time for a knowledge base that is no longer there, and the
+    row would then carry a `kb_sha256` and a `parca_ts` describing two different fits.
+
+    So a row is stamped only when the kb currently on disk HASHES EQUAL to the row's recorded `kb_sha256`.
+    MEASURED 2026-08-08 over 239 analysable rows: 188 match and are stamped; 18 are skipped because the kb at
+    their path moved; 33 because `runs/aadrop/kb` no longer exists. Those 51 stay NULL, which is the correct
+    answer — unknown, not guessed. `dry_run` (the default) reports without writing.
+    """
+    import glob
+    import os
+
+    import duckdb
+
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards to backfill"}
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+
+    cache: dict = {}
+    stamped = skipped_moved = skipped_missing = already = 0
+    for r in rows:
+        if r.get("parca_ts"):
+            already += 1
+            continue
+        sp = _sim_path_of(r.get("simout_path"))
+        if sp not in cache:
+            cache[sp] = _kb_prov(sp) if sp else {}
+        disk, row_kb = cache[sp].get("kb_sha256"), r.get("kb_sha256")
+        if not disk or not row_kb:
+            skipped_missing += 1
+        elif disk != row_kb:
+            skipped_moved += 1                 # the campaign path was rebuilt; this row's kb is gone
+        else:
+            # Count the VALUE, not the assignment. The first version incremented here unconditionally and
+            # reported "279 backfilled" for a write that stored nothing — an absence counted as a success,
+            # which is the same silent-absence shape this repository keeps re-encountering.
+            ts = cache[sp].get("parca_ts")
+            if ts is None:
+                skipped_missing += 1
+            else:
+                r["parca_ts"] = ts
+                stamped += 1
+    res = {"rows": len(rows), "already_stamped": already, "backfilled": stamped,
+           "skipped_kb_replaced": skipped_moved, "skipped_kb_absent": skipped_missing, "dry_run": dry_run,
+           "note": ("Stamped only where the kb on disk hashes equal to the row's own kb_sha256. A row whose "
+                    "campaign path was rebuilt keeps parca_ts NULL: unknown, not guessed.")}
+    if dry_run or not stamped:
         return res
     new = append_shard(rows, name=f"{getpass.getuser()}-compact")
     for f in files:

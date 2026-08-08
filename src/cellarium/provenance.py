@@ -71,6 +71,131 @@ def _git_commit() -> str | None:
 CONTENT_HASH_CACHE = "data/cache/kb_content_hash.json"
 
 
+MODEL_SHA_CACHE: dict = {}
+IMAGE_DIGEST_CACHE: dict = {}
+RECON_SHA_CACHE = "data/cache/reconstruction_sha.json"
+
+
+def model_provenance() -> dict:
+    """WHICH SIMULATOR CODE produced a row — `model_sha256`, plus the two things it is made of (ARM-2).
+
+    `kb_sha256` pins the PARAMETERS. Nothing pinned the CODE, so two rows could share a fit and come from
+    different model source — the confound the phnE1 investigation had to rule out by hand, by reproducing a run
+    bitwise over 2,529 timesteps.
+
+    THE COLUMN IS NOT A GIT SHA, and that is deliberate. This model tree is assembled from two sources: public
+    CovertLab wcEcoli at the commit in `model_overlay/MANIFEST.json`, plus the 44 files that overlay ships. A
+    bare upstream commit would compare EQUAL across two different overlay states, which is precisely the false
+    agreement the arm keys exist to prevent — a column that says "same code" when the code differs is worse
+    than no column. So the value is `<upstream_commit>+<digest over the overlay's own file hashes>`, and it
+    changes when either half does. The backlog records this under ARM-2's `model_git_sha`; it ships as
+    `model_sha256` because naming it a git sha would mislead the next reader into diffing commits.
+
+    Returns all-None when the overlay manifest is unreadable. None means UNKNOWN, never agreement.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+    if MODEL_SHA_CACHE:
+        return dict(MODEL_SHA_CACHE)
+    out = {"model_sha256": None, "model_upstream_commit": None, "model_overlay_files": None}
+    try:
+        m = json.loads(Path("model_overlay/MANIFEST.json").read_text(encoding="utf-8"))
+        up = str(m.get("upstream_commit") or "")
+        # Hash the overlay's RECORDED per-file hashes rather than re-reading the files: the manifest is what the
+        # image was built from, so this answers "which overlay is baked in", not "what is on my disk right now".
+        shipped = sorted((str(f.get("path")), str(f.get("overlay_sha256") or ""))
+                         for f in (m.get("files") or []) if f.get("status") == "ship")
+        if up and shipped:
+            h = hashlib.sha256("\n".join(f"{p}:{s}" for p, s in shipped).encode()).hexdigest()
+            out = {"model_sha256": f"{up}+{h[:16]}", "model_upstream_commit": up,
+                   "model_overlay_files": len(shipped)}
+    except Exception:
+        pass
+    MODEL_SHA_CACHE.update(out)
+    return dict(out)
+
+
+def image_digest(tag: str | None = None) -> str | None:
+    """The container digest ACTUALLY EXECUTED (ARM-2).
+
+    `WCECOLI_DOCKER` is a mutable tag: `wcecoli-sim:kinetic` today and last month need not be the same image,
+    and nothing in the corpus recorded which one ran. Uses the image ID (content-addressable, always present
+    for a locally-built image) rather than RepoDigests, which is empty for anything never pushed to a registry.
+    """
+    import os
+    import subprocess
+    tag = tag or os.environ.get("WCECOLI_DOCKER") or ""
+    if not tag:
+        return None
+    if tag in IMAGE_DIGEST_CACHE:
+        return IMAGE_DIGEST_CACHE[tag]
+    val = None
+    try:
+        r = subprocess.run(["docker", "image", "inspect", tag, "--format", "{{.Id}}"],
+                           capture_output=True, text=True, timeout=30, env=redact.child_env())
+        out = (r.stdout or "").strip()
+        if r.returncode == 0 and out.startswith("sha256:"):
+            val = out
+    except Exception:
+        pass
+    if val:                                # only a SUCCESS is cached; a failure must stay retryable
+        IMAGE_DIGEST_CACHE[tag] = val
+    return val
+
+
+def reconstruction_sha() -> str | None:
+    """A hash over the EFFECTIVE `reconstruction/ecoli/flat/` — the INPUT a knowledge base is built from (ARM-2).
+
+    A KB rebuild is triggered by editing those files, so this is the input whose change EXPLAINS why a new arm
+    exists. `kb_content_sha256` says two fits differ; this says which reconstruction inputs they came from.
+
+    "Effective" is the load-bearing word. `runner._flat_file_mounts` bind-mounts host overlays over the image's
+    flat files when a checkout is present, so the image's own flat dir is NOT necessarily what ParCa read. This
+    computes the hash with the SAME mounts applied, so it describes the state a run would actually see.
+
+    KNOWN LIMIT, stated because the alternative is a column that quietly overclaims: it cannot see a mutation
+    applied INSIDE the container after startup. `scripts/refit_sweep.py` does exactly that (`cp /patch/rnas.tsv
+    …`) before running ParCa, and those runs would carry the pristine hash. They are throwaway rebuilds and
+    never enter the corpus, but the limit is real — `kb_content_sha256` stays the authority on what a fit IS,
+    and this column is evidence about its inputs, not a substitute.
+    """
+    import json
+    import subprocess
+    from pathlib import Path
+    from . import runner
+    if not runner.WCECOLI_DOCKER:
+        return None
+    mounts = runner._flat_file_mounts()
+    key = "%s|%s" % (image_digest() or runner.WCECOLI_DOCKER, "|".join(mounts))
+    cache = Path(RECON_SHA_CACHE)
+    try:
+        store = json.loads(cache.read_text(encoding="utf-8")) if cache.exists() else {}
+    except Exception:
+        store = {}
+    if key in store:
+        return store[key] or None
+    val = None
+    try:
+        r = subprocess.run(["docker", "run", "--rm", *mounts, "--entrypoint", "sh", runner.WCECOLI_DOCKER,
+                            "-c", "cd /wcEcoli/reconstruction/ecoli/flat && find . -type f -print0 | sort -z "
+                                  "| xargs -0 sha256sum | sha256sum | cut -d' ' -f1"],
+                           capture_output=True, text=True, timeout=180, env=redact.child_env())
+        out = (r.stdout or "").strip().splitlines()
+        if r.returncode == 0 and out and len(out[-1].strip()) == 64:
+            val = out[-1].strip()
+    except Exception:
+        pass
+    if val:
+        try:
+            store[key] = val
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(json.dumps(store, indent=1), encoding="utf-8")
+        except Exception:
+            pass
+    return val
+
+
 def _cached_content_hash(sim_path: str, kb_sha256: str) -> str | None:
     """The sim_data CONTENT hash, computed at most once per knowledge base, ever.
 
@@ -130,7 +255,10 @@ def kb_provenance(sim_path: str = "cellarium") -> dict:
     # experiment` DOES NOT. Anything deciding COMPARABILITY must use `kb_content_sha256` (see
     # `reader.kb_content_hash`, computed in-container because it has to unpickle sim_data) and fall back to the
     # file hash only to prove identity. `same_kb()` below is that predicate.
-    out: dict = {"kb_sha256": None, "kb_bytes": None, "kb_content_sha256": None,
+    # `parca_ts` (ARM-2): WHEN this knowledge base was built, from the fitted pickle's mtime. It lets a reader
+    # order the arms CAUSALLY — which fit came first — instead of inferring order from the earliest run that
+    # happens to use each one, which is only a lower bound and is wrong whenever a kb sat unused for a while.
+    out: dict = {"kb_sha256": None, "kb_bytes": None, "kb_content_sha256": None, "parca_ts": None,
                  "operons": None, "operons_evidence": None}
     try:
         from . import runner
@@ -143,7 +271,9 @@ def kb_provenance(sim_path: str = "cellarium") -> dict:
                 for chunk in iter(lambda: fh.read(1 << 20), b""):
                     h.update(chunk)
             out["kb_sha256"] = h.hexdigest()
-            out["kb_bytes"] = kb.stat().st_size
+            st = kb.stat()
+            out["kb_bytes"] = st.st_size
+            out["parca_ts"] = st.st_mtime
     except Exception:
         pass
     if out["kb_sha256"]:                   # content hash: DISK-cached, keyed by the file hash
