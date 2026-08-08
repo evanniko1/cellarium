@@ -91,6 +91,11 @@ def arms(include_dropped: bool = False) -> list[dict]:
     return sorted(out.values(), key=lambda a: -a["rows"])
 
 
+def arm_of(row: dict) -> tuple:
+    """The arm a row belongs to, as a hashable key. One definition, so no caller invents its own."""
+    return tuple((row.get(k) or ("steady_state" if k == "elongation_model" else "?")) for k in ARM_KEYS)
+
+
 def same_arm(row_a: dict, row_b: dict) -> bool:
     """The predicate a read boundary calls before averaging two rows."""
     norm = lambda r: tuple((r.get(k) or ("steady_state" if k == "elongation_model" else "?")) for k in ARM_KEYS)

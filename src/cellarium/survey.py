@@ -181,7 +181,7 @@ def _mark_dropped(rows: list[dict]) -> list[dict]:
     return rows
 
 
-def analysis_rows() -> tuple[list[dict], list[str]]:
+def analysis_rows(arm: "tuple | str | None" = None) -> tuple[list[dict], list[str]]:
     """THE row source for every comparison tool. One function, so a third copy of the filtering cannot drift.
 
     Three readers had grown their own: `survey_corpus` filtered on `reportable`, `differential` did not, and
@@ -208,7 +208,79 @@ def analysis_rows() -> tuple[list[dict], list[str]]:
             r["_pw"] = {}
         pw_keys |= set(r["_pw"])
         keep.append(r)
+
+    # ARM ENFORCEMENT. Rows from different fitted parameter sets, operon builds or elongation models are not
+    # poolable -- a degradation rate that is 91.2 min under one fit is 32.4 under another. Carrying the arm
+    # columns was not enough: every consumer would have had to remember to check, and the ones that forgot
+    # would fail silently, which is how 20 mislabelled runs were read as results on 2026-08-06.
+    #
+    # So this filters to ONE arm and SAYS what it dropped. It does not raise (a comparison tool that dies is
+    # worse than one that narrows and discloses) and it does not pool (which is the error). `arm="all"`
+    # returns everything for callers that stratify themselves, such as the corpus-level survey.
+    from . import corpus_schema
+    if arm == "all":
+        _ARM_NOTE.clear()
+        return keep, CHANNELS + [f"pw:{k}" for k in sorted(pw_keys)]
+
+    counts: dict[tuple, int] = {}
+    for r in keep:
+        counts[corpus_schema.arm_of(r)] = counts.get(corpus_schema.arm_of(r), 0) + 1
+    chosen = _resolve_arm(arm, counts)
+    dropped = sum(n for k, n in counts.items() if k != chosen)
+    keep = [r for r in keep if corpus_schema.arm_of(r) == chosen]
+    _ARM_NOTE.clear()
+    if dropped:
+        _ARM_NOTE.update({"arm": dict(zip(corpus_schema.ARM_KEYS, chosen)),
+                          "rows_kept": len(keep), "rows_excluded": dropped,
+                          "other_arms": [dict(zip(corpus_schema.ARM_KEYS, k), rows=n)
+                                         for k, n in sorted(counts.items(), key=lambda kv: -kv[1])
+                                         if k != chosen],
+                          "why": "a fitted parameter set, operon build mode and elongation model each change "
+                                 "what a channel means; averaging across them describes no instrument."})
     return keep, CHANNELS + [f"pw:{k}" for k in sorted(pw_keys)]
+
+
+def _resolve_arm(arm, counts: dict[tuple, int]) -> tuple:
+    """Turn a caller's arm selector into one of the arms actually present, or raise.
+
+    `arm=None` takes the largest arm. A tuple selects exactly. A STRING is matched against every field of every
+    arm -- 'kinetic' and a `kb_sha256` prefix are both natural things to pass -- and must land on exactly one.
+
+    This raises where the rest of the module refuses, deliberately. A selector that matches nothing is a bug in
+    the CALLER, and the alternative is returning zero rows, which reads downstream as "the corpus has no such
+    runs". That is the silent-absence failure this whole enforcement exists to stop; it must not be reintroduced
+    by the enforcement itself.
+    """
+    from . import corpus_schema
+    if not counts:
+        return ()
+    if arm is None:
+        return max(counts, key=lambda k: counts[k])
+    if isinstance(arm, (tuple, list)):
+        key = tuple(arm)
+        if key not in counts:
+            raise ValueError("no rows in arm %r; present: %s" % (key, sorted(counts)))
+        return key
+    hits = [k for k in counts if any(str(v) == arm or str(v).startswith(arm) for v in k)]
+    if len(hits) != 1:
+        raise ValueError("arm selector %r matches %d arms; present: %s"
+                         % (arm, len(hits), [dict(zip(corpus_schema.ARM_KEYS, k)) for k in sorted(counts)]))
+    return hits[0]
+
+
+# What the last analysis_rows call narrowed to, and what it left out. A tool that silently drops two thirds of
+# a corpus is indistinguishable from one that had a small corpus; this is how a caller reports the omission.
+_ARM_NOTE: dict = {}
+
+
+def last_arm_note() -> dict:
+    """The arm `analysis_rows` selected and the rows it excluded, or {} if the corpus was single-arm.
+
+    ORDER-DEPENDENT by construction: it describes the MOST RECENT `analysis_rows` call, so read it before
+    making another. `survey_corpus` deliberately does not use it — it computes its own note inline, because its
+    disclosure has to match the rows it actually ranked and not whatever ran last.
+    """
+    return dict(_ARM_NOTE)
 
 
 def channel_value(row: dict, channel: str):
@@ -463,7 +535,7 @@ def trajectory(design: str, channel: str = "growth_rate") -> dict:
                      "usable. Only growth/ppGpp are stored per generation.")}
 
 
-def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
+def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple | str | None" = None) -> dict:
     import json
 
     base = channels or CHANNELS
@@ -488,9 +560,37 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
 
     # G1 (audit re-analysis): rank only REPORTABLE runs — a crashed/degenerate run's channel values are garbage
     # (e.g. gltX post-crash growth ranked z=+5.05). Non-reportable runs stay in `coverage` below, just not ranked.
+    #
+    # ARM: rank within ONE comparability arm. MEASURED on the corpus of 2026-08-08: 2 of 46 design cells span
+    # more than one fitted parameter set, and one is `wildtype/basal` — the REFERENCE every `pct_vs_ref`
+    # divides by, pooling 34 rows from three fits.
+    #
+    # What that actually costs is worth stating exactly, because the obvious answer is wrong. It does NOT bias
+    # the mean: the `aadrop` and `cellarium` wildtypes are different runs under different knowledge bases and
+    # agree to 12 significant figures per seed (0.000226076587536 at s0 in both), so the depth-4 reference mean
+    # moves by 0.00%. What it does is DOUBLE THE APPARENT REPLICATE COUNT with zero added spread — n 4 -> 8 —
+    # and the 95% interval halves with it: growth halfwidth 1.61e-05 -> 7.82e-06, ppGpp 7.08 -> 3.45, a factor
+    # of 2.06 on both. The pooled reference was reporting an interval half as wide as its own seed spread
+    # justifies. That is anticonservative in the denominator of every percentage in the table.
+    #
+    # `coverage` below deliberately stays over ALL rows: it counts what exists, and does not compare.
+    from . import corpus_schema
+    rankable = [r for r in rows if r.get("reportable") and not r.get("_dropped")]
+    arm_counts: dict[tuple, int] = Counter(corpus_schema.arm_of(r) for r in rankable)
+    chosen_arm = _resolve_arm(arm, arm_counts)
+    arm_note = None
+    if len(arm_counts) > 1:
+        arm_note = {"arm": dict(zip(corpus_schema.ARM_KEYS, chosen_arm)),
+                    "rows_ranked": arm_counts[chosen_arm],
+                    "rows_excluded": sum(n for k, n in arm_counts.items() if k != chosen_arm),
+                    "other_arms": [dict(zip(corpus_schema.ARM_KEYS, k), rows=n)
+                                   for k, n in arm_counts.most_common() if k != chosen_arm],
+                    "why": "a fitted parameter set, operon build mode and elongation model each change what a "
+                           "channel means; the ranking and its reference use one arm. The excluded rows are "
+                           "real results, not failures — query them with survey_corpus(arm=...) per arm."}
     by_design: dict[tuple, list[dict]] = defaultdict(list)
-    for r in rows:
-        if r.get("reportable") and not r.get("_dropped"):   # tombstoned runs are excluded from ranking (WELL-1y)
+    for r in rankable:                # tombstoned runs are excluded from ranking (WELL-1y)
+        if corpus_schema.arm_of(r) == chosen_arm:
             by_design[(r["perturbation"], design_tag(r))].append(r)
 
     # STRATIFY ON DEPTH, do not correct for it. A channel is the LAST generation's time-mean
@@ -666,6 +766,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6) -> dict:
     }
     return {
         "coverage": coverage,
+        **({"arm": arm_note} if arm_note else {}),
         "lethality": leth_summary,
         "notable": notable[:12],            # biggest effects across ALL channels, ranked by |z|
         "by_channel": by_channel,
