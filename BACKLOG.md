@@ -1066,6 +1066,39 @@ are what the journal version needs.
   NOTE: my first version of this entry said the paths were EMPTY. They are not — a `split_part` on '/' returns
   an empty first field for an absolute path, and I read that as an empty value. The rows were never empty.
 
+## Found while clearing the failure baseline, 2026-08-08
+
+- ~~**GRADED-1 — a graded knockout's DOSE was not part of its identity.**~~ ✅ **DONE 2026-08-08.**
+  `_design_tag` appended the media and the elongation model but never the expression level, so every dose of a
+  `graded_gene_knockout` collapsed onto the full knockout's tag. MEASURED: the depleting-allele campaign's four
+  doses of argS — expression 0.05/0.10/0.25/0.50, variant indices 6442-6445 — all produced the label
+  `graded_gene_knockout·KO:argS·sN`. **Four rows landed on the same (design_key, seed) cell with ppGpp spanning
+  675 down to 56, a 12x range, pooled by every design-keyed tool as "four seeds of one design".** This is the
+  paper's §3 dataset. The paper's own numbers are unaffected — they were extracted per variant directory, not
+  via the design key — but every corpus tool an agent or reader would use saw one meaningless cell.
+  - **How it surfaced is the part worth keeping.** `lethality()` returned a DIFFERENT collapse generation
+    between two calls in one session — `graded_gene_knockout/KO:argS` collapsing at generation 2 once and 3
+    another time — because whichever dose won an unstable row ordering decided the answer. A pooled cell of
+    genuinely different experiments does not announce itself; it shows up as a number that will not sit still.
+    That was one of the 9 baseline test failures, filed as a stale assertion. It was a live defect.
+  - Fix: `#expr:<factor>` in the tag, shaped like the existing `#elong:` fragment because design identity is
+    decided in one place. `factors.parse` round-trips it (gene preserved, `level_num` populated,
+    `factor='graded_gene_KO'`), and `canonical_id` now carries the dose — without that, argS@0.1 and argS@0.5
+    addressed one ko_index and were reported as replicates of each other. 22 existing rows relabelled by
+    `manifest.backfill_graded_dose`, recovering the level from the variant index in each run's path
+    (`index = gene_ko_index * 10 + level`), so nothing was re-simulated. Non-graded tags are byte-identical.
+  - 9 tests in `tests/test_graded_dose_identity.py`, including that `lethality()` is stable across calls.
+
+- **DUP-1 — 18 cells hold more than one run at the same (arm, design, seed, generations).** Found while
+  writing GRADED-1's test and deliberately NOT absorbed into it: `gene_knockout/KO:leuB` has **3** rows per
+  seed at g4, `KO:thrC` and `KO:argG` have 2, `condition/acetate` and `rrna_operon_knockout/…4op` have 2. The
+  dedup key is `(id, normalised simout_path)` and these carry distinct ids, so `compact()` cannot collapse
+  them. Unlike the depth case — where the same design and seed at 1 and 4 generations are two legitimate
+  measurements and `survey.depth` exists to stratify them — these agree on depth too, so either they are true
+  duplicate registrations of one run (inflating n and narrowing every interval that includes them, the same
+  anticonservative shape ARM-1 found in the reference cell) or they differ on a factor nothing records. Decide
+  which before trusting any n on those designs. Not yet investigated. | open |
+
 ## Tier 1 additions, recorded 2026-08-07
 
 - ~~**ARM-1 — enforce the comparability arm at the read boundary.**~~ ✅ **DONE 2026-08-08 (`8258081`).**

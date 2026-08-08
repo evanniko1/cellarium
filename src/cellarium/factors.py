@@ -89,6 +89,36 @@ def level_num(raw: str | None) -> float | None:
         return None
 
 
+# The graded-knockout expression levels, mirroring `FACTORS` in
+# `model_overlay/files/models/ecoli/sim/variants/graded_gene_knockout.py`. The variant index is
+# `gene_ko_index * 10 + level`, so the level — and therefore the dose — is recoverable from the index alone,
+# which is what lets existing rows be relabelled without re-simulating anything.
+GRADED_FACTORS = {1: 0.0, 2: 0.05, 3: 0.10, 4: 0.25, 5: 0.50, 6: 0.75, 7: 0.90, 8: 0.95, 9: 0.99}
+EXPR_TAG_PREFIX = "#expr:"
+
+
+def expr_tag_suffix(level: int | None) -> str:
+    """The tag fragment carrying a graded knockout's DOSE — empty when there is no dose.
+
+    Shaped like `mode_tag_suffix`, and for the same reason: design identity is decided in one place, and a
+    factor missing from the tag is a factor every analysis silently pools over.
+    """
+    f = GRADED_FACTORS.get(int(level)) if level is not None and str(level).lstrip("-").isdigit() else None
+    return "" if f is None else f"{EXPR_TAG_PREFIX}{f:g}"
+
+
+def expr_from_tag(tag: str) -> tuple[str, float | None]:
+    """Split a tag into (tag without the dose fragment, expression factor). Inverse of `expr_tag_suffix`."""
+    t = str(tag or "")
+    if EXPR_TAG_PREFIX not in t:
+        return t, None
+    head, _, val = t.partition(EXPR_TAG_PREFIX)
+    try:
+        return head, float(val)
+    except ValueError:
+        return head, None
+
+
 def parse(design_key: str) -> dict:
     """Decompose a design key into typed factors. PURE — no caches, no I/O, so it is testable in isolation.
 
@@ -116,10 +146,17 @@ def parse(design_key: str) -> dict:
         out["level_num"] = level_num(lvl) if sep else None
         return out
     if tag.startswith("KO:"):                        # 'KO:pfkA' or 'KO:gltX+relA+spoT'
+        # A GRADED knockout is a DOSE, and the dose is part of the design's identity. Without it every level
+        # of `graded_gene_knockout` collapses onto the full knockout's tag: the depleting-allele campaign's
+        # four doses of argS (0.05/0.10/0.25/0.50 expression) all keyed to `graded_gene_knockout/KO:argS`,
+        # putting four rows on the SAME (design, seed) cell with ppGpp spanning 675 to 56 — a 12x range
+        # averaged as "seeds of one design". Kept in `level_num` so `one_factor_neighbours` can order the doses.
+        tag, expr = expr_from_tag(tag)
         out["base"] = "basal"
-        out["factor"] = "gene_KO"
+        out["factor"] = "graded_gene_KO" if expr is not None else "gene_KO"
         out["genes"] = sorted(g for g in tag[3:].split("+") if g)
-        out["level_raw"] = tag[3:]
+        out["level_raw"] = str(expr) if expr is not None else tag[3:]
+        out["level_num"] = expr
         return out
     if family == "timeline":                         # '0 minimal, 1200 minimal_plus_amino_acids'
         out["base"], out["factor"], out["level_raw"] = "minimal", "timeline", tag
@@ -143,7 +180,7 @@ def identity(design_key: str) -> dict:
     out = dict(f, aliases=[], perturbs=[], label_integrity="ok", true_label=None,
                canonical_id=None, notes=[])
 
-    if f["factor"] == "gene_KO" and f["genes"]:
+    if f["factor"] in ("gene_KO", "graded_gene_KO") and f["genes"]:
         idx, perturbed, integ = [], set(), "ok"
         for g in f["genes"]:
             e = scope.get(g) or {}
@@ -169,7 +206,12 @@ def identity(design_key: str) -> dict:
             for m in fp.get("unverified") or []:
                 out["notes"].append(f"{m} shares the zeroed TU and is AT RISK (unverified)")
         out["ko_indices"] = sorted(idx)
-        out["canonical_id"] = f"{f['family']}#idx:" + "+".join(str(i) for i in sorted(idx)) if idx else None
+        # The DOSE is part of the canonical experiment, not decoration. A graded knockout at 0.10 expression
+        # and the same gene at 0.50 address the same ko_index and are different experiments — the depleting
+        # series' ppGpp spans 12x across them — so the index set alone would collapse the whole dose-response
+        # into one id and report the doses as replicates of each other.
+        dose = "" if f.get("level_num") is None or f["factor"] != "graded_gene_KO" else f"@{f['level_num']:g}"
+        out["canonical_id"] = (f"{f['family']}#idx:" + "+".join(str(i) for i in sorted(idx)) + dose) if idx else None
         # Genes sharing a targeted index. For a SINGLE-gene design these are true aliases — the identical run
         # under another name. For a multi-KO they merely ride one of the addressed indices, which is a different
         # (and weaker) statement, so the two are not conflated.

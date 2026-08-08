@@ -307,6 +307,32 @@ def _append_ledger(rec: dict) -> None:
         f.write(line)
 
 
+def _expr_suffix(design: Design) -> str:
+    """The DOSE fragment for a graded knockout — '' for every other design, so no existing label changes.
+
+    MEASURED 2026-08-08: without this, the depleting-allele campaign's four doses of argS (expression
+    0.05/0.10/0.25/0.50, variant indices 6442-6445) all produced the label `graded_gene_knockout·KO:argS·sN`.
+    Four rows therefore landed on the SAME (design_key, seed) cell with ppGpp spanning 675 down to 56 — a 12x
+    range pooled as "four seeds of one design" by every design-keyed tool. It surfaced as `lethality()`
+    reporting a different collapse generation between two calls in one session, because whichever dose won an
+    unstable ordering decided the answer.
+
+    The level is taken from `params['level']`, falling back to `variant_index % 10` — the variant index IS
+    `gene_ko_index * 10 + level`, so the dose is recoverable even when only the index was passed.
+    """
+    from . import factors, runner
+    if runner._variant_type(design) != "graded_gene_knockout":
+        return ""
+    p = design.params or {}
+    level = p.get("level")
+    if level is None and p.get("variant_index") is not None:
+        try:
+            level = int(p["variant_index"]) % 10
+        except (TypeError, ValueError):
+            level = None
+    return factors.expr_tag_suffix(level)
+
+
 def _design_tag(design: Design) -> str:
     """The label's middle segment. For a gene KO, the GENE is the identity — but the propose (agent/UI) path sets
     condition='basal' with the gene in params.target_genes, while generate.py sets condition='KO:<gene>'. Both must
@@ -324,7 +350,7 @@ def _design_tag(design: Design) -> str:
         tag = "KO:" + "+".join(genes)
         if design.condition and design.condition not in ("basal", "KO:" + "+".join(genes)):
             tag += "@" + design.condition
-        return tag + mode_tag_suffix(design.elongation_model)
+        return tag + _expr_suffix(design) + mode_tag_suffix(design.elongation_model)
     base = design.condition or design.timeline or "basal"
     return base + mode_tag_suffix(design.elongation_model)
 
@@ -1097,6 +1123,76 @@ def backfill_parca_ts(dry_run: bool = True) -> dict:
            "note": ("Stamped only where the kb on disk hashes equal to the row's own kb_sha256. A row whose "
                     "campaign path was rebuilt keeps parca_ts NULL: unknown, not guessed.")}
     if dry_run or not stamped:
+        return res
+    new = append_shard(rows, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
+
+
+def backfill_graded_dose(dry_run: bool = True) -> dict:
+    """Put the DOSE back into the identity of graded-knockout rows written before `_expr_suffix` existed.
+
+    Recoverable without re-simulating anything, which is the only reason this is a backfill rather than a
+    re-run: the model writes each variant to `graded_gene_knockout_<index>/`, the index is
+    `gene_ko_index * 10 + level`, and the level maps to the expression factor. So the dose is on disk in the
+    path of every affected row.
+
+    Rewrites `label` and the stored `design_tag`/`design_key`, which are the three places identity is
+    persisted — `survey.design_tag` re-derives from `label`, so leaving the stored columns stale would make
+    the derived and stored keys disagree, which is invariant D2 and is itself checked elsewhere.
+    """
+    import glob
+    import os
+    import re
+
+    import duckdb
+
+    from . import factors
+
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards to backfill"}
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+
+    changed, skipped, already = [], [], 0
+    for r in rows:
+        if r.get("perturbation") != "graded_gene_knockout":
+            continue
+        lab = str(r.get("label") or "")
+        if factors.EXPR_TAG_PREFIX in lab:
+            already += 1
+            continue
+        m = re.search(r"graded_gene_knockout_(\d+)", str(r.get("simout_path") or "").replace("\\", "/"))
+        suffix = factors.expr_tag_suffix(int(m.group(1)) % 10) if m else ""
+        if not suffix:
+            # No index in the path means the dose is genuinely unrecoverable. Leave the row alone and SAY so:
+            # a guessed dose on a row that spans a 12x ppGpp range is worse than an unlabelled one.
+            skipped.append(r.get("id"))
+            continue
+        new_lab = re.sub(r"(·s\d+|\s+seed\d+)$", lambda mm: suffix + mm.group(0), lab) if re.search(
+            r"(·s\d+|\s+seed\d+)$", lab) else lab + suffix
+        changed.append({"id": r.get("id"), "from": lab, "to": new_lab})
+        r["label"] = new_lab
+        if r.get("design_tag"):
+            r["design_tag"] = str(r["design_tag"]) + suffix
+        if r.get("design_key"):
+            r["design_key"] = str(r["design_key"]) + suffix
+
+    res = {"graded_rows": sum(1 for r in rows if r.get("perturbation") == "graded_gene_knockout"),
+           "relabelled": len(changed), "already_tagged": already, "unrecoverable": skipped,
+           "dry_run": dry_run, "sample": changed[:6],
+           "note": ("The dose is part of a design's identity: without it four expression levels of one gene "
+                    "share a (design_key, seed) cell and every design-keyed tool averages across them.")}
+    if dry_run or not changed:
         return res
     new = append_shard(rows, name=f"{getpass.getuser()}-compact")
     for f in files:
