@@ -178,15 +178,38 @@ def test_similar_designs_flags_severity_confounded_neighbours_guard_b():
 
 def test_a_severe_but_viable_non_aaRS_design_does_not_cluster_with_the_aaRS():
     """WELL-6z6, the empirical validation: double-centering separates severe-MECHANISM from severe-LETHALITY.
-    rRNA_KO:6op is severe (−34%) and viable; its neighbours must be its own mechanism, not the aaRS."""
+    rRNA_KO:6op is severe (−34%) and viable; its neighbours must be its own mechanism, not the aaRS.
+
+    THE MATCHER WAS WRONG, not the metric — corrected 2026-08-08. It counted an "aaRS neighbour" by substring
+    (`"KO:argS" in design`), which also matches `graded_gene_knockout/KO:argS#expr:0.25` — a GRADED knockout at
+    25% expression that is VIABLE (growth −30.9%) and carries `severity_confounded: False`. That design class
+    did not exist when this test was written. Counting it as a leak inverts the test's own claim: a severe,
+    viable, dose-limited design is exactly the right neighbour for another severe, viable design, and treating
+    its arrival as failure would penalise the metric for working.
+
+    What "severity leaking back in" actually means is a COLLAPSED design appearing as a neighbour because it is
+    severe, and `similarity` already flags those itself — so the flag is the criterion, rather than a gene-name
+    substring that cannot tell a 25%-expression allele from a dead one. Measured at k=12: the collapsing full
+    aaRS knockouts do not appear at all, the top neighbour is the query's own mechanism (rRNA_KO:4op, cos 0.65),
+    and the first confounded design is a graded argS at rank 6.
+
+    NOT the same thing as WELL-6z4-REDO. That gate — the corpus-wide severity correlation — is still open and
+    still `xfail(strict=True)` above, deliberately unrelaxed. This test is a different, narrower claim.
+    """
     _corpus()
     from cellarium import similarity
     r = similarity.similar_designs("rrna_operon_knockout/minimal|rRNA_KO:6op", k=5)
     if "error" in r:
         pytest.skip("rRNA_KO:6op absent")
-    aaRS = sum(1 for n in r["neighbours"]
-               if any(f"KO:{gname}" in n["design"] for gname in ("argS", "alaS", "gltX", "pheS", "lysS", "valS")))
-    assert aaRS == 0, f"a severe VIABLE design has {aaRS} aaRS neighbours — severity is leaking back in"
+    leaked = [n["design"] for n in r["neighbours"] if n.get("severity_confounded")]
+    assert not leaked, (
+        f"a severe VIABLE design has collapsing neighbour(s) {leaked} — severity is leaking back in")
+    # The positive form of the same claim, and the stronger one: the nearest neighbour is the query's OWN
+    # mechanism. Absence of a leak is satisfied by noise; this is not.
+    top = r["neighbours"][0]["design"]
+    assert "rrna_operon_knockout" in top, (
+        f"the nearest neighbour of an rRNA-operon deletion is {top!r}, not another rRNA-operon deletion — "
+        "the mechanism cluster has stopped cohering, which is what this test is for")
 
 
 def test_the_query_is_never_its_own_neighbour_and_unknown_designs_degrade():

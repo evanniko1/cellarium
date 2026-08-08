@@ -1066,6 +1066,66 @@ are what the journal version needs.
   NOTE: my first version of this entry said the paths were EMPTY. They are not — a `split_part` on '/' returns
   an empty first field for an absolute path, and I read that as an empty value. The rows were never empty.
 
+## The failure baseline is ZERO, 2026-08-08
+
+Cleared so that PARCA-4 — which changes the fitting procedure and will move numbers across the corpus — has a
+verifiable starting point. I mis-stated this baseline twice (QC-1), which is the reason to remove it rather
+than keep counting it. **Suite: 0 failures, 1 xfail(strict).** Each was diagnosed before being touched; two
+were live defects, one was a false accusation against a correct corpus, and none was silenced.
+
+- **KB-ROOT-1 — `_sim_path_of` drops the OUTPUT ROOT, and I built a wrong conclusion on it.** ✅ **FIXED.**
+  It returns the second path component, which was a unique campaign key while everything lived under `runs/`.
+  It is not now: `CELLARIUM_OUT` moved whole campaigns to `runs_seed_aars/`, `runs_kinetic_seeds/` and
+  `runs_depleting/`, and **all three use the sim_path `cellarium`**, so three campaigns with three knowledge
+  bases collapse onto one key. `test_a_rows_kb_matches_the_campaign_it_ran_in` therefore compared every row in
+  those roots against `runs/cellarium/kb` and reported them as contradicting their own path — **accusing a
+  correct corpus**. Each root holds its own kb, all three hashing `5f19d040…`, matching the rows exactly. Read
+  root-aware: **297 of 297 rows whose kb is still on disk AGREE, 0 mismatch** (69 have no kb on disk).
+  `manifest.campaign_root_of()` / `kb_sha_for_run()` are the root-aware resolvers.
+  - **CORRECTION to PARCA-3.** I wrote, in the backlog, a commit message, a test docstring and twice to the
+    user, that "18 analysable rows are orphaned because a rebuild happened at the reused path `cellarium`".
+    **That is wrong.** Those rows' knowledge base is on disk in their own campaign root; nothing orphaned them.
+    The reading was an artefact of the collapsed key. What survives is the GATE itself — a rebuild at a path
+    whose kb live rows depend on would still destroy it, and `kb_dependents` correctly finds the 188 rows that
+    depend on `runs/cellarium/kb`. The mechanism was sound; the evidence I cited for it was not.
+  - **Consequence for `backfill_parca_ts`:** its 51 skips ("kb replaced" / "kb absent") were computed through
+    the same collapsed key, so `parca_ts` is recoverable for more rows than it stamped. Not yet redone — the
+    stamped values are correct, just incomplete. | open |
+- **Three `test_capability` failures — the registry was right and the tests encoded a pre-kinetic corpus.**
+  ✅ **FIXED.** `capability.py` already carries an explicit guard, dated 2026-08-06, for the case where a mode
+  the corpus now contains would otherwise be told "no run in the corpus used it" — the silent-absence shape,
+  emitted by the component built to prevent it. The tests asserted the pre-guard sentence, i.e. they demanded
+  the registry keep telling a reader no kinetic run exists while twelve sat in the manifest. Case (c) is now
+  exercised through `coarse_kinetic` (holds, no rows) and the changed fact is pinned as a fact. The redirect
+  test got STRONGER: `switch.in_corpus` is now True, which is exactly when "another model represents this" is
+  most easily read as permission, so `can_answer`/`report_a_number` are asserted against the harder case, and
+  the now-unreachable "propose a NEW RUN" branch is exercised with a synthetic capability rather than dropped.
+- **`test_every_corpus_row_reads_as_steady_state` — false BY DESIGN.** ✅ **FIXED (renamed).** The invariant it
+  protected is that the field is never NULL and never uninterpretable (the `division_rate` `bool(None)` shape),
+  not that the corpus is single-mode. Keeping it would have pressured someone to relabel real kinetic rows as
+  steady_state for a green suite — the exact mislabelling the elongation axis exists to prevent. Now asserts
+  no NULLs, no unknown values, and that `MODES_IN_CORPUS` covers what is actually present.
+- **`test_temperature_for_pins…` — stale since a production fix.** ✅ **FIXED.** `claude-sonnet-5` began
+  rejecting an explicit `temperature` on 2026-08-05; every Cellwright call 400'd before reaching a tool, nine
+  of nine protocol questions in under a second. `sonnet-5` joined `_NO_EXPLICIT_TEMPERATURE` in `1611a94` and
+  this assertion was left behind. The pinned branch stays exercised via haiku so the deny list cannot silently
+  swallow every model.
+- **`test_the_dedup_outcome_is_pinned_on_the_corpus` — re-pinned 30 → 38 WITH the delta accounted for.**
+  ✅ **FIXED.** An unexplained re-pin is the pin failing open, so the composition is now in the test:
+  26 `runs/cellarium` + 4 `runs/aadrop` (the leu arm's null) + 4 `runs_seed_aars` (control for the
+  verified-index aaRS re-runs) + 4 `runs_kinetic_seeds` (control for the kinetic arm). Both new groups are
+  controls for campaigns deliberately run.
+- **`test_a_severe_but_viable_non_aaRS_design…` — the MATCHER was wrong, not the metric.** ✅ **FIXED.** It
+  counted an aaRS neighbour by substring, which matches `graded_gene_knockout/KO:argS#expr:0.25` — a graded
+  knockout at 25% expression that is VIABLE (−30.9%) and `severity_confounded: False`, a design class that did
+  not exist when the test was written. Counting it as a leak inverts the claim: a severe, viable, dose-limited
+  design is the RIGHT neighbour for another severe, viable one. Now uses the module's own `severity_confounded`
+  flag (the actual definition of a leak) plus the positive form — the nearest neighbour must be the query's own
+  mechanism — which absence-of-leak alone is satisfied by noise. **WELL-6z4-REDO is untouched and still
+  `xfail(strict=True)`**; its marker independently notes the same substring-matcher defect in the envelope
+  selector (it admits `graded_gene_knockout/KO:murA`), which GRADED-1's tag now makes fixable — still a
+  6z4-REDO decision, not a CI fix.
+
 ## Found while clearing the failure baseline, 2026-08-08
 
 - ~~**GRADED-1 — a graded knockout's DOSE was not part of its identity.**~~ ✅ **DONE 2026-08-08.**

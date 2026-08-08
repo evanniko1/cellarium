@@ -78,12 +78,21 @@ def test_context_tokens_prefilters_then_counts_exact():
 
 
 def test_temperature_for_pins_except_reasoning_and_thinking():
-    """M-2/LLM-3: pin temperature for models that accept it with thinking off; omit for reasoning models / thinking."""
-    assert agent.temperature_for("claude-sonnet-5") == agent.TEMPERATURE
-    assert agent.temperature_for("claude-haiku-4-5-20251001") == agent.TEMPERATURE
-    assert agent.temperature_for(None) == agent.TEMPERATURE                     # Auto default -> non-opus -> pinned
+    """M-2/LLM-3: pin temperature for models that accept it with thinking off; omit for reasoning models / thinking.
+
+    UPDATED 2026-08-08. This asserted `claude-sonnet-5` is pinned, which stopped being true on 2026-08-05 when
+    that model began rejecting an explicit `temperature` outright — measured, EVERY Cellwright call returned a
+    400 before reaching a single tool, nine of nine protocol questions in under a second. `sonnet-5` joined
+    `_NO_EXPLICIT_TEMPERATURE` in the fix (1611a94) and this assertion was left behind. The code is right and
+    the expectation was stale: pinning a temperature the API refuses is not reproducibility, it is an outage.
+    """
+    assert agent.temperature_for("claude-sonnet-5") is None                     # rejects an explicit temperature
     assert agent.temperature_for("claude-opus-4-8") is None                     # reasoning model rejects it
     assert agent.temperature_for("claude-sonnet-5", thinking=True) is None      # thinking forces temperature=1
+    # The PINNED branch must stay exercised, or the deny-list could swallow every model and nothing would say so.
+    assert agent.temperature_for("claude-haiku-4-5-20251001") == agent.TEMPERATURE
+    assert agent.temperature_for(None) == agent.TEMPERATURE                     # Auto default -> pinned
+    assert agent.temperature_for("claude-haiku-4-5-20251001", thinking=True) is None
 
 
 # --- max-turns forced synthesis: a turn must ALWAYS end with an answer, never a dangling tool_result ----------

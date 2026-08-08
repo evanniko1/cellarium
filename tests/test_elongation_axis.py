@@ -276,17 +276,32 @@ def test_charging_is_never_compared_across_two_elongation_models():
     assert "kinetic" in res["refused"] and "steady_state" in res["refused"]
 
 
-def test_every_corpus_row_reads_as_steady_state_and_never_as_null():
-    """Design decision 4. `steady_state` is KNOWN for these rows, not unknown: Cellarium had no way to
-    express the choice until now. NULL must never reach a consumer, because each would then decide for itself
-    — the exact shape of the `division_rate` bug where `bool(None)` turned 'we did not measure whether this
-    divided' into 'it did not divide' and produced three false IMPAIRED verdicts."""
+def test_every_corpus_row_reads_as_a_known_mode_and_never_as_null():
+    """Design decision 4. NULL must never reach a consumer, because each would then decide for itself — the
+    exact shape of the `division_rate` bug where `bool(None)` turned 'we did not measure whether this divided'
+    into 'it did not divide' and produced three false IMPAIRED verdicts.
+
+    RENAMED AND NARROWED 2026-08-08. This asserted every row reads as `steady_state`, which was true when
+    written — Cellarium had no way to express any other choice — and is now FALSE BY DESIGN: the kinetic
+    campaign this repository deliberately ran put 8 kinetic rows in the manifest. The invariant it was
+    protecting is not "the corpus is single-mode"; it is that the field is never NULL and never a value no
+    consumer can interpret. Keeping the old assertion would have made a successful, intended campaign look
+    like corruption — and, worse, would pressure someone to relabel real kinetic rows as steady_state to get
+    a green suite, which is the mislabelling this whole axis exists to prevent.
+    """
     from cellarium import store
     rows = store.list_results()
     if not rows:
         pytest.skip("no corpus")
-    bad = [r["id"] for r in rows if r.get("elongation_model") != "steady_state"]
-    assert not bad, f"{len(bad)} rows do not read as steady_state: {bad[:5]}"
+    null = [r["id"] for r in rows if r.get("elongation_model") in (None, "")]
+    assert not null, f"{len(null)} rows carry NULL elongation_model: {null[:5]}"
+    unknown = sorted({r.get("elongation_model") for r in rows} - set(capability.ELONGATION_MODES))
+    assert not unknown, f"rows carry elongation model(s) no consumer can interpret: {unknown}"
+    # And the declaration must match what is actually there — the guard against a campaign landing silently.
+    present = sorted({r.get("elongation_model") for r in rows})
+    assert set(present) <= set(capability.MODES_IN_CORPUS), (
+        f"the corpus contains {present} but MODES_IN_CORPUS declares {list(capability.MODES_IN_CORPUS)} — "
+        "a mode with runs that the registry does not know about makes every refusal quoting it a falsehood")
 
 
 def test_the_registry_never_claims_a_corpus_mode_it_cannot_verify():

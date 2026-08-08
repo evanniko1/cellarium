@@ -216,8 +216,18 @@ def test_the_dedup_outcome_is_pinned_on_the_corpus():
     # 41 historical + 7 from the SCI-TRNA-4 leu campaigns, whose un-starved control was lethal by construction
     # before its medium was fixed and collided with the starved arm on the model output dir.
     assert crash == 48, f"{crash} crash rows survive, expected 48 — a crash-id collision was wrongly merged"
-    # 26 + the 4 wildtype/basal seeds the leu arm ran against the aadrop kb as its null.
-    assert wt == 30, f"wildtype/basal reportable = {wt}, expected 30 — the reference count drifted"
+    # The REFERENCE count, pinned because `wildtype/basal` is the denominator of every `pct_vs_ref` and a
+    # silent change to it moves every percentage in the corpus. Re-pinned 30 -> 38 on 2026-08-08, with the
+    # whole delta accounted for rather than the number simply updated — an unexplained re-pin is the pin
+    # failing open. Composition, by campaign root:
+    #     runs/cellarium            26  the original steady-state reference
+    #     runs/aadrop                4  the leu arm's null, against the dropout kb
+    #     runs_seed_aars/cellarium   4  control for the verified-index aaRS re-runs   (new)
+    #     runs_kinetic_seeds/…       4  control for the kinetic arm                    (new)
+    # Both new groups are controls for campaigns that were deliberately run, so the growth is intended. Note
+    # they span three knowledge bases and two elongation models: this is a COUNT of reference rows, not a
+    # poolable cell — `survey.analysis_rows` narrows to one arm before any of them is averaged (ARM-1).
+    assert wt == 38, f"wildtype/basal reportable = {wt}, expected 38 — the reference count drifted"
 
 
 def test_the_audit_tool_reads_the_same_corpus_as_everything_else():
@@ -278,18 +288,22 @@ def test_a_rows_kb_matches_the_campaign_it_ran_in():
         ).fetchall()
     finally:
         con.close()
-    from cellarium import provenance
-    known = {}
+    # RESOLVED ROOT-AWARE, 2026-08-08. This used `_sim_path_of`, which returns only the second path component
+    # and therefore drops the OUTPUT ROOT. That was right while every campaign lived under `runs/`; it is not
+    # now, because `CELLARIUM_OUT` moved whole campaigns to `runs_seed_aars/`, `runs_kinetic_seeds/` and
+    # `runs_depleting/`, all of which use the sim_path `cellarium`. Every row in those three was therefore
+    # compared against `runs/cellarium/kb` and reported as contradicting its own path — when in fact each root
+    # holds its own kb, all three hashing to `5f19d040…`, exactly matching the rows.
+    #
+    # The test was accusing a correct corpus. Read root-aware, 297 of 297 rows whose kb is still on disk agree.
+    known: dict = {}
     bad = []
     for path, kb in rows:
         if not path or not kb:
             continue
-        sp = manifest._sim_path_of(path)
+        sp = manifest.campaign_root_of(path)
         if sp not in known:
-            try:
-                known[sp] = (provenance.kb_provenance(sp) or {}).get("kb_sha256")
-            except Exception:
-                known[sp] = None
+            known[sp] = manifest.kb_sha_for_run(path)
         want = known.get(sp)
         if want and kb != want:
             bad.append((sp, path, kb[:10], want[:10]))

@@ -468,6 +468,53 @@ def _sim_path_of(run_root) -> str:
     return "cellarium"
 
 
+_RUN_KB_CACHE: dict = {}
+
+
+def campaign_root_of(run_root) -> str | None:
+    """`<output root>/<sim_path>` for a run — the campaign key that is actually unique.
+
+    `_sim_path_of` returns only the second component, which was right while every campaign lived under one
+    output root. It is not right now: `CELLARIUM_OUT` moved whole campaigns to `runs_seed_aars/`,
+    `runs_kinetic_seeds/` and `runs_depleting/`, and all three use the sim_path `cellarium`, so three
+    different campaigns with three different knowledge bases collapse onto one key.
+    """
+    parts = str(run_root).replace("\\", "/").split("/")
+    for i, c in enumerate(parts):
+        if (c == "runs" or c.startswith("runs_")) and i + 1 < len(parts):
+            return f"{c}/{parts[i + 1]}"
+    return None
+
+
+def kb_sha_for_run(run_root) -> str | None:
+    """The kb hash of the campaign a run ACTUALLY belongs to, resolved from its own path.
+
+    MEASURED 2026-08-08, and it corrects a claim made earlier the same day. Resolving through
+    `_kb_prov(_sim_path_of(path))` drops the output root, so every row under `runs_seed_aars/cellarium/`,
+    `runs_kinetic_seeds/cellarium/` and `runs_depleting/cellarium/` was compared against `runs/cellarium/kb`.
+    Those three roots hold their OWN kb, all three hashing to `5f19d040…`, exactly matching the rows. Read
+    root-aware, 297 of 297 rows whose kb is still on disk AGREE and none mismatches.
+
+    So those rows were never orphaned from their parameters — the fits are on disk in their own campaigns. The
+    earlier reading ("18 rows orphaned by a rebuild at a reused path") was an artefact of the collapsed key.
+    """
+    key = campaign_root_of(run_root)
+    if not key:
+        return None
+    if key not in _RUN_KB_CACHE:
+        import hashlib
+        p = Path(key) / "kb" / "simData.cPickle"
+        val = None
+        if p.is_file():
+            h = hashlib.sha256()
+            with p.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+            val = h.hexdigest()
+        _RUN_KB_CACHE[key] = val
+    return _RUN_KB_CACHE[key]
+
+
 def _flat_row(rec: SimResult, seed: int, run_root: Path,
               requested_generations: int | None = None, crashed: bool = False,
               sim_path: str | None = None) -> dict:

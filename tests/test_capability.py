@@ -213,15 +213,38 @@ def test_the_ported_but_off_refusal_describes_the_corpus_not_the_mode_asked_abou
 
     Case (c)'s sentence is "what THOSE RUNS do instead", and "those runs" is the corpus — every row of which is
     steady_state. Quoting the mode in the question would describe a model that has never produced a row, inside
-    a refusal whose entire content is that no such row exists."""
+    a refusal whose entire content is that no such row exists.
+
+    RETARGETED 2026-08-08, because the FACT changed and the property did not. This asked
+    `per_isoacceptor_trna_charging.refusal("kinetic")` for case (c). The kinetic campaign this very registry
+    proposed then landed, `MODES_IN_CORPUS` gained "kinetic", and the honest answer became "IS answerable
+    here" — which `capability.py` already guards for explicitly, by design, with the measurement in its
+    comment. Asserting the old sentence would require the registry to keep telling a reader no kinetic run
+    exists while twelve sit in the manifest: the silent-absence shape, demanded by a test.
+
+    So case (c) is now exercised through `coarse_kinetic` — a model that holds for this entry and has produced
+    no row — which is exactly the state the branch describes, and the live kinetic fact is pinned separately
+    below rather than frozen.
+    """
     c = capability.get("per_isoacceptor_trna_charging")
     assert c.prose_subject("kinetic") == capability.DEFAULT_MODE
-    r = c.refusal("kinetic")
+
+    # Case (c), reached through a mode that genuinely has no runs.
+    ported = capability.get("knockout_of_a_multi_transcription_unit_gene")
+    assert "coarse_kinetic" in ported.holds_in and "coarse_kinetic" not in capability.MODES_IN_CORPUS, \
+        "this test needs a mode that HOLDS but has no runs — re-point it if the corpus gains coarse rows"
+    r = ported.refusal("coarse_kinetic")
     assert "no run in the corpus" in r.lower()
-    assert "aa_from_trna" in r, \
-        "the corpus is steady_state, so 'what those runs do instead' must be ITS broadcast"
-    assert "zero_charged_holder" not in r and "coarse" not in r, \
-        "and never the coarse model, which produced no corpus row either"
+    assert capability.DEFAULT_MODE in r, \
+        "'what those runs do instead' must name the CORPUS's model, not the one asked about"
+
+    # And the fact that changed, asserted as a fact rather than assumed: a mode WITH runs is not refused.
+    assert "kinetic" in capability.MODES_IN_CORPUS
+    rk = c.refusal("kinetic")
+    assert "no run in the corpus" not in rk.lower(), (
+        "the registry told a reader no kinetic run exists while the corpus holds them — the silent-absence "
+        "failure this registry exists to prevent, emitted by the registry itself")
+    assert "answerable" in rk.lower() and "do not treat this as a refusal" in rk.lower()
 
     # The case where the honest answer is SILENCE. per_amino_acid_trna_charging holds in steady_state, so the
     # corpus does nothing "instead" of it; the only mode that lacks it is coarse_kinetic, and that sentence
@@ -230,9 +253,17 @@ def test_the_ported_but_off_refusal_describes_the_corpus_not_the_mode_asked_abou
     rk = p.refusal("kinetic")
     assert p.instead_in("kinetic") == "" and p.consequence_in("kinetic") == ""
     assert "np.zeros(86)" not in rk and "does not solve charging" not in rk
-    assert capability.check("per_amino_acid_trna_charging", mode="kinetic")["can_answer"] is False, \
-        "silence about the substitute must not soften the refusal itself"
     assert p.instead_in("coarse_kinetic"), "the coarse sentence is still there — it is simply keyed to coarse"
+    # This entry HOLDS in kinetic, and kinetic now has runs, so it is honestly answerable there — it is no
+    # longer an example of anything being refused. The property it was carrying, that SILENCE about the
+    # substitute must not soften the refusal, is real and now has no live case, so it is exercised directly:
+    # a capability with no prose at all must still produce a refusal that refuses.
+    assert capability.check("per_amino_acid_trna_charging", mode="kinetic")["can_answer"] is True, \
+        "this entry holds in kinetic and the corpus has kinetic runs — refusing it would be the inverse error"
+    mute = capability.Capability(key="mute", question="q?", present=True, holds_in=("steady_state",))
+    assert mute.instead_in("coarse_kinetic") == "" and mute.consequence_in("coarse_kinetic") == ""
+    assert "CANNOT represent" in mute.refusal("coarse_kinetic"), \
+        "silence about the substitute must not soften the refusal itself"
 
 
 def test_the_multi_tu_knockout_caveat_is_not_tied_to_the_elongation_model():
@@ -250,7 +281,12 @@ def test_the_multi_tu_knockout_caveat_is_not_tied_to_the_elongation_model():
             f"the variant caveat names elongation model {m!r}, implying the two axes are related"
     assert "graded_gene_knockout" in c.available_in and "variant" in c.flag, \
         "the route out is a VARIANT, and it must be stated as one"
-    assert instead in c.refusal("kinetic")
+    # The caveat must survive into a refusal that actually refuses. Asked under a mode the CORPUS now contains,
+    # this entry is answerable and correctly returns no refusal at all, so the caveat is checked under
+    # `coarse_kinetic` — holds here, no rows — which is the case-(c) sentence the caveat belongs to.
+    assert instead in c.refusal("coarse_kinetic")
+    assert "no run in the corpus" not in c.refusal("kinetic").lower(), \
+        "a mode the corpus contains must not be refused for lack of runs"
 
 
 def test_every_prose_key_is_a_real_mode():
@@ -314,13 +350,22 @@ def test_a_redirect_is_never_permission():
     """Case (b) is the only non-flat refusal, so it is the only one that could become an attack surface: an
     agent told 'the kinetic model represents this' will otherwise go looking for a kinetic run, find
     steady-state rows, and read them anyway. The redirect changes what to DO NEXT, never what may be reported
-    now — so `can_answer`/`report_a_number` stay False and `switch.in_corpus` is always explicit."""
+    now — so `can_answer`/`report_a_number` stay False and `switch.in_corpus` is always explicit.
+
+    The redirect got MORE dangerous, not less, when the kinetic campaign landed. This used to assert
+    `in_corpus is False` for the steady_state -> kinetic redirect, on the reasoning that no kinetic run
+    existed. Twelve now do, so the honest value is True — and that is precisely when "another model
+    represents this" is most easily read as "so go and read those": the rows are right there. The permission
+    invariant is therefore asserted against the harder case, not retired with the old fact.
+    """
     res = capability.check("per_isoacceptor_trna_charging")           # steady_state -> kinetic
     assert res["why_not"] == "another_mode_represents_it"
-    assert res["can_answer"] is False and res["report_a_number"] is False
+    assert res["can_answer"] is False and res["report_a_number"] is False, (
+        "the redirect became permission: the destination mode now HAS runs, which is exactly when an agent "
+        "will read them and call the question answered under the mode it actually asked about")
     assert res["answerable_in"], "a redirect with no destination is just a refusal wearing a label"
-    assert res["switch"]["in_corpus"] is False, "no kinetic run exists — say so, or the agent will hunt one"
-    assert "propose" in res["refusal"] or "NEW RUN" in res["refusal"]
+    assert res["switch"]["in_corpus"] is True and "re-issue" in res["refusal"], \
+        "kinetic runs exist; telling the agent to propose a campaign would send it to re-run what it has"
 
     # The mirror case, and the reason `in_corpus` had to branch: asked in kinetic mode, ppGpp redirects to
     # steady_state, which the ENTIRE corpus already is. "Propose a run" would be exactly wrong here.
@@ -328,6 +373,16 @@ def test_a_redirect_is_never_permission():
     assert back["why_not"] == "another_mode_represents_it"
     assert back["switch"]["mode"] == "steady_state" and back["switch"]["in_corpus"] is True
     assert "re-issue" in back["refusal"]
+
+    # The OTHER branch — redirect to a mode with no runs — now has no live example, because every mode any
+    # registry entry redirects to is in the corpus. Built synthetically rather than dropped: an untested
+    # branch is how "propose a NEW RUN" would rot into "re-issue" for a mode that has nothing to re-issue.
+    probe = capability.Capability(key="probe", question="q?", present=True,
+                                  holds_in=("coarse_kinetic",), available_in="a test fixture")
+    assert "coarse_kinetic" not in capability.MODES_IN_CORPUS, "re-point this probe if coarse rows land"
+    r = probe.refusal(capability.DEFAULT_MODE)
+    assert "no run in the corpus used it" in r.lower()
+    assert "NEW RUN to propose" in r and "re-issue the query" not in r
 
 
 def test_an_unknown_elongation_mode_is_not_treated_as_a_refusal():
