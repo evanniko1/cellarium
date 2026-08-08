@@ -1136,7 +1136,61 @@ are what the journal version needs.
   both mine, both the same class — an absence counted as a success. `append_shard` now takes the union of all
   rows' keys and raises if pyarrow loses one; the backfill counts the VALUE, not the assignment. Checked: no
   column was lost by the earlier TOMB-1 compaction (48 columns before and after, quarantine included).
-- **PARCA-3 — make a knowledge-base rebuild a first-class, requestable job.** ParCa is one script, seven
+- ~~**PARCA-3 — make a knowledge-base rebuild a first-class, requestable job.**~~ ✅ **DONE 2026-08-08.**
+  `propose_rebuild` is an agent tool behind the same human airlock as `propose_experiment`; `approve_and_run`
+  dispatches on a new `kind` field (entries written before this carry none and still route to the simulation
+  path, pinned by a test). `runner.parca_rebuild` executes it and returns the new kb's provenance.
+  - **The hard gate is DESTINATION, and it is the only one — the hazard differs in kind from a simulation's.**
+    A rebuild runs no organism design, so there is nothing to biosecurity-screen. What it can do, which no
+    simulation can, is silently invalidate results that already exist: ParCa writes to
+    `runs/<sim_path>/kb/simData.cPickle`, campaign paths are REUSED, and a rebuild at an occupied path
+    replaces the fit rows already point at. **This already happened** — 18 analysable rows carry `5f19d040…`
+    while `cellarium` now holds `3b2f8ebd…`. Those rows are not wrong, they are ORPHANED: their parameters no
+    longer exist anywhere, which is why `backfill_parca_ts` cannot stamp them. Nothing warned at the time.
+    `launch.kb_dependents()` now names what a destination would destroy and `vet_rebuild` refuses it;
+    `sim_path` defaults to the first free path rather than to a name a caller might reuse.
+  - **The gate is re-checked at approval, not trusted from proposal.** A request can sit pending for hours and
+    another rebuild can land at that path meanwhile, at which point what the human approved — "build somewhere
+    harmless" — no longer describes what would happen. The check is cheap; the damage is unrecoverable.
+  - **Edits are structured, not free-text file content.** `retype_cistrons={rna_id: type}` covers the two
+    changes that are actually parameterisable — a cistron retype and `--operons` — which between them are the
+    backlog's motivating example ("does this hold with the pseudogene reverted?") and PARCA-4's step 2. Rows
+    are RETYPED, never deleted: deleting breaks referential integrity and the build dies in
+    `getter_functions.py` before any fitting. An unmatched id RAISES rather than skipping, because silently
+    skipping spends 7 minutes and 114 MB producing a knowledge base identical to the one on disk, which the
+    caller then compares against as though it were the perturbation.
+  - **`rnas.tsv` is read out of the IMAGE, not `model_overlay/files/`.** The overlay is what we intend the
+    image to contain; the image is what ParCa actually reads. They agree today — a reason to read the
+    authoritative one, not a reason it does not matter. The patch is mounted for the container's life, so a
+    failed rebuild leaves no half-edited reconstruction on the host.
+  - **Cellwright is told when to reach for it.** The system prompt now names the class of question no
+    simulation can answer — a claim resting on a fitted parameter — because a capability the agent does not
+    know it has is the same "wired but never called" failure as `arm_conflicts` before ARM-2 wired it.
+  - **`sim_path` is agent-supplied, so it is charset-validated before anything uses it.** Two failures, and
+    the second is the easy one to miss: `../../etc/evil` resolves to `out/../../etc/evil` and writes 114 MB
+    outside the mounted tree, and a path that ALIASES a protected one (`./cellarium`, `cellarium/.`,
+    `a/../cellarium`) reads as a fresh destination to a string-compared dependency check while ParCa
+    overwrites the knowledge base 188 rows depend on. A strict `[A-Za-z0-9][A-Za-z0-9_.-]{0,63}` closes both
+    without reasoning about path normalisation on two operating systems.
+  - **The gate protects ROWS, not paths.** A kb on disk that nothing depends on is rebuildable — otherwise
+    iterating on a fresh refit would be forbidden — and a destination becomes protected exactly when a live
+    row starts pointing at it. Pinned, because both looser and tighter readings are wrong in opposite ways.
+  - **`reconcile()` asks the KB, not the manifest, for a rebuild.** A rebuild writes no manifest rows, so
+    `count_runs` returns 0 and a completed-but-orphaned rebuild would heal to 'failed' — reporting failure for
+    work that succeeded and prompting a needless seven-minute re-run.
+  - **`ui.vet_summary` had to learn the second shape.** Read literally against a rebuild vet it reported a
+    REFUSED job as `safety: "clear"` and asserted an envelope judgement nobody made, so the operator would see
+    a refusal with no reason. A gate that renders but says the wrong thing is worse than one that renders
+    nothing.
+  - 26 tests in `tests/test_parca_rebuild.py` (queue isolated per-test). Adding the tool also tripped five
+    registration invariants (`test_harness`, `test_credentials`, `test_design_generator`, `test_operon_mode`,
+    `test_resources`) — it needed classifying in `test_registry.ANALYSIS_ONLY_TOOLS`, which is exactly what
+    those tests exist to catch.
+  - **VERIFIED END-TO-END, not just unit-tested.** `req_7e52bf8b` was proposed through the tool, approved, and
+    executed: 290 s, `refit1`, kb `e491a580…`, retype `G0-10634_RNA` mRNA -> pseudo recorded on the request.
+    The scientific result is under PARCA-4 below — and it corrects that entry's reading.
+
+  *(original entry)* ParCa is one script, seven
   minutes, 114 MB out, triggered ONLY by editing `reconstruction/ecoli/flat/`, changing `--operons`, or
   changing the fitting code. The elongation model does NOT trigger it, which is why the kinetic campaign
   shares an arm with steady-state runs. Cellwright can propose a SIMULATION and route it to the approval gate;
@@ -1149,6 +1203,25 @@ are what the journal version needs.
   retyping `shoB` alone empties the bound (244 -> 0) with no swing. The bound derives from one cistron whose
   source row has a single fragment, StdDev 0, and no coverage filter. Fix is a coverage filter on the
   degradation-rate input plus a check that no fitted rate equals the bound bit-exactly.
+  - **CORRECTION 2026-08-08 — "empties the bound" is arithmetically right and reads the wrong way round.**
+    Re-measured on a fresh refit (`refit1`, built through the new PARCA-3 path, kb `e491a580…`): after the
+    shoB retype, **0** TUs sit at 91.2 min, exactly as recorded — but **247 now sit bit-exactly on 32.4 min**,
+    which is the second-slowest measured cistron the original entry itself names. The maximum mRNA half-life
+    goes 91.2000 -> 32.4000 and the count on the bound goes 245 -> 247. **The saturation did not vanish, it
+    RELOCATED.** `min_deg_rates[is_mRNA] = mRNA_cistron_deg_rates.min()` saturates against whatever the
+    minimum is, so removing the cistron that supplies it just promotes the next one. Read from the INPUT side
+    rather than the derived half-lives, which is the same answer by an independent route: the slowest mRNA
+    cistron is `G0-10634_RNA` (shoB) at 91.2 min in the corpus fit and `EG10669_RNA` (**ompA**) at 32.4 min
+    after the retype, with the mRNA cistron count going 4346 -> 4345.
+    **In fairness to the annotation reading, the new bound is a BETTER value**: ompA is a highly abundant
+    outer-membrane porin whose transcript really is long-lived, where shoB's 91.2 min rested on a single
+    fragment with StdDev 0. So curating shoB improves the NUMBER. It does not touch the DEFECT — 247 units
+    still sit bit-exactly on one cistron's measured rate, and the next annotation error to land at the bottom
+    of that distribution propagates the same way. **Curating annotations is therefore not a mitigation, it is
+    a repair that looks like one.** Only the two changes already listed — a coverage filter on the input, and a
+    check that no fitted rate equals the bound bit-exactly — address the mechanism. Also: the corpus kb reads
+    **245** on the bound where the 24-refit sweep recorded 244; not chased, but do not quote them
+    interchangeably.
 - **TRNA-8 — `trna.per_family` pools elongation models.** It takes a design string with no mode filter, so
   since the kinetic campaign landed it averages a channel that means a broadcast identity under one model and
   86 independent measurements under the other. Live: 2 of the 3 current test failures. This is ARM-1 in one

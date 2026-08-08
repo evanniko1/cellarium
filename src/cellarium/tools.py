@@ -818,6 +818,21 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     return out
 
 
+def propose_rebuild(reason: str, retype_cistrons: dict | None = None, operons: str = "on",
+                    sim_path: str | None = None) -> dict:
+    """PROPOSE a KNOWLEDGE-BASE REBUILD (ParCa) — the parameters, not a simulation. Same human airlock.
+
+    Use this when the question is about the FIT rather than about a design: "does this hold with the pseudogene
+    reverted?", "is that half-life a fitted value or the estimator's floor?". Those are unanswerable by any
+    number of simulations, because every run in the corpus shares one fitted parameter set.
+
+    A rebuild is ~7 minutes against hours for a campaign, and it MINTS A NEW ARM: its runs carry a different
+    `kb_sha256` and are not poolable with the existing corpus, so budget the comparators too. `reason` is
+    required. `retype_cistrons` is `{rna_id: type}` — rows are retyped, never deleted."""
+    from . import launch
+    return launch.propose_rebuild(reason, retype_cistrons, operons, sim_path)
+
+
 def propose_experiment(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
                        params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None,
                        genes: list | None = None, elongation_model: str = _cap.DEFAULT_MODE) -> dict:
@@ -1397,6 +1412,8 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "propose_experiment", "description": "PROPOSE a NEW experiment to run when the corpus lacks the data you need. Cellwright CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. To CHANGE an argument on a draft you already proposed, use revise_experiment (NOT this — proposing again leaves a stale duplicate). Returns request id + vet result (pending_approval or blocked).",
      "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}}}},
+    {"name": "propose_rebuild", "description": "PROPOSE a KNOWLEDGE-BASE REBUILD (ParCa) — the fitted PARAMETERS, not a simulation. Use this when the question is about the FIT rather than a design: \"does this hold with the pseudogene reverted?\", \"is that 91.2-min half-life a fitted value or the estimator's floor?\". No number of simulations can answer those, because every run in the corpus shares ONE fitted parameter set — so if a claim rests on a reconstruction input, a rebuild is the only experiment that tests it. ~7 minutes vs hours for a campaign. Cellwright CANNOT launch it: vetted and QUEUED pending HUMAN approval, exactly like propose_experiment. HARD GATE: a rebuild at a path whose knowledge base live corpus rows depend on is REFUSED (it would orphan them from their own parameters — this happened once, 18 rows). A rebuild MINTS A NEW ARM: its runs carry a different kb_sha256 and are NOT poolable with the corpus, so propose the comparators too. `reason` is required. `retype_cistrons` is {rna_id: type} e.g. {\"G0-10634_RNA\": \"pseudo\"} — rows are retyped, NEVER deleted (deleting breaks referential integrity and the build dies before fitting). `operons` is a ParCa-time option ('on' default; 'off' is untested here and has no comparator).",
+     "input_schema": {"type": "object", "properties": {"reason": {"type": "string", "description": "why this rebuild is worth an arm — recorded on the request"}, "retype_cistrons": {"type": "object", "description": "{rna_id: new_type}, e.g. {\"G0-10634_RNA\": \"pseudo\"}; types: pseudo, mRNA, rRNA, tRNA, miscRNA"}, "operons": {"type": "string", "description": "'on' (default) or 'off'"}, "sim_path": {"type": "string", "description": "destination; omit to get the first free one"}}, "required": ["reason"]}},
     {"name": "propose_experiments", "description": "PROPOSE a WHOLE PANEL of experiments in ONE call — use this INSTEAD of many propose_experiment calls whenever you queue more than one design (e.g. the Socratic Council's full falsifier panel: a reference + N knockouts + the discriminating controls). One-at-a-time proposing burns the turn budget and can leave the panel HALF-queued with the discriminating controls dropped; this queues them atomically. Same vetting + human-approval airlock as propose_experiment. `designs` is a list; each item: {perturbation, condition?, timeline?, gene?, genes?, params?, seeds?, generations?}.",
      "input_schema": {"type": "object", "properties": {"designs": {"type": "array", "description": "the panel to queue", "items": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene set for a multi_gene_knockout"}, "params": {"type": "object"}}}}}, "required": ["designs"]}},
     {"name": "revise_experiment", "description": "REVISE a PENDING experiment draft when the user asks to CHANGE an argument (more/fewer seeds, a different condition, a different gene set). This SUPERSEDES the old draft (no duplicate is left in the queue) and returns a re-vetted new draft pending human approval. Pass request_id plus ONLY the fields you're changing. Use THIS to change a draft — never propose_experiment again for the same intent.",
@@ -1438,6 +1455,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "design_panel": design_panel,
              "use_skill": use_skill, "web_get": web_get,
              "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
+             "propose_rebuild": propose_rebuild,
              "revise_experiment": revise_experiment,
              "metabolic_essentiality": metabolic_essentiality}
 

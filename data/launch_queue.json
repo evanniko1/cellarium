@@ -1,1 +1,95 @@
-[]
+[
+  {
+    "id": "req_7e52bf8b",
+    "kind": "parca_rebuild",
+    "status": "done",
+    "design": {
+      "perturbation": "parca_rebuild",
+      "condition": "refit1",
+      "timeline": null,
+      "params": {
+        "operons": "on",
+        "retype_cistrons": {
+          "G0-10634_RNA": "pseudo"
+        },
+        "cpus": null,
+        "reason": "PARCA-4 step 2: retype shoB (the single-fragment cistron the 91.2-min floor derives from) and refit \u2014 does the saturation bound survive?"
+      },
+      "elongation_model": null
+    },
+    "seeds": 0,
+    "generations": 0,
+    "vet": {
+      "runnable": true,
+      "sim_path": "refit1",
+      "operons": "on",
+      "retype_cistrons": {
+        "G0-10634_RNA": "pseudo"
+      },
+      "would_orphan": {
+        "sim_path": "refit1",
+        "kb_sha256": null,
+        "n": 0,
+        "note": "no knowledge base at this path \u2014 building here orphans nothing"
+      },
+      "recommendation": "rebuild_ok",
+      "notes": [
+        "retypes 1 cistron(s): G0-10634_RNA. Rows are RETYPED, never deleted \u2014 deleting breaks referential integrity and the build dies before any fitting.",
+        "A rebuild MINTS A NEW ARM (kb_sha256 changes). Its runs are NOT poolable with the existing corpus \u2014 budget the comparators, not just the rebuild."
+      ]
+    },
+    "ts": 1786221549.2528157,
+    "result": {
+      "sim_path": "refit1",
+      "operons": "on",
+      "retyped": [
+        {
+          "id": "G0-10634_RNA",
+          "from": "mRNA",
+          "to": "pseudo"
+        }
+      ],
+      "kb_sha256": "e491a580477486d733c7cc9beaf308affcec567fdfe18f242a69af778fd4ab7f",
+      "kb_content_sha256": "442f2ee831cba2087373a9a680374eb4130fc045beb5e5003b95198c544ac4e4",
+      "parca_ts": 1786221841.2968922,
+      "kb_bytes": 69440328
+    }
+  },
+  {
+    "id": "req_d59c8d7c",
+    "kind": "parca_rebuild",
+    "status": "pending_approval",
+    "design": {
+      "perturbation": "parca_rebuild",
+      "condition": "refit1",
+      "timeline": null,
+      "params": {
+        "operons": "on",
+        "retype_cistrons": {},
+        "cpus": null,
+        "reason": "probe"
+      },
+      "elongation_model": null
+    },
+    "seeds": 0,
+    "generations": 0,
+    "vet": {
+      "runnable": true,
+      "sim_path": "refit1",
+      "operons": "on",
+      "retype_cistrons": {},
+      "would_orphan": {
+        "sim_path": "refit1",
+        "kb_sha256": "e491a580477486d733c7cc9beaf308affcec567fdfe18f242a69af778fd4ab7f",
+        "n": 0,
+        "designs": []
+      },
+      "recommendation": "rebuild_ok",
+      "notes": [
+        "no reconstruction edits: this rebuilds the SAME inputs, so it is a reproducibility check (does ParCa give the same fit twice?), not an experiment.",
+        "A rebuild MINTS A NEW ARM (kb_sha256 changes). Its runs are NOT poolable with the existing corpus \u2014 budget the comparators, not just the rebuild."
+      ]
+    },
+    "ts": 1786222587.9019284
+  }
+]

@@ -113,6 +113,22 @@ def vet_summary(vet) -> dict:
     wrong), never gated. This is what the human reads before approving a run."""
     if not isinstance(vet, dict):
         return {}
+    # A KNOWLEDGE-BASE REBUILD has a different vet shape and must not be squeezed through the simulation one.
+    # Read literally, the code below would report a REFUSED rebuild as `safety: "clear"` and assert an envelope
+    # judgement that was never made — so the human at the airlock would see a refusal with no reason attached,
+    # which is worse than no summary. The rebuild gate is destination, not safety (nothing is simulated, so
+    # there is no organism design to screen); its notes carry the whole story.
+    if "would_orphan" in vet:
+        notes = vet.get("notes") or []
+        blocking = [n for n in notes if n.startswith("REFUSED")]
+        return {
+            "runnable": bool(vet.get("runnable")),
+            "safety": ("REFUSED — would destroy a knowledge base in use" if blocking else
+                       "clear (a rebuild simulates nothing — the gate is destination, not biosafety)"),
+            "feasibility": "ParCa rebuild at '%s', operons=%s" % (vet.get("sim_path"), vet.get("operons")),
+            "provenance": "mints a NEW ARM — not poolable with the corpus",
+            "why": " ".join(blocking or notes).strip(),
+        }
     safety = vet.get("safety") or {}
     feas = vet.get("feasibility") or {}
     prov = vet.get("provenance") or {}

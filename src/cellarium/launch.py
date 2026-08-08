@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import threading
 import time
 import uuid
@@ -111,6 +112,134 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
             "recommendation": vet.get("recommendation"), "vet": vet,
             "note": ("SAFETY-BLOCKED — will not run without human override." if req["status"] == "blocked"
                      else "Queued PENDING human approval — Cellwright cannot launch; a human approves via the interface.")}
+
+
+def kb_dependents(sim_path: str) -> dict:
+    """Live corpus rows whose `kb_sha256` is the knowledge base CURRENTLY at `sim_path`.
+
+    The gate for PARCA-3, and it exists because the failure already happened. ParCa writes to
+    `runs/<sim_path>/kb/simData.cPickle` and a campaign path is REUSED, so a rebuild at an occupied path
+    replaces the fit that rows already point at. MEASURED 2026-08-08: 18 analysable rows carry `5f19d040…`
+    while `cellarium` now holds `3b2f8ebd…`. Those rows are not wrong, they are ORPHANED — their parameters no
+    longer exist anywhere, so `parca_ts` cannot be recovered for them and no later run can be compared against
+    them within their own arm. Nothing warned; the rebuild simply succeeded.
+    """
+    from . import manifest, survey
+    try:
+        rows, _ = survey.analysis_rows(arm="all")
+        here = (manifest._kb_prov(sim_path) or {}).get("kb_sha256")
+    except Exception as exc:
+        return {"sim_path": sim_path, "error": str(exc)[:160], "n": 0, "kb_sha256": None}
+    if not here:
+        return {"sim_path": sim_path, "kb_sha256": None, "n": 0,
+                "note": "no knowledge base at this path — building here orphans nothing"}
+    dependents = [r for r in rows if r.get("kb_sha256") == here]
+    return {"sim_path": sim_path, "kb_sha256": here, "n": len(dependents),
+            "designs": sorted({survey.design_key(r) for r in dependents})[:12]}
+
+
+def _free_sim_path(stem: str = "refit") -> str:
+    """A destination that holds no knowledge base any live row depends on."""
+    from . import manifest
+    for n in range(1, 100):
+        cand = f"{stem}{n}"
+        if not (manifest._kb_prov(cand) or {}).get("kb_sha256"):
+            return cand
+    return f"{stem}_{uuid.uuid4().hex[:6]}"
+
+
+def vet_rebuild(sim_path: str, operons: str = "on", retype_cistrons: dict | None = None) -> dict:
+    """Vet a proposed knowledge-base rebuild. ONE hard gate: do not destroy a fit live rows depend on.
+
+    Deliberately narrower than `vet_hypothesis`'s safety screen, because the hazard is different in kind. A
+    rebuild runs no organism design — there is nothing to biosecurity-screen. What it CAN do is silently
+    invalidate existing results, which no simulation can. So the hard gate is destination, and everything
+    else — that this mints a NEW ARM whose rows are not poolable with the corpus, that operons is a ParCa-time
+    option, that a rebuild with no edits is a reproducibility check rather than an experiment — is advisory,
+    following the same principle as the simulation gate: safety blocks, epistemics inform.
+    """
+    # The destination is AGENT-SUPPLIED and becomes a directory name inside the mounted output tree, so it is
+    # validated before it is used for anything — including before `kb_dependents` is asked about it. Two
+    # reasons, and the second is the one that is easy to miss. `../../etc/evil` resolves to `out/../../etc/evil`
+    # and writes 114 MB outside the tree. And a path that ALIASES a protected one — `./cellarium`,
+    # `cellarium/.`, `a/../cellarium` — could read as a fresh destination to a string-compared gate while ParCa
+    # writes to the corpus knowledge base. A strict charset closes both without having to reason about
+    # normalisation on two operating systems.
+    notes: list[str] = []
+    runnable = True
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", str(sim_path or "")) or ".." in str(sim_path):
+        return {"runnable": False, "sim_path": sim_path, "operons": operons,
+                "retype_cistrons": dict(retype_cistrons or {}), "would_orphan": {"n": 0},
+                "recommendation": "rebuild_refused",
+                "notes": ["REFUSED: sim_path %r is not a plain name. It becomes a directory inside the model's "
+                          "output tree, so a traversal would write outside it, and an alias of an existing path "
+                          "would slip past the dependency check while ParCa overwrote a knowledge base in use. "
+                          "Use letters, digits, '_', '-', '.'." % sim_path]}
+    dep = kb_dependents(sim_path)
+    if dep.get("n"):
+        runnable = False
+        notes.append("REFUSED: `%s` holds the knowledge base %s… that %d live corpus row(s) depend on. ParCa "
+                     "would overwrite it and those rows would be orphaned from their own parameters — this has "
+                     "happened once already (18 rows, 2026-08-06). Build at a fresh path."
+                     % (sim_path, str(dep.get("kb_sha256"))[:8], dep["n"]))
+    if operons not in ("on", "off"):
+        runnable = False
+        notes.append("REFUSED: operons must be 'on' or 'off' (a runParca-time option); got %r." % operons)
+    elif operons == "off":
+        notes.append("operons='off' is UNTESTED in this tree (BACKLOG OPERONS-1) and mints an arm with no "
+                     "comparator: 366 of 366 live rows are operons='on'.")
+    if retype_cistrons:
+        notes.append("retypes %d cistron(s): %s. Rows are RETYPED, never deleted — deleting breaks referential "
+                     "integrity and the build dies before any fitting."
+                     % (len(retype_cistrons), ", ".join(sorted(retype_cistrons)[:6])))
+    else:
+        notes.append("no reconstruction edits: this rebuilds the SAME inputs, so it is a reproducibility check "
+                     "(does ParCa give the same fit twice?), not an experiment.")
+    notes.append("A rebuild MINTS A NEW ARM (kb_sha256 changes). Its runs are NOT poolable with the existing "
+                 "corpus — budget the comparators, not just the rebuild.")
+    return {"runnable": runnable, "sim_path": sim_path, "operons": operons,
+            "retype_cistrons": dict(retype_cistrons or {}), "would_orphan": dep,
+            "recommendation": "rebuild_ok" if runnable else "rebuild_refused", "notes": notes}
+
+
+def propose_rebuild(reason: str, retype_cistrons: dict | None = None, operons: str = "on",
+                    sim_path: str | None = None, cpus: int | None = None) -> dict:
+    """PROPOSE a knowledge-base rebuild (PARCA-3). Never runs — queued behind the same human airlock as a sim.
+
+    Cellwright could propose a SIMULATION but had no way to propose a REBUILD, so a whole class of question —
+    "does this hold with the pseudogene reverted?" — was unreachable to the agent, and today's
+    estimator-artefact finding needed 25 rebuilds launched by hand. A rebuild is ~7 minutes against hours for a
+    campaign, which makes this the cheapest capability on the ARM/PARCA list.
+
+    `reason` is REQUIRED and free text: a rebuild mints an arm, and an arm whose rationale is not recorded is
+    the fragmentation this corpus already suffers from. `sim_path` defaults to the first free destination
+    rather than to a name a caller might reuse.
+    """
+    if not (reason or "").strip():
+        return {"status": "unresolved",
+                "error": "a rebuild needs a reason — it mints a new comparability arm, and an arm nobody can "
+                         "account for is exactly the corpus fragmentation this is meant to reduce."}
+    sim_path = sim_path or _free_sim_path()
+    vet = vet_rebuild(sim_path, operons, retype_cistrons)
+    req = {"id": "req_" + uuid.uuid4().hex[:8],
+           "kind": "parca_rebuild",
+           "status": "pending_approval" if vet.get("runnable") else "blocked",
+           # A `design` block is kept even though nothing is simulated: `list_requests` reads it unconditionally
+           # and the interface renders it. `perturbation` is the job kind so it can never collide with a real
+           # design in `_match_key`.
+           "design": {"perturbation": "parca_rebuild", "condition": sim_path, "timeline": None,
+                      "params": {"operons": operons, "retype_cistrons": dict(retype_cistrons or {}),
+                                 "cpus": cpus, "reason": reason[:400]},
+                      "elongation_model": None},
+           "seeds": 0, "generations": 0, "vet": vet, "ts": time.time()}
+    with _txn() as q:
+        q.append(req)
+    return {"request_id": req["id"], "status": req["status"], "runnable": vet.get("runnable"),
+            "recommendation": vet.get("recommendation"), "vet": vet, "sim_path": sim_path,
+            "note": ("REFUSED — see vet.notes; nothing was queued to run."
+                     if not vet.get("runnable") else
+                     "Queued PENDING human approval. Cellwright cannot launch a rebuild any more than a sim; "
+                     "a human approves via the interface. ~7 minutes, ~114 MB.")}
 
 
 def revise(request_id: str, *, perturbation: str | None = None, condition: str | None = None,
@@ -238,6 +367,19 @@ def reconcile() -> dict:
             if r.get("status") != "running":
                 continue
             d = r.get("design") or {}
+            # A REBUILD produces no manifest rows, so "did the data land" has to be asked of the knowledge base
+            # rather than of `count_runs` — which would return 0 and heal a COMPLETED rebuild to 'failed',
+            # reporting failure for work that succeeded and prompting a needless seven-minute re-run.
+            if r.get("kind") == "parca_rebuild":
+                from . import manifest as _m
+                kb = (_m._kb_prov(d.get("condition")) or {}).get("kb_sha256")
+                r["status"] = "done" if kb else "failed"
+                if kb:
+                    r.setdefault("result", {})["kb_sha256"] = kb
+                else:
+                    r["error"] = "orphaned at 'running' (server restart/crash mid-rebuild); no kb at this path"
+                healed += 1
+                continue
             landed = 0
             try:
                 design = Design(perturbation=d["perturbation"], condition=d.get("condition"),
@@ -287,8 +429,13 @@ def clear_all() -> dict:
 
 
 def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> dict:
-    """HUMAN APPROVAL — launches the vetted design. NOT an agent tool (the interface / a human calls it). Refuses a
-    safety-blocked request. Indexes the result so Cellwright can then reason over it."""
+    """HUMAN APPROVAL — launches the vetted job. NOT an agent tool (the interface / a human calls it). Refuses a
+    safety-blocked request. Indexes the result so Cellwright can then reason over it.
+
+    TWO JOB KINDS since PARCA-3: a simulation campaign, and a knowledge-base rebuild (`kind='parca_rebuild'`).
+    Entries queued before that carry no `kind` at all and must keep routing to the simulation path — hence the
+    default rather than a lookup that would KeyError on every historical request.
+    """
     from . import manifest
     with _LOCK:   # claim the job (validate + flip to 'running') atomically, then RELEASE before the long sim
         q = _load()
@@ -300,8 +447,13 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
         if req["status"] != "pending_approval":
             return {"error": f"request is '{req['status']}', not pending_approval."}
         d = req["design"]
+        kind = req.get("kind", "simulation")     # entries written before PARCA-3 carry no `kind`
         seeds, generations = req["seeds"], req["generations"]
         req["status"] = "running"; _save(q)
+
+    if kind == "parca_rebuild":
+        return _run_rebuild(request_id, d)
+
     # Reconstructed with EXPLICIT kwargs, so anything not named here is dropped — which is why the elongation
     # model has to be named. Without it a human approves "run this kinetic" at the airlock and a steady-state
     # sim runs, defeating the one gate whose entire purpose is that the approval record and the executed run
@@ -335,6 +487,49 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
                 req["error"] = error
         _save(q)
     return {"request_id": request_id, "status": status, "shard": shard, "error": error}
+
+
+def _run_rebuild(request_id: str, d: dict) -> dict:
+    """Execute an APPROVED knowledge-base rebuild, then record what it produced.
+
+    The gate is re-checked here rather than trusted from proposal time. A rebuild can sit pending for hours,
+    and in that window another rebuild can land at the same path — at which point the destination the human
+    approved as empty is holding a fit that live rows depend on. The vet is cheap; the failure it prevents is
+    unrecoverable.
+    """
+    from . import runner
+    p = d.get("params") or {}
+    sim_path = d.get("condition")
+    result: dict = {}
+    error: str | None = None
+    try:
+        recheck = vet_rebuild(sim_path, p.get("operons") or "on", p.get("retype_cistrons"))
+        if not recheck.get("runnable"):
+            raise RuntimeError("destination stopped being safe while the request was pending: "
+                               + "; ".join(recheck.get("notes") or []))
+        result = runner.parca_rebuild(sim_path, p.get("retype_cistrons"), p.get("operons") or "on",
+                                      p.get("cpus"))
+        status = "done"
+    except Exception as exc:
+        from . import redact
+        status, error = "failed", redact.scrub(str(exc))[:400]
+    with _LOCK:
+        q = _load()
+        req = next((r for r in q if r["id"] == request_id), None)
+        if req is not None:
+            req["status"] = status
+            if error is None:
+                req["result"] = result
+            else:
+                req["error"] = error
+        _save(q)
+    return {"request_id": request_id, "status": status, "result": result, "error": error,
+            "note": (None if error else
+                     "Rebuilt at '%s' (kb_sha256 %s…). Runs against it form a NEW ARM and are NOT poolable "
+                     "with the existing corpus. The arm does not appear in docs/CORPUS_ARMS.md yet — that "
+                     "table is built from manifest ROWS, and this knowledge base has none until something is "
+                     "simulated against it. Propose those comparators next."
+                     % (sim_path, str(result.get("kb_sha256"))[:8]))}
 
 
 def reject(request_id: str) -> dict:

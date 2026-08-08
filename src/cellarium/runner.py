@@ -279,7 +279,7 @@ def _exec(script_args: list[str]) -> None:
         for k, v in (_get_exec_env() or {}).items():
             extra_env += ["-e", f"{k}={v}"]
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
-               *_flat_file_mounts(), *extra_env,
+               *_flat_file_mounts(), *(getattr(_EXEC_LOCAL, "mounts", None) or []), *extra_env,
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
         _run_checked(cmd, None)   # the docker CLI has no use for a credential
         return
@@ -319,6 +319,102 @@ def _run_checked(cmd: list[str], cwd: str | None) -> None:
             f"The model script exited 0 but its output contains {hit!r} — the run FAILED and any simOut it "
             f"left behind is truncated, not data. wcEcoli's FireWorks wrapper swallows the exception and "
             f"returns 0, so the exit code cannot be trusted here.\n--- last output ---\n{blob[-2000:]}")
+
+
+RETYPABLE = ("pseudo", "mRNA", "rRNA", "tRNA", "miscRNA")
+
+
+def read_flat_file(rel: str) -> str:
+    """Read a `reconstruction/ecoli/flat/` file OUT OF THE IMAGE.
+
+    Deliberately not from `model_overlay/files/…`, though a copy lives there. The overlay is what we intend the
+    image to contain; the image is what ParCa will actually read, and a rebuild that patches the wrong one
+    produces a knowledge base nobody can account for. The two agree today — that is a reason to read the
+    authoritative one, not a reason it does not matter.
+    """
+    if not WCECOLI_DOCKER:
+        raise RuntimeError("a knowledge-base rebuild needs the model image (WCECOLI_DOCKER)")
+    r = subprocess.run(["docker", "run", "--rm", "--entrypoint", "sh", WCECOLI_DOCKER, "-c",
+                        "cat reconstruction/ecoli/flat/%s" % rel],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       env=redact.child_env())
+    if r.returncode != 0 or not r.stdout:
+        raise RuntimeError("could not read reconstruction/ecoli/flat/%s from %s" % (rel, WCECOLI_DOCKER))
+    return r.stdout
+
+
+def retype_rnas(body: str, retypes: dict) -> tuple[str, list[dict]]:
+    """Apply `{rna_id: new_type}` to an `rnas.tsv`, returning the new text and what changed.
+
+    RETYPE, NEVER DELETE. Deleting the row breaks referential integrity — `genes.tsv` still points at the RNA
+    and the build dies in `getter_functions.py` with a KeyError before any fitting happens. Retyping to
+    'pseudo' is also what the phnE1 change itself did, so the perturbation matches the one being investigated.
+
+    Raises on an id that is not in the file. A rebuild is seven minutes and 114 MB; silently skipping an
+    unmatched id would spend both and produce a knowledge base identical to the one already on disk, which the
+    caller would then compare against as though it were the perturbation.
+    """
+    lines = body.splitlines()
+    hdr = next(i for i, ln in enumerate(lines) if ln.lstrip().startswith('"id"'))
+    cols = [c.strip('"') for c in lines[hdr].split("\t")]
+    i_id, i_type = cols.index("id"), cols.index("type")
+    want = {str(k): str(v) for k, v in (retypes or {}).items()}
+    bad = [t for t in want.values() if t not in RETYPABLE]
+    if bad:
+        raise ValueError("unknown RNA type(s) %s — expected one of %s" % (sorted(set(bad)), list(RETYPABLE)))
+    changed: list[dict] = []
+    for n in range(hdr + 1, len(lines)):
+        parts = lines[n].split("\t")
+        if len(parts) <= max(i_id, i_type):
+            continue
+        rid = parts[i_id].strip('"')
+        if rid in want:
+            changed.append({"id": rid, "from": parts[i_type].strip('"'), "to": want[rid]})
+            parts[i_type] = '"%s"' % want[rid]
+            lines[n] = "\t".join(parts)
+    missing = sorted(set(want) - {c["id"] for c in changed})
+    if missing:
+        raise ValueError("no row in rnas.tsv for %s — a rebuild that silently skipped them would produce a "
+                         "knowledge base identical to the current one and be compared as if perturbed" % missing)
+    return "\n".join(lines) + "\n", changed
+
+
+def parca_rebuild(sim_path: str, retype_cistrons: dict | None = None, operons: str = "on",
+                  cpus: int | None = None) -> dict:
+    """Build a knowledge base at `sim_path`, optionally with `reconstruction/ecoli/flat/` edits applied.
+
+    This is the executable half of PARCA-3: a rebuild that Cellwright can PROPOSE and a human approves, rather
+    than 25 shell invocations by hand. The gate on WHERE it may build lives in `launch.vet_rebuild` — a rebuild
+    at a path live rows depend on is the one failure this must never repeat, and it is enforced before the
+    approval is offered, not here.
+
+    Edits are applied by mounting a patched copy over the image's file for the life of the container. Nothing
+    on the host checkout is touched, so a failed rebuild leaves no partially-edited reconstruction behind.
+    """
+    import tempfile
+    patch_dir = None
+    changed: list[dict] = []
+    mounts: list[str] = []
+    if retype_cistrons:
+        body, changed = retype_rnas(read_flat_file("rnas.tsv"), retype_cistrons)
+        patch_dir = Path(tempfile.mkdtemp(prefix="cellarium_parca_"))
+        (patch_dir / "rnas.tsv").write_text(body, encoding="utf-8", newline="\n")
+        mounts = ["-v", "%s:/wcEcoli/reconstruction/ecoli/flat/rnas.tsv:ro"
+                  % (patch_dir / "rnas.tsv").as_posix()]
+    n = cpus or os.cpu_count() or 1
+    prev = getattr(_EXEC_LOCAL, "mounts", None)
+    _EXEC_LOCAL.mounts = mounts
+    try:
+        _exec(["runscripts/manual/runParca.py", sim_path, "--cpus", str(n), "--operons", operons])
+    finally:
+        _EXEC_LOCAL.mounts = prev
+        if patch_dir:
+            shutil.rmtree(patch_dir, ignore_errors=True)
+    from . import provenance
+    prov = provenance.kb_provenance(sim_path)
+    return {"sim_path": sim_path, "operons": operons, "retyped": changed,
+            "kb_sha256": prov.get("kb_sha256"), "kb_content_sha256": prov.get("kb_content_sha256"),
+            "parca_ts": prov.get("parca_ts"), "kb_bytes": prov.get("kb_bytes")}
 
 
 def ensure_parca(sim_path: str = "cellarium", cpus: int | None = None) -> None:

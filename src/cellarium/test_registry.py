@@ -146,6 +146,12 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     # design / experiment proposal + guardrails (act on the world, not falsifier tests)
     "design_panel", "generate_designs", "check_feasibility", "vet_hypothesis", "screen_design", "screen_phenotype",
     "run_experiment", "propose_experiment", "propose_experiments", "revise_experiment",
+    # `propose_rebuild` sits with the proposal tools rather than getting a TestSpec, and for a stronger reason
+    # than the others: it does not run a falsifier at all, it rebuilds the PARAMETERS every falsifier would be
+    # measured against. Nothing it returns is a result the Council could reason from — and its payload names
+    # the corpus knowledge base and how many live rows depend on it, which is grounded observation and exactly
+    # what the Council is blind to.
+    "propose_rebuild",
     # literature / publication skills bridge
     "use_skill", "web_get",
 })

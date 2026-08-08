@@ -58,7 +58,7 @@ Cellwright.
 ### Cellwright — the grounded wright
 
 **Cellwright** is a *wright* — a **maker, a craftsman**, as in ship-*wright*, play-*wright*, wheel-*wright* — one
-who *works the cell*. It is the grounded half: it **asserts nothing from memory**, only through **70 tools** over
+who *works the cell*. It is the grounded half: it **asserts nothing from memory**, only through **71 tools** over
 the corpus, the raw simulation traces, and the literature (statistics, differential expression, viability,
 provenance, regulon and flux reads, PubMed/OpenAlex/bioRxiv retrieval). Two guardrails make its answers
 trustworthy:
@@ -305,8 +305,9 @@ Two layers — reasoning agents on top, the data + model substrate below.
 ```
 ① REASONING (Claude agents)
    Socratic Council (BLIND)         →  handoff  →   Cellwright (GROUNDED)      →  Launch airlock (HUMAN)
-   gate · Proposer→Skeptic→Judge                    70 corpus + literature tools    approval + biosecurity;
+   gate · Proposer→Skeptic→Judge                    71 corpus + literature tools    approval + biosecurity;
    sees dial_labels, never readings                 propose_experiments             the agent never launches
+                                                    propose_rebuild (ParCa)         — sims OR the fit
 
 ② SUBSTRATE (data + model)
    Whole-cell E. coli (wcEcoli, Docker: FBA + txn + translation + replication + regulation)
@@ -317,7 +318,7 @@ Two layers — reasoning agents on top, the data + model substrate below.
 ```
 
 Key modules: `src/cellarium/council.py` (the Council + blindness invariant), `agent.py` (Cellwright), `tools.py`
-(the 70 grounded tools), `skills.py` + `skills/vendor/k-dense/` (literature skills, MIT), `manifest.py` / `store.py`
+(the 71 grounded tools), `skills.py` + `skills/vendor/k-dense/` (literature skills, MIT), `manifest.py` / `store.py`
 (corpus), `instrument.py` (the capability view the Council sees), `launch.py` (the airlock). `apps/server.py` serves
 the SPA; `apps/sessions.py` + `apps/hypotheses.py` persist Cellwright + Council runs.
 
