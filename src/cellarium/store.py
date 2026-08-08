@@ -34,7 +34,7 @@ def _duck(sql: str, params: list | None = None) -> list[dict]:
         con.close()
 
 
-def list_results() -> list[dict]:
+def list_results(include_dropped: bool = False) -> list[dict]:
     from . import provenance
 
     if has_manifest():
@@ -64,6 +64,16 @@ def list_results() -> list[dict]:
     # actually tests; the `dropped` flag and the reason ride along so nothing has to guess why.
     tombstones = manifest.dropped_keys()
     by_id = {t.get("id"): t for t in tombstones.values()} if isinstance(tombstones, dict) else {}
+    # Since TOMB-1 the tombstoned rows are not in `_FROM` at all — they live under `data/manifest/dropped/`,
+    # which no glob reaches. The annotation below therefore normally tags nothing, and is kept as the
+    # belt-and-braces path for a row that predates the migration or arrives from an unmigrated shard.
+    if include_dropped:
+        cols = list(rows[0]) if rows else ["id", "label", "perturbation", "condition", "timeline", "seed",
+                                           "qc", "reportable", "elongation_model"]
+        seen = {r.get("id") for r in rows}
+        for q in manifest.dropped_rows():
+            if q.get("id") not in seen:
+                rows.append({c: q.get(c) for c in cols if c not in ("provenance", "dropped", "dropped_reason")})
     for r in rows:  # tag each result in-sample (fitted) vs out-of-sample (predicted)
         r["provenance"] = provenance.tag(r.get("perturbation"), r.get("condition"))
         t = by_id.get(r.get("id"))

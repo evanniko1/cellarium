@@ -75,6 +75,22 @@ MANIFEST_DIR = Path("data/manifest")
 DROPPED_PATH = MANIFEST_DIR / "dropped.json"
 LEDGER_PATH = Path("docs/CORPUS_LEDGER.md")
 
+# WHERE TOMBSTONED ROWS PHYSICALLY LIVE (TOMB-1). Every reader in this repository -- 17 sites across 8 modules
+# -- globs `data/manifest/*.parquet`, and a glob does not descend into a subdirectory: neither Python's
+# `glob.glob` nor DuckDB's `read_parquet` returns `data/manifest/dropped/x.parquet` for that pattern. Moving a
+# tombstoned row here therefore makes it UNREACHABLE by construction rather than by discipline.
+#
+# The discipline version was tried first and did not hold. `_mark_dropped` stamps `_dropped` on rows that match
+# the tombstone set, and every reader had to call it. MEASURED 2026-08-08: `store.list_results` and the two
+# `survey` readers did; `audit.py`, `operons.py`, `evidence.py` and `corpus_schema._rows` contain no occurrence
+# of the string "dropped" at all, and each returned all 52 tombstoned rows as live. The last of those is the
+# module written THIS SESSION whose entire purpose is corpus hygiene -- which is the argument. A rule that four
+# modules can forget is not a guarantee, and the failure it produces is a plausible number, not an exception.
+#
+# `dropped.json` stays: it is the record of WHY, and it is what `_mark_dropped` still keys on for anything that
+# slips in. This directory is about reachability, not about the audit trail.
+QUARANTINE_DIR = MANIFEST_DIR / "dropped"
+
 
 def dedup_key_py(row: dict) -> str:
     """The DEDUP_KEY value for a row, computed in Python — mirrors the SQL `DEDUP_KEY`/`_NORM_PATH`, which are
@@ -136,6 +152,10 @@ def drop_run(run_id: str, reason: str, ts: float | None = None) -> dict:
         DROPPED_PATH.write_text(json.dumps(allrecs, indent=2, default=str), encoding="utf-8")
         _append_ledger(rec)
         existing[key] = rec
+        # Move it out of the glob NOW (TOMB-1). Without this the invariant would hold only for rows migrated
+        # once, and the next tombstone would sit reachable in the shards again — which is how the previous
+        # mechanism decayed. Rewriting the manifest is affordable here: a drop is a rare human decision.
+        quarantine_tombstones(dry_run=False)
     from . import store
     raw = store._resolve_run(r0.get("simout_path"))
     gb = None
@@ -423,6 +443,86 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
                 "median_division_time_sec": v.get("median_division_time_sec")})
     row.update(rec.channels)  # flatten summary channel means into columns for easy DuckDB SQL
     return row
+
+
+def dropped_rows() -> list[dict]:
+    """The quarantined rows themselves — the ON REQUEST path (TOMB-1).
+
+    Quarantine is not deletion. A tombstoned run is still a run that happened, and a question like "what did the
+    20 mislabelled knockouts actually report?" has to stay answerable. Nothing globs this by accident, which is
+    the point; a caller that wants them has to name them.
+    """
+    import glob as _glob
+
+    import duckdb
+    if not _glob.glob(str(QUARANTINE_DIR / "*.parquet")):
+        return []
+    con = duckdb.connect()
+    try:
+        return con.execute(f"SELECT * FROM read_parquet('{QUARANTINE_DIR.as_posix()}/*.parquet', "
+                           f"union_by_name=true)").fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+
+
+def quarantine_tombstones(dry_run: bool = True) -> dict:
+    """Move every tombstoned row out of the shards readers glob and into `data/manifest/dropped/` (TOMB-1).
+
+    Write-new-then-rewrite-old, and VERIFY between the two: the migration refuses to touch a live shard until it
+    has confirmed the quarantine file holds exactly the rows it is about to remove. The failure this guards
+    against is not a crash but a partial move -- rows gone from one place and absent from the other -- which on
+    this corpus would be indistinguishable from the silent loss the tombstone mechanism exists to prevent.
+
+    Idempotent: running it again finds nothing to move. `dry_run` reports without writing.
+    """
+    import glob as _glob
+    import os
+
+    import duckdb
+
+    tomb = dropped_keys()
+    files = sorted(_glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    res: dict = {"tombstones": len(tomb), "shards": len(files), "dry_run": dry_run,
+                 "quarantine_dir": str(QUARANTINE_DIR)}
+    if not tomb or not files:
+        return {**res, "moved": 0, "note": "nothing to quarantine"}
+
+    con = duckdb.connect()
+    try:
+        rows = con.execute(f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', "
+                           f"union_by_name=true)").fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+    move = [r for r in rows if dedup_key_py(r) in tomb]
+    keep = [r for r in rows if dedup_key_py(r) not in tomb]
+    res.update({"rows_before": len(rows), "moved": len(move), "rows_after": len(keep),
+                "already_quarantined": len(dropped_rows())})
+    if dry_run or not move:
+        return res
+    if not keep:
+        return {**res, "error": "refusing to quarantine EVERY row — that is not a tombstone set, it is a bug"}
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
+    target = QUARANTINE_DIR / f"{getpass.getuser()}-{int(time.time())}-{uuid.uuid4().hex[:6]}.parquet"
+    pq.write_table(pa.Table.from_pylist(move), target)
+
+    # VERIFY BEFORE REWRITING. Re-read from disk rather than trusting the in-memory list: the check has to be
+    # that the file on disk holds them, which is the thing the next step is about to rely on.
+    landed = {dedup_key_py(r) for r in dropped_rows()}
+    missing = [dedup_key_py(r) for r in move if dedup_key_py(r) not in landed]
+    if missing:
+        os.remove(target)
+        return {**res, "error": "quarantine file did not land %d rows; nothing removed from the shards"
+                                % len(missing), "missing": missing[:5]}
+
+    consolidated = append_shard(keep, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(consolidated).resolve():
+            os.remove(f)
+    res.update({"quarantine_file": str(target), "shard": str(consolidated), "files_after": 1})
+    return res
 
 
 def append_shard(rows: list[dict], name: str | None = None) -> Path:

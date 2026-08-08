@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from . import biosecurity, envelope, rigor, store, survey
+from . import biosecurity, envelope, manifest, rigor, store, survey
 from . import capability as _cap
 from . import differential as _diff
 from . import provenance as _prov
@@ -39,11 +39,15 @@ def list_results(gene: str | None = None, perturbation: str | None = None, conta
     that KO's runs, perturbation='gene_knockout' narrows to KOs, contains='<label substring>' is a free search.
     The full unfiltered list is long and may be truncated in context — so to ask 'are there results for X?', pass
     gene=X and read `n` (0 = genuinely absent). Reads the same manifest as the Corpus Browser."""
-    rows = store.list_results()
+    rows = store.list_results(include_dropped=include_dropped)
     # Dropped runs are EXCLUDED by default and COUNTED in the reply. Returning them was how a tombstoned,
     # mislabelled knockout could be read back as a result; silently dropping them without saying so would be
     # the opposite failure, an absence reported as a fact. `n_dropped_hidden` keeps the omission visible.
-    hidden = sum(1 for r in rows if r.get("dropped"))
+    #
+    # The count comes from the TOMBSTONE SET, not from the rows: since TOMB-1 the quarantined rows are not in
+    # the default read at all, so counting `r["dropped"]` over them would report 0 hidden and the omission
+    # would go silent again — the exact failure this line was added to prevent.
+    hidden = len(manifest.dropped_keys())
     if not include_dropped:
         rows = [r for r in rows if not r.get("dropped")]
     if gene:
