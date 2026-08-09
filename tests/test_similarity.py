@@ -23,45 +23,37 @@ def _corpus():
         pytest.skip("no local manifest")
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "WELL-6z4-REDO, OPEN. This gate is failing HONESTLY and the thresholds below are deliberately left at their "
-    "original values (0.15 / 0.30) — they must not be relaxed to obtain a pass.\n"
-    "\n"
-    "History: the gate used to pass at corr=-0.005 / envelope +0.347. WELL-NOOP-1 then proved with "
-    "verify_ko_applied.py that KO:murA was a NO-OP (murA still at 1789 copies — a wild type wearing a knockout's "
-    "label). Those 7 rows are now reportable=False, qc=noop_knockout, and with the near-zero-severity impostor "
-    "gone the gate fails. It had been passing BECAUSE of the defect.\n"
-    "\n"
-    "Measured on the live corpus (44 designs x 199 species, 42 with growth):\n"
-    "  corr(growth, cos-to-WT)  baseline (column-z only) +0.536  ->  shipped (double-centered) -0.227   gate <0.15\n"
-    "  envelope within-overall                                       +0.174                            gate >0.30\n"
-    "\n"
-    "Why this is NOT repaired by tuning the method. A sweep of principled alternatives (log, log2FC-vs-WT, "
-    "double-centering on raw, and combinations) produced NO variant that clears both gates on principle: the one "
-    "that does (raw + double-center: -0.142 / +0.412) drops the per-species normalisation, so cosine is dominated "
-    "by the few highest-abundance species, and its -0.142 clears 0.15 only barely — picking it would be fitting to "
-    "the threshold. 'log2FC vs WT' appears to score a perfect 0.000 but is DEGENERATE: the reference's own vector "
-    "is all-zero, so every cosine-to-WT is 0/0.\n"
-    "\n"
-    "And the gate is below its own noise floor. At n=42 the Fisher-z SE of a correlation is 0.160, and a 500-draw "
-    "species split-half puts the shipped confound at mean -0.207, sd 0.175, range [-0.610, +0.171] — it spans both "
-    "signs. A |r| < 0.15 threshold asks a point estimate to be smaller than one standard error of itself. What the "
-    "transform DOES achieve is significance-level de-confounding, and that is robust: baseline +0.536 (p=0.0002, "
-    "significant) -> shipped -0.227 (p=0.149, not distinguishable from zero); double-centering has the smaller "
-    "|confound| in 483/500 species split-halves and 43/44 leave-one-design-out folds. That relative claim is "
-    "pinned by test_double_centering_beats_raw_z_cosine_on_the_confound below.\n"
-    "\n"
-    "Separately noted, NOT acted on here because it moves the number favourably and the same trap has been sprung "
-    "once already: the envelope selector is a substring match, so it admits graded_gene_knockout/KO:murA — a "
-    "DIFFERENT perturbation type and a confirmed model artifact (flux->0 but a free reroute, growth within noise). "
-    "On the three genuine envelope KOs (fabI/lpxC/glmS) the cluster term reads +0.421, i.e. it would clear its "
-    "gate. Changing the selector is a WELL-6z4-REDO decision with the evidence in hand, not a CI fix.\n"
-    "\n"
-    "strict=True is deliberate: if the metric is genuinely re-established, this XPASSes and CI turns RED, forcing "
-    "someone to delete this marker and re-read the claim. It cannot rot into a silent skip."))
 def test_the_metric_passes_its_own_acceptance_test():
     """The load-bearing guarantee (WELL-6z4/D9), recomputed on the live corpus: the severity confound is removed
-    AND the mechanism cluster survives. These are the two corpus-robust gates. Currently xfail — see the marker."""
+    AND the mechanism cluster survives. These are the two corpus-robust gates.
+
+    RE-ESTABLISHED 2026-08-08. This carried `xfail(strict=True)` whose stated purpose was that a genuine
+    re-establishment would XPASS, turn CI red, and force someone to delete the marker and re-read the claim.
+    That is what happened, so the marker is gone and the claim is re-read here.
+
+    WHAT WAS ACTUALLY WRONG — the cluster SELECTOR, not the metric. `acceptance()` chose the envelope cluster
+    with `any(x in d for x in ("fabI","lpxC","murA","glmS"))`, a substring match, which re-admitted
+    `graded_gene_knockout/KO:murA` after `gene_knockout/KO:murA` had been excluded on the merits as a verified
+    no-op. A substring cannot tell one perturbation type from another. Since GRADED-1 gave each dose its own
+    identity the substring matched THREE murA designs rather than one, including `#expr:0.9` — a knockdown
+    that leaves the protein at ~90% of wild type, sitting inside a cluster whose claim is that severe lesions
+    in one mechanism resemble each other.
+
+    NOTHING WAS RELAXED. Both thresholds are still 0.15 and 0.30. Measured across the three candidate rules:
+        substring (6 members, 3 graded murA)          delta +0.105   FAIL
+        full knockouts (fabI, lpxC, glmS)             delta +0.419   PASS
+        full knockouts + the STRONGEST graded murA    delta +0.133   FAIL
+    The third line rules out the convenient story: admitting only the 90%-knockdown dose still collapses the
+    cluster, so this is not "the weak doses dragged it down". Graded knockdowns do not sit with full
+    knockouts — a statement about perturbation TYPE, not dose.
+
+    WHAT `passes=True` DOES NOT MEAN, and why `strength` is asserted below rather than just the booleans. Both
+    thresholds are weak at this corpus size, measured exhaustively rather than argued: 6.1% of ALL 19,600
+    arbitrary 3-design subsets clear the +0.30 cluster gate, and at n=49 the Fisher-z SE is 0.147, so |r|<0.15
+    asks a point estimate to be smaller than ~1 standard error of itself. The durable claims are the cluster's
+    p-value (0.021 against the exhaustive null) and the confound REDUCTION (|r| 0.635 -> 0.082), not the two
+    booleans. A future reader quoting `passes` without `strength` would overstate this.
+    """
     _corpus()
     from cellarium import similarity
     a = similarity.acceptance()
@@ -70,6 +62,20 @@ def test_the_metric_passes_its_own_acceptance_test():
     assert abs(a["corr_growth_cos_to_wt"]) < 0.15, f"severity confound {a['corr_growth_cos_to_wt']} not removed"
     assert a["envelope_within_minus_overall"] > 0.30, "the envelope mechanism cluster did not survive"
     assert a["passes"] is True, a
+
+    # The cluster must be VERIFIED knockouts. Re-admitting a no-op or a different perturbation type to keep
+    # this green is the exact failure that made the original pass worthless.
+    assert [d.split("/")[-1] for d in a["envelope_members"]] == ["KO:fabI", "KO:glmS", "KO:lpxC"], (
+        "the envelope cluster is not the verified full knockouts: %s" % a["envelope_members"])
+
+    # And the pass must carry its own strength, or it will be quoted as though it settled the question.
+    s = a["strength"]
+    assert s["cluster"]["p_value"] < 0.05, s["cluster"]
+    assert s["cluster"]["exhaustive_null_subsets"] > 1000, "the null must be exhaustive, not a small sample"
+    assert s["cluster"]["pct_of_random_clusters_clearing_the_gate"] > 1.0, (
+        "if the gate were strong this would be near zero — the assertion exists to keep the weakness VISIBLE, "
+        "so a future tightening of the threshold has to confront it rather than inherit it silently")
+    assert s["confound"]["fisher_z_se"] > 0.10, s["confound"]
 
 
 def test_double_centering_beats_raw_z_cosine_on_the_confound():

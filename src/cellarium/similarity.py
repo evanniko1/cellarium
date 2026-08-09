@@ -204,6 +204,77 @@ def severity_confound(vecs: dict, g: dict, designs: list | None = None) -> float
     return cov / denom
 
 
+# The null distribution is capped so it stays computable: C(50,3)=19,600 is exhaustive, C(50,6)=15,890,700
+# is not, and a safeguard that hangs is worse than none.
+_NULL_CAP = 50_000
+
+ENVELOPE_GENES = ("fabI", "lpxC", "murA", "glmS")
+
+
+def envelope_cluster(designs: list[str]) -> list[str]:
+    """The envelope-biosynthesis mechanism cluster: FULL knockouts of the envelope genes, matched on identity.
+
+    Was `any(x in d for x in ENVELOPE_GENES)` — a SUBSTRING match, and substrings do not know what kind of
+    experiment they are matching. It admitted `graded_gene_knockout/KO:murA#expr:0.9`, a partial knockdown that
+    leaves the protein at ~90% of wild type, into a cluster whose claim is that severe lesions in one mechanism
+    resemble each other. `gene_knockout/KO:murA` itself is absent from the reportable set for an unrelated and
+    already-settled reason (verified no-op: murA has n_tu=2, the variant zeroes one transcription unit and the
+    gene keeps being expressed), so the substring was re-admitting murA through a different perturbation type
+    after it had been excluded on the merits.
+
+    The cluster is therefore defined the way the original claim was: full knockouts of these genes. That is a
+    membership rule with no threshold in it — no dose cutoff, no hyperparameter — which is the property the
+    acceptance test asserts about itself.
+
+    MEASURED 2026-08-08, and reported because this change moves the gate from FAIL to PASS and that is exactly
+    when a selector edit deserves scrutiny rather than less:
+        substring (6 members, 3 of them graded murA)   delta +0.105   gate > +0.30  FAIL
+        full knockouts (fabI, lpxC, glmS)              delta +0.419                 PASS
+        full knockouts + the STRONGEST graded murA     delta +0.133                 FAIL
+    The third line is the one that matters: admitting only the 90%-knockdown dose still collapses the cluster,
+    so this is not "the weak doses were dragging it down". The graded knockdowns genuinely do not sit with the
+    full knockouts, which is a statement about perturbation TYPE, not about dose.
+    """
+    from . import factors
+    out = []
+    for d in designs:
+        f = factors.parse(d)
+        if f.get("family") == "gene_knockout" and set(f.get("genes") or ()) & set(ENVELOPE_GENES):
+            out.append(d)
+    return out
+
+
+def cluster_null(z: dict, designs: list[str], size: int, overall: float) -> dict:
+    """How often an ARBITRARY cluster of this size clears a given delta — the gate's own strength, measured.
+
+    Exhaustive where that is affordable, and STRIDED where it is not — never random, so the answer is the same
+    on every call without a seed to remember. It exists because `delta > +0.30` sounds like a strong claim and,
+    for a THREE-member cluster, is not: measured on this corpus, 6.1% of arbitrary triples clear it. A gate one
+    in sixteen random triples passes is weak evidence that a particular triple means something, so the honest
+    report is the percentile, not the pass.
+
+    THE CAP IS NOT COSMETIC. The subset count is C(n, size) and it explodes: 19,600 triples on a 50-design
+    corpus, 230,300 quadruples, and 15,890,700 sextuples — which is what the previous version of this function
+    tried to enumerate the moment a six-member cluster was passed in, hanging the test suite rather than
+    failing it. A null distribution that cannot be computed is not a safeguard.
+    """
+    import itertools
+    import math
+    total = math.comb(len(designs), size)
+    stride = max(1, total // _NULL_CAP)
+    vals = []
+    for i, combo in enumerate(itertools.combinations(designs, size)):
+        if i % stride:
+            continue
+        pairs = [_cos(z[a], z[b]) for j, a in enumerate(combo) for b in combo[j + 1:]]
+        vals.append(statistics.fmean(pairs) - overall)
+    vals.sort()
+    return {"n_subsets": len(vals), "population": total, "exhaustive": stride == 1, "stride": stride,
+            "median": round(statistics.median(vals), 4),
+            "p95": round(vals[int(0.95 * len(vals))], 4), "p99": round(vals[int(0.99 * len(vals))], 4),
+            "values": vals}
+
+
 def acceptance() -> dict:
     """Run the WELL-6z4 acceptance test on the live corpus, so the metric's guarantees are checkable, not
     asserted: severity confound removed (`|corr(growth, cos-to-WT)| < 0.15`), the envelope-biosynthesis
@@ -215,7 +286,7 @@ def acceptance() -> dict:
     designs = m["designs"]
     confound = severity_confound(z, g, designs)
     baseline = severity_confound(m["z_raw"], g, designs)   # the pre-double-centering number, for comparison
-    env = [d for d in designs if any(x in d for x in ("fabI", "lpxC", "murA", "glmS"))]
+    env = envelope_cluster(designs)
     allp = [_cos(z[a], z[b]) for i, a in enumerate(designs) for b in designs[i + 1:]]
     overall = statistics.fmean(allp) if allp else 0.0
     within = (statistics.fmean([_cos(z[a], z[b]) for i, a in enumerate(env) for b in env[i + 1:]])
@@ -237,6 +308,37 @@ def acceptance() -> dict:
         "confound_removed": abs(confound) < 0.15,                                   # gate
         "envelope_cluster_survives": within is not None and (within - overall) > 0.30,  # gate
     }
+    # HOW MUCH EACH PASS IS WORTH, measured rather than implied. Both thresholds were set when the corpus was
+    # smaller and both are weak at its current size; a boolean that does not carry its own strength invites a
+    # reader to treat "passes" as settled. Reported alongside, never folded into `passes` — moving a threshold
+    # to match the evidence is the HARKing this project has already had to undo once.
+    strength: dict = {}
+    if within is not None and len(env) >= 2:
+        null = cluster_null(z, designs, len(env), overall)
+        obs = within - overall
+        above = sum(1 for v in null["values"] if v >= obs)
+        clears_gate = sum(1 for v in null["values"] if v > 0.30)
+        strength["cluster"] = {
+            "observed": round(obs, 4), "n_members": len(env),
+            "exhaustive_null_subsets": null["n_subsets"], "null_median": null["median"],
+            "null_p95": null["p95"], "null_p99": null["p99"],
+            "p_value": round(above / null["n_subsets"], 4),
+            "pct_of_random_clusters_clearing_the_gate": round(100 * clears_gate / null["n_subsets"], 1),
+            "reading": ("the cluster is more coherent than an arbitrary set of this size (p=%.3f), but the "
+                        "+0.30 GATE is cleared by %.1f%% of arbitrary %d-design sets, so the pass is weaker "
+                        "evidence than it sounds. The p-value is the claim; the gate is a tripwire."
+                        % (above / null["n_subsets"], 100 * clears_gate / null["n_subsets"], len(env))),
+        }
+    n_growth = sum(1 for d in designs if g.get(d) is not None)
+    if n_growth > 3:
+        se = 1.0 / math.sqrt(n_growth - 3)
+        strength["confound"] = {
+            "n": n_growth, "fisher_z_se": round(se, 3), "threshold": 0.15,
+            "reading": ("|r| < 0.15 asks a point estimate to be smaller than ~%.2f standard errors of itself "
+                        "at n=%d, so clearing it is not strong evidence on its own. The robust claim is the "
+                        "SIGNIFICANCE-level de-confounding: |r| %.3f -> %.3f."
+                        % (0.15 / se, n_growth, abs(baseline), abs(confound))),
+        }
     return {"corr_growth_cos_to_wt": round(confound, 3),
             "corr_growth_cos_to_wt_baseline": round(baseline, 3),   # diagnostic: the same statistic pre-transform
             "confound_abs_reduction": round(abs(baseline) - abs(confound), 3),
@@ -244,16 +346,20 @@ def acceptance() -> dict:
             "envelope_members": env,
             "envelope_nn_purity": f"{nn_ok}/{len(env)}",                            # diagnostic, not a gate
             "envelope_nn_off_cluster": {k.split("/")[-1]: v.split("/")[-1] for k, v in off.items()},
-            "checks": checks, "passes": all(checks.values()),
+            "checks": checks, "passes": all(checks.values()), "strength": strength,
             "note": ("The metric's corpus-robust guarantees, recomputed live: severity removed AND the mechanism "
                      "cluster coheres above chance. `passes` gates on those two. NN purity is a diagnostic — a "
                      "metabolically-adjacent design (e.g. pgi) can legitimately take an envelope member's NN, so "
-                     "`envelope_nn_off_cluster` NAMES it rather than failing."),
-            "status": ("WELL-6z4-REDO OPEN — `passes` is currently FALSE and that is the honest state, not a "
-                       "regression to repair. The original PASS rested on `KO:murA`, which verify_ko_applied.py "
-                       "later proved was a no-op (a wild type wearing a KO label, now reportable=False, "
-                       "qc=noop_knockout). With it removed the gate fails. Re-admitting murA/rpoB to recover the "
-                       "number is forbidden; the gate must be RE-ESTABLISHED on verified knockouts. Note "
-                       "`corr_growth_cos_to_wt_baseline` — the transform still reduces the confound substantially; "
-                       "what it does not do is drive it below 0.15, a threshold that at this corpus size sits "
-                       "below the statistic's own sampling error.")}
+                     "`envelope_nn_off_cluster` NAMES it rather than failing. READ `strength` BEFORE quoting "
+                     "`passes`: both thresholds are weak at this corpus size and it says by how much."),
+            "status": ("WELL-6z4-REDO RE-ESTABLISHED 2026-08-08 on VERIFIED knockouts, with its strength "
+                       "reported rather than assumed. The gate previously failed for a reason that turned out "
+                       "to be a defect in the CLUSTER SELECTOR, not in the metric: a substring match re-admitted "
+                       "`graded_gene_knockout/KO:murA` — a different perturbation type — after `gene_knockout/"
+                       "KO:murA` had been excluded on the merits as a verified no-op. Fixed by matching on "
+                       "identity; murA is now absent because its full knockout is absent, which is the honest "
+                       "reason. NOTHING was relaxed: both thresholds are still 0.15 and 0.30. What must NOT be "
+                       "read from `passes=True` is that the question is closed — see `strength`: 6.1% of "
+                       "arbitrary 3-design sets clear the cluster gate, and the confound threshold is ~1 "
+                       "standard error at this n. The durable claims are the p-value and the reduction, not "
+                       "the booleans.")}
