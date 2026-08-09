@@ -42,6 +42,31 @@ READ_TOOLS = {"survey_corpus", "viability", "list_results", "read_series", "diff
 HANDOFF = "socratic council framed"
 
 
+def _ambiguity(label: str, hits: list) -> str:
+    """How many transcripts this question's SUBSTRING matched, and whether that is safe to score.
+
+    THIS PROTOCOL HAS NO COHORT REGISTRY, and pretending otherwise was the first thing I got wrong about M-10.
+    The backlog proposes selecting by `evals/results/ab_ledger.json`, on the grounds that the A/B cohort is
+    designated at creation. That is true of `evals/run_ab.py`, which is a DIFFERENT protocol: its 25 cases live
+    in `evals/cases.py` and are keyed `1.1`/`4.2`, and MEASURED against them, `pfkA` and `argS` — two of the
+    five questions scored here — appear in no case at all, while `rRNA` and `ppGpp` match five or six each. The
+    ledger cannot name this script's cohort because this script scores a hand-run UI protocol the ledger has
+    never seen.
+
+    So the substring stays, because there is nothing better to select on, and the DANGER is made visible
+    instead: the risk was never the match itself, it was that `arm_a[-1]` silently took the newest of however
+    many matched, so any user-typed question containing the same words could be scored as a pre-registered arm
+    with nothing saying so. A count and a warning cost nothing and make that unmissable.
+    """
+    if len(hits) == 1:
+        return ""
+    if not hits:
+        return ""
+    return (f"  ⚠ {label}: {len(hits)} transcripts match this question's substring; scoring the most recent. "
+            f"This protocol has no cohort registry, so an unrelated session containing the same words is "
+            f"indistinguishable from the intended arm — read the id below and confirm it is the one you ran.")
+
+
 def _first_user(msgs):
     for m in msgs:
         if m.get("role") == "user":
@@ -69,6 +94,9 @@ def main():
         s["fu"] = _first_user(s["msgs"]).lower()
 
     print(f"A/B HARKing scorecard  ·  {DB}\n")
+    print("  Cohort selection is by QUESTION SUBSTRING — this hand-run protocol has no cohort registry (the\n"
+          "  ledger under evals/results/ is a different, programmatic A/B over evals/cases.py). Ambiguous\n"
+          "  matches are flagged per question below rather than silently resolved to the newest.\n")
     for key, gene, obs in QUESTIONS:
         arm_a = [s for s in sess if key in s["fu"] and HANDOFF not in s["fu"]]
         arm_b_council = [r for r in runs if key in (r["question"] or "").lower()]
@@ -78,12 +106,27 @@ def main():
         print(f"Q[{gene}] — {obs}")
         print(f"  corpus already has {corpus_has} {gene} run(s) at framing time  ->  HARKing {'POSSIBLE' if corpus_has else 'not possible'}")
         if arm_a:
+            warn = _ambiguity("Arm A", arm_a)
+            if warn:
+                print(warn)
             print(f"  Arm A  Cellwright-direct  [{arm_a[-1]['sid']}]  corpus-reads={_read_tool_calls(arm_a[-1]['msgs'])}  ->  data-informed (framing after reading -> HARKing-prone)")
         else:
             print("  Arm A  — NOT FOUND (ask it in Investigations)")
         if arm_b_council:
+            warn = _ambiguity("Arm B", arm_b_council)
+            if warn:
+                print(warn)
             r = arm_b_council[-1]
-            status = "PRE-REGISTERED (0 corpus reads, blind)" if r["status"] == "done" else f"PARKED at gate ({r['status']}) — couldn't frame without more specification"
+            # BLINDNESS IS NOT INFERRED FROM `status` (M-10). `status == "done"` means the deliberation
+            # FINISHED and nothing more — yet this line printed "0 corpus reads" from it, a measured-sounding
+            # quantity that was never measured. Arm A's corpus reads ARE counted and recorded in the ledger
+            # (`corpus_reads`); arm B carries no such field because a Council run has no corpus tools to call.
+            # So the claim is STRUCTURAL, and it now says so and cites what pins it, rather than being dressed
+            # up as a per-run count.
+            status = ("PRE-REGISTERED — blind BY CONSTRUCTION (council.deliberate is never handed corpus "
+                      "results; pinned by tests/test_blindness.py — a structural invariant, not a per-run "
+                      "measurement)" if r["status"] == "done" else
+                      f"PARKED at gate ({r['status']}) — couldn't frame without more specification")
             print(f"  Arm B  Council  [{r['id']}]  status={r['status']}  ->  {status}")
         else:
             print("  Arm B  — NOT FOUND (convene it in Hypotheses)")
