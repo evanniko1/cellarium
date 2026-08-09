@@ -368,6 +368,14 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
     null = wildtype_null()
     out = {
         "design": design, "reference": reference,
+        # WHICH MODEL THESE NUMBERS CAME FROM (EXT-PORT-16). The refusal branch above already names it; the
+        # SUCCESS branch did not — which is backwards, because the success branch is the one that returns
+        # numbers. `per_family` values are 86 genuinely independent measurements under kinetic and one
+        # broadcast value repeated 86 times under steady_state, so a `drop_pct` read without its mode is a
+        # number whose meaning the reader cannot recover. The agent calls THIS tool for the headline
+        # selectivity question, and it was the one mode-sensitive tool that answered without saying under
+        # which model.
+        "elongation_model": m_t, "reference_elongation_model": m_r,
         "worst_family": worst, "median_drop_pct": round(median_drop, 1),
         "selectivity_gap_pp": gap,
         "translation_state": t.get("translation_state"),
