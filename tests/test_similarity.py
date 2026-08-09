@@ -23,13 +23,35 @@ def _corpus():
         pytest.skip("no local manifest")
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "WELL-6z4-REDO: the CLUSTER half is re-established, the CONFOUND half is not, and `passes` gates on both.\n"
+    "\n"
+    "CLUSTER — fixed and robust. The selector was a substring match that re-admitted "
+    "`graded_gene_knockout/KO:murA` after `gene_knockout/KO:murA` had been excluded as a verified no-op; it now "
+    "matches on identity. delta +0.414 against a gate of +0.30, p=0.028 vs an exhaustive null over all "
+    "three-design subsets. Stable across corpus changes (+0.419 -> +0.414 when DUP-1 added three designs).\n"
+    "\n"
+    "CONFOUND — NOT re-established, and an earlier reading of mine claimed otherwise. On 2026-08-08 I recorded "
+    "that it 'cleared on its own as the corpus grew', -0.227 -> -0.082. It had not: DUP-1 then split three "
+    "knockout designs that had been merged across different media timelines, the design set went 50 -> 53, and "
+    "|r| moved to 0.241. Three correctly-split designs swung the statistic by 0.16 across a threshold of 0.15 "
+    "whose Fisher-z SE at this n is 0.147. The -0.082 was noise read as a result — which is exactly what the "
+    "`strength` block now attached to `acceptance()` predicts, and this is that prediction coming true.\n"
+    "\n"
+    "The thresholds are deliberately NOT relaxed. The durable claims are the cluster p-value and the confound "
+    "REDUCTION (baseline +0.639 -> -0.241, still a large reduction), not the booleans. What this gate needs is "
+    "a bigger corpus, not a smaller threshold: |r| < 0.15 asks a point estimate to be smaller than one standard "
+    "error of itself.\n"
+    "\n"
+    "strict=True, same as before: if the confound half is genuinely re-established this XPASSes and CI turns "
+    "red, forcing the claim to be re-read rather than inherited."))
 def test_the_metric_passes_its_own_acceptance_test():
     """The load-bearing guarantee (WELL-6z4/D9), recomputed on the live corpus: the severity confound is removed
     AND the mechanism cluster survives. These are the two corpus-robust gates.
 
-    RE-ESTABLISHED 2026-08-08. This carried `xfail(strict=True)` whose stated purpose was that a genuine
-    re-establishment would XPASS, turn CI red, and force someone to delete the marker and re-read the claim.
-    That is what happened, so the marker is gone and the claim is re-read here.
+    The CLUSTER half was re-established 2026-08-08 by fixing the selector; the CONFOUND half is open. See the
+    marker — and note that the assertions below still run, so the cluster number is checked even while the
+    combined gate is expected to fail.
 
     WHAT WAS ACTUALLY WRONG — the cluster SELECTOR, not the metric. `acceptance()` chose the envelope cluster
     with `any(x in d for x in ("fabI","lpxC","murA","glmS"))`, a substring match, which re-admitted
@@ -47,12 +69,12 @@ def test_the_metric_passes_its_own_acceptance_test():
     cluster, so this is not "the weak doses dragged it down". Graded knockdowns do not sit with full
     knockouts — a statement about perturbation TYPE, not dose.
 
-    WHAT `passes=True` DOES NOT MEAN, and why `strength` is asserted below rather than just the booleans. Both
-    thresholds are weak at this corpus size, measured exhaustively rather than argued: 6.1% of ALL 19,600
-    arbitrary 3-design subsets clear the +0.30 cluster gate, and at n=49 the Fisher-z SE is 0.147, so |r|<0.15
-    asks a point estimate to be smaller than ~1 standard error of itself. The durable claims are the cluster's
-    p-value (0.021 against the exhaustive null) and the confound REDUCTION (|r| 0.635 -> 0.082), not the two
-    booleans. A future reader quoting `passes` without `strength` would overstate this.
+    WHY `strength` IS ASSERTED and not just the booleans. Both thresholds are weak at this corpus size,
+    measured exhaustively rather than argued: 6.1% of ALL 19,600 arbitrary 3-design subsets clear the +0.30
+    cluster gate, and the Fisher-z SE at this n is ~0.147, so |r|<0.15 asks a point estimate to be smaller than
+    one standard error of itself. That weakness is not academic — it is what produced the wrong reading this
+    marker now records. The durable claims are the cluster's p-value and the confound REDUCTION, not the
+    booleans, and a reader quoting `passes` without `strength` would overstate either direction.
     """
     _corpus()
     from cellarium import similarity
@@ -182,6 +204,16 @@ def test_similar_designs_flags_severity_confounded_neighbours_guard_b():
         assert ar["severity_confounded"] is True, "argS (a collapsing aaRS KO) must be flagged confounded"
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "WELL-6z4-REDO, the same open finding as the acceptance gate above and not a separate one. This asserts "
+    "that a severe-but-VIABLE design has no COLLAPSING neighbour — i.e. that severity has been separated "
+    "from mechanism. It passed until DUP-1 split `gene_knockout/KO:leuB`, which had been pooling two media "
+    "timelines under one label: `#tl:379e4c` COLLAPSES at generation 3 and `#tl:38639c` does not. The merge "
+    "had been averaging a collapsing arm with a viable one and hiding it. Split, the collapsing arm surfaces "
+    "as a neighbour, which is the confound the acceptance gate now measures at |r|=0.241. "
+    "So the corpus became MORE correct and this test went red — the right direction. It is xfail rather than "
+    "relaxed because the claim is true or it is not; strict, so re-establishing the confound removal turns "
+    "CI red and forces both markers to be re-read together."))
 def test_a_severe_but_viable_non_aaRS_design_does_not_cluster_with_the_aaRS():
     """WELL-6z6, the empirical validation: double-centering separates severe-MECHANISM from severe-LETHALITY.
     rRNA_KO:6op is severe (−34%) and viable; its neighbours must be its own mechanism, not the aaRS.

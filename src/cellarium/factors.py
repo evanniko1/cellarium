@@ -107,6 +107,31 @@ def expr_tag_suffix(level: int | None) -> str:
     return "" if f is None else f"{EXPR_TAG_PREFIX}{f:g}"
 
 
+TL_TAG_PREFIX = "#tl:"
+
+
+def tl_tag_suffix(timeline: str | None) -> str:
+    """The tag fragment carrying a knockout's MEDIA TIMELINE — empty when there is none.
+
+    The same 6-hex sha1 the RUN DIRECTORY already uses (`runner._dir_discriminator` -> `__tl379e4c`), so a
+    design key maps to the directory a reader can go and look at. Deliberately not the timeline string itself:
+    it contains commas and spaces, which are the separators `design_tag` and `parse` split on.
+    """
+    import hashlib
+    if not timeline:
+        return ""
+    return TL_TAG_PREFIX + hashlib.sha1(str(timeline).encode()).hexdigest()[:6]
+
+
+def tl_from_tag(tag: str) -> tuple[str, str | None]:
+    """Split a tag into (tag without the timeline fragment, timeline id). Inverse of `tl_tag_suffix`."""
+    t = str(tag or "")
+    if TL_TAG_PREFIX not in t:
+        return t, None
+    head, _, val = t.partition(TL_TAG_PREFIX)
+    return head, (val or None)
+
+
 def expr_from_tag(tag: str) -> tuple[str, float | None]:
     """Split a tag into (tag without the dose fragment, expression factor). Inverse of `expr_tag_suffix`."""
     t = str(tag or "")
@@ -133,7 +158,11 @@ def parse(design_key: str) -> dict:
     # function is surfaced to the agent as THE control-selection primitive, so a wrong answer here propagates
     # into every comparison built on it.
     tag, elongation = mode_from_tag(tag)
-    out = {"family": family, "base": None, "factor": None,
+    # The media TIMELINE, lifted out for the same reason and with the same hazard. Left inside the tag it would
+    # make `KO:leuB` and `KO:leuB#tl:379e4c` different BASES to a caller comparing knockouts of one gene, which
+    # is the opposite of what carrying it is for: the timeline separates two EXPERIMENTS on the same gene.
+    tag, timeline_id = tl_from_tag(tag)
+    out = {"family": family, "base": None, "factor": None, "timeline_id": timeline_id,
            "level_raw": None, "level_num": None, "genes": [], "elongation_model": elongation}
     if not tag:
         return out
@@ -211,7 +240,13 @@ def identity(design_key: str) -> dict:
         # series' ppGpp spans 12x across them — so the index set alone would collapse the whole dose-response
         # into one id and report the doses as replicates of each other.
         dose = "" if f.get("level_num") is None or f["factor"] != "graded_gene_KO" else f"@{f['level_num']:g}"
-        out["canonical_id"] = (f"{f['family']}#idx:" + "+".join(str(i) for i in sorted(idx)) + dose) if idx else None
+        # The MEDIA TIMELINE is part of the canonical experiment for the same reason the dose is. The same
+        # knockout under an amino-acid downshift and under a constant medium addresses one ko_index and is two
+        # experiments; without this they collapse to one canonical id and the alias invariant reports them as
+        # replicates of each other — which is precisely the merge that DUP-1 found in the labels.
+        tl = f"#{TL_TAG_PREFIX.strip('#:')}:{f['timeline_id']}" if f.get("timeline_id") else ""
+        out["canonical_id"] = (f"{f['family']}#idx:" + "+".join(str(i) for i in sorted(idx)) + dose + tl
+                               ) if idx else None
         # Genes sharing a targeted index. For a SINGLE-gene design these are true aliases — the identical run
         # under another name. For a multi-KO they merely ride one of the addressed indices, which is a different
         # (and weaker) statement, so the two are not conflated.

@@ -345,12 +345,23 @@ def _design_tag(design: Design) -> str:
     here, `survey.analysis_rows` pools kinetic and steady-state seeds into one design cell and averages
     `fraction_trna_charged` across a measurement and an algebraic identity, silently, because both rows carry
     an 86-wide column of the same name. That pooling is the entire reason this axis exists."""
+    from . import factors
     genes = list((design.params or {}).get("target_genes") or [])
     if "gene_knockout" in design.perturbation and genes:
         tag = "KO:" + "+".join(genes)
         if design.condition and design.condition not in ("basal", "KO:" + "+".join(genes)):
             tag += "@" + design.condition
-        return tag + _expr_suffix(design) + mode_tag_suffix(design.elongation_model)
+        # THE TIMELINE IS PART OF A KNOCKOUT'S IDENTITY, and this branch was the one place it was dropped.
+        # `base = condition or timeline` below keys a non-KO design on its timeline, and `_design_tag`'s
+        # elongation clause was added for exactly this collision shape — but a KO carries a condition, so it
+        # took the branch above and the timeline vanished. MEASURED 2026-08-08: `gene_knockout·KO:leuB·s0`
+        # exists twice, once under `0 minimal_plus_amino_acids, 1200 minimal_aa_mix` (a downshift) and once
+        # under `0 minimal_plus_amino_acids` (a constant medium) — two different experiments under ONE label,
+        # averaged as seeds of one design. `runner._dir_discriminator` already separates them on DISK (its
+        # docstring records the incident where they destroyed each other's output); this separates them in
+        # IDENTITY, which is what every analysis keys on. Same 6-hex sha1, so key and directory agree.
+        return (tag + _expr_suffix(design) + factors.tl_tag_suffix(design.timeline)
+                + mode_tag_suffix(design.elongation_model))
     base = design.condition or design.timeline or "basal"
     return base + mode_tag_suffix(design.elongation_model)
 
@@ -1239,6 +1250,70 @@ def backfill_graded_dose(dry_run: bool = True) -> dict:
            "dry_run": dry_run, "sample": changed[:6],
            "note": ("The dose is part of a design's identity: without it four expression levels of one gene "
                     "share a (design_key, seed) cell and every design-keyed tool averages across them.")}
+    if dry_run or not changed:
+        return res
+    new = append_shard(rows, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
+
+
+def backfill_timeline_identity(dry_run: bool = True) -> dict:
+    """Put the media TIMELINE back into the identity of knockout rows written before `_design_tag` carried it.
+
+    Fully recoverable and needs no re-simulation: the `timeline` COLUMN is already stored on every row, so the
+    same 6-hex sha1 the tag now uses can be recomputed from it directly. The runs were never confused on disk —
+    `runner._dir_discriminator` separated them into `..._001818__tl38639c/` and `..._001818__tl9a6a21/` — only
+    their labels were, which is why every analysis pooled them while the filesystem kept them apart.
+
+    Only rows whose label does NOT already carry the fragment are touched, so it is idempotent, and only rows
+    that HAVE a timeline: a knockout with none keeps its label byte-identical, which is what stops this
+    rewriting the other ~340 rows.
+    """
+    import glob
+    import os
+    import re
+
+    import duckdb
+
+    from . import factors
+
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards to backfill"}
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+
+    changed, already = [], 0
+    for r in rows:
+        lab = str(r.get("label") or "")
+        if "gene_knockout" not in str(r.get("perturbation") or "") or not r.get("timeline"):
+            continue
+        if factors.TL_TAG_PREFIX in lab:
+            already += 1
+            continue
+        suffix = factors.tl_tag_suffix(r["timeline"])
+        if not suffix:
+            continue
+        new_lab = (re.sub(r"(·s\d+|\s+seed\d+)$", lambda mm: suffix + mm.group(0), lab)
+                   if re.search(r"(·s\d+|\s+seed\d+)$", lab) else lab + suffix)
+        changed.append({"id": r.get("id"), "from": lab, "to": new_lab, "timeline": str(r["timeline"])[:60]})
+        r["label"] = new_lab
+        if r.get("design_tag"):
+            r["design_tag"] = str(r["design_tag"]) + suffix
+        if r.get("design_key"):
+            r["design_key"] = str(r["design_key"]) + suffix
+
+    res = {"relabelled": len(changed), "already_tagged": already, "dry_run": dry_run, "sample": changed[:6],
+           "note": ("A knockout run under a media timeline is a different experiment from the same knockout "
+                    "without one. The run directories were always distinct; only the labels collided.")}
     if dry_run or not changed:
         return res
     new = append_shard(rows, name=f"{getpass.getuser()}-compact")

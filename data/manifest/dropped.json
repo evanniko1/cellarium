@@ -414,5 +414,29 @@
     "ts": 1786038830.609164,
     "simout_path": "runs_depleting/cellarium/graded_gene_knockout_006445/000003",
     "design_key": "graded_gene_knockout/KO:argS"
+  },
+  {
+    "key": "gene_knockout_1_56cf7fce@@runs/aadrop/gene_knockout_001818/000001",
+    "id": "gene_knockout_1_56cf7fce",
+    "reason": "DUP-1: duplicate registration of one run. Indexed once at the bare variant dir runs/aadrop/gene_knockout_001818/<seed> and again at runs/aadrop/gene_knockout_001818__tl379e4c/<seed> after runner._dir_discriminator started separating timelines on disk. The dedup key is (id, normalised path) and the paths differ, so both survived. All 11 summary channels are BIT-IDENTICAL between the pair, which is what identifies it as one run rather than two: keeping both inflated n and narrowed every interval that included this design. The __tl row is retained as the correctly-discriminated location.",
+    "ts": 1786268154.6227221,
+    "simout_path": "runs/aadrop/gene_knockout_001818/000001",
+    "design_key": "gene_knockout/KO:leuB#tl:379e4c"
+  },
+  {
+    "key": "gene_knockout_0_521e7e78@@runs/aadrop/gene_knockout_001818/000000",
+    "id": "gene_knockout_0_521e7e78",
+    "reason": "DUP-1: duplicate registration of one run. Indexed once at the bare variant dir runs/aadrop/gene_knockout_001818/<seed> and again at runs/aadrop/gene_knockout_001818__tl379e4c/<seed> after runner._dir_discriminator started separating timelines on disk. The dedup key is (id, normalised path) and the paths differ, so both survived. All 11 summary channels are BIT-IDENTICAL between the pair, which is what identifies it as one run rather than two: keeping both inflated n and narrowed every interval that included this design. The __tl row is retained as the correctly-discriminated location.",
+    "ts": 1786268155.1557994,
+    "simout_path": "runs/aadrop/gene_knockout_001818/000000",
+    "design_key": "gene_knockout/KO:leuB#tl:379e4c"
+  },
+  {
+    "key": "gene_knockout_3_0f36cc7e@@runs/aadrop/gene_knockout_001818/000003",
+    "id": "gene_knockout_3_0f36cc7e",
+    "reason": "DUP-1: duplicate registration of one run. Indexed once at the bare variant dir runs/aadrop/gene_knockout_001818/<seed> and again at runs/aadrop/gene_knockout_001818__tl379e4c/<seed> after runner._dir_discriminator started separating timelines on disk. The dedup key is (id, normalised path) and the paths differ, so both survived. All 11 summary channels are BIT-IDENTICAL between the pair, which is what identifies it as one run rather than two: keeping both inflated n and narrowed every interval that included this design. The __tl row is retained as the correctly-discriminated location.",
+    "ts": 1786268155.5714498,
+    "simout_path": "runs/aadrop/gene_knockout_001818/000003",
+    "design_key": "gene_knockout/KO:leuB#tl:379e4c"
   }
 ]
