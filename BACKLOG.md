@@ -1128,6 +1128,33 @@ were live defects, one was a false accusation against a correct corpus, and none
 
 ## Found while clearing the failure baseline, 2026-08-08
 
+- ~~**IDENTITY-1 — a guard for the defect this project found three times.**~~ ✅ **DONE 2026-08-08, and it
+  found a FOURTH on its first run.** The elongation model (pooled a measurement with an algebraic identity),
+  the graded dose (GRADED-1: four argS levels spanning 12x in ppGpp), and the media timeline (DUP-1: a
+  downshift with a constant medium) were the same defect on three axes: a field that changes WHAT WAS RUN was
+  absent from `manifest._design_tag`, so two different experiments shared a label and every analysis averaged
+  them as seeds. Each was the same edit in the same function, and each was found by noticing a number that
+  would not sit still rather than by anything failing.
+  - `manifest.IDENTITY_AXES` / `NOT_IDENTITY_AXES` declare all ten axes with a reason each, in the style of
+    `corpus_schema.ARM_KEYS`; `identity_probes()` supplies the two designs that differ only on each, and
+    RAISES if an axis is declared without one, so the declaration cannot outrun what checks it.
+  - **The guard is structural, not a checklist.** A new field on `Design`, or a new params key appearing in a
+    real design, fails `test_every_field_is_classified` until someone classifies it — the mechanism by which
+    `test_registry.ANALYSIS_ONLY_TOOLS` caught `propose_rebuild`. It converts "remember to update the tag"
+    into "remember to classify the field": smaller to forget, loud when forgotten.
+  - **The inverse is asserted too.** Seeds, generations and derived indices must NOT split a tag — otherwise a
+    hash would satisfy the guard and destroy the pooling of seeds that a design IS.
+  - **The fourth axis: `params.target_tfs`.** `launch._match_key` treated it as semantic identity and
+    `biosecurity.screen` read it as a target, but `_design_tag` did not, so two TF perturbations of different
+    factors would have shared a label. LATENT — no perturbation uses it yet — which is exactly the value:
+    closed on a quiet axis instead of after a campaign, which is how the other three were found.
+  - Verified by reverting each of the four fixes in turn: every revert fails exactly one identity test. 16
+    tests in `tests/test_identity_axes.py`, including a corpus-level detector over the axes the manifest
+    actually stores. **Known limit, stated rather than implied:** it cannot catch an axis nobody has conceived
+    of, and the corpus detector is blind to `params` because the manifest has no such column — which is where
+    the graded dose lived. `_expr_suffix` and the ARM-2 `runsim_argv` column are the partial cover there.
+
+
 - ~~**GRADED-1 — a graded knockout's DOSE was not part of its identity.**~~ ✅ **DONE 2026-08-08.**
   `_design_tag` appended the media and the elongation model but never the expression level, so every dose of a
   `graded_gene_knockout` collapsed onto the full knockout's tag. MEASURED: the depleting-allele campaign's four

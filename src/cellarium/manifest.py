@@ -333,6 +333,99 @@ def _expr_suffix(design: Design) -> str:
     return factors.expr_tag_suffix(level)
 
 
+# ---------------------------------------------------------------------------------------------------------
+# THE IDENTITY AXES, declared — the guard for a defect this project has now found THREE TIMES.
+#
+# Each time, a field that changes WHAT WAS RUN was absent from `_design_tag`, so two different experiments got
+# the same label and every analysis averaged them as seeds of one design:
+#   * the ELONGATION MODEL   — pooled a measurement with an algebraic identity across an 86-wide channel
+#   * the GRADED DOSE        — pooled four argS expression levels spanning 12x in ppGpp (GRADED-1)
+#   * the MEDIA TIMELINE     — pooled an amino-acid downshift with a constant medium (DUP-1)
+#
+# Three instances of one shape is a pattern, and the fix each time was the same edit in the same function. So
+# the axes are DECLARED here rather than remembered, and `tests/test_identity_axes.py` turns the declaration
+# into two structural guards: (1) every field of `Design`, and every params key the corpus actually uses, must
+# appear in one of these two dicts — a NEW field fails the test until someone classifies it, the same
+# mechanism that made `test_registry.ANALYSIS_ONLY_TOOLS` catch `propose_rebuild`; and (2) for every declared
+# identity axis, two designs differing ONLY in that axis must produce DIFFERENT tags, which is the property
+# all three defects violated.
+#
+# What this cannot catch: an axis nobody has thought of. It converts "remember to update the tag" into
+# "remember to classify the field", which is a smaller thing to forget and fails loudly when forgotten.
+IDENTITY_AXES = {
+    "perturbation": "the variant the model runs — the coarsest axis, and the only one already in the label's "
+                    "first segment rather than the tag",
+    "condition": "the static medium. A knockout in acetate is not a knockout in glucose",
+    "timeline": "the media-shift trajectory. An upshift and a downshift are opposite experiments (DUP-1)",
+    "elongation_model": "changes what a channel MEANS, not just its value — see the docstring below",
+    "params.target_genes": "which gene(s) are knocked out; the identity of a knockout",
+    "params.level": "the graded-knockout DOSE (GRADED-1). 0.05 and 0.50 expression are different experiments",
+    "params.multiplier": "the ppGpp concentration multiplier — a dose by another name",
+    "params.num_operons_to_delete": "how many rRNA operons; the dose of an rRNA knockout",
+    "params.direction": "the sign of a perturbation (up/down), which is the experiment",
+    "params.target_tfs": "which transcription factors a TF perturbation addresses",
+}
+
+NOT_IDENTITY_AXES = {
+    "seeds": "the replication unit — pooling seeds is the entire point of a design",
+    "generations": "the analysis STRATUM, handled by depth-matching rather than by identity (see survey.depth)",
+    "params.variant_index": "DERIVED from the gene and the level; carrying it in the tag would split a design "
+                            "from itself when one caller resolves the index and another passes symbols",
+    "params.ko_indices": "derived from target_genes, same reason",
+    "params.gene": "an alias for a single-element target_genes",
+}
+
+
+def identity_probes() -> list[tuple]:
+    """(axis, design_a, design_b) triples that differ ONLY on that axis — the input to the separation guard.
+
+    Built here rather than in the test so the declaration and its probes cannot drift: adding an axis above
+    without a probe raises, which is what stops a new axis being declared and then never actually checked.
+    """
+    def ko(**kw):
+        p = {"target_genes": ["leuB"], "variant_index": 1818}
+        p.update(kw.pop("params", {}))
+        kw.setdefault("condition", "KO:leuB")
+        return Design(perturbation="gene_knockout", params=p, **kw)
+
+    probes = [
+        ("perturbation", Design(perturbation="wildtype", condition="basal"),
+         Design(perturbation="condition", condition="basal")),
+        ("condition", ko(), ko(condition="acetate")),
+        ("timeline", ko(), ko(timeline="0 minimal, 1200 minimal_acetate")),
+        ("elongation_model", ko(), ko(elongation_model="kinetic")),
+        ("params.target_genes", ko(), ko(condition="KO:thrC", params={"target_genes": ["thrC"]})),
+        ("params.level", Design(perturbation="graded_gene_knockout", condition="KO:leuB",
+                                params={"target_genes": ["leuB"], "variant_index": 18183, "level": 3}),
+         Design(perturbation="graded_gene_knockout", condition="KO:leuB",
+                params={"target_genes": ["leuB"], "variant_index": 18185, "level": 5})),
+        ("params.multiplier", Design(perturbation="ppgpp_conc", condition="basal|ppGpp:0.6x",
+                                     params={"multiplier": 0.6}),
+         Design(perturbation="ppgpp_conc", condition="basal|ppGpp:1.4x", params={"multiplier": 1.4})),
+        ("params.num_operons_to_delete", Design(perturbation="rrna_operon_knockout",
+                                                condition="minimal|rRNA_KO:2op",
+                                                params={"num_operons_to_delete": 2}),
+         Design(perturbation="rrna_operon_knockout", condition="minimal|rRNA_KO:4op",
+                params={"num_operons_to_delete": 4})),
+        ("params.direction", Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_plus_aa",
+                                    params={"direction": "up"}),
+         Design(perturbation="timeline", timeline="0 minimal_plus_aa, 1200 minimal",
+                params={"direction": "down"})),
+        ("params.target_tfs", Design(perturbation="tf_perturbation", condition="basal",
+                                     params={"target_tfs": ["fur"]}),
+         Design(perturbation="tf_perturbation", condition="basal", params={"target_tfs": ["crp"]})),
+    ]
+    missing = set(IDENTITY_AXES) - {p[0] for p in probes}
+    if missing:
+        raise RuntimeError("identity axes declared with no probe, so nothing checks them: %s" % sorted(missing))
+    return probes
+
+
+def design_identity(design: Design) -> tuple:
+    """The full identity of a design — `perturbation/<tag>`, which is what every analysis groups on."""
+    return (design.perturbation, _design_tag(design))
+
+
 def _design_tag(design: Design) -> str:
     """The label's middle segment. For a gene KO, the GENE is the identity — but the propose (agent/UI) path sets
     condition='basal' with the gene in params.target_genes, while generate.py sets condition='KO:<gene>'. Both must
@@ -363,7 +456,14 @@ def _design_tag(design: Design) -> str:
         return (tag + _expr_suffix(design) + factors.tl_tag_suffix(design.timeline)
                 + mode_tag_suffix(design.elongation_model))
     base = design.condition or design.timeline or "basal"
-    return base + mode_tag_suffix(design.elongation_model)
+    # TARGET TRANSCRIPTION FACTORS. Found by the identity-axis guard the moment it was written, and LATENT
+    # rather than live: `launch._match_key` already treats `target_tfs` as part of a design's semantic identity
+    # and `biosecurity.screen` reads it as a target, but `_design_tag` did not, so the two identity functions
+    # disagreed. No perturbation in the corpus uses it yet — which is exactly why it is worth closing now, on a
+    # quiet axis, instead of discovering it the way the other three were found: after a campaign had already
+    # pooled two different experiments under one label.
+    tfs = sorted(str(t) for t in ((design.params or {}).get("target_tfs") or []))
+    return base + ("#tf:" + "+".join(tfs) if tfs else "") + mode_tag_suffix(design.elongation_model)
 
 
 def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
