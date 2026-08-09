@@ -93,6 +93,17 @@ def kb_content_hash(sim_path: str = "cellarium") -> dict:
     return _invoke("kb_content_hash", OUT_ROOT / sim_path)
 
 
+def deg_rate_bounds(sim_path: str = "cellarium") -> dict:
+    """How much of this knowledge base's mRNA degradation table is a FIT and how much is a CONSTRAINT (PARCA-4).
+
+    ParCa bounds the inferred rates below by the slowest single measured mRNA cistron; units whose NNLS
+    solution hits that wall report the wall's value, and sim_data stores the two identically. This says how
+    many, and which — including how much EXPRESSION rests on them, which is the number that decides whether it
+    matters. Heavy (unpickles sim_data); cache it.
+    """
+    return _invoke("deg_rate_bounds", OUT_ROOT / sim_path)
+
+
 def gene_map(sim_path: str = "cellarium") -> dict:
     """{symbol: monomer_id} from sim_data — for resolving the curated pathway panel. Heavy; cache it."""
     return _invoke("gene_map", OUT_ROOT / sim_path)

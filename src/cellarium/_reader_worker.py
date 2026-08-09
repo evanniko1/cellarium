@@ -902,6 +902,65 @@ def mode_list_species(run_root, kind, search=""):
     return {"kind": kind, "matches": hits[:40]}
 
 
+def mode_deg_rate_bounds(root):
+    """How much of the mRNA degradation-rate table is a fitted value, and how much is a CONSTRAINT (PARCA-4).
+
+    ParCa cannot measure a half-life for every transcription unit, so it infers them by NNLS from per-gene
+    measurements — under a lower bound on the rate, set to the slowest single measured mRNA cistron:
+
+        min_deg_rates[is_mRNA] = mRNA_cistron_deg_rates.min()
+
+    Units whose solution hits that wall stop there, and what is reported for them is the wall's value, not a
+    fit. On disk the two are indistinguishable: the same float in the same array. MEASURED 2026-08-09, the
+    corpus fit has 245 of 3,133 mRNA units sitting bit-exactly on it, carrying 4.59% of mRNA expression, and
+    the two most-expressed are RIBOSOMAL PROTEIN operons — the transcripts a ppGpp/stringent-response result
+    leans on hardest.
+
+    This makes the distinction queryable without a rebuild. It reports rather than raises: 245 units on the
+    bound is the state of every knowledge base in the corpus, so an assertion here would fail every build and
+    be switched off, whereas a number that travels with the fit is something a reader can weigh.
+    """
+    import pickle
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": f"no sim_data at {kb} (run ParCa first)"}
+    import numpy as np
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    t = sd.process.transcription
+    rna = t.rna_data
+    dr = rna["deg_rate"]
+    dr = np.asarray(dr.asNumber() if hasattr(dr, "asNumber") else dr, dtype=float)
+    is_m = np.asarray(rna["is_mRNA"], dtype=bool)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        half_life = np.log(2) / dr / 60.0
+    # The FLOOR on rate is the CEILING on half-life, and vice versa — both bounds come from the extremes of the
+    # same unfiltered measurement set, so both are reported.
+    hl_m = half_life[is_m]
+    slowest, fastest = float(np.nanmax(hl_m)), float(np.nanmin(hl_m))
+    on_slow = is_m & (np.abs(half_life - slowest) < 1e-9)
+    on_fast = is_m & (np.abs(half_life - fastest) < 1e-9)
+    exp = np.asarray(t.rna_expression["basal"], dtype=float)
+    tot = float(exp[is_m].sum()) or 1.0
+    ids = [str(x) for x in rna["id"]]
+    top = sorted(((float(exp[i]), ids[i]) for i in np.where(on_slow)[0]), reverse=True)[:6]
+    return {
+        "n_mrna_units": int(is_m.sum()),
+        "rate_floor_as_half_life_min": round(slowest, 4),
+        "rate_ceiling_as_half_life_min": round(fastest, 4),
+        "n_on_floor": int(on_slow.sum()), "n_on_ceiling": int(on_fast.sum()),
+        "pct_units_on_a_bound": round(100.0 * (on_slow.sum() + on_fast.sum()) / max(int(is_m.sum()), 1), 2),
+        "pct_expression_on_floor": round(100.0 * float(exp[on_slow].sum()) / tot, 3),
+        "pct_expression_on_ceiling": round(100.0 * float(exp[on_fast].sum()) / tot, 3),
+        "most_expressed_on_floor": [{"id": i, "pct_of_mrna_expression": round(100.0 * e / tot, 4)}
+                                    for e, i in top],
+        "note": ("A unit ON a bound did not get a fitted half-life: it got the bound's value, which is the "
+                 "slowest (or fastest) single measured mRNA cistron. Nothing in sim_data distinguishes the "
+                 "two, so any claim resting on one of these transcripts rests on a constraint, not a "
+                 "measurement."),
+    }
+
+
 if __name__ == "__main__":
     mode, run_root = sys.argv[1], sys.argv[2]
     if mode == "run":
@@ -930,6 +989,8 @@ if __name__ == "__main__":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     elif mode == "gene_lfc":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
+    elif mode == "deg_rate_bounds":
+        out = mode_deg_rate_bounds(run_root)
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

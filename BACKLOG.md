@@ -1381,7 +1381,43 @@ were live defects, one was a false accusation against a correct corpus, and none
   it has no way to propose a REBUILD, so a question like "does this hold with the pseudogene reverted?" is
   unreachable to the agent. Today's estimator-artefact finding needed 25 rebuilds launched by hand. Cheapest
   large capability on this list: a rebuild is 7 minutes against hours for a campaign.
-- **PARCA-4 — the saturation defect is open (PARCA-1's second half).** The NNLS arithmetic bug is fixed; the
+- **PARCA-4 — the saturation defect: HALF DONE 2026-08-09, and the obvious fix is measurably NOT the fix.**
+  ✅ **The coverage filter is built and rebuilt, and it REFUTES itself as a remedy.** Pre-registered before
+  measuring anything: exclude Chen rows with `total fragments < 2`, the minimum n for a standard deviation
+  to exist (`StdDev = 0` at n=1 is undefined, not precise). The source table IS in the image at
+  `reconstruction/ecoli/scripts/rna_half_lives/data/msb145794-sup-0009-supp_table_s4.csv` with the
+  coverage columns the shipped flat file drops — `shoB,1235,319,1,131.522,0` — and the converter never
+  reads them. Regenerated through the model's OWN converter (filtered CSV mounted over the source, so the
+  Chen/Bernstein merge logic is the real one): **max half-life 91.200 -> 32.400**, 156 entries rescued by
+  Bernstein's independent measurement, 57 lost — **1.7% of 3,432, not the 24.9% the raw drop count
+  suggested**, because 126 of the 211 single-fragment rows have a second measurement the current code
+  ignores (Chen wins unconditionally). shoB is ABSENT from Bernstein, so it correctly falls to the
+  unmeasured path. Rebuilt as `refit2` (336 s).
+  - **THE RESULT REFUTES THE FIX.** Two unrelated perturbations converge on the same state:
+    | fit | floor | pinned | expression on the floor |
+    |---|---|---|---|
+    | `cellarium` | 91.2 min | 245 (7.8%) | 4.589% |
+    | `refit1` (shoB retyped away) | 32.4 | 247 (7.9%) | 6.574% |
+    | `refit2` (coverage filter) | 32.4 | **247 (7.9%)** | **6.571%** |
+    The count does not fall and the share of expression resting on a placeholder **RISES**. `min()` does
+    not care which value is minimal — remove the one supplying it and the next is promoted. The
+    ribosomal-protein operons (`rpmJ`, `rplNXE-rpsNH-rplFR-…`) stay pinned in all three, and refit2 adds a
+    LARGER one, `TU0-4742` at 1.98% of mRNA expression. So the filter improves the bound's PROVENANCE
+    (a 3-fragment ompA measurement instead of a 1-fragment shoB one) and makes the defect slightly worse
+    on the metric that matters. **Adopt it WITH the second half, never instead of it.**
+  - ✅ **The saturation is now VISIBLE without a rebuild.** `reader.deg_rate_bounds(sim_path)` reports, for
+    any knowledge base, the floor and ceiling, how many units sit bit-exactly on each, what share of mRNA
+    EXPRESSION they carry, and names the most-expressed. A count says how many units; only expression says
+    whether it matters. Deliberately a DIAGNOSTIC, not an assertion: 245 on the bound is the state of
+    every kb in the corpus, so a test that failed on it would fail every build and be switched off.
+    4 tests, including one that asserts the coverage filter does NOT empty the bound.
+  - ⏳ **REMAINING, and it is the actual fix:** mark bound-pinned rates IN `sim_data` so a downstream
+    consumer can tell a constraint from a fit without re-deriving it. That is an overlay change to
+    `reconstruction/ecoli/dataclasses/process/transcription.py` plus a rebuild, and it mints an arm — so
+    it should land together with the coverage filter in ONE new arm, not two. Also open: whether to adopt
+    the filter at all is now a judgement call with the evidence in hand, not a default.
+
+- *(original entry)* **PARCA-4 — the saturation defect is open (PARCA-1's second half).** The NNLS arithmetic bug is fixed; the
   bound is not. MEASURED 2026-08-07 over 24 refits: 244 of 3,276 transcription units sit bit-exactly on
   91.2 min, 21 of 24 arbitrary mRNA retypes move a half-life 228.0x (= 91.2/0.4, the bound ratio), and
   retyping `shoB` alone empties the bound (244 -> 0) with no swing. The bound derives from one cistron whose
