@@ -37,10 +37,15 @@ class HypothesisStore:
         self._write("CREATE TABLE IF NOT EXISTS council_runs("
                     "id TEXT PRIMARY KEY, question TEXT, status TEXT, model TEXT, "
                     "rounds TEXT, hypothesis TEXT, designs TEXT, meta TEXT, created REAL)")
-        try:   # a user-set display label for the run list (migration for pre-existing DBs)
-            self._write("ALTER TABLE council_runs ADD COLUMN title TEXT")
-        except Exception:
-            pass   # column already present
+        for col in ("title TEXT",                 # a user-set display label for the run list
+                    # SP-3a lineage. A re-convene used to OVERWRITE the deliberation it was refining; these two
+                    # columns are what let it archive instead. `supersedes` points back from the live run to
+                    # the snapshot it grew out of, `superseded_by` points forward from the snapshot.
+                    "supersedes TEXT", "superseded_by TEXT"):
+            try:   # migration for pre-existing DBs; a column already present raises and is fine
+                self._write(f"ALTER TABLE council_runs ADD COLUMN {col}")
+            except Exception:
+                pass
 
     def _write(self, sql: str, params: tuple = ()):   # own connection per op, always closed (mirrors SessionStore)
         # Scrub HERE rather than at each call site: create/append_round/complete/rename all write user- and
@@ -73,6 +78,55 @@ class HypothesisStore:
                     "VALUES(?,?,?,?,?,?,?,?,?)",
                     (run_id, question, "running", model, "[]", "{}", "[]", "{}", time.time()))
 
+    def archive_prior(self, run_id: str) -> str | None:
+        """Snapshot the run at `run_id` under a new id before it is overwritten. Returns the archive id, or None.
+
+        THE POINT OF SP-3a. `create` is `INSERT OR REPLACE`, and `run_council(reuse_id=X)` passes the existing
+        id, so a RE-CONVENE — the feature whose entire purpose is to refine a deliberation — destroyed the
+        deliberation it was refining. `rounds`, `hypothesis`, `designs` and `meta` were all reset to empty.
+        Measured consequence: M-7's progressive narrowing (exercised twice in `tests/test_narrowing.py`) left
+        no record of what it narrowed FROM, and "round 0 beside round 3" was unanswerable because round 0 no
+        longer existed.
+
+        Archiving rather than inserting the new run under a fresh id is deliberate: the caller streams rounds
+        to `reuse_id` and the surface polls it, so the LIVE run has to keep that id. The history moves instead,
+        and the two rows point at each other.
+
+        Returns None when there is nothing worth keeping — no row, or a row with no rounds (a re-convene of a
+        run that never deliberated). An empty snapshot would be clutter that looks like history.
+        """
+        row = self._read("SELECT rounds FROM council_runs WHERE id=?", (run_id,))
+        if not row or not json.loads(row[0] or "[]"):
+            return None
+        n = self._read("SELECT count(*) FROM council_runs WHERE superseded_by=?", (run_id,))
+        archive_id = f"{run_id}~r{(n[0] if n else 0) + 1}"
+        self._write(
+            "INSERT OR REPLACE INTO council_runs"
+            "(id, question, status, model, rounds, hypothesis, designs, meta, created, title, "
+            " supersedes, superseded_by) "
+            "SELECT ?, question, status, model, rounds, hypothesis, designs, meta, created, title, "
+            "       supersedes, ? FROM council_runs WHERE id=?", (archive_id, run_id, run_id))
+        return archive_id
+
+    def link_supersedes(self, run_id: str, archive_id: str) -> None:
+        """Point the live run back at the snapshot it grew out of."""
+        self._write("UPDATE council_runs SET supersedes=? WHERE id=?", (archive_id, run_id))
+
+    def thread(self, run_id: str) -> list[dict]:
+        """The run and every snapshot it grew out of, oldest first — the lineage a re-convene used to erase."""
+        # Walks `supersedes` BACKWARDS, not `superseded_by` forwards. Every snapshot of one run carries
+        # `superseded_by = <live id>`, so the forward relation is a STAR — three snapshots all point at the
+        # live row and a forward walk finds only the newest, silently reporting a two-step history for a
+        # three-step one. `supersedes` is a single link per row (each snapshot inherits the previous one at
+        # copy time), which is the chain.
+        out, seen = [], set()
+        cur = self.get(run_id)
+        while cur and cur["id"] not in seen:
+            seen.add(cur["id"])
+            out.append(cur)
+            cur = self.get(cur["supersedes"]) if cur.get("supersedes") else None
+        return list(reversed(out))
+
     def append_round(self, run_id: str, round_payload: dict) -> None:
         row = self._read("SELECT rounds FROM council_runs WHERE id=?", (run_id,))
         rounds = json.loads(row[0]) if row and row[0] else []
@@ -101,8 +155,8 @@ class HypothesisStore:
                     (json.dumps({"error": error}), run_id))
 
     def get(self, run_id: str) -> dict | None:
-        row = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created "
-                         "FROM council_runs WHERE id=?", (run_id,))
+        row = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created,"
+                         "supersedes,superseded_by FROM council_runs WHERE id=?", (run_id,))
         return _full(row) if row else None
 
     def rename(self, run_id: str, title: str) -> None:
@@ -111,8 +165,12 @@ class HypothesisStore:
     def list(self, limit: int = 100) -> list[dict]:
         # exclude 'needs_spec' — a parked gate result is a transient interaction, not a hypothesis; it lives in the
         # detail pane until the user specifies (or abandons it), and must not clutter the run list with dead-ends.
+        # `superseded_by IS NULL` keeps SNAPSHOTS out of the list (SP-3a): they are history, reachable via
+        # `thread()`, and listing them would show one question several times as though it had been asked
+        # repeatedly rather than refined once.
         rows = self._read("SELECT id,question,status,model,rounds,hypothesis,designs,meta,created,title "
-                          "FROM council_runs WHERE status != 'needs_spec' ORDER BY created DESC LIMIT ?",
+                          "FROM council_runs WHERE status != 'needs_spec' AND superseded_by IS NULL "
+                          "ORDER BY created DESC LIMIT ?",
                           (int(limit),), many=True)
         return [_summary(r) for r in rows]
 
@@ -123,7 +181,10 @@ class HypothesisStore:
 def _full(r) -> dict:
     return {"id": r[0], "question": r[1], "status": r[2], "model": r[3],
             "rounds": json.loads(r[4] or "[]"), "hypothesis": json.loads(r[5] or "{}"),
-            "designs": json.loads(r[6] or "[]"), "meta": json.loads(r[7] or "{}"), "created": r[8]}
+            "designs": json.loads(r[6] or "[]"), "meta": json.loads(r[7] or "{}"), "created": r[8],
+            # SP-3a lineage, carried on the run itself so a reader does not have to know the table shape.
+            "supersedes": (r[9] if len(r) > 9 else None),
+            "superseded_by": (r[10] if len(r) > 10 else None)}
 
 
 def _summary(r) -> dict:
@@ -161,7 +222,12 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
         prior_question = prev.get("question") if prev else None
 
     run_id = reuse_id or store.new_id()
+    # SP-3a: snapshot the prior deliberation BEFORE `create` overwrites it. `create` is INSERT OR REPLACE, so
+    # without this a re-convene destroyed exactly what it was refining.
+    archived = store.archive_prior(run_id) if reuse_id else None
     store.create(run_id, question, model)
+    if archived:
+        store.link_supersedes(run_id, archived)
 
     def _round(payload):
         store.append_round(run_id, payload)

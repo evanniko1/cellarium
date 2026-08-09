@@ -597,6 +597,20 @@ def campaign_root_of(run_root) -> str | None:
     return None
 
 
+def _kb_prov_at(campaign_key: str) -> dict:
+    """kb hash + build time for a `<root>/<sim_path>` campaign key — the root-aware sibling of `_kb_prov`.
+
+    `_kb_prov` resolves through `runner._out_root`, which always uses the CURRENT output root, so it cannot
+    answer for a row that ran under a different one. This reads the campaign's own kb directly.
+    """
+    p = Path(campaign_key) / "kb" / "simData.cPickle"
+    if not p.is_file():
+        return {}
+    st = p.stat()
+    return {"kb_sha256": kb_sha_for_run(campaign_key + "/x/0"), "parca_ts": st.st_mtime,
+            "kb_bytes": st.st_size}
+
+
 def kb_sha_for_run(run_root) -> str | None:
     """The kb hash of the campaign a run ACTUALLY belongs to, resolved from its own path.
 
@@ -1258,10 +1272,17 @@ def backfill_parca_ts(dry_run: bool = True) -> dict:
         if r.get("parca_ts"):
             already += 1
             continue
-        sp = _sim_path_of(r.get("simout_path"))
-        if sp not in cache:
-            cache[sp] = _kb_prov(sp) if sp else {}
-        disk, row_kb = cache[sp].get("kb_sha256"), r.get("kb_sha256")
+        # RESOLVED ROOT-AWARE (KB-ROOT-1). This used `_kb_prov(_sim_path_of(path))`, which returns only the
+        # second path component and so compared every row under `runs_seed_aars/cellarium/`,
+        # `runs_kinetic_seeds/cellarium/` and `runs_depleting/cellarium/` against `runs/cellarium/kb`. Each of
+        # those roots holds its OWN kb, so the gate below read "the campaign path was rebuilt, this row's kb is
+        # gone" for rows whose kb was sitting right there. MEASURED: 44 of the 84 remaining NULLs are
+        # recoverable once the root is kept. The GATE is unchanged and still the point — a row is stamped only
+        # where the kb on disk hashes equal to its own — it is simply now asking about the right kb.
+        key = campaign_root_of(r.get("simout_path"))
+        if key not in cache:
+            cache[key] = _kb_prov_at(key) if key else {}
+        disk, row_kb = cache[key].get("kb_sha256"), r.get("kb_sha256")
         if not disk or not row_kb:
             skipped_missing += 1
         elif disk != row_kb:
@@ -1270,7 +1291,7 @@ def backfill_parca_ts(dry_run: bool = True) -> dict:
             # Count the VALUE, not the assignment. The first version incremented here unconditionally and
             # reported "279 backfilled" for a write that stored nothing — an absence counted as a success,
             # which is the same silent-absence shape this repository keeps re-encountering.
-            ts = cache[sp].get("parca_ts")
+            ts = cache[key].get("parca_ts")
             if ts is None:
                 skipped_missing += 1
             else:

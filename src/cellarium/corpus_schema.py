@@ -41,6 +41,14 @@ NOT_ARM_KEYS = {
 # once it is non-NULL across the rows being compared — the enforcement then tightens for free.
 ARM2_COLUMNS = ("model_sha256", "image_digest", "reconstruction_sha", "parca_ts", "runsim_argv")
 
+# Which of those a DISAGREEMENT actually makes incomparable — not the same list, and the difference is
+# load-bearing. `parca_ts` is a property of the FILE, not of the FIT: three campaigns here carry byte-identical
+# knowledge bases (all `5f19d040…`) copied into their own roots at different times, so their mtimes differ by
+# sixteen hours while the parameters are the same bytes. Treating that as an arm the keys miss reports a
+# conflict for a corpus that has none, and a detector whose hits have to be explained away stops being read.
+# `kb_sha256` already pins the fit; the timestamp is for ORDERING arms, which is what it was added to do.
+CONFLICT_COLUMNS = ("model_sha256", "image_digest", "reconstruction_sha", "runsim_argv")
+
 # What each column answers. Kept after shipping because the rationale is the part that rots.
 MISSING_COLUMNS = {
     "model_sha256": "which simulator CODE produced the row. `kb_sha256` pins the PARAMETERS; nothing pinned "
@@ -62,7 +70,7 @@ MISSING_COLUMNS = {
 }
 
 
-def arm_conflicts(rows: list[dict], columns=ARM2_COLUMNS) -> list[dict]:
+def arm_conflicts(rows: list[dict], columns=CONFLICT_COLUMNS) -> list[dict]:
     """Rows that share an arm but disagree on a recorded covariate — an arm the current keys MISS.
 
     This is the useful direction for a column that is NULL across the existing corpus. It cannot partition

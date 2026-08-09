@@ -145,15 +145,14 @@ def test_parca_ts_is_stamped_only_where_the_kb_is_provably_the_rows_own():
     stamped = [r for r in rows if r.get("parca_ts")]
     if not stamped:
         pytest.skip("parca_ts not backfilled in this checkout")
-    cache: dict = {}
+    # Resolved ROOT-AWARE, matching the backfill: `_sim_path_of` drops the output root and would compare a
+    # `runs_seed_aars/cellarium/` row against `runs/cellarium/kb` (KB-ROOT-1).
     for r in stamped:
-        sp = manifest._sim_path_of(r.get("simout_path"))
-        if sp not in cache:
-            cache[sp] = manifest._kb_prov(sp) if sp else {}
-        assert cache[sp].get("kb_sha256") == r.get("kb_sha256"), (
+        assert manifest.kb_sha_for_run(r.get("simout_path")) == r.get("kb_sha256"), (
             "row %s carries parca_ts but its kb_sha256 (%s) is not the kb now at %s (%s) — the row would "
             "assert a build time for a knowledge base that is no longer there"
-            % (r.get("id"), str(r.get("kb_sha256"))[:8], sp, str(cache[sp].get("kb_sha256"))[:8]))
+            % (r.get("id"), str(r.get("kb_sha256"))[:8], manifest.campaign_root_of(r.get("simout_path")),
+               str(manifest.kb_sha_for_run(r.get("simout_path")))[:8]))
 
 
 # ---------------------------------------------------------------------------------------------------------

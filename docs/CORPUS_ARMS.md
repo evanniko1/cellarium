@@ -6,25 +6,25 @@ Rows from different arms are not poolable.
 | kb | operons | elongation | rows | reportable | depths | kb built | first run |
 |---|---|---|---|---|---|---|---|
 | `3b2f8ebd` | on | steady_state | 279 | 188 | 0g:58, 1g:122, 3g:13, 4g:75, 7g:7, 8g:4 | 2026-07-08 | 2026-07-09 |
-| `0d861f80` | on | steady_state | 43 | 33 | 0g:7, 1g:3, 4g:33 | ? | 2026-07-29 |
-| `5f19d040` | on | steady_state | 36 | 14 | 3g:20, 4g:16 | ? | 2026-08-06 |
-| `5f19d040` | on | kinetic | 8 | 4 | 3g:8 | ? | 2026-08-06 |
+| `0d861f80` | on | steady_state | 40 | 30 | 0g:7, 1g:3, 4g:30 | ? | 2026-07-29 |
+| `5f19d040` | on | steady_state | 36 | 14 | 3g:20, 4g:16 | 2026-08-06 | 2026-08-06 |
+| `5f19d040` | on | kinetic | 8 | 4 | 3g:8 | 2026-08-06 | 2026-08-06 |
 
-4 arms, 366 live rows.
+4 arms, 363 live rows.
 
 ## Provenance coverage (ARM-2)
 
 Written on every new row; NULL on rows that predate the column. NULL means UNKNOWN and is never read as agreement — see `arm_conflicts`.
 
-| column | rows carrying it | of 239 analysable rows |
+| column | rows carrying it | of 236 analysable rows |
 |---|---|---|
 | `model_sha256` | 0 | 0% |
 | `image_digest` | 0 | 0% |
 | `reconstruction_sha` | 0 | 0% |
-| `parca_ts` | 188 | 79% |
+| `parca_ts` | 206 | 87% |
 | `runsim_argv` | 0 | 0% |
 
-No arm carries rows that disagree on a recorded covariate.
+**1 conflict(s):** rows sharing an arm disagree on parca_ts.
 
 ## What each provenance column answers
 

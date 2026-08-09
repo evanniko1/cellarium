@@ -1128,6 +1128,37 @@ were live defects, one was a false accusation against a correct corpus, and none
 
 ## Found while clearing the failure baseline, 2026-08-08
 
+- ~~**SP-3a — the re-convene destroyed the deliberation it was refining.**~~ ✅ **DONE 2026-08-08.**
+  `HypothesisStore.create` is `INSERT OR REPLACE` and `run_council(reuse_id=X)` passes the existing id, so the
+  one feature whose purpose is to REFINE a deliberation reset its `rounds`, `hypothesis`, `designs` and `meta`
+  to empty. Nothing warned, and the surface looked right afterwards because the new run streamed into the same
+  row. Real data loss: M-7's progressive narrowing exercises `reuse_id` twice and left no record of what it
+  narrowed FROM, so "round 0 beside round 3" was unanswerable. Fixed by ARCHIVING rather than replacing —
+  `archive_prior()` snapshots the row under `<id>~rN` before `create` runs, and the LIVE run keeps its id
+  because the caller streams rounds to it and the surface polls it. Two migration columns (`supersedes`,
+  `superseded_by`); `list()` hides snapshots so one refined question does not read as several asked
+  repeatedly; `thread()` reconstructs the chain. **`thread` walks `supersedes` BACKWARDS, not `superseded_by`
+  forwards** — every snapshot of a run points at the same live id, so the forward relation is a STAR and a
+  forward walk silently reported a two-step history for a three-step one (caught by its own test). 6 tests;
+  the wiring test fails when `run_council`'s archive call is removed.
+
+- ~~**PARCA-TS-1 — `backfill_parca_ts` under-stamped, a direct consequence of KB-ROOT-1.**~~ ✅ **DONE
+  2026-08-08.** Its gate resolved through `_kb_prov(_sim_path_of(path))`, which drops the output root, so rows
+  under `runs_seed_aars/`, `runs_kinetic_seeds/` and `runs_depleting/` were compared against `runs/cellarium/kb`
+  and skipped as "the campaign path was rebuilt, this row's kb is gone" — when their kb was sitting in their
+  own root. Resolved root-aware via `_kb_prov_at(campaign_root_of(path))`: **44 more rows stamped, and the
+  `skipped_kb_replaced` bucket went from 18 to ZERO** — that whole category was an artefact of the collapsed
+  key. 40 remain NULL because `runs/aadrop/kb` was deleted, which is genuinely unknown. The gate itself is
+  unchanged and still the point; it is simply now asking about the right kb. Consequence: `kb built` is now
+  populated for 3 of the 4 arms in `docs/CORPUS_ARMS.md`, which is the causal ordering `parca_ts` was added
+  for.
+  - **Found while doing it: `arm_conflicts` was flagging `parca_ts`.** Three campaigns hold BYTE-IDENTICAL
+    knowledge bases (all `5f19d040…`) copied into their own roots sixteen hours apart, so their file mtimes
+    differ while the parameters are the same bytes. `ARM2_COLUMNS` (what coverage is reported for) is now
+    distinct from `CONFLICT_COLUMNS` (what a disagreement makes incomparable), and `parca_ts` is in the first
+    only: it describes the FILE, not the FIT, and `kb_sha256` already pins the fit. A detector whose hits have
+    to be explained away stops being read.
+
 - ~~**IDENTITY-1 — a guard for the defect this project found three times.**~~ ✅ **DONE 2026-08-08, and it
   found a FOURTH on its first run.** The elongation model (pooled a measurement with an algebraic identity),
   the graded dose (GRADED-1: four argS levels spanning 12x in ppGpp), and the media timeline (DUP-1: a
