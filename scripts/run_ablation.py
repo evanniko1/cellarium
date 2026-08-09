@@ -27,10 +27,10 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cellarium import agent, credentials                      # noqa: E402
+from src.cellarium import agent, credentials  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from run_discrimination_test import QUESTIONS                      # noqa: E402
+from run_discrimination_test import QUESTIONS  # noqa: E402
 
 MODELS = ("claude-sonnet-5", "claude-opus-4-8")
 OUT = "data/ablation_ungrounded.json"

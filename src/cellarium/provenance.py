@@ -163,6 +163,7 @@ def reconstruction_sha() -> str | None:
     import json
     import subprocess
     from pathlib import Path
+
     from . import runner
     if not runner.WCECOLI_DOCKER:
         return None

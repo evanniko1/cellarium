@@ -22,7 +22,6 @@ import argparse
 import json
 import os
 import random
-import shutil
 import subprocess
 import sys
 import time

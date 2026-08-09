@@ -8,10 +8,14 @@ fitted parameter set. Today's estimator-artefact finding needed 25 rebuilds laun
 THE HARD GATE IS DESTINATION, and it is the only one, because the hazard is different in kind from a
 simulation's. A rebuild runs no organism design — there is nothing to biosecurity-screen. What it can do,
 which no simulation can, is silently invalidate results that already exist: ParCa writes to
-`runs/<sim_path>/kb/simData.cPickle`, campaign paths are REUSED, and a rebuild at an occupied path replaces
-the fit that rows already point at. MEASURED 2026-08-08: 18 analysable rows carry `5f19d040…` while
-`cellarium` now holds `3b2f8ebd…`. Those rows are not wrong, they are ORPHANED — their parameters no longer
-exist anywhere. Nothing warned; the rebuild simply succeeded.
+`runs/<sim_path>/kb/simData.cPickle` and OVERWRITES it, so a rebuild at an occupied path replaces the fit
+that existing rows point at, and a row whose parameters no longer exist cannot be compared against anything.
+Nothing in the model warns; the rebuild simply succeeds.
+
+CORRECTION 2026-08-08: this docstring claimed the failure had already happened — "18 analysable rows carry
+`5f19d040…` while `cellarium` now holds `3b2f8ebd…`, orphaned". **It had not.** That came from
+`_sim_path_of` collapsing four output roots onto one key; each root holds its own kb, and read root-aware
+297 of 297 rows agree with their own row. The hazard is real and PROSPECTIVE; the incident was not.
 """
 import os
 import sys
@@ -40,15 +44,21 @@ def _docker_or_skip():
 # ---------------------------------------------------------------------------------------------------------
 
 def test_a_rebuild_over_a_kb_live_rows_depend_on_is_refused():
-    """The incident this exists to prevent, asserted against the real corpus."""
+    """The loss this exists to prevent, asserted against the real corpus."""
     dep = launch.kb_dependents("cellarium")
     if not dep.get("n"):
         pytest.skip("no live rows depend on the kb at 'cellarium' in this checkout")
     res = launch.propose_rebuild("probe", sim_path="cellarium")
     assert res["status"] == "blocked" and res["runnable"] is False, (
         "a rebuild was queued as runnable over a knowledge base %d live rows depend on" % dep["n"])
-    assert any("REFUSED" in n and "orphan" in n for n in res["vet"]["notes"]), (
-        "the refusal does not say WHAT it would destroy: %s" % res["vet"]["notes"])
+    # Asserted on CONTENT, not on one word: a refusal has to name what would be destroyed — which kb, and how
+    # many rows depend on it — or the operator cannot weigh it. Matching a single word ("orphan") pinned the
+    # phrasing instead, and broke when the wording was corrected without the meaning changing.
+    refusal = next((n for n in res["vet"]["notes"] if n.startswith("REFUSED")), "")
+    assert refusal, "a blocked rebuild produced no REFUSED note: %s" % res["vet"]["notes"]
+    assert str(dep["kb_sha256"])[:8] in refusal and str(dep["n"]) in refusal, (
+        "the refusal does not say WHAT it would destroy (kb %s, %d dependent rows): %s"
+        % (str(dep["kb_sha256"])[:8], dep["n"], refusal))
     assert res["vet"]["would_orphan"]["n"] == dep["n"]
 
 
@@ -228,6 +238,7 @@ def test_reconcile_asks_the_kb_not_the_manifest_for_a_rebuild(monkeypatch):
     """A rebuild writes no manifest rows, so `count_runs` returns 0 and would heal a COMPLETED rebuild to
     'failed' — reporting failure for work that succeeded and prompting a needless seven-minute re-run."""
     import json
+
     from src.cellarium import manifest
     res = launch.propose_rebuild("probe")
     q = json.loads(launch.QUEUE.read_text(encoding="utf-8"))

@@ -21,8 +21,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cellarium import capability as C            # noqa: E402
-from src.cellarium import agent, credentials         # noqa: E402
+from src.cellarium import agent, credentials  # noqa: E402
+from src.cellarium import capability as C  # noqa: E402
 
 # Every item names the elongation model it is asked under. Where that is None the question is not about a
 # charging channel and the model does not change the answer.

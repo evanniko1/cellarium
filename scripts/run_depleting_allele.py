@@ -23,8 +23,8 @@ if not os.environ.get("CELLARIUM_OUT"):
 # the way it is under `python -c` from the checkout.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cellarium.model import Design            # noqa: E402  (import AFTER CELLARIUM_OUT is fixed)
-from src.cellarium import manifest                # noqa: E402
+from src.cellarium import manifest, scope  # noqa: E402  (import AFTER CELLARIUM_OUT is fixed)
+from src.cellarium.model import Design  # noqa: E402
 
 # argS / alaS / pheS are aminoacyl-tRNA synthetases; gltX is glutamyl-tRNA synthetase. The wild type is the
 # depth-matched control and must run to the SAME generation count, or the comparison the paper makes is
@@ -42,7 +42,6 @@ from src.cellarium import manifest                # noqa: E402
 # scope.graded_ko_target resolves the cistron and transcription-unit count the variant needs; passing them is
 # mandatory, and the first launch failed loudly because the condition carried the dose ("KO:argS@0.05") and the
 # symbol no longer resolved. The guard refused all 16 rather than suppress one unit blindly, which is correct.
-from src.cellarium import scope                                              # noqa: E402
 
 _T = scope.graded_ko_target("argS")
 if not _T.get("ok"):

@@ -117,12 +117,18 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
 def kb_dependents(sim_path: str) -> dict:
     """Live corpus rows whose `kb_sha256` is the knowledge base CURRENTLY at `sim_path`.
 
-    The gate for PARCA-3, and it exists because the failure already happened. ParCa writes to
-    `runs/<sim_path>/kb/simData.cPickle` and a campaign path is REUSED, so a rebuild at an occupied path
-    replaces the fit that rows already point at. MEASURED 2026-08-08: 18 analysable rows carry `5f19d040…`
-    while `cellarium` now holds `3b2f8ebd…`. Those rows are not wrong, they are ORPHANED — their parameters no
-    longer exist anywhere, so `parca_ts` cannot be recovered for them and no later run can be compared against
-    them within their own arm. Nothing warned; the rebuild simply succeeded.
+    The gate for PARCA-3. ParCa writes to `runs/<sim_path>/kb/simData.cPickle` and OVERWRITES whatever is
+    there, so a rebuild at an occupied path replaces the fit that existing rows point at — and a row whose
+    parameters no longer exist anywhere cannot be compared against anything, including later runs of its own
+    arm. Nothing in the model warns; the rebuild simply succeeds.
+
+    CORRECTION 2026-08-08: this docstring cited "18 analysable rows already orphaned at `cellarium`" as
+    evidence that the failure had happened. **It had not.** That reading came from `_sim_path_of`, which
+    returns only the second path component and so collapses `runs/`, `runs_seed_aars/`, `runs_kinetic_seeds/`
+    and `runs_depleting/` onto the single key `cellarium`. Each of those roots holds its OWN knowledge base;
+    read root-aware (`manifest.kb_sha_for_run`), 297 of 297 rows whose kb is still on disk agree with their
+    own row and none mismatches. The hazard this gate prevents is real and unchanged — overwriting a kb in use
+    would destroy it — but it is PROSPECTIVE, not a past incident, and saying otherwise overstated the case.
     """
     from . import manifest, survey
     try:
@@ -179,8 +185,8 @@ def vet_rebuild(sim_path: str, operons: str = "on", retype_cistrons: dict | None
     if dep.get("n"):
         runnable = False
         notes.append("REFUSED: `%s` holds the knowledge base %s… that %d live corpus row(s) depend on. ParCa "
-                     "would overwrite it and those rows would be orphaned from their own parameters — this has "
-                     "happened once already (18 rows, 2026-08-06). Build at a fresh path."
+                     "OVERWRITES it, and a row whose fitted parameters no longer exist cannot be compared "
+                     "against anything, including later runs of its own arm. Build at a fresh path."
                      % (sim_path, str(dep.get("kb_sha256"))[:8], dep["n"]))
     if operons not in ("on", "off"):
         runnable = False

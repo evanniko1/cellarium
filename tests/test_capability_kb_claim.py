@@ -56,6 +56,7 @@ def test_refusal_still_forbids_pooling_and_names_the_real_reason():
 def test_measured_kb_identity_still_holds():
     """If a future refit DOES change the KB, this test fails and the prose above must be revisited."""
     import os
+
     from src.cellarium import provenance
 
     hashes = {}

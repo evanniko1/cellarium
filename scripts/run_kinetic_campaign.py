@@ -31,8 +31,8 @@ if not os.environ.get("CELLARIUM_OUT"):
 # the way it is under `python -c` from the checkout.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cellarium.model import Design            # noqa: E402
-from src.cellarium import manifest                # noqa: E402
+from src.cellarium import manifest  # noqa: E402
+from src.cellarium.model import Design  # noqa: E402
 
 # argS index 644 verified against the fitted KB: rna_data[643] = TU0-13444[c], which carries argS alone.
 # The kinetic wild-type arm already ran at four seeds and is banked; only the starvation arm is repeated.

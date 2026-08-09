@@ -45,7 +45,9 @@ def test_model_sha_moves_when_the_overlay_moves():
                      for f in (real.get("files") or []) if f.get("status") == "ship")
     if len(shipped) < 2:
         pytest.skip("overlay manifest has too few shipped files to perturb")
-    digest = lambda pairs: hashlib.sha256("\n".join(f"{p}:{s}" for p, s in pairs).encode()).hexdigest()[:16]
+    def digest(pairs):
+        return hashlib.sha256("\n".join(f"{p}:{s}" for p, s in pairs).encode()).hexdigest()[:16]
+
     moved = sorted([(shipped[0][0], "0" * 64)] + shipped[1:])
     assert digest(shipped) != digest(moved), "one changed overlay file left the model identity unchanged"
 
@@ -264,6 +266,7 @@ def test_the_arms_artefact_is_generated_and_separates_the_two_dates():
     """`kb built` (parca_ts) and `first run` are different facts; the second is only a lower bound on the first."""
     import re
     from pathlib import Path
+
     from src.cellarium import corpus_schema as cs
     body = cs.report()
     assert "| kb built | first run |" in body, "the arms table lost the causal-ordering column"

@@ -8,8 +8,6 @@ silent-absence failure this project keeps re-encountering.
 """
 import subprocess
 
-import pytest
-
 from src.cellarium.manifest import _exc_text
 
 

@@ -23,8 +23,8 @@ if not os.environ.get("CELLARIUM_OUT"):
 # the way it is under `python -c` from the checkout.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cellarium.model import Design            # noqa: E402  (import AFTER CELLARIUM_OUT is fixed)
-from src.cellarium import manifest                # noqa: E402
+from src.cellarium import manifest  # noqa: E402
+from src.cellarium.model import Design  # noqa: E402  (import AFTER CELLARIUM_OUT is fixed)
 
 # argS / alaS / pheS are aminoacyl-tRNA synthetases; gltX is glutamyl-tRNA synthetase. The wild type is the
 # depth-matched control and must run to the SAME generation count, or the comparison the paper makes is

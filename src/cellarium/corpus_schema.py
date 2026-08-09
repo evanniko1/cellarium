@@ -13,7 +13,6 @@ cross-knowledge-base comparison was only caught by hand on 2026-08-07.
 """
 from __future__ import annotations
 
-import json
 from collections import Counter, defaultdict
 
 # The columns that make two rows comparable. Adding one here tightens every consumer at once, which is the
@@ -94,9 +93,11 @@ def arm_conflicts(rows: list[dict], columns=ARM2_COLUMNS) -> list[dict]:
 
 def _rows(con=None):
     import duckdb
+
     from . import manifest
     con = con or duckdb.connect()
-    cols = ", ".join(ARM_KEYS) + ", id, ts, reportable, generations, perturbation, "           + manifest.optional_col_sql("parca_ts")
+    cols = (", ".join(ARM_KEYS) + ", id, ts, reportable, generations, perturbation, "
+            + manifest.optional_col_sql("parca_ts"))
     return con.execute(f"SELECT {cols} FROM read_parquet('{manifest.MANIFEST_DIR}/*.parquet', "
                        f"union_by_name=true)").fetchall()
 
@@ -150,8 +151,7 @@ def arm_of(row: dict) -> tuple:
 
 def same_arm(row_a: dict, row_b: dict) -> bool:
     """The predicate a read boundary calls before averaging two rows."""
-    norm = lambda r: tuple((r.get(k) or ("steady_state" if k == "elongation_model" else "?")) for k in ARM_KEYS)
-    return norm(row_a) == norm(row_b)
+    return arm_of(row_a) == arm_of(row_b)
 
 
 def arm_split(rows: list[dict]) -> dict | None:
@@ -185,7 +185,9 @@ def report() -> str:
     # Two DIFFERENT dates, kept apart on purpose. `kb built` is when the fit was made (`parca_ts`); `first run`
     # is the earliest simulation that used it. They are not interchangeable — the second is only a lower bound
     # on the first, and ordering arms by it misreads any fit that sat unused before someone ran against it.
-    fmt = lambda t: datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d") if t else "?"
+    def fmt(t):
+        return datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d") if t else "?"
+
     lines.append("| kb | operons | elongation | rows | reportable | depths | kb built | first run |")
     lines.append("|---|---|---|---|---|---|---|---|")
     for x in sorted(a, key=lambda x: (x["parca_ts"] or x["first_ts"] or 0)):
