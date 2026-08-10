@@ -1336,6 +1336,43 @@ not just the floor. So a ridge-vs-baseline difference conflates "soft prior inst
 "no upper clip". That is how the variant was defined in Stage 2 and it is not being changed mid-evaluation;
 it means a ridge FAILURE cannot be attributed to the prior alone.
 
+#### ✅ Stage 3c RESULT, 2026-08-10 — λ tuned honestly. **`ridge` fails too. The evaluation is closed.**
+
+`reader.deg_rate_nested_cv(variant="ridge")` — 1 m 55 s, same outer folds, grid
+λ ∈ {1e-6, 1e-3, 1e-2, 1e-1, 1, 10, 100}:
+
+| | overall med \|log2\| | floor stratum (n=54) |
+|---|---|---|
+| `baseline` | 0.4726 | **0.4133** |
+| `ridge`, λ=0.1 untuned (Stage 3) | 0.4714 | 0.4371 |
+| `ridge`, λ tuned by nested CV | 0.4687 | 0.4371 |
+
+**Tie overall (−0.0039, inside the 0.01 threshold) and worse on the floor (+0.0238). FAILS.**
+
+- 🎯 **Tuning changed nothing, because Stage 3 had already used the optimum.** The naive curve is
+  0.4726 / 0.4723 / 0.4723 / **0.4714** / 0.4807 / 0.5125 / 0.5303 for λ = 1e-6 / 1e-3 / 1e-2 / **1e-1** / 1 /
+  10 / 100. Flat below 0.1, then it degrades sharply as the prior takes over. λ\* lands on 0.01–0.1 in every
+  fold and **never picks the no-regularization null or anything above 0.1**. Selection optimism +0.0027 —
+  none, same per-fold-adaptivity sign as Stage 3b.
+- 🔎 **At λ=1e-6 ridge scores 0.4726 — indistinguishable from the baseline.** With the penalty switched off,
+  ridge is "no floor, no clip", and it predicts held-out measurements exactly as well as the shipped
+  estimator does. **So the floor and the clip contribute nothing measurable to predictive accuracy**, which
+  is consistent with Stage 2: their whole effect is on units cross-validation cannot reach.
+- ⚔️ **The two statistics contradict each other on the floor stratum, and both are "significant".** Paired on
+  the same 54 cistrons, ridge is BETTER for 35 and worse for 19 (z=+2.18, p=0.029) — while the pre-registered
+  median says it is WORSE (0.4133 → 0.4371). Overall the signs flip the other way: the median says slightly
+  better, the paired count says worse (1457 vs 1570, z=−2.05, p=0.040). **This is the n=54 fragility made
+  concrete rather than asserted**, and it is the strongest argument yet that the floor-stratum leg of the
+  decision rule is too weak to carry the weight the design gave it. The rule was applied as written; changing
+  it remains an explicit decision that requires re-scoring all four variants.
+
+**PARCA-4's evaluation is now closed.** Four candidate estimators, **both hyper-parameters tuned by nested
+cross-validation**, all scored on held-out measurements under a rule fixed before any of them ran: **none
+beats the shipped estimator.** "No variant ships" now rests on measurement for every variant rather than on
+measurement for two and a structural argument for a third. No arm was spent at any point; the corpus is
+untouched. The open move is the explicit `unknown` class, sized by the imputation's own measured error
+(median 1.41×, 23.4% beyond 2-fold) — not another estimator.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;

@@ -1069,7 +1069,7 @@ from deg_estimator import (  # noqa: E402, I001
     per_unit_floor as _per_unit_floor,
     pooled_cistron_rates as _pooled_cistron_rates,
     cv_metrics as _cv_metrics,
-    KAPPA_GRID as _KAPPA_GRID,
+    PARAM_GRIDS as _PARAM_GRIDS,
     fold_of as _fold_of,
     pick_param as _pick_param,
     paired_delta as _paired_delta,
@@ -1533,8 +1533,9 @@ def mode_deg_rate_nested_cv(root, variant="hierarchical", k="10", k_inner="5"):
     kb = os.path.join(root, "kb", "simData.cPickle")
     if not os.path.exists(kb):
         return {"error": "no sim_data at %s (run ParCa first)" % kb}
-    if variant not in _DEG_VARIANTS:
-        return {"error": "unknown variant %r" % variant}
+    if variant not in _PARAM_GRIDS:
+        return {"error": "%r takes no hyper-parameter to tune; tunable variants are %s"
+                         % (variant, sorted(_PARAM_GRIDS))}
     with open(kb, "rb") as f:
         sd = pickle.load(f)
 
@@ -1559,7 +1560,7 @@ def mode_deg_rate_nested_cv(root, variant="hierarchical", k="10", k_inner="5"):
 
     def score_on(held, kappa):
         """Fit with `held` unmeasured and return log2 errors on exactly those cistrons."""
-        p_ = "" if kappa is None else ("1e12" if kappa == float("inf") else str(kappa))
+        p_ = "" if kappa is None else ("1e12" if kappa == float("inf") else repr(float(kappa)))
         b, _tr, _ir, _np_ = _impute_b(inp, variant, p_, held)
         est, _ = _resolve_once(inp, variant, p_, b, c_measured & ~held)
         pred = np.asarray(A.dot(est), dtype=float)
@@ -1567,7 +1568,7 @@ def mode_deg_rate_nested_cv(root, variant="hierarchical", k="10", k_inner="5"):
         ok = (pred[h] > 0) & (b_true[h] > 0)
         return h[ok], np.log2(pred[h][ok] / b_true[h][ok])
 
-    grid = list(_KAPPA_GRID)
+    grid = list(_PARAM_GRIDS[variant])
     err_nested, keep, chosen, inner_tables = [], [], [], []
     naive_err = {g: ([], []) for g in grid}
     for f in range(k):

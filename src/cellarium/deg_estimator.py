@@ -124,6 +124,20 @@ not help — a result, not a failure to converge.
 """
 
 
+LAMBDA_GRID = (1e-6, 1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0)
+"""Pre-registered in BACKLOG.md (Stage 3c) before the nested run.
+
+Ten orders of magnitude. 1e-6 is the "do not regularize" null, present for the same reason kappa=inf is in
+KAPPA_GRID: a search that can only choose among strengths of shrinkage will always report that shrinkage
+won. It is 1e-6 and not 0 because lam=0 changes the CODE PATH — `solve_nnls` delegates to the model's
+`fast_nnls` and ignores the prior, so a column no equation touches returns 0 (an infinite half-life, a
+dropped prediction) rather than taking the prior. That is a different estimator, not this one's limit.
+"""
+
+PARAM_GRIDS = {"hierarchical": KAPPA_GRID, "ridge": LAMBDA_GRID}
+"""Which grid a variant is tuned over. `baseline` and `per_unit_bound` take no hyper-parameter."""
+
+
 def pick_param(scores, tie_tol=0.0):
     """Choose the grid value with the lowest inner score; ties go to the LARGER value.
 

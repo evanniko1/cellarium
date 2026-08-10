@@ -12,7 +12,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from . import redact
+from . import deg_estimator, redact
 
 WCECOLI_DIR = os.environ.get("WCECOLI_DIR", "")
 WCECOLI_DOCKER = os.environ.get("WCECOLI_DOCKER", "")
@@ -115,6 +115,10 @@ def deg_rate_provenance(sim_path: str = "cellarium", per_unit: bool = False) -> 
 
 
 DEG_RATE_VARIANTS = ("baseline", "ridge", "per_unit_bound", "hierarchical")
+# Only these two carry a hyper-parameter, so only these two can be nested-tuned. Read from the
+# estimator module rather than restated here: a second copy of the list is a second thing to
+# forget to update.
+TUNABLE_VARIANTS = tuple(deg_estimator.PARAM_GRIDS)
 
 
 def deg_rate_resolve(sim_path: str = "cellarium", variant: str = "baseline",
@@ -189,8 +193,9 @@ def deg_rate_nested_cv(sim_path: str = "cellarium", variant: str = "hierarchical
 
     ~45 s: k_outer x k_inner x |grid| solves.
     """
-    if variant not in DEG_RATE_VARIANTS:
-        return {"error": f"unknown variant {variant!r}; expected one of {list(DEG_RATE_VARIANTS)}"}
+    if variant not in TUNABLE_VARIANTS:
+        return {"error": f"{variant!r} has no hyper-parameter to tune; tunable variants are "
+                         f"{list(TUNABLE_VARIANTS)}"}
     return _invoke("deg_rate_nested_cv", OUT_ROOT / sim_path, [variant, str(int(k)), str(int(k_inner))])
 
 

@@ -279,3 +279,39 @@ def test_the_outer_fold_is_invisible_while_the_parameter_is_chosen(nested):
             f"outer fold {t['fold']}: {t['outer_cistrons_visible_at_selection']} of its own measurements "
             f"were visible while kappa was chosen — the fold being scored is informing its own "
             f"hyper-parameter")
+
+
+# ---------------------------------------------------------------------------------------------------------
+# Stage 3c — the same treatment for ridge's lambda, so "no variant ships" is measured for every variant
+# rather than measured for one and argued for another.
+# ---------------------------------------------------------------------------------------------------------
+
+def test_each_tunable_variant_has_its_own_grid_and_the_others_have_none():
+    """`baseline` and `per_unit_bound` take no hyper-parameter. Handing them to the tuner would silently
+    score the same estimator seven times and report the luckiest fold split as a win."""
+    assert set(de.PARAM_GRIDS) == {"ridge", "hierarchical"}
+    assert de.PARAM_GRIDS["hierarchical"] is de.KAPPA_GRID
+    assert de.PARAM_GRIDS["ridge"] is de.LAMBDA_GRID
+
+
+def test_the_lambda_grid_contains_a_do_not_regularize_null():
+    """Same reason kappa=inf is in its grid: a search that can only choose among strengths of shrinkage will
+    always report that shrinkage won. It is 1e-6 rather than 0 because lam=0 changes the CODE PATH —
+    `solve_nnls` delegates to `fast_nnls` and ignores the prior, so a column no equation touches returns 0
+    (an infinite half-life, a dropped prediction) instead of taking the prior. That is a different
+    estimator, not this one's limit, and the two do not belong in one grid under one name."""
+    assert min(de.LAMBDA_GRID) <= 1e-6 and 0.0 not in de.LAMBDA_GRID
+    assert max(de.LAMBDA_GRID) / min(de.LAMBDA_GRID) >= 1e6, "the grid does not span enough to find an edge"
+
+
+def test_an_untunable_variant_is_refused_before_a_container_starts():
+    out = reader.deg_rate_nested_cv(variant="baseline")
+    assert "error" in out and "no hyper-parameter" in out["error"]
+    assert reader.TUNABLE_VARIANTS == tuple(de.PARAM_GRIDS)
+
+
+def test_the_run_used_the_grid_that_belongs_to_its_variant(nested):
+    """A generic tuner that reached for the wrong grid would score `hierarchical` at kappa = 1e-6 .. 100 and
+    report a clean-looking table of nonsense."""
+    assert nested["variant"] == "hierarchical"
+    assert nested["grid"] == ["inf" if g == float("inf") else g for g in de.KAPPA_GRID]
