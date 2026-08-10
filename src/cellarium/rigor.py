@@ -66,7 +66,7 @@ def coverage() -> dict:
 
 def disconfirm(target: str, reference: str, channel: str) -> dict:
     """Challenge a claimed target-vs-reference effect on `channel`: per-seed spread, noise check, corpus z."""
-    from . import survey
+    from . import hygiene, survey
 
     # ONE shared row source, and `design_key` rather than a private key. Both were wrong here, and in the tool
     # least able to afford it: this had no `reportable` filter (so it averaged crashed runs) and keyed on
@@ -74,7 +74,10 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     # merged two opposite nutrient shifts into one cell. It reported an interval 5.5x NARROWER than
     # survey_corpus for the same cell. A disconfirmation tool more confident than what it checks is worse than
     # no tool at all.
-    rows, _ = survey.analysis_rows()
+    # H-17b: asked for by PURPOSE. This is the call site whose drift was measured — `disconfirm` once keyed
+    # on `perturbation/condition` and reported an interval 5.5x NARROWER than `survey_corpus` over crashed
+    # runs. It is the last place that should be choosing its own filters.
+    rows, _ = hygiene.rows("analysis")
     if not rows:
         return {"error": "corpus unreadable or empty"}
 

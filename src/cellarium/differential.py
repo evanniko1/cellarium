@@ -24,9 +24,14 @@ def _design_seed_values() -> tuple[dict, list[str]]:
     """{ 'perturbation/condition': {channel: [per-seed values]} } + the channel list (incl. pathways). Keeps the
     UN-aggregated replicates behind each design/channel, so a per-channel two-sample test (DS-3) can run on the real
     seed spread rather than a single mean. The means view (`_design_means`) is derived from this."""
-    # ONE shared row source (survey.analysis_rows) — this used to be a private copy that, unlike survey_corpus's,
-    # never filtered on `reportable`, so every Welch test here silently averaged in crashed runs.
-    rows, channels = survey.analysis_rows()
+    # ONE shared row source, asked for BY PURPOSE (H-17b). This used to be a private copy that, unlike
+    # survey_corpus's, never filtered on `reportable`, so every Welch test here silently averaged in crashed
+    # runs. Going through `hygiene.rows("analysis")` rather than calling the primitive directly is what makes
+    # that impossible to reintroduce: the purpose names the filters, and `ctx["NOT_for"]` says out loud that
+    # this set cannot be used to count lethality.
+    from . import hygiene
+    rows, _ctx = hygiene.rows("analysis")
+    channels = _ctx["channels"]
     if not rows:
         return {}, []
     val = survey.channel_value

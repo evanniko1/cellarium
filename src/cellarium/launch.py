@@ -132,7 +132,10 @@ def kb_dependents(sim_path: str) -> dict:
     """
     from . import manifest, survey
     try:
-        rows, _ = survey.analysis_rows(arm="all")
+        # arm="all" is deliberate here: this counts what DEPENDS on a knowledge base across every arm, which
+        # is a coverage question about the corpus rather than a comparison within it.
+        from . import hygiene
+        rows, _ = hygiene.rows("analysis", arm="all")
         here = (manifest._kb_prov(sim_path) or {}).get("kb_sha256")
     except Exception as exc:
         return {"sim_path": sim_path, "error": str(exc)[:160], "n": 0, "kb_sha256": None}

@@ -138,8 +138,23 @@ def test_the_read_surface_is_enumerated_not_estimated():
 
 
 def test_migration_progress_is_not_overstated():
-    """`migrated` is empty and the note says so. A boundary that exists is not a boundary that is used, and
-    reporting the first as the second is how a P1 gets closed while the defect stays live."""
+    """A boundary that exists is not a boundary that is used, and reporting the first as the second is how a
+    P1 gets closed while the defect stays live. `migrated` names the call sites actually moved and must stay
+    a SMALL fraction of the enumerated surface until it genuinely is not."""
     s = hygiene.read_sites()
-    assert s["migrated"] == [], "update the note and this test together when call sites move"
-    assert "nothing has been moved onto it yet" in s["note"]
+    assert s["migrated"], "batch 1 moved three call sites; this list should name them"
+    assert len(s["migrated"]) < s["n_consumer_modules"], (
+        "migrated call sites now outnumber the consumer modules — recount the surface rather than "
+        "assuming the migration is finished")
+    assert "small fraction" in s["note"]
+
+
+def test_the_disconfirmation_tool_asks_by_purpose():
+    """The one call site with a MEASURED drift: `rigor.disconfirm` once keyed on `perturbation/condition` and
+    reported an interval 5.5x narrower than `survey_corpus`, over crashed runs. It is the last place that
+    should be choosing its own filters."""
+    import inspect
+
+    from src.cellarium import differential, rigor
+    assert 'hygiene.rows("analysis")' in inspect.getsource(rigor.disconfirm)
+    assert 'hygiene.rows("analysis")' in inspect.getsource(differential)

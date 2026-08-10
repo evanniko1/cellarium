@@ -170,10 +170,10 @@ def read_sites() -> dict:
     return {
         "direct_read_parquet": direct, "n_direct_modules": len(direct),
         "downstream_consumers": consumers, "n_consumer_modules": len(consumers),
-        "migrated": [],
+        "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents"],
         "note": ("A direct `read_parquet` bypasses every rule in `data/INVARIANTS.json`; a consumer of "
                  "`list_results`/`analysis_rows` gets the primitive's filters but chooses its own on top, "
                  "which is where the measured 5.5x `disconfirm` drift came from. Both counts have to fall "
-                 "for this boundary to have done its job, and `migrated` being empty is the honest state: "
-                 "the boundary exists and nothing has been moved onto it yet."),
+                 "for this boundary to have done its job. `migrated` lists the call sites that now ask by "
+                 "PURPOSE; it is a small fraction of the surface above and is meant to be read as such."),
     }
