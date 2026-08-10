@@ -1131,6 +1131,56 @@ manufacture distinct values (add noise and "resolution" goes to 100%), so *disti
 criterion* — predicting measurements the fit never saw is. Report against the current bounded fit as the
 baseline, with the fold protocol fixed BEFORE any variant is run.
 
+#### 🔒 Stage 3 protocol — PRE-REGISTERED 2026-08-10, BEFORE any variant was scored
+
+*Committed in its own commit, ahead of the run, so that "we picked the metric that made our variant win" is
+not available as an explanation. Every choice below is fixed. If any of it changes, the change and its reason
+go in this block and the run is repeated for ALL variants, not just the affected one.*
+
+**What is held out.** The 3,246 measured mRNA CISTRONS (genes), not transcription units. That is where the
+data actually is — only 110 TUs carry a direct half-life measurement, and those stay fixed in every fold
+because they are a different data source (TU-level entries in `rna_half_lives`, not gene-level ones).
+
+**Folds.** k = 10, assigned by a stable hash of the cistron ID (`sha1(id) % 10`), NOT by a seeded shuffle.
+A hash is reproducible across knowledge bases, orderings and library versions; a shuffle needs its seed AND
+the array order preserved, and the array order is a property of the fit. Every measurement is predicted
+exactly once, and the fold assignment is identical for every variant by construction.
+
+**What a fold does.** The held-out cistrons are treated exactly as UNMEASURED — they receive whatever the
+variant's imputation rule gives them (global mean for `baseline`/`ridge`/`per_unit_bound`, operon-pooled for
+`hierarchical`) and their measurements are removed from every quantity derived from the measured set,
+including the global floor. Anything less is leakage.
+
+**What is predicted.** The estimator returns per-TU rates `x`; the measurement is per-cistron. The prediction
+for held-out cistron *i* is `(A x)_i` — the abundance-weighted mixture of the rates of the TUs that carry it,
+which is precisely the quantity the estimator's own objective is fitting.
+
+**Metric.** `log2(predicted rate / measured rate)`. Half-lives span more than two orders of magnitude, so an
+absolute error in 1/s is dominated by the fastest transcripts and says nothing about the rest. Reported as:
+**median |log2 error|** (headline), **fraction within 2-fold** (`|log2| <= 1`), and the **signed median** so
+that a systematic bias — an estimator that is reliably too slow — is visible rather than absorbed into a
+magnitude.
+
+**Strata, fixed now.** Reported overall AND separately for (a) cistrons whose TUs are on the floor in the
+baseline fit — criterion (i) requires *better* there, not merely no worse; (b) cistrons in multi-TU operons
+versus single-TU ones, because the estimator's whole difficulty is the mixture and pooling the two hides it.
+
+**The imputation's own error, measured on the same folds.** For every held-out cistron, also score the
+prediction the CURRENT imputation would have made — the global mean — against its true value. This is the
+number the 1,100 genuinely unmeasured cistrons are silently carrying, and nothing has ever measured it. It is
+a property of the data, not of any variant, so it is the same in every arm and can be reported directly.
+
+**Decision rule, stated before the numbers exist.** A variant beats the baseline only if its median |log2
+error| is lower BOTH overall AND on the floor stratum. A variant that wins overall while losing on the floor
+stratum has improved the units that were already fine, which is not the defect. Ties (difference < 0.01 in
+median |log2|) are reported as ties, not resolved in favour of the more interesting variant.
+
+**What this CANNOT decide, stated now so it is not claimed later.** The 209 units in no equation and the 783
+in imputation-passthrough blocks have no held-out measurement to predict — for most of them there is no
+measurement at all. Cross-validation is silent about them by construction. It can size the ERROR the current
+default makes on genes we did measure, and that is the honest evidence for how big the explicit *unknown*
+class should be; it cannot rank estimators on units no estimator can reach.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
