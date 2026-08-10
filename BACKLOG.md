@@ -1034,6 +1034,55 @@ no rebuild, no container run and no new arm.** Candidate variants, all evaluable
   * **hierarchical pooling** — partial pooling toward a group mean (by operon, length or expression
     decile) rather than a single global median.
 
+✅ **Stage 2 BUILT AND RUN, 2026-08-10 — and it revises this design in two places.** `reader.deg_rate_resolve`
+re-solves the estimator against any knowledge base in about ninety seconds: no ParCa, no rebuild, no arm. All
+four variants above are implemented (`baseline`, `ridge`, `per_unit_bound`, `hierarchical`). The mathematics
+lives in `src/cellarium/deg_estimator.py`, host-importable and unit-testable without a model image; the
+sim_data half stays in the container worker. **16 tests, three verified by injection.**
+
+- 🎯 **The calibration, which gates everything else.** The offline re-solve reproduces the shipped fit on
+  **3,270 of 3,276 units to <1e-12**. It is not bit-exact, and the reason is now known exactly rather than
+  guessed: the abundancy matrix is built from `fit_rna_expression(cistron_expression['basal'])`, and ParCa
+  **overwrites `cistron_expression['basal']` afterwards** (`fit_sim_data_1.py:964`), so *the estimator's own
+  input is not preserved in the artifact*. The re-solve reconstructs it from the post-fit vector; all 6 units
+  that differ are unmeasured ones whose relative-abundance weights moved. **Protocol consequence, and it is
+  not optional: compare a variant against the BASELINE RE-SOLVE, never against the shipped `deg_rate` vector.**
+  Only the former shares a variant's inputs. Every payload carries a `fidelity` block saying so.
+- 🔬 **The rank deficiency is real but it is not what this design assumed.** 214 deficient columns — confirmed
+  independently. But **209 of the 214 are columns that are ENTIRELY ZERO**: transcription units whose fitted
+  expression is 0, so every one of their cistrons gives them relative abundance 0 and *no equation mentions
+  them at all*. Only **5** are genuine within-block dependencies; 224 units are undetermined in total. All 209
+  land exactly on the floor, carrying 0.99% of mRNA expression — so of the 246 units on the floor, **209 are
+  there because the system is silent about them**, not because a bound bound them. This decides remedies: a
+  per-unit bound cannot touch a unit that appears in no equation.
+- ❌ **Design principle (2) is half wrong, and the measurement says so.** *"Prefer a SOFT prior to a HARD
+  bound: a wall creates a point mass of units sitting exactly on it; a penalty does not."* **A penalty does.**
+  Ridge removes the floor mass (246 units → 0) and *grows* the mass at the prior: 602 → **786 units**
+  (19.2% → 25.1%). It relocates the point mass instead of removing it — the same failure the coverage filter
+  showed one level up.
+- 🧨 **And the bigger half of the defect is UPSTREAM OF THE SOLVE.** **783 mRNA units — 25% of them, carrying
+  8.15% of mRNA expression — sit in blocks whose entire right-hand side IS the imputation constant**, because
+  every cistron in the block was itself imputed. Any solver returns the constant. Verified by construction,
+  not inferred: the ridge point mass is **identical at λ = 0.001, 0.01, 0.1 and 1.0**, a 1000× range. So
+  acceptance criterion (ii) — no value carried by more than ~1% of units — **cannot be met by any change to
+  the estimator**, and the honest reading is that ≥783 units need a better *imputation* or an explicit
+  *unknown*, not a cleverer solve.
+- 📊 **What did move the right numbers** (descriptive, NOT scores — see below):
+  | variant | units at the biggest point mass | on the floor | floor's share of mRNA expression | distinct half-lives |
+  |---|---|---|---|---|
+  | `baseline` | 602 (19.2%) | 246 | **4.59%** | 845 |
+  | `ridge` (λ=0.1) | **786 (25.1%)** | 0 | — | 1035 |
+  | `per_unit_bound` | 574 (18.3%) | 215 | **1.02%** | 773 |
+  | `hierarchical` (κ=5) | **567 (18.1%)** | 245 | 4.52% | 880 |
+  `per_unit_bound` cuts the expression resting on the floor by 4.5x — heavily-transcribed units get their own,
+  tighter, better-justified bound — at the cost of resolution (845 → 773 distinct values), and 811 units have
+  no measured cistron anywhere so they keep the global floor. `hierarchical` is the ONLY lever that touches
+  the imputed mass, and it moves it modestly (602 → 567) because only 405 unmeasured cistrons sit in an operon
+  with a measured neighbour to pool toward.
+- ⚠️ **None of the above is evidence that any variant is better.** Distinctness is manufacturable — add noise
+  and every point mass disappears — so the table is descriptive and the payload refuses to be read as a score.
+  Held-out predictive accuracy is Stage 3, and its protocol below was fixed before these numbers existed.
+
 **Stage 3 — pre-registered evaluation.** The objective is **held-out predictive accuracy on measured
 cistrons**: hide a fold of the measurements, fit, predict them, score. This matters because any scheme can
 manufacture distinct values (add noise and "resolution" goes to 100%), so *distinctness is not the
@@ -1056,6 +1105,13 @@ field in the SAME arm (both recorded under PARCA-4 in *Tier 1 additions*). Budge
 measurements, then the data genuinely does not determine those units, and the honest outcome is not a
 cleverer estimator but an explicit *unknown* class carried into the simulation and into every claim that
 touches those transcripts. That is a legitimate result and should be reported as one, not iterated away.
+
+**UPDATE 2026-08-10 — Stage 2 forced part of that outcome without waiting for Stage 3.** The explicit
+*unknown* is no longer only the fallback if variants underperform: **209 units appear in no equation at all**
+and **783 sit in blocks whose right-hand side is entirely the imputation constant**. No estimator can
+determine those from this input, whatever Stage 3 finds. What Stage 3 can still decide is whether the
+~2,200 units that DO touch a measurement are better served by a bound, a prior or a pooled group — and
+whether the unknown class should be ~209 units (0.99% of mRNA expression) or ~783 (8.15%).
 
 ### SP-2 · Cellwright receptive field
 
@@ -1602,6 +1658,14 @@ were live defects, one was a false accusation against a correct corpus, and none
     other scouted plans, because that is where this repo keeps agreed-but-unbuilt approaches. It is a
     proposal, not a decision: staged so stages 1-3 mint no arm, with pre-registered acceptance
     criteria and a recorded refutation condition.
+  - ✅ **STAGES 1 AND 2 ARE NOW BUILT (2026-08-10); the corpus is untouched and no arm was minted.**
+    `reader.deg_rate_resolve` re-solves the estimator offline in ~90 s with four variants. The two findings
+    that change the diagnosis recorded above: **209 of the 246 units on the floor are there because no
+    equation mentions them at all** (their fitted expression is 0, which zeroes their whole column), and
+    **783 units — 8.15% of mRNA expression — sit in blocks whose right-hand side is entirely the imputation
+    constant, so no change to the SOLVER can move them.** A soft prior does not dissolve the point mass; it
+    merges the floor's into the prior's (602 → 786 units, λ-invariant over 1000×). Details in the design
+    section.
 
   - ⏳ **REMAINING, and also NOT scheduled:** marking bound-pinned rates IN `sim_data`, so downstream CODE can
     tell a constraint from a fit without re-deriving it. Held for the same reason as the filter, plus one of

@@ -1031,6 +1031,284 @@ def mode_deg_rate_provenance(root, per_unit="0"):
                  "rests on a constraint or a population mean, not on a measurement of that transcript."),
     }
 
+
+# =============================================================================================================
+# PARCA-4 Stage 2 — re-solve the degradation-rate estimator OFFLINE.
+#
+# The estimator (wcEcoli `transcription.py:701-737`) solves ONE nonnegative least-squares problem: the
+# cistron x transcription-unit relative-abundancy matrix A times the per-TU degradation rates x should
+# reproduce the per-cistron rates b. Every input to that solve is either IN `sim_data` or recomputable from
+# it, so the whole thing can be re-run against a knowledge base in seconds — no ParCa, no container rebuild,
+# no new arm. That is what makes evaluating candidate estimators affordable at all; a rebuild per variant
+# would be ~7 minutes plus a comparability arm each.
+#
+# THE ONE INPUT THAT IS NOT PRESERVED, stated up front because every number below inherits it. The abundancy
+# matrix is built from `expression, _ = fit_rna_expression(cistron_expression['basal'])` at build time, and
+# ParCa OVERWRITES `cistron_expression['basal']` afterwards (`fit_sim_data_1.py:964`). The re-solve therefore
+# reconstructs A from the POST-fit cistron expression, which is close but not identical. Measured: the
+# baseline re-solve reproduces the shipped fit on 3,270 of 3,276 units to <1e-12. All 6 that differ are
+# UNMEASURED units whose relative-abundance weights moved when that vector was overwritten; one (TU0-6626)
+# has no information at all in the reconstructed system. `fidelity` reports this every time rather than
+# leaving it to a footnote, and the comparison that matters is always variant vs BASELINE-RE-SOLVE
+# (identical inputs), never variant vs shipped vector.
+#
+# WHAT THE BLOCK CENSUS FOUND, and it revises PARCA-4's own diagnosis. The rank deficiency of 214 columns is
+# real, but it is not 214 ambiguous co-transcription splits: 209 of the 214 are columns that are ENTIRELY
+# ZERO — transcription units whose fitted expression is 0, so every cistron gives them relative abundance 0
+# and they appear in no equation whatsoever. Only 5 are genuine within-block dependencies. This matters for
+# the remedy: a per-unit bound cannot touch a unit that is in no equation, while a soft prior sets it to the
+# prior by construction and says so.
+# =============================================================================================================
+
+# Flat import: this file is always RUN as a script (`python /cellarium_reader/_reader_worker.py ...`),
+# in the container and in native mode alike, so its own directory is on sys.path. It is never imported
+# as part of the package -- `from wholecell...` at module scope makes that impossible off the image.
+from deg_estimator import (  # noqa: E402, I001
+    DEG_VARIANTS as _DEG_VARIANTS,
+    nnls_blocks as _nnls_blocks,
+    per_unit_floor as _per_unit_floor,
+    pooled_cistron_rates as _pooled_cistron_rates,
+    solve_nnls as _solve_nnls,
+)
+
+
+def _deg_rate_inputs(sd):
+    """Rebuild every input the estimator consumed, from sim_data alone."""
+    import numpy as np
+    from scipy.sparse import csr_matrix
+    from wholecell.utils import units as _u
+
+    t = sd.process.transcription
+    rna = t.rna_data
+    n = len(rna["id"])
+    ids = [str(x) for x in rna["id"]]
+    is_mRNA = np.asarray(rna["is_mRNA"], dtype=bool)
+    is_rtRNA = np.asarray(rna["is_rRNA"], dtype=bool) | np.asarray(rna["is_tRNA"], dtype=bool)
+    measured = np.asarray(rna["deg_rate_is_measured"], dtype=bool)
+    shipped = np.asarray(rna["deg_rate"].asNumber(1 / _u.s), dtype=float)
+
+    expression, _res = t.fit_rna_expression(t.cistron_expression["basal"])
+    ci, ri, v = [], [], []
+    for c_idx, c_id in enumerate(t.cistron_data["id"]):
+        tus = t.cistron_id_to_rna_indexes(c_id)
+        w = np.zeros(len(tus))
+        for i, tu in enumerate(tus):
+            ci.append(c_idx)
+            ri.append(tu)
+            w[i] = expression[tu]
+        # wcEcoli's own rule: a cistron with no expression splits uniformly across its TUs.
+        w = np.full(len(w), 1.0 / len(w)) if w.sum() == 0 else w / w.sum()
+        v.extend(w)
+    ci, ri, v = np.array(ci), np.array(ri), np.array(v)
+    A = csr_matrix((v, (ci, ri)), shape=(ci.max() + 1, ri.max() + 1))
+    # A cistron that maps to two TUs, one of which has zero expression, stores an EXPLICIT 0.0. `fast_nnls`
+    # partitions on `A.nonzero()`, which drops those, so a block census that keeps them sees edges the solver
+    # does not and reports a unit as constrained when nothing constrains it. Drop them here so the structural
+    # analysis and the solver are looking at the same matrix.
+    A.eliminate_zeros()
+
+    b = np.asarray(t.cistron_data["deg_rate"].asNumber(1 / _u.s), dtype=float)
+    c_is_mRNA = np.asarray(t.cistron_data["is_mRNA"], dtype=bool)
+    imputed_rate = float(np.log(2) / t.average_mRNA_cistron_half_life.asNumber(_u.s))
+    # A cistron was MEASURED iff its rate is not bit-exactly the imputation constant. Value-matching is
+    # exact here rather than heuristic: the constant is a 64-bit mean of the reported set, and a measured
+    # half-life colliding with it to the last bit does not happen (checked: the nearest measured value is
+    # 6 ULP away).
+    c_measured = c_is_mRNA & (np.abs(b - imputed_rate) > 1e-18)
+    return {"t": t, "n": n, "ids": ids, "A": A, "b": b, "expression": expression,
+            "is_mRNA": is_mRNA, "is_rtRNA": is_rtRNA, "measured": measured, "shipped": shipped,
+            "c_is_mRNA": c_is_mRNA, "c_measured": c_measured, "imputed_rate": imputed_rate,
+            "mRNA_cistron_rates": b[c_is_mRNA],
+            "stable_rate": float(np.log(2) / sd.constants.stable_RNA_half_life.asNumber(_u.s))}
+
+
+def mode_deg_rate_resolve(root, variant="baseline", param=""):
+    """Re-solve the degradation-rate estimator offline and report what the result looks like (PARCA-4 Stage 2).
+
+    Variants:
+      * `baseline`       — the shipped procedure, re-run here. The reference every other variant is compared
+                           against, because it shares their inputs exactly.
+      * `ridge`          — no floor and no clip; a Tikhonov pull toward the population prior instead
+                           (`param` = lambda, default 0.1). A wall creates a point mass of units sitting
+                           exactly on it; a penalty does not, and the per-unit pull IS the provenance measure.
+      * `per_unit_bound` — the floor is taken from each TU's own measured cistrons rather than from the single
+                           slowest transcript in the organism.
+      * `hierarchical`   — unmeasured cistrons are imputed from their OPERON's measured cistrons, shrunk
+                           toward the global mean (`param` = kappa, default 5).
+
+    THIS REPORTS, IT DOES NOT SCORE. Distinctness is trivially manufacturable — add noise and every point mass
+    disappears — so nothing here says a variant is better. Held-out predictive accuracy on measurements the
+    fit never saw is the criterion, it is Stage 3, and its protocol is pre-registered in BACKLOG.md before any
+    variant runs.
+    """
+    import pickle
+
+    import numpy as np
+
+    if variant not in _DEG_VARIANTS:
+        return {"error": "unknown variant %r; expected one of %s" % (variant, list(_DEG_VARIANTS))}
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": "no sim_data at %s (run ParCa first)" % kb}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+
+    inp = _deg_rate_inputs(sd)
+    A, n, ids = inp["A"], inp["n"], inp["ids"]
+    is_mRNA, is_rtRNA, measured = inp["is_mRNA"], inp["is_rtRNA"], inp["measured"]
+    shipped, mrna_rates = inp["shipped"], inp["mRNA_cistron_rates"]
+    b = inp["b"]
+    notes = []
+
+    # ---- the floor / prior each variant shifts by, and the b vector it targets --------------------------
+    if variant == "hierarchical":
+        b, n_pooled = _pooled_cistron_rates(
+            inp["t"].operons, b, inp["c_is_mRNA"], inp["c_measured"], inp["imputed_rate"],
+            kappa=float(param or 5.0))
+        notes.append("%d unmeasured mRNA cistrons imputed from their operon instead of the global mean"
+                     % n_pooled)
+    n_no_bound = None
+    if variant == "per_unit_bound":
+        floor_full, n_no_bound = _per_unit_floor(
+            A, is_mRNA, b, inp["c_measured"], float(mrna_rates.min()))
+        notes.append("%d mRNA units have NO measured cistron anywhere in them, so no per-unit bound exists "
+                     "for them and they keep the global floor" % n_no_bound)
+    else:
+        floor_full = np.zeros(n)
+        floor_full[is_mRNA] = float(mrna_rates.min())
+
+    if variant == "ridge":
+        lam = float(param or 0.1)
+        prior = np.zeros(n)
+        prior[is_mRNA] = inp["imputed_rate"]
+        A_no = A[:, ~measured]
+        rhs = b - A[:, measured].dot(shipped[measured])
+        x = _solve_nnls(A_no, rhs, prior=prior[~measured], lam=lam)
+        est = np.zeros(n)
+        est[measured] = shipped[measured]
+        est[~measured] = x
+        notes.append("no floor and no clip: lambda=%g pulls each unit toward the population prior" % lam)
+    else:
+        floor = floor_full[~measured]
+        A_no, A_with = A[:, ~measured], A[:, measured]
+        rhs = b - A_with.dot(shipped[measured]) - A_no.dot(floor)
+        x = _solve_nnls(A_no, rhs)
+        est = np.zeros(n)
+        est[measured] = shipped[measured]
+        est[~measured] = x + floor
+        mx = float(mrna_rates.max())
+        est[np.logical_and(is_mRNA, est > mx)] = mx
+    est[is_rtRNA] = inp["stable_rate"]
+
+    # ---- structure: which units are UNDETERMINED, from the block ranks ---------------------------------
+    A_un = A[:, ~measured]
+    blocks = _nnls_blocks(A_un)
+    unmeasured_idx = np.where(~measured)[0]
+    deficiency = 0
+    undetermined = np.zeros(n, dtype=bool)
+    zero_info = np.zeros(n, dtype=bool)
+    passthrough = np.zeros(n, dtype=bool)
+    c_measured = inp["c_measured"]
+    for rows, cols in blocks:
+        if len(rows) == 0:
+            # No equation touches this column. Not "poorly determined" — the system is silent about it.
+            zero_info[unmeasured_idx[cols]] = True
+            undetermined[unmeasured_idx[cols]] = True
+            passthrough[unmeasured_idx[cols]] = True
+            deficiency += len(cols)
+            continue
+        if not c_measured[rows].any():
+            # Every cistron in this block was itself imputed, so the whole right-hand side IS the imputation
+            # constant. Any solver — bounded, ridged, anything — returns that constant. This class is not an
+            # estimator problem at all; it is the cistron-level imputation passing through.
+            passthrough[unmeasured_idx[cols]] = True
+        sub = np.asarray(A_un[rows][:, cols].todense())
+        r = int(np.linalg.matrix_rank(sub)) if sub.size else 0
+        if r < len(cols):
+            deficiency += len(cols) - r
+            undetermined[unmeasured_idx[cols]] = True
+
+    # ---- what the answer looks like --------------------------------------------------------------------
+    exp = np.asarray(inp["t"].rna_expression["basal"], dtype=float)
+    tot = float(exp[is_mRNA].sum()) or 1.0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        hl = np.log(2) / est / 60.0
+    # Grouped at 9 decimals (60 ns), NOT by exact float equality. Two units given the same imputation
+    # constant can land on floats a few ULP apart after the floor shift and the division, and exact-equality
+    # grouping then reports the same point mass twice at half its size — which reads as the defect being
+    # smaller than it is.
+    hl_r = np.round(hl, 9)
+    finite_m = is_mRNA & np.isfinite(hl_r)
+    on_floor = finite_m & (hl_r == np.round(float(np.nanmax(hl[finite_m])), 9))
+    vals, counts = np.unique(hl_r[is_mRNA][np.isfinite(hl_r[is_mRNA])], return_counts=True)
+    order = np.argsort(-counts)[:6]
+    masses = []
+    for k in order:
+        m = is_mRNA & (hl_r == vals[k])
+        masses.append({"half_life_min": round(float(vals[k]), 9), "n_units": int(counts[k]),
+                       "pct_units": round(100.0 * int(counts[k]) / int(is_mRNA.sum()), 3),
+                       "pct_mrna_expression": round(100.0 * float(exp[m].sum()) / tot, 4)})
+
+    out = {
+        "variant": variant, "param": param or None, "root": root,
+        "inputs": {"n_units": n, "n_mrna_units": int(is_mRNA.sum()),
+                   "n_measured_units": int(measured.sum()),
+                   "n_mrna_cistrons": int(inp["c_is_mRNA"].sum()),
+                   "n_measured_mrna_cistrons": int(inp["c_measured"].sum()),
+                   "imputed_half_life_min": round(float(np.log(2) / inp["imputed_rate"] / 60.0), 6)},
+        "structure": {"n_unmeasured_columns": int((~measured).sum()), "n_blocks": len(blocks),
+                      "rank_deficiency": deficiency,
+                      "units_undetermined": int(undetermined.sum()),
+                      "units_with_zero_information": int(zero_info.sum()),
+                      "zero_information_units_on_the_floor": int((zero_info & on_floor).sum()),
+                      "pct_mrna_expression_zero_information": round(
+                          100.0 * float(exp[zero_info & is_mRNA].sum()) / tot, 4),
+                      "units_imputation_passthrough": int((passthrough & is_mRNA).sum()),
+                      "pct_mrna_expression_passthrough": round(
+                          100.0 * float(exp[passthrough & is_mRNA].sum()) / tot, 4),
+                      "note": ("A unit inside a rank-deficient block has NO unique solution — the estimator "
+                               "returns one arbitrary point of a null space. Curating the input cannot fix "
+                               "that, which is why the coverage filter relocated the floor without reducing "
+                               "the count. `units_with_zero_information` is the sharper sub-class: those "
+                               "columns are ENTIRELY ZERO because the unit's fitted expression is 0, so no "
+                               "equation mentions them and the value returned is whatever the default is.")},
+        "point_masses": masses,
+        "largest_point_mass_pct_units": masses[0]["pct_units"] if masses else None,
+        "distinct_half_lives": int(len(vals)),
+        "notes": notes,
+        "not_scored": ("Descriptive only. Any scheme can manufacture distinct values, so the disappearance "
+                       "of a point mass is NOT evidence of a better estimator. Stage 3 scores held-out "
+                       "predictive accuracy on measurements the fit never saw."),
+    }
+
+    # ---- fidelity: how close is the offline re-solve to what ParCa actually shipped? --------------------
+    d = np.abs(est - shipped)
+    diff = np.where(d > 1e-12)[0]
+    out["fidelity"] = {
+        "n_units_matching_shipped": int(n - len(diff)),
+        "n_units_differing": int(len(diff)),
+        "max_abs_difference": float(d.max()),
+        "differing_units": [{"id": ids[i], "shipped": float(shipped[i]), "resolved": float(est[i]),
+                             "undetermined": bool(undetermined[i])} for i in np.argsort(-d)[:10]
+                            if d[i] > 1e-12],
+        "all_differing_are_undetermined": bool(len(diff) == 0 or undetermined[diff].all()),
+        "why": ("The abundancy matrix is built from `fit_rna_expression(cistron_expression['basal'])`, and "
+                "ParCa OVERWRITES `cistron_expression['basal']` after the estimator has run "
+                "(fit_sim_data_1.py:964), so the estimator's own input is not preserved in the artifact. The "
+                "re-solve reconstructs it from the post-fit vector. Where the shipped answer was determined "
+                "by the data the two agree; where it was not, both are arbitrary picks in a null space."),
+        "read_this_way": ("Compare a variant against the BASELINE RE-SOLVE, never against the shipped "
+                          "vector — only the former shares its inputs."),
+    }
+    if variant != "baseline":
+        out["fidelity"]["caveat"] = ("For a non-baseline variant these differences are the VARIANT's effect "
+                                     "and the input gap combined, and cannot be separated. Use the baseline "
+                                     "run's fidelity block to size the input gap.")
+    if n_no_bound is not None:
+        out["units_without_a_per_unit_bound"] = n_no_bound
+    return out
+
+
 if __name__ == "__main__":
     mode, run_root = sys.argv[1], sys.argv[2]
     if mode == "run":
@@ -1061,6 +1339,9 @@ if __name__ == "__main__":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
     elif mode == "deg_rate_provenance":
         out = mode_deg_rate_provenance(run_root, sys.argv[3] if len(sys.argv) > 3 else "0")
+    elif mode == "deg_rate_resolve":
+        out = mode_deg_rate_resolve(run_root, sys.argv[3] if len(sys.argv) > 3 else "baseline",
+                                    sys.argv[4] if len(sys.argv) > 4 else "")
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

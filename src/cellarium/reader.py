@@ -114,6 +114,39 @@ def deg_rate_provenance(sim_path: str = "cellarium", per_unit: bool = False) -> 
     return _invoke("deg_rate_provenance", OUT_ROOT / sim_path, ["1"] if per_unit else None)
 
 
+DEG_RATE_VARIANTS = ("baseline", "ridge", "per_unit_bound", "hierarchical")
+
+
+def deg_rate_resolve(sim_path: str = "cellarium", variant: str = "baseline",
+                     param: float | str | None = None) -> dict:
+    """Re-solve the degradation-rate estimator OFFLINE against a knowledge base (PARCA-4 Stage 2).
+
+    The estimator is one nonnegative least-squares problem, and every input to it is in `sim_data` or
+    recomputable from it — so a candidate estimator can be evaluated in a couple of minutes instead of a
+    7-minute ParCa rebuild plus a comparability arm. That is the whole reason PARCA-4 is affordable to work
+    on at all.
+
+    Variants: `baseline` (the shipped procedure re-run here), `ridge` (soft prior instead of a hard floor,
+    `param`=lambda), `per_unit_bound` (each TU floored by its own measured cistrons), `hierarchical`
+    (unmeasured cistrons imputed from their operon, `param`=kappa).
+
+    ALWAYS COMPARE A VARIANT AGAINST `variant="baseline"`, NOT against the shipped `deg_rate` vector. ParCa
+    overwrites `cistron_expression['basal']` after the estimator runs (`fit_sim_data_1.py:964`), so the
+    estimator's own input is not preserved in the artifact and the re-solve reconstructs it from the post-fit
+    vector. That reproduces the shipped fit on 3,270 of 3,276 units, and every payload carries a `fidelity`
+    block reporting the gap — but only the baseline re-solve shares a variant's inputs exactly.
+
+    DESCRIPTIVE, NOT A SCORE. Any scheme can manufacture distinct values, so a point mass disappearing is not
+    evidence of a better estimator. Held-out predictive accuracy is Stage 3.
+
+    Heavy (unpickles sim_data and re-solves ~2,900 NNLS blocks); expect a minute or two.
+    """
+    if variant not in DEG_RATE_VARIANTS:
+        return {"error": f"unknown variant {variant!r}; expected one of {list(DEG_RATE_VARIANTS)}"}
+    return _invoke("deg_rate_resolve", OUT_ROOT / sim_path,
+                   [variant, "" if param is None else str(param)])
+
+
 PROVENANCE_BASELINE = "data/parca/deg_rate_baseline.json"
 
 
