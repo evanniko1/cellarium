@@ -1083,6 +1083,48 @@ sim_data half stays in the container worker. **16 tests, three verified by injec
   and every point mass disappears — so the table is descriptive and the payload refuses to be read as a score.
   Held-out predictive accuracy is Stage 3, and its protocol below was fixed before these numbers existed.
 
+#### 📄 APPENDIX-READY — the four situations, in terms a reader can check
+
+*Written for the paper's appendix (revision pending Filippo's comments). The bullets above record the numbers;
+this records the TAXONOMY that makes them legible to someone who has not read the code. Keep the two in sync.*
+
+The estimator solves one bill-splitting problem. *E. coli* transcribes **operons** — one transcript carrying
+several genes — but half-lives are measured per GENE. Each gene's measured decay rate is a weighted mixture of
+the rates of the transcripts that carry it, and the estimator inverts that: given the per-gene numbers, recover
+the per-transcript ones. Every mRNA transcript falls into exactly one of four situations, and only the first is
+inference:
+
+| # | situation | bill-splitting analogy | transcripts | share of mRNA expression |
+|---|---|---|---|---|
+| 1 | **Determined** — the data fixes a unique value | a dish one person ate, alone: their share IS its price | ~2,900 | the remainder |
+| 2 | **Degenerate** — several values fit equally well | two dishes always ordered together in the same proportion: £30 total, but £10+£20 and £25+£5 fit identically | **5** deficient columns (15 units in those blocks) | negligible |
+| 3 | **No information** — the unit is in NO equation | a dish on the menu that nobody ordered | **209** | **0.99%** |
+| 4 | **Imputation passthrough** — the answer is the number that was invented | you don't know what Alice spent, so you write in "£20, the table average", solve, and read back £20 | **783** (25.0%) | **8.15%** |
+
+Situation 4 is the one that matters and it is circular: an unmeasured gene is assigned
+`average_mRNA_cistron_half_life` — the MEAN of the genes that WERE measured — and that value is then treated as
+data by the solve, which duly recovers it. Nothing was learned about that transcript; the invented number was
+read back. 783 transcripts sit in groups where EVERY member's number was invented this way, so **no change to
+the estimator can move them** — the constant is in the right-hand side, not in the solver.
+
+**The evidence that this is structural and not a tuning failure:** the soft-prior variant was run at penalty
+strengths spanning **1000×** (λ = 0.001, 0.01, 0.1, 1.0) and the point mass at the prior was **786 units at
+every setting**. A tuning problem moves with the knob.
+
+**What this licenses us to claim, and what it does not.** Not *"we found a defect and fixed it."* The
+defensible claim is stronger and more checkable: **a quarter of the degradation table is a constant rather than
+a fit, and most of that mass cannot be removed by better estimation, because the information is not in the
+data.** Situations 3 and 4 are properties of the inputs; only situation 2 is a property of the solve.
+
+- ✅ **What SURVIVED the revision**, stated because a reviewer will ask and because "the design was wrong" is
+  not what happened. Principle (1) — per-unit provenance as a first-class output, not a bolted-on diagnostic —
+  is *vindicated*: it is the only reason situations 3 and 4 were separable at all. Principle (3) —
+  pre-registered held-out evaluation — is untouched and still governs Stage 3. The STAGING is vindicated: the
+  whole of Stages 1-2 minted no arm, cost ~90 s per variant against a 7-minute rebuild plus comparator
+  re-runs, and stopped an arm being spent on ridge, which would have made the headline metric worse.
+  Acceptance criteria (i), (iii) and (iv) stand unchanged. What fell is principle (2)'s second clause and
+  criterion (ii)'s reachability-by-estimator — two specific sentences, measured and replaced.
+
 **Stage 3 — pre-registered evaluation.** The objective is **held-out predictive accuracy on measured
 cistrons**: hide a fold of the measurements, fit, predict them, score. This matters because any scheme can
 manufacture distinct values (add noise and "resolution" goes to 100%), so *distinctness is not the
@@ -1677,6 +1719,36 @@ were live defects, one was a false accusation against a correct corpus, and none
     also the half with no consumer yet: nothing downstream reads such a flag, while `deg_rate_bounds` already
     serves the human and agent readers. **When the saturation fix above is designed, land all of it in ONE
     arm** — filter, flag and fix together — rather than spending an arm per increment.
+
+- ⏳ **PARCA-5 — is `per_unit_bound` worth an arm ON ITS OWN? OPEN, NOT SCHEDULED, recorded 2026-08-10.**
+  Stage 2 produced one variant that improves the metric PARCA-4 says matters, and it is separable from
+  everything else still unresolved — hence its own item rather than a line inside PARCA-4.
+  - **What it is.** The shipped estimator floors every mRNA unit at `min(all measured mRNA cistron rates)` —
+    the single slowest transcript in the organism, currently 91.2 min from a one-fragment `shoB` measurement,
+    applied as a lower bound to all 3,133 units. `per_unit_bound` instead floors each unit by ITS OWN measured
+    cistrons. A unit whose constituent genes were measured has a far tighter and better-justified bound
+    sitting right there, and the global one is only needed where nothing was measured.
+  - **What it buys, measured offline on the corpus fit:** the share of mRNA expression resting on the floor
+    falls **4.589% → 1.022%**, a 4.5x reduction, and the count on the floor 246 → 215. This is the only
+    variant that reduces the saturation rather than relocating it — the exact condition PARCA-4 recorded as
+    *"what would REVERSE this decision"* when the coverage filter was declined.
+  - **What it costs.** (a) **An arm.** It changes `reconstruction/ecoli/dataclasses/process/transcription.py`,
+    which is not currently an overlay file, so it is the 45th shipped file and the first time Cellarium
+    modifies wcEcoli's transcription reconstruction — plus the fit itself changes, so `kb_sha256` moves and
+    NOTHING in the existing 363-row corpus is poolable with it. Budget the comparator re-runs, not the
+    7-minute rebuild. (b) **Resolution falls**: 845 → 773 distinct half-lives, because a per-unit floor is
+    coarser where a unit has few measured cistrons. Whether that is a real loss or the removal of spurious
+    precision is exactly what Stage 3 measures. (c) **811 units have no measured cistron anywhere**, so they
+    keep the global floor regardless — it improves the well-measured units and leaves the unmeasured ones
+    where they were.
+  - **Decide it with, not before, Stage 3.** The acceptance criteria are already pre-registered: held-out
+    predictive error no worse overall and better on the units currently pinned, provenance emitted, and a
+    wildtype simulation inside the existing seed spread for growth and ppGpp. `per_unit_bound` is one of the
+    candidates Stage 3 scores; this item exists so that if it wins, the arm question is already framed and
+    costed rather than re-derived.
+  - **If it ships, it ships with company.** PARCA-4 already records that the declined coverage filter and the
+    `deg_rate_is_bound` provenance field should land in the SAME arm. Adding a fourth increment later costs a
+    fourth arm. One arm, everything at once.
 
 - *(original entry)* **PARCA-4 — the saturation defect is open (PARCA-1's second half).** The NNLS arithmetic bug is fixed; the
   bound is not. MEASURED 2026-08-07 over 24 refits: 244 of 3,276 transcription units sit bit-exactly on
