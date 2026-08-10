@@ -152,6 +152,12 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     # the corpus knowledge base and how many live rows depend on it, which is grounded observation and exactly
     # what the Council is blind to.
     "propose_rebuild",
+    # `deg_rate_provenance` reports what a KNOWLEDGE BASE contains — how much of the degradation table is
+    # a fitted value versus a constraint or a population default. Analysis-only for the same reason
+    # `model_capabilities` is: it is a statement about the instrument, not a falsifier whose result the
+    # Council could reason from, and its payload quotes corpus-level expression shares, which are grounded
+    # observations the Council is blind to.
+    "deg_rate_provenance",
     # literature / publication skills bridge
     "use_skill", "web_get",
 })

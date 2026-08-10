@@ -1002,6 +1002,25 @@ Both views are needed and they disagree, which is why `reader.provenance_delta(f
 them together as ONE function rather than a set intersection each caller re-derives — two hand-rolled
 versions differing by a class would score two candidates under different rules with nothing saying so.
 
+✅ **The AGENT can now ask the question too (Stage-1 item 5), 2026-08-10.** `deg_rate_provenance` is tool 72,
+classified `ANALYSIS_ONLY` (Cellwright-side, Council-blind, for the same reason as `model_capabilities`: it
+describes the INSTRUMENT, and its payload quotes corpus expression shares the Council must not see). Until
+now the diagnostic existed only for a human running Python — the agent could report a half-life and had no
+way to find out whether it was a measurement, so *"this transcript is unusually stable"* was sayable with
+nothing to check it against. The answer is three-way by construction: **NOT A FIT** with the class and what
+the number actually is, or **FIT (or no such unit)** carrying an explicit caveat that the tool lists only the
+not-a-fit classes and therefore CANNOT distinguish "it was fitted" from "no such id" — collapsing those two
+is the silent-absence failure ([[silent-absence-bug-class]]) this repo keeps re-finding. Without `unit` it
+returns the summary and suppresses the ~854-id dump.
+**It also closes a live mis-routing.** `propose_rebuild`'s own description offered *"is that 91.2-min
+half-life a fitted value or the estimator's floor?"* as a REASON TO REBUILD — ~7 minutes of ParCa plus
+comparator re-runs plus, if anything is fit differently, a new arm — for a question a free read now answers
+in seconds. That sentence is gone and the description points at this tool instead. Verified by injection
+three times: drop the dispatch entry, collapse the three-way verdict, or restore the old sentence, and the
+matching test fails. Adding the tool tripped the five registration invariants (`test_harness`,
+`test_credentials`, `test_design_generator`, `test_operon_mode`, `test_resources`) exactly as designed —
+a new tool is unclassified until someone decides what the Council may see.
+
 **Stage 2 — re-solve OFFLINE, and this is the key to the whole plan being affordable.** The NNLS inputs —
 the cistron×TU mapping matrix, the measured cistron rates, the expression vector — are all IN `sim_data`,
 and the measurements are in the flat files. **The estimator can therefore be re-solved outside ParCa, with

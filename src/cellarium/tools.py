@@ -151,6 +151,54 @@ def comparable_designs(design: str) -> dict:
                      "came out similar') and measured 1-of-5 relevant on this one — never substitute it here.")}
 
 
+def deg_rate_provenance(unit: str | None = None, sim_path: str = "cellarium") -> dict:
+    """Is a transcript's DEGRADATION RATE a fitted value, a constraint, or a population default?
+
+    Three situations are stored in sim_data as the same kind of float, so a half-life read straight out is not
+    self-describing. ParCa bounds the inferred rates below by the slowest single measured mRNA cistron (with a
+    symmetric clip at the fastest), and assigns any unit whose cistrons were never measured the MEAN of the
+    reported half-lives. Measured on the corpus fit: 854 of 3,133 mRNA units — 27% — carry a value that is not
+    a fit, and they hold 12.087% of mRNA expression in the basal condition (11.165%-15.491% across the 67
+    conditions sim_data holds).
+
+    Without `unit`, returns that summary. With `unit` (a transcription-unit id or a substring, e.g. `rpmJ`),
+    answers the specific question for the matching units. The answer is deliberately THREE-WAY — a fit, not a
+    fit, or no such unit — because collapsing "I could not find it" into "it is fine" is precisely the failure
+    the whole registry exists to prevent.
+    """
+    from . import reader
+    r = reader.deg_rate_provenance(sim_path, per_unit=bool(unit))
+    if "error" in r:
+        return r
+    if not unit:
+        r.pop("units_not_a_fit", None)
+        return r
+    per = r.pop("units_not_a_fit", {})
+    needle = str(unit).lower()
+    hits = [{"unit": uid, "class": cls, "pct_of_mrna_expression": pct,
+             "value_is": ("the rate FLOOR — the slowest single measured mRNA cistron, not a fit for this unit"
+                          if cls == "floor" else
+                          "the rate CEILING — the fastest single measured cistron, not a fit for this unit"
+                          if cls == "ceiling" else
+                          "the MEAN of the reported half-lives — this unit's cistrons were never measured")}
+            for cls in ("floor", "ceiling", "imputed")
+            for uid, pct in per.get(cls, {}).items() if needle in uid.lower()]
+    out = {"query": unit, "sim_path": sim_path, "kb_summary": r["not_a_fit"],
+           "elongation_note": "the degradation table is a property of the FIT, not of a run's elongation model"}
+    if hits:
+        return {**out, "verdict": "NOT A FIT", "matches": hits,
+                "why_it_matters": ("A claim about this transcript's stability rests on a constraint or a "
+                                   "population mean, not on a measurement of it. Say so when reporting any "
+                                   "number that depends on it.")}
+    # No match among the not-a-fit units. That is NOT the same as "no such unit" — say which.
+    return {**out, "verdict": "FIT (or no such unit)",
+            "matches": [],
+            "caveat": ("This unit is not in any not-a-fit class, which means EITHER its rate was inferred "
+                       "from data OR no unit matching %r exists in this knowledge base. This tool lists only "
+                       "the not-a-fit classes, so it cannot tell those apart — check the id with "
+                       "`design_space`/`list_species` before reporting 'it is a fitted value'." % unit)}
+
+
 def model_capabilities(capability: str | None = None, mode: str | None = None) -> dict:
     """What the model CAN and CANNOT represent, CONDITIONED on an elongation model.
 
@@ -1412,7 +1460,9 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "propose_experiment", "description": "PROPOSE a NEW experiment to run when the corpus lacks the data you need. Cellwright CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. To CHANGE an argument on a draft you already proposed, use revise_experiment (NOT this — proposing again leaves a stale duplicate). Returns request id + vet result (pending_approval or blocked).",
      "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}}}},
-    {"name": "propose_rebuild", "description": "PROPOSE a KNOWLEDGE-BASE REBUILD (ParCa) — the fitted PARAMETERS, not a simulation. Use this when the question is about the FIT rather than a design: \"does this hold with the pseudogene reverted?\", \"is that 91.2-min half-life a fitted value or the estimator's floor?\". No number of simulations can answer those, because every run in the corpus shares ONE fitted parameter set — so if a claim rests on a reconstruction input, a rebuild is the only experiment that tests it. ~7 minutes vs hours for a campaign. Cellwright CANNOT launch it: vetted and QUEUED pending HUMAN approval, exactly like propose_experiment. HARD GATE: a rebuild at a path whose knowledge base live corpus rows depend on is REFUSED (it would orphan them from their own parameters — this happened once, 18 rows). A rebuild MINTS A NEW ARM: its runs carry a different kb_sha256 and are NOT poolable with the corpus, so propose the comparators too. `reason` is required. `retype_cistrons` is {rna_id: type} e.g. {\"G0-10634_RNA\": \"pseudo\"} — rows are retyped, NEVER deleted (deleting breaks referential integrity and the build dies before fitting). `operons` is a ParCa-time option ('on' default; 'off' is untested here and has no comparator).",
+    {"name": "deg_rate_provenance", "description": "Is a transcript's DEGRADATION RATE (mRNA half-life) a FITTED value, a CONSTRAINT, or a population DEFAULT? sim_data stores all three as the same kind of float, so a half-life is not self-describing. ParCa bounds inferred rates below by the slowest single measured cistron (and clips at the fastest), and gives any unit whose cistrons were NEVER measured the MEAN of the reported half-lives. MEASURED on the corpus fit: 854 of 3,133 mRNA units (27%) carry a value that is not a fit, holding 12.087% of mRNA expression in basal (11.165-15.491% across the 67 conditions). CALL THIS BEFORE reporting or reasoning about any transcript's stability, decay or half-life — and BEFORE proposing a knowledge-base rebuild to answer \"is that half-life fitted or the estimator's floor?\", because this answers that in seconds for free whereas a rebuild costs ~7 minutes plus comparator runs plus a NEW ARM. Pass `unit` (a transcription-unit id or substring, e.g. 'rpmJ') for one transcript; omit it for the whole-fit summary. The verdict is THREE-WAY — NOT A FIT, FIT, or no such unit — and the last two are reported together with a caveat rather than merged, so \"I could not find it\" is never returned as \"it is fine\".",
+     "input_schema": {"type": "object", "properties": {"unit": {"type": "string", "description": "transcription-unit id or substring (e.g. 'rpmJ'); omit for the whole-fit summary"}, "sim_path": {"type": "string", "description": "which knowledge base (default 'cellarium')"}}}},
+    {"name": "propose_rebuild", "description": "PROPOSE a KNOWLEDGE-BASE REBUILD (ParCa) — the fitted PARAMETERS, not a simulation. Use this when the question is about the FIT rather than a design: \"does this hold with the pseudogene reverted?\", \"does this hold with operons off?\". No number of simulations can answer those, because every run in the corpus shares ONE fitted parameter set, so if a claim rests on a reconstruction INPUT a rebuild is the only experiment that tests it. DO NOT propose a rebuild merely to ask whether a half-life is a fitted value or the estimator's floor — `deg_rate_provenance` answers that for free in seconds on any existing knowledge base, whereas this costs ~7 minutes plus comparator runs plus a new arm. ~7 minutes vs hours for a campaign. Cellwright CANNOT launch it: vetted and QUEUED pending HUMAN approval, exactly like propose_experiment. HARD GATE: a rebuild at a path whose knowledge base live corpus rows depend on is REFUSED (it would orphan them from their own parameters — this happened once, 18 rows). A rebuild MINTS A NEW ARM: its runs carry a different kb_sha256 and are NOT poolable with the corpus, so propose the comparators too. `reason` is required. `retype_cistrons` is {rna_id: type} e.g. {\"G0-10634_RNA\": \"pseudo\"} — rows are retyped, NEVER deleted (deleting breaks referential integrity and the build dies before fitting). `operons` is a ParCa-time option ('on' default; 'off' is untested here and has no comparator).",
      "input_schema": {"type": "object", "properties": {"reason": {"type": "string", "description": "why this rebuild is worth an arm — recorded on the request"}, "retype_cistrons": {"type": "object", "description": "{rna_id: new_type}, e.g. {\"G0-10634_RNA\": \"pseudo\"}; types: pseudo, mRNA, rRNA, tRNA, miscRNA"}, "operons": {"type": "string", "description": "'on' (default) or 'off'"}, "sim_path": {"type": "string", "description": "destination; omit to get the first free one"}}, "required": ["reason"]}},
     {"name": "propose_experiments", "description": "PROPOSE a WHOLE PANEL of experiments in ONE call — use this INSTEAD of many propose_experiment calls whenever you queue more than one design (e.g. the Socratic Council's full falsifier panel: a reference + N knockouts + the discriminating controls). One-at-a-time proposing burns the turn budget and can leave the panel HALF-queued with the discriminating controls dropped; this queues them atomically. Same vetting + human-approval airlock as propose_experiment. `designs` is a list; each item: {perturbation, condition?, timeline?, gene?, genes?, params?, seeds?, generations?}.",
      "input_schema": {"type": "object", "properties": {"designs": {"type": "array", "description": "the panel to queue", "items": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene set for a multi_gene_knockout"}, "params": {"type": "object"}}}}}, "required": ["designs"]}},
@@ -1455,7 +1505,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "design_panel": design_panel,
              "use_skill": use_skill, "web_get": web_get,
              "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
-             "propose_rebuild": propose_rebuild,
+             "propose_rebuild": propose_rebuild, "deg_rate_provenance": deg_rate_provenance,
              "revise_experiment": revise_experiment,
              "metabolic_essentiality": metabolic_essentiality}
 

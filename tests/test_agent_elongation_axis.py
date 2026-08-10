@@ -153,3 +153,38 @@ def test_a_refusal_carries_no_number_at_the_agent_boundary():
     for entry in out.get("cannot_represent", []):
         nums = [k for k, v in entry.items() if isinstance(v, (int, float)) and not isinstance(v, bool)]
         assert not nums, f"{entry['capability']} refusal carries numeric field(s) {nums}"
+
+
+# ---------------------------------------------------------------------------------------------------------
+# The agent must be able to ask whether a PARAMETER is a fit — and must not be told to buy a rebuild for it.
+# ---------------------------------------------------------------------------------------------------------
+
+def test_the_agent_can_ask_whether_a_half_life_is_a_fit():
+    """Before this, no tool surfaced a degradation rate at all, so the agent could not answer the question
+    `propose_rebuild`'s own description told it to recognise."""
+    assert "deg_rate_provenance" in tools._DISPATCH
+    out = tools.dispatch("deg_rate_provenance", {"unit": "rpmJ"})
+    if out.get("error"):
+        pytest.skip(out["error"])
+    assert out["verdict"] in ("NOT A FIT", "FIT (or no such unit)")
+    assert out.get("kb_summary"), "the per-unit answer arrives with no whole-fit context"
+
+
+def test_a_missing_unit_is_not_reported_as_a_fit():
+    """The three-way answer. Collapsing 'I could not find it' into 'it is fine' is the silent-absence failure
+    this whole registry exists to prevent, and here the two share a verdict — so the caveat must say so."""
+    out = tools.dispatch("deg_rate_provenance", {"unit": "zzz_no_such_unit"})
+    if out.get("error"):
+        pytest.skip(out["error"])
+    assert out["matches"] == []
+    assert "no such unit" in out["verdict"].lower() or "no such unit" in out.get("caveat", "").lower(), out
+
+
+def test_propose_rebuild_no_longer_routes_a_half_life_question_to_a_rebuild():
+    """The live mis-routing this closes. `propose_rebuild`'s description named 'is that 91.2-min half-life a
+    fitted value or the estimator's floor?' as a REASON TO REBUILD — ~7 minutes plus comparator runs plus a
+    new arm — for a question a free read now answers in seconds."""
+    d = next(t["description"] for t in tools.TOOLS if t["name"] == "propose_rebuild")
+    assert "91.2-min half-life a fitted value" not in d, (
+        "propose_rebuild still offers a rebuild as the way to answer whether a half-life is fitted")
+    assert "deg_rate_provenance" in d, "it does not point at the cheap tool that answers this instead"
