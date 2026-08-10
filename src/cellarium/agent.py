@@ -284,7 +284,7 @@ _REPEAT_CAP = 3    # DD-ENG-3: identical (tool, args) calls this many times in a
 _ERR_CAP = 3       # DD-ENG-3: this many consecutive rounds where EVERY tool call errored -> stuck
 
 
-def _truncate_tool_result(out: dict, cap: int) -> str:
+def _truncate_tool_result(out: dict, cap: int, tool: str | None = None) -> str:
     """DD-ENG-2: bound a tool result WITHOUT a blind char-slice that could cut JSON mid-structure and silently drop
     the tail of a list (a severed survey/panel/top_movers is a provenance hole — the number→tool chain the project
     exists to preserve). Keep the JSON valid and the scalar/provenance fields intact; shrink the biggest LIST fields
@@ -294,26 +294,23 @@ def _truncate_tool_result(out: dict, cap: int) -> str:
     history, SQLite and every later turn), so it carries the defensive credential scrub. No tool is supposed to
     touch key material — there is deliberately no tool that can — but a context leak is the one that propagates
     everywhere, so the funnel defends itself rather than trusting all present and future callers."""
-    from . import redact
+    from . import redact, truncation
     out = redact.scrub_obj(out)
     s = redact.scrub(json.dumps(out))   # also covers dict KEYS + anything below scrub_obj's depth guard
     if len(s) <= cap:
         return s
     if not isinstance(out, dict):
         return s[:cap] + " …[truncated]"                     # non-dict -> nothing to shrink structurally
-    out = dict(out)
-    reserve = 120                                            # leave room for the drop-marker so we stay under `cap`
-    list_keys = sorted((k for k, v in out.items() if isinstance(v, list) and v),
-                       key=lambda k: -len(json.dumps(out[k])))
-    for k in list_keys:
-        n_full = len(out[k])
-        while len(json.dumps(out)) > cap - reserve and out[k]:
-            out[k] = out[k][:max(0, len(out[k]) - max(1, len(out[k]) // 4))]
-        dropped = n_full - len(out[k])
-        if dropped:
-            out[k] = out[k] + [f"…[{dropped} more '{k}' item(s) dropped to fit context — refine the query to see them]"]
-        if len(json.dumps(out)) <= cap:
-            break
+    # PLAT-2: the trim names WHICH items it dropped (from the tool's declared result schema), and refuses
+    # outright when trimming would leave a replicate set below the evidential floor.
+    out, omissions = truncation.trim(out, cap, tool=tool)
+    refusal = truncation.floor_refusal(omissions, tool=tool)
+    if refusal is not None:
+        return redact.scrub(json.dumps(refusal))
+    if omissions:
+        from . import evidence, reconcile
+        evidence.note_omission(tool, omissions)              # the reviewer sees the same hole the agent saw
+        reconcile.forget(sum((o.dropped for o in omissions), []))   # what was dropped was never read
     s = json.dumps(out)
     return s if len(s) <= cap else s[:cap] + " …[truncated]"  # last resort: scalars alone exceed cap
 
@@ -639,7 +636,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                 if on_tool is not None:
                     on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
                 results.append({"type": "tool_result", "tool_use_id": tu.id,
-                                "content": _truncate_tool_result(out, _TOOL_CAP)})   # DD-ENG-2: structure-aware trim
+                                "content": _truncate_tool_result(out, _TOOL_CAP, tu.name)})  # DD-ENG-2 + PLAT-2
             messages.append({"role": "user", "content": results})
             # DD-ENG-3 circuit breaker: an identical call repeated, or several all-error rounds, means the agent is
             # stuck — stop looping and fall through to the forced synthesis rather than burn the whole budget spinning.

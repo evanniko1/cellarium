@@ -177,6 +177,25 @@ def record_call(tool: str, out) -> None:
         pass
 
 
+def forget(identities) -> None:
+    """PLAT-2 composing with PLAT-1: drop identities a context trim removed before the result reached the model.
+
+    `record_call` harvests from the FULL tool output, but the model is shown a trimmed one. Without this, a
+    design that truncation removed would count as "read" and a claim about it would come back `grounded` —
+    the check reporting evidence the model was never shown, which is precisely the failure it exists to catch,
+    arriving through its own plumbing.
+    """
+    try:
+        with _lock:
+            if not _turn.get("armed"):
+                return
+            for i in identities or ():
+                _turn["ids"].discard(str(i))
+                _turn["designs"].discard(str(i))
+    except Exception:
+        pass
+
+
 def turn_record() -> dict:
     with _lock:
         return {"armed": bool(_turn.get("armed")),

@@ -143,6 +143,30 @@ def record(tool: str, args: dict, out, *, session: str | None = None) -> None:
         pass
 
 
+def note_omission(tool: str | None, omissions, *, session: str | None = None) -> None:
+    """PLAT-2: record what a context trim removed, as its own ledger line beside the activity that produced it.
+
+    Written separately rather than folded into `record` because the trim happens AFTER the tool returned, at
+    the agent boundary, and a non-agent caller (the CLI, the UI) gets the untrimmed result — so the omission
+    is a property of one delivery of a result, not of the call. Without this the ledger shows a complete-looking
+    list of ids and a reviewer has no way to learn that the agent was shown a shorter one.
+    """
+    if not enabled() or not omissions:
+        return
+    try:
+        line = {"ts": round(time.time(), 3),
+                "session": session or os.environ.get("CELLARIUM_SESSION") or None,
+                "activity": f"{tool or 'tool'}#omitted",
+                "omitted": [o.as_dict() if hasattr(o, "as_dict") else o for o in omissions],
+                "env": _env()}
+        with _lock:
+            LEDGER.parent.mkdir(parents=True, exist_ok=True)
+            with LEDGER.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(line, default=str) + "\n")
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------- reading it back
 def read(path: str | os.PathLike | None = None) -> list[dict]:
     p = Path(path or LEDGER)
