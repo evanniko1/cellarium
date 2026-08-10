@@ -1229,6 +1229,42 @@ written to stop a variant shipping on the strength of improving units that were 
   which is where Stage 2 located the mass, and κ was never tuned (tuning on these folds would leak; it needs
   nested CV). That is the next experiment, and it is still free.
 
+#### 🔒 Stage 3b protocol — NESTED CV for `hierarchical`, PRE-REGISTERED 2026-08-10 before running
+
+*κ was never tuned in Stage 3; it ran at the default 5. Tuning it on the Stage 3 folds and reporting the best
+result would be a selection leak — the parameter would be chosen using the very measurements it is then
+scored on, and the score would be optimistic by an unknown amount. Nested cross-validation is the fix, and
+its protocol is fixed here before it runs, like the last one.*
+
+**Outer loop.** Unchanged from Stage 3: k=10 folds by `sha1(cistron_id) % 10`, so the outer held-out sets are
+bit-identical to the ones every Stage 3 number was computed on and the comparison is exact.
+
+**Inner loop.** Within each outer TRAINING set, k=5 folds by `sha1(cistron_id + ":inner") % 5` — a separate
+hash, so inner folds are independent of outer ones rather than a re-slicing of the same partition. For each κ
+in the grid: hold out an inner fold, treat it AND the outer fold as unmeasured everywhere, solve, predict the
+inner fold. Pool the inner-held-out errors across the 5 inner folds and take the median |log2|.
+
+**Selection.** κ\* per outer fold = the grid value with the lowest pooled inner median |log2| error. Selection
+uses the OVERALL inner error, not a stratum — the strata are for the decision rule, and selecting on a
+54-point stratum would be tuning to noise. Ties in the inner score go to the LARGER κ, i.e. to less pooling,
+so a tie never buys extra model freedom.
+
+**Grid, fixed now:** κ ∈ {0.5, 1, 2, 5, 10, 20, ∞}. κ is in units of "number of measured neighbours needed
+before the operon mean is trusted at half weight", so this spans "one neighbour is nearly enough" to "twenty
+are not". **∞ is in the grid deliberately**: it is exactly no pooling, so if the tuner picks it, the honest
+reading is that operon pooling does not help and the inner loop said so on its own.
+
+**Scoring.** Refit on the full outer training set with κ\*, predict the outer held-out fold, accumulate. The
+result is one honest score for "hierarchical with κ tuned", and the SAME pre-registered decision rule applies
+— better than baseline in median |log2| BOTH overall AND on the floor stratum, ties below 0.01.
+
+**Also reported, because the size of the bias is worth knowing:** the NAIVE score — the best single κ picked
+by looking at the outer folds directly, which is what tuning without nesting would have produced. The gap
+between naive and nested is the selection optimism, measured rather than asserted.
+
+**κ\* is reported per outer fold.** If the tuner picks a different κ in every fold, "the best κ" is not a
+stable quantity and no single value should be carried forward, whatever the score says.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
