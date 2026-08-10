@@ -552,9 +552,12 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     breakdown across every model call this turn made. reasoning ('none'|'low'|'high') enables extended thinking on
     models that support it (falls back to the base model otherwise). The SDK retries 429/5xx with exponential
     backoff; bulky tool results are trimmed."""
-    from . import rigor
+    from . import reconcile, rigor
 
     rigor.reset()  # fresh coverage tracking per user turn
+    # PLAT-1: what this CONVERSATION has read, for the post-hoc claim check on the way out. Fresh only on
+    # the first turn — a follow-up that correctly cites what turn 1 read must not be annotated.
+    reconcile.start_turn(fresh=len(messages) <= 1)
     # route long-tool progress (e.g. a multi-GB download_raw) into the note channel so the chat streams
     # "downloading 2/5" instead of hanging silently. Re-set every turn (single-user local app); no-op if no on_note.
     tools.set_progress((lambda done, total, label: on_note(
@@ -618,7 +621,10 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
 
             if resp.stop_reason != "tool_use" or not tool_uses:
-                return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+                # PLAT-1: reconcile the assembled prose against what this turn actually read. ANNOTATES, never
+                # rewrites — and returns the text unchanged if the check itself fails.
+                return reconcile.check_and_annotate(
+                    "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip())
 
             results = []
             round_all_errors = True
@@ -658,7 +664,9 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                                           max_tokens=(budget + 4000 if budget else 4096)), on_text, role="summary")
             messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
-            return text or "(stopped: reached max turns without a synthesis)"
+            # Same check on the forced-synthesis path, and it matters MORE here: this is the branch where the
+            # model writes a conclusion with tools disabled and the budget spent.
+            return reconcile.check_and_annotate(text) or "(stopped: reached max turns without a synthesis)"
         except Exception:
             return "(stopped: reached max turns)"
     finally:

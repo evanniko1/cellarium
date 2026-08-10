@@ -20,7 +20,7 @@ _log = logging.getLogger("cellarium.tools")
 # An internal-defect log below uses exc_info=True, and a CHAINED traceback is the one place a malformed API key
 # (a paste with a trailing newline -> httpx's "Illegal header value b'…'") survives in plaintext. A logging.Filter
 # is the only hook that reaches rendered traceback text, so install it where the logger is defined.
-from . import evidence, redact  # noqa: E402
+from . import evidence, reconcile, redact  # noqa: E402
 
 redact.install_log_filter("cellarium.tools")
 
@@ -1559,6 +1559,10 @@ def dispatch(name: str, args: dict) -> dict:
         return {"error": err}
     try:
         out = fn(**(args or {}))
+        # PLAT-1 (a): a result that did not read the corpus says so, ON the payload, so the marker reaches the
+        # model together with the number rather than as an advisory it reads after writing the sentence.
+        out = reconcile.mark_non_measurement(name, out)
+        reconcile.record_call(name, out)         # PLAT-1 (b): what this turn actually read, for the post-hoc check
         evidence.record(name, args or {}, out)   # append-only provenance; no-op unless CELLARIUM_EVIDENCE=1
         return out
     except Exception as exc:
