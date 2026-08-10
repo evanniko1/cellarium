@@ -208,8 +208,10 @@ def report() -> str:
     # Coverage of the ARM-2 columns, measured rather than asserted. A column written only from now on is
     # useless on a corpus that predates it, and how useless is a number a reader should see rather than infer.
     try:
-        from . import survey
-        rows, _ = survey.analysis_rows(arm="all")
+        # H-17b: asked for by purpose. arm="all" is deliberate — this reports COLUMN COVERAGE across the
+        # whole corpus, not a comparison within one arm.
+        from . import hygiene
+        rows, _ = hygiene.rows("analysis", arm="all")
     except Exception:
         rows = []
     if rows:

@@ -87,8 +87,10 @@ def _corpus_footprint() -> dict:
     """The corpus's disk footprint + the average raw GB per run, so the per-run disk estimate is GROUNDED in reality
     rather than a guess. Uses the manifest run count + a bounded directory scan (skipped if it would be too slow)."""
     try:
-        from . import store
-        n_runs = len(store.list_results())
+        # H-17b: `inventory` is the purpose whose contract is "may be COUNTED, may not be read", which is
+        # precisely what this line does — size the corpus to ground a per-run disk estimate.
+        from . import hygiene
+        n_runs = len(hygiene.rows("inventory")[0])
     except Exception:
         n_runs = 0
     root = Path(os.environ.get("CELLARIUM_OUT", "runs"))

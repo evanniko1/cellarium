@@ -173,44 +173,109 @@ def rows(purpose: str, *, arm=None) -> tuple[list[dict], dict]:
                                                   "signal, and QC marks it unreportable.")})
 
 
+def _docstring_nodes(tree):
+    """The string constants that are DOCSTRINGS, so a counter can skip them."""
+    import ast
+    out = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            body = getattr(node, "body", None) or []
+            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant)                     and isinstance(body[0].value.value, str):
+                out.add(id(body[0].value))
+    return out
+
+
 def read_sites() -> dict:
-    """The surface this boundary has to cover, counted rather than assumed.
+    """The surface this boundary has to cover, counted from the SYNTAX TREE rather than by text search.
 
     The backlog names 7 modules issuing their own `read_parquet` and says out loud that "the true surface is
-    larger than the 7 and was not enumerated". This enumerates it, so migration progress is measurable instead
-    of asserted — the same discipline `invariants.coverage()` applies to the catalogue.
+    larger than the 7 and was not enumerated". This enumerates it, so migration progress is measurable
+    instead of asserted — the same discipline `invariants.coverage()` applies to the catalogue.
+
+    WHY THIS IS NOT A REGEX ANY MORE. The first version searched the file TEXT for `list_results(` and
+    counted three modules that consume nothing: the tool's name inside the agent's system prompt
+    (`agent.py`), and the `def` lines of the two primitives themselves (`store.py`, `survey.py`). It reported
+    15 consumer modules where there are 12. An instrument that over-counts reads as verification, which is
+    the failure this whole file exists to end — so the instrument gets the same standard as the thing it
+    measures.
+
+    THE TWO THINGS COUNTED ARE DIFFERENT IN KIND, and that is why the implementation is hybrid rather than
+    uniformly AST-based:
+
+      * a CONSUMER is a Python function call — `store.list_results(...)` — so it is found as an `ast.Call`,
+        which cannot be fooled by a comment, a docstring or prompt text, and yields the enclosing function
+        name for free rather than by a second regex.
+      * a DIRECT READ is not a Python call at all: `read_parquet('...')` is DuckDB SQL embedded in an
+        f-string. No syntax tree will ever see it as a call, so it is found by inspecting string LITERALS —
+        text search, but scoped to the nodes where SQL can actually live, with docstrings excluded.
+
+    What this still cannot see: a dynamic call (`getattr(store, name)()`). There are none here, and saying so
+    is part of the count.
     """
-    import re
+    import ast
     from pathlib import Path
 
+    CONSUMER_FNS = {"list_results", "analysis_rows"}
     root = Path(__file__).resolve().parent
-    direct, consumers = {}, {}
+    direct, consumers, sites = {}, {}, []
+    unparsed = []
     for p in sorted(root.glob("*.py")):
-        if p.name in ("hygiene.py",):
+        if p.name == "hygiene.py":
             continue
         try:
             src = p.read_text(encoding="utf-8")
-        except Exception:
+            tree = ast.parse(src)
+        except Exception as exc:
+            unparsed.append({"file": p.name, "error": f"{type(exc).__name__}: {exc}"})
             continue
-        n_direct = len(re.findall(r"read_parquet\(", src))
+        docstrings = _docstring_nodes(tree)
+
+        # enclosing-function map, built once from the tree rather than by scanning backwards for `def`
+        owner: dict = {}
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for sub in ast.walk(fn):
+                    owner.setdefault(id(sub), fn.name)
+
+        n_direct = n_cons = 0
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)                     and id(node) not in docstrings and "read_parquet(" in node.value:
+                n_direct += 1
+            elif isinstance(node, ast.Call):
+                f = node.func
+                name = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
+                if name in CONSUMER_FNS:
+                    # `def list_results` in store.py calling itself is not a consumer; a call whose owner IS
+                    # the function being called is the primitive, not a caller of it.
+                    if owner.get(id(node)) == name:
+                        continue
+                    n_cons += 1
+                    sites.append({"file": p.name, "function": owner.get(id(node), "<module>"),
+                                  "calls": name, "line": node.lineno})
         if n_direct:
             direct[p.name] = n_direct
-        n_cons = len(re.findall(r"list_results\(|analysis_rows\(", src))
         if n_cons:
             consumers[p.name] = n_cons
+
     return {
         "direct_read_parquet": direct, "n_direct_modules": len(direct),
-        # The gap this list recorded is CLOSED: `rigor.coverage` needed "deduped, live, reportability-
-        # agnostic" and the honest answer was a fifth purpose (`inventory`) rather than borrowing
-        # `lethality`'s name. Kept as an empty list rather than deleted, because the next migration batch will
-        # find its own gaps and this is where they go.
-        "unmigrated_needing_a_decision": [],
         "downstream_consumers": consumers, "n_consumer_modules": len(consumers),
+        "consumer_sites": sites,
+        "unparsed": unparsed,
+        # The gap batch 2 recorded is CLOSED by the fifth purpose (`inventory`). Kept as an empty list rather
+        # than deleted, because the next migration batch will find its own gaps and this is where they go.
+        "unmigrated_needing_a_decision": [],
         "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents",
-                     "reconcile.corpus_identifiers", "rigor.coverage"],
+                     "reconcile.corpus_identifiers", "rigor.coverage",
+                     "resources._corpus_footprint", "manifest.integrity_check", "corpus_schema.fmt"],
+        "counted_by": ("`ast.Call` for consumers; string literals for the SQL `read_parquet(`, which is not a "
+                       "Python call and no syntax tree can see as one. Docstrings excluded; dynamic calls "
+                       "(getattr) invisible, and there are none in this tree."),
         "note": ("A direct `read_parquet` bypasses every rule in `data/INVARIANTS.json`; a consumer of "
                  "`list_results`/`analysis_rows` gets the primitive's filters but chooses its own on top, "
-                 "which is where the measured 5.5x `disconfirm` drift came from. Both counts have to fall "
-                 "for this boundary to have done its job. `migrated` lists the call sites that now ask by "
-                 "PURPOSE; it is a small fraction of the surface above and is meant to be read as such."),
+                 "which is where the measured 5.5x `disconfirm` drift came from. Counted honestly the consumer "
+                 "surface is the SMALLER one (7 modules against 8 that read the parquet directly) — the "
+                 "opposite of what the text-search version reported. `migrated` lists the call "
+                 "sites that now ask by PURPOSE; it is a small fraction of the surface above and is meant to "
+                 "be read as such."),
     }

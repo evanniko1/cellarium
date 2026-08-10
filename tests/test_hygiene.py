@@ -156,13 +156,32 @@ def test_each_purpose_cites_invariants_that_actually_exist(sets):
 # The surface, counted rather than assumed.
 # ---------------------------------------------------------------------------------------------------------
 
-def test_the_read_surface_is_enumerated_not_estimated():
-    """The backlog says 7 modules issue their own `read_parquet` and admits "the true surface is larger than
-    the 7 and was not enumerated". Counting it is what makes migration measurable instead of asserted."""
+def test_the_read_surface_is_counted_from_the_syntax_tree_not_the_text():
+    """The counter gets the same standard as the thing it measures.
+
+    A first version searched file TEXT and counted three modules that consume nothing: the tool's name inside
+    the agent's system prompt, and the `def` lines of the two primitives themselves. It reported 15 consumer
+    modules where there are 7. That over-count was not harmless — it was the basis of a claim, made twice,
+    that the consumer surface is the LARGER one. Counted honestly it is the smaller one (7 consumers against
+    8 direct-read modules), and the claim was an artefact of the instrument.
+    """
     s = hygiene.read_sites()
     assert s["n_direct_modules"] >= 7, s["direct_read_parquet"]
-    assert s["n_consumer_modules"] > s["n_direct_modules"], (
-        "the consumer surface should be the larger one — that is the point the backlog was making")
+    assert not s["unparsed"], s["unparsed"]
+    for false_positive in ("agent.py", "store.py", "survey.py"):
+        assert false_positive not in s["downstream_consumers"], (
+            f"{false_positive} is not a consumer — it appears only as prompt text or as its own def line; "
+            f"the counter has regressed to text search")
+    assert "ast.Call" in s["counted_by"] and "string literals" in s["counted_by"], (
+        "the two things counted are different in kind and the payload must say so")
+
+
+def test_every_counted_site_names_where_it_is():
+    """A count with no locations cannot be acted on. Each consumer site carries its file, its enclosing
+    function and its line — which the syntax tree gives for free and a regex had to guess at."""
+    for site in hygiene.read_sites()["consumer_sites"]:
+        assert site["file"] and site["function"] and site["line"] > 0
+        assert site["calls"] in ("list_results", "analysis_rows")
 
 
 def test_migration_progress_is_not_overstated():
@@ -171,9 +190,9 @@ def test_migration_progress_is_not_overstated():
     a SMALL fraction of the enumerated surface until it genuinely is not."""
     s = hygiene.read_sites()
     assert s["migrated"], "the migrated call sites should be named here"
-    assert len(s["migrated"]) < s["n_consumer_modules"], (
-        "migrated call sites now outnumber the consumer modules — recount the surface rather than "
-        "assuming the migration is finished")
+    assert s["consumer_sites"], (
+        "no unmigrated consumer sites remain — if that is genuinely true, say so deliberately and rewrite "
+        "this test; do not let it pass silently on an empty surface")
     assert "small fraction" in s["note"]
 
 

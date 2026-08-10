@@ -1592,10 +1592,12 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
 
     Returns `{"ok": bool, "violations": [...]}`; each violation names the invariant, the rows, and the fix.
     """
-    from . import factors, store, survey
+    from . import factors, hygiene, survey
 
     violations: list[dict] = []
-    rows = store.list_results()
+    # H-17b: `inventory` — every live design regardless of reportability, which is what a corpus-wide
+    # invariant check must see. A crashed run is still a row whose identity can drift.
+    rows, _inv_ctx = hygiene.rows("inventory")
 
     def add(code, msg, examples, fix, severity="drift"):
         # `severity` separates two things that look identical in a violations list and are not. DRIFT is a row
