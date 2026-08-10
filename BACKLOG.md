@@ -1307,6 +1307,35 @@ corpus is untouched, and the evidence points where Stage 2 said it would — the
 estimation problem. The open move is the **explicit `unknown` class**, sized by the imputation's own measured
 error (median 1.41×, 23.4% beyond 2-fold), not another variant.
 
+#### 🔒 Stage 3c protocol — NESTED CV for `ridge`, PRE-REGISTERED 2026-08-10 before running
+
+*Ridge was scored once, at λ=0.1, and rejected. Stage 2 gave a structural argument for why tuning could not
+save it — the point mass at the prior is λ-invariant over 1000× — but a structural argument about POINT
+MASSES is not evidence about PREDICTION, and those are different claims. λ gets the same nested treatment κ
+got, so "no variant ships" rests on measurement for every variant rather than on measurement for one and
+reasoning for another.*
+
+**Everything is inherited from Stage 3b** — outer k=10 on Stage 3's exact folds, inner k=5 on the separate
+`":inner"` hash, selection on the overall inner median |log2|, the naive score reported alongside so the
+selection optimism is measured, λ\* reported per outer fold. Only the grid changes.
+
+**Grid, fixed now:** λ ∈ {1e-6, 1e-3, 1e-2, 1e-1, 1, 10, 100}. Seven values spanning ten orders of
+magnitude. **λ = 1e-6 is the "do not regularize" null** and is in the grid for the same reason κ=∞ was: a
+search that can only choose among strengths of shrinkage will always report that shrinkage won. It is 1e-6
+rather than exactly 0 because λ=0 changes the CODE PATH — `solve_nnls` delegates to the model's `fast_nnls`
+and ignores the prior entirely, so columns no equation touches would come back as 0 (an infinite half-life,
+a dropped prediction) instead of taking the prior. That is a different estimator, not the λ→0 limit of this
+one, and mixing the two into one grid would compare two things under one name.
+
+**Tie-break: to the LARGER λ**, which is the same `pick_param` rule κ used and means the same thing in both
+places — larger κ is less pooling, larger λ is more shrinkage, and both are LESS model freedom. A tie never
+buys the variant flexibility its inner scores did not earn.
+
+**A limitation recorded before the numbers, not after.** The `ridge` variant drops the floor AND the clip,
+not just the floor. So a ridge-vs-baseline difference conflates "soft prior instead of a hard bound" with
+"no upper clip". That is how the variant was defined in Stage 2 and it is not being changed mid-evaluation;
+it means a ridge FAILURE cannot be attributed to the prior alone.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
