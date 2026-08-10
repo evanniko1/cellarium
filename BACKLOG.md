@@ -2049,6 +2049,44 @@ were live defects, one was a false accusation against a correct corpus, and none
     caught BEFORE the arm is spent. If that turns out to be enough, the arm may not be needed at all — which
     is exactly the question to answer before spending it.
 
+- 🚨 **TRNA-9 — `trna.wildtype_null` is NON-DETERMINISTIC, and its threshold is inflated by pooling arms.
+  FOUND 2026-08-11 while classifying it for the H-17b migration. NOT FIXED — it changes a scientific verdict
+  and needs its own decision, not a hygiene migration.**
+  `selective_charging` reports `exceeds_wildtype_null_max`, and the null it is measured against is
+  "the same statistic between UNPERTURBED wild-type runs" — a false-positive rate. Two defects, both measured:
+  - **(1) It returns a different answer every call.** Four calls, identical code and identical data:
+    median gap **8.2 / 9.6 / 22.7 / 9.6 pp** — a 2.8x swing — while the table count stays at 58.
+    **Cause, code-traced:** `ref, gaps, names = tabs[0], [], []` (`trna.py:307`). The reference table is
+    whichever row `store.list_results()` happens to return FIRST, and that order is unstable — the same
+    DuckDB property that made `rigor.coverage` report `n_total` as 55/55/54/54/56/55 across six calls in one
+    process. Every gap is measured against an arbitrary, changing baseline. The MAX is nearly stable
+    (84.5/84.8) because extremes dominate, which is why this survived: the headline number looks steady while
+    the distribution underneath it moves.
+    **The fix is not just to sort `tabs`.** A stable sort makes the arbitrary reference *reproducible*, not
+    principled. The null is a PAIRWISE quantity — the gap between any two unperturbed runs — so one-vs-rest
+    discards ~98% of the pairs (57 of 1,653) and makes the answer depend on which one was drawn. All-pairs is
+    both correct and cheap at n=58.
+  - **(2) The threshold is inflated ~1.75x by pooling comparability arms**, decomposed and measured:
+    | row set | wildtype rows | tables | max gap (the threshold) |
+    |---|---|---|---|
+    | current: live, all arms, any reportability | 40 | 58 | **84.5 pp** |
+    | reportable only, all arms | 38 | 51 | 84.5 pp |
+    | ONE arm, any reportability | 28 | 34 | **47.6 pp** |
+    | `analysis` (reportable + one arm) | 26 | 27 | 49.4 pp |
+    **Removing crashed runs changes the threshold by nothing (84.5 -> 84.5); the arm pooling is the entire
+    effect.** 84.5 pp measures how far apart two wild-type runs from DIFFERENT INSTRUMENTS are, which is not
+    the false-positive rate for a comparison made within one instrument. `fraction_trna_charged` is precisely
+    the channel where the elongation model changes what the number MEANS (INV-2), so this is the category
+    error ARM-1 exists to prevent — and it makes `exceeds_wildtype_null_max` systematically hard to trigger,
+    i.e. the tool under-reports selectivity.
+  - **Why this was NOT landed with the H-17b batch.** Migrating the row source to `analysis` moves the
+    threshold **-43%**, so claims that previously did not exceed the null would now exceed it. That is a
+    change to a verdict, not to hygiene, and it must not ride in on a refactor. It also bundles two
+    independent changes whose effects the table above had to separate.
+  - **Recommended order when this is picked up:** fix the determinism FIRST (all-pairs, no reference row), and
+    re-measure the arm question on a null that stops moving — the current numbers were computed on an
+    estimator whose median swings 2.8x between calls, which limits what any of them can settle.
+
 - ❌ **PARCA-5 — is `per_unit_bound` worth an arm ON ITS OWN? ANSWERED 2026-08-10: NO, on the pre-registered
   evidence.** Stage 3 scored it the day this item was filed. It **fails the decision rule, and it fails on the
   exact stratum it was designed to improve**: median |log2| error on cistrons attached to floor units rises

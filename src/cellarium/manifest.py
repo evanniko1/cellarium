@@ -1794,7 +1794,7 @@ def reconcile_disk(sim_path: str = "cellarium") -> dict:
 
     Returns counts plus the design keys on each side, so a caller can decide whether to re-index.
     """
-    from . import store, survey
+    from . import hygiene, store, survey
 
     on_disk: dict = {}
     for run_root in _discover_runs(sim_path):
@@ -1806,14 +1806,25 @@ def reconcile_disk(sim_path: str = "cellarium") -> dict:
         on_disk.setdefault(key, []).append((seed, str(run_root)))
 
     indexed: dict = {}
-    for r in store.list_results():
+    # H-17b: `coverage` — the ONE purpose that includes tombstoned rows, and it must here. A tombstoned
+    # run IS indexed (it lives under data/manifest/dropped/); building `indexed` from live rows only
+    # reports its directory as an ORPHAN and advises `record_existing()` — i.e. advises re-indexing a run
+    # somebody deliberately curated out. Latent rather than live today: 55 tombstoned ids, 0 with a
+    # directory still on disk. It fires the first time a run is tombstoned while its output remains.
+    for r in hygiene.rows("coverage")[0]:
         key = survey.design_key(r)
         path = store.simout_path(r["id"])
         indexed.setdefault(key, []).append({"seed": r.get("seed"), "path": path,
-                                            "exists": bool(path) and Path(path).exists()})
+                                            "exists": bool(path) and Path(path).exists(),
+                                            "tombstoned": bool(r.get("dropped"))})
 
-    phantom = {k: [v for v in vs if not v["exists"]] for k, vs in indexed.items()}
+    # TOMBSTONES ARE A THIRD POPULATION, here as everywhere else. They must be in `indexed` — otherwise their
+    # directories read as orphans and the report advises re-indexing a curated-out run — but they are NOT
+    # phantoms: "indexed and its raw is gone" is the expected, correct state for a run somebody withdrew, and
+    # folding them in adds 6 designs of noise to a maintenance report. Counted separately instead.
+    phantom = {k: [v for v in vs if not v["exists"] and not v["tombstoned"]] for k, vs in indexed.items()}
     phantom = {k: v for k, v in phantom.items() if v}
+    n_tombstoned = sum(1 for vs in indexed.values() for v in vs if v["tombstoned"])
     orphan_designs = sorted(set(on_disk) - set(indexed))
     # a design can be indexed AND have unindexed seeds on disk (gltX: rows for seeds 1-3, disk holds seed 0)
     orphan_seeds = {}
@@ -1827,12 +1838,13 @@ def reconcile_disk(sim_path: str = "cellarium") -> dict:
         "n_indexed_rows": sum(len(v) for v in indexed.values()),
         "n_designs_indexed": len(indexed), "n_designs_on_disk": len(on_disk),
         "phantom_rows": sum(len(v) for v in phantom.values()),
+        "tombstoned_rows_indexed": n_tombstoned,
         "phantom_designs": sorted(phantom),
         "orphan_designs": orphan_designs,
         "orphan_seeds": orphan_seeds,
         "note": ("Phantom = indexed but no simOut on disk: FLAG, do not delete (the summary data is real; only "
                  "raw is gone). Orphan = readable on disk but not indexed, so invisible to every tool that "
-                 "resolves through the manifest — re-index with record_existing() to make it queryable."),
+                 "resolves through the manifest — re-index with record_existing() to make it queryable. Tombstoned rows are counted separately: they are indexed (so not orphans) and their missing raw is expected (so not phantoms)."),
     }
 
 

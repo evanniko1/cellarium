@@ -267,7 +267,8 @@ def read_sites() -> dict:
         "unmigrated_needing_a_decision": [],
         "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents",
                      "reconcile.corpus_identifiers", "rigor.coverage",
-                     "resources._corpus_footprint", "manifest.integrity_check", "corpus_schema.fmt"],
+                     "resources._corpus_footprint", "manifest.integrity_check", "corpus_schema.fmt",
+                     "manifest.reconcile_disk"],
         "counted_by": ("`ast.Call` for consumers; string literals for the SQL `read_parquet(`, which is not a "
                        "Python call and no syntax tree can see as one. Docstrings excluded; dynamic calls "
                        "(getattr) invisible, and there are none in this tree."),
