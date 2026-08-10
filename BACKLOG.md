@@ -1181,6 +1181,54 @@ measurement at all. Cross-validation is silent about them by construction. It ca
 default makes on genes we did measure, and that is the honest evidence for how big the explicit *unknown*
 class should be; it cannot rank estimators on units no estimator can reach.
 
+#### ✅ Stage 3 RESULT, 2026-08-10 — run after the protocol above was committed. **No variant ships.**
+
+`reader.deg_rate_cv` — ~10 s per variant, k=10, 3,246 held-out cistrons, 0 dropped. 14 tests, two verified by
+injection. Applying the decision rule EXACTLY as pre-registered:
+
+| variant | overall med \|log2\| | vs base | floor stratum (n=54) | vs base | verdict |
+|---|---|---|---|---|---|
+| `baseline` | **0.4726** | — | **0.4133** | — | reference |
+| `ridge` (λ=0.1) | 0.4714 | −0.0012 tie | 0.4371 | **+0.0238 worse** | **FAILS** |
+| `per_unit_bound` | 0.4693 | −0.0033 tie | 0.5232 | **+0.1099 worse** | **FAILS** |
+| `hierarchical` (κ=5) | **0.4564** | **−0.0162 better** | 0.4441 | **+0.0308 worse** | **FAILS** |
+
+All three fail the floor leg. `hierarchical` is the only one that clears the tie threshold overall, and the
+paired sign test agrees strongly (826 better / 665 worse, z=+4.17, p=3e-5) — but the rule requires better on
+BOTH, and it is worse on the floor (13 better / 26 worse, p=0.037). **That is the rule doing its job**: it was
+written to stop a variant shipping on the strength of improving units that were already fine.
+
+- 🚨 **THE HEADLINE, and it is about the estimator rather than any variant: the whole NNLS machinery barely
+  beats predicting the population mean for every transcript.** Median |log2| **0.4726 vs 0.4927** — a 4%
+  reduction in typical error — and on the fraction within 2-fold the MEAN IS BETTER (0.7656 vs 0.7560).
+  Sharpest form: **for 1,428 of 3,246 held-out cistrons (44%) the estimator's prediction is bit-identical to
+  the population mean.** Where the two do differ the estimator is genuinely better (1,055 better / 763 worse,
+  z=+6.85, p≈0), so it is not useless — it is INERT for nearly half the genes, which is the same finding
+  Stage 2 reached from the structure and this reaches from prediction.
+- 📏 **The imputation's own error, measured for the first time.** Predicting the population mean for a gene
+  gives a median error of **0.4927 in log2 — a factor of 1.41** — with **23.4% off by more than 2-fold** and
+  **5.3% by more than 4-fold**. That is what the 1,100 genuinely unmeasured cistrons are carrying, with
+  nothing in `sim_data` marking it. **This is the number the explicit-unknown argument rests on**, and it is
+  a property of the data, so it is the same in every arm and needs no rebuild to quote.
+- ⚠️ **A finding about the PRE-REGISTRATION itself, recorded rather than fixed after the fact.** The floor
+  stratum — which the rule makes decisive — has **n=54**, and it is small for a structural reason: most
+  floor units are the 209 that no cistron connects to, so cross-validation cannot reach them. The stratum
+  named as decisive is the weakest test in the design. The rule was applied as written anyway; revising it
+  after seeing the numbers is exactly what pre-registration exists to prevent. **If it should be revised,
+  that is a decision to take explicitly, and all four variants must be re-scored under the new rule.**
+- 🔍 **One honest tension the paired analysis exposed.** For `ridge` on the floor stratum the median got worse
+  (0.4133 → 0.4371) while the MAJORITY of individual cistrons improved (33 better / 21 worse). Two different
+  statistics, both correct: small improvements below the median, larger regressions crossing it. The
+  pre-registered statistic governs, and the tension is reported rather than resolved in ridge's favour.
+- 🚫 **What Stage 3 did NOT decide, as pre-registered.** The 209 units in no equation and the 783 in
+  imputation-passthrough blocks have no held-out measurement to predict. Nothing above ranks estimators for
+  them. What it does supply is the SIZE of the error their default carries (1.41× typical), which is evidence
+  for how big an explicit *unknown* class should be — not for a cleverer solve.
+- ➡️ **Consequence: no arm is spent.** The design said a rebuild is justified only by a variant that has
+  passed offline. None has. `hierarchical` is the candidate worth revisiting — it attacks the imputation,
+  which is where Stage 2 located the mass, and κ was never tuned (tuning on these folds would leak; it needs
+  nested CV). That is the next experiment, and it is still free.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
@@ -1770,6 +1818,18 @@ were live defects, one was a false accusation against a correct corpus, and none
     serves the human and agent readers. **When the saturation fix above is designed, land all of it in ONE
     arm** — filter, flag and fix together — rather than spending an arm per increment.
 
+- ❌ **PARCA-5 — is `per_unit_bound` worth an arm ON ITS OWN? ANSWERED 2026-08-10: NO, on the pre-registered
+  evidence.** Stage 3 scored it the day this item was filed. It **fails the decision rule, and it fails on the
+  exact stratum it was designed to improve**: median |log2| error on cistrons attached to floor units rises
+  **0.4133 → 0.5232**, and paired on the same cistrons it is worse for 29 and better for 13 (sign test
+  p=0.014). Overall it is a tie (0.4693 vs 0.4726, inside the 0.01 threshold) and only 1,127 of 3,246
+  predictions move at all. **The offline appeal was a descriptive metric that did not survive a predictive
+  test** — expression resting on the floor falls 4.589% → 1.022%, which looks like exactly the reduction
+  PARCA-4 asked for, and the transcripts it moves are predicted WORSE. This is the "distinctness is not the
+  criterion" trap the design warned about, and it caught the variant I was most inclined to favour.
+  **Do not spend an arm on this.** Re-open only if the floor stratum's n=54 is judged too weak to decide on
+  (see the Stage 3 result block), and then only by re-scoring all four variants under an explicitly revised
+  rule. The costing below is retained because it is still correct if that happens. *(original entry follows)*
 - ⏳ **PARCA-5 — is `per_unit_bound` worth an arm ON ITS OWN? OPEN, NOT SCHEDULED, recorded 2026-08-10.**
   Stage 2 produced one variant that improves the metric PARCA-4 says matters, and it is separable from
   everything else still unresolved — hence its own item rather than a line inside PARCA-4.

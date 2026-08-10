@@ -1068,6 +1068,9 @@ from deg_estimator import (  # noqa: E402, I001
     nnls_blocks as _nnls_blocks,
     per_unit_floor as _per_unit_floor,
     pooled_cistron_rates as _pooled_cistron_rates,
+    cv_metrics as _cv_metrics,
+    fold_of as _fold_of,
+    paired_delta as _paired_delta,
     solve_nnls as _solve_nnls,
 )
 
@@ -1309,6 +1312,202 @@ def mode_deg_rate_resolve(root, variant="baseline", param=""):
     return out
 
 
+def _resolve_once(inp, variant, param, b, measured_cistrons):
+    """One full estimator run for a given variant, given a b vector and which cistrons count as measured.
+
+    Factored out of `mode_deg_rate_resolve` so cross-validation runs the SAME code path a full-data solve
+    does. A CV harness that reimplements the estimator scores its own reimplementation.
+    """
+    import numpy as np
+
+    n, A, is_mRNA = inp["n"], inp["A"], inp["is_mRNA"]
+    measured, shipped = inp["measured"], inp["shipped"]
+    c_is_mRNA = inp["c_is_mRNA"]
+    mrna_rates = b[c_is_mRNA]
+    # The floor and the clip are derived from the b vector IN PLAY, exactly as the shipped code derives them
+    # from `cistron_deg_rates` — so holding a measurement out removes it from the floor too, which is the
+    # difference between a held-out fold and a leaked one.
+    global_floor = float(mrna_rates.min())
+
+    if variant == "per_unit_bound":
+        floor_full, n_no_bound = _per_unit_floor(A, is_mRNA, b, measured_cistrons, global_floor)
+    else:
+        floor_full, n_no_bound = np.zeros(n), None
+        floor_full[is_mRNA] = global_floor
+
+    if variant == "ridge":
+        prior = np.zeros(n)
+        prior[is_mRNA] = float(np.log(2) / (np.log(2) / mrna_rates).mean())
+        x = _solve_nnls(A[:, ~measured], b - A[:, measured].dot(shipped[measured]),
+                        prior=prior[~measured], lam=float(param or 0.1))
+        est = np.zeros(n)
+        est[measured] = shipped[measured]
+        est[~measured] = x
+    else:
+        floor = floor_full[~measured]
+        A_no = A[:, ~measured]
+        rhs = b - A[:, measured].dot(shipped[measured]) - A_no.dot(floor)
+        est = np.zeros(n)
+        est[measured] = shipped[measured]
+        est[~measured] = _solve_nnls(A_no, rhs) + floor
+        mx = float(mrna_rates.max())
+        est[np.logical_and(is_mRNA, est > mx)] = mx
+    est[inp["is_rtRNA"]] = inp["stable_rate"]
+    return est, n_no_bound
+
+
+def _impute_b(inp, variant, param, held_out):
+    """The b vector a variant would build when `held_out` cistrons are unknown.
+
+    Every quantity derived from the measured set is rebuilt from the TRAINING measurements only — including
+    `average_mRNA_cistron_half_life`, which is the mean of the REPORTED half-lives and moves when a fold is
+    removed. Leaving it at its full-data value would leak the held-out measurements into the imputation that
+    is being scored.
+    """
+    import numpy as np
+
+    b = np.array(inp["b"], dtype=float, copy=True)
+    c_is_mRNA, c_measured = inp["c_is_mRNA"], inp["c_measured"]
+    train = c_measured & ~held_out
+    hl_train = np.log(2) / b[train]                      # the mean is over HALF-LIVES, not over rates
+    imputed_rate = float(np.log(2) / hl_train.mean())
+    b[held_out] = imputed_rate
+    n_pooled = 0
+    if variant == "hierarchical":
+        b, n_pooled = _pooled_cistron_rates(inp["t"].operons, b, c_is_mRNA, train, imputed_rate,
+                                            kappa=float(param or 5.0))
+    return b, train, imputed_rate, n_pooled
+
+
+def mode_deg_rate_cv(root, variant="baseline", k="10", param=""):
+    """Score a candidate estimator on measurements it never saw (PARCA-4 Stage 3).
+
+    The protocol is pre-registered in BACKLOG.md and was committed BEFORE this ran. In short: hold out a
+    tenth of the 3,246 measured mRNA cistrons by a stable hash of their id, treat them as unmeasured
+    everywhere (including in the global floor and in the imputation constant), re-solve, then predict each
+    held-out cistron as `(A x)_i` — the abundance-weighted mixture of the rates of the units carrying it,
+    which is exactly what the estimator's objective fits. Score on log2(predicted/measured).
+
+    Why held-out prediction and not resolution: any scheme can manufacture distinct values. Add noise and
+    the point masses vanish and the fit gets worse. Only predicting a measurement the fit never saw
+    separates "more informative" from "more decorated".
+
+    Also scored on the same folds: the CURRENT IMPUTATION alone — what the global mean would have predicted.
+    That is the error the 1,100 genuinely unmeasured cistrons are silently carrying, and it has never been
+    measured. It is a property of the data, so it is the same for every variant.
+    """
+    import pickle
+
+    import numpy as np
+
+    if variant not in _DEG_VARIANTS:
+        return {"error": "unknown variant %r; expected one of %s" % (variant, list(_DEG_VARIANTS))}
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": "no sim_data at %s (run ParCa first)" % kb}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+
+    inp = _deg_rate_inputs(sd)
+    A, is_mRNA = inp["A"], inp["is_mRNA"]
+    c_measured = inp["c_measured"]
+    b_true = inp["b"]
+    k = int(k or 10)
+
+    # --- strata, fixed by the FULL-DATA BASELINE fit so they are identical for every variant -------------
+    base_est, _ = _resolve_once(inp, "baseline", "", b_true, c_measured)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        hl = np.log(2) / base_est / 60.0
+    finite_m = is_mRNA & np.isfinite(hl)
+    tu_on_floor = finite_m & (np.round(hl, 9) == np.round(float(np.nanmax(hl[finite_m])), 9))
+    inc = (A > 0).tocsr()
+    n_tus_per_cistron = np.asarray(inc.sum(axis=1)).ravel()
+    on_floor_cistron = np.asarray(inc[:, tu_on_floor].sum(axis=1)).ravel() > 0
+
+    folds = np.full(len(b_true), -1, dtype=int)
+    idx = np.where(c_measured)[0]
+    folds[idx] = _fold_of([str(x) for x in np.asarray(inp["t"].cistron_data["id"])[idx]], k)
+
+    err_var, err_imp, err_base, keep, n_zero = [], [], [], [], 0
+    imputed_per_fold = []
+    for f in range(k):
+        held = c_measured & (folds == f)
+        if not held.any():
+            continue
+        train = c_measured & ~held
+        b, _tr, imputed_rate, _np_ = _impute_b(inp, variant, param, held)
+        est, _ = _resolve_once(inp, variant, param, b, train)
+        pred = np.asarray(A.dot(est), dtype=float)
+        # The BASELINE on the identical fold, so the comparison is paired rather than two summaries put
+        # side by side. Free: the expensive part of this loop is unpickling sim_data, which happened once.
+        if variant == "baseline":
+            pred_b = pred
+        else:
+            bb, _tr2, _ir2, _np2 = _impute_b(inp, "baseline", "", held)
+            est_b, _ = _resolve_once(inp, "baseline", "", bb, train)
+            pred_b = np.asarray(A.dot(est_b), dtype=float)
+        h = np.where(held)[0]
+        p, t, pb = pred[h], b_true[h], pred_b[h]
+        ok = (p > 0) & (t > 0) & (pb > 0)
+        n_zero += int((~ok).sum())
+        err_var.extend(np.log2(p[ok] / t[ok]))
+        err_base.extend(np.log2(pb[ok] / t[ok]))
+        err_imp.extend(np.log2(imputed_rate / t[ok]))
+        keep.extend(h[ok])
+        imputed_per_fold.append(float(np.log(2) / imputed_rate / 60.0))
+
+    keep = np.array(keep, dtype=int)
+    err_var, err_imp = np.array(err_var), np.array(err_imp)
+    err_base = np.array(err_base)
+    multi = n_tus_per_cistron[keep] > 1
+    floor_s = on_floor_cistron[keep]
+
+    def strat(e):
+        return {"overall": _cv_metrics(e),
+                "on_floor_stratum": _cv_metrics(e[floor_s]),
+                "not_on_floor": _cv_metrics(e[~floor_s]),
+                "multi_tu_operon": _cv_metrics(e[multi]),
+                "single_tu": _cv_metrics(e[~multi])}
+
+    return {
+        "variant": variant, "param": param or None, "k_folds": k, "root": root,
+        "n_held_out_scored": int(len(err_var)),
+        "n_dropped_zero_prediction": n_zero,
+        # OBSERVABLE PROOF that the derived quantities are rebuilt per fold. The imputation
+        # constant is the MEAN of the reported half-lives, so it MUST move when a tenth of the
+        # measurements is removed. If these are all identical to the full-data constant, the folds
+        # leak through the imputation even though `b` looks correctly masked -- a leak an
+        # end-to-end score check cannot see, because removing a tenth moves the mean by under 1%.
+        "imputed_half_life_min_per_fold": [round(v, 6) for v in imputed_per_fold],
+        "protocol": ("Pre-registered in BACKLOG.md before this ran. Folds by sha1(cistron_id) %% %d; a "
+                     "held-out cistron is unmeasured EVERYWHERE, including in the global floor and in the "
+                     "imputation constant; prediction is (A x)_i; metric is log2(predicted/measured)." % k),
+        "variant_scores": strat(err_var),
+        "baseline_scores_same_folds": strat(err_base),
+        "paired_vs_baseline": {"overall": _paired_delta(err_var, err_base),
+                               "on_floor_stratum": _paired_delta(err_var[floor_s], err_base[floor_s]),
+                               "multi_tu_operon": _paired_delta(err_var[multi], err_base[multi]),
+                               "note": ("Same held-out cistrons scored by both estimators, so the comparison "
+                                        "is paired. A negative median delta means the variant is closer to "
+                                        "the measurement. SUPPLEMENTS the pre-registered rule below; it does "
+                                        "not replace it.")},
+        "paired_vs_imputation": {"overall": _paired_delta(err_var, err_imp)},
+        "imputation_only_scores": strat(err_imp),
+        "imputation_note": ("`imputation_only_scores` is what the global mean alone would have predicted for "
+                            "the same held-out cistrons — the error the 1,100 genuinely unmeasured cistrons "
+                            "carry with nothing marking it. It is a property of the data, identical for every "
+                            "variant, and it is the evidence for how large an explicit unknown class needs "
+                            "to be."),
+        "decision_rule": ("Pre-registered: a variant beats the baseline only if median_abs_log2 is lower "
+                          "BOTH overall AND on the floor stratum. Winning overall while losing on the floor "
+                          "improves the units that were already fine, which is not the defect. Differences "
+                          "below 0.01 are ties."),
+        "cannot_decide": ("The 209 units in no equation and the 783 in imputation-passthrough blocks have no "
+                          "held-out measurement to predict. Cross-validation is silent about them by "
+                          "construction and no ranking here applies to them."),
+    }
+
+
 if __name__ == "__main__":
     mode, run_root = sys.argv[1], sys.argv[2]
     if mode == "run":
@@ -1339,6 +1538,10 @@ if __name__ == "__main__":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
     elif mode == "deg_rate_provenance":
         out = mode_deg_rate_provenance(run_root, sys.argv[3] if len(sys.argv) > 3 else "0")
+    elif mode == "deg_rate_cv":
+        out = mode_deg_rate_cv(run_root, sys.argv[3] if len(sys.argv) > 3 else "baseline",
+                               sys.argv[4] if len(sys.argv) > 4 else "10",
+                               sys.argv[5] if len(sys.argv) > 5 else "")
     elif mode == "deg_rate_resolve":
         out = mode_deg_rate_resolve(run_root, sys.argv[3] if len(sys.argv) > 3 else "baseline",
                                     sys.argv[4] if len(sys.argv) > 4 else "")

@@ -79,6 +79,69 @@ def solve_nnls(A, b, prior=None, lam=0.0):
     return x
 
 
+def fold_of(ids, k=10):
+    """Assign each id to one of k cross-validation folds by a STABLE HASH of the id, not a seeded shuffle.
+
+    A shuffle needs its seed AND the array order preserved to be reproducible, and the array order is a
+    property of the fit — rebuild the knowledge base and it can move. A hash of the identifier survives a
+    rebuild, a reordering and a library version, and gives every variant bit-identical folds by construction
+    rather than by remembering to pass the same seed.
+    """
+    import hashlib
+
+    import numpy as np
+    return np.array([int(hashlib.sha1(str(i).encode()).hexdigest(), 16) % k for i in ids], dtype=int)
+
+
+def cv_metrics(log2_err):
+    """Score a set of held-out predictions on the log2 scale, pre-registered in BACKLOG.md.
+
+    Half-lives span more than two orders of magnitude, so an absolute error in 1/s is dominated by the
+    fastest transcripts and says nothing about the rest. The SIGNED median is reported alongside the
+    magnitude because an estimator that is reliably too slow is a different failure from one that is noisy,
+    and a magnitude-only summary absorbs the difference.
+    """
+    import numpy as np
+
+    e = np.asarray(log2_err, dtype=float)
+    e = e[np.isfinite(e)]
+    if e.size == 0:
+        return {"n": 0}
+    return {"n": int(e.size),
+            "median_abs_log2": round(float(np.median(np.abs(e))), 4),
+            "signed_median_log2": round(float(np.median(e)), 4),
+            "frac_within_2fold": round(float((np.abs(e) <= 1.0).mean()), 4),
+            "frac_within_4fold": round(float((np.abs(e) <= 2.0).mean()), 4)}
+
+
+def paired_delta(variant_err, baseline_err):
+    """Compare a variant to the baseline on the SAME held-out cistrons, pair by pair.
+
+    The pre-registered rule compares two medians, which is correct but weak: it throws away the pairing, and
+    every held-out cistron is scored by both estimators, so the pairing is free. A median-of-differences and
+    a sign test say whether a gap of 0.02 log2 units is a real shift or the two summaries wobbling. This
+    SUPPLEMENTS the pre-registered rule; it does not replace it, and the rule is applied as written.
+    """
+    import numpy as np
+
+    v, b = np.abs(np.asarray(variant_err)), np.abs(np.asarray(baseline_err))
+    ok = np.isfinite(v) & np.isfinite(b)
+    v, b = v[ok], b[ok]
+    if v.size == 0:
+        return {"n": 0}
+    d = v - b                                     # negative => the variant is closer to the measurement
+    better, worse = int((d < 0).sum()), int((d > 0).sum())
+    n = better + worse
+    z = (better - n / 2.0) / np.sqrt(n / 4.0) if n else 0.0
+    # Two-sided normal-approximation sign test. Stated as an approximation rather than dressed up as exact.
+    from math import erfc
+    p = float(erfc(abs(z) / np.sqrt(2))) if n else 1.0
+    return {"n": int(v.size), "n_better": better, "n_worse": worse,
+            "median_delta_abs_log2": round(float(np.median(d)), 4),
+            "mean_delta_abs_log2": round(float(d.mean()), 4),
+            "sign_test_z": round(float(z), 3), "sign_test_p_normal_approx": round(p, 5)}
+
+
 def per_unit_floor(A, is_mRNA, b, c_measured, global_floor):
     """A floor from each unit's OWN measured cistrons instead of one global minimum over all of them.
 

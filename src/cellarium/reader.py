@@ -147,6 +147,32 @@ def deg_rate_resolve(sim_path: str = "cellarium", variant: str = "baseline",
                    [variant, "" if param is None else str(param)])
 
 
+def deg_rate_cv(sim_path: str = "cellarium", variant: str = "baseline", k: int = 10,
+                param: float | str | None = None) -> dict:
+    """Score a candidate degradation-rate estimator on measurements it never saw (PARCA-4 Stage 3).
+
+    The protocol is pre-registered in BACKLOG.md and was committed before the first run: hold out a tenth of
+    the 3,246 measured mRNA cistrons by a stable hash of their id, treat them as unmeasured EVERYWHERE
+    (including in the global floor and in the imputation constant), re-solve, predict each held-out cistron
+    as the abundance-weighted mixture of its units' rates, and score log2(predicted/measured).
+
+    Held-out prediction rather than resolution, because any scheme can manufacture distinct values: add noise
+    and every point mass disappears while the fit gets worse. Only predicting a measurement the fit never saw
+    separates a more informative estimator from a more decorated one.
+
+    Returns the variant's scores, the BASELINE's scores on the identical folds, a paired comparison (the same
+    cistrons are scored by both, so the pairing is free and much stronger than comparing two medians), and
+    `imputation_only_scores` — what the population mean alone would have predicted, which is the error the
+    1,100 genuinely unmeasured cistrons carry with nothing marking it.
+
+    ~10 s per variant once sim_data is unpickled; the cost is the unpickle, not the solves.
+    """
+    if variant not in DEG_RATE_VARIANTS:
+        return {"error": f"unknown variant {variant!r}; expected one of {list(DEG_RATE_VARIANTS)}"}
+    return _invoke("deg_rate_cv", OUT_ROOT / sim_path,
+                   [variant, str(int(k)), "" if param is None else str(param)])
+
+
 PROVENANCE_BASELINE = "data/parca/deg_rate_baseline.json"
 
 
