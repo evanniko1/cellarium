@@ -2059,9 +2059,13 @@ were live defects, one was a false accusation against a correct corpus, and none
     **Cause, code-traced:** `ref, gaps, names = tabs[0], [], []` (`trna.py:307`). The reference table is
     whichever row `store.list_results()` happens to return FIRST, and that order is unstable — the same
     DuckDB property that made `rigor.coverage` report `n_total` as 55/55/54/54/56/55 across six calls in one
-    process. Every gap is measured against an arbitrary, changing baseline. The MAX is nearly stable
-    (84.5/84.8) because extremes dominate, which is why this survived: the headline number looks steady while
-    the distribution underneath it moves.
+    process. Every gap is measured against an arbitrary, changing baseline.
+    ⚠️ **CORRECTION, 2026-08-11 — I first reported "the MAX is nearly stable (84.5/84.8)" from four calls.
+    Six calls give 84.5 / 84.2 / 52.1 / 84.4 / 84.2 / 84.5 — the threshold itself swings 52.1-84.5 pp, a 62%
+    range.** So it is not "a steady headline over a moving distribution"; the number that gates
+    `exceeds_wildtype_null_max` is itself unstable, and four samples were simply not enough to see it. That
+    makes this more serious than first filed, and it is a reminder that a stability claim needs a sample size
+    stated with it.
     **The fix is not just to sort `tabs`.** A stable sort makes the arbitrary reference *reproducible*, not
     principled. The null is a PAIRWISE quantity — the gap between any two unperturbed runs — so one-vs-rest
     discards ~98% of the pairs (57 of 1,653) and makes the answer depend on which one was drawn. All-pairs is
@@ -2080,7 +2084,8 @@ were live defects, one was a false accusation against a correct corpus, and none
     error ARM-1 exists to prevent — and it makes `exceeds_wildtype_null_max` systematically hard to trigger,
     i.e. the tool under-reports selectivity.
   - **Why this was NOT landed with the H-17b batch.** Migrating the row source to `analysis` moves the
-    threshold **-43%**, so claims that previously did not exceed the null would now exceed it. That is a
+    threshold **-43%** (against a baseline that is itself moving by 62%), so claims that previously did not
+    exceed the null would now exceed it. That is a
     change to a verdict, not to hygiene, and it must not ride in on a refactor. It also bundles two
     independent changes whose effects the table above had to separate.
   - **Recommended order when this is picked up:** fix the determinism FIRST (all-pairs, no reference row), and

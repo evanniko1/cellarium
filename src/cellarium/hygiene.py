@@ -85,6 +85,94 @@ PURPOSES: dict[str, dict] = {
 }
 
 
+# ------------------------------------------------------------------------------------------------------------
+# The read-site REGISTRY — intent, which no scanner can derive.
+# ------------------------------------------------------------------------------------------------------------
+# `read_sites()` answers WHERE the corpus is read. It cannot answer WHY, and the why is what decides whether a
+# site should move onto this boundary. That judgement is declared here.
+#
+# WHY A REGISTRY IS NOT ENOUGH ON ITS OWN, stated because it is the objection this design has to answer. A
+# registry is a DECLARATION, and this codebase's standing rule is that a declaration nobody verifies is a
+# comment — `capability.probe()` greps the checkout, `INVARIANTS.json`'s probe codes are grepped out of
+# `integrity_check`, `test_registry.unclassified_tools()` trips CI on a new tool. A registry of read sites
+# fails the same way and worse: an unregistered new call site makes it UNDER-count, silently, while reading as
+# complete. The text-search counter it replaces at least over-counted, which is loud.
+#
+# So the registry is paired with `registry_reconciliation()`, checked BOTH ways: every DETECTED site must be
+# registered (catches new code), and every REGISTERED site must still exist (catches stale entries). The
+# detector stays the authority on completeness; the registry is the authority on intent.
+#
+# WHAT THIS STILL CANNOT CATCH, so nobody reads it as more than it is:
+#   * a MISCLASSIFIED site — registering a purpose-shaped read as a `lookup` silences the test and no
+#     mechanical check can tell; only review can. There is a test that asserts this limit rather than hiding it.
+#   * a call reached dynamically (`getattr(store, name)()`) — invisible to the syntax tree.
+#   * a NEW read path that avoids these functions entirely, e.g. a fresh `read_parquet` in a new module. The
+#     detector counts those; nothing yet FORBIDS one. Only a lint rule (banned call + allowlist) closes that,
+#     which is a separate change with a CI dependency.
+KINDS = ("lookup", "purpose_shaped", "primitive", "blocked", "migrated")
+
+READ_SITE_REGISTRY: dict[str, dict] = {
+    # --- LOOKUPS: "which row is this?", not "which rows may I use?". A purpose filter in front of a lookup
+    # would HIDE the row being looked up — `data_availability` for a crashed run's id must still find it.
+    "differential.py::_design_run_roots": {
+        "kind": "lookup", "why": "resolves a design to its run directories; must see every row, crashed included"},
+    "hf.py::_design_seeds": {
+        "kind": "lookup", "why": "resolves a design label or a result_id to its rows"},
+    "hf.py::data_availability": {
+        "kind": "lookup", "why": "finds one row by id to report what is downloadable; filtering could hide it"},
+    "raw.py::seed_runs": {
+        "kind": "lookup", "why": "resolves a design to its seeds on disk"},
+    "tools.py::_resolve_result": {
+        "kind": "lookup", "why": "resolves a user-supplied id or label to a row"},
+    "tools.py::_run_label": {
+        "kind": "lookup", "why": ("resolves a run id to its label for display; a filtered set would render a "
+                                  "real run as unknown rather than as filtered out")},
+    "tools.py::run_experiment": {
+        "kind": "lookup", "why": "checks whether a proposed design already has runs before launching"},
+    "tools.py::segment_means": {
+        "kind": "lookup", "why": "resolves a design_or_id argument; a shift run may legitimately be non-reportable"},
+    "tools.py::read_series": {
+        "kind": "lookup", "why": "label search for a user-supplied key"},
+
+    # --- DECIDED, NOT MIGRATED.
+    "segments.py::repair": {
+        "kind": "lookup",
+        "why": ("a maintenance WRITE path over live timeline rows. Its filter set matches `lethality` and "
+                "`inventory`, but both contracts are wrong for it — `inventory` says the rows may not be read "
+                "and repair reads them. A third contract over one filter set is the signal that filter and "
+                "contract may want to be two dimensions; adding a sixth purpose for one internal function is "
+                "how a boundary becomes a taxonomy nobody reads. Revisit if a second repair-like caller appears")},
+    "trna.py::wildtype_null": {
+        "kind": "blocked",
+        "why": ("TRNA-9. Migrating moves `exceeds_wildtype_null_max` by -43%, which changes a scientific "
+                "verdict, and the estimator is non-deterministic besides (max gap observed at 52.1-84.5 pp, a 62% swing, "
+                "across six calls on identical data). Fix the determinism first, then re-decide the arm "
+                "question on a null that has stopped moving")},
+}
+
+
+def registry_reconciliation() -> dict:
+    """Detected vs registered, BOTH ways. This is what makes the registry trustworthy rather than a comment."""
+    sites = read_sites()["consumer_sites"]
+    detected = {f"{s['file']}::{s['function']}" for s in sites}
+    registered = set(READ_SITE_REGISTRY)
+    unregistered = sorted(detected - registered)
+    stale = sorted(registered - detected)
+    bad_kind = sorted(k for k, v in READ_SITE_REGISTRY.items() if v.get("kind") not in KINDS)
+    no_reason = sorted(k for k, v in READ_SITE_REGISTRY.items() if not str(v.get("why") or "").strip())
+    return {
+        "ok": not (unregistered or stale or bad_kind or no_reason),
+        "n_detected": len(detected), "n_registered": len(registered),
+        "unregistered": unregistered, "stale": stale,
+        "invalid_kind": bad_kind, "missing_reason": no_reason,
+        "by_kind": {k: sorted(n for n, v in READ_SITE_REGISTRY.items() if v.get("kind") == k) for k in KINDS},
+        "cannot_catch": ("a MISCLASSIFIED site (registering a purpose-shaped read as a lookup silences this "
+                         "check and only review can tell); a dynamically dispatched call; and a NEW read path "
+                         "that avoids these functions entirely. Reconciliation proves the registry is "
+                         "COMPLETE, not that it is RIGHT."),
+    }
+
+
 class UnknownPurpose(ValueError):
     """Raised rather than defaulted. A default purpose is how every caller ends up on `analysis` and lethality
     silently reads zero — the failure this boundary exists to prevent."""

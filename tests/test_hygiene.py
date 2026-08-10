@@ -205,3 +205,54 @@ def test_the_disconfirmation_tool_asks_by_purpose():
     from src.cellarium import differential, rigor
     assert 'hygiene.rows("analysis")' in inspect.getsource(rigor.disconfirm)
     assert 'hygiene.rows("analysis")' in inspect.getsource(differential)
+
+
+# ---------------------------------------------------------------------------------------------------------
+# The read-site registry, and the reconciliation that stops it becoming a comment.
+# ---------------------------------------------------------------------------------------------------------
+
+def test_the_registry_and_the_detector_agree_in_both_directions():
+    """The whole reason a registry is allowed to exist here.
+
+    A registry on its own is a DECLARATION, and this codebase's standing rule is that a declaration nobody
+    verifies is a comment. Worse than the text-search counter it replaces: an unregistered new call site makes
+    it UNDER-count, silently, while reading as complete — where the counter at least over-counted loudly.
+    Checked both ways: detected-but-unregistered catches new code, registered-but-absent catches stale entries.
+    """
+    r = hygiene.registry_reconciliation()
+    assert r["ok"], {k: r[k] for k in ("unregistered", "stale", "invalid_kind", "missing_reason")}
+    assert r["n_detected"] == r["n_registered"] > 0
+
+
+def test_every_registry_entry_says_why():
+    """A classification with no reason is a label. The `why` is the part a reviewer checks, and it is the only
+    defence against the one failure reconciliation cannot see."""
+    for name, entry in hygiene.READ_SITE_REGISTRY.items():
+        assert entry["kind"] in hygiene.KINDS, f"{name}: {entry['kind']}"
+        assert len(str(entry.get("why") or "")) > 25, f"{name}: reason too thin to review"
+
+
+def test_the_reconciliation_states_what_it_cannot_catch():
+    """Reconciliation proves the registry is COMPLETE, not that it is RIGHT. A payload that did not say so
+    would be read as the stronger claim — which is exactly the over-reading this module keeps guarding
+    against."""
+    r = hygiene.registry_reconciliation()
+    assert "MISCLASSIFIED" in r["cannot_catch"]
+    assert "COMPLETE, not that it is RIGHT" in r["cannot_catch"]
+
+
+def test_a_misclassified_site_is_NOT_caught_and_that_limit_is_asserted_deliberately():
+    """The honest negative. Registering a purpose-shaped read as a `lookup` silences every mechanical check
+    here, and no amount of reconciliation will find it — only review will.
+
+    Asserted as a TEST rather than left in a docstring so the limit cannot quietly stop being true: if some
+    future check does start catching misclassification, this test fails and someone gets to delete it and
+    claim the win.
+    """
+    entry = dict(hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"])
+    hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"] = {**entry, "kind": "purpose_shaped"}
+    try:
+        assert hygiene.registry_reconciliation()["ok"], (
+            "misclassification is now detected — good news; update this test and the `cannot_catch` note")
+    finally:
+        hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"] = entry
