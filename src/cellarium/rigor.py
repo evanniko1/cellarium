@@ -38,11 +38,16 @@ def note_design(label: str) -> None:
 
 def coverage() -> dict:
     """Designs deep-read this session vs all designs in the corpus — the grid a conclusion should cover."""
-    from . import store, survey
+    from . import hygiene, survey
     # design identity comes from the LABEL, not the raw condition column — the same merge that pooled an upshift
     # with a downshift in survey/differential (fixed in a1a0388) applied here too, so a coverage grid could report
     # "examined" for a design the agent never actually read.
-    rows = store.list_results()
+    # H-17b: the DENOMINATOR, asked for by purpose. `inventory` is the fifth purpose and it exists because
+    # of this call site: a coverage grid needs every live design regardless of reportability, which is
+    # behaviourally the `lethality` set under a name that would mislead anyone reading this function. The
+    # contract is what differs — `inventory` may be counted and may not be read — and that is the mistake a
+    # denominator invites.
+    rows, _inv_ctx = hygiene.rows("inventory")
     # The DENOMINATOR is derived from the rows directly, NOT from the id->label dict's values. `id` is not unique
     # (272 rows carry 239 distinct ids — crash rows share a synthetic id, WELL-6z1), so a dict keyed on it
     # silently overwrites entries, and because DuckDB row order is unstable the OVERWRITE WINNER changed between

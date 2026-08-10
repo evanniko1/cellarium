@@ -19,6 +19,17 @@ using the wrong one silently answers a different question:
                   correction history the audit exists to read.
   * `lethality` — non-reportable INCLUDED, because collapse IS the phenotype. `WHERE reportable` deletes the
                   thing being measured.
+  * `inventory` — the DENOMINATOR: every live design, regardless of whether a mean could be quoted from it.
+                  What "have I covered the corpus?" is measured against.
+
+A PURPOSE IS A CONTRACT, NOT ONLY A FILTER — and `inventory` is the case that forces the distinction.
+It returns the SAME ROWS as `lethality`: deduped, live, reportability-agnostic. Two purposes over one row set
+looks like the decoration this module exists to avoid, so the reason it is not: what differs is what the set
+LICENSES. `lethality` may be asked whether a design collapses and may not be asked for a channel mean;
+`inventory` may be COUNTED and may not be read at all — its rows exist to size a denominator. A caller that
+takes `inventory` and starts reading channels has made a category error the row set cannot detect, and the
+only place that can say so is the contract. `test_no_two_purposes_share_a_filter_set_AND_a_contract` pins
+that they never collapse into genuine duplicates.
 
 `ctx` names every filter applied, every count it changed, the invariants it enforces (`data/INVARIANTS.json`),
 and — the field that matters most — **what this row set must NOT be used for**. A caller who reaches for the
@@ -61,6 +72,15 @@ PURPOSES: dict[str, dict] = {
         "invariants": ("INV-3",),
         "not_for": ("quoting a channel mean — a collapsed run's channels are garbage; this set is for asking "
                     "WHETHER a design collapses, not what its numbers were"),
+    },
+    "inventory": {
+        "summary": ("every live design, reportability-agnostic — the DENOMINATOR of 'what fraction of the "
+                    "corpus have I examined?'"),
+        "filters": ("dedup", "tombstones"),
+        "invariants": ("INV-12", "INV-6"),
+        "not_for": ("reading ANY value off these rows. They are here to be COUNTED. The set deliberately "
+                    "mixes arms, crashed runs and depths, because a denominator must include the designs you "
+                    "did not examine — which is exactly what makes every number in it uninterpretable"),
     },
 }
 
@@ -133,8 +153,19 @@ def rows(purpose: str, *, arm=None) -> tuple[list[dict], dict]:
                                              "records a correction as a NEW row superseding an old one, and "
                                              "deduping here would hide exactly what an audit reads.")})
 
-    from . import store
+    from . import store, survey
     out = [r for r in store.list_results() if not r.get("dropped")]
+
+    if purpose == "inventory":
+        designs = {survey.design_key(r) for r in out}
+        return out, _ctx(purpose, {"returned": len(out), "distinct_designs": len(designs)}, [],
+                         {"denominator": sorted(designs),
+                          "why_same_rows_as_lethality": (
+                              "identical row SET, different CONTRACT. `lethality` may be asked whether a "
+                              "design collapses; `inventory` may only be counted. Sharing a filter set is not "
+                              "duplication when what the set licenses differs — and the licence is the part a "
+                              "caller gets wrong.")})
+
     n_unreportable = sum(1 for r in out if not r.get("reportable"))
     return out, _ctx("lethality", {"returned": len(out), "non_reportable_kept": n_unreportable}, [],
                      {"why_non_reportable_kept": ("`WHERE reportable` deletes the lethality phenotype. A "
@@ -169,19 +200,14 @@ def read_sites() -> dict:
             consumers[p.name] = n_cons
     return {
         "direct_read_parquet": direct, "n_direct_modules": len(direct),
-        # A GAP FOUND BY MIGRATING, recorded rather than papered over. `rigor.coverage` needs "deduped, live,
-        # regardless of reportability" for the denominator of its coverage grid. That is behaviourally the
-        # `lethality` set — but naming a coverage grid's row source `lethality` is misleading, and the four
-        # purposes are the ones H-17b fixed. Either that call site takes `lethality` (right behaviour, wrong
-        # word) or a fifth purpose is added, and choosing is a design decision, not a migration step.
-        "unmigrated_needing_a_decision": [
-            {"site": "rigor.coverage",
-             "needs": "deduped, live, reportability-agnostic — the denominator of a coverage grid",
-             "closest_purpose": "lethality",
-             "why_not_migrated": "the behaviour matches but the NAME would mislead the next reader"}],
+        # The gap this list recorded is CLOSED: `rigor.coverage` needed "deduped, live, reportability-
+        # agnostic" and the honest answer was a fifth purpose (`inventory`) rather than borrowing
+        # `lethality`'s name. Kept as an empty list rather than deleted, because the next migration batch will
+        # find its own gaps and this is where they go.
+        "unmigrated_needing_a_decision": [],
         "downstream_consumers": consumers, "n_consumer_modules": len(consumers),
         "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents",
-                     "reconcile.corpus_identifiers"],
+                     "reconcile.corpus_identifiers", "rigor.coverage"],
         "note": ("A direct `read_parquet` bypasses every rule in `data/INVARIANTS.json`; a consumer of "
                  "`list_results`/`analysis_rows` gets the primitive's filters but chooses its own on top, "
                  "which is where the measured 5.5x `disconfirm` drift came from. Both counts have to fall "

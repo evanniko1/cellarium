@@ -52,11 +52,39 @@ def test_an_unknown_purpose_is_refused_with_the_list():
     assert "no default" in msg
 
 
-def test_the_four_purposes_return_genuinely_different_sets(sets):
+def test_no_two_purposes_share_a_filter_set_AND_a_contract():
+    """The rule that lets `inventory` exist without being decoration.
+
+    `inventory` returns the SAME rows as `lethality` — deduped, live, reportability-agnostic. Two purposes
+    over one row set is exactly the duplication this module exists to avoid, UNLESS what they license
+    differs: `lethality` may be asked whether a design collapses and not for a channel mean; `inventory` may
+    be counted and not read at all. A purpose is a contract, not only a filter. What must never happen is two
+    purposes agreeing on BOTH — that is a genuine duplicate wearing two names.
+    """
+    seen: dict = {}
+    for name, spec in hygiene.PURPOSES.items():
+        key = (tuple(spec["filters"]), spec["not_for"])
+        assert key not in seen, f"{name} and {seen[key]} have the same filters AND the same contract"
+        seen[key] = name
+
+
+def test_the_denominator_purpose_shares_rows_but_not_a_licence(sets):
+    """Stated as its own test because the sharing is deliberate and would otherwise read as a bug to whoever
+    finds it next."""
+    inv_rows, inv_ctx = sets["inventory"]
+    leth_rows, _ = sets["lethality"]
+    assert {r["id"] for r in inv_rows} == {r["id"] for r in leth_rows}
+    assert inv_ctx["NOT_for"] != hygiene.PURPOSES["lethality"]["not_for"]
+    assert "COUNTED" in inv_ctx["NOT_for"], "the denominator's contract must say the rows are to be counted"
+    assert inv_ctx["counts"]["distinct_designs"] > 0
+
+
+def test_the_purposes_return_genuinely_different_sets(sets):
     """THE test. If two purposes return the same rows, the argument is decoration — and decoration that looks
     like a safeguard is worse than no safeguard at all."""
     sizes = {p: len(r) for p, (r, _c) in sets.items()}
     assert len(set(sizes.values())) > 1, f"every purpose returned the same number of rows: {sizes}"
+    assert len(set(sizes.values())) >= 3, f"the purposes have collapsed toward one row set: {sizes}"
     assert sizes["analysis"] < sizes["lethality"], sizes
     assert sizes["coverage"] >= sizes["lethality"], sizes
 
@@ -142,7 +170,7 @@ def test_migration_progress_is_not_overstated():
     P1 gets closed while the defect stays live. `migrated` names the call sites actually moved and must stay
     a SMALL fraction of the enumerated surface until it genuinely is not."""
     s = hygiene.read_sites()
-    assert s["migrated"], "batch 1 moved three call sites; this list should name them"
+    assert s["migrated"], "the migrated call sites should be named here"
     assert len(s["migrated"]) < s["n_consumer_modules"], (
         "migrated call sites now outnumber the consumer modules — recount the surface rather than "
         "assuming the migration is finished")
