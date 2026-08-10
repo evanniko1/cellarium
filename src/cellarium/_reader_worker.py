@@ -902,7 +902,7 @@ def mode_list_species(run_root, kind, search=""):
     return {"kind": kind, "matches": hits[:40]}
 
 
-def mode_deg_rate_provenance(root):
+def mode_deg_rate_provenance(root, per_unit="0"):
     """For every mRNA transcription unit: is its degradation rate a FIT, a CONSTRAINT, or a DEFAULT (PARCA-4)?
 
     Three situations collapse into indistinguishable floats in `sim_data`, and the difference is the whole
@@ -971,6 +971,18 @@ def mode_deg_rate_provenance(root):
 
     top = sorted(((float(exp[i]), ids[i]) for i in np.where(not_a_fit)[0]), reverse=True)[:8]
     distinct = int(len(np.unique(np.round(hl_m, 9))))
+
+    # PER-UNIT, opt-in. Aggregate counts cannot SCORE a variant: "did the units that were not fits improve"
+    # needs to know WHICH units those were, so a later fit can be intersected against this one. Only the three
+    # not-a-fit classes are listed — DETERMINED is their complement, which keeps the payload ~854 ids instead
+    # of 3,133 and makes the set operations the scoring actually needs direct. Off by default because the
+    # summary above is what a human reads and a thousand ids buried in it is not a summary.
+    units = {}
+    if str(per_unit) in ("1", "true", "True"):
+        units = {"floor": [ids[i] for i in np.where(on_floor)[0]],
+                 "ceiling": [ids[i] for i in np.where(on_ceiling)[0]],
+                 "imputed": [ids[i] for i in np.where(imputed)[0]],
+                 "determined_is_the_complement": int(is_m.sum()) - int(not_a_fit.sum())}
     return {
         "n_mrna_units": int(is_m.sum()),
         "rate_floor_as_half_life_min": round(slowest, 4),
@@ -985,6 +997,7 @@ def mode_deg_rate_provenance(root):
                        "caveat": ("CONTEXT, not a defect measure: the flat file rounds half-lives to one "
                                   "decimal, so genuinely measured units share values. Only the three classes "
                                   "above are 'not a fit'.")},
+        **({"units_not_a_fit": units} if units else {}),
         "note": ("A unit that is on a bound or imputed did not get a fitted half-life. sim_data stores all "
                  "three classes as the same kind of float, so any claim resting on one of these transcripts "
                  "rests on a constraint or a population mean, not on a measurement of that transcript."),
@@ -1019,7 +1032,7 @@ if __name__ == "__main__":
     elif mode == "gene_lfc":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
     elif mode == "deg_rate_provenance":
-        out = mode_deg_rate_provenance(run_root)
+        out = mode_deg_rate_provenance(run_root, sys.argv[3] if len(sys.argv) > 3 else "0")
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

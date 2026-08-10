@@ -145,3 +145,46 @@ def test_rounding_collisions_are_not_counted_as_defects():
     named = r["on_floor"]["n_units"] + r["on_ceiling"]["n_units"] + r["imputed_average"]["n_units"]
     assert r["not_a_fit"]["n_units"] == named, (
         "not_a_fit must be exactly the three structural classes, not everything that repeats")
+
+
+def test_the_per_unit_array_is_opt_in_and_complete():
+    """Aggregate counts cannot SCORE a candidate estimator; identities can."""
+    default = _bounds()
+    assert "units_not_a_fit" not in default, (
+        "the id list is in the DEFAULT payload — the summary is what a human reads, and 854 ids inside it is "
+        "not a summary")
+    r = reader.deg_rate_provenance("cellarium", per_unit=True)
+    u = r["units_not_a_fit"]
+    for cls in ("floor", "ceiling", "imputed"):
+        assert len(u[cls]) == r["on_floor" if cls == "floor" else
+                                "on_ceiling" if cls == "ceiling" else "imputed_average"]["n_units"], cls
+    total = sum(len(u[c]) for c in ("floor", "ceiling", "imputed"))
+    assert total == r["not_a_fit"]["n_units"], "the listed ids do not add up to the reported not-a-fit count"
+    assert u["determined_is_the_complement"] == r["n_mrna_units"] - total
+    assert len(set(u["floor"]) & set(u["imputed"])) == 0, "a unit is in two classes at once"
+
+
+def test_two_fits_can_be_scored_against_each_other():
+    """THE reason the array exists — and on its first use it settled the coverage-filter question sharply.
+
+    Aggregate mass said the filter costs 12.087% -> 15.382% of expression. Per unit it says: 1 unit rescued,
+    45 regressed. A ratio like that is not visible in a total, and it is the shape Stage 3 has to measure for
+    every candidate estimator.
+    """
+    # BOTH guards, not just the file. Unpickling sim_data needs the model image, so checking only that the kb
+    # exists let this run in an environment where it cannot work — it passed alone with WCECOLI_DOCKER set and
+    # failed in the full suite without it. `_bounds` already guards both; this test called the reader directly
+    # and skipped that.
+    _bounds("cellarium")
+    if not Path("runs/refit2/kb/simData.cPickle").is_file():
+        pytest.skip("refit2 knowledge base not present")
+    a = reader.deg_rate_provenance("cellarium", per_unit=True)["units_not_a_fit"]
+    b = reader.deg_rate_provenance("refit2", per_unit=True)["units_not_a_fit"]
+    A = set(a["floor"]) | set(a["ceiling"]) | set(a["imputed"])
+    B = set(b["floor"]) | set(b["ceiling"]) | set(b["imputed"])
+    assert A and B, "an empty class set makes the comparison below vacuous"
+    rescued, regressed = A - B, B - A
+    assert len(regressed) > len(rescued), (
+        "the coverage filter now rescues more units than it regresses (%d vs %d). That would be a real "
+        "improvement and the DECLINE decision in the backlog must be re-read, not left standing"
+        % (len(rescued), len(regressed)))

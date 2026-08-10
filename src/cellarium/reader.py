@@ -93,7 +93,7 @@ def kb_content_hash(sim_path: str = "cellarium") -> dict:
     return _invoke("kb_content_hash", OUT_ROOT / sim_path)
 
 
-def deg_rate_provenance(sim_path: str = "cellarium") -> dict:
+def deg_rate_provenance(sim_path: str = "cellarium", per_unit: bool = False) -> dict:
     """Is each mRNA degradation rate a FIT, a CONSTRAINT, or a population DEFAULT (PARCA-4)?
 
     RENAMED from `deg_rate_bounds`, which under-reported by ~3x. That name asked "which units sit on a bound",
@@ -103,9 +103,15 @@ def deg_rate_provenance(sim_path: str = "cellarium") -> dict:
     transcription on a value that is not a fit. Reporting a third of that under a name that sounds complete is
     the failure this project keeps meeting; the name now says what it measures.
 
+    `per_unit=True` additionally returns `units_not_a_fit` — the IDs in each of the three classes. Aggregate
+    counts cannot score a candidate estimator: "did the units that were not fits improve" requires knowing
+    WHICH units those were, so two fits can be intersected. Only the not-a-fit classes are listed; DETERMINED
+    is their complement, which keeps it ~854 ids rather than 3,133. Off by default — the summary is what a
+    human reads, and a thousand ids inside it is not a summary.
+
     Heavy (unpickles sim_data); cache it.
     """
-    return _invoke("deg_rate_provenance", OUT_ROOT / sim_path)
+    return _invoke("deg_rate_provenance", OUT_ROOT / sim_path, ["1"] if per_unit else None)
 
 
 def gene_map(sim_path: str = "cellarium") -> dict:

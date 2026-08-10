@@ -955,9 +955,12 @@ imputation constant from `sim_data` so it follows the fit. Corpus baseline: **85
 it already changed a decision — it showed the declined coverage filter costs 12.087% -> 15.382%, not the
 4.589% -> 6.571% the bounds-only view suggested.
 
-*Still missing from Stage 1, and needed before Stage 3 can score anything:* a per-unit provenance ARRAY
-rather than aggregate counts. Scoring a variant on "did the units that were previously not-fits improve"
-needs to know WHICH units those were, and the current payload names only the eight most-expressed.
+✅ **Per-unit array added the same day** (`deg_rate_provenance(sim_path, per_unit=True)` -> `units_not_a_fit`
+with the ids in each class; DETERMINED is the complement, so the payload is ~854 ids not 3,133, and it is
+opt-in because the summary is what a human reads). **It settled the coverage-filter question on first use,
+far more sharply than the aggregate did:** corpus fit vs refit2 — **1 unit rescued, 45 regressed**, 853
+not-a-fit in both. A 45:1 loss ratio is invisible in a mass total (12.087% -> 15.382%) and is exactly the
+shape Stage 3 must measure for every candidate estimator.
 
 **Stage 2 — re-solve OFFLINE, and this is the key to the whole plan being affordable.** The NNLS inputs —
 the cistron×TU mapping matrix, the measured cistron rates, the expression vector — are all IN `sim_data`,
