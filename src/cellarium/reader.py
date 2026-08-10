@@ -114,6 +114,61 @@ def deg_rate_provenance(sim_path: str = "cellarium", per_unit: bool = False) -> 
     return _invoke("deg_rate_provenance", OUT_ROOT / sim_path, ["1"] if per_unit else None)
 
 
+def provenance_delta(fit_a: str, fit_b: str) -> dict:
+    """Score one knowledge base's degradation table against another: what got RESCUED, what REGRESSED.
+
+    THE Stage-3 primitive. Every candidate estimator is judged by this question — "did the units that were not
+    fits become fits, and at what cost elsewhere" — so it lives in one function rather than being re-derived
+    per caller. Two implementations of a set intersection that differ by one class (forgetting `ceiling`, say)
+    would score two candidates under different rules with nothing saying so.
+
+    Reported BOTH ways, because they disagree and the disagreement is the point. Measured on the corpus fit vs
+    `refit2` (the declined coverage filter): 1 unit rescued against 45 regressed, which by expression is
+    +3.295 percentage points. A count ratio of 45:1 and a mass of 3.3pp are different sentences, and the
+    acceptance criteria are written in the second.
+
+    WHICH FIT'S EXPRESSION WEIGHTS A UNIT. A rescued unit is weighted by its expression in `fit_a`, where it
+    was still not-a-fit; a regressed unit by its expression in `fit_b`, where it now is. Expression is refit
+    too, so the two differ — and weighting a unit by the fit in which it is BROKEN is what answers "how much
+    transcription is resting on a non-fit", which is the question. Stated because the other choice is
+    defensible and would give a different number.
+    """
+    a, b = deg_rate_provenance(fit_a, per_unit=True), deg_rate_provenance(fit_b, per_unit=True)
+    for name, r in ((fit_a, a), (fit_b, b)):
+        if "error" in r:
+            return {"error": f"{name}: {r['error']}"}
+    CLASSES = ("floor", "ceiling", "imputed")
+
+    def flat(r):
+        out = {}
+        for c in CLASSES:
+            out.update(r["units_not_a_fit"][c])
+        return out
+
+    wa, wb = flat(a), flat(b)
+    A, B = set(wa), set(wb)
+    rescued, regressed, both = A - B, B - A, A & B
+    return {
+        "fit_a": fit_a, "fit_b": fit_b,
+        "rescued": {"n": len(rescued), "pct_expression_in_a": round(sum(wa[i] for i in rescued), 4),
+                    "ids": sorted(rescued)[:40]},
+        "regressed": {"n": len(regressed), "pct_expression_in_b": round(sum(wb[i] for i in regressed), 4),
+                      "ids": sorted(regressed)[:40]},
+        "not_a_fit_in_both": {"n": len(both)},
+        "totals": {"not_a_fit_a": len(A), "not_a_fit_b": len(B), "net_units": len(B) - len(A),
+                   "pct_expression_a": a["not_a_fit"]["pct_expression"],
+                   "pct_expression_b": b["not_a_fit"]["pct_expression"],
+                   "net_pct_expression": round(b["not_a_fit"]["pct_expression"]
+                                               - a["not_a_fit"]["pct_expression"], 4)},
+        "verdict": ("fit_b has FEWER units resting on a non-fit" if len(B) < len(A) else
+                    "fit_b has MORE units resting on a non-fit" if len(B) > len(A) else
+                    "no change in unit count"),
+        "note": ("Counts and expression can disagree; read both. A variant that rescues few units but "
+                 "high-expression ones may beat one that rescues many trivial ones, which is why the "
+                 "acceptance criteria are written in expression terms."),
+    }
+
+
 def gene_map(sim_path: str = "cellarium") -> dict:
     """{symbol: monomer_id} from sim_data — for resolving the curated pathway panel. Heavy; cache it."""
     return _invoke("gene_map", OUT_ROOT / sim_path)

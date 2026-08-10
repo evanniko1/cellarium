@@ -955,12 +955,34 @@ imputation constant from `sim_data` so it follows the fit. Corpus baseline: **85
 it already changed a decision — it showed the declined coverage filter costs 12.087% -> 15.382%, not the
 4.589% -> 6.571% the bounds-only view suggested.
 
+✅ **Why this is scoped to mRNA — MEASURED 2026-08-09, having previously been assumed.** rRNA and tRNA
+are excluded, and I had not checked whether that was defensible or a blind spot. It is defensible, and
+the numbers are worth carrying because they also fix a denominator I was letting float:
+
+| class | units | distinct half-lives | share of ALL RNA expression |
+|---|---|---|---|
+| mRNA | 3,133 | 846 | **2.40%** |
+| rRNA | 7 | **1** | 14.99% |
+| tRNA | 51 | **1** | 82.61% |
+
+Every rRNA and tRNA unit carries ONE constant (`stable_RNA_half_life`), and together they are **97.6% of
+transcription**. Labelling them "not a fit" would produce the headline *97.6% of transcription is a
+constant* — true as arithmetic and worthless as a finding. **The two are different in kind:** the mRNA
+imputation is a DISTRIBUTION COLLAPSED TO ITS MEAN (those transcripts genuinely differ and were all given
+the average), whereas the stable-RNA constant is a MODELLING ASSUMPTION with a real basis — rRNA and tRNA
+are long-lived, and one constant for the class is standard practice, not a gap. So mRNA is the right
+scope. **Consequent correction:** the headline 12.087% is 12.087% *of mRNA expression*, and mRNA is only
+2.40% of RNA expression — that denominator must travel with the number and I had been quoting it bare.
+
 ✅ **Per-unit array added the same day** (`deg_rate_provenance(sim_path, per_unit=True)` -> `units_not_a_fit`
 with the ids in each class; DETERMINED is the complement, so the payload is ~854 ids not 3,133, and it is
 opt-in because the summary is what a human reads). **It settled the coverage-filter question on first use,
 far more sharply than the aggregate did:** corpus fit vs refit2 — **1 unit rescued, 45 regressed**, 853
-not-a-fit in both. A 45:1 loss ratio is invisible in a mass total (12.087% -> 15.382%) and is exactly the
-shape Stage 3 must measure for every candidate estimator.
+not-a-fit in both. Weighted (the entries carry `{id: pct_expression}`, not bare ids) it is sharper still:
+**rescued 0.0037% of mRNA expression, regressed 3.3007%** — about **900:1 by mass** against 45:1 by count.
+Both views are needed and they disagree, which is why `reader.provenance_delta(fit_a, fit_b)` now reports
+them together as ONE function rather than a set intersection each caller re-derives — two hand-rolled
+versions differing by a class would score two candidates under different rules with nothing saying so.
 
 **Stage 2 — re-solve OFFLINE, and this is the key to the whole plan being affordable.** The NNLS inputs —
 the cistron×TU mapping matrix, the measured cistron rates, the expression vector — are all IN `sim_data`,

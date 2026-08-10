@@ -39,9 +39,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.cellarium import reader  # noqa: E402
 
 
-def _bounds(sim_path="cellarium"):
+@pytest.fixture(autouse=True)
+def _needs_the_model_image():
+    """EVERY test here unpickles sim_data, which needs the container — so the guard is autouse, not per-test.
+
+    I wrote this guard into the `_bounds` helper and then twice wrote a test that called the reader DIRECTLY
+    and skipped it: it passed alone with WCECOLI_DOCKER set and failed in the full suite without. Patching
+    each offender leaves the next one exposed. An autouse fixture makes forgetting impossible, which is the
+    same move as classifying identity axes or filtering tombstones inside the read rather than at each caller.
+    """
     if not os.environ.get("WCECOLI_DOCKER"):
         pytest.skip("needs the model image to unpickle sim_data")
+
+
+def _bounds(sim_path="cellarium"):
     if not Path(f"runs/{sim_path}/kb/simData.cPickle").is_file():
         pytest.skip(f"no knowledge base at runs/{sim_path}")
     r = reader.deg_rate_provenance(sim_path)
@@ -161,7 +172,25 @@ def test_the_per_unit_array_is_opt_in_and_complete():
     total = sum(len(u[c]) for c in ("floor", "ceiling", "imputed"))
     assert total == r["not_a_fit"]["n_units"], "the listed ids do not add up to the reported not-a-fit count"
     assert u["determined_is_the_complement"] == r["n_mrna_units"] - total
-    assert len(set(u["floor"]) & set(u["imputed"])) == 0, "a unit is in two classes at once"
+    assert not (set(u["floor"]) & set(u["imputed"])), "a unit is in two classes at once"
+
+
+def test_the_per_unit_entries_carry_expression_weights():
+    """Ids alone count UNITS; the acceptance criteria are written in EXPRESSION.
+
+    Measured, the coverage filter regresses 45 units and 3.3007% of mRNA expression while rescuing 1 unit
+    worth 0.0037% — roughly 900:1 by mass against 45:1 by count. From ids alone you cannot tell those apart.
+    """
+    r = reader.deg_rate_provenance("cellarium", per_unit=True)
+    u = r["units_not_a_fit"]
+    for cls in ("floor", "ceiling", "imputed"):
+        assert isinstance(u[cls], dict), f"{cls} is a bare list — the weights are gone"
+        for uid, pct in u[cls].items():
+            assert isinstance(uid, str) and isinstance(pct, (int, float)) and pct >= 0
+    mass = sum(sum(u[c].values()) for c in ("floor", "ceiling", "imputed"))
+    assert abs(mass - r["not_a_fit"]["pct_expression"]) < 0.05, (
+        "per-unit weights (%.3f%%) do not add up to the reported class mass (%.3f%%)"
+        % (mass, r["not_a_fit"]["pct_expression"]))
 
 
 def test_two_fits_can_be_scored_against_each_other():
@@ -188,3 +217,33 @@ def test_two_fits_can_be_scored_against_each_other():
         "the coverage filter now rescues more units than it regresses (%d vs %d). That would be a real "
         "improvement and the DECLINE decision in the backlog must be re-read, not left standing"
         % (len(rescued), len(regressed)))
+
+
+def test_provenance_delta_is_one_function_not_a_pattern():
+    """Stage 3 scores every candidate estimator with this question, so it lives in ONE place.
+
+    Two hand-rolled set intersections that differ by a class — forgetting `ceiling`, say — would score two
+    candidates under different rules with nothing saying so. It reports counts AND expression because they
+    disagree: on the declined coverage filter, 45:1 by unit and ~900:1 by mass.
+    """
+    _bounds("cellarium")
+    if not Path("runs/refit2/kb/simData.cPickle").is_file():
+        pytest.skip("refit2 knowledge base not present")
+    d = reader.provenance_delta("cellarium", "refit2")
+    assert "error" not in d, d
+    assert d["rescued"]["n"] + d["not_a_fit_in_both"]["n"] == d["totals"]["not_a_fit_a"]
+    assert d["regressed"]["n"] + d["not_a_fit_in_both"]["n"] == d["totals"]["not_a_fit_b"]
+    # both views must be present, or a caller will quote whichever suits
+    assert d["rescued"]["pct_expression_in_a"] >= 0 and d["regressed"]["pct_expression_in_b"] >= 0
+    assert d["regressed"]["pct_expression_in_b"] > d["rescued"]["pct_expression_in_a"], (
+        "the coverage filter now rescues more transcription than it regresses — that would be a real "
+        "improvement and the DECLINE decision must be re-read, not left standing")
+    assert "MORE units" in d["verdict"]
+
+
+def test_a_fit_scored_against_itself_is_a_no_op():
+    """The guard against a delta that reports change where there is none."""
+    _bounds("cellarium")
+    d = reader.provenance_delta("cellarium", "cellarium")
+    assert d["rescued"]["n"] == 0 and d["regressed"]["n"] == 0
+    assert d["totals"]["net_units"] == 0 and abs(d["totals"]["net_pct_expression"]) < 1e-9

@@ -979,9 +979,13 @@ def mode_deg_rate_provenance(root, per_unit="0"):
     # summary above is what a human reads and a thousand ids buried in it is not a summary.
     units = {}
     if str(per_unit) in ("1", "true", "True"):
-        units = {"floor": [ids[i] for i in np.where(on_floor)[0]],
-                 "ceiling": [ids[i] for i in np.where(on_ceiling)[0]],
-                 "imputed": [ids[i] for i in np.where(imputed)[0]],
+        # {id: pct_of_mrna_expression}, not a bare id list. A delta over ids alone counts UNITS, and the
+        # acceptance criteria are written in EXPRESSION terms — measured, the coverage filter regresses 45
+        # units and +3.295 percentage points, and from ids alone you cannot tell whether that was 45 trivial
+        # units or three heavily-transcribed ones. A dict gives the set operations AND the weights.
+        def _w(mask):
+            return {ids[i]: round(100.0 * float(exp[i]) / tot, 6) for i in np.where(mask)[0]}
+        units = {"floor": _w(on_floor), "ceiling": _w(on_ceiling), "imputed": _w(imputed),
                  "determined_is_the_complement": int(is_m.sum()) - int(not_a_fit.sum())}
     return {
         "n_mrna_units": int(is_m.sum()),
