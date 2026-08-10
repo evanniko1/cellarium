@@ -930,6 +930,65 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
 Distilled from the SOTA+pitfalls lit briefs (`wf_2479258d`, full text in that workflow's transcript). These are
 the agreed approach + guardrails for the two open P1s; edit as we build.
 
+### PARCA-4 · the degradation-rate estimator
+
+**PROPOSED, NOT IMPLEMENTED — recorded 2026-08-09 to be picked up cold.** Status, measurements and the
+declined coverage filter live in the PARCA-4 entry under *Tier 1 additions*; this is the approach only.
+
+**What is actually wrong.** The estimator has no way to say "I do not know". Every unit gets a number, and
+three different situations collapse into indistinguishable floats: (a) a rate inferred from data, (b) a
+rate that hit a hard constraint, (c) a rate that is a pooled default for a unit with no information. The
+NNLS is rank-deficient by 214 of 3,166 columns — those units are in the null space, so *no* solution is
+determined for them and the bound merely picks an arbitrary point in it. Curating the input cannot fix a
+null space, which is why the coverage filter relocated the value without reducing the count.
+
+**Design principles.** (1) An estimator that cannot say "unknown" will always launder a default as a
+measurement — so per-unit provenance is a first-class output, not a diagnostic bolted on. (2) Prefer a
+SOFT prior to a HARD bound: a wall creates a point mass of units sitting exactly on it; a penalty does
+not. (3) Every choice gets a pre-registered evaluation on held-out MEASUREMENTS, because "the numbers
+changed" is not evidence of improvement.
+
+**Stage 1 — instrument, no rebuild (cheap, do this first).** Extend the diagnostic from bounds to
+*provenance classes*: per TU, is its rate data-determined, constraint-pinned, or pooled-default, and what
+share of expression sits in each class. This is the 12.07% number above, made queryable. It also gives the
+baseline every later variant is scored against.
+
+**Stage 2 — re-solve OFFLINE, and this is the key to the whole plan being affordable.** The NNLS inputs —
+the cistron×TU mapping matrix, the measured cistron rates, the expression vector — are all IN `sim_data`,
+and the measurements are in the flat files. **The estimator can therefore be re-solved outside ParCa, with
+no rebuild, no container run and no new arm.** Candidate variants, all evaluable this way:
+  * **ridge / Tikhonov toward a pooled prior** instead of a hard floor — every unit gets a determined
+    value, the point mass at the wall disappears by construction, and the shrinkage factor per unit IS the
+    provenance measure Stage 1 defines;
+  * **a per-unit bound** derived from the TU's own cistrons rather than one global minimum (check first how
+    many unmeasured TUs touch no measured cistron at all — those cannot be rescued this way and still need
+    a prior);
+  * **hierarchical pooling** — partial pooling toward a group mean (by operon, length or expression
+    decile) rather than a single global median.
+
+**Stage 3 — pre-registered evaluation.** The objective is **held-out predictive accuracy on measured
+cistrons**: hide a fold of the measurements, fit, predict them, score. This matters because any scheme can
+manufacture distinct values (add noise and "resolution" goes to 100%), so *distinctness is not the
+criterion* — predicting measurements the fit never saw is. Report against the current bounded fit as the
+baseline, with the fold protocol fixed BEFORE any variant is run.
+
+**Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
+no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
+than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
+(iii) per-unit provenance is emitted, so the remaining pooled mass is visible instead of hidden; (iv) a
+wildtype simulation on the new fit stays within the existing seed spread for growth and ppGpp — a
+degradation-table change touches the whole cell, and a fit that predicts half-lives better while breaking
+physiology is not an improvement.
+
+**Only then does it cost an arm.** Stages 1–3 mint nothing. A rebuild is justified only by a variant that
+has already passed (i)–(iii) offline, and it should carry the declined coverage filter and the provenance
+field in the SAME arm (both recorded under PARCA-4 in *Tier 1 additions*). Budget the comparator re-runs, not the 7-minute rebuild.
+
+**What would refute this design.** If ridge/pooling does no better than the bound on held-out
+measurements, then the data genuinely does not determine those units, and the honest outcome is not a
+cleverer estimator but an explicit *unknown* class carried into the simulation and into every claim that
+touches those transcripts. That is a legitimate result and should be reported as one, not iterated away.
+
 ### SP-2 · Cellwright receptive field
 
 **Core (this pass — host-only, scipy-free numpy):**
@@ -1463,61 +1522,11 @@ were live defects, one was a false accusation against a correct corpus, and none
     4.59% of the 12.07%. Extending it to report imputed-constant mass generally is the cheapest useful next
     step and needs no rebuild.
 
-  - 📐 **PROPOSED DESIGN for the real fix — NOT IMPLEMENTED, recorded to be picked up cold.**
-
-    **What is actually wrong.** The estimator has no way to say "I do not know". Every unit gets a number, and
-    three different situations collapse into indistinguishable floats: (a) a rate inferred from data, (b) a
-    rate that hit a hard constraint, (c) a rate that is a pooled default for a unit with no information. The
-    NNLS is rank-deficient by 214 of 3,166 columns — those units are in the null space, so *no* solution is
-    determined for them and the bound merely picks an arbitrary point in it. Curating the input cannot fix a
-    null space, which is why the coverage filter relocated the value without reducing the count.
-
-    **Design principles.** (1) An estimator that cannot say "unknown" will always launder a default as a
-    measurement — so per-unit provenance is a first-class output, not a diagnostic bolted on. (2) Prefer a
-    SOFT prior to a HARD bound: a wall creates a point mass of units sitting exactly on it; a penalty does
-    not. (3) Every choice gets a pre-registered evaluation on held-out MEASUREMENTS, because "the numbers
-    changed" is not evidence of improvement.
-
-    **Stage 1 — instrument, no rebuild (cheap, do this first).** Extend the diagnostic from bounds to
-    *provenance classes*: per TU, is its rate data-determined, constraint-pinned, or pooled-default, and what
-    share of expression sits in each class. This is the 12.07% number above, made queryable. It also gives the
-    baseline every later variant is scored against.
-
-    **Stage 2 — re-solve OFFLINE, and this is the key to the whole plan being affordable.** The NNLS inputs —
-    the cistron×TU mapping matrix, the measured cistron rates, the expression vector — are all IN `sim_data`,
-    and the measurements are in the flat files. **The estimator can therefore be re-solved outside ParCa, with
-    no rebuild, no container run and no new arm.** Candidate variants, all evaluable this way:
-      * **ridge / Tikhonov toward a pooled prior** instead of a hard floor — every unit gets a determined
-        value, the point mass at the wall disappears by construction, and the shrinkage factor per unit IS the
-        provenance measure Stage 1 defines;
-      * **a per-unit bound** derived from the TU's own cistrons rather than one global minimum (check first how
-        many unmeasured TUs touch no measured cistron at all — those cannot be rescued this way and still need
-        a prior);
-      * **hierarchical pooling** — partial pooling toward a group mean (by operon, length or expression
-        decile) rather than a single global median.
-
-    **Stage 3 — pre-registered evaluation.** The objective is **held-out predictive accuracy on measured
-    cistrons**: hide a fold of the measurements, fit, predict them, score. This matters because any scheme can
-    manufacture distinct values (add noise and "resolution" goes to 100%), so *distinctness is not the
-    criterion* — predicting measurements the fit never saw is. Report against the current bounded fit as the
-    baseline, with the fold protocol fixed BEFORE any variant is run.
-
-    **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
-    no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
-    than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
-    (iii) per-unit provenance is emitted, so the remaining pooled mass is visible instead of hidden; (iv) a
-    wildtype simulation on the new fit stays within the existing seed spread for growth and ppGpp — a
-    degradation-table change touches the whole cell, and a fit that predicts half-lives better while breaking
-    physiology is not an improvement.
-
-    **Only then does it cost an arm.** Stages 1–3 mint nothing. A rebuild is justified only by a variant that
-    has already passed (i)–(iii) offline, and it should carry the declined coverage filter and the provenance
-    field in the SAME arm (see above). Budget the comparator re-runs, not the 7-minute rebuild.
-
-    **What would refute this design.** If ridge/pooling does no better than the bound on held-out
-    measurements, then the data genuinely does not determine those units, and the honest outcome is not a
-    cleverer estimator but an explicit *unknown* class carried into the simulation and into every claim that
-    touches those transcripts. That is a legitimate result and should be reported as one, not iterated away.
+  - 📐 **The proposed design for the real fix lives in [`## Design notes (scouted plans)` →
+    `PARCA-4 · the degradation-rate estimator`](#parca-4--the-degradation-rate-estimator)**, with the
+    other scouted plans, because that is where this repo keeps agreed-but-unbuilt approaches. It is a
+    proposal, not a decision: staged so stages 1-3 mint no arm, with pre-registered acceptance
+    criteria and a recorded refutation condition.
 
   - ⏳ **REMAINING, and also NOT scheduled:** marking bound-pinned rates IN `sim_data`, so downstream CODE can
     tell a constraint from a fit without re-deriving it. Held for the same reason as the filter, plus one of
