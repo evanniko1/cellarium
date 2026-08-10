@@ -169,8 +169,19 @@ def read_sites() -> dict:
             consumers[p.name] = n_cons
     return {
         "direct_read_parquet": direct, "n_direct_modules": len(direct),
+        # A GAP FOUND BY MIGRATING, recorded rather than papered over. `rigor.coverage` needs "deduped, live,
+        # regardless of reportability" for the denominator of its coverage grid. That is behaviourally the
+        # `lethality` set — but naming a coverage grid's row source `lethality` is misleading, and the four
+        # purposes are the ones H-17b fixed. Either that call site takes `lethality` (right behaviour, wrong
+        # word) or a fifth purpose is added, and choosing is a design decision, not a migration step.
+        "unmigrated_needing_a_decision": [
+            {"site": "rigor.coverage",
+             "needs": "deduped, live, reportability-agnostic — the denominator of a coverage grid",
+             "closest_purpose": "lethality",
+             "why_not_migrated": "the behaviour matches but the NAME would mislead the next reader"}],
         "downstream_consumers": consumers, "n_consumer_modules": len(consumers),
-        "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents"],
+        "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents",
+                     "reconcile.corpus_identifiers"],
         "note": ("A direct `read_parquet` bypasses every rule in `data/INVARIANTS.json`; a consumer of "
                  "`list_results`/`analysis_rows` gets the primitive's filters but chooses its own on top, "
                  "which is where the measured 5.5x `disconfirm` drift came from. Both counts have to fall "

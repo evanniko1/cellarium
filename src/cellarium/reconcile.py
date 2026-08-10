@@ -232,8 +232,13 @@ def corpus_identifiers(refresh: bool = False) -> dict:
     ids: set = set()
     designs: set = set()
     try:
-        from . import store, survey
-        for r in store.list_results(include_dropped=True):
+        from . import hygiene, survey
+        # H-17b: asked for by PURPOSE. The haystack a mention resolves against must include TOMBSTONED runs —
+        # a claim about a run that was curated out is still a claim about a real identifier, and resolving it
+        # to nothing would report it as "not a corpus identifier" (prose) rather than as a mention of
+        # something withdrawn. `coverage` is the purpose that carries the third population.
+        corpus_rows, _ctx = hygiene.rows("coverage")
+        for r in corpus_rows:
             if r.get("id"):
                 ids.add(str(r["id"]))
             try:
