@@ -114,6 +114,51 @@ def deg_rate_provenance(sim_path: str = "cellarium", per_unit: bool = False) -> 
     return _invoke("deg_rate_provenance", OUT_ROOT / sim_path, ["1"] if per_unit else None)
 
 
+PROVENANCE_BASELINE = "data/parca/deg_rate_baseline.json"
+
+
+def write_provenance_baseline(sim_path: str = "cellarium", path: str = PROVENANCE_BASELINE) -> dict:
+    """Freeze the current fit's provenance as a COMMITTED reference for Stage 3 to score against.
+
+    Without this, "compare the candidate against the current fit" means whatever `runs/cellarium/kb` happens
+    to hold on the day — and that path is rebuilt (KB-ROOT-1 and the PARCA-3 gate both exist because it is).
+    Two candidates evaluated a month apart would then be scored against different references with nothing
+    saying so, which is the comparability problem ARM-1 solved for runs, one level down at the parameters.
+
+    The snapshot therefore records the `kb_sha256` it describes. A baseline that cannot name its own fit is
+    the same defect it exists to prevent.
+    """
+    import json
+    import os
+
+    from . import manifest
+    r = deg_rate_provenance(sim_path, per_unit=True)
+    if "error" in r:
+        return r
+    kb = (manifest._kb_prov(sim_path) or {}).get("kb_sha256")
+    out = {"kb_sha256": kb, "sim_path": sim_path, "generated_by": "reader.write_provenance_baseline",
+           "why": ("The reference Stage 3 scores candidate estimators against. Regenerate ONLY with a "
+                   "deliberate decision to move the baseline, and say which kb_sha256 it moved to — a "
+                   "silently-updated baseline makes every past comparison unreproducible."),
+           **r}
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, indent=1, sort_keys=True)
+    return {"path": path, "kb_sha256": kb, "n_mrna_units": r["n_mrna_units"],
+            "not_a_fit_pct_expression": r["not_a_fit"]["pct_expression"]}
+
+
+def read_provenance_baseline(path: str = PROVENANCE_BASELINE) -> dict:
+    """The committed baseline. Readable WITHOUT the model image — that is half its value: CI can check the
+    reference is well-formed and names its fit even where it cannot unpickle sim_data."""
+    import json
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception as exc:
+        return {"error": f"no readable baseline at {path}: {exc}"}
+
+
 def provenance_delta(fit_a: str, fit_b: str) -> dict:
     """Score one knowledge base's degradation table against another: what got RESCUED, what REGRESSED.
 

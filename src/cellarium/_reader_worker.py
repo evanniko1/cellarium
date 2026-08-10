@@ -972,6 +972,29 @@ def mode_deg_rate_provenance(root, per_unit="0"):
     top = sorted(((float(exp[i]), ids[i]) for i in np.where(not_a_fit)[0]), reverse=True)[:8]
     distinct = int(len(np.unique(np.round(hl_m, 9))))
 
+    # EVERY expression figure above is for ONE condition. `rna_expression` is a dict of 67 regulatory
+    # conditions and the not-a-fit share moves with them — 11.165% under PHOSPHO-ARCA__active, 15.491% under
+    # PHOSPHO-ARCA__inactive. Quoting `basal` alone is under-specified rather than wrong (it is 12.087%
+    # against a 12.081% median), but a reader weighing whether 12% matters should see that a regulatory state
+    # can put it at 15%. Carried WITH the number so the caveat cannot be separated from it.
+    spread = []
+    try:
+        for cond, vec in t.rna_expression.items():
+            v = np.asarray(vec, dtype=float)
+            denom = float(v[is_m].sum())
+            if denom > 0:
+                spread.append((100.0 * float(v[not_a_fit].sum()) / denom, str(cond)))
+    except Exception:
+        spread = []
+    spread.sort()
+    across = {}
+    if spread:
+        mid = spread[len(spread) // 2][0]
+        across = {"n_conditions": len(spread), "condition_used": "basal",
+                  "min_pct": round(spread[0][0], 3), "min_condition": spread[0][1],
+                  "max_pct": round(spread[-1][0], 3), "max_condition": spread[-1][1],
+                  "median_pct": round(mid, 3)}
+
     # PER-UNIT, opt-in. Aggregate counts cannot SCORE a variant: "did the units that were not fits improve"
     # needs to know WHICH units those were, so a later fit can be intersected against this one. Only the three
     # not-a-fit classes are listed — DETERMINED is their complement, which keeps the payload ~854 ids instead
@@ -996,6 +1019,7 @@ def mode_deg_rate_provenance(root, per_unit="0"):
         "not_a_fit": cls(not_a_fit),
         "most_expressed_not_a_fit": [{"id": i, "pct_of_mrna_expression": round(100.0 * e / tot, 4)}
                                      for e, i in top],
+        **({"not_a_fit_across_conditions": across} if across else {}),
         "resolution": {"distinct_half_lives": distinct,
                        "pct_distinct": round(100.0 * distinct / max(int(is_m.sum()), 1), 1),
                        "caveat": ("CONTEXT, not a defect measure: the flat file rounds half-lives to one "

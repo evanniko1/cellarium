@@ -955,6 +955,24 @@ imputation constant from `sim_data` so it follows the fit. Corpus baseline: **85
 it already changed a decision — it showed the declined coverage filter costs 12.087% -> 15.382%, not the
 4.589% -> 6.571% the bounds-only view suggested.
 
+✅ **Baseline FROZEN and the ceiling class EXAMINED (Stage-1 items 4 and 6), 2026-08-10.**
+`data/parca/deg_rate_baseline.json` (26 KB) is the committed reference Stage 3 scores against, and it
+records the `kb_sha256` it describes — without that, "compare against the current fit" means whatever
+`runs/cellarium/kb` holds that day, and that path IS rebuilt (KB-ROOT-1 and the PARCA-3 gate both exist
+because of it), so two candidates evaluated a month apart would be scored against different references
+with nothing saying so. `reader.read_provenance_baseline` needs NO model image, so CI checks the
+reference is well-formed and names its fit even where sim_data cannot be unpickled; a separate
+image-gated test makes drift from the live fit LOUD.
+**Ceiling class (item 6), measured rather than assumed:** 7 units at 0.4 min, **0.016% of mRNA
+expression**, largest single contributor 0.009%, and two at exactly 0.00000%. Negligible — but recorded
+with the caveat that 0.00000% is a BASAL figure and a unit never transcribed in basal is not irrelevant
+in every condition.
+✅ **Every expression figure is condition-specific, and now says so.** `rna_expression` holds **67**
+regulatory conditions and the not-a-fit share moves across them: **11.165%** (`PHOSPHO-ARCA__active`) to
+**15.491%** (`PHOSPHO-ARCA__inactive`), median 12.081%, basal 12.087%. So the headline was
+under-specified rather than wrong — basal sits within 0.01pp of the median — but a reader weighing
+whether 12% matters should see that a regulatory state puts it at 15%. The range is now carried IN the
+payload, so the caveat cannot be separated from the number.
 ✅ **Why this is scoped to mRNA — MEASURED 2026-08-09, having previously been assumed.** rRNA and tRNA
 are excluded, and I had not checked whether that was defensible or a blind spot. It is defensible, and
 the numbers are worth carrying because they also fix a denominator I was letting float:
