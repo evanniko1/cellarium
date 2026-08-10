@@ -1381,7 +1381,11 @@ were live defects, one was a false accusation against a correct corpus, and none
   it has no way to propose a REBUILD, so a question like "does this hold with the pseudogene reverted?" is
   unreachable to the agent. Today's estimator-artefact finding needed 25 rebuilds launched by hand. Cheapest
   large capability on this list: a rebuild is 7 minutes against hours for a campaign.
-- **PARCA-4 — the saturation defect: HALF DONE 2026-08-09, and the obvious fix is measurably NOT the fix.**
+- **PARCA-4 — the saturation defect. VISIBILITY SHIPPED; the coverage filter EVALUATED AND DECLINED; the
+  real fix UNDESIGNED. 2026-08-09.** The defect is no longer hidden, which was the urgent part. What
+  remains is a design problem, deliberately not started, and the corpus stays on ONE fit until it is
+  solved. Read the decision below before re-proposing the filter — it was built and measured, not
+  skipped.
   ✅ **The coverage filter is built and rebuilt, and it REFUTES itself as a remedy.** Pre-registered before
   measuring anything: exclude Chen rows with `total fragments < 2`, the minimum n for a standard deviation
   to exist (`StdDev = 0` at n=1 is undefined, not precise). The source table IS in the image at
@@ -1404,18 +1408,50 @@ were live defects, one was a false accusation against a correct corpus, and none
     ribosomal-protein operons (`rpmJ`, `rplNXE-rpsNH-rplFR-…`) stay pinned in all three, and refit2 adds a
     LARGER one, `TU0-4742` at 1.98% of mRNA expression. So the filter improves the bound's PROVENANCE
     (a 3-fragment ompA measurement instead of a 1-fragment shoB one) and makes the defect slightly worse
-    on the metric that matters. **Adopt it WITH the second half, never instead of it.**
+    on the metric that matters.
+  - ❌ **DECISION 2026-08-09: the coverage filter is EVALUATED AND DECLINED.** Not deferred, not forgotten —
+    tried, measured, and rejected on its own numbers. **What it buys:** a better-provenanced bound value, 32.4
+    min from a 3-fragment `ompA` measurement instead of 91.2 min from a 1-fragment `shoB` one. **What it
+    costs:** a new comparability arm, therefore comparator re-runs for every claim anyone wants to carry
+    across (the main arm is 40 designs / 188 runs; even a single focused claim like the §3 depleting series is
+    ~20 runs, hours of compute against a 7-minute rebuild) — and it *raises* the share of mRNA expression
+    resting on a placeholder from **4.589% to 6.571%**. Paying an arm to make the headline metric worse is the
+    wrong trade.
+    **The reason it looked urgent has already been removed by other means.** The danger was never the bound's
+    value, it was that a constraint and a fitted parameter were indistinguishable on disk. `deg_rate_bounds`
+    now reports that for any knowledge base, at zero arm cost and with no rebuild, so the defect is auditable
+    by a reader, a reviewer or the agent without touching the corpus. The filter was aimed at a problem that
+    is now visible rather than hidden.
+    **What would REVERSE this decision** — stated so the next person does not have to re-derive it: a fix that
+    REDUCES the saturation rather than relocating it. A per-unit bound, or handling unmeasured units without a
+    global floor at all. `min()` promoting the next-slowest measurement is the mechanism, and no filter on the
+    input can address it, because the filter's whole action is to change which measurement is minimal. That is
+    a design problem, not a config change, and it should be settled BEFORE a rebuild is spent. If it is
+    solved, adopt the filter in the SAME arm — a better-provenanced bound is still worth having once the
+    saturation itself is handled.
+    **The work is not lost.** The procedure is reproducible in ~10 minutes: filter
+    `reconstruction/ecoli/scripts/rna_half_lives/data/msb145794-sup-0009-supp_table_s4.csv` to
+    `total fragments >= 2`, mount it over the source, run the model's own `convert_to_flat.py` (so the
+    Chen/Bernstein merge is the real one, and the 126 rescued entries come back), mount the regenerated
+    `rna_half_lives.tsv`, run ParCa. The resulting knowledge base is on disk at `runs/refit2` (89 MB) and is
+    the EVIDENCE for the numbers above; `tests/test_deg_rate_bounds.py` reads it and SKIPS where it is absent,
+    so deleting it weakens that test to three assertions rather than breaking it.
   - ✅ **The saturation is now VISIBLE without a rebuild.** `reader.deg_rate_bounds(sim_path)` reports, for
     any knowledge base, the floor and ceiling, how many units sit bit-exactly on each, what share of mRNA
     EXPRESSION they carry, and names the most-expressed. A count says how many units; only expression says
     whether it matters. Deliberately a DIAGNOSTIC, not an assertion: 245 on the bound is the state of
     every kb in the corpus, so a test that failed on it would fail every build and be switched off.
     4 tests, including one that asserts the coverage filter does NOT empty the bound.
-  - ⏳ **REMAINING, and it is the actual fix:** mark bound-pinned rates IN `sim_data` so a downstream
-    consumer can tell a constraint from a fit without re-deriving it. That is an overlay change to
-    `reconstruction/ecoli/dataclasses/process/transcription.py` plus a rebuild, and it mints an arm — so
-    it should land together with the coverage filter in ONE new arm, not two. Also open: whether to adopt
-    the filter at all is now a judgement call with the evidence in hand, not a default.
+  - ⏳ **REMAINING, and also NOT scheduled:** marking bound-pinned rates IN `sim_data`, so downstream CODE can
+    tell a constraint from a fit without re-deriving it. Held for the same reason as the filter, plus one of
+    its own: it would be an overlay change to
+    `reconstruction/ecoli/dataclasses/process/transcription.py`, which is **not currently an overlay file** —
+    only `translation.py` is, from that directory — so it would be the 45th shipped file and the first time
+    Cellarium modifies wcEcoli's transcription reconstruction. That is a real escalation from variants,
+    listeners and translation into the reconstruction of a core parameter table, and it mints an arm. It is
+    also the half with no consumer yet: nothing downstream reads such a flag, while `deg_rate_bounds` already
+    serves the human and agent readers. **When the saturation fix above is designed, land all of it in ONE
+    arm** — filter, flag and fix together — rather than spending an arm per increment.
 
 - *(original entry)* **PARCA-4 — the saturation defect is open (PARCA-1's second half).** The NNLS arithmetic bug is fixed; the
   bound is not. MEASURED 2026-08-07 over 24 refits: 244 of 3,276 transcription units sit bit-exactly on
