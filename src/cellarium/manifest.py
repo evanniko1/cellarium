@@ -640,6 +640,48 @@ def kb_sha_for_run(run_root) -> str | None:
     return _RUN_KB_CACHE[key]
 
 
+def _condition_of(design) -> str:
+    """A NON-NULL condition, always (H-17a/B2, invariant INV-7).
+
+    Every `timeline` run stored `condition=NULL`, and an amino-acid UPSHIFT and a DOWNSHIFT both keyed to
+    `timeline/None` and were averaged together as four seeds of one design — two opposite experiments in one
+    cell. Identity no longer depends on this column (`survey.design_tag` derives from the label), so writing
+    it is safe; leaving it NULL keeps a loaded gun on the table for the next reader who groups by it.
+
+    The value is the SHIFT DIRECTION, written explicitly rather than inferred later: a timeline's first medium
+    against its last. Never guessed — an unparseable timeline reads `shift:unparsed`, which is a statement
+    about the record rather than about the experiment.
+    """
+    cond = getattr(design, "condition", None)
+    if cond not in (None, ""):
+        return str(cond)
+    tl = getattr(design, "timeline", None)
+    if not tl:
+        return "basal"
+    try:
+        from . import envelope
+        events = envelope._parse_timeline(str(tl))
+        media = [m for _t, m in events]
+        if len(media) >= 2 and media[0] != media[-1]:
+            first, last = media[0], media[-1]
+            richer = len(last) > len(first)
+            return f"shift:{'up' if richer else 'down'}:{first}->{last}"
+        if media:
+            return f"shift:none:{media[0]}"
+    except Exception:
+        pass
+    return "shift:unparsed"
+
+
+def _prov_tag(design) -> str:
+    """The in-sample / out-of-sample tag as a stored value (H-17a/B4, invariant INV-9)."""
+    try:
+        from . import provenance
+        return provenance.tag(getattr(design, "perturbation", None), getattr(design, "condition", None))
+    except Exception:
+        return "unknown"
+
+
 def _flat_row(rec: SimResult, seed: int, run_root: Path,
               requested_generations: int | None = None, crashed: bool = False,
               sim_path: str | None = None) -> dict:
@@ -689,10 +731,20 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            "design_key": f"{rec.design.perturbation}/{_design_tag(rec.design)}",
            "design_tag": _design_tag(rec.design),
            "requested_generations": requested_generations,   # for the viability truncation signal (§M)
-           "crashed": crashed,                                # the sim raised — inviable regardless of partial data
+           # H-17a/B2 — NON-NULLABLE at the write path. `crashed` is a FILTER column, and invariant INV-4 is
+           # that NULL is not FALSE: SQL three-valued logic drops a NULL row from `WHERE NOT crashed` while
+           # Python's `not None` keeps it, so the same question returns two different corpora with no error on
+           # either. Measured once already at 36 of 272 rows on the viability columns. Coerced, never passed
+           # through, so a caller cannot introduce one.
+           "crashed": bool(crashed),                          # the sim raised — inviable regardless of partial data
            "contributor": getpass.getuser(), "host": socket.gethostname(), "ts": time.time(),
-           "perturbation": rec.design.perturbation, "condition": rec.design.condition,
+           "perturbation": rec.design.perturbation, "condition": _condition_of(rec.design),
            "timeline": rec.design.timeline, "seed": seed, "generations": len(rec.generations),
+           # H-17a/B4 — the refusal-carrying fields ship as REAL COLUMNS. `provenance` was read-time only
+           # (`store.py`), i.e. Python-only: a cloner reading the parquet with duckdb got no in-sample flag at
+           # all and could read agreement in a ParCa-FITTED condition as predictive validation (INV-9). It is
+           # nearly free here and reaches every reader in every language.
+           "provenance": _prov_tag(rec.design),
            "qc": overall.value, "generation_qc": json.dumps([s.value for s in per]),
            "reportable": qc.is_reportable(rec), "note": rec.note,
            "per_generation": json.dumps([{"i": g.index, "growth": g.growth_mean, "ppgpp": g.ppgpp_mean,
@@ -1445,6 +1497,74 @@ def backfill_timeline_identity(dry_run: bool = True) -> dict:
     return res
 
 
+def backfill_condition(dry_run: bool = True) -> dict:
+    """Write an explicit `condition` on rows that carry NULL (H-17a/B2, invariant INV-7 and INV-4).
+
+    Every `timeline` run stored `condition=NULL`, and an upshift and a downshift both keyed to `timeline/None`
+    and were averaged as four seeds of one design. The read path stopped deriving identity from this column
+    long ago (`survey.design_tag` reads the label), but the NULL is still there for the next reader who groups
+    by it at a `duckdb` prompt — where none of our Python guards exist.
+
+    SAFE BY CONSTRUCTION: a row is touched only if writing the value does NOT change `survey.design_tag(row)`.
+    A pre-label row whose identity really does fall back to `condition` is left alone and reported, because
+    fixing a NULL by silently re-identifying an experiment is a worse defect than the NULL.
+    """
+    import glob
+    import os
+
+    import duckdb
+
+    from . import survey
+
+    files = sorted(glob.glob(str(MANIFEST_DIR / "*.parquet")))
+    if not files:
+        return {"error": "no manifest shards to backfill"}
+    con = duckdb.connect()
+    try:
+        rows = con.execute(
+            f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
+        ).fetch_arrow_table().to_pylist()
+    finally:
+        con.close()
+
+    changed, refused = [], []
+    for r in rows:
+        if r.get("condition") not in (None, ""):
+            continue
+        before = survey.design_tag(r)
+        value = _condition_of(_DesignView(r))
+        after = survey.design_tag({**r, "condition": value})
+        if after != before:
+            refused.append({"id": r.get("id"), "would_change_identity_from": before, "to": after})
+            continue
+        changed.append({"id": r.get("id"), "condition": value, "timeline": str(r.get("timeline"))[:60]})
+        r["condition"] = value
+
+    res = {"filled": len(changed), "refused_identity_change": len(refused), "dry_run": dry_run,
+           "sample": changed[:6], "refused": refused[:6],
+           "note": ("A NULL filter column is read one way by SQL three-valued logic and another by Python "
+                    "truthiness, with no error on either. Rows whose identity would move are refused, not "
+                    "forced.")}
+    if dry_run or not changed:
+        return res
+    new = append_shard(rows, name=f"{getpass.getuser()}-compact")
+    for f in files:
+        if Path(f).resolve() != Path(new).resolve():
+            os.remove(f)
+    res["shard"] = str(new)
+    return res
+
+
+class _DesignView:
+    """A manifest ROW presented with the attribute names `_condition_of` expects, so the backfill and the
+    write path compute the value with the same code instead of two implementations that can disagree."""
+
+    def __init__(self, row: dict):
+        self.condition = row.get("condition")
+        self.timeline = row.get("timeline")
+        self.perturbation = row.get("perturbation")
+
+
 def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dict:
     """Standing guard against IDENTITY DRIFT — the failure mode that made this corpus's analyses untrustworthy.
 
@@ -1466,6 +1586,9 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
       D7  no orphan runs on disk (readable but unindexed, hence invisible)
       D8  no row carries a NULL elongation model once that column exists (backfill, never leave NULL)
       D9  a row whose label tag names an elongation model carries the MATCHING column (write/read drift)
+      D10 no NULL in a column used as a filter (SQL 3VL and Python truthiness disagree, silently)   [H-17a]
+      D11 no design key spans two values of a partitioning key — its seeds would not be replicates  [H-17a]
+      D12 every row carries its `generations` stratum, so depth and independence can be applied     [H-17a]
 
     Returns `{"ok": bool, "violations": [...]}`; each violation names the invariant, the rows, and the fix.
     """
@@ -1474,8 +1597,14 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
     violations: list[dict] = []
     rows = store.list_results()
 
-    def add(code, msg, examples, fix):
-        violations.append({"invariant": code, "message": msg, "n": len(examples),
+    def add(code, msg, examples, fix, severity="drift"):
+        # `severity` separates two things that look identical in a violations list and are not. DRIFT is a row
+        # whose recorded identity has diverged from what it is — fixable, and CI should be red until it is.
+        # STRUCTURAL is a known property of the schema with a named mitigation: the design key genuinely
+        # cannot express `kb_sha256`, ARM-1 handles it at the read boundary, and no re-index will change it.
+        # Failing CI daily on a condition nobody can fix is how a check gets switched off, which is the same
+        # failure mode as not having it.
+        violations.append({"invariant": code, "message": msg, "n": len(examples), "severity": severity,
                            "examples": sorted(examples)[:8], "fix": fix})
 
     # The invariant is that identity is RECOVERABLE from the label, not that one format is used. Two conventions
@@ -1561,6 +1690,69 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
         add("D9", "the label's elongation tag disagrees with the stored elongation_model column", drift_elong,
             "re-index the affected runs: manifest._design_tag and manifest._flat_row must agree")
 
+    # ---- H-17a: three probes for invariants the catalogue declares and nothing verified -------------------
+    # "A declaration nobody verifies is a comment, and this codebase has been burned by comments that were
+    # true when written." Each maps to an entry in data/INVARIANTS.json via `invariants.probed_by()`.
+
+    # D10 (INV-4, NULL IS NOT FALSE). A NULL in a column used as a FILTER is read differently by SQL
+    # three-valued logic and by Python truthiness — `WHERE NOT crashed` drops the row, `if not row["crashed"]`
+    # keeps it — and neither raises. Measured once already: 36 of 272 rows had NULL viability columns and
+    # `bool(None)` turned "not measured" into "not viable".
+    filter_cols = ("reportable", "qc", "condition")
+    null_filters = sorted({f"{c}:{r['id']}" for r in rows for c in filter_cols
+                           if c in r and r.get(c) is None})
+    if null_filters:
+        add("D10", "NULL in a column used as a filter — SQL and Python read it differently, with no error on "
+                   "either", null_filters,
+            "write the column explicitly at index time (manifest._condition_of does this for `condition`); "
+            "never leave a filter column nullable")
+
+    # D11 (INV-2/INV-7, COMPARABILITY). A design key that cannot separate two values of a key the corpus
+    # actually partitions on: every seed under that key looks like a replicate of one experiment and is not.
+    # This is M-11's shape, one level up — ARM-1 fixed the READ path, but the KEY itself still cannot express
+    # the split, so anything reading the parquet directly reproduces the bug.
+    # The partitioning columns are read from the MANIFEST, not from `store.list_results()`. Its projection
+    # carries `elongation_model` but not `kb_sha256` or `operons`, so a probe built on those rows would have
+    # silently checked one key of three and reported a clean corpus — a probe that under-checks is worse than
+    # no probe, because it reads as verification. Found by measuring: the first version returned zero
+    # violations for exactly that reason.
+    part: dict = {}
+    checked_cols: list[str] = []
+    try:
+        from . import corpus_schema
+        by_id = {rid: (kb, op, el) for (kb, op, el, rid, *_rest) in corpus_schema._rows()}
+        checked_cols = list(corpus_schema.ARM_KEYS)
+        for r in rows:
+            vals = by_id.get(r.get("id"))
+            if not vals:
+                continue
+            k = survey.design_key(r)
+            for col, v in zip(checked_cols, vals):
+                if v is not None:
+                    part.setdefault((k, col), set()).add(v)
+    except Exception:
+        checked_cols = ["elongation_model"]              # degraded, and it SAYS so in the message below
+        for r in rows:
+            if r.get("elongation_model") is not None:
+                part.setdefault((survey.design_key(r), "elongation_model"), set()).add(r["elongation_model"])
+    mixed = sorted({f"{k}[{col}]" for (k, col), vals in part.items() if len(vals) > 1})
+    if mixed:
+        add("D11", "a design key spans more than one value of a partitioning key (checked: "
+                   + ", ".join(checked_cols) + ") — its seeds are not replicates of one experiment", mixed,
+            "narrow the analysis with survey.analysis_rows(arm=...), which refuses to pool; the KEY itself "
+            "cannot express the split, so a direct parquet reader must partition explicitly",
+            severity="structural")
+
+    # D12 (INV-1/INV-5, INDEPENDENCE + DEPTH). A row with no `generations` cannot be compared at equal depth,
+    # and a caller cannot apply the independence rule (seeds independent, generations within a lineage NOT)
+    # to a row that does not say how many generations it has.
+    no_stratum = sorted({r["id"] for r in rows
+                         if "generations" in r and not r.get("generations")})
+    if no_stratum:
+        add("D12", "row carries no `generations` stratum, so it cannot be compared at equal depth and the "
+                   "independence rule cannot be applied to it", no_stratum,
+            "re-index the run; `generations` is the analysis stratum, not decoration")
+
     if check_disk:
         try:
             rec = reconcile_disk(sim_path)
@@ -1572,10 +1764,16 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
             violations.append({"invariant": "D7", "message": f"disk check failed: {type(exc).__name__}", "n": 0,
                                "examples": [], "fix": "set CELLARIUM_OUT to the run root"})
 
-    return {"ok": not violations, "n_rows": len(rows), "n_designs": len(keys),
-            "violations": violations,
+    drift = [v for v in violations if v.get("severity", "drift") != "structural"]
+    standing = [v for v in violations if v.get("severity") == "structural"]
+    return {"ok": not drift, "n_rows": len(rows), "n_designs": len(keys),
+            "violations": violations, "n_drift": len(drift), "standing_conditions": standing,
             "note": ("Identity drift produces a plausible number computed over the wrong set. These invariants "
-                     "are meant to run in CI as the corpus grows, not once.")}
+                     "are meant to run in CI as the corpus grows, not once. `ok` covers DRIFT only; "
+                     "`standing_conditions` are known structural facts with a named mitigation and are "
+                     "reported every run rather than suppressed — read them, they are not clean."),
+            "invariants": ("see data/INVARIANTS.json; `cellarium.invariants.probed_by(code)` maps a code here "
+                           "back to the invariant it verifies")}
 
 
 def reconcile_disk(sim_path: str = "cellarium") -> dict:

@@ -1,0 +1,231 @@
+{
+  "schema": "cellarium/invariants/1",
+  "description": "The rules that make a number from this corpus MEAN something. Published machine-readably because a cloner reaches the same Parquet by CLI, web app, MCP, or `duckdb` at a shell prompt, and only the Python route touches any of them. Every invariant here was learned expensively, most from a defect this project shipped.",
+  "source": "BACKLOG.md § F-HYG · the catalogue",
+  "read_this_first": "`probe.integrity_check` names the `manifest.integrity_check` code that VERIFIES the invariant, or is null with the reason there is none. A declared invariant nobody verifies is a comment, and this codebase has been burned by comments that were true when written.",
+  "n_invariants": 17,
+  "n_verified_by_probe": 8,
+  "invariants": [
+    {
+      "id": "INV-1",
+      "title": "INDEPENDENCE",
+      "statement": "INDEPENDENCE — seeds are independent; generations within a lineage are not",
+      "failure_without_it": "counting the nine (seed, generation) cells of a 3×3 design as n = 9 rather than n = 3",
+      "evidence": "`support.py:16-17,32-33`; the case is written up in `docs/ROUTE1_CORPUS_RECORD.md:136-140` — the inflated n made a paired test reach significance on an arm that was mathematically incapable of having an effect. `stats.py:46-57` holds the cluster machinery and the record of two withdrawn cluster variables (machine: ICC 0.0 at fixed depth; depth: a fixed, not random, effect)",
+      "standing": "MEASURED (from the record)",
+      "probe": {
+        "integrity_check": null,
+        "how": "independence is a COUNTING rule about how a caller aggregates, not a property of any row; D12 verifies the stratum column is present so the rule CAN be applied"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-2",
+      "title": "COMPARABILITY",
+      "statement": "COMPARABILITY — elongation model, operon setting, medium and `kb_sha256` partition the corpus",
+      "failure_without_it": "pooling runs from two partitions into one mean",
+      "evidence": "`capability.py:29-40` — the 86-wide `fraction_trna_charged` is a broadcast identity / 86 independent values / 86 exact zeros depending on mode; `manifest.py:275-294` (`_design_tag` puts the mode into identity); `factors.py:248-255` (`one_factor_neighbours` refuses a cross-mode control: same elongation model is \"a precondition, not a fourth factor\"); `audit.py:58-63`. `capability.py` refuses on the elongation axis; nothing refuses on `kb_sha256` → `M-11`. MEASURED 2026-08-03 — `kb_sha256` IS UNSOUND IN ONE DIRECTION and `M-11` must not be built on it as written. Two ParCa runs of the SAME image",
+      "standing": "CODE-READ + MEASURED",
+      "probe": {
+        "integrity_check": "D6",
+        "how": "every row carries kb provenance; D8/D9 cover the elongation half; D11 catches a design key that omits a partitioning key the corpus actually splits on"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-3",
+      "title": "REPORTABILITY",
+      "statement": "REPORTABILITY — crash rows and QC-failed runs are in the table and look like data",
+      "failure_without_it": "`WHERE reportable` deletes the lethality phenotype; not filtering silently Welch-tests crashed runs",
+      "evidence": "`qc.py:62-65` — reportable iff every generation is ok; `survey.py:197-198` drops non-reportable and tombstoned rows; `differential.py:28` records the version that did not filter. MEASURED: 101/322 non-reportable (breakdown above) — and some of them are results, not failures",
+      "standing": "MEASURED",
+      "probe": {
+        "integrity_check": null,
+        "how": "reportability is enforced at the read boundary (survey.analysis_rows), not checkable per row — a crash row is VALID data that must not be silently filtered OR silently pooled"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-4",
+      "title": "NULL IS NOT FALSE",
+      "statement": "NULL IS NOT FALSE — unmeasured must never read as a negative observation",
+      "failure_without_it": "SQL three-valued logic and Python truthiness return two different corpora, with no error on either",
+      "evidence": "`store.py:107-112` — 36 of 272 rows had NULL viability columns and `bool(None)` turned not measured into did not divide, producing three false IMPAIRED verdicts. MEASURED today: 26 rows have `crashed IS NULL` and all 26 are `reportable=True`; `WHERE NOT crashed` returns 233 of 322 (the 26 are dropped), while Python `if not r['crashed']` keeps them",
+      "standing": "MEASURED",
+      "probe": {
+        "integrity_check": "D10",
+        "how": "NULL in a column used as a filter, which SQL three-valued logic and Python truthiness read differently with no error on either"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-5",
+      "title": "GENERATION DEPTH IS A STRATUM, NOT NOISE",
+      "statement": "GENERATION DEPTH IS A STRATUM, NOT NOISE",
+      "failure_without_it": "comparing designs at unequal depth, believing you are averaging over generations",
+      "evidence": "A channel is the last generation's time-mean (`_reader_worker.py:203`, `_dynamics(gs[-1])`); recorded measurement: `growth_rate == per_generation[-1]` on 91/91 rows, `== mean over generations` on 0/91. So depth selects which generation you read: ICC 0.6795 at the reported index vs 0.0000 at matched generation 0; six designs flip sign; `rRNA_KO:2op` −7.4 % → +2.2 % (`survey.py:44-90`). `support.compare():93-110` is the depth check. MEASURED today, all 322 rows: depth 0:65 · 1:125 · 3:13 · 4:108 · 7:7 · 8:4 — unequal depth is the norm",
+      "standing": "MEASURED",
+      "probe": {
+        "integrity_check": "D12",
+        "how": "a row missing its `generations` stratum cannot be compared at equal depth"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-6",
+      "title": "IDENTITY IS THE `ko_index` SET, NEVER THE GENE NAME",
+      "statement": "IDENTITY IS THE `ko_index` SET, NEVER THE GENE NAME",
+      "failure_without_it": "treating an alias as a distinct experiment, or a design as a single-gene knockout",
+      "evidence": "`factors.py:11-20` — 4,538 genes collapse onto 2,984 indices; 1,554 names are aliases; `KO:pheS`/`pheT`/`pheM`/`thrS`/`infC`/`ihfA` are one run. `KO:flgB` deletes nine genes; `KO:rpoB` does not silence rpoB; `KO:rpmJ` silences `secY` (operons-ON semantics, `docs/KNOCKOUT_SEMANTICS.md`). `factors.dedupe():262-273`, invariant D4 (`manifest.py:810`). MEASURED: 7 rows carry `qc='noop_knockout'` — a wild type wearing a KO label",
+      "standing": "MEASURED",
+      "probe": {
+        "integrity_check": "D4",
+        "how": "no two distinct design keys share a canonical experiment id"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-7",
+      "title": "NO DESIGN KEY MAY BE BUILT FROM A NULLABLE COLUMN",
+      "statement": "NO DESIGN KEY MAY BE BUILT FROM A NULLABLE COLUMN",
+      "failure_without_it": "two opposite experiments merging into one design and averaging",
+      "evidence": "`survey.py:95-118` — every `timeline` run stores `condition=NULL`, so an amino-acid upshift and a downshift both key to `timeline/None` and report as 4 seeds of one design. Invariant D3 (`manifest.py:809`), CI-pinned in `tests/test_corpus_integrity.py:52-73`",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": "D3",
+        "how": "no design key contains `/None`"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-8",
+      "title": "RECORDER TRUNCATION",
+      "statement": "RECORDER TRUNCATION — a fixed-width string column silently loses data",
+      "failure_without_it": "trusting the recorded timeline as what actually ran",
+      "evidence": "`serialization.py:1-30` — `FBAResults/media_id` is sized from its first value, so `'minimal_plus_amino_acids'[:7] == 'minimal'` and a nutrient shift vanishes from the record while the sim performed it. Numeric damage (`segments.py:1-30`): one segment spanning the whole generation reported `fba_objective` ≈ 7.9 for a quantity going 0.81 → 14.1. Detector is cross-run dtype-width comparison — the corpus convicts itself, no external expectation needed",
+      "standing": "CODE-READ + MEASURED",
+      "probe": {
+        "integrity_check": null,
+        "how": "verified by `serialization.scan_corpus`, which reads the simOut dtypes — not a manifest property"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-9",
+      "title": "IN-SAMPLE ≠ OUT-OF-SAMPLE",
+      "statement": "IN-SAMPLE ≠ OUT-OF-SAMPLE",
+      "failure_without_it": "reading agreement in a ParCa-fitted condition as predictive validation",
+      "evidence": "`provenance.py:1-27` — the fitted set is deliberately conservative and pinned by `test_provenance.test_in_sample_set_is_pinned`. Hygiene gap: the tag is computed at read time in Python (`store.py:56-57`) and is not a column, so a non-Python reader never sees it",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": null,
+        "how": "the `provenance` column now ships on every new row (H-17a/B4), so a direct reader can apply it; older rows carry NULL and the tag is recomputed at read time"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-10",
+      "title": "A MISSING MECHANISM IS A REFUSAL, NEVER A ZERO",
+      "statement": "A MISSING MECHANISM IS A REFUSAL, NEVER A ZERO",
+      "failure_without_it": "reporting an algebraic identity as a measurement",
+      "evidence": "`capability.py:1-15` — a within-family tRNA charging spread of `0.00e+00` was an identity at `polypeptide_elongation.py:163`, reported as a finding. The `check()` contract (`capability.py:536-539`): a False `can_answer` always carries a refusal and never a value",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": null,
+        "how": "verified by `capability.probe()`, which greps the model checkout so a stale declaration is caught"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-11",
+      "title": "APPEND-ONLY, SUPERSEDE, NEVER MUTATE",
+      "statement": "APPEND-ONLY, SUPERSEDE, NEVER MUTATE — AND FILTER AFTER DEDUP",
+      "failure_without_it": "a stale row surviving a valid correction",
+      "evidence": "`manifest.py:66-72` — a correction that rewrote `simout_path` rewrote half the dedup key and minted a new row instead of superseding. `manifest.py:867-871` — SQL applies `WHERE` before `QUALIFY`, so filtering first dedups among the offending rows alone and reports the stale row even after a valid correction: an invariant unsatisfiable by correction. Tombstones (`manifest.drop_run():100-150`, `survey._mark_dropped():165-175`) are excluded from ranking but kept in coverage; a drop with no reason is refused",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": "D2",
+        "how": "a correction that rewrites half the dedup key mints a row instead of superseding, and the stored design_key then disagrees with the derived one"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-12",
+      "title": "ORPHANS AND PHANTOMS",
+      "statement": "ORPHANS AND PHANTOMS — readable on disk ≠ visible to any query, and vice versa",
+      "failure_without_it": "an entire design silently absent from an audit",
+      "evidence": "invariant D7 (`manifest.py:813`): a whole `valS` design stayed invisible through an entire audit because it was readable but unindexed (`tests/test_corpus_integrity.py:256-258`). The reverse — indexed, run dir gone — is still valid for channels (`manifest.reconcile_disk():928+`)",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": "D7",
+        "how": "runs readable on disk but not indexed, hence invisible to every query"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-13",
+      "title": "RAW-LOCAL ≠ INDEXED ≠ DOWNLOADABLE; unverified is never \"absent\"",
+      "statement": "RAW-LOCAL ≠ INDEXED ≠ DOWNLOADABLE; unverified is never \"absent\"",
+      "failure_without_it": "refusing a legitimate pull, or reporting a public dataset as missing",
+      "evidence": "`hf.py:28-42` — a remnant run dir counted as local, so `download_raw` refused a legitimate pull while gene-level tools failed. `hf.py:189-211` — HF presence is `True`/`False`/`None`, and a download command is emitted only when presence is CONFIRMED. The recorded incident (`hf.py:78-85`): a stale OAuth token made `HfApi()` 401 on a public dataset while `HfApi(token=False)` succeeded at the same moment, every row reported \"available: false\", and the wrong diagnosis was filed. This is the silent-absence bug class at the storage boundary",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": null,
+        "how": "raw-local vs indexed vs downloadable is a per-call availability question; `data_availability` and `raw_available` model it, and `raw_available=0` must never be reported as absent"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-14",
+      "title": "ENVELOPE",
+      "statement": "ENVELOPE — some runs are data-shaped but not interpretable",
+      "failure_without_it": "quoting channels from mechanistically invalid generations",
+      "evidence": "`envelope.py:1-8,30` — a mid-simulation carbon switch to acetate/succinate/fumarate/malate desynchronises replication–division; those carbon sources exist only as static fitted conditions",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": null,
+        "how": "the envelope is checked BEFORE a run launches (`envelope.check`), so an out-of-envelope row should not exist; there is no post-hoc probe and that is a gap worth closing"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-15",
+      "title": "AGGREGATE COLUMNS HIDE THE SHAPE; not every column is an observable",
+      "statement": "AGGREGATE COLUMNS HIDE THE SHAPE; not every column is an observable",
+      "failure_without_it": "concluding \"charging is fine\" from a mean that cannot show the phenotype",
+      "evidence": "the manifest's `fraction_trna_charged` is a single mean over families and cannot show cognate-family de-charging — one family starves while ~19 stay loaded (`tools.py:1241`). `survey.py:25` excludes `fba_objective` from the biological ranking as a solver diagnostic",
+      "standing": "CODE-READ",
+      "probe": {
+        "integrity_check": null,
+        "how": "which columns are observables is a modelling fact, declared in `capability`; no row-level probe"
+      },
+      "verified": false
+    },
+    {
+      "id": "INV-16",
+      "title": "THE KNOWLEDGE BASE IS PART OF THE EXPERIMENT",
+      "statement": "THE KNOWLEDGE BASE IS PART OF THE EXPERIMENT — operon mode is a ParCa option, not a sim option",
+      "failure_without_it": "treating two ParCa builds as rows in one comparison",
+      "evidence": "there is no per-simulation override, so switching produces a different `simData.cPickle`: the two modes are separate arms, never rows in one comparison (`operons.py` MECHANISM). Every row carries `operons` + `kb_sha256` (`manifest.py:379`, `provenance.kb_provenance():71-120`). Note the operon half is ARGUED from the ParCa mechanism, not measured — all 322 rows are `operons='on'` and no knockout has ever run under OFF",
+      "standing": "CODE-READ / ARGUED",
+      "probe": {
+        "integrity_check": "D6",
+        "how": "the operon mode rides on every row, so two ParCa builds cannot be mistaken for one arm"
+      },
+      "verified": true
+    },
+    {
+      "id": "INV-17",
+      "title": "A GENERATION CAN BE MISSING ITS END AND STILL READ AS COMPLETE",
+      "statement": "A GENERATION CAN BE MISSING ITS END AND STILL READ AS COMPLETE — the last timestep of generation n must meet the first timestep of generation n+1",
+      "failure_without_it": "quoting a generation's duration, final mass, or time-mean from a lineage whose data stops before the division that ended it",
+      "evidence": "MEASURED 2026-08-03, item 7. Auditing all 269 generation boundaries in the local corpus (`Main/time` of gen n vs gen n+1): 2 have a gap — `wildtype_374656/000000` gen 0 ends at 2047 s while gen 1 starts at 2530 s (482 timesteps, 19.1 %, missing), and `wildtype_374656/000001` gen 0 ends at 478 s while gen 1 starts at 2574 s (2095 s, 81.4 %, missing). Both lack `Daughter_inherited_state.cPickle`; every intact generation has it. The manifest reports the seed-0 lineage as `qc='ok'`, `generation_qc` all `\"ok\"`, `reportable=True` — so `generation_qc` does not detect end-truncation. Damage measured: ",
+      "standing": "MEASURED",
+      "probe": {
+        "integrity_check": null,
+        "how": "continuity between generations is measured from raw simOut, not from the manifest; `qc` covers the run-level half"
+      },
+      "verified": false
+    }
+  ]
+}
