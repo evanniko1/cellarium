@@ -1373,6 +1373,48 @@ measurement for two and a structural argument for a third. No arm was spent at a
 untouched. The open move is the explicit `unknown` class, sized by the imputation's own measured error
 (median 1.41×, 23.4% beyond 2-fold) — not another estimator.
 
+#### 📄 APPENDIX-READY — what tuning the two hyper-parameters actually showed
+
+*Written for the paper's appendix alongside the Stage 2 taxonomy block. The result tables above record the
+numbers; this records what a reader should take from them. Keep the two in sync.*
+
+**Ridge was the design's preferred remedy, and it is the one that fails most informatively.** The proposal was
+to replace the hard rate floor with a soft pull toward the population prior, on the reasoning that *a wall
+creates a pile of units sitting exactly on it; a penalty does not*. Three independent measurements now say
+otherwise, and they say different things:
+
+1. **Structural (Stage 2).** For a transcription unit that appears in no equation, the penalised objective is
+   minimised exactly at the prior, for every penalty strength. The pile does not dissolve — it moves from the
+   floor to the prior and grows, 602 → 786 units, **identical at λ = 0.001, 0.01, 0.1 and 1.0**.
+2. **Predictive, untuned (Stage 3).** λ=0.1 scores 0.4714 against the baseline's 0.4726 overall: a tie inside
+   the pre-registered threshold, and worse on the floor stratum.
+3. **Predictive, tuned (Stage 3c).** Nested CV over ten orders of magnitude picks λ\* ∈ [0.01, 0.1] in every
+   fold and scores 0.4687 — still a tie, still worse on the floor. **Tuning recovered 0.003 of log2 error.**
+
+**The λ curve is flat where it matters and only ever gets worse.** 0.4726 / 0.4723 / 0.4723 / **0.4714** /
+0.4807 / 0.5125 / 0.5303 for λ = 1e-6 / 1e-3 / 1e-2 / **1e-1** / 1 / 10 / 100. Below 0.1 the penalty is
+invisible to held-out accuracy; above it, the prior starts overwriting the data and accuracy falls away
+steadily. There is no interior optimum worth finding.
+
+**The most quotable single number is at the null end.** At λ=1e-6 — the penalty effectively switched off, so
+the estimator is *the shipped one minus its floor and minus its clip* — the held-out score is **0.4726, the
+baseline's own value to four decimal places.** **The floor and the clip make no measurable difference to
+predicting a half-life.** They are not doing estimation work; their entire effect falls on units that
+cross-validation cannot reach, which is exactly the class Stage 2 identified structurally.
+
+**Both hyper-parameter curves are flat in their useful regions, and that is one fact rather than two.** κ over
+a 40× range moves the score by 0.010; λ below its degradation threshold moves it by 0.001. Neither knob steers
+because **44% of held-out predictions are bit-identical to the population mean whatever the knob is set to** —
+a consequence of 783 units sitting in blocks whose entire right-hand side *is* that mean. The tuning
+experiments and the structural census are two views of the same limit.
+
+**A methodological caution worth carrying into the appendix.** On the 54-cistron floor stratum the two summary
+statistics **contradict each other and both clear conventional significance**: the pre-registered median says
+ridge is worse (0.4133 → 0.4371) while a paired sign test on the same 54 cistrons says better (35 vs 19,
+p=0.029); overall the signs flip the other way. A stratum that small cannot arbitrate, and we report the
+pre-registered statistic rather than the flattering one. Any future revision of that leg must re-score all
+four variants, not re-read these.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;
@@ -1961,6 +2003,51 @@ were live defects, one was a false accusation against a correct corpus, and none
     also the half with no consumer yet: nothing downstream reads such a flag, while `deg_rate_bounds` already
     serves the human and agent readers. **When the saturation fix above is designed, land all of it in ONE
     arm** — filter, flag and fix together — rather than spending an arm per increment.
+    ➡️ **SUPERSEDED 2026-08-10 by PARCA-6 below**, which is this item promoted from "the half with no
+    consumer" to the main line. Two things changed: Stages 1–3c established that no estimator change earns
+    the arm, so the flag is no longer waiting behind a fix that might replace it; and `deg_rate_provenance`
+    plus the frozen baseline mean the classification is now defined, measured and testable rather than
+    something the flag would have had to invent.
+
+- 🎯 **PARCA-6 — carry the `unknown` class INTO `sim_data`. THE NEXT PARCA TASK, and the one the evidence
+  points at. OPEN, NOT STARTED, recorded 2026-08-10.**
+  Three independent lines now converge on the same conclusion, and none of them is "try a better estimator":
+  the STRUCTURE (209 units in no equation, 783 whose right-hand side is entirely the imputation constant),
+  the PREDICTION (44% of held-out cistrons predicted bit-identically to the population mean), and the TUNING
+  (both hyper-parameters flat in their useful ranges, neither steering anything). The defect is not that the
+  number is badly estimated. **It is that a constant and a fit are the same kind of float on disk**, and
+  every consumer downstream — the model, the agent, a reader, a reviewer — is unable to tell them apart.
+  - **What ships.** A per-unit provenance field on `rna_data` alongside `deg_rate` — at minimum a
+    `deg_rate_is_fit` boolean, more usefully a small enum (`fitted` / `on_bound` / `imputed` /
+    `no_information`) matching the classes `reader.deg_rate_provenance` already computes and
+    `data/parca/deg_rate_baseline.json` already freezes. The classification is not new work; carrying it
+    INTO the artifact is.
+  - **The sizing evidence, already measured, no rebuild needed.** The imputation's own held-out error is a
+    **median factor of 1.41**, with **23.4% of genes off by more than 2-fold** and **5.3% by more than
+    4-fold** (Stage 3, `imputation_only_scores`). That is what an unmarked constant costs, and it is the
+    number that justifies marking rather than a hand-wave about rigour.
+  - **The open design question, and it is the real one: WHERE is the boundary?** Three defensible answers,
+    and they are not interchangeable — 209 units (in no equation at all, 0.99% of mRNA expression), 783
+    (imputation passthrough, 8.15%), or 854 (the full not-a-fit set from Stage 1, 12.087%). Wider is more
+    honest and flags transcripts a reader may reasonably treat as usable; narrower risks the same
+    under-reporting `deg_rate_bounds` committed at 4.59%. **Decide this before writing the field**, because
+    the boundary is what the flag MEANS and changing it later is another arm.
+  - **What it costs: one arm, and it is the arm that should carry everything else.** It is an overlay change
+    to `reconstruction/ecoli/dataclasses/process/transcription.py` — not currently an overlay file, so the
+    45th shipped file and the first time Cellarium touches wcEcoli's transcription reconstruction. Adding a
+    field changes the fit, so `kb_sha256` moves and **none of the 363 existing rows pool with the result**.
+    Budget the comparator re-runs, not the 7-minute rebuild. PARCA-4 already records that the declined
+    coverage filter and this flag should land TOGETHER; PARCA-5's per-unit bound is now excluded on evidence,
+    so the arm carries the filter plus the flag and nothing else.
+  - **The half that has no consumer yet, stated plainly.** Nothing downstream currently READS such a flag.
+    `deg_rate_provenance` already serves the human and the agent without it, so the case for the field rests
+    entirely on what the MODEL and future analyses could do with it — refusing to report a half-life-derived
+    claim on an unmarked constant, for instance. **Design at least one consumer alongside the field**, or it
+    ships as documentation that costs an arm.
+  - **Cheap prerequisite worth doing first, and it costs nothing:** make the agent's `deg_rate_provenance`
+    verdict reachable from the claim path, so a Cellwright claim that rests on an imputed transcript can be
+    caught BEFORE the arm is spent. If that turns out to be enough, the arm may not be needed at all — which
+    is exactly the question to answer before spending it.
 
 - ❌ **PARCA-5 — is `per_unit_bound` worth an arm ON ITS OWN? ANSWERED 2026-08-10: NO, on the pre-registered
   evidence.** Stage 3 scored it the day this item was filed. It **fails the decision rule, and it fails on the
