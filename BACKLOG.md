@@ -1265,6 +1265,48 @@ between naive and nested is the selection optimism, measured rather than asserte
 **κ\* is reported per outer fold.** If the tuner picks a different κ in every fold, "the best κ" is not a
 stable quantity and no single value should be carried forward, whatever the score says.
 
+#### ✅ Stage 3b RESULT, 2026-08-10 — κ tuned honestly. **`hierarchical` still fails. No variant ships.**
+
+`reader.deg_rate_nested_cv` — 43 s, outer k=10 (Stage 3's exact folds), inner k=5, grid
+κ ∈ {0.5, 1, 2, 5, 10, 20, ∞}, 350 inner solves. Rule applied as written:
+
+| | overall med \|log2\| | floor stratum (n=54) |
+|---|---|---|
+| `baseline` | 0.4726 | **0.4133** |
+| `hierarchical`, κ=5 untuned (Stage 3) | 0.4564 | 0.4441 |
+| `hierarchical`, κ tuned by nested CV | **0.4532** | **0.5465** |
+
+**Better overall (−0.0194, paired 795/697, z=+2.54, p=0.011) and worse on the floor (+0.1332, paired 13/27,
+p=0.027). FAILS.** Tuning improved the bulk and made the floor stratum *worse than the untuned run did*
+(0.4441 → 0.5465). Every variant tried now shows the same shape: whatever helps the well-measured majority
+hurts the pinned minority — coherent, since the pinned units are pinned for lack of information and any
+change to the prior moves them without evidence.
+
+- 📉 **κ barely matters, and that is the substantive finding.** The naive curve is nearly flat:
+  0.4645 / 0.4624 / 0.4617 / **0.4564** / 0.4570 / 0.4660 for κ = 0.5 / 1 / 2 / 5 / 10 / 20, against
+  **0.4726 at κ=∞ (no pooling)**. So **all of the benefit comes from pooling AT ALL, and none from the value
+  of κ across a 40× range.** Consistent with that, κ\* is **unstable across outer folds** — 0.5, 0.5, 5, 2, 5,
+  1, 2, 1, 1, 10 — which is what an argmin does on a flat objective. Pre-registered consequence: **"the best
+  κ" is not a stable quantity and no single value should be carried forward**, whatever the score says.
+- 🔬 **Selection optimism: +0.0032, i.e. none.** The naive best-single-κ (0.4564) is slightly WORSE than the
+  nested score (0.4532), not better. That is not a paradox: nested CV picks κ per outer fold, so it is a more
+  adaptive predictor than any one global κ, and on a flat objective that tiny adaptivity outweighs the
+  selection penalty. **The honest reading is that tuning κ was never going to matter** — which is why it was
+  worth measuring rather than assuming in either direction.
+- 🧪 **A test that was a fake, caught by injection.** The first structural leak-guard computed its diagnostic
+  from its own expression *alongside* the mask the solver was handed. Injecting the leak changed both in
+  step and the test stayed green. It now reads the count off the SAME mask
+  (`outer_cistrons_visible_at_selection`), and the injection turns it red (11,515 vs 0) while every other
+  test stays green. **A diagnostic that does not share the object it polices proves nothing** — and a
+  score-based guard could not have covered this at all, because a flat κ curve means leaking the outer fold
+  into selection barely moves the winner.
+
+**Where PARCA-4 now stands.** Four candidate estimators, one of them tuned properly, all scored on held-out
+measurements under a rule fixed in advance: **none beats the shipped estimator.** No arm has been spent, the
+corpus is untouched, and the evidence points where Stage 2 said it would — the remaining mass is not an
+estimation problem. The open move is the **explicit `unknown` class**, sized by the imputation's own measured
+error (median 1.41×, 23.4% beyond 2-fold), not another variant.
+
 **Acceptance criteria, pre-registered.** A variant ships only if ALL hold: (i) held-out predictive error is
 no worse than the current fit, and better on the units currently pinned; (ii) no value is carried by more
 than ~1% of units bit-exactly, i.e. the point masses at 5.191 and 91.2 are gone rather than moved;

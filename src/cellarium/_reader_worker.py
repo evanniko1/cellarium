@@ -1069,7 +1069,9 @@ from deg_estimator import (  # noqa: E402, I001
     per_unit_floor as _per_unit_floor,
     pooled_cistron_rates as _pooled_cistron_rates,
     cv_metrics as _cv_metrics,
+    KAPPA_GRID as _KAPPA_GRID,
     fold_of as _fold_of,
+    pick_param as _pick_param,
     paired_delta as _paired_delta,
     solve_nnls as _solve_nnls,
 )
@@ -1508,6 +1510,160 @@ def mode_deg_rate_cv(root, variant="baseline", k="10", param=""):
     }
 
 
+def mode_deg_rate_nested_cv(root, variant="hierarchical", k="10", k_inner="5"):
+    """Tune a variant's hyper-parameter WITHOUT letting it see the data it is scored on (PARCA-4 Stage 3b).
+
+    Stage 3 ran `hierarchical` at kappa=5, the default, and never tuned it. The tempting next step — run the
+    Stage 3 cross-validation at several kappa and report the best — is a selection leak: the parameter is
+    chosen using the very measurements it is then scored on, and the reported score is optimistic by an
+    amount nobody knows unless they measure it.
+
+    Nested CV instead. The OUTER folds are Stage 3's, bit-identical, so the comparison to the baseline is
+    exact. Inside each outer TRAINING set an independent inner split (a different hash, not a re-slicing of
+    the same partition) scores every kappa in the pre-registered grid; the winner is refit on the whole
+    outer training set and predicts the outer held-out fold, which it has never seen in any form.
+
+    Reports BOTH the nested score and the naive one — the best single kappa picked by looking at the outer
+    folds directly. The gap between them IS the selection optimism, measured instead of asserted.
+    """
+    import pickle
+
+    import numpy as np
+
+    kb = os.path.join(root, "kb", "simData.cPickle")
+    if not os.path.exists(kb):
+        return {"error": "no sim_data at %s (run ParCa first)" % kb}
+    if variant not in _DEG_VARIANTS:
+        return {"error": "unknown variant %r" % variant}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+
+    inp = _deg_rate_inputs(sd)
+    A, is_mRNA, c_measured, b_true = inp["A"], inp["is_mRNA"], inp["c_measured"], inp["b"]
+    k, k_inner = int(k or 10), int(k_inner or 5)
+    cistron_ids = [str(x) for x in np.asarray(inp["t"].cistron_data["id"])]
+
+    base_est, _ = _resolve_once(inp, "baseline", "", b_true, c_measured)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        hl = np.log(2) / base_est / 60.0
+    finite_m = is_mRNA & np.isfinite(hl)
+    tu_on_floor = finite_m & (np.round(hl, 9) == np.round(float(np.nanmax(hl[finite_m])), 9))
+    inc = (A > 0).tocsr()
+    on_floor_cistron = np.asarray(inc[:, tu_on_floor].sum(axis=1)).ravel() > 0
+
+    idx = np.where(c_measured)[0]
+    folds = np.full(len(b_true), -1, dtype=int)
+    folds[idx] = _fold_of([cistron_ids[i] for i in idx], k)
+    inner = np.full(len(b_true), -1, dtype=int)
+    inner[idx] = _fold_of([cistron_ids[i] + ":inner" for i in idx], k_inner)
+
+    def score_on(held, kappa):
+        """Fit with `held` unmeasured and return log2 errors on exactly those cistrons."""
+        p_ = "" if kappa is None else ("1e12" if kappa == float("inf") else str(kappa))
+        b, _tr, _ir, _np_ = _impute_b(inp, variant, p_, held)
+        est, _ = _resolve_once(inp, variant, p_, b, c_measured & ~held)
+        pred = np.asarray(A.dot(est), dtype=float)
+        h = np.where(held)[0]
+        ok = (pred[h] > 0) & (b_true[h] > 0)
+        return h[ok], np.log2(pred[h][ok] / b_true[h][ok])
+
+    grid = list(_KAPPA_GRID)
+    err_nested, keep, chosen, inner_tables = [], [], [], []
+    naive_err = {g: ([], []) for g in grid}
+    for f in range(k):
+        outer_held = c_measured & (folds == f)
+        if not outer_held.any():
+            continue
+        # --- inner: score every kappa on data the outer fold is ALSO excluded from -----------------------
+        table, outer_visible = [], 0
+        for g in grid:
+            e = []
+            for j in range(k_inner):
+                inner_held = c_measured & ~outer_held & (inner == j)
+                if not inner_held.any():
+                    continue
+                held_at_selection = outer_held | inner_held
+                # OBSERVABLE PROOF that selection cannot see the outer fold, derived from the SAME mask the
+                # solver is handed rather than recomputed alongside it. A first attempt computed this from
+                # its own expression; an injection that leaked the outer fold changed both in step and the
+                # test stayed green. A diagnostic that does not share the object it polices proves nothing.
+                # It has to be structural, too: the kappa curve is nearly flat (0.4564-0.4660 over a 40x
+                # range), so leaking the outer fold into SELECTION barely moves the winner or the score.
+                outer_visible += int(((c_measured & ~held_at_selection) & outer_held).sum())
+                _h, err = score_on(held_at_selection, g)
+                e.extend(err)
+            table.append((g, _cv_metrics(e).get("median_abs_log2", float("inf"))))
+        star = _pick_param(table)
+        chosen.append(None if star == float("inf") else star)
+        inner_tables.append({"fold": f, "chosen": "inf" if star == float("inf") else star,
+                             "n_outer_held": int(outer_held.sum()),
+                             "outer_cistrons_visible_at_selection": outer_visible,
+                             "inner_scores": {("inf" if g == float("inf") else g): s for g, s in table}})
+        # --- outer: refit with the winner, predict the fold it has never seen ----------------------------
+        h, err = score_on(outer_held, star)
+        keep.extend(h)
+        err_nested.extend(err)
+        # --- and the naive comparison: every kappa scored directly on the outer fold ---------------------
+        for g in grid:
+            _h2, e2 = score_on(outer_held, g)
+            naive_err[g][0].extend(_h2)
+            naive_err[g][1].extend(e2)
+
+    keep = np.array(keep, dtype=int)
+    err_nested = np.array(err_nested)
+    floor_s = on_floor_cistron[keep]
+
+    naive = {("inf" if g == float("inf") else g): _cv_metrics(naive_err[g][1]) for g in grid}
+    best_naive_g = _pick_param([(g, _cv_metrics(naive_err[g][1]).get("median_abs_log2", float("inf")))
+                                for g in grid])
+    bn = _cv_metrics(naive_err[best_naive_g][1])
+
+    # The baseline on the identical outer folds, so the decision rule is applied to a paired comparison.
+    err_base, keep_b = [], []
+    for f in range(k):
+        outer_held = c_measured & (folds == f)
+        if not outer_held.any():
+            continue
+        b, _tr, _ir, _np_ = _impute_b(inp, "baseline", "", outer_held)
+        est, _ = _resolve_once(inp, "baseline", "", b, c_measured & ~outer_held)
+        pred = np.asarray(A.dot(est), dtype=float)
+        h = np.where(outer_held)[0]
+        ok = (pred[h] > 0) & (b_true[h] > 0)
+        keep_b.extend(h[ok])
+        err_base.extend(np.log2(pred[h][ok] / b_true[h][ok]))
+    err_base = np.array(err_base)
+    aligned = np.array_equal(np.array(keep_b), keep)
+
+    return {
+        "variant": variant, "k_outer": k, "k_inner": k_inner,
+        "n_measured_cistrons": int(c_measured.sum()),
+        "grid": ["inf" if g == float("inf") else g for g in grid],
+        "chosen_per_outer_fold": [("inf" if c is None else c) for c in chosen],
+        "chosen_is_stable": len(set(str(c) for c in chosen)) == 1,
+        "inner_selection_tables": inner_tables,
+        "nested_scores": {"overall": _cv_metrics(err_nested),
+                          "on_floor_stratum": _cv_metrics(err_nested[floor_s]),
+                          "not_on_floor": _cv_metrics(err_nested[~floor_s])},
+        "baseline_scores_same_folds": {"overall": _cv_metrics(err_base),
+                                       "on_floor_stratum": _cv_metrics(err_base[floor_s]),
+                                       "not_on_floor": _cv_metrics(err_base[~floor_s])},
+        "paired_vs_baseline": ({"overall": _paired_delta(err_nested, err_base),
+                                "on_floor_stratum": _paired_delta(err_nested[floor_s], err_base[floor_s])}
+                               if aligned else {"error": "outer folds did not align; pairing withheld"}),
+        "naive_scores_per_kappa": naive,
+        "naive_best": {"kappa": "inf" if best_naive_g == float("inf") else best_naive_g,
+                       "median_abs_log2": bn.get("median_abs_log2")},
+        "selection_optimism": (round(bn.get("median_abs_log2", 0) - _cv_metrics(err_nested)
+                                     .get("median_abs_log2", 0), 4)),
+        "optimism_note": ("`naive_best` is what tuning WITHOUT nesting would have reported — the best kappa "
+                          "chosen by looking at the outer folds it is then scored on. `selection_optimism` "
+                          "is naive minus nested: negative means the naive procedure would have claimed a "
+                          "better score than it earned. This is the quantity nesting exists to remove."),
+        "decision_rule": ("Unchanged and pre-registered: beats the baseline only if median_abs_log2 is lower "
+                          "BOTH overall AND on the floor stratum; differences below 0.01 are ties."),
+    }
+
+
 if __name__ == "__main__":
     mode, run_root = sys.argv[1], sys.argv[2]
     if mode == "run":
@@ -1538,6 +1694,10 @@ if __name__ == "__main__":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
     elif mode == "deg_rate_provenance":
         out = mode_deg_rate_provenance(run_root, sys.argv[3] if len(sys.argv) > 3 else "0")
+    elif mode == "deg_rate_nested_cv":
+        out = mode_deg_rate_nested_cv(run_root, sys.argv[3] if len(sys.argv) > 3 else "hierarchical",
+                                      sys.argv[4] if len(sys.argv) > 4 else "10",
+                                      sys.argv[5] if len(sys.argv) > 5 else "5")
     elif mode == "deg_rate_cv":
         out = mode_deg_rate_cv(run_root, sys.argv[3] if len(sys.argv) > 3 else "baseline",
                                sys.argv[4] if len(sys.argv) > 4 else "10",

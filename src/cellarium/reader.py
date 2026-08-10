@@ -173,6 +173,27 @@ def deg_rate_cv(sim_path: str = "cellarium", variant: str = "baseline", k: int =
                    [variant, str(int(k)), "" if param is None else str(param)])
 
 
+def deg_rate_nested_cv(sim_path: str = "cellarium", variant: str = "hierarchical",
+                       k: int = 10, k_inner: int = 5) -> dict:
+    """Tune a variant's hyper-parameter without letting it see the data it is scored on (PARCA-4 Stage 3b).
+
+    Stage 3 ran `hierarchical` at kappa=5 and never tuned it. Running the Stage 3 cross-validation at several
+    kappa and reporting the best would be a selection leak — the parameter chosen using the measurements it
+    is then scored on. Here the OUTER folds are Stage 3's, bit-identical, and an independent inner split
+    inside each outer training set picks kappa from the pre-registered grid before the outer fold is touched.
+
+    Returns the nested score, the baseline on the identical folds, a paired comparison, kappa* PER OUTER FOLD
+    (if it moves every fold, "the best kappa" is not a stable quantity whatever the score says), and the
+    naive score the un-nested procedure would have reported, so the selection optimism is measured rather
+    than asserted.
+
+    ~45 s: k_outer x k_inner x |grid| solves.
+    """
+    if variant not in DEG_RATE_VARIANTS:
+        return {"error": f"unknown variant {variant!r}; expected one of {list(DEG_RATE_VARIANTS)}"}
+    return _invoke("deg_rate_nested_cv", OUT_ROOT / sim_path, [variant, str(int(k)), str(int(k_inner))])
+
+
 PROVENANCE_BASELINE = "data/parca/deg_rate_baseline.json"
 
 

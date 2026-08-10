@@ -191,3 +191,91 @@ def test_the_imputation_constant_is_rebuilt_per_fold(cv):
     assert len(set(per_fold)) > 1, (
         f"the imputation constant is identical in every fold ({per_fold[0]}), so it was not rebuilt from the "
         f"training measurements — the held-out fold is informing the value used to predict it")
+
+
+# ---------------------------------------------------------------------------------------------------------
+# Stage 3b — nested CV. Tuning is where optimism gets in, so the tuner must never see the scoring data.
+# ---------------------------------------------------------------------------------------------------------
+
+def test_the_no_pooling_null_stays_in_the_grid():
+    """kappa = infinity IS no pooling. Without it in the grid the tuner cannot return "pooling does not
+    help", and a search that can only choose among ways of pooling will always report that pooling won."""
+    assert float("inf") in de.KAPPA_GRID
+    assert min(g for g in de.KAPPA_GRID if g != float("inf")) <= 1.0, (
+        "the grid must reach small kappa (strong pooling) or the search is one-sided")
+
+
+def test_a_tie_goes_to_less_model_freedom():
+    """Pre-registered tie-break. The kappa curve turned out to be nearly flat (0.4564-0.4660 across a 40x
+    range), so ties are not hypothetical — and a tie resolved toward MORE pooling would hand the variant
+    flexibility the inner scores never justified."""
+    assert de.pick_param([(0.5, 0.40), (5.0, 0.40), (20.0, 0.41)]) == 5.0
+    assert de.pick_param([(0.5, 0.39), (5.0, 0.40)]) == 0.5, "a real win must still beat a larger value"
+
+
+def test_inner_folds_are_not_a_reslicing_of_the_outer_ones():
+    """The inner split uses a SEPARATE hash (`id + ':inner'`). Reusing the outer hash would make the inner
+    folds a deterministic function of the outer ones, so the parameter would be selected on a partition
+    aligned with the one it is scored against."""
+    ids = [f"EG{i}_RNA" for i in range(2000)]
+    outer = de.fold_of(ids, 10)
+    inner = de.fold_of([i + ":inner" for i in ids], 5)
+    agree = np.mean(inner == (outer % 5))
+    assert agree < 0.30, f"inner folds track the outer partition ({agree:.2f} agreement)"
+
+
+_NESTED: dict = {}
+
+
+@pytest.fixture(scope="module")
+def nested():
+    _needs_image()
+    if not _NESTED:
+        _NESTED.update(reader.deg_rate_nested_cv(variant="hierarchical", k=10, k_inner=5))
+    if _NESTED.get("error"):
+        pytest.skip(_NESTED["error"])
+    return _NESTED
+
+
+def test_the_chosen_parameter_is_reported_per_fold_not_just_summarised(nested):
+    """Pre-registered: if the tuner picks a different kappa in every fold then "the best kappa" is not a
+    stable quantity and no single value should be carried forward, whatever the score says. Measured: it
+    picks 0.5, 0.5, 5, 2, 5, 1, 2, 1, 1, 10 — a 20x spread — which is what a flat objective looks like."""
+    assert len(nested["chosen_per_outer_fold"]) == nested["k_outer"]
+    assert "chosen_is_stable" in nested
+
+
+def test_the_nested_score_is_not_better_than_the_un_nested_one_by_a_suspicious_margin(nested):
+    """The leak guard for a TUNING harness. If the inner loop can see the outer fold, kappa is chosen to fit
+    the data it is about to be scored on and the nested score becomes better than any honest procedure could
+    reach. Nesting normally costs a little accuracy; here it gained 0.0032 because kappa is chosen per fold,
+    which is a more adaptive predictor than any single global value. A LARGE gain is the alarm."""
+    gain = nested["selection_optimism"]          # naive_best - nested; positive means nested scored better
+    assert gain < 0.05, (
+        f"nested CV beat the best un-nested kappa by {gain} — that is backwards by more than per-fold "
+        f"adaptivity explains, so check whether the outer fold is reaching the inner selection")
+
+
+def test_the_payload_says_which_rule_it_is_being_judged_by(nested):
+    assert "decision_rule" in nested and "floor" in nested["decision_rule"]
+    assert "optimism_note" in nested and "naive" in nested["optimism_note"]
+
+
+def test_the_outer_fold_is_invisible_while_the_parameter_is_chosen(nested):
+    """THE tuning leak, asserted structurally because the score cannot see it.
+
+    If the inner loop scores kappa with the outer fold still measured, the parameter is selected using the
+    data it is about to be graded on. A score-based guard misses this: the kappa curve is nearly flat
+    (0.4564-0.4660 across a 40x range), so the leak barely changes which kappa wins or what it scores.
+
+    The count is exact — and it is read off the SAME mask the solver receives. A first version of this test
+    computed the diagnostic from its own expression alongside the real one; injecting the leak changed both
+    together and the test stayed green. A diagnostic that does not share the object it polices proves
+    nothing. Verified by injection on the corrected version: drop the outer fold from the selection mask and
+    only this test fails.
+    """
+    for t in nested["inner_selection_tables"]:
+        assert t["outer_cistrons_visible_at_selection"] == 0, (
+            f"outer fold {t['fold']}: {t['outer_cistrons_visible_at_selection']} of its own measurements "
+            f"were visible while kappa was chosen — the fold being scored is informing its own "
+            f"hyper-parameter")

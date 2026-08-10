@@ -114,6 +114,28 @@ def cv_metrics(log2_err):
             "frac_within_4fold": round(float((np.abs(e) <= 2.0).mean()), 4)}
 
 
+KAPPA_GRID = (0.5, 1.0, 2.0, 5.0, 10.0, 20.0, float("inf"))
+"""Pre-registered in BACKLOG.md (Stage 3b) before the nested run.
+
+kappa is in units of "measured neighbours needed before the operon mean is trusted at half weight", so this
+spans "one neighbour is nearly enough" to "twenty are not". INFINITY is in the grid deliberately: it is
+exactly no pooling, so if the tuner picks it, the inner loop has said on its own that operon pooling does
+not help — a result, not a failure to converge.
+"""
+
+
+def pick_param(scores, tie_tol=0.0):
+    """Choose the grid value with the lowest inner score; ties go to the LARGER value.
+
+    `scores` is [(value, score), ...]. Ties resolving upward means toward LESS pooling (larger kappa) and
+    LESS regularization freedom, so a tie never quietly buys the variant extra flexibility it did not earn.
+    Written as its own function because a tie-break rule buried in an argmin is a rule nobody can find and
+    nobody tests.
+    """
+    best = min(s for _v, s in scores)
+    return max(v for v, s in scores if s <= best + tie_tol)
+
+
 def paired_delta(variant_err, baseline_err):
     """Compare a variant to the baseline on the SAME held-out cistrons, pair by pair.
 
