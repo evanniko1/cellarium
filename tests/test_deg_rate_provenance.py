@@ -44,7 +44,7 @@ def _bounds(sim_path="cellarium"):
         pytest.skip("needs the model image to unpickle sim_data")
     if not Path(f"runs/{sim_path}/kb/simData.cPickle").is_file():
         pytest.skip(f"no knowledge base at runs/{sim_path}")
-    r = reader.deg_rate_bounds(sim_path)
+    r = reader.deg_rate_provenance(sim_path)
     if "error" in r:
         pytest.skip(r["error"])
     return r
@@ -53,7 +53,7 @@ def _bounds(sim_path="cellarium"):
 def test_the_report_separates_a_fit_from_a_constraint():
     r = _bounds()
     assert r["n_mrna_units"] > 1000, "this looks like the wrong table — the guard exists so a shape change is loud"
-    assert r["n_on_floor"] >= 1, (
+    assert r["on_floor"]["n_units"] >= 1, (
         "no unit sits on the rate floor. Either ParCa stopped bounding the NNLS — in which case this whole "
         "finding is obsolete and the docstring above must be re-read — or the detector is looking at the "
         "wrong array and would report a clean fit for any input")
@@ -65,9 +65,9 @@ def test_it_reports_expression_not_just_a_count():
     """A count says how many units; only expression says whether it MATTERS. 245 obscure units and 245 that
     carry 5% of transcription are different findings, and the count alone cannot tell them apart."""
     r = _bounds()
-    assert r["pct_expression_on_floor"] > 0
-    assert r["most_expressed_on_floor"], "the report names no unit, so a reader cannot check any of it"
-    for e in r["most_expressed_on_floor"]:
+    assert r["not_a_fit"]["pct_expression"] > 0
+    assert r["most_expressed_not_a_fit"], "the report names no unit, so a reader cannot check any of it"
+    for e in r["most_expressed_not_a_fit"]:
         assert e["id"] and e["pct_of_mrna_expression"] >= 0
 
 
@@ -79,7 +79,7 @@ def test_the_ribosomal_operons_are_on_the_bound():
     that is a real improvement and this test should be re-read, not deleted.
     """
     r = _bounds()
-    ids = " ".join(e["id"] for e in r["most_expressed_on_floor"]).lower()
+    ids = " ".join(e["id"] for e in r["most_expressed_not_a_fit"]).lower()
     assert "rpm" in ids or "rpl" in ids or "rps" in ids, (
         "no ribosomal protein operon is among the most-expressed bound-pinned units any more: %s" % ids)
 
@@ -91,9 +91,57 @@ def test_the_coverage_filter_moves_the_bound_without_emptying_it():
     assert filt["rate_floor_as_half_life_min"] < base["rate_floor_as_half_life_min"], (
         "the coverage filter did not move the bound at all — re-check that the filtered rna_half_lives.tsv "
         "was actually mounted for the rebuild")
-    assert filt["n_on_floor"] >= base["n_on_floor"], (
+    assert filt["on_floor"]["n_units"] >= base["on_floor"]["n_units"], (
         "the number of units pinned to the bound FELL, which would contradict the recorded finding that "
         "min() simply promotes the next-slowest measurement — re-read PARCA-4 before trusting this")
-    assert filt["pct_expression_on_floor"] > base["pct_expression_on_floor"], (
-        "the share of expression resting on a placeholder did not rise; the recorded 4.59%% -> 6.57%% is the "
-        "reason the filter is necessary-but-not-sufficient")
+    assert filt["not_a_fit"]["pct_expression"] > base["not_a_fit"]["pct_expression"], (
+        "the share of expression that is NOT a fit did not rise; the recorded 12.09%% -> 15.38%% is the "
+        "reason the coverage filter was declined")
+
+
+def test_the_imputed_class_is_reported_and_is_the_larger_one():
+    """THE reason this was extended. `deg_rate_bounds` asked "which units sit on a bound" and answered 245
+    units / 4.59% of expression — reassuringly, and about a third of the truth.
+
+    A unit whose cistrons were never measured does not sit on a bound at all: it is assigned
+    `average_mRNA_cistron_half_life`, the MEAN of the reported half-lives (`transcription.py:339`). That class
+    is BIGGER than the bound class, so a report that omits it understates the exposure by ~3x while looking
+    complete.
+    """
+    r = _bounds()
+    imp, floor = r["imputed_average"], r["on_floor"]
+    assert imp["n_units"] > 0, (
+        "no unit carries the imputation constant. Either ParCa stopped defaulting unmeasured cistrons to the "
+        "population mean — in which case this finding is obsolete — or the detector is not reading "
+        "`average_mRNA_cistron_half_life` and would report a clean table for any input")
+    assert imp["pct_expression"] > floor["pct_expression"], (
+        "the imputed class is no longer the larger one (%.3f%% vs %.3f%% on the bound). That may be a real "
+        "improvement, but the recorded finding — that reporting bounds alone understates by ~3x — must be "
+        "re-read rather than left standing"
+        % (imp["pct_expression"], floor["pct_expression"]))
+    assert r["not_a_fit"]["pct_expression"] >= imp["pct_expression"] + floor["pct_expression"] - 1e-6
+
+
+def test_the_imputation_constant_is_read_from_sim_data_not_hardcoded():
+    """It changes when the fit changes — measured: 5.1907 min on the corpus fit, 5.3418 on refit2, because
+    filtering the input moved the mean. A hardcoded value would silently stop matching and report zero."""
+    r = _bounds()
+    assert 0 < r["imputation_constant_min"] < 1000
+    other = _bounds("refit2")
+    assert other["imputation_constant_min"] != r["imputation_constant_min"], (
+        "the imputation constant is identical across two different fits, which suggests it is not being read "
+        "from each knowledge base")
+
+
+def test_rounding_collisions_are_not_counted_as_defects():
+    """The flat file stores half-lives to ONE decimal (`ROUND_N_DECIMALS = 1`), so ~40 units legitimately
+    share 1.5 min. Those are measured values, verified present verbatim in rna_half_lives.tsv — a naive
+    'point mass' detector flags them and reports the table as far worse than it is."""
+    r = _bounds()
+    res = r["resolution"]
+    assert res["distinct_half_lives"] < r["n_mrna_units"], "expected repeated values; the input is rounded"
+    assert "not a defect measure" in res["caveat"].lower()
+    # the three named classes are the claim; resolution is context and must not be summed into them
+    named = r["on_floor"]["n_units"] + r["on_ceiling"]["n_units"] + r["imputed_average"]["n_units"]
+    assert r["not_a_fit"]["n_units"] == named, (
+        "not_a_fit must be exactly the three structural classes, not everything that repeats")

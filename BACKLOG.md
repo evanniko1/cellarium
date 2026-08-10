@@ -948,10 +948,16 @@ SOFT prior to a HARD bound: a wall creates a point mass of units sitting exactly
 not. (3) Every choice gets a pre-registered evaluation on held-out MEASUREMENTS, because "the numbers
 changed" is not evidence of improvement.
 
-**Stage 1 — instrument, no rebuild (cheap, do this first).** Extend the diagnostic from bounds to
-*provenance classes*: per TU, is its rate data-determined, constraint-pinned, or pooled-default, and what
-share of expression sits in each class. This is the 12.07% number above, made queryable. It also gives the
-baseline every later variant is scored against.
+**Stage 1 — instrument, no rebuild. ✅ DONE 2026-08-09.** `reader.deg_rate_provenance` classifies every
+mRNA unit as DETERMINED / ON A BOUND / IMPUTED and reports units and expression per class, reading the
+imputation constant from `sim_data` so it follows the fit. Corpus baseline: **854 units (27.3%) carrying
+12.087%** of mRNA expression are not fits. This is the baseline every later variant is scored against, and
+it already changed a decision — it showed the declined coverage filter costs 12.087% -> 15.382%, not the
+4.589% -> 6.571% the bounds-only view suggested.
+
+*Still missing from Stage 1, and needed before Stage 3 can score anything:* a per-unit provenance ARRAY
+rather than aggregate counts. Scoring a variant on "did the units that were previously not-fits improve"
+needs to know WHICH units those were, and the current payload names only the eight most-expressed.
 
 **Stage 2 — re-solve OFFLINE, and this is the key to the whole plan being affordable.** The NNLS inputs —
 the cistron×TU mapping matrix, the measured cistron rates, the expression vector — are all IN `sim_data`,
@@ -1477,8 +1483,10 @@ were live defects, one was a false accusation against a correct corpus, and none
     costs:** a new comparability arm, therefore comparator re-runs for every claim anyone wants to carry
     across (the main arm is 40 designs / 188 runs; even a single focused claim like the §3 depleting series is
     ~20 runs, hours of compute against a 7-minute rebuild) — and it *raises* the share of mRNA expression
-    resting on a placeholder from **4.589% to 6.571%**. Paying an arm to make the headline metric worse is the
-    wrong trade.
+    resting on a placeholder from **4.589% to 6.571%** — and, measured once the diagnostic was extended to the
+    imputed class, the FULL not-a-fit mass rises **12.087% -> 15.382%**, because filtering removes
+    measurements and pushes more units onto the population mean (which itself moves, 5.1907 -> 5.3418 min).
+    Paying an arm to make the headline metric worse — by more than I first reported — is the wrong trade.
     **The reason it looked urgent has already been removed by other means.** The danger was never the bound's
     value, it was that a constraint and a fitted parameter were indistinguishable on disk. `deg_rate_bounds`
     now reports that for any knowledge base, at zero arm cost and with no rebuild, so the defect is auditable
@@ -1517,10 +1525,15 @@ were live defects, one was a false accusation against a correct corpus, and none
     | on the rate floor (91.2 min) | 245 | 7.8% | **4.59%** |
     | **a CONSTANT, not a fit** | **847** | **27.0%** | **12.07%** |
 
-    So a quarter of the degradation table is a constant, carrying an eighth of transcription, and nothing marks
-    any of it. **`reader.deg_rate_bounds` under-reports this**: it only finds the floor and ceiling, so it sees
-    4.59% of the 12.07%. Extending it to report imputed-constant mass generally is the cheapest useful next
-    step and needs no rebuild.
+    So a quarter of the degradation table is a constant, carrying an eighth of transcription, and nothing marked
+    any of it. ✅ **CLOSED 2026-08-09** — `reader.deg_rate_bounds` saw only 4.59% of the 12.09% and has been
+    replaced by `reader.deg_rate_provenance`, which classifies every mRNA unit as DETERMINED, ON A BOUND or
+    IMPUTED and reports units + expression per class. Exact on the corpus fit: floor 245 (4.589%), ceiling 7
+    (0.016%), imputed 602 (7.482%) — **854 units, 27.3%, carrying 12.087%**. The constant is read from
+    `sim_data.process.transcription.average_mRNA_cistron_half_life`, never hardcoded, so it follows the fit.
+    Deliberately NOT counted as defects: repeated values from ROUNDING — the flat file stores one decimal
+    (`ROUND_N_DECIMALS = 1`), so ~40 units sharing 1.5 min are genuine measurements, verified verbatim in
+    `rna_half_lives.tsv`. A naive point-mass detector flags those and would have overstated the defect.
 
   - 📐 **The proposed design for the real fix lives in [`## Design notes (scouted plans)` →
     `PARCA-4 · the degradation-rate estimator`](#parca-4--the-degradation-rate-estimator)**, with the

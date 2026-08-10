@@ -902,23 +902,34 @@ def mode_list_species(run_root, kind, search=""):
     return {"kind": kind, "matches": hits[:40]}
 
 
-def mode_deg_rate_bounds(root):
-    """How much of the mRNA degradation-rate table is a fitted value, and how much is a CONSTRAINT (PARCA-4).
+def mode_deg_rate_provenance(root):
+    """For every mRNA transcription unit: is its degradation rate a FIT, a CONSTRAINT, or a DEFAULT (PARCA-4)?
 
-    ParCa cannot measure a half-life for every transcription unit, so it infers them by NNLS from per-gene
-    measurements — under a lower bound on the rate, set to the slowest single measured mRNA cistron:
+    Three situations collapse into indistinguishable floats in `sim_data`, and the difference is the whole
+    point:
 
-        min_deg_rates[is_mRNA] = mRNA_cistron_deg_rates.min()
+      * DETERMINED   — inferred from measurements (or measured directly).
+      * ON A BOUND   — the NNLS solution hit a wall. `min_deg_rates[is_mRNA] = mRNA_cistron_deg_rates.min()`
+                       is a global rate floor taken from the single slowest measured cistron, with a symmetric
+                       clip at the fastest. What is reported is the wall's value, not an inference.
+      * IMPUTED      — the unit's cistrons had NO measurement, so they were assigned
+                       `average_mRNA_cistron_half_life`, the MEAN of the reported mRNA cistron half-lives
+                       (`transcription.py:339`). Nothing measured this unit at all.
 
-    Units whose solution hits that wall stop there, and what is reported for them is the wall's value, not a
-    fit. On disk the two are indistinguishable: the same float in the same array. MEASURED 2026-08-09, the
-    corpus fit has 245 of 3,133 mRNA units sitting bit-exactly on it, carrying 4.59% of mRNA expression, and
-    the two most-expressed are RIBOSOMAL PROTEIN operons — the transcripts a ppGpp/stringent-response result
-    leans on hardest.
+    THIS FUNCTION REPLACES `mode_deg_rate_bounds`, WHICH UNDER-REPORTED BY ~3x. That version asked "which
+    units sit on a bound", because the floor was what PARCA-4 recorded — and answered reassuringly: 245 units,
+    4.59% of mRNA expression. Measured here, the IMPUTED class is larger: 602 units and 7.48%, for a combined
+    847 of 3,133 units (27%) carrying 12.07% of transcription on a value that is not a fit. A number that
+    looks complete and is a third of the truth is worse than no number, because nobody checks it twice.
 
-    This makes the distinction queryable without a rebuild. It reports rather than raises: 245 units on the
-    bound is the state of every knowledge base in the corpus, so an assertion here would fail every build and
-    be switched off, whereas a number that travels with the fit is something a reader can weigh.
+    The imputation constant is read from `sim_data` (`average_mRNA_cistron_half_life`), never hardcoded and
+    never inferred from the value — so it stays correct when the fit changes.
+
+    WHAT IS DELIBERATELY *NOT* COUNTED AS A DEFECT: repeated values from ROUNDING. The flat file stores
+    half-lives to one decimal (`ROUND_N_DECIMALS = 1`), so ~40 units sharing 1.5 min is a genuine measured
+    value shared after rounding, not an imputation — verified against `rna_half_lives.tsv`. A naive
+    "point mass" detector flags those and would report the table as far worse than it is. `resolution` below
+    is therefore reported as CONTEXT, not as a defect measure.
     """
     import pickle
     kb = os.path.join(root, "kb", "simData.cPickle")
@@ -934,32 +945,50 @@ def mode_deg_rate_bounds(root):
     is_m = np.asarray(rna["is_mRNA"], dtype=bool)
     with np.errstate(divide="ignore", invalid="ignore"):
         half_life = np.log(2) / dr / 60.0
-    # The FLOOR on rate is the CEILING on half-life, and vice versa — both bounds come from the extremes of the
-    # same unfiltered measurement set, so both are reported.
+
+    avg = t.average_mRNA_cistron_half_life
+    try:
+        import wholecell.utils.units as _u
+        avg_min = float(avg.asNumber(_u.min))
+    except Exception:
+        avg_min = float(avg.asNumber() if hasattr(avg, "asNumber") else avg)
+
     hl_m = half_life[is_m]
     slowest, fastest = float(np.nanmax(hl_m)), float(np.nanmin(hl_m))
-    on_slow = is_m & (np.abs(half_life - slowest) < 1e-9)
-    on_fast = is_m & (np.abs(half_life - fastest) < 1e-9)
+    on_floor = is_m & (np.abs(half_life - slowest) < 1e-9)
+    on_ceiling = is_m & (np.abs(half_life - fastest) < 1e-9)
+    imputed = is_m & (np.abs(half_life - avg_min) < 1e-9) & ~on_floor & ~on_ceiling
+    not_a_fit = on_floor | on_ceiling | imputed
+
     exp = np.asarray(t.rna_expression["basal"], dtype=float)
     tot = float(exp[is_m].sum()) or 1.0
     ids = [str(x) for x in rna["id"]]
-    top = sorted(((float(exp[i]), ids[i]) for i in np.where(on_slow)[0]), reverse=True)[:6]
+
+    def cls(mask):
+        return {"n_units": int(mask.sum()),
+                "pct_units": round(100.0 * int(mask.sum()) / max(int(is_m.sum()), 1), 2),
+                "pct_expression": round(100.0 * float(exp[mask].sum()) / tot, 3)}
+
+    top = sorted(((float(exp[i]), ids[i]) for i in np.where(not_a_fit)[0]), reverse=True)[:8]
+    distinct = int(len(np.unique(np.round(hl_m, 9))))
     return {
         "n_mrna_units": int(is_m.sum()),
         "rate_floor_as_half_life_min": round(slowest, 4),
         "rate_ceiling_as_half_life_min": round(fastest, 4),
-        "n_on_floor": int(on_slow.sum()), "n_on_ceiling": int(on_fast.sum()),
-        "pct_units_on_a_bound": round(100.0 * (on_slow.sum() + on_fast.sum()) / max(int(is_m.sum()), 1), 2),
-        "pct_expression_on_floor": round(100.0 * float(exp[on_slow].sum()) / tot, 3),
-        "pct_expression_on_ceiling": round(100.0 * float(exp[on_fast].sum()) / tot, 3),
-        "most_expressed_on_floor": [{"id": i, "pct_of_mrna_expression": round(100.0 * e / tot, 4)}
-                                    for e, i in top],
-        "note": ("A unit ON a bound did not get a fitted half-life: it got the bound's value, which is the "
-                 "slowest (or fastest) single measured mRNA cistron. Nothing in sim_data distinguishes the "
-                 "two, so any claim resting on one of these transcripts rests on a constraint, not a "
-                 "measurement."),
+        "imputation_constant_min": round(avg_min, 6),
+        "on_floor": cls(on_floor), "on_ceiling": cls(on_ceiling), "imputed_average": cls(imputed),
+        "not_a_fit": cls(not_a_fit),
+        "most_expressed_not_a_fit": [{"id": i, "pct_of_mrna_expression": round(100.0 * e / tot, 4)}
+                                     for e, i in top],
+        "resolution": {"distinct_half_lives": distinct,
+                       "pct_distinct": round(100.0 * distinct / max(int(is_m.sum()), 1), 1),
+                       "caveat": ("CONTEXT, not a defect measure: the flat file rounds half-lives to one "
+                                  "decimal, so genuinely measured units share values. Only the three classes "
+                                  "above are 'not a fit'.")},
+        "note": ("A unit that is on a bound or imputed did not get a fitted half-life. sim_data stores all "
+                 "three classes as the same kind of float, so any claim resting on one of these transcripts "
+                 "rests on a constraint or a population mean, not on a measurement of that transcript."),
     }
-
 
 if __name__ == "__main__":
     mode, run_root = sys.argv[1], sys.argv[2]
@@ -989,8 +1018,8 @@ if __name__ == "__main__":
         out = mode_differential(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), float(sys.argv[6]))
     elif mode == "gene_lfc":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
-    elif mode == "deg_rate_bounds":
-        out = mode_deg_rate_bounds(run_root)
+    elif mode == "deg_rate_provenance":
+        out = mode_deg_rate_provenance(run_root)
     else:
         out = {"error": f"unknown mode '{mode}'"}
     print("CELLARIUM_JSON:" + json.dumps(out))

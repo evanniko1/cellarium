@@ -93,15 +93,19 @@ def kb_content_hash(sim_path: str = "cellarium") -> dict:
     return _invoke("kb_content_hash", OUT_ROOT / sim_path)
 
 
-def deg_rate_bounds(sim_path: str = "cellarium") -> dict:
-    """How much of this knowledge base's mRNA degradation table is a FIT and how much is a CONSTRAINT (PARCA-4).
+def deg_rate_provenance(sim_path: str = "cellarium") -> dict:
+    """Is each mRNA degradation rate a FIT, a CONSTRAINT, or a population DEFAULT (PARCA-4)?
 
-    ParCa bounds the inferred rates below by the slowest single measured mRNA cistron; units whose NNLS
-    solution hits that wall report the wall's value, and sim_data stores the two identically. This says how
-    many, and which — including how much EXPRESSION rests on them, which is the number that decides whether it
-    matters. Heavy (unpickles sim_data); cache it.
+    RENAMED from `deg_rate_bounds`, which under-reported by ~3x. That name asked "which units sit on a bound",
+    and answered 245 units / 4.59% of expression — but a unit whose cistrons were never measured does not sit
+    on a bound at all: it is assigned `average_mRNA_cistron_half_life`, the MEAN of the reported half-lives.
+    That class is larger (602 units, 7.48%), so the honest total is 847 of 3,133 units carrying 12.07% of
+    transcription on a value that is not a fit. Reporting a third of that under a name that sounds complete is
+    the failure this project keeps meeting; the name now says what it measures.
+
+    Heavy (unpickles sim_data); cache it.
     """
-    return _invoke("deg_rate_bounds", OUT_ROOT / sim_path)
+    return _invoke("deg_rate_provenance", OUT_ROOT / sim_path)
 
 
 def gene_map(sim_path: str = "cellarium") -> dict:
