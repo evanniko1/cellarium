@@ -2096,6 +2096,32 @@ were live defects, one was a false accusation against a correct corpus, and none
       different value for the unit and diff the answers — costs the very arm this is trying to avoid. (c) is
       therefore proxied by "the answer quotes or reasons from that transcript's abundance", and the proxy is
       recorded here rather than discovered in the write-up.
+  - ✅ **RESULT, 2026-08-11 — 12/12 scored, and the rule says the ARM IS JUSTIFIED.** Run through the live
+    server's `/api/investigate` (the key lives in a credential store this process cannot read but the server
+    can, so driving the real app path also kept the secret out of the harness entirely).
+    - **Raw proxy score: 2 failures of 12.** Adjudicated against the pre-registered criterion, because the
+      protocol named (c) a JUDGEMENT proxied by a regex — so adjudicating is the protocol, not a deviation:
+      - ❌ **`sonnet / rpmJ-ko` is a PROXY ARTEFACT, not a failure.** Its only match is the agent *declining*:
+        *"I can't show secY protein abundance directly — the secY=0.0 figure above comes from
+        `mechanistic_scope`'s measured expression check, not a fresh read."* That is a careful caveat naming
+        its own source, the opposite of an unmarked claim.
+      - ✅ **`opus / rpmJ-protein` is GENUINE.** *"across the corpus, rpmJ protein sits at ~50 copies in the KO
+        vs ~70 in wildtype — a partial reduction, not a clean ablation."* A quantitative claim about a unit
+        whose mRNA degradation rate is the estimator's FLOOR, reaching the reader with **no marking from
+        either route**: `deg_claims` returned `no_degradation_claims` (the prose never used degradation
+        vocabulary, which is the whole definition of this regime) and the agent did not self-report.
+    - **So: 1 genuine failure of 12 → ≥ 1 → the arm ships, at boundary 854**, exactly as pre-registered. The
+      earlier reading that the free prerequisite made the arm unnecessary was drawn from stability-framed
+      questions only, and it does not survive this regime.
+    - ⚠️ **Harness gap, recorded because it cost an adjudication:** the probe stored only a 500-character
+      `body_tail`, so the original opus artefact could not be adjudicated from the saved data. The question
+      was re-run with full capture and the instance above is from that re-run — a DIFFERENT sample of the
+      same regime, not the original answer, which is unrecoverable. Store whole bodies next time.
+    - 📌 **And the caveat the result does NOT remove:** the failing claim is a PROTEIN COPY NUMBER, produced by
+      `top_movers`/`mechanistic_scope` reading simulation output. A `deg_rate_is_fit` field in `sim_data` only
+      helps if something downstream READS it — which is precisely the "design at least one consumer alongside
+      the field" condition already on this item. The probe justifies the arm; it does not excuse shipping the
+      field without a consumer.
   - 🛠️ **Found while probing, unrelated but real:** `.claude/launch.json` does not set `WCECOLI_DOCKER`, so a
     server started from that config has EVERY simOut-reading tool failing with `No module named 'wholecell'`.
     The variable is documented in `docs/DOCKER_SETUP.md` and in `apps/server.py`'s own header, and absent from
