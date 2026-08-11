@@ -273,11 +273,18 @@ def wildtype_null() -> dict:
 
     import numpy as np
 
-    from . import raw, store
+    from . import hygiene, raw, store
     if _NULL_CACHE:
         return _NULL_CACHE
     seen: dict = {}
-    for r in store.list_results():
+    # TRNA-9 / H-17b: `analysis` — reportable, live, ONE comparability arm. `fraction_trna_charged` is the
+    # channel where the elongation model changes what the number MEANS (INV-2), so a null pooled across arms
+    # describes no instrument. MEASURED once the estimator was made deterministic: the MAX — the number that
+    # gates `exceeds_wildtype_null_max` — is 92.7 pp under all four candidate row sets, so narrowing costs
+    # nothing on the gate. It moves the reported MEDIAN (19.5 -> 13.4) and the pair count (3,306 -> 702).
+    # The earlier claim that arm-pooling inflated the threshold ~1.75x was an ARTEFACT of the broken
+    # one-arbitrary-reference estimator, not a property of the data.
+    for r in hygiene.rows("analysis")[0]:
         if (r.get("perturbation") or "") != "wildtype":
             continue
         p = store.simout_path(r["id"])
@@ -304,14 +311,36 @@ def wildtype_null() -> dict:
             continue
     if len(tabs) < 2:
         return {"error": "need >=2 distinct wild-type units on disk to measure the null", "n_units": len(tabs)}
-    ref, gaps, names = tabs[0], [], []
-    for t in tabs[1:]:
-        worst = min(t, key=t.get)
-        names.append(worst)
-        gaps.append(100.0 * (ref[worst] - t[worst]))
+    # TRNA-9. This used to be `ref = tabs[0]` — one arbitrary reference against every other table. Two
+    # defects in one line. (a) NON-DETERMINISM: `tabs` is built by walking `store.list_results()`, whose row
+    # order is unstable (the same DuckDB property that made `rigor.coverage` report n_total as
+    # 55/55/54/54/56/55 across six calls in one process), so `tabs[0]` changed between calls and every gap
+    # moved with it. Measured over six calls on identical data, the MAX — the number that gates
+    # `exceeds_wildtype_null_max` — ranged 52.1-84.5 pp, a 62% swing, and the median swung 8.2-22.7.
+    # (b) It discarded the evidence: 57 of 3,306 ordered pairs.
+    #
+    # The null is a PAIRWISE quantity — "if I had picked any wild-type as the reference and any other as the
+    # candidate, what gap would I see?" — which is exactly the question `selective_charging(design,
+    # reference)` asks. ORDERED pairs, because the statistic is asymmetric: it names the CANDIDATE's worst
+    # family and reads the reference's value at that same family. Order-independent as a multiset, so the
+    # summary is deterministic without needing `tabs` sorted.
     from collections import Counter
+    gaps = []
+    for a in tabs:                       # a = the reference
+        for b in tabs:                   # b = the candidate
+            if a is b:
+                continue
+            worst = min(b, key=b.get)
+            if worst in a:               # a family b measured and a did not cannot be compared
+                gaps.append(100.0 * (a[worst] - b[worst]))
+    # ONE worst-family name per table, not one per pair: the worst family is a property of the table and
+    # counting it once per pairing would multiply every tally by 57 while changing nothing.
+    names = [min(t, key=t.get) for t in tabs]
+    if not gaps:
+        return {"error": "no comparable wild-type pairs", "n_units": len(tabs)}
     _NULL_CACHE.update({
         "n_wildtype_units_on_disk": len(seen), "n_distinct_by_content_hash": len(tabs),
+        "n_pairs": len(gaps),
         "gap_pp": {"min": round(min(gaps), 1), "median": round(statistics.median(gaps), 1),
                    "max": round(max(gaps), 1)},
         "worst_family_named_on_pure_wildtype": Counter(names).most_common(),

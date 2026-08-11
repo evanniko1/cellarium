@@ -142,12 +142,6 @@ READ_SITE_REGISTRY: dict[str, dict] = {
                 "and repair reads them. A third contract over one filter set is the signal that filter and "
                 "contract may want to be two dimensions; adding a sixth purpose for one internal function is "
                 "how a boundary becomes a taxonomy nobody reads. Revisit if a second repair-like caller appears")},
-    "trna.py::wildtype_null": {
-        "kind": "blocked",
-        "why": ("TRNA-9. Migrating moves `exceeds_wildtype_null_max` by -43%, which changes a scientific "
-                "verdict, and the estimator is non-deterministic besides (max gap observed at 52.1-84.5 pp, a 62% swing, "
-                "across six calls on identical data). Fix the determinism first, then re-decide the arm "
-                "question on a null that has stopped moving")},
 }
 
 
@@ -354,7 +348,7 @@ def read_sites() -> dict:
         # than deleted, because the next migration batch will find its own gaps and this is where they go.
         "unmigrated_needing_a_decision": [],
         "migrated": ["differential.matrix", "rigor.disconfirm", "launch.kb_dependents",
-                     "reconcile.corpus_identifiers", "rigor.coverage",
+                     "reconcile.corpus_identifiers", "rigor.coverage", "trna.wildtype_null",
                      "resources._corpus_footprint", "manifest.integrity_check", "corpus_schema.fmt",
                      "manifest.reconcile_disk"],
         "counted_by": ("`ast.Call` for consumers; string literals for the SQL `read_parquet(`, which is not a "
