@@ -114,28 +114,42 @@ KINDS = ("lookup", "purpose_shaped", "primitive", "blocked", "migrated")
 READ_SITE_REGISTRY: dict[str, dict] = {
     # --- LOOKUPS: "which row is this?", not "which rows may I use?". A purpose filter in front of a lookup
     # would HIDE the row being looked up — `data_availability` for a crashed run's id must still find it.
-    "differential.py::_design_run_roots": {
+    "src/cellarium/differential.py::_design_run_roots": {
         "kind": "lookup", "why": "resolves a design to its run directories; must see every row, crashed included"},
-    "hf.py::_design_seeds": {
+    "src/cellarium/hf.py::_design_seeds": {
         "kind": "lookup", "why": "resolves a design label or a result_id to its rows"},
-    "hf.py::data_availability": {
+    "src/cellarium/hf.py::data_availability": {
         "kind": "lookup", "why": "finds one row by id to report what is downloadable; filtering could hide it"},
-    "raw.py::seed_runs": {
+    "src/cellarium/raw.py::seed_runs": {
         "kind": "lookup", "why": "resolves a design to its seeds on disk"},
-    "tools.py::_resolve_result": {
+    "src/cellarium/tools.py::_resolve_result": {
         "kind": "lookup", "why": "resolves a user-supplied id or label to a row"},
-    "tools.py::_run_label": {
+    "src/cellarium/tools.py::_run_label": {
         "kind": "lookup", "why": ("resolves a run id to its label for display; a filtered set would render a "
                                   "real run as unknown rather than as filtered out")},
-    "tools.py::run_experiment": {
+    "src/cellarium/tools.py::run_experiment": {
         "kind": "lookup", "why": "checks whether a proposed design already has runs before launching"},
-    "tools.py::segment_means": {
+    "src/cellarium/tools.py::segment_means": {
         "kind": "lookup", "why": "resolves a design_or_id argument; a shift run may legitimately be non-reportable"},
-    "tools.py::read_series": {
+    "src/cellarium/tools.py::read_series": {
         "kind": "lookup", "why": "label search for a user-supplied key"},
 
+    # --- THE BLIND SPOT the widened scan found. The detector scanned only `src/cellarium/`, so it reported a
+    # COMPLETE read surface while never looking at the web app or the scripts.
+    "apps/server.py::results_list": {
+        "kind": "lookup",
+        "why": ("the Corpus Browser's row source: it hands the UI every deduped live row to DISPLAY, and a "
+                "browser that hid crashed runs would misrepresent the corpus as healthier than it is. Closest "
+                "purpose is `inventory` (count, do not read), but the UI does read the fields — it just does "
+                "not compute over them. Left as a display lookup rather than forcing a contract that does not "
+                "fit, and recorded so the next person sees the judgement rather than an omission")},
+    "scripts/ab_score.py::main": {
+        "kind": "lookup",
+        "why": ("asks whether a gene has any runs at all before scoring a question, via the tool form; a "
+                "presence check, not a measurement, and filtering would turn 'crashed' into 'absent'")},
+
     # --- DECIDED, NOT MIGRATED.
-    "segments.py::repair": {
+    "src/cellarium/segments.py::repair": {
         "kind": "lookup",
         "why": ("a maintenance WRITE path over live timeline rows. Its filter set matches `lethality` and "
                 "`inventory`, but both contracts are wrong for it — `inventory` says the rows may not be read "
@@ -154,31 +168,31 @@ DIRECT_KINDS = ("primitive", "maintenance", "bespoke_projection", "aggregate")
 DIRECT_READ_REGISTRY: dict[str, dict] = {
     # --- PRIMITIVES: the row sources `hygiene.rows()` composes. They cannot route through the boundary; they
     # ARE it.
-    "store.py::<module>": {"kind": "primitive", "why": "the FROM clause behind store.list_results, which the coverage / inventory / lethality purposes compose"},
-    "survey.py::_deduped_rows": {"kind": "primitive", "why": "the row source behind analysis_rows, which the `analysis` purpose composes"},
-    "survey.py::_leth_rows": {"kind": "primitive", "why": "the per-generation QC projection the lethality view needs; a column set no other reader uses"},
-    "audit.py::_rows": {"kind": "primitive", "why": "the UN-deduped row source the `audit` purpose composes; supersession needs the duplicate rows visible"},
-    "corpus_schema.py::_rows": {"kind": "primitive", "why": "reads the three ARM_KEYS columns store.list_results does not project, for arm accounting"},
+    "src/cellarium/store.py::<module>": {"kind": "primitive", "why": "the FROM clause behind store.list_results, which the coverage / inventory / lethality purposes compose"},
+    "src/cellarium/survey.py::_deduped_rows": {"kind": "primitive", "why": "the row source behind analysis_rows, which the `analysis` purpose composes"},
+    "src/cellarium/survey.py::_leth_rows": {"kind": "primitive", "why": "the per-generation QC projection the lethality view needs; a column set no other reader uses"},
+    "src/cellarium/audit.py::_rows": {"kind": "primitive", "why": "the UN-deduped row source the `audit` purpose composes; supersession needs the duplicate rows visible"},
+    "src/cellarium/corpus_schema.py::_rows": {"kind": "primitive", "why": "reads the three ARM_KEYS columns store.list_results does not project, for arm accounting"},
 
     # --- MAINTENANCE: the write and repair layer. It operates ON the manifest, so it must see it unfiltered.
-    "manifest.py::compact": {"kind": "maintenance", "why": "rewrites shards; must read every row including the ones a purpose would filter out"},
-    "manifest.py::prune": {"kind": "maintenance", "why": "removes shards; operates on the files themselves, not on a row view"},
-    "manifest.py::drop_run": {"kind": "maintenance", "why": "writes a tombstone; needs the row it is about to withdraw, which no live purpose returns"},
-    "manifest.py::quarantine_tombstones": {"kind": "maintenance", "why": "moves tombstoned rows to the dropped shard; reads exactly what the purposes hide"},
-    "manifest.py::dropped_rows": {"kind": "maintenance", "why": "reads the quarantined shard directly, which no purpose reaches by design"},
-    "manifest.py::manifest_columns": {"kind": "maintenance", "why": "schema introspection over the raw parquet; a row view cannot answer which columns exist"},
-    "manifest.py::integrity_check": {"kind": "maintenance", "why": "two targeted probe queries (D10 provenance, D11 partition columns) over columns the row projection omits"},
-    "manifest.py::backfill_condition": {"kind": "maintenance", "why": "reads every row to rewrite one column; a filtered view would silently skip rows"},
-    "manifest.py::backfill_elongation_model": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
-    "manifest.py::backfill_graded_dose": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
-    "manifest.py::backfill_kb_provenance": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
-    "manifest.py::backfill_parca_ts": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
-    "manifest.py::backfill_timeline_identity": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "src/cellarium/manifest.py::compact": {"kind": "maintenance", "why": "rewrites shards; must read every row including the ones a purpose would filter out"},
+    "src/cellarium/manifest.py::prune": {"kind": "maintenance", "why": "removes shards; operates on the files themselves, not on a row view"},
+    "src/cellarium/manifest.py::drop_run": {"kind": "maintenance", "why": "writes a tombstone; needs the row it is about to withdraw, which no live purpose returns"},
+    "src/cellarium/manifest.py::quarantine_tombstones": {"kind": "maintenance", "why": "moves tombstoned rows to the dropped shard; reads exactly what the purposes hide"},
+    "src/cellarium/manifest.py::dropped_rows": {"kind": "maintenance", "why": "reads the quarantined shard directly, which no purpose reaches by design"},
+    "src/cellarium/manifest.py::manifest_columns": {"kind": "maintenance", "why": "schema introspection over the raw parquet; a row view cannot answer which columns exist"},
+    "src/cellarium/manifest.py::integrity_check": {"kind": "maintenance", "why": "two targeted probe queries (D10 provenance, D11 partition columns) over columns the row projection omits"},
+    "src/cellarium/manifest.py::backfill_condition": {"kind": "maintenance", "why": "reads every row to rewrite one column; a filtered view would silently skip rows"},
+    "src/cellarium/manifest.py::backfill_elongation_model": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "src/cellarium/manifest.py::backfill_graded_dose": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "src/cellarium/manifest.py::backfill_kb_provenance": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "src/cellarium/manifest.py::backfill_parca_ts": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "src/cellarium/manifest.py::backfill_timeline_identity": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
 
     # --- AGGREGATES: the count happens in SQL. Materialising every row in Python to count it would be worse.
-    "manifest.py::count_runs": {"kind": "aggregate", "why": "COUNT(*) in SQL; pulling every row into Python to count them would be strictly worse"},
-    "manifest.py::corpus_elongation_modes": {"kind": "aggregate", "why": "GROUP BY over the elongation column; an aggregate, not a row read"},
-    "operons.py::_measure_corpus": {"kind": "aggregate", "why": "GROUP BY operons in SQL; materialising every row to count them would be worse"},
+    "src/cellarium/manifest.py::count_runs": {"kind": "aggregate", "why": "COUNT(*) in SQL; pulling every row into Python to count them would be strictly worse"},
+    "src/cellarium/manifest.py::corpus_elongation_modes": {"kind": "aggregate", "why": "GROUP BY over the elongation column; an aggregate, not a row read"},
+    "src/cellarium/operons.py::_measure_corpus": {"kind": "aggregate", "why": "GROUP BY operons in SQL; materialising every row to count them would be worse"},
 
     # --- BESPOKE PROJECTIONS: the finding this registry surfaced. NOT primitives and NOT maintenance -- they
     # are ordinary readers that go direct because the boundary's row sets do not carry the columns they need.
@@ -186,8 +200,8 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
     # filtering that produced the measured 5.5x `disconfirm` drift. Closing it means either widening the
     # boundary's projection or giving `rows()` a `columns=` argument -- both real changes, so they are
     # recorded here rather than done quietly at the end of an unrelated batch.
-    "miase.py::_rows": {"kind": "bespoke_projection", "why": "needs `media_segments`, which no purpose projects, so it re-implements dedup and tombstone marking by hand. Candidate for a columns= argument on rows()"},
-    "similarity.py::_sim_rows": {"kind": "bespoke_projection", "why": "needs `growth_rate` and `species_panel`; same story, dedup and tombstone marking re-implemented by hand. Candidate for a columns= argument on rows()"},
+    "src/cellarium/miase.py::_rows": {"kind": "bespoke_projection", "why": "needs `media_segments`, which no purpose projects, so it re-implements dedup and tombstone marking by hand. Candidate for a columns= argument on rows()"},
+    "src/cellarium/similarity.py::_sim_rows": {"kind": "bespoke_projection", "why": "needs `growth_rate` and `species_panel`; same story, dedup and tombstone marking re-implemented by hand. Candidate for a columns= argument on rows()"},
 }
 
 
@@ -311,6 +325,15 @@ def rows(purpose: str, *, arm=None) -> tuple[list[dict], dict]:
                                                   "signal, and QC marks it unreportable.")})
 
 
+def _rel(path, repo) -> str:
+    """Repo-relative POSIX key.  alone collided the moment the scan widened past one directory —
+    two modules can share a basename, and  says nothing about which one."""
+    try:
+        return path.resolve().relative_to(repo).as_posix()
+    except Exception:
+        return path.name
+
+
 def _docstring_nodes(tree):
     """The string constants that are DOCSTRINGS, so a counter can skip them."""
     import ast
@@ -354,17 +377,28 @@ def read_sites() -> dict:
     from pathlib import Path
 
     CONSUMER_FNS = {"list_results", "analysis_rows"}
-    root = Path(__file__).resolve().parent
+    repo = Path(__file__).resolve().parents[2]
+    # SCANNED DIRECTORIES — and the scope was a live blind spot, not a detail. This scanned only
+    # `src/cellarium/` and therefore reported a COMPLETE read surface while never looking at the web app:
+    # `apps/server.py` calls `store.list_results()` to feed the Corpus Browser, and `scripts/ab_score.py`
+    # calls the tool form. An instrument that under-reports reads as verification, which is the failure this
+    # whole module exists to end, so the scope is now the repo's own Python.
+    #
+    # `tests/` is excluded DELIBERATELY, not overlooked: a test that queries the parquet directly is
+    # verifying it, which is the one legitimate reason to bypass every rule. `vendor/` and `model_overlay/`
+    # are upstream wcEcoli source and not ours to govern.
+    scan_dirs = [repo / "src" / "cellarium", repo / "apps", repo / "scripts", repo / "evals"]
+    files = sorted({q for d in scan_dirs if d.is_dir() for q in d.rglob("*.py")})
     direct, consumers, sites, direct_sites = {}, {}, [], []
     unparsed = []
-    for p in sorted(root.glob("*.py")):
+    for p in files:
         if p.name == "hygiene.py":
             continue
         try:
             src = p.read_text(encoding="utf-8")
             tree = ast.parse(src)
         except Exception as exc:
-            unparsed.append({"file": p.name, "error": f"{type(exc).__name__}: {exc}"})
+            unparsed.append({"file": _rel(p, repo), "error": f"{type(exc).__name__}: {exc}"})
             continue
         docstrings = _docstring_nodes(tree)
 
@@ -380,7 +414,7 @@ def read_sites() -> dict:
             if (isinstance(node, ast.Constant) and isinstance(node.value, str)
                     and id(node) not in docstrings and "read_parquet(" in node.value):
                 n_direct += 1
-                direct_sites.append({"file": p.name, "function": owner.get(id(node), "<module>"),
+                direct_sites.append({"file": _rel(p, repo), "function": owner.get(id(node), "<module>"),
                                      "line": node.lineno})
             elif isinstance(node, ast.Call):
                 f = node.func
@@ -391,12 +425,12 @@ def read_sites() -> dict:
                     if owner.get(id(node)) == name:
                         continue
                     n_cons += 1
-                    sites.append({"file": p.name, "function": owner.get(id(node), "<module>"),
+                    sites.append({"file": _rel(p, repo), "function": owner.get(id(node), "<module>"),
                                   "calls": name, "line": node.lineno})
         if n_direct:
-            direct[p.name] = n_direct
+            direct[_rel(p, repo)] = n_direct
         if n_cons:
-            consumers[p.name] = n_cons
+            consumers[_rel(p, repo)] = n_cons
 
     return {
         "direct_read_parquet": direct, "n_direct_modules": len(direct),

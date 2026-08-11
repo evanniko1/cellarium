@@ -925,6 +925,42 @@ Written by `src/cellarium/harness.py` on every Council run: a falsifier that nam
   rest of `evals/`), so CI is unaffected. This makes the SP-2c fan-out-vs-deterministic benchmark measurable — it's
   the same per-call token/latency records that benchmark needs.
 
+## TOATTEMPT — the banned-call lint rule (H-17b's last mile)
+
+*Recorded 2026-08-11, NOT started. The reconciliation test and `scripts/check_read_sites.py` close the
+"unregistered read" hole at test and commit time. Neither FORBIDS one. A lint rule with the registry as its
+allowlist would make an unregistered corpus read a BUILD ERROR at the moment it is written, which is the only
+thing that ends the problem rather than measuring it. Four things have to be settled first, and the fourth is
+the one that could make this worse than nothing.*
+
+1. **Granularity — and it is why [`import-linter`](https://github.com/seddonym/import-linter) alone will not
+   do.** It reasons about IMPORTS: *"module A may not import module B"*, with a `forbidden` contract and an
+   allow-list. But everything legitimately imports `store` and `survey` for other reasons, so no import
+   contract can express *"you may import `store` but not call `list_results`"*. The rule has to match a CALL
+   EXPRESSION, which means Semgrep or ast-grep, or a flake8 plugin. **Ruff has no user-defined rules**, so the
+   repo's existing linter cannot host it — this adds a tool, not a config block.
+2. **Two rules, not one**, because the two things being banned differ in kind. `store.list_results(...)` and
+   `survey.analysis_rows(...)` are calls; `read_parquet(` is a substring inside a STRING LITERAL (DuckDB SQL
+   in an f-string), which no syntax tree will ever see as a call. `hygiene.read_sites()` is already hybrid for
+   exactly this reason and the lint config would have to be too.
+3. **The allowlist must BE the registry, not a copy of it.** If the lint config carries its own list of exempt
+   sites, that copy drifts from `READ_SITE_REGISTRY` and there are two declarations disagreeing — which
+   REINTRODUCES the failure the reconciliation was built to prevent, one layer out. Either the config is
+   GENERATED from the registry in CI, or a test asserts the two are identical. Non-negotiable.
+4. **Exemption granularity, and this is the hard one.** Semgrep exempts by FILE or by an inline `nosemgrep`
+   comment; the registry is keyed `file::function`. File-level exemption would whitelist all of `tools.py`
+   because five lookups live there — most of a module, including any future violation in it. Per-site inline
+   comments are correct but that is **~35 suppression comments**, each one a place someone adds a 36th without
+   thinking. There is no good answer yet, and this is what to solve before writing any config.
+
+**Scope it as its own item, not as a tail on H-17b.** It is a generator plus a sync test plus a CI job, not a
+config file, and points 3–4 mean a careless version is worse than the current state.
+
+**Already shipped, and it is most of the value:** `scripts/check_read_sites.py` exits non-zero on any
+unregistered or stale read, runs in under a second against the same reconciliation the suite asserts, and
+prints what to do about it. Installable as a pre-commit hook — the command is in its docstring, deliberately
+NOT installed automatically, because a hook that appears uninvited is a hook people disable.
+
 ## Design notes (scouted plans)
 
 Distilled from the SOTA+pitfalls lit briefs (`wf_2479258d`, full text in that workflow's transcript). These are

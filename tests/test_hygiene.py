@@ -249,13 +249,13 @@ def test_a_misclassified_site_is_NOT_caught_and_that_limit_is_asserted_deliberat
     future check does start catching misclassification, this test fails and someone gets to delete it and
     claim the win.
     """
-    entry = dict(hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"])
-    hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"] = {**entry, "kind": "purpose_shaped"}
+    entry = dict(hygiene.READ_SITE_REGISTRY["src/cellarium/hf.py::_design_seeds"])
+    hygiene.READ_SITE_REGISTRY["src/cellarium/hf.py::_design_seeds"] = {**entry, "kind": "purpose_shaped"}
     try:
         assert hygiene.registry_reconciliation()["ok"], (
             "misclassification is now detected — good news; update this test and the `cannot_catch` note")
     finally:
-        hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"] = entry
+        hygiene.READ_SITE_REGISTRY["src/cellarium/hf.py::_design_seeds"] = entry
 
 
 def test_the_direct_read_surface_is_registered_too():
@@ -279,7 +279,7 @@ def test_the_bespoke_projections_are_named_rather_than_filed_under_primitive():
     have made the gap disappear into a category that means "cannot be fixed".
     """
     bespoke = hygiene.registry_reconciliation()["direct_by_kind"]["bespoke_projection"]
-    assert set(bespoke) == {"miase.py::_rows", "similarity.py::_sim_rows"}, bespoke
+    assert set(bespoke) == {"src/cellarium/miase.py::_rows", "src/cellarium/similarity.py::_sim_rows"}, bespoke
     for name in bespoke:
         assert "columns=" in hygiene.DIRECT_READ_REGISTRY[name]["why"], (
             "a bespoke projection should record what would let it stop being one")
@@ -289,3 +289,26 @@ def test_every_direct_read_entry_has_a_valid_kind_and_a_real_reason():
     for name, entry in hygiene.DIRECT_READ_REGISTRY.items():
         assert entry["kind"] in hygiene.DIRECT_KINDS, f"{name}: {entry['kind']}"
         assert len(str(entry.get("why") or "")) > 25, f"{name}: reason too thin to review"
+
+
+def test_the_detector_scans_beyond_src_cellarium():
+    """The blind spot the widened scan found, pinned so it cannot come back.
+
+    `read_sites()` scanned only `src/cellarium/` and therefore reported a COMPLETE read surface while never
+    looking at the web app: `apps/server.py::results_list` calls `store.list_results()` to feed the Corpus
+    Browser, and `scripts/ab_score.py::main` calls the tool form. An instrument that under-reports reads as
+    verification.
+    """
+    s = hygiene.read_sites()
+    files = {x["file"] for x in s["consumer_sites"]} | {x["file"] for x in s["direct_sites"]}
+    assert any(f.startswith("apps/") for f in files), "the web app is invisible to the detector again"
+    assert all("/" in f for f in files), "site keys must be repo-relative, or two modules can collide on a basename"
+
+
+def test_the_guard_script_agrees_with_the_reconciliation():
+    """`scripts/check_read_sites.py` is the fast path for the same question. If it can disagree with the
+    suite, one of them is decoration."""
+    import subprocess
+    import sys as _sys
+    r = subprocess.run([_sys.executable, "scripts/check_read_sites.py"], capture_output=True, text=True)
+    assert (r.returncode == 0) == hygiene.registry_reconciliation()["ok"], r.stdout + r.stderr
