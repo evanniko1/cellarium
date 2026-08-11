@@ -2045,8 +2045,39 @@ were live defects, one was a false accusation against a correct corpus, and none
     plus the frozen baseline mean the classification is now defined, measured and testable rather than
     something the flag would have had to invent.
 
-- 🎯 **PARCA-6 — carry the `unknown` class INTO `sim_data`. THE NEXT PARCA TASK, and the one the evidence
-  points at. OPEN, NOT STARTED, recorded 2026-08-10.**
+- 🎯 **PARCA-6 — carry the `unknown` class INTO `sim_data`. OPEN; the free prerequisite is DONE and it
+  WEAKENS the case for the arm. Recorded 2026-08-10, measured live 2026-08-11.**
+  - ✅ **The prerequisite shipped** (`src/cellarium/deg_claims.py`, 13 tests, three verified by injection):
+    the assembled answer is checked against the frozen baseline's 854 not-a-fit ids, and a note is appended
+    when a sentence BOTH names one AND makes a degradation claim. Free — a dict lookup, no image, no rebuild.
+  - 🧪 **MEASURED ON LIVE CELLWRIGHT, 12 turns across Opus 4.8 and Sonnet 5** (2 one-shots + a 3-exchange
+    conversation per model, plus a 2-turn decisive re-run). **Fires exactly where it should and nowhere else:
+    6 fires, 4 silent, no false positives, no false negatives**, and the banner reaches the user-visible
+    answer in every firing case. The control question (largest growth-rate drop) stayed silent on both models.
+  - ⚠️ **AND THE DECISIVE RESULT CUTS AGAINST SPENDING THE ARM.** With `WCECOLI_DOCKER` set so the agent's own
+    `deg_rate_provenance` works, **both models called it unprompted and self-reported the provenance in their
+    own prose** — Opus: *"that 'stability' is the estimator's floor assigned because rpmJ was never measured —
+    treat the half-life as a placeholder, not a result"*; Sonnet named the floor, cited Chen/Shiroguchi 2015 as
+    the source dataset to check against, and noted correctly that no simulation sweep can resolve a kb INPUT.
+    Both also identified the rebuild's arm cost unprompted. **So the fact now reaches the reader by two
+    independent routes — the agent's own tool call, and the claim-path backstop — neither of which needs a
+    field inside `sim_data`.**
+  - 🔎 **The backstop earned its place in the failure case, which is not hypothetical.** In the first probe
+    `WCECOLI_DOCKER` was unset, `deg_rate_provenance` failed with `ModuleNotFoundError: No module named
+    'wholecell'`, and the agent honestly refused to give a half-life — **and the check still supplied the
+    provenance from committed data**. That is the "free" property mattering in practice rather than in a
+    docstring.
+  - 📌 **What is still NOT answered, and it is the case the arm exists for:** every probe question was ABOUT
+    stability, so the obvious tool name matched the obvious question. The untested case is a claim whose
+    dependence on a degradation rate is INCIDENTAL — a ppGpp or growth answer that happens to rest on an
+    imputed transcript without ever using the word "half-life". Conversation turn 1 was the closest to that
+    and came back `clear`. **Probe that before deciding**, because it is the only regime where a flag inside
+    `sim_data` does something the claim path cannot.
+  - 🛠️ **Found while probing, unrelated but real:** `.claude/launch.json` does not set `WCECOLI_DOCKER`, so a
+    server started from that config has EVERY simOut-reading tool failing with `No module named 'wholecell'`.
+    The variable is documented in `docs/DOCKER_SETUP.md` and in `apps/server.py`'s own header, and absent from
+    the one config that launches the app.
+  *(original entry follows)*
   Three independent lines now converge on the same conclusion, and none of them is "try a better estimator":
   the STRUCTURE (209 units in no equation, 783 whose right-hand side is entirely the imputation constant),
   the PREDICTION (44% of held-out cistrons predicted bit-identically to the population mean), and the TUNING
