@@ -363,10 +363,23 @@ def enabled() -> bool:
 def check_and_annotate(prose: str) -> str:
     """The one call `converse` makes. Returns the answer with a note appended when there is one to append —
     and returns the prose UNCHANGED on any internal failure, because a provenance check that can break the
-    answer is worse than the absence it is guarding against."""
+    answer is worse than the absence it is guarding against.
+
+    TWO checks, appended independently. The provenance one asks *did this turn read what it is talking
+    about*; the degradation one (PARCA-6's free prerequisite) asks *is the value it is talking about a fit at
+    all*. They are orthogonal — a claim can be perfectly grounded in a run the turn did read AND rest on a
+    degradation rate that is the population mean — so one firing must not suppress the other.
+    """
     if not enabled() or not prose:
         return prose
+    out = prose
     try:
-        return prose + annotation(reconcile(prose))
+        out += annotation(reconcile(prose))
     except Exception:
-        return prose
+        pass
+    try:
+        from . import deg_claims
+        out += deg_claims.annotation(deg_claims.check(prose))
+    except Exception:
+        pass
+    return out
