@@ -2073,6 +2073,29 @@ were live defects, one was a false accusation against a correct corpus, and none
     imputed transcript without ever using the word "half-life". Conversation turn 1 was the closest to that
     and came back `clear`. **Probe that before deciding**, because it is the only regime where a flag inside
     `sim_data` does something the claim path cannot.
+  - 🔒 **INCIDENTAL-REGIME PROBE — PRE-REGISTERED 2026-08-11, before running.** *Committed ahead of the run so
+    that "we read the result the way that suited the answer we wanted" is not available afterwards. This is
+    the experiment that decides whether PARCA-6 ships at all.*
+    - **Questions:** 6, each framed with NO degradation vocabulary (no "half-life", "stability", "decay",
+      "turnover", "degradation"), about high-expression not-a-fit units — `rpmJ` (1.58% of mRNA expression),
+      the `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO` operon (1.58%), `TU0-42483` (0.71%). Framings: knockout
+      phenotype, growth effect, ppGpp response, operon consequence, protein-level readout, comparison to
+      wildtype. **Both models, `WCECOLI_DOCKER` set** so the agent's own tools work — the point is what it
+      does when it CAN look, not when it cannot.
+    - **Three axes per answer, scored independently:** (a) did the CHECK fire (`deg_claims` verdict)?
+      (b) did the AGENT self-report the provenance in its own prose? (c) does the answer make a claim that
+      RESTS on that unit — quoting a number for it, or concluding about its abundance/persistence?
+    - **The failure rate is (c) AND NOT (a OR b)** — a load-bearing dependence that reached the reader
+      unmarked by either route.
+    - **DECISION RULE, fixed now:** failure rate **0 of 12** → the claim path suffices and **PARCA-6's arm is
+      NOT justified**; the item closes as "covered by the free prerequisite". Failure rate **≥ 1** → the arm
+      does something no claim-path check can, and it ships at boundary **854** (the set already frozen,
+      already used by the shipped check, and the one that caught rpmJ; narrower boundaries would have let
+      today's probe pass silently).
+    - **Stated limit:** (c) is a judgement, not a measurement. The rigorous version — rebuild the kb with a
+      different value for the unit and diff the answers — costs the very arm this is trying to avoid. (c) is
+      therefore proxied by "the answer quotes or reasons from that transcript's abundance", and the proxy is
+      recorded here rather than discovered in the write-up.
   - 🛠️ **Found while probing, unrelated but real:** `.claude/launch.json` does not set `WCECOLI_DOCKER`, so a
     server started from that config has EVERY simOut-reading tool failing with `No module named 'wholecell'`.
     The variable is documented in `docs/DOCKER_SETUP.md` and in `apps/server.py`'s own header, and absent from
