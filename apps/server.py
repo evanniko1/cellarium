@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import queue
 import sys
 import threading
@@ -56,17 +57,38 @@ try:
     # DISPLAY is set with no X server (D-Bus autolaunch waits out its timeout, jaraco/keyring#531) — a hang, not
     # an exception, so try/except would not save us and the server would simply never finish booting. A timeout
     # turns the worst case into "no key configured", which the UI already handles.
+    #
+    # The timeout is PLATFORM-GATED. The hang it guards against is D-Bus autolaunch waiting out its own
+    # timeout, which needs a Secret Service backend; Windows Credential Manager and the macOS Keychain
+    # cannot reach that code path at all. Paying 8 seconds of "maybe there is no key" everywhere — and then
+    # showing "Not set" for a key that IS stored — is how a working vault gets blamed for losing keys.
     _cred: dict = {}
+    _probe_timeout = 8.0 if sys.platform.startswith("linux") else 40.0
     _t = threading.Thread(target=lambda: _cred.update(credentials.load_into_env()), daemon=True)
     _t.start()
-    _t.join(timeout=8.0)
+    _t.join(timeout=_probe_timeout)
     if _t.is_alive():
-        print("[startup] keychain probe timed out (WSL2/D-Bus?) — use a .env or an exported key", file=sys.stderr)
+        print(f"[startup] keychain probe timed out after {_probe_timeout:.0f}s (WSL2/D-Bus?) — a key may still "
+              f"be STORED; Settings will say so and offer Reload", file=sys.stderr)
     else:
         print(f"[startup] API key: {_cred.get('source') or 'not configured'}"
               f"{'' if _cred.get('configured') else ' — set one in Settings or a .env'}", file=sys.stderr)
 except Exception as _exc:
     print(f"[startup] credential load skipped: {type(_exc).__name__}", file=sys.stderr)   # never the message
+
+# The OTHER thing whose absence is silent until a tool fails mid-answer. Every corpus READER runs the worker
+# either in the model image (WCECOLI_DOCKER) or natively against a checkout (WCECOLI_DIR); with neither set
+# it tries native and dies on `import wholecell`, which the agent surfaces as "I cannot answer that" in the
+# middle of a real question. `.claude/launch.json` does not set it, so this is the common case rather than
+# the exotic one. Printed next to the key line so both preconditions are visible in one place at boot.
+if not (os.environ.get("WCECOLI_DOCKER") or os.environ.get("WCECOLI_DIR")):
+    print("[startup] no WCECOLI_DOCKER / WCECOLI_DIR — corpus READS (series, species, provenance) will fail "
+          "with ModuleNotFoundError: wholecell. Set WCECOLI_DOCKER in a repo-root .env (see .env.example). "
+          "The manifest-only tools still work.", file=sys.stderr)
+else:
+    print(f"[startup] model reader: "
+          f"{'image ' + os.environ['WCECOLI_DOCKER'] if os.environ.get('WCECOLI_DOCKER') else 'native ' + os.environ['WCECOLI_DIR']}",
+          file=sys.stderr)
 
 # user-selectable agent models (the model the user converses WITH; the Council keeps its own defaults). "auto"
 # routes per turn (see route_model); an explicit pick pins that model.
@@ -589,6 +611,15 @@ async def settings_key_delete(request):
     return await _settings_call(request, lambda: {"key": credentials.clear()})
 
 
+async def settings_key_reload(request):
+    """Re-read the OS keychain into this process. The fix for "a key is stored but this server did not load
+    it" — which the boot probe can produce, because that read is time-limited (import keyring can hang on
+    WSL2 with no X server). Returns the same masked status shape; it can no more leak the key than /api/settings.
+    """
+    from cellarium import credentials
+    return await _settings_call(request, lambda: {"key": credentials.load_into_env(override=True)})
+
+
 async def settings_key_test(request):
     from cellarium import credentials
     return await _settings_call(request, lambda: {"probe": credentials.probe(), "key": credentials.status()})
@@ -627,6 +658,7 @@ routes = [
     Route("/api/settings", settings_get, methods=["GET"]),                     # masked key status — never the key
     Route("/api/settings_key", settings_key_set, methods=["POST"]),            # store (keychain when secure)
     Route("/api/settings_key_delete", settings_key_delete, methods=["POST"]),
+    Route("/api/settings_key_reload", settings_key_reload, methods=["POST"]),  # re-read the vault into this process
     Route("/api/settings_key_test", settings_key_test, methods=["POST"]),      # free count_tokens liveness probe
     Mount("/static", app=StaticFiles(directory=str(WEB)), name="static"),
 ]

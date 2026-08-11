@@ -1337,11 +1337,24 @@ async function refreshSettings() {
   state.keyStatus = st;
   b.appendChild(el("div", "set-sec", "Anthropic API key"));
 
+  // THREE states, not two. `configured` reports whether the key is in THIS PROCESS's environment;
+  // `in_keychain` reports whether one is stored in the OS vault. They come apart in a case that looks
+  // exactly like "the key was lost": a key IS saved, but the boot probe did not load it (the read is run in
+  // a thread with a timeout, because `import keyring` can hang on WSL2 with no X server). Showing "Not set"
+  // there tells the user to create a new key when the old one is sitting in the vault, which is how a
+  // working credential store gets blamed for losing keys.
+  const stored_not_loaded = !st.configured && st.in_keychain;
   const [title, why] = st.configured ? (KEY_SOURCE[st.source] || KEY_SOURCE.environment)
-    : ["No key set", "Cellarium is running read-only: browse the corpus and every recorded investigation. Live reasoning needs a key."];
+    : stored_not_loaded
+      ? ["Key stored but not loaded",
+         "A key IS saved in your OS keychain — this server just could not read it at startup (the probe is "
+         + "time-limited). You do NOT need a new key: restart the server, or press Reload below. If it keeps "
+         + "happening, check the server's startup line for a keychain timeout."]
+      : ["No key set", "Cellarium is running read-only: browse the corpus and every recorded investigation. Live reasoning needs a key."];
   const card = el("div", "set-card");
   const head = el("div", "set-head");
-  head.appendChild(el("span", "set-pill " + (st.configured ? "on" : "off"), st.configured ? "Active" : "Not set"));
+  head.appendChild(el("span", "set-pill " + (st.configured ? "on" : stored_not_loaded ? "warn" : "off"),
+    st.configured ? "Active" : stored_not_loaded ? "Stored — not loaded" : "Not set"));
   head.appendChild(el("span", "set-title", esc(title)));
   card.appendChild(head);
   if (st.masked) card.appendChild(el("code", "set-mask", esc(st.masked)));
@@ -1368,6 +1381,20 @@ async function refreshSettings() {
   }
 
   const row = el("div", "set-row");
+  if (stored_not_loaded) {
+    // The action that matches the diagnosis. Without it the only affordance on this screen is the input box,
+    // which invites exactly the wrong fix: minting a replacement for a key that is already stored.
+    const rl = el("button", "set-btn primary", "Reload from keychain");
+    rl.onclick = async () => {
+      rl.disabled = true; rl.textContent = "Reading…";
+      const r = await postJSON("/api/settings_key_reload", {});
+      rl.disabled = false; rl.textContent = "Reload from keychain";
+      const ok = r && r.key && r.key.configured;
+      announce(ok ? "Key loaded from the keychain." : "Still could not read the keychain.");
+      refreshSettings();
+    };
+    row.appendChild(rl);
+  }
   if (st.configured) {
     const t = el("button", "set-btn", "Test key");
     t.onclick = async () => {

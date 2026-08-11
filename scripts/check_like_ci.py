@@ -38,9 +38,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-# Present in a developer venv via the opt-in extras; absent in CI. `scipy` is deliberately NOT here —
-# scikit-learn depends on it, and CI installs `surrogate`, so CI really does have scipy.
-NOT_IN_CI = ["pandas", "cobra", "pydeseq2", "anndata", "keyring", "matplotlib", "optlang", "statsmodels"]
+# Present in a developer venv via the opt-in extras; absent in CI.
+#
+# TWO deliberate exclusions, because shimming a package CI actually HAS makes this check simulate a world
+# that does not exist:
+#   * `scipy` — scikit-learn depends on it and CI installs `surrogate`, so CI really does have scipy.
+#   * `keyring` — moved from the `keyvault` extra into the CORE dependencies on 2026-08-11, so CI installs
+#     it now. It was listed here for one commit after that change; a guard that goes stale from the very
+#     change it is meant to track is worse than no guard.
+NOT_IN_CI = ["pandas", "cobra", "pydeseq2", "anndata", "matplotlib", "optlang", "statsmodels"]
 
 
 def _shim_dir(base: Path) -> Path:
