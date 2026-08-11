@@ -145,21 +145,77 @@ READ_SITE_REGISTRY: dict[str, dict] = {
 }
 
 
+DIRECT_KINDS = ("primitive", "maintenance", "bespoke_projection", "aggregate")
+
+# A DIRECT `read_parquet` bypasses every rule in data/INVARIANTS.json, so each one is declared here with what
+# it is. Most are the implementation layer the boundary composes -- routing those through it would be circular
+# -- but classifying them is what makes that claim checkable rather than assumed, and doing it surfaced two
+# sites that are neither primitive nor maintenance.
+DIRECT_READ_REGISTRY: dict[str, dict] = {
+    # --- PRIMITIVES: the row sources `hygiene.rows()` composes. They cannot route through the boundary; they
+    # ARE it.
+    "store.py::<module>": {"kind": "primitive", "why": "the FROM clause behind store.list_results, which the coverage / inventory / lethality purposes compose"},
+    "survey.py::_deduped_rows": {"kind": "primitive", "why": "the row source behind analysis_rows, which the `analysis` purpose composes"},
+    "survey.py::_leth_rows": {"kind": "primitive", "why": "the per-generation QC projection the lethality view needs; a column set no other reader uses"},
+    "audit.py::_rows": {"kind": "primitive", "why": "the UN-deduped row source the `audit` purpose composes; supersession needs the duplicate rows visible"},
+    "corpus_schema.py::_rows": {"kind": "primitive", "why": "reads the three ARM_KEYS columns store.list_results does not project, for arm accounting"},
+
+    # --- MAINTENANCE: the write and repair layer. It operates ON the manifest, so it must see it unfiltered.
+    "manifest.py::compact": {"kind": "maintenance", "why": "rewrites shards; must read every row including the ones a purpose would filter out"},
+    "manifest.py::prune": {"kind": "maintenance", "why": "removes shards; operates on the files themselves, not on a row view"},
+    "manifest.py::drop_run": {"kind": "maintenance", "why": "writes a tombstone; needs the row it is about to withdraw, which no live purpose returns"},
+    "manifest.py::quarantine_tombstones": {"kind": "maintenance", "why": "moves tombstoned rows to the dropped shard; reads exactly what the purposes hide"},
+    "manifest.py::dropped_rows": {"kind": "maintenance", "why": "reads the quarantined shard directly, which no purpose reaches by design"},
+    "manifest.py::manifest_columns": {"kind": "maintenance", "why": "schema introspection over the raw parquet; a row view cannot answer which columns exist"},
+    "manifest.py::integrity_check": {"kind": "maintenance", "why": "two targeted probe queries (D10 provenance, D11 partition columns) over columns the row projection omits"},
+    "manifest.py::backfill_condition": {"kind": "maintenance", "why": "reads every row to rewrite one column; a filtered view would silently skip rows"},
+    "manifest.py::backfill_elongation_model": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "manifest.py::backfill_graded_dose": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "manifest.py::backfill_kb_provenance": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "manifest.py::backfill_parca_ts": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+    "manifest.py::backfill_timeline_identity": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
+
+    # --- AGGREGATES: the count happens in SQL. Materialising every row in Python to count it would be worse.
+    "manifest.py::count_runs": {"kind": "aggregate", "why": "COUNT(*) in SQL; pulling every row into Python to count them would be strictly worse"},
+    "manifest.py::corpus_elongation_modes": {"kind": "aggregate", "why": "GROUP BY over the elongation column; an aggregate, not a row read"},
+    "operons.py::_measure_corpus": {"kind": "aggregate", "why": "GROUP BY operons in SQL; materialising every row to count them would be worse"},
+
+    # --- BESPOKE PROJECTIONS: the finding this registry surfaced. NOT primitives and NOT maintenance -- they
+    # are ordinary readers that go direct because the boundary's row sets do not carry the columns they need.
+    # Each re-implements DEDUP_QUALIFY and `_mark_dropped` BY HAND, which is precisely the duplicated
+    # filtering that produced the measured 5.5x `disconfirm` drift. Closing it means either widening the
+    # boundary's projection or giving `rows()` a `columns=` argument -- both real changes, so they are
+    # recorded here rather than done quietly at the end of an unrelated batch.
+    "miase.py::_rows": {"kind": "bespoke_projection", "why": "needs `media_segments`, which no purpose projects, so it re-implements dedup and tombstone marking by hand. Candidate for a columns= argument on rows()"},
+    "similarity.py::_sim_rows": {"kind": "bespoke_projection", "why": "needs `growth_rate` and `species_panel`; same story, dedup and tombstone marking re-implemented by hand. Candidate for a columns= argument on rows()"},
+}
+
+
 def registry_reconciliation() -> dict:
     """Detected vs registered, BOTH ways. This is what makes the registry trustworthy rather than a comment."""
-    sites = read_sites()["consumer_sites"]
-    detected = {f"{s['file']}::{s['function']}" for s in sites}
+    found = read_sites()
+    detected = {f"{x['file']}::{x['function']}" for x in found["consumer_sites"]}
+    detected_direct = {f"{x['file']}::{x['function']}" for x in found["direct_sites"]}
     registered = set(READ_SITE_REGISTRY)
-    unregistered = sorted(detected - registered)
-    stale = sorted(registered - detected)
-    bad_kind = sorted(k for k, v in READ_SITE_REGISTRY.items() if v.get("kind") not in KINDS)
-    no_reason = sorted(k for k, v in READ_SITE_REGISTRY.items() if not str(v.get("why") or "").strip())
+    registered_direct = set(DIRECT_READ_REGISTRY)
+    unregistered = sorted((detected - registered) | (detected_direct - registered_direct))
+    stale = sorted((registered - detected) | (registered_direct - detected_direct))
+    bad_kind = sorted([k for k, v in READ_SITE_REGISTRY.items() if v.get("kind") not in KINDS]
+                      + [k for k, v in DIRECT_READ_REGISTRY.items() if v.get("kind") not in DIRECT_KINDS])
+    no_reason = sorted([k for k, v in READ_SITE_REGISTRY.items() if not str(v.get("why") or "").strip()]
+                       + [k for k, v in DIRECT_READ_REGISTRY.items()
+                          if not str(v.get("why") or "").strip()])
     return {
         "ok": not (unregistered or stale or bad_kind or no_reason),
-        "n_detected": len(detected), "n_registered": len(registered),
+        "n_detected": len(detected) + len(detected_direct),
+        "n_registered": len(registered) + len(registered_direct),
+        "n_consumer_sites": len(detected), "n_direct_sites": len(detected_direct),
         "unregistered": unregistered, "stale": stale,
         "invalid_kind": bad_kind, "missing_reason": no_reason,
-        "by_kind": {k: sorted(n for n, v in READ_SITE_REGISTRY.items() if v.get("kind") == k) for k in KINDS},
+        "by_kind": {k: sorted(n for n, v in READ_SITE_REGISTRY.items() if v.get("kind") == k)
+                    for k in KINDS},
+        "direct_by_kind": {k: sorted(n for n, v in DIRECT_READ_REGISTRY.items()
+                                     if v.get("kind") == k) for k in DIRECT_KINDS},
         "cannot_catch": ("a MISCLASSIFIED site (registering a purpose-shaped read as a lookup silences this "
                          "check and only review can tell); a dynamically dispatched call; and a NEW read path "
                          "that avoids these functions entirely. Reconciliation proves the registry is "
@@ -299,7 +355,7 @@ def read_sites() -> dict:
 
     CONSUMER_FNS = {"list_results", "analysis_rows"}
     root = Path(__file__).resolve().parent
-    direct, consumers, sites = {}, {}, []
+    direct, consumers, sites, direct_sites = {}, {}, [], []
     unparsed = []
     for p in sorted(root.glob("*.py")):
         if p.name == "hygiene.py":
@@ -321,8 +377,11 @@ def read_sites() -> dict:
 
         n_direct = n_cons = 0
         for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str)                     and id(node) not in docstrings and "read_parquet(" in node.value:
+            if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and id(node) not in docstrings and "read_parquet(" in node.value):
                 n_direct += 1
+                direct_sites.append({"file": p.name, "function": owner.get(id(node), "<module>"),
+                                     "line": node.lineno})
             elif isinstance(node, ast.Call):
                 f = node.func
                 name = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
@@ -343,6 +402,7 @@ def read_sites() -> dict:
         "direct_read_parquet": direct, "n_direct_modules": len(direct),
         "downstream_consumers": consumers, "n_consumer_modules": len(consumers),
         "consumer_sites": sites,
+        "direct_sites": direct_sites,
         "unparsed": unparsed,
         # The gap batch 2 recorded is CLOSED by the fifth purpose (`inventory`). Kept as an empty list rather
         # than deleted, because the next migration batch will find its own gaps and this is where they go.

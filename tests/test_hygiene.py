@@ -256,3 +256,36 @@ def test_a_misclassified_site_is_NOT_caught_and_that_limit_is_asserted_deliberat
             "misclassification is now detected — good news; update this test and the `cannot_catch` note")
     finally:
         hygiene.READ_SITE_REGISTRY["hf.py::_design_seeds"] = entry
+
+
+def test_the_direct_read_surface_is_registered_too():
+    """The registry claimed to cover "the read surface" while covering only the CONSUMER half. The 8 modules
+    issuing their own `read_parquet` — which bypass every rule in data/INVARIANTS.json, not just the boundary's
+    filters — had no entries at all. A registry with a coverage gap in the thing it claims to cover is the
+    same over-reading this module keeps catching."""
+    r = hygiene.registry_reconciliation()
+    assert r["n_direct_sites"] > 0 and r["n_consumer_sites"] > 0
+    assert r["n_detected"] == r["n_consumer_sites"] + r["n_direct_sites"]
+    assert r["ok"], {k: r[k] for k in ("unregistered", "stale", "invalid_kind", "missing_reason")}
+
+
+def test_the_bespoke_projections_are_named_rather_than_filed_under_primitive():
+    """The finding registering the direct reads produced, and the reason it was worth doing.
+
+    `miase._rows` and `similarity._sim_rows` are NOT primitives and NOT maintenance: they are ordinary readers
+    that go direct because no purpose projects the columns they need (`media_segments`;
+    `growth_rate`/`species_panel`). Each re-implements DEDUP_QUALIFY and `_mark_dropped` BY HAND — the
+    duplicated filtering that produced the measured 5.5x `disconfirm` drift. Filing them as `primitive` would
+    have made the gap disappear into a category that means "cannot be fixed".
+    """
+    bespoke = hygiene.registry_reconciliation()["direct_by_kind"]["bespoke_projection"]
+    assert set(bespoke) == {"miase.py::_rows", "similarity.py::_sim_rows"}, bespoke
+    for name in bespoke:
+        assert "columns=" in hygiene.DIRECT_READ_REGISTRY[name]["why"], (
+            "a bespoke projection should record what would let it stop being one")
+
+
+def test_every_direct_read_entry_has_a_valid_kind_and_a_real_reason():
+    for name, entry in hygiene.DIRECT_READ_REGISTRY.items():
+        assert entry["kind"] in hygiene.DIRECT_KINDS, f"{name}: {entry['kind']}"
+        assert len(str(entry.get("why") or "")) > 25, f"{name}: reason too thin to review"
