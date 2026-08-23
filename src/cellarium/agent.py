@@ -673,10 +673,15 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
 
 
 def run(question: str, *, hypothesis=None, max_turns: int | None = None, verbose: bool = True, on_tool=None,
-        model: str | None = None) -> str:
+        on_usage=None, model: str | None = None) -> str:
     """One-shot convenience: seed a fresh conversation and run it to an answer (used by the CLI / orchestrate).
     max_turns=None inherits converse()'s default — DD-ENG-3 made converse the single source of the budget (was a
-    stale 8 here vs converse's 12)."""
+    stale 8 here vs converse's 12).
+
+    `on_usage` forwards `converse`'s per-turn token/cost aggregate. It was missing here, which is why the eval
+    runners — every one of which calls `run`, not `converse` — recorded `seconds` and answer text and NO token
+    usage at all. The consequence was concrete: the cost of a completed benchmark could not be recovered from
+    its own output, so scaling it up had to be costed by assumption rather than measurement."""
     messages: list = [{"role": "user", "content": first_user_content(question, hypothesis)}]
     kw = {} if max_turns is None else {"max_turns": max_turns}
-    return converse(messages, model=model, on_tool=on_tool, verbose=verbose, **kw)
+    return converse(messages, model=model, on_tool=on_tool, on_usage=on_usage, verbose=verbose, **kw)

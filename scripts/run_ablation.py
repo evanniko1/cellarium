@@ -46,16 +46,18 @@ def ungrounded_arm(model: str) -> list[dict]:
     out = []
     for q in QUESTIONS:
         t0 = time.time()
+        usage: dict = {}                   # KISS-2 Stage 0 — see run_discrimination_test.model_arm
         try:
             answer = agent.converse([{"role": "user", "content": PREAMBLE + "\n\n" + q["ask"]}],
-                                    model=model, max_turns=1, verbose=False)
+                                    model=model, max_turns=1, verbose=False,
+                                    on_usage=lambda u, _u=usage: _u.update(u))
         except Exception as exc:
             out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict="error",
                             correct=False, error=f"{type(exc).__name__}: {exc}", answer=""))
             print(f"  {q['id']:14s} ERROR {type(exc).__name__}: {exc}", flush=True)
             continue
         out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict="unscored",
-                        seconds=round(time.time() - t0, 1), answer=answer))
+                        seconds=round(time.time() - t0, 1), usage=usage or None, answer=answer))
         print(f"  {q['id']:14s} answered in {round(time.time() - t0)}s, {len(answer.split())} words",
               flush=True)
     return out

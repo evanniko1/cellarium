@@ -81,8 +81,13 @@ def model_arm(model: str) -> list[dict]:
     out = []
     for q in QUESTIONS:
         t0 = time.time()
+        # KISS-2 Stage 0. Recording usage is the difference between a benchmark whose cost can be READ off its
+        # own output and one that has to be re-estimated by assumption before it can be scaled. Nothing here
+        # previously carried a token count, so the nine questions already run cannot be costed retroactively.
+        usage: dict = {}
         try:
-            answer = agent.run(q["ask"], verbose=False, model=model, max_turns=14)
+            answer = agent.run(q["ask"], verbose=False, model=model, max_turns=14,
+                               on_usage=lambda u, _u=usage: _u.update(u))
         except Exception as exc:                       # one failed question must not lose the other eight
             out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict="error",
                             correct=False, error=f"{type(exc).__name__}: {exc}", answer=""))
@@ -95,7 +100,7 @@ def model_arm(model: str) -> list[dict]:
         ok = verdict == q["required"]
         out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict=verdict, correct=ok,
                         proposes_run=("propose" in low or "new run" in low or "new campaign" in low),
-                        seconds=round(time.time() - t0, 1), answer=answer))
+                        seconds=round(time.time() - t0, 1), usage=usage or None, answer=answer))
         print(f"  {q['id']:14s} {verdict:7s} (need {q['required']:7s}) {'OK' if ok else 'MISS'} "
               f"{round(time.time()-t0)}s", flush=True)
     return out
