@@ -1,0 +1,65 @@
+{
+  "//": [
+    "Editor excludes for a workspace whose root holds ~400 GB of simulation output. Measured 2026-08-23:",
+    "runs 310G, runs_seed_aars 44G, runs_kinetic_seeds 25G, runs_depleting 18G, refit_sweep 2.7G,",
+    ".venv 1.2G, runs_codeonly 709M.",
+    "",
+    "pyrightconfig.json already scopes TYPE ANALYSIS to first-party code. This file covers the two things it",
+    "does not: the FILE WATCHER and SEARCH.",
+    "",
+    "files.watcherExclude is the important one, and it is not covered by .gitignore. VS Code's watcher does",
+    "not read .gitignore — only search does, via search.useIgnoreFiles. So even though runs/ and friends are",
+    "gitignored, the watcher was still registering recursive handles over a 310 GB tree. On Windows that",
+    "costs handles and CPU; on Linux it exhausts inotify watches outright.",
+    "",
+    "refit_sweep/ (2.7G), parca4_work/, vendor/ and archive/ are NOT gitignored — they are working artefacts",
+    "that were never meant to be indexed either, and vendor/ + archive/ additionally carry duplicate copies of",
+    "the wcEcoli package layout, which is the auto-import hazard pyrightconfig.json exists to stop."
+  ],
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/__pycache__/**": true,
+    "**/.venv/**": true,
+    "**/runs/**": true,
+    "**/runs_codeonly/**": true,
+    "**/runs_depleting/**": true,
+    "**/runs_kinetic_seeds/**": true,
+    "**/runs_seed_aars/**": true,
+    "**/refit_sweep/**": true,
+    "**/parca4_work/**": true,
+    "**/vendor/**": true,
+    "**/archive/**": true,
+    "**/.cache/**": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/runs": true,
+    "**/runs_codeonly": true,
+    "**/runs_depleting": true,
+    "**/runs_kinetic_seeds": true,
+    "**/runs_seed_aars": true,
+    "**/refit_sweep": true,
+    "**/parca4_work": true,
+    "**/vendor": true,
+    "**/archive": true,
+    "**/__pycache__": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true
+  },
+  "python.analysis.exclude": [
+    ".venv",
+    "vendor",
+    "archive",
+    "model_overlay",
+    "model_patches",
+    "runs",
+    "runs_codeonly",
+    "runs_depleting",
+    "runs_kinetic_seeds",
+    "runs_seed_aars",
+    "parca4_work",
+    "refit_sweep"
+  ]
+}

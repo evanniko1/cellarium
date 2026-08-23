@@ -14,7 +14,14 @@ dist/
 # OS / editor
 .DS_Store
 .idea/
-.vscode/
+# `.vscode/*` rather than `.vscode/`, so the negation below can take effect — git does not descend into an
+# excluded DIRECTORY, and a re-include under one is silently ignored.
+.vscode/*
+# ...but DO share settings.json. It is not a personal preference file here: this workspace's root holds ~400 GB
+# of simulation output (runs/ alone is 310 GB), and VS Code's file watcher does NOT read .gitignore, so every
+# clone re-registers recursive watches over it — handles and CPU on Windows, exhausted inotify watches on
+# Linux. Leaving each contributor to rediscover that is not an editor preference, it is a setup defect.
+!.vscode/settings.json
 
 # Model output — full simOut + ParCa cache stay LOCAL (huge; license-restricted). Never commit.
 runs/
