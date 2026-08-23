@@ -1583,6 +1583,32 @@ are what the journal version needs.
 - **KISS-2 — trial count.** 3,000 trials against our nine questions x two models x one run. Generating a few
   hundred questions programmatically over the design space would move the limits test from a discrimination
   check to a benchmark, and would give per-item variance, which we currently cannot report.
+  - 💰 **COST, estimated 2026-08-23. API credits only — no cluster, no simulation, nothing to re-run.**
+    Both arms are `agent.converse` calls; the corpus, the registry and the judges are already on disk. Per
+    question, per model: **grounded ~$0.46 (opus) / ~$0.27 (sonnet)**, ungrounded ~$0.016 / ~$0.010. Both
+    models, both arms, plus two rubric judges: **~$0.78/question**, so **200 questions ≈ $156** and 400 ≈
+    $312. The nine we have cost about $7.
+  - ⚠️ **That estimate is NOT calibrated, and the reason is a gap worth fixing first.** `evals/results/*`
+    and `data/discrimination_test.json` record `seconds` and answer text and **no token usage at all** — so
+    the cost of the runs already done cannot be recovered. The fixed prefix is measured (tool schemas
+    16,909 tokens + system prompt 3,704 = ~20.6k, cacheable); the per-question turn count and payload size
+    are assumed (8 rounds, ~900 tokens each) from 40–55 s wall clock. **Record `usage` in the eval harness
+    before spending the credits** — it is a one-line change and it replaces this whole calculation with a
+    measurement, which is also what makes a cost claim reportable in the paper.
+  - 🧩 **THE REAL BLOCKER IS GROUND TRUTH, NOT MONEY.** The nine questions were hand-built, each with a
+    `required` verdict (`refuse` / `answer`) the capability registry can score without a model — that is
+    why the registry arm gets 9/9 and why the whole test is scorable at all. Auto-generating 200 questions
+    means auto-generating 200 *correct required-verdicts*. The registry makes that tractable rather than
+    hopeless: each of the 9 entries in `capability.CAPABILITIES` already carries `present` and `holds_in`,
+    so *(capability, elongation_mode)* determines the required verdict by lookup — `ppgpp_stringent_response`
+    holds only in `steady_state`, `per_isoacceptor_trna_charging` only in `kinetic`, `operon_specific_rrna_
+    knockout` in none. **9 capabilities x 3 elongation modes = 27 cells** (18 if restricted to the two modes
+    the corpus actually contains), of which 12 are "answer" and 15 "refuse" — a naturally near-balanced
+    design. So the axis that scales is PARAPHRASE, not capability: ~8 framings per cell reaches 216 items on
+    27 real distinctions. **Report it that way.** Calling it "200 questions" implies 200 independent probes
+    and would not survive a reviewer who counted the registry; "27 capability x mode cells, 8 framings each,
+    per-cell variance reportable" is both true and the stronger claim, because per-cell variance is exactly
+    what n=1 per cell cannot give and what KISS reports as its per-basin consistency.
 - **KISS-3 — generalisation across models.** They extend to 117 process-based models across 14 domains to
   argue that operational expertise is "structured and extractable rather than ad hoc". Our analogue is the
   elongation-model axis: run the nine-question test systematically under both versions and report whether the
@@ -1612,6 +1638,28 @@ are what the journal version needs.
   tombstone them with that reason. `raw.seed_runs` and `support.coverage` are the likely first casualties.
   NOTE: my first version of this entry said the paths were EMPTY. They are not — a `split_part` on '/' returns
   an empty first field for an absolute path, and I read that as an empty value. The rows were never empty.
+
+- **SUITE-TIMEOUT-1 — a slow I/O test aborted a whole suite run, and `grep -c FAILED` called it clean.**
+  Measured 2026-08-23. `tests/test_dilution_serialization.py::test_it_flags_the_media_id_column_as_truncation_prone`
+  called `serialization.scan_corpus(limit_runs=80)`, which reads every string column of every run it
+  resolves. Cost is I/O-bound and dominated by OS file-cache state — the SAME call took **134 s cold and
+  0.7 s warm** at `limit_runs=12`, and the file alone took **10m53s** in isolation. At ~10 s per cold run,
+  80 runs sits on the suite's 900 s global timeout.
+  - **What the abort looked like:** `EXIT=1` with **0** FAILED/ERROR lines and **288 of ~1040** tests
+    executed. A grep for FAILED returns 0 on an aborted run exactly as on a clean one, so "no failures" and
+    "no results" are indistinguishable by that check. Caught by counting progress characters, not by the
+    grep — the third recurrence of that lesson in this repo.
+  - **On Windows a per-test `@pytest.mark.timeout` cannot isolate this.** `pytest-timeout`'s `thread`
+    method kills the process; only the unix-only `signal` method raises inside the test. So the mitigation
+    is to keep tests clear of the global budget, not to scope the timeout.
+  - **Fixed by dropping the limit 80 -> 20, which costs the test nothing.** The claim is about the COLUMN —
+    that `media_id` appears at more than one width across runs — and it is already saturated at
+    `limit_runs=3`. Measured ladder of distinct widths: 3 -> 2, 5 -> 2, 8 -> 2, 12 -> 5, 20 -> 5, 40 -> 5,
+    80 -> 7; severity `high` at every rung. Twenty keeps a ~6x margin over the smallest n that proves it and
+    ~4x against the timeout. Runtime 10m53s -> 18 s.
+  - **NOT caused by the conftest change**, checked rather than assumed: `WCECOLI_DOCKER` set or unset,
+    `_resolve_run` finds the same 80 roots in the same 0.5 s. The first hypothesis was that `runner.py:189`
+    branches on it and would change where runs resolve; measured, it does not.
 
 ## The failure baseline is ZERO, 2026-08-08
 
@@ -2185,6 +2233,44 @@ were live defects, one was a false accusation against a correct corpus, and none
       - **Next, per the decision shape above:** re-run the incidental probe against the stamp. 26 tests in
         `tests/test_deg_payload.py`, including an injection that removes rpmJ from the index and asserts
         the stamp stops naming it.
+      - ⛔ **PROBE RE-RUN BLOCKED 2026-08-23 — no API credential reachable.** The protocol drives 12
+        investigations through the live server's `/api/investigate`. Started a server and asked it directly:
+        `/api/settings` reports `configured: false, in_keychain: false` from the SERVER process, not merely
+        from a subprocess of mine — so this is the vault's state, not the scoping artefact that misled me on
+        2026-08-11. Nothing to adjudicate until a key is entered through the app's settings panel. **Do not
+        infer a verdict from Tier 1 passing its own tests: the probe measures what an AGENT does when it can
+        look, and no unit test substitutes for that.**
+      - ✅ **TIER 1's OUT-OF-REPO GAP CLOSED WITHOUT AN ARM, same day.** The consumer design named two
+        classes the `sim_data` field would serve; one of them — a third party holding the corpus and not
+        this repo's tool layer — turns out to need **documentation, not a rebuild**. The dataset card now
+        carries the full not-a-fit breakdown and `scripts/hf_pack_upload.py` ships
+        `parca/deg_rate_baseline.json` and `parca/deg_rate_aliases.json` beside it, pinned by 11 tests that
+        re-derive every figure in the card from the artefacts (injection-verified: perturbing
+        `pct_expression` in the baseline fails the card test by name). **So Tier 2 is now justified by ONE
+        consumer class — wcEcoli's own processes — plus the runtime provenance listener, and should be
+        scheduled on the listener's research value rather than on the probe.** Not yet uploaded to HF; the
+        publish is an outward-facing action and waits on an explicit go-ahead.
+      - 🔍 **AND THE LISTENER — the consumer I said justifies the arm — PROBABLY DOES NOT NEED THE ARM.**
+        Two facts checked 2026-08-23, both in existing code:
+        1. `runner._flat_file_mounts()` (`runner.py:213-228`) already bind-mounts host files into the
+           container read-only, and `_EXEC_LOCAL.mounts` (397-410) already does exactly this for a single
+           `rnas.tsv`. Mounting `data/parca/deg_rate_baseline.json` at `/wcEcoli/...:ro` uses machinery that
+           is already exercised — no new image, no ParCa.
+        2. A wcEcoli listener receives `sim_data` in `initialize(self, sim, sim_data)` (verified against
+           `models/ecoli/listeners/growth_limits.py:24`), so it can read
+           `sim_data.process.transcription.rna_data['id']` — the SAME id space the baseline's 854 unit ids
+           live in — and build the not-a-fit mask itself at init.
+        3. `kb_sha256` is the SHA-256 of `runs/<sim_path>/kb/simData.cPickle` (`provenance.py:266-274`), i.e.
+           the ParCa OUTPUT. A file under `models/ecoli/listeners/` never reaches ParCa, so **a listener does
+           not move any of the three `ARM_KEYS`** and its rows still pool with the existing 363.
+        - **Consequence: Tier 2's remaining justification is ergonomics for a third-party `sim_data` consumer
+          who would rather not carry a side-car JSON. That is real but small, and it is not worth an arm.**
+        - ⚠️ **Two things NOT established, stated so this is not read as a demonstration.** (a) The mount +
+          listener path has not been built or run; this is an argument from three verified facts, not a
+          measurement. (b) A new listener still changes the IMAGE, and `provenance.py:82` already records the
+          open question — *"`kb_sha256` pins the PARAMETERS. Nothing pinned the CODE"*. Whether an image
+          change should be an arm axis is a policy question this repo has not settled, and shipping a
+          listener is a reason to settle it rather than a reason to defer.
   *(original entry follows)*
   Three independent lines now converge on the same conclusion, and none of them is "try a better estimator":
   the STRUCTURE (209 units in no equation, 783 whose right-hand side is entirely the imputation constant),

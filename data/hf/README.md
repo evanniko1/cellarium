@@ -51,6 +51,56 @@ The model tree carries three translation-elongation models, and **the same colum
 
 So: never average `fraction_trna_charged` across `elongation_model` values, and never read a within-family spread from `steady_state` rows as evidence about isoacceptors. Two runs of one design under different elongation models are separate experiments — they carry different design tags, different run paths and different dedup keys, and are not replicates of each other. `ppgpp_conc` needs the same care: only `steady_state` runs synthesise or degrade ppGpp, so a flat ppGpp trace under a kinetic model is a missing mechanism rather than a failed stringent response.
 
+## Degradation rates: 854 of 3,133 mRNA units carry a value that is not a fit
+
+Every run in this corpus shares ONE fitted parameter set, produced by the model's parameter calculator
+(ParCa). For mRNA degradation, that calculator solves a non-negative least squares over the cistron x
+transcription-unit matrix under a lower bound on the rate — and for a large minority of units it does not
+return a fitted value at all. Measured on the knowledge base behind most of this corpus
+(`kb_sha256 = 3b2f8ebd…`):
+
+| class | units | what the number actually is |
+|---|---|---|
+| **floor** | 245 | the rate FLOOR — the slowest single measured mRNA cistron in the organism, applied as a lower bound. The solution hit the wall and stopped there |
+| **ceiling** | 7 | the rate CEILING — the fastest single measured cistron, applied as an upper bound |
+| **imputed** | 602 | the MEAN of the reported half-lives. These units' cistrons were never measured, so they carry a population default |
+| *(determined)* | 2,279 | genuinely inferred from data |
+
+**854 units, 27.3% of mRNA units, carrying 12.087% of mRNA expression** in the basal condition (11.165%–15.491%
+across 67 conditions). On disk all four classes are the same float in the same array — nothing in `sim_data`
+distinguishes a fitted rate from a bound or a default.
+
+**Why this reaches you even if you never ask about half-lives.** A transcript's degradation rate sets its
+steady-state level, which sets translation, which sets protein copy number. The two most-expressed not-a-fit
+units are RIBOSOMAL PROTEIN operons — `rpmJ` (1.584% of mRNA expression) and
+`rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO` (1.582%), both on the floor. Any statement about ribosomal protein
+abundance in this corpus rests on a parameter that was bounded rather than measured.
+
+### The index ships with the corpus
+
+`parca/deg_rate_baseline.json` — the 854 unit ids with per-unit expression weights, frozen against the
+`kb_sha256` above.
+`parca/deg_rate_aliases.json` — the same set joined into GENE space (1,149 genes, 4,557 aliases: symbols,
+b-numbers/EcoCyc ids, cistron ids, monomer ids), so you can check a gene without resolving transcription units
+yourself.
+
+```python
+import json
+alias = json.load(open("parca/deg_rate_aliases.json"))
+g = alias["alias"].get("rple")                      # any symbol, cistron id or monomer id, lowercased
+print(alias["genes"][g])
+# {'sym': 'rplE', 'cls': ['floor'], 'pct': 1.581586,
+#  'units': ['rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]']}
+```
+
+`pct` is the share of TOTAL mRNA expression held by the not-a-fit units that gene belongs to. **These weights
+do not sum**: operon co-members each carry the operon's full share, so adding them across genes double-counts.
+The corpus figure is 12.087%.
+
+**Scope.** The classification was measured on one knowledge base. It covers 279 of the 363 manifest rows; the
+other two arms were fitted separately and the same unit may fall in a different class there. Check
+`kb_sha256` on the row before applying it.
+
 ## Get a run's full trajectory
 
 ```bash

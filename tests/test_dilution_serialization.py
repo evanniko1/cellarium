@@ -92,7 +92,19 @@ def test_it_flags_the_media_id_column_as_truncation_prone():
     saturate — so the COLUMN is fragile."""
     _corpus()
     from cellarium import serialization
-    r = serialization.scan_corpus(limit_runs=80)
+    # 20, not 80. MEASURED 2026-08-23, because at 80 this test killed a whole suite run: `scan_corpus` reads
+    # every string column of every run it resolves, so cost is I/O-bound and dominated by OS file-cache state
+    # (the same call took 134 s cold and 0.7 s warm at limit_runs=12). At roughly 10 s per cold run, 80 runs
+    # lands on the suite's 900 s global timeout — and a timeout does not fail one test, it aborts the run and
+    # hides every result after it. That is how a green-looking `EXIT=1, 0 FAILED` appeared with only 288 of
+    # ~1040 tests executed.
+    #
+    # It costs the test NOTHING, which is the part that makes this a fix rather than a weakening. The claim
+    # here is about the COLUMN — that media_id appears at more than one width across runs — and that is
+    # already saturated at limit_runs=3 ([15, 22], severity high). Measured across the ladder: 3 -> 2 widths,
+    # 5 -> 2, 8 -> 2, 12 -> 5, 20 -> 5, 40 -> 5, 80 -> 7. Twenty carries a ~6x margin over the smallest n
+    # that proves the point and a ~4x margin against the timeout.
+    r = serialization.scan_corpus(limit_runs=20)
     if not r.get("all"):
         pytest.skip("no string columns found locally")
     key = "FBAResults/media_id"
