@@ -357,3 +357,148 @@ def test_a_stale_page_token_is_refused_after_a_server_restart(monkeypatch):
     fresh = _client()
     assert server._CSRF in fresh.get("/").text
     assert fresh.post("/api/settings_key_test", json={"key": FAKE}).status_code != 403
+
+
+# ------------------------------------------------------------------------------------------------------------
+# DURABILITY — does a key a user saves actually survive the app closing?
+#
+# Everything above this line runs against a FAKE keyring, which is right for testing logic and useless for
+# testing persistence: a stub that remembers a value in a dict will "persist" no matter how broken the real
+# backend is. The user-facing fear — "every time I launch the app I have to paste my key again" — is a claim
+# about a REAL vault and a NEW PROCESS, so it is tested that way or not at all.
+#
+# The whole section writes to a throwaway SERVICE namespace, never `credentials.SERVICE`. Running the suite
+# must not touch, overwrite or delete the key the user actually stored.
+# ------------------------------------------------------------------------------------------------------------
+
+import subprocess  # noqa: E402
+import sys as _sys  # noqa: E402
+import textwrap  # noqa: E402
+import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+_FAKE_KEY = "sk-ant-test-" + "0" * 40          # long enough for _MIN_LEN, obviously not a real credential
+
+
+# The autouse `_clean_env` fixture above stubs `backend()` to "no backend" for EVERY test in this file, so the
+# suite can never touch the developer's real keychain. That is exactly right as a default and exactly wrong
+# here, since these tests are ABOUT the real vault. Capture the genuine function at import — before any
+# fixture rebinds the attribute — and hand it back only inside this section.
+_REAL_BACKEND = C.backend
+
+
+def _real_secure_backend() -> bool:
+    try:
+        return bool(_REAL_BACKEND()["secure"])
+    except Exception:
+        return False
+
+
+@pytest.fixture()
+def real_keychain(monkeypatch):
+    """Undo the file-wide no-backend stub for one test."""
+    monkeypatch.setattr(C, "backend", _REAL_BACKEND)
+    return _REAL_BACKEND()
+
+
+@pytest.fixture()
+def scratch_service():
+    """A unique keychain namespace, deleted afterwards whatever happens."""
+    from cellarium import credentials
+    name = f"cellarium-test-{uuid.uuid4().hex[:12]}"
+    yield name
+    try:
+        import keyring
+        keyring.delete_password(name, credentials.ACCOUNT)
+    except Exception:
+        pass
+
+
+@pytest.mark.skipif(not _real_secure_backend(), reason="no secure OS keychain here (CI, headless)")
+def test_a_saved_key_is_found_by_a_BRAND_NEW_process(scratch_service, real_keychain, monkeypatch):
+    """THE test behind "my key disappears when I restart".
+
+    Writes through the same `set_key` the Settings panel calls, then reads back from a subprocess that shares
+    no memory with this one — which is what "close the app and open it again" actually is.
+    """
+    from cellarium import credentials
+    monkeypatch.setattr(credentials, "SERVICE", scratch_service)
+    monkeypatch.delenv(credentials.ENV_VAR, raising=False)
+    st = credentials.set_key(_FAKE_KEY, persist=True)
+    assert st["in_keychain"], f"set_key did not persist: {st.get('persist_error') or st}"
+
+    reader = textwrap.dedent(f"""
+        import os, sys
+        sys.path.insert(0, "src")
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        from cellarium import credentials
+        credentials.SERVICE = {scratch_service!r}
+        st = credentials.load_into_env()
+        # masked only — a test that printed the key would be the leak it is meant to prevent
+        print("FOUND" if st["configured"] else "MISSING", st["source"], st["masked"])
+    """)
+    proc = subprocess.run([_sys.executable, "-c", reader], capture_output=True, text=True, timeout=300)
+    out = proc.stdout.strip()
+    assert out.startswith("FOUND"), (
+        f"a key saved through the Settings panel was NOT visible to a fresh process — this is exactly the "
+        f"'I have to paste my key every launch' symptom. subprocess said: {out!r} / {proc.stderr[-400:]!r}")
+    assert "keychain" in out
+    assert _FAKE_KEY not in proc.stdout and _FAKE_KEY not in proc.stderr, "the subprocess echoed the key"
+
+
+@pytest.mark.skipif(not _real_secure_backend(), reason="no secure OS keychain here (CI, headless)")
+def test_nothing_but_an_explicit_remove_deletes_the_entry(scratch_service, real_keychain, monkeypatch):
+    """A stored key must survive every ordinary operation. `clear()` is the ONE path that removes it, and it
+    has exactly one caller (`POST /api/settings_key_delete`, the Remove button)."""
+    from cellarium import credentials
+    monkeypatch.setattr(credentials, "SERVICE", scratch_service)
+    monkeypatch.delenv(credentials.ENV_VAR, raising=False)
+    credentials.set_key(_FAKE_KEY, persist=True)
+
+    import keyring
+    for _ in range(3):                      # the reads the UI does on every settings poll
+        credentials.status()
+        credentials.load_into_env(override=True)
+        credentials.backend()
+    assert keyring.get_password(scratch_service, credentials.ACCOUNT) == _FAKE_KEY, (
+        "an ordinary status/reload cycle removed the stored key")
+
+    credentials.clear()
+    assert keyring.get_password(scratch_service, credentials.ACCOUNT) is None
+
+
+def test_delete_has_exactly_one_caller_and_it_is_the_remove_button():
+    """Pins the blast radius. If a second caller of `clear()` ever appears, the "keys do not vanish" promise
+    needs re-checking rather than re-asserting."""
+    server = Path("apps/server.py").read_text(encoding="utf-8")
+    assert server.count("credentials.clear()") == 1
+    assert "settings_key_delete" in server
+
+
+def test_the_remove_button_requires_two_clicks():
+    """One misclick used to delete the key from the OS keychain with no confirmation, which is indistinguishable
+    afterwards from the app losing it. The control arms on the first click and reverts if ignored."""
+    js = Path("apps/web/app.js").read_text(encoding="utf-8")
+    i = js.index('el("button", "set-btn danger", "Remove")')
+    handler = js[i:i + 900]
+    assert "click again" in handler.lower(), "the Remove button deletes on a single click"
+    assert "settings_key_delete" in handler
+    assert handler.index("click again") < handler.index("settings_key_delete"), (
+        "the arming step must come BEFORE the delete call, not after it")
+
+
+def test_an_expired_key_is_not_something_the_vault_can_notice():
+    """Recorded because it was asked and the answer is structural, not empirical.
+
+    An OS credential store holds an opaque blob. It has no notion of an Anthropic key's validity window, and
+    Anthropic revoking a key server-side cannot reach into Windows Credential Manager. So "the key expired"
+    can explain an API 401 — `probe()` reports that as 'The Anthropic API rejected this key' — and can NEVER
+    explain a MISSING vault entry. This test pins the only two things that can: an explicit clear(), or a
+    write that never happened.
+    """
+    from cellarium import credentials
+    src = Path("src/cellarium/credentials.py").read_text(encoding="utf-8")
+    assert src.count("delete_password") == 1, "a second deletion path appeared"
+    assert "def clear()" in src
+    assert "expir" not in src.lower(), "nothing here reasons about expiry, and nothing should"
+    assert credentials.probe()  # shape only; no network assertion

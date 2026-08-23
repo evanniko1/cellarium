@@ -32,6 +32,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 
 
@@ -50,3 +52,52 @@ _load_env_before_anything_freezes_it()
 # Read AFTER the load, so a reporter or a later fixture sees the same value the modules will freeze.
 CONFIGURED_IMAGE = os.environ.get("WCECOLI_DOCKER", "")
 CONFIGURED_CHECKOUT = os.environ.get("WCECOLI_DIR", "")
+
+# ------------------------------------------------------------------------------------------------------------
+# NO TEST MAY EVER TOUCH THE REAL CREDENTIAL SLOT.
+#
+# MEASURED 2026-08-23, after the developer's stored key vanished twice and expiry was (reasonably) suspected:
+# running `pytest tests/test_credentials.py` DELETES it. The path is exact and traced:
+#
+#     TestClient POST /api/settings_key_delete
+#       -> apps/server.py:611   lambda: {"key": credentials.clear()}
+#       -> credentials.py:224   keyring.delete_password(SERVICE, ACCOUNT)
+#
+# and `SERVICE`/`ACCOUNT` are the production constants, so the call lands on the user's own Windows Credential
+# Manager entry. Nothing about this is accidental in `clear()`: it deliberately deletes REGARDLESS of the
+# backend verdict, because "Remove reported success while the credential quietly survived" is the worse bug.
+# The file's autouse fixture stubs `backend()`, which is why this was invisible — stubbing the verdict does
+# not stop a delete that ignores the verdict, and the endpoint tests never stubbed `sys.modules["keyring"]`
+# at all.
+#
+# So the guard belongs HERE, at session scope, not in one file: it redirects the SERVICE namespace itself, so
+# every path — direct call, HTTP handler, worker thread — writes and deletes somewhere disposable. A test that
+# wants the real vault must opt in explicitly (see tests/test_credentials.py's `scratch_service`, which sets
+# its own namespace on top of this one).
+#
+# This is also the answer to "did the key expire?". A credential store holds an opaque blob and has no notion
+# of an API key's validity window; Anthropic revoking a key cannot reach into Windows Credential Manager. An
+# expired key explains a 401, never a missing entry.
+# ------------------------------------------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True, scope="session")
+def _never_touch_the_real_keychain():
+    import uuid
+
+    try:
+        from cellarium import credentials
+    except Exception:
+        yield                       # nothing importable to protect
+        return
+    scratch = f"cellarium-pytest-{uuid.uuid4().hex[:12]}"
+    real_service, real_account = credentials.SERVICE, credentials.ACCOUNT
+    credentials.SERVICE = scratch
+    try:
+        yield
+    finally:
+        credentials.SERVICE = real_service
+        try:
+            import keyring
+            keyring.delete_password(scratch, real_account)
+        except Exception:
+            pass

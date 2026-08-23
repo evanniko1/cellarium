@@ -1411,8 +1411,26 @@ async function refreshSettings() {
     row.appendChild(t);
   }
   if (st.managed_here) {
+    // Two clicks, not one. This deletes the key from the OS keychain permanently — a misclick costs the user
+    // a trip to console.anthropic.com to mint a replacement, and is indistinguishable afterwards from "the
+    // app lost my key". Every other destructive path in Cellarium goes through an approval step; this was the
+    // one that did not. A `confirm()` dialog was rejected because it is modal and unstyled: the button
+    // arming itself keeps the whole interaction inside the panel and reverts on its own if ignored.
     const rm = el("button", "set-btn danger", "Remove");
-    rm.onclick = async () => { await postJSON("/api/settings_key_delete", {}); refreshSettings(); announce("API key removed."); };
+    let armed = null;
+    rm.onclick = async () => {
+      if (!armed) {
+        rm.textContent = "Remove — click again";
+        rm.classList.add("armed");
+        armed = setTimeout(() => { rm.textContent = "Remove"; rm.classList.remove("armed"); armed = null; }, 4000);
+        announce("Click Remove again to delete the stored key.");
+        return;
+      }
+      clearTimeout(armed); armed = null;
+      await postJSON("/api/settings_key_delete", {});
+      refreshSettings();
+      announce("API key removed from this app and from your keychain.");
+    };
     row.appendChild(rm);
   } else if (st.configured) {
     row.appendChild(el("span", "set-note", "Set outside the app — unset it in your shell or .env to manage it here."));

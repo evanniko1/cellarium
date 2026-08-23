@@ -2271,6 +2271,23 @@ were live defects, one was a false accusation against a correct corpus, and none
           open question — *"`kb_sha256` pins the PARAMETERS. Nothing pinned the CODE"*. Whether an image
           change should be an arm axis is a policy question this repo has not settled, and shipping a
           listener is a reason to settle it rather than a reason to defer.
+        - ✅ **THROWAWAY PROBE RUN 2026-08-23 — the load-bearing half is now MEASURED, not argued.** A script
+          run inside `wcecoli-sim:latest` with `deg_rate_baseline.json` bind-mounted at `/probe:ro`, doing
+          exactly the arithmetic a listener would do:
+          - the mounted JSON was readable inside the container (entailed: the id set below is built from it,
+            so a failed mount would have raised before any check ran);
+          - **854 of 854 baseline ids matched `sim_data.process.transcription.rna_data['id']` exactly** —
+            the id spaces are the same, no translation layer needed;
+          - the probe reproduced **12.087%** of mRNA expression resting on a non-fit rate, agreeing with the
+            frozen baseline to three decimals, computed *inside the model process from sim_data plus a
+            mounted file* and with **no change to sim_data**.
+          - **Verdict: the arm buys nothing the listener needs. Tier 2 is NOT justified.**
+        - ⚠️ **What the probe did NOT establish, stated so the verdict is not over-read.** (a) It used the
+          BASAL expression vector, i.e. the static number — the listener's actual value is the per-timestep,
+          count-weighted version, which needs the listener to run. (b) Registration was not done: a listener
+          must be added to the list in `models/ecoli/sim/simulation.py:110`, which is a wcEcoli source file
+          and therefore an image rebuild. That changes `image_digest`, and — argued, not demonstrated — not
+          `kb_sha256`, since ParCa reads `reconstruction/`, not `models/ecoli/sim/`.
   *(original entry follows)*
   Three independent lines now converge on the same conclusion, and none of them is "try a better estimator":
   the STRUCTURE (209 units in no equation, 783 whose right-hand side is entirely the imputation constant),

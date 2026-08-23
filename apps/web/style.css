@@ -736,3 +736,8 @@ progress.op-bar::-moz-progress-bar{background:var(--clay); border-radius:99px}
   .hyp-runs{flex-basis:200px}
 }
 @media(max-width:860px){.sidebar{display:none}}
+
+/* The Remove button's armed state — the second click deletes the key from the OS keychain, so the control
+   has to look different from the one that merely asked. Amber rather than red: it is a warning about what
+   the NEXT click does, not an error that has happened. */
+.set-btn.danger.armed{background:var(--amber-tint); border-color:var(--amber); color:var(--amber); font-weight:600}
