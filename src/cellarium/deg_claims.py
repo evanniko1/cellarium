@@ -20,6 +20,19 @@ dict lookup: no model image, no container, no ParCa, nothing to rebuild. If it n
 THE CONJUNCTION IS THE WHOLE DESIGN. It fires only when a sentence BOTH names a not-a-fit unit AND makes a
 degradation-flavoured claim. Naming `rpmJ` while discussing translation is not a half-life claim, and
 flagging it would train the reader to skip the annotation — which is how a real one gets skipped too.
+
+TWO SECTIONS, TWO PLACES A NUMBER CAN GO UNMARKED:
+
+  (a) `check`/`annotation` — the PROSE check above. It reads the answer the model wrote.
+  (b) `mark_payload` — PARCA-6 TIER 1. It reads the payload before the model writes anything.
+
+WHY (b) EXISTS, AND WHY (a) WAS NOT ENOUGH. The incidental probe's one genuine failure was a protein copy
+number — *"rpmJ protein sits at ~50 copies in the KO vs ~70 in wildtype"* — and (a) let it through, correctly
+by its own contract: the sentence used no degradation vocabulary, so the conjunction never fired. The lesson
+is not that the vocabulary list is too short. It is that a check keyed on PROSE is the wrong place to catch a
+number that was already unmarked when it arrived. (b) marks the number at the read boundary instead, the way
+`reconcile.mark_non_measurement` marks an iML1515 prediction — on the payload, in the same breath as the
+value, rather than as an advisory the model reads after it has written the sentence.
 """
 
 from __future__ import annotations
@@ -153,3 +166,179 @@ def annotation(result: dict) -> str:
         return ("\n\n---\n**Degradation-rate check could not run** — " + str(result.get("why", "")) +
                 ". Treat this as unverified, not as verified.")
     return ""
+
+
+# ------------------------------------------------------------------------------------------------------------
+# (b) PARCA-6 TIER 1 — mark the NUMBER at the read boundary.
+#
+# The join that makes this possible is NOT free-by-inspection, and the Tier-1 design was wrong about that.
+# The baseline names TRANSCRIPTION UNITS (`TU-8392[c]`); payloads name GENES (`rplE`, `EG10868-MONOMER`).
+# Measured, a bare-symbol match against the baseline reaches 6 of 854 units and 1.708% of mRNA expression
+# against 12.087% for the full set — so "a dict lookup over the ids we already have" would have shipped a
+# check covering an eighth of what it claimed. `scripts/build_deg_alias_map.py` composes the four
+# transcription-unit tables with `rnas.tsv` once, offline, and freezes the gene-space index; all 854 units
+# resolve, giving 1,149 genes and 4,557 aliases. The RUNTIME is then genuinely the dict lookup that was
+# promised — one JSON load, no model image.
+# ------------------------------------------------------------------------------------------------------------
+
+# EXPLICIT, not inferred, for the same reason `reconcile.NOT_A_MEASUREMENT` is: a heuristic that stamps the
+# wrong payload is the false positive that gets the whole feature switched off. These are the tools whose
+# results carry a per-gene or per-species QUANTITY — the numbers a reader quotes.
+MARKED_TOOLS: frozenset[str] = frozenset({
+    "mechanistic_scope",   # ko_footprint.measured — the probe's actual failure lives here
+    "top_movers", "differential", "compare_at_generation",
+    "read_species", "list_species", "regulon_response",
+    "selective_charging", "trna_families",
+})
+
+_MARK_KEY = "parameter_provenance"
+
+# Bounds on the payload walk. A tool result is a small dict; `read_raw_series`-shaped payloads are not in
+# MARKED_TOOLS, but a bound is cheaper than trusting that to stay true.
+_MAX_NODES = 4000
+_MAX_DEPTH = 8
+_ALIASES = Path(os.environ.get("CELLARIUM_DEG_ALIASES") or "data/parca/deg_rate_aliases.json")
+
+_alias_cache: dict | None = None
+
+
+def _load_aliases(path: str | os.PathLike | None = None) -> dict:
+    """The frozen gene-space index, or an explicit error — never a silently empty map.
+
+    An empty map would make every payload look clean, which is the silent-absence failure this whole module
+    exists to prevent.
+    """
+    global _alias_cache
+    if _alias_cache is not None and path is None:
+        return _alias_cache
+    p = Path(path or _ALIASES)
+    if not p.exists():
+        return {"error": f"no frozen degradation alias map at {p} "
+                         f"(build it with scripts/build_deg_alias_map.py)"}
+    try:
+        doc = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {"error": f"degradation alias map unreadable: {type(exc).__name__}: {exc}"}
+    out = {"alias": doc.get("alias") or {}, "genes": doc.get("genes") or {},
+           "kb_sha256": doc.get("baseline_kb_sha256"), "n_genes": doc.get("n_genes")}
+    if not out["alias"]:
+        return {"error": f"degradation alias map at {p} carries no aliases"}
+    if path is None:
+        _alias_cache = out
+    return out
+
+
+def _looks_like_id(s: str) -> bool:
+    """Identifier-shaped, so an English word in a free-text field cannot match a three-letter gene symbol.
+
+    Payload keys and ids have no spaces; prose does. `mechanistic_scope`'s `note` is a paragraph and must
+    never be scanned token-by-token — that is (a)'s job, under (a)'s much narrower conjunction.
+    """
+    return 3 <= len(s) <= 64 and " " not in s and "\n" not in s
+
+
+def _walk(node, out: set, depth: int = 0, budget: list | None = None) -> None:
+    """Collect identifier-shaped strings from a payload's keys and short string values, bounded."""
+    budget = budget if budget is not None else [_MAX_NODES]
+    if depth > _MAX_DEPTH or budget[0] <= 0:
+        return
+    budget[0] -= 1
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if isinstance(k, str) and _looks_like_id(k):
+                out.add(k.lower())
+            _walk(v, out, depth + 1, budget)
+    elif isinstance(node, (list, tuple)):
+        for v in node:
+            if isinstance(v, (int, float)) or v is None:
+                continue        # numeric arrays are the bulk of a payload and can hold no identifier
+            _walk(v, out, depth + 1, budget)
+    elif isinstance(node, str) and _looks_like_id(node):
+        out.add(node.lower())
+
+
+def payload_hits(out, *, path: str | os.PathLike | None = None) -> dict:
+    """Which not-a-fit transcription units this payload's genes belong to.
+
+    GROUPED BY UNIT, not by gene, because the unit is what the estimator failed to fit — the genes are its
+    members. Ungrouped, a single ribosomal operon printed ten identical entries with ten identical
+    explanations, which is the shape of an annotation a reader learns to scroll past.
+
+    Returns `{"verdict": ..., "units": [...]}`. Verdicts: `could_not_verify` (no map — never a pass),
+    `clear`, `rests_on_non_fits`.
+    """
+    base = _load_aliases(path)
+    if base.get("error"):
+        return {"verdict": "could_not_verify", "units": [], "why": base["error"]}
+    seen: set = set()
+    _walk(out, seen)
+    genes: dict[str, dict] = {}
+    for token in seen:
+        gid = base["alias"].get(token)
+        if gid and gid not in genes:
+            genes[gid] = base["genes"].get(gid) or {}
+    if not genes:
+        return {"verdict": "clear", "units": [], "kb_sha256": base["kb_sha256"]}
+    by_unit: dict[str, dict] = {}
+    for gid, rec in genes.items():
+        for i, unit in enumerate(rec.get("units") or []):
+            u = by_unit.setdefault(unit, {"unit": unit, "genes_in_payload": [],
+                                          "rate_class": (rec.get("cls") or [None])[min(i, len(rec.get("cls") or [None]) - 1)],
+                                          "pct_of_mrna_expression": None})
+            u["genes_in_payload"].append(rec.get("sym") or gid)
+    # The per-unit share is the baseline's own number for that unit, not a per-gene total: `genes[*].pct`
+    # sums a gene's units, so reading it back per unit would over-state a gene that sits in two of them.
+    weights = _load()
+    for unit, u in by_unit.items():
+        entry = (weights.get("index") or {}).get(unit.lower()) if not weights.get("error") else None
+        u["pct_of_mrna_expression"] = entry["pct_of_mrna_expression"] if entry else None
+        if entry:
+            u["rate_class"] = entry["class"]
+        u["genes_in_payload"] = sorted(set(u["genes_in_payload"]))
+    ranked = sorted(by_unit.values(), key=lambda u: -(u["pct_of_mrna_expression"] or 0.0))
+    return {"verdict": "rests_on_non_fits", "units": ranked, "kb_sha256": base["kb_sha256"],
+            "n_units_matched": len(ranked), "n_genes_matched": len(genes),
+            "max_pct_of_mrna_expression": ranked[0]["pct_of_mrna_expression"]}
+
+
+def mark_payload(tool: str, out, *, path: str | os.PathLike | None = None):
+    """Stamp a result whose numbers rest on a degradation rate that is not a fit.
+
+    Silent on `clear` for the reason (a) is silent on a clean answer: a marker on every payload is a marker
+    the model learns to skip. NOT silent on `could_not_verify` — an absent stamp reads as "this number is
+    fine", so a check that could not run has to say so rather than look like a pass.
+    """
+    if tool not in MARKED_TOOLS or not isinstance(out, dict) or out.get("error"):
+        return out
+    res = payload_hits(out, path=path)
+    if res["verdict"] == "clear":
+        return out
+    if res["verdict"] == "could_not_verify":
+        out.setdefault(_MARK_KEY, {
+            "verdict": "could_not_verify", "why": res.get("why"),
+            "read_as": "unverified, not verified — the degradation-provenance index could not be read"})
+        return out
+    shown = res["units"][:6]
+    classes = {u["rate_class"] for u in shown if u["rate_class"]}
+    out.setdefault(_MARK_KEY, {
+        "verdict": "rests_on_non_fits",
+        "what_this_means": (
+            "genes named in this result are transcribed from units whose degradation rate the ParCa "
+            "estimator did not fit — it is a bound or the population mean. The numbers are left exactly as "
+            "computed; this records what they rest on."),
+        "units": shown,
+        "rate_classes": {c: _MEANS[c] for c in sorted(classes) if c in _MEANS},
+        "n_units_matched": res["n_units_matched"],
+        "n_units_shown": len(shown),
+        "n_genes_matched": res["n_genes_matched"],
+        "max_pct_of_mrna_expression": res["max_pct_of_mrna_expression"],
+        "pct_is_of_total_mrna_expression": ("each unit's share of TOTAL mRNA expression in the knowledge "
+                                            "base — not a share of this result, and not additive with the "
+                                            "corpus-wide 12.087% figure"),
+        "measured_on_kb_sha256": res["kb_sha256"],
+        "transfer_limit": ("the classification was measured on ONE knowledge base. A result from a different "
+                           "arm may not carry the same classification — check `provenance` for this "
+                           "result's arm."),
+        "full_picture": "call `deg_rate_provenance` for any single unit",
+    })
+    return out

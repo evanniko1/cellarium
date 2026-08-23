@@ -17,7 +17,6 @@ CORRECTION 2026-08-08: this docstring claimed the failure had already happened â
 `_sim_path_of` collapsing four output roots onto one key; each root holds its own kb, and read root-aware
 297 of 297 rows agree with their own row. The hazard is real and PROSPECTIVE; the incident was not.
 """
-import os
 import sys
 from pathlib import Path
 
@@ -35,7 +34,16 @@ def _isolated_queue(tmp_path, monkeypatch):
 
 
 def _docker_or_skip():
-    if not os.environ.get("WCECOLI_DOCKER"):
+    """Guard on the SAME object the runner reads, not on the environment behind it.
+
+    `runner.WCECOLI_DOCKER` is captured at import time (`runner.py:27`). Reading `os.environ` here instead
+    made the guard and the guarded thing disagree the moment anything in the suite imported `apps/server.py`,
+    which calls `load_dotenv()` â€” the variable appeared in the environment AFTER `runner` had already frozen
+    an empty string, so the guard passed and `read_flat_file` raised. Green alone, red in the full suite,
+    for a reason that had nothing to do with either test. A guard that shares no object with what it guards
+    is not a guard.
+    """
+    if not runner.WCECOLI_DOCKER:
         pytest.skip("needs the model image (WCECOLI_DOCKER)")
 
 

@@ -52,10 +52,18 @@ def _needs_the_model_image():
         pytest.skip("needs the model image to unpickle sim_data")
 
 
-def _bounds(sim_path="cellarium"):
+def _bounds(sim_path="cellarium", **kw):
+    """The ONLY way to reach the reader from this file.
+
+    `**kw` exists because the per-unit test used to call `reader.deg_rate_provenance` directly to pass
+    `per_unit=True`, which put it back in exactly the hole the autouse fixture above was written to close: the
+    fixture guards the WCECOLI_DOCKER axis, `_bounds` guards the "no knowledge base reachable" axis, and a
+    direct call has neither. It passed alone and raised KeyError in the full suite as soon as an earlier test
+    redirected CELLARIUM_OUT. Taking the keyword here removes the reason to bypass the guard.
+    """
     if not Path(f"runs/{sim_path}/kb/simData.cPickle").is_file():
         pytest.skip(f"no knowledge base at runs/{sim_path}")
-    r = reader.deg_rate_provenance(sim_path)
+    r = reader.deg_rate_provenance(sim_path, **kw)
     if "error" in r:
         pytest.skip(r["error"])
     return r
@@ -164,7 +172,7 @@ def test_the_per_unit_array_is_opt_in_and_complete():
     assert "units_not_a_fit" not in default, (
         "the id list is in the DEFAULT payload — the summary is what a human reads, and 854 ids inside it is "
         "not a summary")
-    r = reader.deg_rate_provenance("cellarium", per_unit=True)
+    r = _bounds("cellarium", per_unit=True)
     u = r["units_not_a_fit"]
     for cls in ("floor", "ceiling", "imputed"):
         assert len(u[cls]) == r["on_floor" if cls == "floor" else
@@ -181,7 +189,7 @@ def test_the_per_unit_entries_carry_expression_weights():
     Measured, the coverage filter regresses 45 units and 3.3007% of mRNA expression while rescuing 1 unit
     worth 0.0037% — roughly 900:1 by mass against 45:1 by count. From ids alone you cannot tell those apart.
     """
-    r = reader.deg_rate_provenance("cellarium", per_unit=True)
+    r = _bounds("cellarium", per_unit=True)
     u = r["units_not_a_fit"]
     for cls in ("floor", "ceiling", "imputed"):
         assert isinstance(u[cls], dict), f"{cls} is a bare list — the weights are gone"
@@ -207,8 +215,8 @@ def test_two_fits_can_be_scored_against_each_other():
     _bounds("cellarium")
     if not Path("runs/refit2/kb/simData.cPickle").is_file():
         pytest.skip("refit2 knowledge base not present")
-    a = reader.deg_rate_provenance("cellarium", per_unit=True)["units_not_a_fit"]
-    b = reader.deg_rate_provenance("refit2", per_unit=True)["units_not_a_fit"]
+    a = _bounds("cellarium", per_unit=True)["units_not_a_fit"]
+    b = _bounds("refit2", per_unit=True)["units_not_a_fit"]
     A = set(a["floor"]) | set(a["ceiling"]) | set(a["imputed"])
     B = set(b["floor"]) | set(b["ceiling"]) | set(b["imputed"])
     assert A and B, "an empty class set makes the comparison below vacuous"

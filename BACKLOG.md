@@ -2158,6 +2158,33 @@ were live defects, one was a false accusation against a correct corpus, and none
       out-of-repo consumers plus the listener — still real, but it should then be scheduled on the listener's
       value, not on the probe's. If Tier 1 does NOT close it, that is a stronger case for the field than the
       probe alone made.
+    - ✅ **TIER 1 SHIPPED, 2026-08-23 — and it refuted the "free dict lookup" half of the design above.**
+      The claim was that the 854 frozen ids make this a dict lookup. MEASURED, they do not: the baseline
+      names TRANSCRIPTION UNITS (`TU-8392[c]`, `EG10001_RNA[c]`) and every payload a reader sees names
+      GENES (`rplE`, `EG10868-MONOMER`). Matching bare symbols against the baseline reaches **6 of 854
+      units and 1.708% of mRNA expression, against 12.087% for the full set** — a check covering an eighth
+      of what it claimed, shipped as if it covered all of it. Recorded because the design said "free" and
+      "dict lookup" in the same breath and only one of those was true.
+      - **The join was buildable offline anyway, so the arm is still not needed.**
+        `scripts/build_deg_alias_map.py` composes `transcription_units{,_added,_modified,_removed}.tsv`
+        with the pinned `rnas.tsv` once and freezes `data/parca/deg_rate_aliases.json`: all 854 units
+        resolve by exact id, no prefix guessing, giving 1,149 genes and 4,557 aliases. The RUNTIME is then
+        the promised dict lookup — one 278 KB JSON, cached, **0.08 ms per dispatch**, no model image.
+      - ⚠️ **THE FOUR TU FILES, NOT ONE — this nearly shipped a false attribution.** 7 not-a-fit unit ids
+        exist ONLY in `transcription_units_added.tsv`. Resolving against the base table alone leaves them
+        unmatched, and the obvious repair — prefix-matching `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO` onto the
+        base table's longer `…-secY-rpmJ` — is WRONG: different units, different gene lists, and the match
+        puts `secY` and `rpmJ` on a floor rate that belongs to neither. `test_secy_is_not_in_the_map` is
+        the regression guard. Same class as *diff all columns before attributing*.
+      - **What it does now.** `deg_claims.mark_payload` stamps 9 quantity-returning tools at the dispatch
+        boundary, grouped BY UNIT (grouping by gene printed one ribosomal operon ten identical times).
+        `mechanistic_scope('rpmJ')` — the exact call behind the probe's failure — now carries `rpmJ[c]`
+        (floor, 1.584%) and `rplNXE-…[c]` (floor, 1.582%) with the kb it was measured on and an explicit
+        transfer limit, because the baseline's kb covers 279 of 363 corpus rows, not all of them.
+        `mechanistic_scope('pgi')`, whose rate IS a fit, is not stamped at all.
+      - **Next, per the decision shape above:** re-run the incidental probe against the stamp. 26 tests in
+        `tests/test_deg_payload.py`, including an injection that removes rpmJ from the index and asserts
+        the stamp stops naming it.
   *(original entry follows)*
   Three independent lines now converge on the same conclusion, and none of them is "try a better estimator":
   the STRUCTURE (209 units in no equation, 783 whose right-hand side is entirely the imputation constant),
