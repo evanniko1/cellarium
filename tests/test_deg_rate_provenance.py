@@ -28,7 +28,6 @@ Two unrelated perturbations converge on the same state, the count does not fall,
 resting on a placeholder RISES. `min()` does not care which value is minimal; remove the one supplying it and
 the next is promoted. The ribosomal operons stay pinned in all three.
 """
-import os
 import sys
 from pathlib import Path
 
@@ -48,7 +47,7 @@ def _needs_the_model_image():
     each offender leaves the next one exposed. An autouse fixture makes forgetting impossible, which is the
     same move as classifying identity axes or filtering tombstones inside the read rather than at each caller.
     """
-    if not os.environ.get("WCECOLI_DOCKER"):
+    if not reader.WCECOLI_DOCKER:
         pytest.skip("needs the model image to unpickle sim_data")
 
 

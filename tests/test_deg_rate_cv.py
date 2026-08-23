@@ -29,8 +29,7 @@ from src.cellarium import reader  # noqa: E402
 
 
 def _needs_image():
-    import os
-    if not (os.environ.get("WCECOLI_DOCKER") or os.environ.get("WCECOLI_DIR")):
+    if not (reader.WCECOLI_DOCKER or reader.WCECOLI_DIR):
         pytest.skip("no model image configured")
 
 

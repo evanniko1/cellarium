@@ -9,7 +9,6 @@ These tests deliberately split in two. The first group needs NO model image, so 
 baseline is well-formed and names the fit it describes. The second group needs the container and verifies the
 baseline still matches the live fit — locally, where sim_data can actually be unpickled.
 """
-import os
 import sys
 from pathlib import Path
 
@@ -80,7 +79,7 @@ def test_the_ceiling_class_is_small_and_examined():
 
 def test_the_baseline_still_matches_the_live_fit():
     """Drift must be LOUD. If runs/cellarium is rebuilt, every Stage-3 comparison silently changes reference."""
-    if not os.environ.get("WCECOLI_DOCKER"):
+    if not reader.WCECOLI_DOCKER:
         pytest.skip("needs the model image to unpickle sim_data")
     if not Path("runs/cellarium/kb/simData.cPickle").is_file():
         pytest.skip("no knowledge base at runs/cellarium")

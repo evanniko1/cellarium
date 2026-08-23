@@ -35,14 +35,12 @@ def _image(monkeypatch):
     """Every test here that touches a knowledge base needs the model image. Applied as a fixture rather than
     left to each test because twice in this repo a test was written that skipped the guard and passed
     vacuously in CI while doing nothing."""
-    import os
-    if not os.environ.get("WCECOLI_DOCKER") and not os.environ.get("WCECOLI_DIR"):
+    if not reader.WCECOLI_DOCKER and not reader.WCECOLI_DIR:
         monkeypatch.setenv("WCECOLI_DOCKER", "")
 
 
 def _needs_image():
-    import os
-    if not (os.environ.get("WCECOLI_DOCKER") or os.environ.get("WCECOLI_DIR")):
+    if not (reader.WCECOLI_DOCKER or reader.WCECOLI_DIR):
         pytest.skip("no model image configured")
 
 

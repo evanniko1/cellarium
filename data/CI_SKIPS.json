@@ -1,0 +1,19 @@
+{
+ "why": "CI has no model image (WCECOLI_DOCKER) and no local runs/ tree, so every test file listed here gates itself off on every CI run. A green CI is therefore SILENT about them \u2014 it cannot distinguish 'passed' from 'never executed'. Two of the last five review failures lived in exactly this blind spot, and neither was reachable by adding another CI job, because the job would skip too. This ledger makes the blind spot countable: it may grow, but not by accident.",
+ "generated_by": "scripts/check_env_guards.py (gated_files) + tests/test_env_guards.py",
+ "counts_both_spellings": "os.environ['WCECOLI_*'] AND reader/runner.WCECOLI_*. Fixing a guard to read the module constant removes a divergence but changes nothing about what CI runs, so a census built from divergences alone would shrink exactly when the guards were made correct.",
+ "how_to_update": "python scripts/check_env_guards.py --list, then edit this file deliberately.",
+ "the_check_ci_cannot_run": "the full suite with WCECOLI_DOCKER set and runs/ populated. Run it locally before a release. scripts/check_like_ci.py is the OPPOSITE check \u2014 it removes local advantages \u2014 and does not substitute for it.",
+ "n_files_gated_on_the_model_environment": 9,
+ "files_gated_on_the_model_environment": [
+  "tests/test_arm2_columns.py",
+  "tests/test_capability.py",
+  "tests/test_deg_rate_cv.py",
+  "tests/test_deg_rate_provenance.py",
+  "tests/test_deg_rate_resolve.py",
+  "tests/test_factors.py",
+  "tests/test_operon_mode.py",
+  "tests/test_parca_rebuild.py",
+  "tests/test_provenance_baseline.py"
+ ]
+}
