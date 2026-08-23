@@ -2126,6 +2126,38 @@ were live defects, one was a false accusation against a correct corpus, and none
     server started from that config has EVERY simOut-reading tool failing with `No module named 'wholecell'`.
     The variable is documented in `docs/DOCKER_SETUP.md` and in `apps/server.py`'s own header, and absent from
     the one config that launches the app.
+  - 📐 **THE CONSUMER DESIGN, 2026-08-11 — and it splits the item in two, because most of the value does not
+    need the arm at all.** The probe's failure was a PROTEIN COPY NUMBER (*"rpmJ protein sits at ~50 copies in
+    the KO vs ~70 in wildtype"*) produced by `mechanistic_scope`/`top_movers`, reaching the reader unmarked
+    because the prose used no degradation vocabulary and the claim-path check keys on vocabulary. Asking "what
+    reads the flag" exposes that two different consumers were being conflated.
+    - **TIER 1 — mark the NUMBER at the read boundary. Free, no arm, and it closes the probe's failure.**
+      When a tool returns a value for a unit in the frozen not-a-fit set, its payload carries the provenance
+      in the same breath as the number — the pattern `reconcile.envelope()` already uses for non-corpus tools
+      (*"an iML1515 FBA prediction, not a simulation of this corpus"*). Concretely: `mechanistic_scope`,
+      `top_movers`, `read_species` and `differential` gain a `parameter_provenance` block naming any unit in
+      the answer whose degradation rate is a floor, a ceiling or the population mean. **This needs only
+      `data/parca/deg_rate_baseline.json` — the 854 ids are already frozen and committed — so it is a dict
+      lookup, no model image, no rebuild, no arm.** It also fixes the failure at its actual cause: the check
+      fires on PROSE, and prose is the wrong place to catch a number that was already unmarked when it arrived.
+    - **TIER 2 — the field inside `sim_data`. This is what the arm buys, and it is worth stating narrowly.**
+      Tier 1 serves every consumer that goes through Cellarium's tools. The field serves the ones that cannot:
+      (a) **wcEcoli's own processes and listeners**, which read `sim_data` directly and never see our payloads;
+      (b) **a third party using the knowledge base** without this repo — the HF corpus consumer, an MCP client,
+      anyone with the pickle. Tier 1 cannot reach either.
+    - 🎯 **The Tier-2 consumer that makes the arm pay, and it is the one worth building:** a **runtime
+      provenance listener**. With `deg_rate_is_fit` on `rna_data`, a listener can record, per timestep, what
+      share of expressed mRNA mass rests on a rate that is not a fit — so a RUN reports *"12.1% of my
+      transcription is on placeholder rates"* as a first-class output channel, next to growth and ppGpp. That
+      is a number no post-hoc analysis can reconstruct, because it is weighted by the expression the
+      simulation actually had at that moment, not by the basal vector. It also turns the corpus-level 12.087%
+      into a per-run, per-condition measurement — which is exactly the "11.165%–15.491% across 67 conditions"
+      spread the Stage-1 work could only report statically.
+    - **DECISION SHAPE, so this does not get spent twice:** ship Tier 1 first and re-run the incidental probe
+      against it. If the probe's failure rate goes to 0, the arm's justification narrows to the two
+      out-of-repo consumers plus the listener — still real, but it should then be scheduled on the listener's
+      value, not on the probe's. If Tier 1 does NOT close it, that is a stronger case for the field than the
+      probe alone made.
   *(original entry follows)*
   Three independent lines now converge on the same conclusion, and none of them is "try a better estimator":
   the STRUCTURE (209 units in no equation, 783 whose right-hand side is entirely the imputation constant),
