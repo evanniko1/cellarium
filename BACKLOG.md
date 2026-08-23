@@ -1595,6 +1595,27 @@ are what the journal version needs.
     are assumed (8 rounds, ~900 tokens each) from 40–55 s wall clock. **Record `usage` in the eval harness
     before spending the credits** — it is a one-line change and it replaces this whole calculation with a
     measurement, which is also what makes a cost claim reportable in the paper.
+  - ✅ **STAGE 0 DONE 2026-08-23, and it was one parameter, not a subsystem.** `agent.converse` has taken an
+    `on_usage` callback since the observability work; `agent.run` did not accept it, and every eval runner
+    calls `run`. Wired through; both arms now write the per-turn aggregate into the per-question record.
+    6 static tests, no key needed. Cache reads are the reason a bare total was not enough — billed at a
+    tenth, and this workload is exactly the cached-prefix kind.
+  - ✅ **THE GENERATOR IS BUILT (`scripts/gen_limits_questions.py`) and it corrected the plan's headline
+    number.** Ground truth is computed with the SAME expression `registry_arm` scores with, so generator and
+    scorer cannot drift. Census: **27 cells = 17 refuse / 10 answer** — not the 12/15 estimated earlier,
+    which used `holds_in` alone and forgot the `mode in MODES_IN_CORPUS` clause the scorer actually applies.
+    - ⚠️ **And 9 of those 27 are easy for the wrong reason.** The whole `coarse_kinetic` column refuses
+      because that mode has no runs, not because the simulator cannot represent the quantity. Folding them
+      into the headline inflates n with trivial refusals. **The headline is 18 cells, 10 answer / 8 refuse —
+      near-balanced, every refusal about representation.** The 9 ship as a labelled `no_corpus_mode` stratum,
+      reported separately.
+    - 🐛 **A defect caught by READING the first generated batch rather than trusting it:** the mode was not
+      in the question text, so one sentence appeared three times carrying refuse / answer / refuse. Those
+      items are unanswerable by construction and would have depressed every arm equally — noise that looks
+      like a finding. Fixed by injecting a mode clause for the two non-default models; `test_limits_generator`
+      asserts no `ask` ever carries two answer keys.
+    - **Strata:** `representational` (capability absent entirely, 4 cells) · `resolution` (present but not in
+      this elongation model, 4) · `supported` (10) · `no_corpus_mode` (9, reported apart).
   - 🧩 **THE REAL BLOCKER IS GROUND TRUTH, NOT MONEY.** The nine questions were hand-built, each with a
     `required` verdict (`refuse` / `answer`) the capability registry can score without a model — that is
     why the registry arm gets 9/9 and why the whole test is scorable at all. Auto-generating 200 questions

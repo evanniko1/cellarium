@@ -1,0 +1,272 @@
+{
+ "generated_by": "scripts/gen_limits_questions.py",
+ "framings": [
+  "direct"
+ ],
+ "census": {
+  "n_items": 27,
+  "n_cells": 27,
+  "framings_per_cell": 1,
+  "by_stratum": {
+   "resolution": 4,
+   "supported": 10,
+   "no_corpus_mode": 9,
+   "representational": 4
+  },
+  "by_required": {
+   "refuse": 17,
+   "answer": 10
+  },
+  "headline_items": 18,
+  "headline_by_required": {
+   "refuse": 8,
+   "answer": 10
+  },
+  "note": "`no_corpus_mode` items are refusals because that elongation model has no runs, not because the simulator cannot represent the quantity. Report them as a separate stratum; folding them into the headline inflates n with easy refusals."
+ },
+ "questions": [
+  {
+   "id": "per_isoacceptor_trna_charging__steady_state__direct",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "resolution",
+   "required": "refuse",
+   "ask": "Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? (Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)"
+  },
+  {
+   "id": "per_isoacceptor_trna_charging__kinetic__direct",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? (Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)"
+  },
+  {
+   "id": "per_isoacceptor_trna_charging__coarse_kinetic__direct",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? (Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)"
+  },
+  {
+   "id": "codon_level_elongation__steady_state__direct",
+   "capability": "codon_level_elongation",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "resolution",
+   "required": "refuse",
+   "ask": "Which CODON is a ribosome waiting on, and does codon identity change elongation rate?"
+  },
+  {
+   "id": "codon_level_elongation__kinetic__direct",
+   "capability": "codon_level_elongation",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Which CODON is a ribosome waiting on, and does codon identity change elongation rate?"
+  },
+  {
+   "id": "codon_level_elongation__coarse_kinetic__direct",
+   "capability": "codon_level_elongation",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: Which CODON is a ribosome waiting on, and does codon identity change elongation rate?"
+  },
+  {
+   "id": "operon_specific_rrna_knockout__steady_state__direct",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "representational",
+   "required": "refuse",
+   "ask": "What happens when a SPECIFIC rRNA operon is deleted?"
+  },
+  {
+   "id": "operon_specific_rrna_knockout__kinetic__direct",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "representational",
+   "required": "refuse",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): What happens when a SPECIFIC rRNA operon is deleted?"
+  },
+  {
+   "id": "operon_specific_rrna_knockout__coarse_kinetic__direct",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: What happens when a SPECIFIC rRNA operon is deleted?"
+  },
+  {
+   "id": "per_gene_trna_abundance__steady_state__direct",
+   "capability": "per_gene_trna_abundance",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "representational",
+   "required": "refuse",
+   "ask": "How abundant is the tRNA transcribed from one specific tRNA GENE?"
+  },
+  {
+   "id": "per_gene_trna_abundance__kinetic__direct",
+   "capability": "per_gene_trna_abundance",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "representational",
+   "required": "refuse",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): How abundant is the tRNA transcribed from one specific tRNA GENE?"
+  },
+  {
+   "id": "per_gene_trna_abundance__coarse_kinetic__direct",
+   "capability": "per_gene_trna_abundance",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: How abundant is the tRNA transcribed from one specific tRNA GENE?"
+  },
+  {
+   "id": "knockout_of_a_multi_transcription_unit_gene__steady_state__direct",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? (murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)"
+  },
+  {
+   "id": "knockout_of_a_multi_transcription_unit_gene__kinetic__direct",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? (murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)"
+  },
+  {
+   "id": "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? (murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)"
+  },
+  {
+   "id": "per_amino_acid_trna_charging__steady_state__direct",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?"
+  },
+  {
+   "id": "per_amino_acid_trna_charging__kinetic__direct",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?"
+  },
+  {
+   "id": "per_amino_acid_trna_charging__coarse_kinetic__direct",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?"
+  },
+  {
+   "id": "ppgpp_stringent_response__steady_state__direct",
+   "capability": "ppgpp_stringent_response",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Does ppGpp rise on amino-acid starvation and does that regulate growth?"
+  },
+  {
+   "id": "ppgpp_stringent_response__kinetic__direct",
+   "capability": "ppgpp_stringent_response",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "resolution",
+   "required": "refuse",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Does ppGpp rise on amino-acid starvation and does that regulate growth?"
+  },
+  {
+   "id": "ppgpp_stringent_response__coarse_kinetic__direct",
+   "capability": "ppgpp_stringent_response",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: Does ppGpp rise on amino-acid starvation and does that regulate growth?"
+  },
+  {
+   "id": "amino_acid_uptake_from_the_medium__steady_state__direct",
+   "capability": "amino_acid_uptake_from_the_medium",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Does the cell TAKE UP an amino acid supplied by the medium \u2014 e.g. is a starvation rescue arm actually rescued?"
+  },
+  {
+   "id": "amino_acid_uptake_from_the_medium__kinetic__direct",
+   "capability": "amino_acid_uptake_from_the_medium",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "resolution",
+   "required": "refuse",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Does the cell TAKE UP an amino acid supplied by the medium \u2014 e.g. is a starvation rescue arm actually rescued?"
+  },
+  {
+   "id": "amino_acid_uptake_from_the_medium__coarse_kinetic__direct",
+   "capability": "amino_acid_uptake_from_the_medium",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: Does the cell TAKE UP an amino acid supplied by the medium \u2014 e.g. is a starvation rescue arm actually rescued?"
+  },
+  {
+   "id": "nutrient_shift_timelines__steady_state__direct",
+   "capability": "nutrient_shift_timelines",
+   "mode": "steady_state",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "How does the cell respond to a media shift at a chosen time?"
+  },
+  {
+   "id": "nutrient_shift_timelines__kinetic__direct",
+   "capability": "nutrient_shift_timelines",
+   "mode": "kinetic",
+   "framing": "direct",
+   "kind": "supported",
+   "required": "answer",
+   "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): How does the cell respond to a media shift at a chosen time?"
+  },
+  {
+   "id": "nutrient_shift_timelines__coarse_kinetic__direct",
+   "capability": "nutrient_shift_timelines",
+   "mode": "coarse_kinetic",
+   "framing": "direct",
+   "kind": "no_corpus_mode",
+   "required": "refuse",
+   "ask": "Under the coarse-grained kinetic elongation model: How does the cell respond to a media shift at a chosen time?"
+  }
+ ]
+}
