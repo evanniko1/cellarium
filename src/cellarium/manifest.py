@@ -540,6 +540,36 @@ def _run_prov() -> dict:
     return dict(_RUN_PROV_CACHE)
 
 
+_EXECUTED_ABSENT = {"executed_image_digest": None, "executed_image_tag": None,
+                    "model_class": None, "model_git_hash": None, "executed_python": None}
+
+
+def _executed_prov(run_root) -> dict:
+    """The columns recovered from a run's own `executed.json`, or all-NULL when it has none.
+
+    ALL-NULL IS THE CORRECT ANSWER for every row written before 2026-08-24, and it must stay that way. Those
+    runs are not merely unrecorded — the information is DESTROYED: wcEcoli keeps one `metadata.json` per
+    sim_path and overwrites it each run, so `runs/cellarium/metadata/metadata.json` describes whichever of the
+    363 runs finished last (measured: it reports `elongation_model: None`, `git_hash: "--"`, Python 3.10.16,
+    against 3.11.3 for a run made today). Filling these from the current environment would assert that a July
+    run used today's image. Re-running is the only honest way to recover them, which is what the corpus
+    re-run campaign is for.
+    """
+    from . import runner
+    ex = runner.read_executed(run_root)
+    if not ex:
+        return dict(_EXECUTED_ABSENT)
+    e = ex.get("executed") or {}
+    return {"executed_image_digest": ex.get("image_digest"),
+            "executed_image_tag": ex.get("image_tag"),
+            "model_class": e.get("elongation_model"),
+            "model_git_hash": e.get("git_hash"),
+            # `"".split()` is [], so `[0]` raises IndexError — and this runs per row inside a re-index, where
+            # one absent field would take the whole campaign's manifest write down. Caught by the
+            # forward-compat test, which passes a record carrying only `elongation_model`.
+            "executed_python": next(iter((e.get("python") or "").split()), None)}
+
+
 def _runsim_argv() -> str | None:
     """The flags this row's run executed with, or None when the row was built without launching anything."""
     try:
@@ -716,6 +746,16 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            # `corpus_schema.MISSING_COLUMNS`, and none of them joins ARM_KEYS yet — see `arm_conflicts()` for
            # why a column that is NULL on every existing row cannot partition anything but CAN detect a split.
            **_run_prov(),
+           # EXECUTED provenance, read from the `executed.json` this run's own launch wrote beside it. Distinct
+           # from `_run_prov()` above in the one way that matters: `_run_prov` describes THIS PROCESS and is
+           # therefore NULL for anything indexed rather than launched, while this reads a file the run itself
+           # left behind — so a re-index months later still recovers the truth instead of inventing today's.
+           #
+           # `model_class` is the class name wcEcoli wrote for itself ("SteadyStateElongationModel"), NOT our
+           # `elongation_model` enum below. That distinction is the forward-compatibility: a translation model
+           # added upstream tomorrow lands here under its own name with nothing in this repo changing, whereas
+           # `elongation_model` records only what the CALLER declared and would keep saying `steady_state`.
+           **_executed_prov(run_root),
            "parca_ts": _kb.get("parca_ts"),
            "runsim_argv": _runsim_argv(),
            # WHICH ELONGATION MODEL produced this row, stored beside kb_sha256/operons and for the same

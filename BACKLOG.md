@@ -1712,6 +1712,69 @@ are what the journal version needs.
     `_resolve_run` finds the same 80 roots in the same 0.5 s. The first hypothesis was that `runner.py:189`
     branches on it and would change where runs resolve; measured, it does not.
 
+## 🎯 PROV-2 — the corpus does not record what ran it, and 3.5 months of runs were on the wrong model
+
+**MEASURED 2026-08-24, and it is the most consequential provenance gap found so far.** `WCECOLI_DOCKER`
+pointed at `wcecoli-sim:latest`, a tag created **2026-05-10** and never re-pointed. Against Cellarium's
+45-file overlay it matched **3**; `cellarium-wcm-code:latest` (rebuilt 2026-08-03) matches **43**. The stale
+image was MISSING `graded_gene_knockout.py` and `multi_gene_knockout.py` — variants that **24 corpus rows
+use**, so those runs are impossible on it.
+
+- **The mechanism is in our own docs.** `docs/DOCKER_SETUP.md:74` said
+  `docker tag "${USER}-wcm-code" wcecoli-sim`. `docker tag` is a SNAPSHOT POINTER: rebuilding the source does
+  not move it, and nothing told anyone to re-tag. Fixed — the doc now names the build directly, and `.env` /
+  `.env.example` point at `cellarium-wcm-code:latest`.
+- **Nothing could have caught it**, which is the real finding. No shard carries an `image_digest` column at
+  all (0 of 1 shards). `provenance.py:82` had already written the gap down — *"kb_sha256 pins the PARAMETERS.
+  Nothing pinned the CODE."*
+- 📊 **It changed measurements.** The listener comparison re-run on the correct model moved the wildtype mean
+  from 12.718% to 13.048% and flipped the sign of the (null) total effect. The n=3 result on the wrong image
+  is superseded, not extended.
+
+### ✅ What now ships on every new run (`runner._capture_executed` -> `executed.json`)
+
+`design.json` records what was ASKED; **`executed.json` records what RAN**, written inside the model-dir lock
+immediately after the sim. Columns: `executed_image_digest`, `executed_image_tag`, `model_class`,
+`model_git_hash`, `executed_python`.
+
+- **`model_class` is the class name wcEcoli writes for ITSELF** (`SteadyStateElongationModel`), not our
+  `elongation_model` enum. **That is the forward-compatibility the corpus needs:** a translation model added
+  upstream tomorrow lands under its own name with nothing in this repo changing, whereas `elongation_model`
+  records only what the CALLER declared and would keep saying `steady_state` forever.
+- **Captured INSIDE the lock, and that is load-bearing.** wcEcoli keeps ONE `metadata.json` per sim_path and
+  overwrites it every run — measured: after five seeds the file reports `seed: 1`, whichever finished last.
+  Outside the lock a concurrent worker would already have replaced it.
+
+### ⛔ The 363 existing rows CANNOT be back-filled — the information is destroyed, not merely unrecorded
+
+`runs/cellarium/metadata/metadata.json` is a single overwritten file describing whichever run finished last.
+It reports `elongation_model: None`, `git_hash: "--"`, Python **3.10.16** — against **3.11.3** for a run made
+today, which is itself more evidence of an older image. `_executed_prov` therefore returns all-NULL for those
+rows and must: filling them from today's environment would assert a July run used today's image, the exact
+fabrication `_run_prov`'s guard already refuses.
+
+### 📋 CORPUS-REBUILD-1 — the progressive re-run campaign (proposed 2026-08-24, NOT started)
+
+Re-running is the only honest route, and it doubles as the corpus clean-up. Sequenced so the corpus is never
+half-migrated in a way a reader cannot detect:
+
+1. **Audit before running anything.** 363 rows -> which are load-bearing? 188 are analysis-reportable; 127 of
+   the lethality rows are non-reportable. Redundant seeds, crashed rows kept only as crash evidence, and the
+   26 rows with a collaborator's absolute paths (CORPUS-PATH-1) are all candidates to retire rather than
+   re-run. **Decide the target corpus first; re-running everything would re-import the redundancy.**
+2. **Package by ARM, not by date.** Each package is one `(kb_sha256, operons, elongation_model)` group so a
+   partially migrated corpus still has complete comparable sets. The 44 rows on `5f19d040` and 40 on
+   `0d861f80` are small enough to be the pilot packages.
+3. **Re-run, verify `executed.json` is present and non-NULL, then publish to HF, then retire the old row** —
+   in that order, so a failure never leaves the corpus without either version.
+4. **Tombstone rather than delete**, with the reason `superseded_by=<new id>`, so a published dataset version
+   that referenced the old row still resolves.
+5. **A migration column** (`provenance_generation`) so a reader can tell a re-run row from an original at a
+   glance instead of inferring it from NULLs.
+- ⚠️ **Cost, honestly:** ~10 min per generation per run on this machine. 363 rows at their recorded depths is
+  days of wall-clock, not hours. That is the argument for step 1 doing real work — the right number to re-run
+  is probably well under 363.
+
 ## The failure baseline is ZERO, 2026-08-08
 
 Cleared so that PARCA-4 — which changes the fitting procedure and will move numbers across the corpus — has a
@@ -2213,7 +2276,27 @@ were live defects, one was a false accusation against a correct corpus, and none
         Floor-dependence falls, imputed-dependence rises by more than twice as much. The cell does not just
         shift HOW MUCH it rests on placeholder parameters, it shifts WHICH KIND. A single scalar computed
         from one expression vector cannot show that at all.
-      - 🔁 **3 SEEDS PER ARM, 2026-08-24 — AND THE HEADLINE ABOVE DID NOT SURVIVE. Recorded rather than
+      - ✅ **5 SEEDS PER ARM ON CELLARIUM'S OWN MODEL, 2026-08-24 — the composition result is now
+        significant, and the total is confirmed null.** Re-run on `cellarium-wcm-code:latest` after the image
+        defect below; the earlier 3-seed pair ran on a model that was not Cellarium's and is SUPERSEDED, not
+        extended. index_ok=1 and 854/854 in all ten runs.
+
+        | quantity | wildtype (n=5) | ppGpp 2.0x (n=5) | delta | one-tailed p |
+        |---|---|---|---|---|
+        | frac_not_a_fit | 13.048 +/- 0.589 | 12.797 +/- 0.335 | -0.251 | 0.782 — **no effect** |
+        | peak | 14.203 +/- 0.675 | 14.070 +/- 0.425 | -0.132 | 0.631 — no effect |
+        | **on_floor** | 4.810 +/- 0.436 | 3.967 +/- 0.274 | **-0.842** | **0.0079** |
+        | **imputed** | 8.218 +/- 0.233 | 8.805 +/- 0.214 | **+0.587** | **0.0040** (disjoint) |
+
+        - Exact permutation over C(10,5)=252 arrangements; smallest attainable one-tailed p = 0.0040. So
+          **`on_floor` at 0.0079 is a real p-value, not the floor**, and `imputed` sits at the floor with
+          disjoint ranges. Both survive on the correct model.
+        - **The total's direction FLIPPED SIGN** between the wrong-image 3-seed run (+0.616) and this one
+          (-0.251), which is what a null effect looks like when you sample it twice. The absolute level moved
+          too (wildtype mean 12.718% -> 13.048%) — the model difference showing up in the measurement.
+        - **The claim to make: the total exposure is stable under stress; WHICH placeholder class the cell
+          leans on is not.** Floor-dependence falls, imputed-dependence rises. A static scalar cannot show it.
+      - ⚠️ *(superseded — ran on the wrong image)* **3 SEEDS PER ARM, 2026-08-24 — AND THE HEADLINE ABOVE DID NOT SURVIVE. Recorded rather than
         quietly edited.** The n=1 reading said the TOTAL rises under stringent response (12.326 -> 12.942).
         With three seeds that difference is **+0.067 points against a seed spread of +/-0.394, exact
         one-tailed p = 0.450** — and two wildtype seeds land ABOVE the ppGpp mean. **It was seed noise.**

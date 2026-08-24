@@ -71,7 +71,11 @@ the model, so the first build is slow, ~15–30 min:
 export USER=${USER:-$USERNAME}             # Git Bash on Windows leaves $USER EMPTY -- see below
 cloud/build-containers-locally.sh          # builds ${USER}-wcm-runtime, then ${USER}-wcm-code
 docker image inspect "${USER}-wcm-code" >/dev/null && echo "image OK"
-docker tag "${USER}-wcm-code" wcecoli-sim   # the name the rest of this guide uses
+# DO NOT re-tag as a stable alias. `docker tag` is a SNAPSHOT POINTER — rebuilding ${USER}-wcm-code
+# does NOT move an alias you made earlier. On this machine `wcecoli-sim:latest` was tagged 2026-05-10
+# and never re-pointed; by 2026-08-24 it matched the overlay on 3 of 45 files while the real build
+# matched 43, and it lacked two Cellarium variants that 24 corpus rows use. Name the BUILD:
+echo "WCECOLI_DOCKER=${USER}-wcm-code:latest" >> .env   # the image the rest of this guide uses
 ```
 
 > **Why `export USER`.** Both build scripts tag their images `${USER}-wcm-runtime` / `${USER}-wcm-code`. In Git

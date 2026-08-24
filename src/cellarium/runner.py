@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import glob
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -174,6 +175,86 @@ def _write_provenance(run_root: Path, design: Design) -> None:
     """Persist the true Design next to its simOut so reads recover it regardless of the opaque variant dir."""
     if run_root.exists():
         (run_root / "design.json").write_text(design.model_dump_json(indent=2), encoding="utf-8")
+
+
+# `design.json` records what was ASKED. `executed.json` records what RAN, and the two are not the same claim.
+_EXECUTED_FILE = "executed.json"
+
+# Fields lifted verbatim from the model's own metadata.json. Copied rather than interpreted: `elongation_model`
+# there is a CLASS NAME the model itself wrote ("SteadyStateElongationModel"), so a translation model added
+# upstream tomorrow appears here without a line changing — which is exactly what an enum of our own would fail
+# to do. The flags beside it are how that class was configured.
+_EXECUTED_FROM_METADATA = (
+    "elongation_model", "kinetic_trna_charging", "coarse_kinetic_elongation", "explicit_trna_charging",
+    "trna_charging", "trna_attenuation", "ppgpp_regulation", "mechanistic_aa_transport",
+    "variable_elongation_translation", "variable_elongation_transcription",
+    "git_hash", "git_branch", "python", "variant", "seed", "timeline", "generations",
+)
+
+
+def _capture_executed(run_root: Path, sim_path: str) -> dict:
+    """Write `executed.json` beside the run: which image, which model class, which model commit.
+
+    WHY THIS IS CAPTURED AT LAUNCH AND CANNOT BE RECOVERED LATER. wcEcoli writes ONE `metadata.json` per
+    sim_path and OVERWRITES it on every run. Measured 2026-08-24: after five seeds into one sim_path the file
+    records `seed: 1` — whichever finished last. So the executed configuration is readable for exactly as long
+    as it takes the next run to start, and for the 363 rows already in the corpus it is simply gone. That is
+    the whole reason those rows cannot be back-filled and have to be re-run.
+
+    WHAT THIS FIXES, concretely. On 2026-08-24 `WCECOLI_DOCKER` was found pointing at `wcecoli-sim:latest`, a
+    tag made on 2026-05-10 and never re-pointed, which matched Cellarium's overlay on 3 of 45 files and was
+    missing two variants that 24 corpus rows use. Every simulation launched from that machine ran a
+    3.5-month-old model, and NOTHING COULD HAVE REPORTED IT, because no row recorded an image. `provenance.py`
+    already said the gap out loud — "kb_sha256 pins the PARAMETERS. Nothing pinned the CODE."
+
+    Never raises: the simulation finishing is the valuable part, and a provenance write that kills a completed
+    run would be a worse bug than the one it documents. A partial record says which fields it could not read
+    rather than omitting them silently.
+    """
+    rec: dict = {"captured_at": time.time(), "sim_path": sim_path, "missing": []}
+    try:
+        from . import provenance
+        rec["image_tag"] = WCECOLI_DOCKER or None
+        rec["image_digest"] = provenance.image_digest()
+        m = provenance.model_provenance()
+        rec["model_sha256"] = m.get("model_sha256")
+        rec["model_upstream_commit"] = m.get("model_upstream_commit")
+    except Exception as exc:
+        rec["missing"].append(f"image/model provenance: {type(exc).__name__}")
+    try:
+        meta = _out_root(sim_path).parent / sim_path / "metadata" / "metadata.json"
+        if not meta.is_file():
+            meta = Path("runs") / sim_path / "metadata" / "metadata.json"
+        if meta.is_file():
+            doc = json.loads(meta.read_text(encoding="utf-8"))
+            rec["executed"] = {k: doc.get(k) for k in _EXECUTED_FROM_METADATA if k in doc}
+            absent = [k for k in _EXECUTED_FROM_METADATA if k not in doc]
+            if absent:
+                rec["missing"].append("metadata.json lacks: " + ",".join(absent))
+        else:
+            rec["missing"].append(f"no metadata.json at {meta}")
+    except Exception as exc:
+        rec["missing"].append(f"metadata.json: {type(exc).__name__}")
+    try:
+        if run_root.exists():
+            (run_root / _EXECUTED_FILE).write_text(json.dumps(rec, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+    return rec
+
+
+def read_executed(run_root) -> dict:
+    """The `executed.json` beside a run, or `{}` when the run predates this record.
+
+    An empty dict is the honest answer for the 363 rows written before 2026-08-24 and must never be filled in
+    with today's values — that would assert a July run used today's image, which is the exact fabrication the
+    `_run_prov` guard already refuses to make.
+    """
+    try:
+        p = Path(run_root) / _EXECUTED_FILE
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+    except Exception:
+        return {}
 
 
 def _out_root(sim_path: str) -> Path:
@@ -504,6 +585,10 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
                    "--generations", str(generations), *_variant_args(design)])
         finally:
             _set_exec_env(None)
+        # IMMEDIATELY after the run and INSIDE the lock, because the model keeps ONE metadata.json per sim_path
+        # and overwrites it on the next run. Outside the lock a concurrent worker's run would already have
+        # replaced it, and this would record that run's configuration against this run's output.
+        _capture_executed(run_root, sim_path)
         # Move the model's output into the CANONICAL dir, mirroring what multi_gene_knockout already does.
         if model_dir != run_root and model_dir.exists():
             for child in list(model_dir.iterdir()):
