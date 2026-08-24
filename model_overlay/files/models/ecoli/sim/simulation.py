@@ -42,6 +42,10 @@ from models.ecoli.listeners.complexation_listener import ComplexationListener
 from models.ecoli.listeners.equilibrium_listener import EquilibriumListener
 from models.ecoli.listeners.dna_supercoiling import DnaSupercoiling
 from models.ecoli.listeners.rna_maturation_listener import RnaMaturationListener
+# Cellarium addition. Reports, per timestep, what share of the mRNA this cell actually holds is transcribed
+# from a unit whose degradation rate ParCa never fitted. Reads a mounted index rather than a field in
+# sim_data, so it moves no comparability key -- see the listener's own docstring.
+from models.ecoli.listeners.parameter_provenance import ParameterProvenance
 
 from models.ecoli.sim.initial_conditions import calcInitialConditions
 from wholecell.sim.divide_cell import divide_cell
@@ -115,6 +119,10 @@ class EcoliSimulation(Simulation):
 		EquilibriumListener,
 		DnaSupercoiling,
 		RnaMaturationListener,
+		# LAST on purpose: it reads the same unique-molecule container RNACounts reads, computes its own
+		# bincount rather than depending on that listener's state, and writes a table nothing else consumes.
+		# Ordering it last keeps it unable to affect any existing column.
+		ParameterProvenance,
 		)
 
 	_hookClasses = ()

@@ -2168,9 +2168,37 @@ were live defects, one was a false accusation against a correct corpus, and none
     image rather than producing an inadmissible result quietly.
   - **Two independent routes now agree the arm buys nothing:** this probe, and the in-container listener
     probe (854/854 ids matched, 12.087% reproduced from `sim_data` + a mounted file, no `sim_data` change).
-  - 📌 **What stays open, and it is not the arm.** The runtime provenance listener remains worth building on
-    its own research merit — the per-timestep, count-weighted share is a number no post-hoc analysis can
-    reconstruct — and it needs no arm. Track it as its own item, not as PARCA-6.
+  - ✅ **THE LISTENER IS BUILT, 2026-08-24 — `PROV-1`, and it needed no arm exactly as the probe predicted.**
+    `model_overlay/files/models/ecoli/listeners/parameter_provenance.py` reports, per timestep,
+    `frac_counts_not_a_fit` (plus `on_floor` / `on_ceiling` / `imputed` separately) weighted by the mRNA the
+    cell ACTUALLY HOLDS, not by the basal expression vector. That is the number no post-hoc analysis can
+    reconstruct: the weights exist only while the simulation runs, and they move most in exactly the regime
+    that matters — a stringent response redistributes transcription away from ribosomal operons, and the two
+    heaviest not-a-fit units in this knowledge base ARE ribosomal protein operons.
+    - **It reads the mounted index, not `sim_data`.** No `reconstruction/` edit, so ParCa emits the same
+      bytes, `kb_sha256` does not move, and all 363 existing rows still pool. Registered LAST in
+      `_listenerClasses` and recomputing its own bincount from the unique-molecule container rather than
+      depending on `RNACounts` state, so it cannot affect an existing column or depend on listener order.
+    - **Fail loud.** A missing index, or an index that joins only PARTIALLY, sets `index_ok=0` and leaves
+      every fraction NaN. A partial join is refused outright because reporting the matched fraction would
+      understate the exposure by exactly the units that did not match. `0.0%` would read as "nothing rests on
+      a placeholder", which is the falsehood this listener exists to prevent.
+    - **Manifest: `+1 create`, and `simulation.py` now carries a `cellarium_patch` block.** Without that
+      block the next `build_model_overlay.py` re-harvests the file and the registration vanishes with a clean
+      exit — the exact failure `carry_patches` was written for, and the EXT-PORT-13 listener gate is the
+      precedent.
+    - 🐛 **A real bug the offline tests caught:** an empty RNA collection gives a float64 index array and
+      `np.bincount` refuses to cast it, so `update()` raised — and a listener that raises takes the whole
+      generation with it. Now returns early with NaN, which is also the correct semantics (0/0 is undefined,
+      not 0%).
+    - ⛔ **NOT RUN END-TO-END, and the blocker is not mine to clear.** `apply_model_overlay.py --check`
+      reports **9 pre-existing problems** in the wcEcoli checkout — 8 STALE files (including
+      `models/ecoli/sim/simulation.py` itself) and 1 CONFLICT — i.e. that tree has hand edits that predate
+      this work. Applying the overlay would overwrite them, and this repo does not write to the
+      collaborator's checkout. So what is verified is the listener's ARITHMETIC, its index join, its
+      partial-join refusal and its registration (11 tests, offline, against fakes shaped like the real
+      objects); what is NOT verified is a real generation running with it registered. Stated rather than
+      papered over with a mock that asserts itself.
   *(the original OPEN entry follows, kept because the reasoning that justified the arm is the reasoning the
   probe overturned)*
 - 🎯 **PARCA-6 — carry the `unknown` class INTO `sim_data`. OPEN; the free prerequisite is DONE and it

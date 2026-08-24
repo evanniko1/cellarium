@@ -1,486 +1,502 @@
 {
-  "schema": 1,
-  "upstream_repo": "https://github.com/CovertLab/wcEcoli",
-  "upstream_commit": "a4497e17",
-  "hash": "sha256 over CRLF-normalised (LF) bytes",
-  "generated_by": "scripts/build_model_overlay.py",
-  "licence": "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab academic non-commercial licence. The `cellarium` and `script-written` categories are Cellarium's own work; where they MODIFY a wcEcoli file they are derivative of it and inherit the same non-commercial terms.",
-  "counts": {
-    "ship": 44,
-    "blocked": 0,
-    "ship_bytes": 6090304
+ "schema": 1,
+ "upstream_repo": "https://github.com/CovertLab/wcEcoli",
+ "upstream_commit": "a4497e17",
+ "hash": "sha256 over CRLF-normalised (LF) bytes",
+ "generated_by": "scripts/build_model_overlay.py",
+ "licence": "The `port` category derives from CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) under its non-commercial LICENSE.md, redistributed with Prof. Covert's permission. wcEcoli itself is under the Covert Lab academic non-commercial licence. The `cellarium` and `script-written` categories are Cellarium's own work; where they MODIFY a wcEcoli file they are derivative of it and inherit the same non-commercial terms.",
+ "counts": {
+  "ship": 44,
+  "blocked": 0,
+  "ship_bytes": 6090304
+ },
+ "files": [
+  {
+   "path": "reconstruction/ecoli/dataclasses/relation.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "533f57b6f092f772781d32ddec4fa69af0c6d2bff02df7b112607ce8c2fd1e04",
+   "upstream_bytes": 5013,
+   "status": "ship",
+   "overlay_sha256": "5aadd5280f2d6e283699912ac746fc3154594c499dacc048ec2d380f60d0678e",
+   "overlay_bytes": 79812
   },
-  "files": [
-    {
-      "path": "reconstruction/ecoli/dataclasses/relation.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "533f57b6f092f772781d32ddec4fa69af0c6d2bff02df7b112607ce8c2fd1e04",
-      "upstream_bytes": 5013,
-      "status": "ship",
-      "overlay_sha256": "5aadd5280f2d6e283699912ac746fc3154594c499dacc048ec2d380f60d0678e",
-      "overlay_bytes": 79812
-    },
-    {
-      "path": "reconstruction/ecoli/dataclasses/molecule_groups.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "745133e8376eb6e6d15bd04465a67c54dfcbdba69acbbb2924b94a3aa34b1fa1",
-      "upstream_bytes": 6798,
-      "status": "ship",
-      "overlay_sha256": "376ae8610d5ea4484246c6fd5968d6a59b66da093f9da39cb250b419085a1fb3",
-      "overlay_bytes": 7640
-    },
-    {
-      "path": "reconstruction/ecoli/dataclasses/molecule_ids.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "23d9ef85df8be268980f65fdc7398aca40e42fd2a132e158f55e842fb07894f8",
-      "upstream_bytes": 860,
-      "status": "ship",
-      "overlay_sha256": "e17a38f6faaee56c1af6264461ab00fc995060ebc2f8a5b569942c66fad6f3a0",
-      "overlay_bytes": 887
-    },
-    {
-      "path": "reconstruction/ecoli/dataclasses/process/translation.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "2b20bd3f62c3d4854f2e92901e8ced92977922e8ea6695c010da58640f5e7bec",
-      "upstream_bytes": 17094,
-      "status": "ship",
-      "overlay_sha256": "5120ba4b487990f6c39f971e0c6eee7df6353181fe19e6a61a52e90f8979aa2d",
-      "overlay_bytes": 17860
-    },
-    {
-      "path": "reconstruction/ecoli/simulation_data.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "ae045bca6ed131c2cfad23a4a8e1b68da418ab6fe744a2413b513adf53545ebb",
-      "upstream_bytes": 15420,
-      "status": "ship",
-      "overlay_sha256": "f824da1fbfcb07c95f94a1852945bb9fb2a2ed1a45dc68f41c9bf5a28e95778c",
-      "overlay_bytes": 15919
-    },
-    {
-      "path": "reconstruction/ecoli/knowledge_base_raw.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "cb1c647c6059f38ed74d73ef08570a51d9deca4e2fadb8048c961d1fa29ab4a3",
-      "upstream_bytes": 23691,
-      "status": "ship",
-      "overlay_sha256": "0953c1802a06d662407f86a783419d1536f6620cffc940de74045c506c10059f",
-      "overlay_bytes": 24472
-    },
-    {
-      "path": "reconstruction/ecoli/fit_sim_data_1.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "0fbd56e0df50bc653292b6d93a7b28e440c29289e8863a9bb5a5762d01cfc76c",
-      "upstream_bytes": 148171,
-      "status": "ship",
-      "overlay_sha256": "da17718fad41644fd03ff9eb7551e2c6c0d73b95c159554abcc96e28af46e7e1",
-      "overlay_bytes": 160770
-    },
-    {
-      "path": "reconstruction/ecoli/flat/rnas.tsv",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "1c175822e773c34afd5167236e031f3afd83dc5477c633869b88cbdf840bae3b",
-      "upstream_bytes": 483189,
-      "status": "ship",
-      "overlay_sha256": "181b1f01e67886ae877dfa6656eb5082cba00a1af15f9dd789a6cb07c765256d",
-      "overlay_bytes": 484276
-    },
-    {
-      "path": "wholecell/fireworks/firetasks/parca.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "7ec3a43e648f8b38fc97dc02f00d9ddbf0c75ad5635cb4ea41edd901683a5f91",
-      "upstream_bytes": 3066,
-      "status": "ship",
-      "overlay_sha256": "dccd77ee83e05107e65d880e8531c2f0070c9dcbca8ff10743e75f1fa8ae4920",
-      "overlay_bytes": 3925
-    },
-    {
-      "path": "wholecell/fireworks/firetasks/fitSimData.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "955eab349884d245ff6cc262b31696bf7d0b8e7585f8cfd5c55f3d01bc8a1ce9",
-      "upstream_bytes": 2614,
-      "status": "ship",
-      "overlay_sha256": "3253a41d1ac95fb21d7c5b78f8eda3c1e6618f4597bcc9c769f4441a5323f38b",
-      "overlay_bytes": 3356
-    },
-    {
-      "path": "wholecell/fireworks/firetasks/simulation.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "dc0bf7208a313c8b85c16d6e2cc8d25e070159615a53c3d917779c605df15468",
-      "upstream_bytes": 3785,
-      "source": "model_overlay/cleaned",
-      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
-      "status": "ship",
-      "overlay_sha256": "1a41cbc0b314d1a885ac26fea031273b32ba81acaf91bf6926b4fd5e4153cf7f",
-      "overlay_bytes": 4545
-    },
-    {
-      "path": "wholecell/fireworks/firetasks/simulationDaughter.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "092bc776a563f9658444060ed8862b7c5555f4c7b00ddc0681a7ca02938359e5",
-      "upstream_bytes": 3907,
-      "source": "model_overlay/cleaned",
-      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
-      "status": "ship",
-      "overlay_sha256": "2d567ebec3d4297b1735a258336511437353cb4bd220f39319e45397a939ac41",
-      "overlay_bytes": 4667
-    },
-    {
-      "path": "wholecell/sim/simulation.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "97b68913a80e682a389b3b035e606c5335a4697c82194d5403a98064ea50b458",
-      "upstream_bytes": 15460,
-      "source": "model_overlay/cleaned",
-      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
-      "status": "ship",
-      "overlay_sha256": "c67bec7b442a37cf5e74b62db7abffa48d3ab8dca3c216bd5106cc09d031617d",
-      "overlay_bytes": 22101
-    },
-    {
-      "path": "wholecell/utils/scriptBase.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "218fa3d91e5b46e77a2e7d0ea16b31a500aa5c4d23e55fe2bc24d55c4d279094",
-      "upstream_bytes": 27101,
-      "source": "model_overlay/cleaned",
-      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
-      "status": "ship",
-      "overlay_sha256": "8b8b02a09f28cb4acb0d2facb39cfba5588bdb37b2bbc2528e053e8875e73361",
-      "overlay_bytes": 30659
-    },
-    {
-      "path": "models/ecoli/sim/simulation.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "f3d79ae8c04403bfaf7c35373c2027288693b6c48d2eea604f60540febe8d8f4",
-      "upstream_bytes": 4639,
-      "status": "ship",
-      "overlay_sha256": "d204d8d16cd62e4312e98a1e6e1316a8c5192fa6edc18fa368e84007ac33b4f7",
-      "overlay_bytes": 4717
-    },
-    {
-      "path": "models/ecoli/processes/polypeptide_elongation.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "fb62fc222936b14ca2e210094684efaf56016d59095662adb7b84d0f4014f33c",
-      "upstream_bytes": 55144,
-      "source": "model_overlay/cleaned",
-      "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
-      "status": "ship",
-      "overlay_sha256": "9c44acdb034c5b9985d64c979a429da6ce66619bac82073e91e8ae09229142ac",
-      "overlay_bytes": 127441
-    },
-    {
-      "path": "models/ecoli/processes/metabolism.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "8a0909ac558d510a3bd983a11dade284e0ce4e3dad761c64154583dea9e0f5db",
-      "upstream_bytes": 25905,
-      "status": "ship",
-      "overlay_sha256": "bd61e7f5f0e25cef2b8ec86088f8022ab4e2133d749cecb2e8c9a88252d74c0b",
-      "overlay_bytes": 28828
-    },
-    {
-      "path": "models/ecoli/listeners/growth_limits.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "012700a81eadf9bd1cb2b3c1d98eb378fd50c1e9f7afe638aaaa601c25f53c83",
-      "upstream_bytes": 6038,
-      "status": "ship",
-      "overlay_sha256": "dae799979e50945781ea0593056a76698a1abaf1f7c1ea3e2a9be428aa4e8acb",
-      "overlay_bytes": 9315
-    },
-    {
-      "path": "models/ecoli/sim/initial_conditions.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "8d5a3b0dc2ada332de8fbc6303a8180a2b21d1a1c7e690d9ee7ad71a3a95578d",
-      "upstream_bytes": 6486,
-      "status": "ship",
-      "overlay_sha256": "73f57d39c8e915d94aaffe8f47470444db73533b833afd1cf2fee48056f45089",
-      "overlay_bytes": 7949
-    },
-    {
-      "path": "setup.py",
-      "category": "port",
-      "action": "modify",
-      "upstream_sha256": "0a8c67accbb61375b1b45bef3b0e4a9c26b1974ced18621f2ed0206de7b76a22",
-      "upstream_bytes": 1139,
-      "note": "Registers _trna_charging.pyx with cythonize, so `make compile` and any image build produce the extension.",
-      "status": "ship",
-      "overlay_sha256": "4c8c59406844161755d96f298e65bb4facf60e81e07e55e519ec625e82f0cbf7",
-      "overlay_bytes": 1353
-    },
-    {
-      "path": "models/ecoli/listeners/trna_charging.py",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "f27881b4a13494b89f069f89218f8de7df96a09347e692f779061cee934b9a32",
-      "overlay_bytes": 8496,
-      "cellarium_patch": {
-        "why": "EXT-PORT-13. This listener is registered unconditionally (models/ecoli/sim/simulation.py _listenerClasses) and read sim_data.relation.codons in initialize(), so a STEADY-STATE run -- which writes none of the columns those attributes size -- could not start against a pre-port sim_data. Measured: both fork-era multi_gene_knockout baselines died in 6 s with AttributeError on kb_sha256 3b2f8ebd..., the kb behind 279 of the corpus's 322 rows. The read is now gated on the _kinetic_path flag the listener already computes 8 lines above it: REQUIRED (and still raising) on the kinetic path, optional on the steady-state path.",
-        "harvested_sha256": "07fa9ed1e3292481b041737710afe1b04a97ea4b47ad36e908e1f7645edcebb6",
-        "harvested_bytes": 7165,
-        "verified_by": "tests/test_trna_listener_gate.py"
-      }
-    },
-    {
-      "path": "wholecell/utils/_trna_charging.pyx",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "note": "Cython source only. The built .so is Linux-specific and is compiled INSIDE the model image by setup.py; it is deliberately not shipped.",
-      "status": "ship",
-      "overlay_sha256": "a0bb317d616947676a027dc1157cd36599d33e9d06bc62c6b9d257f9a01426fb",
-      "overlay_bytes": 18576
-    },
-    {
-      "path": "reconstruction/ecoli/flat/trna_charging_kinetics.tsv",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "2cdd97a295f20af7b06fd7e6ef089c7b32caf1e5900ad970ff5dca171bd972e0",
-      "overlay_bytes": 10535
-    },
-    {
-      "path": "reconstruction/ecoli/flat/trna_charging_kinetics_curated.tsv",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "82ad041d0ca28d1b03565dc42e505c24a8c040d8ca0d51e5e78a36d31ad74acc",
-      "overlay_bytes": 499
-    },
-    {
-      "path": "reconstruction/ecoli/flat/optimization/trna_charging_kinetics_constants.tsv",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "44be927ac48c1a58f2b13b94998998746ed5117ed1951d896b82e20c93af6eef",
-      "overlay_bytes": 11803
-    },
-    {
-      "path": "reconstruction/ecoli/flat/optimization/trna_charging_kinetics_solutions.tsv",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "note": "4.7 MB, ~80% of the whole overlay. It is a tRNA-charging OPTIMISER OUTPUT, not a hand-authored input; scripts/verify_trna_objective.py reproduces its rows. Kept in-tree so a clone reproduces the corpus without a refit, but it is the obvious candidate for out-of-band hosting if repo size becomes a problem.",
-      "status": "ship",
-      "overlay_sha256": "b357525078018a8ad5a283d6a0b5214cddedc69dbf411b0242f097299717cdb5",
-      "overlay_bytes": 4938625
-    },
-    {
-      "path": "reconstruction/ecoli/flat/optimization/trna_synthetase_dynamic_range.tsv",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "8ab69939474085f186af524fe5d6aa5b7bfec57630f9f0c79ab288d34d1519fb",
-      "overlay_bytes": 3944
-    },
-    {
-      "path": "validation/ecoli/flat/trna_synthetase_kinetics.tsv",
-      "category": "port",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "cd64fc2c72a8d38af47d76a694108befdeb489e9697c570e9f3c6e2a2d9b574a",
-      "overlay_bytes": 10712
-    },
-    {
-      "path": "models/ecoli/sim/variants/graded_gene_knockout.py",
-      "category": "script-written",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "1e6dc3876463b4b85b17c1442d8be1f41eb05d7529044f70a4600a95955db9ca",
-      "overlay_bytes": 10187
-    },
-    {
-      "path": "models/ecoli/sim/variants/__init__.py",
-      "category": "script-written",
-      "action": "modify",
-      "upstream_sha256": "9c56d6fb8e82af96f81ee41cbd3b3974e9799d0f8581279afc385c9134d0b757",
-      "upstream_bytes": 1112,
-      "note": "Rewritten, not copied \u2014 see gate 3. Registers upstream's variants plus graded_gene_knockout, multi_gene_knockout.",
-      "status": "ship",
-      "overlay_sha256": "a6c6d87349ba5ffc3affec0f53099f9387b63bcbe2b17a95b079252e5401a192",
-      "overlay_bytes": 1575
-    },
-    {
-      "path": "reconstruction/ecoli/flat/condition/media_recipes.tsv",
-      "category": "script-written",
-      "action": "modify",
-      "upstream_sha256": "d49b9872946a0f7462e068d359337c41720dafb3ea8f5110567cf4c7feca5d67",
-      "upstream_bytes": 1685,
-      "status": "ship",
-      "overlay_sha256": "bb890103cb42743de6641d07dd202cee519ceaf2eba82e5e0dd50c7d1f1ee526",
-      "overlay_bytes": 2116
-    },
-    {
-      "path": "reconstruction/ecoli/flat/condition/condition_defs.tsv",
-      "category": "script-written",
-      "action": "modify",
-      "upstream_sha256": "d28d181e2e7674101b47ccfaca21d7e119571ab902f9370723e671656e7f8844",
-      "upstream_bytes": 885,
-      "note": "Row order IS the condition index space (models/ecoli/sim/variants/condition.py reads sim_data.ordered_conditions). Rebuilt here rather than copied \u2014 see gate 2.",
-      "status": "ship",
-      "overlay_sha256": "1ce0b0f0379a37af7da02e17c4862975e7d368bd1dd0d389ed4b3eedffdf7b2c",
-      "overlay_bytes": 1876
-    },
-    {
-      "path": "models/ecoli/sim/variants/multi_gene_knockout.py",
-      "category": "cellarium",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "note": "Cellarium-authored. Index-0-only variant that zeroes several gene_knockout indexes at once via sim_data.adjust_final_expression. The gene set arrives as the ko_indices kwarg, NOT as the variant index \u2014 so it needs the variant_kwargs channel (runSim.py -> variantSimData.py -> apply_variant.py) to be shipped with it or it is unreachable. NOTE the semantics: adjust_final_expression indexes rna_data, whose rows are TRANSCRIPTION UNITS, so a k-target multi-KO can silence more than k genes \u2014 see docs/KNOCKOUT_SEMANTICS.md.",
-      "status": "ship",
-      "overlay_sha256": "385ec5c373d1f40334558454d35e4efb7649f75ed48626a0922043b53955ac48",
-      "overlay_bytes": 2169
-    },
-    {
-      "path": "cloud/docker/runtime/Dockerfile",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "c88cf1b580ee3d9b71bc70349aac24e297da20e56266cff91aa6b7e5cfedccde",
-      "upstream_bytes": 3462,
-      "source": "model_overlay/authored",
-      "note": "AUTHORED (model_overlay/authored/), not harvested \u2014 the change exists in no tree. Upstream's own cloud/build-containers-locally.sh FAILS on a clean a4497e17, for two independent reasons and before any Cellarium code is reached. (1) requirements.txt:79 pins Equation==1.2.1, an sdist-only package whose setup.py downloads setuptools from a pypi.python.org path that now returns HTML -> BadZipFile; it is imported by wholecell/utils/enzymeKinetics.py:10 so it cannot be dropped. (2) requirements.txt:98 pins stochastic-arrow==1.0.0, whose setup.py imports numpy with no build-requires, so PEP 517 build isolation hides the numpy installed one line earlier. Four added pip lines install both with --no-build-isolation (Equation against a temporarily pinned setuptools<66, restored immediately) BEFORE the requirements pass, so every other requirement installs exactly as upstream intended. Nothing else in the file differs from upstream.",
-      "status": "ship",
-      "overlay_sha256": "c3ffc6a04a4ec10707599fabcdf0fae29b89f67c60b5671e5692d3de66a5f6e7",
-      "overlay_bytes": 5840
-    },
-    {
-      "path": "runscripts/manual/runSim.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "b871aa3a515f0044145984259d56850e64b62269fbf5a3c735cefea91ab710e1",
-      "upstream_bytes": 6430,
-      "note": "Two independent reasons, either of which alone would require shipping it. (1) It defines --multi-ko-indices and multi_ko_variant_kwargs(), which is where the multi-KO gene set is validated and turned into variant_kwargs. (2) It is the SECOND call site of resolve_elongation_flags \u2014 the one that writes the RESOLVED elongation flags into metadata.json. Without it a --kinetic-trna-charging run simulates correctly and records \"trna_charging\": true, and every corpus row inherits that. It also wraps the per-variant loop in try/except so one failing variant does not abandon the rest of a sweep. 0 ROUTE1 markers, so it harvests directly with no cleaning.",
-      "status": "ship",
-      "overlay_sha256": "fd431ec8f8661f8a60dbeeadce908db576807ab3384634206fa959e52794a411",
-      "overlay_bytes": 10477
-    },
-    {
-      "path": "wholecell/fireworks/firetasks/variantSimData.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "752f36620cbf5d30b705812177b4260193ea186ddec6f8e83b9a80beeda82217",
-      "upstream_bytes": 1175,
-      "note": "Adds variant_kwargs to optional_params and passes it to apply_variant. Fireworks raises on any kwarg not listed in required_params/optional_params, so without this the multi-KO run does not silently ignore the gene set \u2014 it dies at variant creation.",
-      "status": "ship",
-      "overlay_sha256": "8f4e0baf010674834980a32e8a917d755a26ee0fa79dd065668bfa5281787e5e",
-      "overlay_bytes": 1251
-    },
-    {
-      "path": "models/ecoli/sim/variants/apply_variant.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "b9d0393924ffced06ec4a0f943a588ee120f652c741ff45f9f8008cd83ec5797",
-      "upstream_bytes": 1041,
-      "note": "Adds the variant_kwargs parameter and splats it into the variant function. This is the last link of the multi-KO channel; upstream's signature takes (sim_data, index) only.",
-      "status": "ship",
-      "overlay_sha256": "55c4ce8b7907f1f4a37346a806f985cfb0e2f75edf6c0ff8c78621bc91cb7d5e",
-      "overlay_bytes": 1091
-    },
-    {
-      "path": "models/ecoli/sim/variants/rrna_operon_knockout.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "82726858fad2d8b0ada3c3cd3ef566336773530e04f1d16bb637e1deebc6cefb",
-      "upstream_bytes": 3040,
-      "note": "Two positional lookups, both wrong against a 21-row condition table: ordered_conditions[1] for the rich-media condition (now the named 'with_aa') and sorted(saved_timelines)[28] for the minimal-to-rich shift (now the named '000028_add_aa_long', which also RAISES rather than shifting silently if the timeline set changes). Cellarium runs this variant (envelope.VALIDATED_PERTURBATIONS), so the fix is on the live path.",
-      "status": "ship",
-      "overlay_sha256": "a9ea4eb06240562a97f5712a9ed8e00e7f83f6d2ef80b1d5a72bc0cf6b09bba0",
-      "overlay_bytes": 3437
-    },
-    {
-      "path": "models/ecoli/sim/variants/ppgpp_conc.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "09dbc031e98e0598527e5ac4bde6fc21c5160eaf2109f62828ad91e4a07f4ce4",
-      "upstream_bytes": 2363,
-      "note": "CONDITIONS was [0, 2] \u2014 POSITIONAL row numbers into condition_defs.tsv, meaning basal/with_aa in upstream's 5-row table. This overlay ships 21 rows (gate 2), where row 2 is glc_5mM, so upstream's literal silently runs the wrong condition and the run still succeeds. Rewritten to CONDITIONS = ['basal', 'with_aa'] resolved through sim_data.ordered_conditions.",
-      "status": "ship",
-      "overlay_sha256": "50b73e3d35bcf948a81ae686bdd56100a10b33aaa66baf5f9ece57bac339b43c",
-      "overlay_bytes": 2513
-    },
-    {
-      "path": "models/ecoli/sim/variants/aa_synthesis_ko.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "4cbd639d4e1a4e2ecdcca71394ce11b512e1a261fda0f9b32497acc996f1c981",
-      "upstream_bytes": 1893,
-      "note": "Same defect as ppgpp_conc: `condition(sim_data, 2)` meant with_aa in a 5-row table and means glc_5mM in ours. Rewritten to look 'with_aa' up by name. (Its OTHER known defect \u2014 cistron indices passed into a TU-indexed adjust_final_expression, docs/KNOCKOUT_SEMANTICS.md \u2014 is NOT fixed here; Cellarium does not use this variant.)",
-      "status": "ship",
-      "overlay_sha256": "1e8e93a80976c59ddc5a1df9a25a093c13c5c114b426be29b52402630b9a90f3",
-      "overlay_bytes": 2037
-    },
-    {
-      "path": "models/ecoli/sim/variants/tf_activity.py",
-      "category": "cellarium",
-      "action": "modify",
-      "upstream_sha256": "11eda954b855b7a524726394c39b3d29d483d1cdcf0f8ad8565187d8e1f47e06",
-      "upstream_bytes": 1980,
-      "note": "Fixes an upstream AttributeError: it wrote through sim_data.external_state.environment.current_timeline_id, and external_state has no `environment` attribute. Cellarium runs this variant (envelope.VALIDATED_PERTURBATIONS).",
-      "status": "ship",
-      "overlay_sha256": "7ef7f80b7b765e08b7c0505f34ffd4380fd5d34eb73839c6e75fc44bb7746db4",
-      "overlay_bytes": 1919
-    },
-    {
-      "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-20mM.tsv",
-      "category": "dependency",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "1fe605ed77a9265f6d890230b80f9ea6b3918e904d0d9de64b5ea9fc4903c5b2",
-      "overlay_bytes": 489
-    },
-    {
-      "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-5mM.tsv",
-      "category": "dependency",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "3082a59291aeaf0e677b4f5e57519d48f9d8ff6a3d1ff3882a73a984a3a6ea82",
-      "overlay_bytes": 488
-    },
-    {
-      "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-2mM.tsv",
-      "category": "dependency",
-      "action": "create",
-      "upstream_sha256": null,
-      "upstream_bytes": null,
-      "status": "ship",
-      "overlay_sha256": "404969c8d0e63ba15d213f103ae8e2cb75a020968793efb536c8c7255d4065c5",
-      "overlay_bytes": 488
-    }
-  ]
+  {
+   "path": "reconstruction/ecoli/dataclasses/molecule_groups.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "745133e8376eb6e6d15bd04465a67c54dfcbdba69acbbb2924b94a3aa34b1fa1",
+   "upstream_bytes": 6798,
+   "status": "ship",
+   "overlay_sha256": "376ae8610d5ea4484246c6fd5968d6a59b66da093f9da39cb250b419085a1fb3",
+   "overlay_bytes": 7640
+  },
+  {
+   "path": "reconstruction/ecoli/dataclasses/molecule_ids.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "23d9ef85df8be268980f65fdc7398aca40e42fd2a132e158f55e842fb07894f8",
+   "upstream_bytes": 860,
+   "status": "ship",
+   "overlay_sha256": "e17a38f6faaee56c1af6264461ab00fc995060ebc2f8a5b569942c66fad6f3a0",
+   "overlay_bytes": 887
+  },
+  {
+   "path": "reconstruction/ecoli/dataclasses/process/translation.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "2b20bd3f62c3d4854f2e92901e8ced92977922e8ea6695c010da58640f5e7bec",
+   "upstream_bytes": 17094,
+   "status": "ship",
+   "overlay_sha256": "5120ba4b487990f6c39f971e0c6eee7df6353181fe19e6a61a52e90f8979aa2d",
+   "overlay_bytes": 17860
+  },
+  {
+   "path": "reconstruction/ecoli/simulation_data.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "ae045bca6ed131c2cfad23a4a8e1b68da418ab6fe744a2413b513adf53545ebb",
+   "upstream_bytes": 15420,
+   "status": "ship",
+   "overlay_sha256": "f824da1fbfcb07c95f94a1852945bb9fb2a2ed1a45dc68f41c9bf5a28e95778c",
+   "overlay_bytes": 15919
+  },
+  {
+   "path": "reconstruction/ecoli/knowledge_base_raw.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "cb1c647c6059f38ed74d73ef08570a51d9deca4e2fadb8048c961d1fa29ab4a3",
+   "upstream_bytes": 23691,
+   "status": "ship",
+   "overlay_sha256": "0953c1802a06d662407f86a783419d1536f6620cffc940de74045c506c10059f",
+   "overlay_bytes": 24472
+  },
+  {
+   "path": "reconstruction/ecoli/fit_sim_data_1.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "0fbd56e0df50bc653292b6d93a7b28e440c29289e8863a9bb5a5762d01cfc76c",
+   "upstream_bytes": 148171,
+   "status": "ship",
+   "overlay_sha256": "da17718fad41644fd03ff9eb7551e2c6c0d73b95c159554abcc96e28af46e7e1",
+   "overlay_bytes": 160770
+  },
+  {
+   "path": "reconstruction/ecoli/flat/rnas.tsv",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "1c175822e773c34afd5167236e031f3afd83dc5477c633869b88cbdf840bae3b",
+   "upstream_bytes": 483189,
+   "status": "ship",
+   "overlay_sha256": "181b1f01e67886ae877dfa6656eb5082cba00a1af15f9dd789a6cb07c765256d",
+   "overlay_bytes": 484276
+  },
+  {
+   "path": "wholecell/fireworks/firetasks/parca.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "7ec3a43e648f8b38fc97dc02f00d9ddbf0c75ad5635cb4ea41edd901683a5f91",
+   "upstream_bytes": 3066,
+   "status": "ship",
+   "overlay_sha256": "dccd77ee83e05107e65d880e8531c2f0070c9dcbca8ff10743e75f1fa8ae4920",
+   "overlay_bytes": 3925
+  },
+  {
+   "path": "wholecell/fireworks/firetasks/fitSimData.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "955eab349884d245ff6cc262b31696bf7d0b8e7585f8cfd5c55f3d01bc8a1ce9",
+   "upstream_bytes": 2614,
+   "status": "ship",
+   "overlay_sha256": "3253a41d1ac95fb21d7c5b78f8eda3c1e6618f4597bcc9c769f4441a5323f38b",
+   "overlay_bytes": 3356
+  },
+  {
+   "path": "wholecell/fireworks/firetasks/simulation.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "dc0bf7208a313c8b85c16d6e2cc8d25e070159615a53c3d917779c605df15468",
+   "upstream_bytes": 3785,
+   "source": "model_overlay/cleaned",
+   "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+   "status": "ship",
+   "overlay_sha256": "1a41cbc0b314d1a885ac26fea031273b32ba81acaf91bf6926b4fd5e4153cf7f",
+   "overlay_bytes": 4545
+  },
+  {
+   "path": "wholecell/fireworks/firetasks/simulationDaughter.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "092bc776a563f9658444060ed8862b7c5555f4c7b00ddc0681a7ca02938359e5",
+   "upstream_bytes": 3907,
+   "source": "model_overlay/cleaned",
+   "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+   "status": "ship",
+   "overlay_sha256": "2d567ebec3d4297b1735a258336511437353cb4bd220f39319e45397a939ac41",
+   "overlay_bytes": 4667
+  },
+  {
+   "path": "wholecell/sim/simulation.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "97b68913a80e682a389b3b035e606c5335a4697c82194d5403a98064ea50b458",
+   "upstream_bytes": 15460,
+   "source": "model_overlay/cleaned",
+   "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+   "status": "ship",
+   "overlay_sha256": "c67bec7b442a37cf5e74b62db7abffa48d3ab8dca3c216bd5106cc09d031617d",
+   "overlay_bytes": 22101
+  },
+  {
+   "path": "wholecell/utils/scriptBase.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "218fa3d91e5b46e77a2e7d0ea16b31a500aa5c4d23e55fe2bc24d55c4d279094",
+   "upstream_bytes": 27101,
+   "source": "model_overlay/cleaned",
+   "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+   "status": "ship",
+   "overlay_sha256": "8b8b02a09f28cb4acb0d2facb39cfba5588bdb37b2bbc2528e053e8875e73361",
+   "overlay_bytes": 30659
+  },
+  {
+   "path": "models/ecoli/sim/simulation.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "f3d79ae8c04403bfaf7c35373c2027288693b6c48d2eea604f60540febe8d8f4",
+   "upstream_bytes": 4639,
+   "status": "ship",
+   "overlay_sha256": "a4b7484025af24ea4182d52c64a474845bf18992a7ba3dfb26d8c7c866c77d68",
+   "overlay_bytes": 5378,
+   "cellarium_patch": {
+    "why": "PARCA-6 successor. Registers the ParameterProvenance listener, which reports per timestep what share of the mRNA the cell actually holds is transcribed from a unit whose degradation rate ParCa never fitted. Registered LAST so it cannot affect any existing column, and it reads the same unique-molecule container RNACounts reads rather than that listener's state, so it does not depend on listener ordering. Deliberately NOT a field in sim_data: that would change what ParCa emits, move kb_sha256, and stop all 363 existing rows pooling with anything produced afterwards \u2014 measured, the classification joins to rna_data['id'] exactly (854/854), so it travels as data instead.",
+    "harvested_sha256": "d204d8d16cd62e4312e98a1e6e1316a8c5192fa6edc18fa368e84007ac33b4f7",
+    "harvested_bytes": 4717,
+    "verified_by": "tests/test_parameter_provenance_listener.py"
+   }
+  },
+  {
+   "path": "models/ecoli/processes/polypeptide_elongation.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "fb62fc222936b14ca2e210094684efaf56016d59095662adb7b84d0f4014f33c",
+   "upstream_bytes": 55144,
+   "source": "model_overlay/cleaned",
+   "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
+   "status": "ship",
+   "overlay_sha256": "9c44acdb034c5b9985d64c979a429da6ce66619bac82073e91e8ae09229142ac",
+   "overlay_bytes": 127441
+  },
+  {
+   "path": "models/ecoli/processes/metabolism.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "8a0909ac558d510a3bd983a11dade284e0ce4e3dad761c64154583dea9e0f5db",
+   "upstream_bytes": 25905,
+   "status": "ship",
+   "overlay_sha256": "bd61e7f5f0e25cef2b8ec86088f8022ab4e2133d749cecb2e8c9a88252d74c0b",
+   "overlay_bytes": 28828
+  },
+  {
+   "path": "models/ecoli/listeners/growth_limits.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "012700a81eadf9bd1cb2b3c1d98eb378fd50c1e9f7afe638aaaa601c25f53c83",
+   "upstream_bytes": 6038,
+   "status": "ship",
+   "overlay_sha256": "dae799979e50945781ea0593056a76698a1abaf1f7c1ea3e2a9be428aa4e8acb",
+   "overlay_bytes": 9315
+  },
+  {
+   "path": "models/ecoli/sim/initial_conditions.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "8d5a3b0dc2ada332de8fbc6303a8180a2b21d1a1c7e690d9ee7ad71a3a95578d",
+   "upstream_bytes": 6486,
+   "status": "ship",
+   "overlay_sha256": "73f57d39c8e915d94aaffe8f47470444db73533b833afd1cf2fee48056f45089",
+   "overlay_bytes": 7949
+  },
+  {
+   "path": "setup.py",
+   "category": "port",
+   "action": "modify",
+   "upstream_sha256": "0a8c67accbb61375b1b45bef3b0e4a9c26b1974ced18621f2ed0206de7b76a22",
+   "upstream_bytes": 1139,
+   "note": "Registers _trna_charging.pyx with cythonize, so `make compile` and any image build produce the extension.",
+   "status": "ship",
+   "overlay_sha256": "4c8c59406844161755d96f298e65bb4facf60e81e07e55e519ec625e82f0cbf7",
+   "overlay_bytes": 1353
+  },
+  {
+   "path": "models/ecoli/listeners/trna_charging.py",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "f27881b4a13494b89f069f89218f8de7df96a09347e692f779061cee934b9a32",
+   "overlay_bytes": 8496,
+   "cellarium_patch": {
+    "why": "EXT-PORT-13. This listener is registered unconditionally (models/ecoli/sim/simulation.py _listenerClasses) and read sim_data.relation.codons in initialize(), so a STEADY-STATE run -- which writes none of the columns those attributes size -- could not start against a pre-port sim_data. Measured: both fork-era multi_gene_knockout baselines died in 6 s with AttributeError on kb_sha256 3b2f8ebd..., the kb behind 279 of the corpus's 322 rows. The read is now gated on the _kinetic_path flag the listener already computes 8 lines above it: REQUIRED (and still raising) on the kinetic path, optional on the steady-state path.",
+    "harvested_sha256": "07fa9ed1e3292481b041737710afe1b04a97ea4b47ad36e908e1f7645edcebb6",
+    "harvested_bytes": 7165,
+    "verified_by": "tests/test_trna_listener_gate.py"
+   }
+  },
+  {
+   "path": "wholecell/utils/_trna_charging.pyx",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "note": "Cython source only. The built .so is Linux-specific and is compiled INSIDE the model image by setup.py; it is deliberately not shipped.",
+   "status": "ship",
+   "overlay_sha256": "a0bb317d616947676a027dc1157cd36599d33e9d06bc62c6b9d257f9a01426fb",
+   "overlay_bytes": 18576
+  },
+  {
+   "path": "reconstruction/ecoli/flat/trna_charging_kinetics.tsv",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "2cdd97a295f20af7b06fd7e6ef089c7b32caf1e5900ad970ff5dca171bd972e0",
+   "overlay_bytes": 10535
+  },
+  {
+   "path": "reconstruction/ecoli/flat/trna_charging_kinetics_curated.tsv",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "82ad041d0ca28d1b03565dc42e505c24a8c040d8ca0d51e5e78a36d31ad74acc",
+   "overlay_bytes": 499
+  },
+  {
+   "path": "reconstruction/ecoli/flat/optimization/trna_charging_kinetics_constants.tsv",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "44be927ac48c1a58f2b13b94998998746ed5117ed1951d896b82e20c93af6eef",
+   "overlay_bytes": 11803
+  },
+  {
+   "path": "reconstruction/ecoli/flat/optimization/trna_charging_kinetics_solutions.tsv",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "note": "4.7 MB, ~80% of the whole overlay. It is a tRNA-charging OPTIMISER OUTPUT, not a hand-authored input; scripts/verify_trna_objective.py reproduces its rows. Kept in-tree so a clone reproduces the corpus without a refit, but it is the obvious candidate for out-of-band hosting if repo size becomes a problem.",
+   "status": "ship",
+   "overlay_sha256": "b357525078018a8ad5a283d6a0b5214cddedc69dbf411b0242f097299717cdb5",
+   "overlay_bytes": 4938625
+  },
+  {
+   "path": "reconstruction/ecoli/flat/optimization/trna_synthetase_dynamic_range.tsv",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "8ab69939474085f186af524fe5d6aa5b7bfec57630f9f0c79ab288d34d1519fb",
+   "overlay_bytes": 3944
+  },
+  {
+   "path": "validation/ecoli/flat/trna_synthetase_kinetics.tsv",
+   "category": "port",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "cd64fc2c72a8d38af47d76a694108befdeb489e9697c570e9f3c6e2a2d9b574a",
+   "overlay_bytes": 10712
+  },
+  {
+   "path": "models/ecoli/sim/variants/graded_gene_knockout.py",
+   "category": "script-written",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "1e6dc3876463b4b85b17c1442d8be1f41eb05d7529044f70a4600a95955db9ca",
+   "overlay_bytes": 10187
+  },
+  {
+   "path": "models/ecoli/sim/variants/__init__.py",
+   "category": "script-written",
+   "action": "modify",
+   "upstream_sha256": "9c56d6fb8e82af96f81ee41cbd3b3974e9799d0f8581279afc385c9134d0b757",
+   "upstream_bytes": 1112,
+   "note": "Rewritten, not copied \u2014 see gate 3. Registers upstream's variants plus graded_gene_knockout, multi_gene_knockout.",
+   "status": "ship",
+   "overlay_sha256": "a6c6d87349ba5ffc3affec0f53099f9387b63bcbe2b17a95b079252e5401a192",
+   "overlay_bytes": 1575
+  },
+  {
+   "path": "reconstruction/ecoli/flat/condition/media_recipes.tsv",
+   "category": "script-written",
+   "action": "modify",
+   "upstream_sha256": "d49b9872946a0f7462e068d359337c41720dafb3ea8f5110567cf4c7feca5d67",
+   "upstream_bytes": 1685,
+   "status": "ship",
+   "overlay_sha256": "bb890103cb42743de6641d07dd202cee519ceaf2eba82e5e0dd50c7d1f1ee526",
+   "overlay_bytes": 2116
+  },
+  {
+   "path": "reconstruction/ecoli/flat/condition/condition_defs.tsv",
+   "category": "script-written",
+   "action": "modify",
+   "upstream_sha256": "d28d181e2e7674101b47ccfaca21d7e119571ab902f9370723e671656e7f8844",
+   "upstream_bytes": 885,
+   "note": "Row order IS the condition index space (models/ecoli/sim/variants/condition.py reads sim_data.ordered_conditions). Rebuilt here rather than copied \u2014 see gate 2.",
+   "status": "ship",
+   "overlay_sha256": "1ce0b0f0379a37af7da02e17c4862975e7d368bd1dd0d389ed4b3eedffdf7b2c",
+   "overlay_bytes": 1876
+  },
+  {
+   "path": "models/ecoli/sim/variants/multi_gene_knockout.py",
+   "category": "cellarium",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "note": "Cellarium-authored. Index-0-only variant that zeroes several gene_knockout indexes at once via sim_data.adjust_final_expression. The gene set arrives as the ko_indices kwarg, NOT as the variant index \u2014 so it needs the variant_kwargs channel (runSim.py -> variantSimData.py -> apply_variant.py) to be shipped with it or it is unreachable. NOTE the semantics: adjust_final_expression indexes rna_data, whose rows are TRANSCRIPTION UNITS, so a k-target multi-KO can silence more than k genes \u2014 see docs/KNOCKOUT_SEMANTICS.md.",
+   "status": "ship",
+   "overlay_sha256": "385ec5c373d1f40334558454d35e4efb7649f75ed48626a0922043b53955ac48",
+   "overlay_bytes": 2169
+  },
+  {
+   "path": "cloud/docker/runtime/Dockerfile",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "c88cf1b580ee3d9b71bc70349aac24e297da20e56266cff91aa6b7e5cfedccde",
+   "upstream_bytes": 3462,
+   "source": "model_overlay/authored",
+   "note": "AUTHORED (model_overlay/authored/), not harvested \u2014 the change exists in no tree. Upstream's own cloud/build-containers-locally.sh FAILS on a clean a4497e17, for two independent reasons and before any Cellarium code is reached. (1) requirements.txt:79 pins Equation==1.2.1, an sdist-only package whose setup.py downloads setuptools from a pypi.python.org path that now returns HTML -> BadZipFile; it is imported by wholecell/utils/enzymeKinetics.py:10 so it cannot be dropped. (2) requirements.txt:98 pins stochastic-arrow==1.0.0, whose setup.py imports numpy with no build-requires, so PEP 517 build isolation hides the numpy installed one line earlier. Four added pip lines install both with --no-build-isolation (Equation against a temporarily pinned setuptools<66, restored immediately) BEFORE the requirements pass, so every other requirement installs exactly as upstream intended. Nothing else in the file differs from upstream.",
+   "status": "ship",
+   "overlay_sha256": "c3ffc6a04a4ec10707599fabcdf0fae29b89f67c60b5671e5692d3de66a5f6e7",
+   "overlay_bytes": 5840
+  },
+  {
+   "path": "runscripts/manual/runSim.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "b871aa3a515f0044145984259d56850e64b62269fbf5a3c735cefea91ab710e1",
+   "upstream_bytes": 6430,
+   "note": "Two independent reasons, either of which alone would require shipping it. (1) It defines --multi-ko-indices and multi_ko_variant_kwargs(), which is where the multi-KO gene set is validated and turned into variant_kwargs. (2) It is the SECOND call site of resolve_elongation_flags \u2014 the one that writes the RESOLVED elongation flags into metadata.json. Without it a --kinetic-trna-charging run simulates correctly and records \"trna_charging\": true, and every corpus row inherits that. It also wraps the per-variant loop in try/except so one failing variant does not abandon the rest of a sweep. 0 ROUTE1 markers, so it harvests directly with no cleaning.",
+   "status": "ship",
+   "overlay_sha256": "fd431ec8f8661f8a60dbeeadce908db576807ab3384634206fa959e52794a411",
+   "overlay_bytes": 10477
+  },
+  {
+   "path": "wholecell/fireworks/firetasks/variantSimData.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "752f36620cbf5d30b705812177b4260193ea186ddec6f8e83b9a80beeda82217",
+   "upstream_bytes": 1175,
+   "note": "Adds variant_kwargs to optional_params and passes it to apply_variant. Fireworks raises on any kwarg not listed in required_params/optional_params, so without this the multi-KO run does not silently ignore the gene set \u2014 it dies at variant creation.",
+   "status": "ship",
+   "overlay_sha256": "8f4e0baf010674834980a32e8a917d755a26ee0fa79dd065668bfa5281787e5e",
+   "overlay_bytes": 1251
+  },
+  {
+   "path": "models/ecoli/sim/variants/apply_variant.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "b9d0393924ffced06ec4a0f943a588ee120f652c741ff45f9f8008cd83ec5797",
+   "upstream_bytes": 1041,
+   "note": "Adds the variant_kwargs parameter and splats it into the variant function. This is the last link of the multi-KO channel; upstream's signature takes (sim_data, index) only.",
+   "status": "ship",
+   "overlay_sha256": "55c4ce8b7907f1f4a37346a806f985cfb0e2f75edf6c0ff8c78621bc91cb7d5e",
+   "overlay_bytes": 1091
+  },
+  {
+   "path": "models/ecoli/sim/variants/rrna_operon_knockout.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "82726858fad2d8b0ada3c3cd3ef566336773530e04f1d16bb637e1deebc6cefb",
+   "upstream_bytes": 3040,
+   "note": "Two positional lookups, both wrong against a 21-row condition table: ordered_conditions[1] for the rich-media condition (now the named 'with_aa') and sorted(saved_timelines)[28] for the minimal-to-rich shift (now the named '000028_add_aa_long', which also RAISES rather than shifting silently if the timeline set changes). Cellarium runs this variant (envelope.VALIDATED_PERTURBATIONS), so the fix is on the live path.",
+   "status": "ship",
+   "overlay_sha256": "a9ea4eb06240562a97f5712a9ed8e00e7f83f6d2ef80b1d5a72bc0cf6b09bba0",
+   "overlay_bytes": 3437
+  },
+  {
+   "path": "models/ecoli/sim/variants/ppgpp_conc.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "09dbc031e98e0598527e5ac4bde6fc21c5160eaf2109f62828ad91e4a07f4ce4",
+   "upstream_bytes": 2363,
+   "note": "CONDITIONS was [0, 2] \u2014 POSITIONAL row numbers into condition_defs.tsv, meaning basal/with_aa in upstream's 5-row table. This overlay ships 21 rows (gate 2), where row 2 is glc_5mM, so upstream's literal silently runs the wrong condition and the run still succeeds. Rewritten to CONDITIONS = ['basal', 'with_aa'] resolved through sim_data.ordered_conditions.",
+   "status": "ship",
+   "overlay_sha256": "50b73e3d35bcf948a81ae686bdd56100a10b33aaa66baf5f9ece57bac339b43c",
+   "overlay_bytes": 2513
+  },
+  {
+   "path": "models/ecoli/sim/variants/aa_synthesis_ko.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "4cbd639d4e1a4e2ecdcca71394ce11b512e1a261fda0f9b32497acc996f1c981",
+   "upstream_bytes": 1893,
+   "note": "Same defect as ppgpp_conc: `condition(sim_data, 2)` meant with_aa in a 5-row table and means glc_5mM in ours. Rewritten to look 'with_aa' up by name. (Its OTHER known defect \u2014 cistron indices passed into a TU-indexed adjust_final_expression, docs/KNOCKOUT_SEMANTICS.md \u2014 is NOT fixed here; Cellarium does not use this variant.)",
+   "status": "ship",
+   "overlay_sha256": "1e8e93a80976c59ddc5a1df9a25a093c13c5c114b426be29b52402630b9a90f3",
+   "overlay_bytes": 2037
+  },
+  {
+   "path": "models/ecoli/sim/variants/tf_activity.py",
+   "category": "cellarium",
+   "action": "modify",
+   "upstream_sha256": "11eda954b855b7a524726394c39b3d29d483d1cdcf0f8ad8565187d8e1f47e06",
+   "upstream_bytes": 1980,
+   "note": "Fixes an upstream AttributeError: it wrote through sim_data.external_state.environment.current_timeline_id, and external_state has no `environment` attribute. Cellarium runs this variant (envelope.VALIDATED_PERTURBATIONS).",
+   "status": "ship",
+   "overlay_sha256": "7ef7f80b7b765e08b7c0505f34ffd4380fd5d34eb73839c6e75fc44bb7746db4",
+   "overlay_bytes": 1919
+  },
+  {
+   "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-20mM.tsv",
+   "category": "dependency",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "1fe605ed77a9265f6d890230b80f9ea6b3918e904d0d9de64b5ea9fc4903c5b2",
+   "overlay_bytes": 489
+  },
+  {
+   "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-5mM.tsv",
+   "category": "dependency",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "3082a59291aeaf0e677b4f5e57519d48f9d8ff6a3d1ff3882a73a984a3a6ea82",
+   "overlay_bytes": 488
+  },
+  {
+   "path": "reconstruction/ecoli/flat/condition/media/MIX0-57-GLC-2mM.tsv",
+   "category": "dependency",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "404969c8d0e63ba15d213f103ae8e2cb75a020968793efb536c8c7255d4065c5",
+   "overlay_bytes": 488
+  },
+  {
+   "path": "models/ecoli/listeners/parameter_provenance.py",
+   "category": "cellarium",
+   "action": "create",
+   "upstream_sha256": null,
+   "upstream_bytes": null,
+   "status": "ship",
+   "overlay_sha256": "dfdf8cc745e5416c96fa2f2455ebe04314f78a11deb8034340ba6fa94a67bd15",
+   "overlay_bytes": 8628
+  }
+ ]
 }

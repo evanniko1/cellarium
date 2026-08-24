@@ -11,17 +11,27 @@ scaling possible here is that the required verdict is not a judgement at all —
 So a (capability, mode) pair DETERMINES the answer key. The benchmark's real axis is therefore paraphrase —
 how many ways a question can be asked about one distinction — not question count.
 
-THE CELL CENSUS, AND WHY THE HEADLINE IS 18 AND NOT 27. Nine capabilities x three elongation models = 27
-cells, splitting 17 refuse / 10 answer. But the entire `coarse_kinetic` column (9 cells) is refuse for a
-reason that has nothing to do with representation: that mode is not in `MODES_IN_CORPUS`, so there is no run
-to read. Those are refusals by ABSENCE OF DATA, and they are easy — mixing them into the headline inflates n
-with items the registry gets right for a trivial reason. The 18 corpus-only cells split 10 answer / 8 refuse,
-near-balanced, and every refusal among them is about what the simulator can REPRESENT.
+ONE PLACE THE KEY DELIBERATELY DIVERGES FROM `registry_arm`, and the divergence is itself a finding. The
+registry answers "can the simulator REPRESENT this?". The benchmark asks "should the agent answer or
+decline?". For a quantity that IS represented in a mode the corpus HAS, but for which no run carries the
+needed perturbation, those give different answers — and the agent's is the right one. So `registry_arm` now
+scores 26/27 rather than 27/27 on the generated set, and that missing point is not a bug: it is the registry
+correctly reporting representational capability while the question also needed data coverage, which was never
+its job. Report it, do not paper over it.
+
+THE CELL CENSUS. Nine capabilities x three elongation models = 27 cells. Three strata are refusals about
+DATA rather than representation and are reported APART from the headline, because folding them in measures
+coverage while claiming to measure limits:
 
     stratum "representational"  the capability does not exist at all (present=False) -> refuse in every mode
     stratum "resolution"        it exists but not in this elongation model           -> refuse here, answer there
-    stratum "supported"         represented and the corpus is in this mode           -> answer
-    stratum "no_corpus_mode"    coarse_kinetic: nothing to read                      -> refuse, reported SEPARATELY
+    stratum "supported"         represented, mode in corpus, AND a run exists        -> answer
+    stratum "no_corpus_mode"    coarse_kinetic: that mode has no runs at all         -> refuse, reported apart
+    stratum "no_corpus_data"    represented and in-corpus, but no run carries the
+                                perturbation the question needs                      -> refuse, reported apart
+
+Headline: **17 cells, 9 answer / 8 refuse** — near-balanced, and every refusal in it is about what the
+simulator can represent. 9 fall in `no_corpus_mode` and 1 in `no_corpus_data`.
 
     python scripts/gen_limits_questions.py --framings 1 --out data/limits_pilot.json      # the 27-item pilot
     python scripts/gen_limits_questions.py --framings 4 --out data/limits_bench.json      # the benchmark
@@ -71,12 +81,65 @@ _MODE_CLAUSE = {
 }
 
 
+# WHAT ROWS EACH QUESTION ACTUALLY NEEDS, so the key stops conflating two different things.
+#
+# THE PILOT FOUND THIS, and it is worth being precise about what went wrong. The registry answers
+# "can the simulator REPRESENT this?" — and the benchmark was scoring the agent as if it had answered
+# "is there a RUN I can read?". On `nutrient_shift_timelines__kinetic` the agent declined because no run
+# combines a timeline with the kinetic elongation model, and the key marked that a miss because the
+# capability is present and kinetic is in the corpus. The agent was right.
+#
+# Measured across all 27 cells, exactly ONE is affected — the kinetic arm holds 8 rows (4 gene_knockout,
+# 4 wildtype) and all 7 timeline rows are steady_state. So this is not a widespread defect, but the CAUSE is
+# systemic: nothing checked coverage, and it would bite again the moment the corpus or the capability set
+# moved. Explicit table rather than a heuristic, for the same reason `reconcile.NOT_A_MEASUREMENT` is
+# explicit — and derived from what each QUESTION asks for, not from `markers`, which describe the CODE.
+_NEEDS: dict[str, set[str] | None] = {
+    "per_isoacceptor_trna_charging": None,             # charging channels ride on every run
+    "codon_level_elongation": None,
+    "operon_specific_rrna_knockout": {"rrna_operon_knockout"},
+    "per_gene_trna_abundance": None,
+    "knockout_of_a_multi_transcription_unit_gene": {"gene_knockout", "graded_gene_knockout"},
+    "per_amino_acid_trna_charging": None,
+    "ppgpp_stringent_response": {"ppgpp_conc", "condition", "gene_knockout"},
+    "amino_acid_uptake_from_the_medium": {"condition", "timeline"},
+    "nutrient_shift_timelines": {"timeline"},
+}
+
+_coverage_cache: dict[str, set[str]] | None = None
+
+
+def corpus_coverage() -> dict[str, set[str]]:
+    """`{elongation_model: {perturbations present}}`, read once from the manifest."""
+    global _coverage_cache
+    if _coverage_cache is None:
+        from cellarium import corpus_schema as cs
+        keys = list(cs.ARM_KEYS) + ["id", "ts", "reportable", "generations", "perturbation", "parca_ts"]
+        i_el, i_p = keys.index("elongation_model"), keys.index("perturbation")
+        cov: dict[str, set[str]] = {}
+        for r in cs._rows():
+            cov.setdefault(r[i_el], set()).add(r[i_p])
+        _coverage_cache = cov
+    return _coverage_cache
+
+
+def has_data(cap_key: str, mode: str) -> bool:
+    cov = corpus_coverage()
+    if mode not in cov:
+        return False
+    need = _NEEDS.get(cap_key, None)
+    return bool(cov[mode]) if need is None else bool(need & cov[mode])
+
+
 def _stratum(cap, mode: str) -> str:
     if mode not in C.MODES_IN_CORPUS:
         return "no_corpus_mode"
     if not cap.present:
         return "representational"
-    return "supported" if mode in cap.holds_in else "resolution"
+    if mode not in cap.holds_in:
+        return "resolution"
+    # Represented AND in a mode the corpus has — but is there a run that could answer it?
+    return "supported" if has_data(cap.key, mode) else "no_corpus_data"
 
 
 def cells() -> list[dict]:
@@ -86,10 +149,12 @@ def cells() -> list[dict]:
     for cap in C.CAPABILITIES:
         for mode in C.ALL_MODES:
             usable = cap.present and mode in cap.holds_in and mode in C.MODES_IN_CORPUS
-            out.append({"capability": cap.key, "mode": mode,
-                        "required": "answer" if usable else "refuse",
-                        "stratum": _stratum(cap, mode),
-                        "base_question": cap.question})
+            stratum = _stratum(cap, mode)
+            # Represented but unrunnable is still a decline, and for a reason the agent can state. Keying it
+            # `answer` scored the agent down for correctly saying "no run combines those conditions".
+            required = "answer" if (usable and stratum != "no_corpus_data") else "refuse"
+            out.append({"capability": cap.key, "mode": mode, "required": required,
+                        "stratum": stratum, "base_question": cap.question})
     return out
 
 
@@ -111,7 +176,7 @@ def generate(framings: int) -> list[dict]:
 def census(items: list[dict]) -> dict:
     by_stratum = collections.Counter(i["kind"] for i in items)
     by_required = collections.Counter(i["required"] for i in items)
-    headline = [i for i in items if i["kind"] != "no_corpus_mode"]
+    headline = [i for i in items if i["kind"] not in ("no_corpus_mode", "no_corpus_data")]
     return {
         "n_items": len(items),
         "n_cells": len({(i["capability"], i["mode"]) for i in items}),
@@ -120,9 +185,12 @@ def census(items: list[dict]) -> dict:
         "by_required": dict(by_required),
         "headline_items": len(headline),
         "headline_by_required": dict(collections.Counter(i["required"] for i in headline)),
-        "note": ("`no_corpus_mode` items are refusals because that elongation model has no runs, not because "
-                 "the simulator cannot represent the quantity. Report them as a separate stratum; folding "
-                 "them into the headline inflates n with easy refusals."),
+        "note": ("Two strata are refusals about DATA, not about representation, and both are reported apart "
+                 "from the headline. `no_corpus_mode`: that elongation model has no runs at all. "
+                 "`no_corpus_data`: the simulator represents the quantity and the mode is in the corpus, but "
+                 "no run carries the perturbation the question needs — the pilot found exactly one, "
+                 "nutrient_shift_timelines under kinetic, where the agent declined correctly and the key "
+                 "called it a miss. Folding either into the headline measures coverage, not limits."),
     }
 
 
