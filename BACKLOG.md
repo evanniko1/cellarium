@@ -1802,7 +1802,42 @@ fabrication `_run_prov`'s guard already refuses.
 Re-running is the only honest route, and it doubles as the corpus clean-up. Sequenced so the corpus is never
 half-migrated in a way a reader cannot detect:
 
-1. **Audit before running anything.** 363 rows -> which are load-bearing? 188 are analysis-reportable; 127 of
+0. ✅ **AUDIT DONE 2026-08-24 (`scripts/corpus_audit.py`, `data/corpus_audit.json`) — AND IT REFUTES THE
+   PREMISE I GAVE THIS STEP.** I proposed the audit expecting it to shrink the campaign by finding redundancy.
+   It does not. **71 of 72 designs are load-bearing** — they carry analysis rows or lethality evidence — and
+   the corpus itself flags only **3 rows** as surplus or empty. There is essentially nothing to cull.
+
+   | | |
+   |---|---|
+   | rows / designs / analysis-reportable | 363 / 72 / 236 |
+   | verdict RERUN | 71 designs, 359 rows |
+   | verdict DECIDE | 1 design, 4 rows (`gene_knockout/KO:rpmE`, 3 over-replicated + 1 implausible) |
+   | corpus-flagged surplus | **3 rows** |
+   | **cost, serial** | **~190 h** |
+   | **cost, parallel-6** | **~32 h** — safe for provenance since the per-run metadata fix |
+
+   - 🎯 **THE SCOPE LEVER IS SEED DEPTH, NOT DESIGN COUNT.** The 5 costliest designs are 80 rows and **54 h —
+     29% of the cost in 7% of the designs.** `wildtype/basal` alone is 36 rows / 16 seeds / **19.9 h**, a
+     tenth of the whole campaign. That is the one decision worth making deliberately: it is the reference every
+     comparison uses, so seeds buy power rather than redundancy, but 16 is a lot to re-run.
+   - 📊 **RAW TRACE AVAILABILITY, measured against disk AND Hugging Face:** 196 local, 151 on HF, 60 both, and
+     **76 rows where the raw is GONE from both — 22 of them reportable.** Those rows can still be re-run
+     (the design is recorded) but their current summary statistics cannot be verified against the trace that
+     produced them. That is a second, independent reason to re-run beyond provenance.
+   - ⚠️ **11 designs carry only 1-2 reportable rows — too thin for a cross-seed claim at all.** They need MORE
+     seeds, not fewer, or nothing should be claimed on them. Worth checking against what the paper asserts.
+   - ✅ **The audit refuses to retire on `reportable=False`,** and there are tests pinning that: a crashed
+     knockout IS the lethality evidence, `noop_knockout` is a finding about a perturbation that does not do
+     what its name says, `no_division` separates arrested from never-measured. Retirement is limited to rows
+     the corpus itself flagged `over_replicated` or `empty` where a sibling already carries the information.
+   - 🔍 **It also distinguishes designs that share a name:** three `gene_knockout/KO:leuB` entries exist with
+     different timelines and two different knowledge bases — a plain KO, an amino-acid-supplemented arm, and a
+     leucine-starvation arm. Collapsing them by name would merge a starvation experiment into a knockout.
+   - **CONCLUSION: run the whole thing, packaged by arm.** ~32 h of machine time at parallel-6 is cheaper than
+     the analysis needed to justify cutting it, and the audit found no defensible cuts. The only open decision
+     is `wildtype/basal`'s seed count.
+
+1. **Audit before running anything.**1. **Audit before running anything.** 363 rows -> which are load-bearing? 188 are analysis-reportable; 127 of
    the lethality rows are non-reportable. Redundant seeds, crashed rows kept only as crash evidence, and the
    26 rows with a collaborator's absolute paths (CORPUS-PATH-1) are all candidates to retire rather than
    re-run. **Decide the target corpus first; re-running everything would re-import the redundancy.**

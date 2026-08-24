@@ -202,6 +202,12 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
     # recorded here rather than done quietly at the end of an unrelated batch.
     "src/cellarium/miase.py::_rows": {"kind": "bespoke_projection", "why": "needs `media_segments`, which no purpose projects, so it re-implements dedup and tombstone marking by hand. Candidate for a columns= argument on rows()"},
     "src/cellarium/similarity.py::_sim_rows": {"kind": "bespoke_projection", "why": "needs `growth_rate` and `species_panel`; same story, dedup and tombstone marking re-implemented by hand. Candidate for a columns= argument on rows()"},
+
+    # --- AGGREGATE: reads the corpus AS A WHOLE, deliberately unfiltered, to describe it rather than to draw
+    # a conclusion from it. A purpose would defeat the point: this one has to see the rows every purpose
+    # excludes, because deciding what to re-run means counting the crashed knockouts and the tombstoned rows
+    # too. It draws no scientific claim from any row, which is what separates it from a bespoke projection.
+    "scripts/corpus_audit.py::_rows": {"kind": "aggregate", "why": "CORPUS-REBUILD-1 step 1. Must see every row unfiltered — the campaign scope depends on crashed and non-reportable rows as much as on analysis rows — and makes no claim about the biology, only about what the corpus contains"},
 }
 
 
