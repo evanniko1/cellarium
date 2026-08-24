@@ -2213,15 +2213,44 @@ were live defects, one was a false accusation against a correct corpus, and none
         Floor-dependence falls, imputed-dependence rises by more than twice as much. The cell does not just
         shift HOW MUCH it rests on placeholder parameters, it shifts WHICH KIND. A single scalar computed
         from one expression vector cannot show that at all.
-      - ⚠️ **ONE SEED PER ARM, and timesteps within a run are autocorrelated** — not independent samples, so
+      - 🔁 **3 SEEDS PER ARM, 2026-08-24 — AND THE HEADLINE ABOVE DID NOT SURVIVE. Recorded rather than
+        quietly edited.** The n=1 reading said the TOTAL rises under stringent response (12.326 -> 12.942).
+        With three seeds that difference is **+0.067 points against a seed spread of +/-0.394, exact
+        one-tailed p = 0.450** — and two wildtype seeds land ABOVE the ppGpp mean. **It was seed noise.**
+
+        | quantity | wildtype (n=3) | ppGpp 2.0x (n=3) | one-tailed p |
+        |---|---|---|---|
+        | frac_not_a_fit | 12.718 +/- 0.394 | 12.785 +/- 0.210 | **0.450 — no effect** |
+        | peak | 13.848 +/- 0.450 | 14.101 +/- 0.580 | 0.250 — no effect |
+        | **on_floor** | 4.574 +/- 0.313 | 3.918 +/- 0.142 | **0.050** |
+        | **imputed** | 8.126 +/- 0.262 | 8.843 +/- 0.285 | **0.050** |
+
+      - ✅ **WHAT SURVIVES IS THE COMPOSITION, and it is the better result.** Every ppGpp seed sits BELOW
+        every wildtype seed on floor-dependence (3.756-4.013 vs 4.332-4.928) and ABOVE every wildtype seed on
+        imputed-dependence (8.533-9.093 vs 7.847-8.366). **Disjoint ranges in both directions, and the
+        directions are OPPOSITE** — a redistribution, not a shift. No static scalar can show this.
+      - ⚠️ **THE STATISTICS ARE AT THEIR FLOOR.** n=3 vs n=3 gives C(6,3)=20 arrangements, so the smallest
+        attainable one-tailed p is 1/20 = 0.05 and **p<0.05 is UNREACHABLE at this n**. Both class results
+        sit exactly at that floor. Suggestive and pre-directional, NOT significant. **5 seeds/arm makes
+        p <= 0.008 attainable** and is the next step if this goes in the paper.
+      - **Independent of the arm comparison:** all 6 runs peak above the static 12.087%; highest 14.600%.
+      - ⚠️ *(superseded)* **ONE SEED PER ARM, and timesteps within a run are autocorrelated** — not independent samples, so
         no p-value is computable from this pair and none is claimed. Traces overlap in 57 of 211 downsampled
         values. Two or more seeds per arm before any effect-size claim. What the pair establishes is that the
         listener runs and the number moves; not how much.
-      - 🛠️ **Incidental, and worth knowing: `wcecoli-sim:latest` ships UPSTREAM's `ppgpp_conc.py`, not
-        Cellarium's overlay version.** `runner._variant_index` produced 670286; the image's encoding is 0-19
-        (`index // 10` for condition, `% 10` for factor). So the corpus's existing `ppgpp_conc` rows came
-        from a DIFFERENT image than the one tagged `:latest`. Harmless here — index 9 is 2.0x in minimal —
-        but `:latest` is not the image behind those rows, and something that assumed otherwise would be wrong.
+      - ❌ **RETRACTED: "the corpus's ppgpp rows came from a different image than :latest".** Wrong. The
+        corpus dirs are `ppgpp_conc_000000/000002/000007/000009` — the plain 0-19 encoding, the same one I
+        used, and `..._000009` IS `basal:ppGpp:2.0x`. The 670286 came from MY error: a hand-built `Design`
+        with no `params={"variant_index": 9}` fell through to `_variant_index`'s content-hash branch, which
+        is a DIRECTORY DISCRIMINATOR, not a semantic variant index.
+      - 🐛 **BUT THE CHALLENGE FOUND A REAL UPSTREAM BUG — the paper's third failure mode in the wild.**
+        `wcecoli-sim:latest` does ship upstream's `ppgpp_conc.py`. `split_index`, `FACTORS` and the physics
+        are byte-identical to Cellarium's, so **index 9 is provably the same experiment under both**
+        (`ordered_conditions[0] == 'basal'`, verified in-container). The difference is `CONDITIONS`: upstream
+        `[0, 2]` resolves to `['basal', 'glc_5mM']`; Cellarium's `['basal', 'with_aa']` resolves as written.
+        **Upstream's docstring says "minimal and minimal+AA" — but `ordered_conditions[2]` is `glc_5mM`, and
+        `with_aa` is at index 4.** Upstream indices 10-19 apply ppGpp factors in glucose-5mM while claiming
+        minimal+AA, and nothing raises. Candidate for the upstream report alongside SCI-QC-1.
       - Traces kept as `data/parameter_provenance_first_run.json` (17 KB). Both throwaway runs deleted
         (771 MB + 743 MB), zero containers left, corpus unchanged at 363 rows.
     - ⛔ *(superseded — the original blocker note)* **NOT RUN END-TO-END, and the blocker is not mine to clear.** `apply_model_overlay.py --check`
