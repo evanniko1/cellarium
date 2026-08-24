@@ -18,9 +18,20 @@
     "venvPath/venv are set rather than just excluding .venv: excluding it would stop imports resolving at all.",
     "This keeps it as the ENVIRONMENT while removing it from the indexed workspace.",
     "",
+    "TYPE CHECKING IS OFF, DELIBERATELY, and the first version of this file got that wrong.",
+    "    It set typeCheckingMode 'basic', which switched type checking ON across a codebase that has never",
+    "    been annotated for it. The result was squiggles in ~20 files at once — and every one I read was",
+    "    correct, working code that a checker cannot prove: a Vega-Lite spec dict inferred as dict[str,str]",
+    "    then given a nested dict (tools.py:703/706/777), and inspect.signature() on a Callable|None whose",
+    "    None case is already caught by the except clause two lines down (tools.py:1541). None of them is a",
+    "    bug; 1082 tests pass and CI is green.",
+    "    Scoping the indexer and turning on a type checker are different decisions, and only the first was",
+    "    asked for. ruff is this project's linter and runs in CI. Anyone who wants type checking can set this",
+    "    to 'basic' or 'standard' — that is a deliberate choice with real cleanup behind it, not a default.",
+    "",
     "NOT VERIFIED against pyright itself — no pyright binary is installed here (no PATH entry, no npx cache).",
-    "The shape follows the documented schema; confirm in the editor that imports still resolve and that",
-    "auto-import no longer offers model_overlay/ or vendor/ paths."
+    "The shape follows the documented schema; the check that matters is that imports still resolve in the",
+    "editor (see .vscode/settings.json for what each file is responsible for)."
   ],
   "include": [
     "src",
@@ -52,6 +63,6 @@
   ],
   "venvPath": ".",
   "venv": ".venv",
-  "typeCheckingMode": "basic",
+  "typeCheckingMode": "off",
   "reportMissingImports": "warning"
 }

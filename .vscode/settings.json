@@ -8,13 +8,24 @@
     "does not: the FILE WATCHER and SEARCH.",
     "",
     "files.watcherExclude is the important one, and it is not covered by .gitignore. VS Code's watcher does",
-    "not read .gitignore — only search does, via search.useIgnoreFiles. So even though runs/ and friends are",
+    "not read .gitignore \u2014 only search does, via search.useIgnoreFiles. So even though runs/ and friends are",
     "gitignored, the watcher was still registering recursive handles over a 310 GB tree. On Windows that",
     "costs handles and CPU; on Linux it exhausts inotify watches outright.",
     "",
-    "refit_sweep/ (2.7G), parca4_work/, vendor/ and archive/ are NOT gitignored — they are working artefacts",
+    "refit_sweep/ (2.7G), parca4_work/, vendor/ and archive/ are NOT gitignored \u2014 they are working artefacts",
     "that were never meant to be indexed either, and vendor/ + archive/ additionally carry duplicate copies of",
-    "the wcEcoli package layout, which is the auto-import hazard pyrightconfig.json exists to stop."
+    "the wcEcoli package layout, which is the auto-import hazard pyrightconfig.json exists to stop.",
+    "",
+    "TYPE CHECKING OFF, matching pyrightconfig.json. The first version of these files set 'basic', which",
+    "turned a type checker on across a codebase that was never annotated for one \u2014 ~20 files lit up at once,",
+    "and every case read was correct code the checker simply cannot prove. Scoping the indexer and enabling a",
+    "type checker are separate decisions; only the first was the point. ruff is the linter here and runs in CI.",
+    "",
+    "model_overlay/ is deliberately NOT in search.exclude or files.watcherExclude, though it IS excluded from",
+    "ANALYSIS. Its cleaned/, authored/ and files/ trees are live, hand-edited source that build_model_overlay.py",
+    "reads and apply_model_overlay.py ships. Hiding them from Ctrl+Shift+F would hide real code. Excluding them",
+    "from analysis is enough to stop auto-import binding a symbol to the wrong copy, which was the actual",
+    "hazard. vendor/ and archive/ are dead copies and are excluded from everything."
   ],
   "files.watcherExclude": {
     "**/.git/objects/**": true,
@@ -61,5 +72,6 @@
     "runs_seed_aars",
     "parca4_work",
     "refit_sweep"
-  ]
+  ],
+  "python.analysis.typeCheckingMode": "off"
 }
