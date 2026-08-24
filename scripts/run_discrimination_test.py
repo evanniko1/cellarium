@@ -107,11 +107,21 @@ def model_arm(model: str) -> list[dict]:
 
 
 def main():
+    global QUESTIONS
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", default="claude-sonnet-5,claude-opus-4-8")
     ap.add_argument("--out", default="data/discrimination_test.json")
     ap.add_argument("--registry-only", action="store_true")
+    ap.add_argument("--questions", default="",
+                    help="run a GENERATED item set (scripts/gen_limits_questions.py) instead of the nine "
+                         "hand-built ones. The answer key travels with the file and is re-derived by the "
+                         "registry arm regardless, so a corrupted key cannot pass silently.")
     a = ap.parse_args()
+
+    if a.questions:
+        doc = json.load(open(a.questions, encoding="utf-8"))
+        QUESTIONS = doc["questions"]
+        print(f"loaded {len(QUESTIONS)} generated items from {a.questions}", flush=True)
 
     results = {"generated": time.strftime("%Y-%m-%d %H:%M"),
                "corpus_modes": list(C.MODES_IN_CORPUS),

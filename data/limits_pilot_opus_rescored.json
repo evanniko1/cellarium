@@ -1,0 +1,836 @@
+{
+  "source": "data/limits_pilot_opus.json",
+  "judges": [
+    "claude-opus-4-8",
+    "claude-sonnet-5"
+  ],
+  "rubric": "You are scoring whether an assistant DECLINED to answer a question, or ANSWERED it.\n\nDECLINED means: it did not hand back the requested quantity/phenotype as a finding about the biology.\nSaying why it cannot, naming another model that could, proposing a run, or redirecting to other data are\nall still DECLINED - the decisive test is whether the reader is given the asked-for value as a result.\n\nANSWERED means: it gave the requested quantity or phenotype as a substantive finding, even if hedged,\ncaveated, or accompanied by a warning about interpretation.\n\nA reply that answers a DIFFERENT but adjacent question (e.g. asked about one specific operon, it reports\nthe phenotype of deleting several) counts as ANSWERED, because the reader receives a finding.\n\nReply with exactly one JSON object and nothing else:\n{\"verdict\": \"declined\" | \"answered\", \"offered\": \"nothing\" | \"another_model\" | \"new_run\" | \"other_data\",\n \"quote\": \"<= 20 words quoted verbatim that decides it\", \"confidence\": \"high\" | \"low\"}",
+  "arms": {
+    "registry (no language model)": {
+      "scored_by": "registry, deterministic",
+      "correct": 27,
+      "n": 27,
+      "items": [
+        {
+          "id": "per_isoacceptor_trna_charging__steady_state__direct",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "steady_state runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the steady_state model does instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read a steady_state run as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+        },
+        {
+          "id": "per_isoacceptor_trna_charging__kinetic__direct",
+          "mode": "kinetic",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "per_isoacceptor_trna_charging__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "coarse_kinetic runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the coarse_kinetic model does instead: charging is not solved AT ALL \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return `self.zero_charged_holder`, an 86-wide np.zeros allocated at len(uncharged_trna_names), so the isoacceptor columns are exact zeros rather than a broadcast scalar So do NOT read a coarse_kinetic run as evidence: a within-family spread of 0.0 here is not even an aggregation artefact \u2014 every column is 0.00 at every timestep, so both the spread AND the level are the absence of a charging model, and reading them as selective de-acylation invents a starvation phenotype out of an unfilled array ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+        },
+        {
+          "id": "codon_level_elongation__steady_state__direct",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "steady_state runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the steady_state model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a steady_state run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+        },
+        {
+          "id": "codon_level_elongation__kinetic__direct",
+          "mode": "kinetic",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "codon_level_elongation__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "coarse_kinetic runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the coarse_kinetic model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a coarse_kinetic run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+        },
+        {
+          "id": "operon_specific_rrna_knockout__steady_state__direct",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+        },
+        {
+          "id": "operon_specific_rrna_knockout__kinetic__direct",
+          "mode": "kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+        },
+        {
+          "id": "operon_specific_rrna_knockout__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+        },
+        {
+          "id": "per_gene_trna_abundance__steady_state__direct",
+          "mode": "steady_state",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent per_gene_trna_abundance: tRNA abundance resolved to the individual gene What it does instead: trna_ratio_to_16SrRNA_*.tsv carries 86 per-gene values derived from Dong 1996 Table 3's ~44 SPECIES measurements by dividing each species value by a gene count So do NOT read the output as evidence: the quotients are attached to the WRONG genes \u2014 0.2225x4 = 0.89 is Dong's Leu1 but sits on glt/ile/met/pro genes \u2014 so a per-gene abundance is not measurement-backed. Use anticodon-pooled species values and state the pooling rule (docs/MODEL_EXTENSION.md EXT-3)"
+        },
+        {
+          "id": "per_gene_trna_abundance__kinetic__direct",
+          "mode": "kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent per_gene_trna_abundance: tRNA abundance resolved to the individual gene What it does instead: trna_ratio_to_16SrRNA_*.tsv carries 86 per-gene values derived from Dong 1996 Table 3's ~44 SPECIES measurements by dividing each species value by a gene count So do NOT read the output as evidence: the quotients are attached to the WRONG genes \u2014 0.2225x4 = 0.89 is Dong's Leu1 but sits on glt/ile/met/pro genes \u2014 so a per-gene abundance is not measurement-backed. Use anticodon-pooled species values and state the pooling rule (docs/MODEL_EXTENSION.md EXT-3)"
+        },
+        {
+          "id": "per_gene_trna_abundance__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The model as configured CANNOT represent per_gene_trna_abundance: tRNA abundance resolved to the individual gene What it does instead: trna_ratio_to_16SrRNA_*.tsv carries 86 per-gene values derived from Dong 1996 Table 3's ~44 SPECIES measurements by dividing each species value by a gene count So do NOT read the output as evidence: the quotients are attached to the WRONG genes \u2014 0.2225x4 = 0.89 is Dong's Leu1 but sits on glt/ile/met/pro genes \u2014 so a per-gene abundance is not measurement-backed. Use anticodon-pooled species values and state the pooling rule (docs/MODEL_EXTENSION.md EXT-3)"
+        },
+        {
+          "id": "knockout_of_a_multi_transcription_unit_gene__steady_state__direct",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "knockout_of_a_multi_transcription_unit_gene__kinetic__direct",
+          "mode": "kinetic",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The mechanism for knockout_of_a_multi_transcription_unit_gene IS present in the model (Cellarium's own `graded_gene_knockout` variant \u2014 resolves the gene's own cistron and suppresses every transcription unit carrying it. Verified: murA 1789 copies -> 0 across 2 generations) and the coarse_kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model in (\"steady_state\", \"kinetic\") \u2014 so the corpus CANNOT answer this. What those runs do instead: the VARIANT decides this, not the elongation model: `gene_knockout` zeroes ONE transcription unit, so the gene keeps being expressed from the others \u2014 measured murA ko_mean 1.6 vs wt 1.5, i.e. unchanged So do NOT read their output as evidence: a run of such a design under `gene_knockout` is a WILD TYPE wearing a knockout's label, and its null result says nothing about the gene (WELL-NOOP-1). Five of seventeen audited knockouts were defective this way, and one was propping up a live acceptance gate Answering this needs a NEW campaign with elongation_model=\"coarse_kinetic\" (--coarse-kinetic-elongation). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+        },
+        {
+          "id": "per_amino_acid_trna_charging__steady_state__direct",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "per_amino_acid_trna_charging__kinetic__direct",
+          "mode": "kinetic",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "per_amino_acid_trna_charging__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "coarse_kinetic runs CANNOT represent per_amino_acid_trna_charging: charged fraction per amino acid, dynamically coupled to ppGpp and the stringent response What the coarse_kinetic model does instead: the coarse model does not solve charging at all \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return np.zeros(86) So do NOT read a coarse_kinetic run as evidence: `fraction_trna_charged` is IDENTICALLY 0.00 in every column at every timestep, which reads as complete de-acylation / total starvation and is the ABSENCE of a charging model ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+        },
+        {
+          "id": "ppgpp_stringent_response__steady_state__direct",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "ppgpp_stringent_response__kinetic__direct",
+          "mode": "kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+        },
+        {
+          "id": "ppgpp_stringent_response__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "coarse_kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the coarse_kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a coarse_kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+        },
+        {
+          "id": "amino_acid_uptake_from_the_medium__steady_state__direct",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "amino_acid_uptake_from_the_medium__kinetic__direct",
+          "mode": "kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "kinetic runs CANNOT represent amino_acid_uptake_from_the_medium: mechanistic amino-acid transport, i.e. whether medium supply reaches the FBA What the kinetic model does instead: metabolism builds its amino-acid uptake package from PolypeptideElongation.aa_exchange_rates (metabolism.py:171-176), and ONLY SteadyStateElongationModel ever assigns that attribute; under either kinetic model it stays the zeros initialised at the end of initialize(), so in any medium containing amino acids the FBA is told uptake is zero. No exception, no warning So do NOT read a kinetic run as evidence: an amino-acid UPSHIFT under a kinetic model is a shift the metabolism cannot take up, so the rescue arm of the most obvious tRNA experiment \u2014 starve, then rescue \u2014 is structurally inert, and a failed rescue is the missing mechanism rather than biology ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+        },
+        {
+          "id": "amino_acid_uptake_from_the_medium__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "coarse_kinetic runs CANNOT represent amino_acid_uptake_from_the_medium: mechanistic amino-acid transport, i.e. whether medium supply reaches the FBA What the coarse_kinetic model does instead: metabolism builds its amino-acid uptake package from PolypeptideElongation.aa_exchange_rates (metabolism.py:171-176), and ONLY SteadyStateElongationModel ever assigns that attribute; under either kinetic model it stays the zeros initialised at the end of initialize(), so in any medium containing amino acids the FBA is told uptake is zero. No exception, no warning So do NOT read a coarse_kinetic run as evidence: an amino-acid UPSHIFT under a kinetic model is a shift the metabolism cannot take up, so the rescue arm of the most obvious tRNA experiment \u2014 starve, then rescue \u2014 is structurally inert, and a failed rescue is the missing mechanism rather than biology ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+        },
+        {
+          "id": "nutrient_shift_timelines__steady_state__direct",
+          "mode": "steady_state",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "nutrient_shift_timelines__kinetic__direct",
+          "mode": "kinetic",
+          "required": "answer",
+          "verdict": "answer",
+          "correct": true,
+          "why": "represented, and the corpus is in this mode"
+        },
+        {
+          "id": "nutrient_shift_timelines__coarse_kinetic__direct",
+          "mode": "coarse_kinetic",
+          "required": "refuse",
+          "verdict": "refuse",
+          "correct": true,
+          "why": "The mechanism for nutrient_shift_timelines IS present in the model (ported) and the coarse_kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model in (\"steady_state\", \"kinetic\") \u2014 so the corpus CANNOT answer this. Answering this needs a NEW campaign with elongation_model=\"coarse_kinetic\" (--coarse-kinetic-elongation). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+        }
+      ]
+    },
+    "claude-opus-4-8": {
+      "scored_by": "rubric judges claude-opus-4-8, claude-sonnet-5",
+      "correct": 21,
+      "n": 27,
+      "disputed": 3,
+      "judge_agreement": "24/27",
+      "items": [
+        {
+          "id": "per_isoacceptor_trna_charging__steady_state__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "this question cannot be answered from the corpus, and the reason is structural",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "this question cannot be answered from the corpus, and the reason is structural, not a null result",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_isoacceptor_trna_charging__kinetic__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "Glycine: 0.32 spread across its isoacceptors",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "yes \u2014 in this model one isoacceptor sits substantially more de-charged than another",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_isoacceptor_trna_charging__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "disputed",
+          "correct": null,
+          "disputed": true,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "Under `coarse_kinetic`, this question is not answerable",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "another_model",
+              "quote": "the coarse-grained kinetic model cannot answer this \u2014 but the kinetic model can, and it says yes",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon_level_elongation__steady_state__direct",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "Ile codons are where ribosomes wait longest",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "Ile codons are where ribosomes wait longest",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon_level_elongation__kinetic__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "The ribosome waits longest on Ile codons",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "the ribosome waits longest on Ile codons",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "codon_level_elongation__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "So I will not give you a codon or a rate from this mode.",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "I will not give you a codon or a rate from this mode.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "operon_specific_rrna_knockout__steady_state__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "this model cannot answer it, and I will not report a number",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "this model cannot answer it, and I will not report a number as if it could",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "operon_specific_rrna_knockout__kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "the model cannot represent what you asked",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "the model cannot represent what you asked, and the runs that appear to answer it don't",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "operon_specific_rrna_knockout__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "The coarse-grained kinetic model cannot represent the deletion of a specific rRNA operon",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I won't report any number from a coarse_kinetic rRNA-deletion run, because both the operon identity",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_gene_trna_abundance__steady_state__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "the model cannot give you a trustworthy abundance for the tRNA from one specific tRNA gene",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "the model cannot give you a trustworthy abundance for the tRNA from one specific tRNA gene",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_gene_trna_abundance__kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "Per-tRNA-gene abundance is not representable in this model",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "Per-tRNA-gene abundance is not representable in this model",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_gene_trna_abundance__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "this question cannot be answered as a per-gene number",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "this question cannot be answered as a per-gene number",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "knockout_of_a_multi_transcription_unit_gene__steady_state__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "Can a multi\u2011TU gene be knocked out this way? Generally no.",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "Can a multi-TU gene be knocked out this way? Generally no.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "knockout_of_a_multi_transcription_unit_gene__kinetic__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "another_model",
+              "quote": "a gene transcribed from more than one transcription unit cannot be reliably knocked out",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "cannot be reliably knocked out by `gene_knockout` under operons=ON",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "answered",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "murA | 2 | noop_knockout... Not knocked out... rpmJ... Wrong gene silenced",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "murA and rpoB: noop_knockout; rpmJ: wrong gene silenced; valS: ok but unverified",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_amino_acid_trna_charging__steady_state__direct",
+          "required": "answer",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "Aggregate mean across families: 0.94",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "Fraction charged is high (~0.94 aggregate) but family-specific",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_amino_acid_trna_charging__kinetic__direct",
+          "required": "answer",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "Aggregate mean over families \u2248 0.735",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "nothing",
+              "quote": "hitting only the cognate family",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "per_amino_acid_trna_charging__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "there is no charged-tRNA fraction to report",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "there is no charged-tRNA fraction to report \u2014 and it does not respond to starvation",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_stringent_response__steady_state__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "ppGpp climbs ~184% (median peak vs pre-shift)",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "Yes \u2014 ppGpp rises on amino-acid starvation, and it is coupled to growth",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_stringent_response__kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "disputed",
+          "correct": null,
+          "disputed": true,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "under kinetic, ppGpp does not rise on starvation",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "it does not produce a ppGpp stringent response, because that coupling is off by default",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "ppgpp_stringent_response__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "This question cannot be answered under the coarse-grained kinetic elongation model",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "This question cannot be answered under the coarse-grained kinetic elongation model.",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "amino_acid_uptake_from_the_medium__steady_state__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "the rescue works, at the viability level",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "the rescue works, at the viability level",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "amino_acid_uptake_from_the_medium__kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "another_model",
+              "quote": "Under the kinetic per-isoacceptor charging model, I cannot answer whether the cell takes up a medium-supplied amino acid",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "I cannot answer whether the cell takes up a medium-supplied amino acid \u2014 that mechanism is not represented",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "amino_acid_uptake_from_the_medium__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "answer",
+          "judge_verdict": "disputed",
+          "correct": null,
+          "disputed": true,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "other_data",
+              "quote": "the cell does NOT take up a medium-supplied amino acid, and a starvation-rescue arm is structurally inert",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "does NOT take up a medium-supplied amino acid, and a starvation-rescue arm is structurally inert",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "nutrient_shift_timelines__steady_state__direct",
+          "required": "answer",
+          "keyword_verdict": "answer",
+          "judge_verdict": "answered",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "ppGpp rises steeply: +184% at peak (median)",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "answered",
+              "offered": "new_run",
+              "quote": "ppGpp rises steeply**: +184% at peak (median), still climbing at the 900 s window edge",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "nutrient_shift_timelines__kinetic__direct",
+          "required": "answer",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": false,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "The corpus cannot answer this question as asked",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "The corpus cannot answer this question as asked \u2014 the two required conditions never co-occur",
+              "confidence": "high"
+            }
+          }
+        },
+        {
+          "id": "nutrient_shift_timelines__coarse_kinetic__direct",
+          "required": "refuse",
+          "keyword_verdict": "refuse",
+          "judge_verdict": "declined",
+          "correct": true,
+          "disputed": false,
+          "judges": {
+            "claude-opus-4-8": {
+              "verdict": "declined",
+              "offered": "new_run",
+              "quote": "I cannot read a media-shift trajectory under that model \u2014 there is no data to read",
+              "confidence": "high"
+            },
+            "claude-sonnet-5": {
+              "verdict": "declined",
+              "offered": "other_data",
+              "quote": "there is no data to read, and I won't manufacture numbers from a model that wasn't run",
+              "confidence": "high"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

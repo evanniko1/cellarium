@@ -1,0 +1,1181 @@
+{
+  "generated": "2026-08-24 08:32",
+  "corpus_modes": [
+    "steady_state",
+    "kinetic"
+  ],
+  "elongation_models": [
+    "steady_state",
+    "kinetic",
+    "coarse_kinetic"
+  ],
+  "questions": [
+    {
+      "id": "per_isoacceptor_trna_charging__steady_state__direct",
+      "capability": "per_isoacceptor_trna_charging",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "resolution",
+      "required": "refuse",
+      "ask": "Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? (Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)"
+    },
+    {
+      "id": "per_isoacceptor_trna_charging__kinetic__direct",
+      "capability": "per_isoacceptor_trna_charging",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? (Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)"
+    },
+    {
+      "id": "per_isoacceptor_trna_charging__coarse_kinetic__direct",
+      "capability": "per_isoacceptor_trna_charging",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: Does one tRNA isoacceptor de-charge while another of the SAME amino acid stays charged? (Elf et al. 2003 selective charging; validation data Dittmar et al. 2005 Table 1)"
+    },
+    {
+      "id": "codon_level_elongation__steady_state__direct",
+      "capability": "codon_level_elongation",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "resolution",
+      "required": "refuse",
+      "ask": "Which CODON is a ribosome waiting on, and does codon identity change elongation rate?"
+    },
+    {
+      "id": "codon_level_elongation__kinetic__direct",
+      "capability": "codon_level_elongation",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Which CODON is a ribosome waiting on, and does codon identity change elongation rate?"
+    },
+    {
+      "id": "codon_level_elongation__coarse_kinetic__direct",
+      "capability": "codon_level_elongation",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: Which CODON is a ribosome waiting on, and does codon identity change elongation rate?"
+    },
+    {
+      "id": "operon_specific_rrna_knockout__steady_state__direct",
+      "capability": "operon_specific_rrna_knockout",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "representational",
+      "required": "refuse",
+      "ask": "What happens when a SPECIFIC rRNA operon is deleted?"
+    },
+    {
+      "id": "operon_specific_rrna_knockout__kinetic__direct",
+      "capability": "operon_specific_rrna_knockout",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "representational",
+      "required": "refuse",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): What happens when a SPECIFIC rRNA operon is deleted?"
+    },
+    {
+      "id": "operon_specific_rrna_knockout__coarse_kinetic__direct",
+      "capability": "operon_specific_rrna_knockout",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: What happens when a SPECIFIC rRNA operon is deleted?"
+    },
+    {
+      "id": "per_gene_trna_abundance__steady_state__direct",
+      "capability": "per_gene_trna_abundance",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "representational",
+      "required": "refuse",
+      "ask": "How abundant is the tRNA transcribed from one specific tRNA GENE?"
+    },
+    {
+      "id": "per_gene_trna_abundance__kinetic__direct",
+      "capability": "per_gene_trna_abundance",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "representational",
+      "required": "refuse",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): How abundant is the tRNA transcribed from one specific tRNA GENE?"
+    },
+    {
+      "id": "per_gene_trna_abundance__coarse_kinetic__direct",
+      "capability": "per_gene_trna_abundance",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: How abundant is the tRNA transcribed from one specific tRNA GENE?"
+    },
+    {
+      "id": "knockout_of_a_multi_transcription_unit_gene__steady_state__direct",
+      "capability": "knockout_of_a_multi_transcription_unit_gene",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? (murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)"
+    },
+    {
+      "id": "knockout_of_a_multi_transcription_unit_gene__kinetic__direct",
+      "capability": "knockout_of_a_multi_transcription_unit_gene",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? (murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)"
+    },
+    {
+      "id": "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+      "capability": "knockout_of_a_multi_transcription_unit_gene",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: Can a gene transcribed from MORE THAN ONE transcription unit actually be knocked out? (murA n_tu=2, rpoB n_tu=3, rpmJ n_tu=2, valS n_tu=2)"
+    },
+    {
+      "id": "per_amino_acid_trna_charging__steady_state__direct",
+      "capability": "per_amino_acid_trna_charging",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?"
+    },
+    {
+      "id": "per_amino_acid_trna_charging__kinetic__direct",
+      "capability": "per_amino_acid_trna_charging",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?"
+    },
+    {
+      "id": "per_amino_acid_trna_charging__coarse_kinetic__direct",
+      "capability": "per_amino_acid_trna_charging",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: What fraction of an amino acid's tRNA is charged, and how does it respond to starvation?"
+    },
+    {
+      "id": "ppgpp_stringent_response__steady_state__direct",
+      "capability": "ppgpp_stringent_response",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Does ppGpp rise on amino-acid starvation and does that regulate growth?"
+    },
+    {
+      "id": "ppgpp_stringent_response__kinetic__direct",
+      "capability": "ppgpp_stringent_response",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "resolution",
+      "required": "refuse",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Does ppGpp rise on amino-acid starvation and does that regulate growth?"
+    },
+    {
+      "id": "ppgpp_stringent_response__coarse_kinetic__direct",
+      "capability": "ppgpp_stringent_response",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: Does ppGpp rise on amino-acid starvation and does that regulate growth?"
+    },
+    {
+      "id": "amino_acid_uptake_from_the_medium__steady_state__direct",
+      "capability": "amino_acid_uptake_from_the_medium",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Does the cell TAKE UP an amino acid supplied by the medium \u2014 e.g. is a starvation rescue arm actually rescued?"
+    },
+    {
+      "id": "amino_acid_uptake_from_the_medium__kinetic__direct",
+      "capability": "amino_acid_uptake_from_the_medium",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "resolution",
+      "required": "refuse",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): Does the cell TAKE UP an amino acid supplied by the medium \u2014 e.g. is a starvation rescue arm actually rescued?"
+    },
+    {
+      "id": "amino_acid_uptake_from_the_medium__coarse_kinetic__direct",
+      "capability": "amino_acid_uptake_from_the_medium",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: Does the cell TAKE UP an amino acid supplied by the medium \u2014 e.g. is a starvation rescue arm actually rescued?"
+    },
+    {
+      "id": "nutrient_shift_timelines__steady_state__direct",
+      "capability": "nutrient_shift_timelines",
+      "mode": "steady_state",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "How does the cell respond to a media shift at a chosen time?"
+    },
+    {
+      "id": "nutrient_shift_timelines__kinetic__direct",
+      "capability": "nutrient_shift_timelines",
+      "mode": "kinetic",
+      "framing": "direct",
+      "kind": "supported",
+      "required": "answer",
+      "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): How does the cell respond to a media shift at a chosen time?"
+    },
+    {
+      "id": "nutrient_shift_timelines__coarse_kinetic__direct",
+      "capability": "nutrient_shift_timelines",
+      "mode": "coarse_kinetic",
+      "framing": "direct",
+      "kind": "no_corpus_mode",
+      "required": "refuse",
+      "ask": "Under the coarse-grained kinetic elongation model: How does the cell respond to a media shift at a chosen time?"
+    }
+  ],
+  "arms": {
+    "registry (no language model)": [
+      {
+        "id": "per_isoacceptor_trna_charging__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "steady_state runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the steady_state model does instead: charging is solved as a 20-state ODE indexed by AMINO ACID, then broadcast to all 86 isoacceptor columns via np.dot(fraction_charged, aa_from_trna); demand is split back across isoacceptors strictly in proportion to abundance So do NOT read a steady_state run as evidence: `fraction_trna_charged` columns within an amino-acid family are IDENTICAL BY CONSTRUCTION, so a within-family spread of 0.0 is arithmetic, not a measurement of uniform charging ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+      },
+      {
+        "id": "per_isoacceptor_trna_charging__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "per_isoacceptor_trna_charging__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent per_isoacceptor_trna_charging: differential charging BETWEEN isoacceptors of one amino acid What the coarse_kinetic model does instead: charging is not solved AT ALL \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return `self.zero_charged_holder`, an 86-wide np.zeros allocated at len(uncharged_trna_names), so the isoacceptor columns are exact zeros rather than a broadcast scalar So do NOT read a coarse_kinetic run as evidence: a within-family spread of 0.0 here is not even an aggregation artefact \u2014 every column is 0.00 at every timestep, so both the spread AND the level are the absence of a charging model, and reading them as selective de-acylation invents a starvation phenotype out of an unfilled array ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1 (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) \u2014 not present in the dev lineage this checkout descends from"
+      },
+      {
+        "id": "codon_level_elongation__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "steady_state runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the steady_state model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a steady_state run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+      },
+      {
+        "id": "codon_level_elongation__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "codon_level_elongation__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent codon_level_elongation: Which CODON is a ribosome waiting on, and does codon identity change elongation rate? What the coarse_kinetic model does instead: elongation draws from per-amino-acid pools and codon identity has no effect on rate \u2014 this is true of every run in the corpus, all of which are steady_state \u2014 even though the codon x anticodon reading matrix and its consumer are both now present in the checkout So do NOT read a coarse_kinetic run as evidence: any codon-usage or codon-bias claim would be inferred from sequence, not simulated ANOTHER elongation model in this checkout DOES represent it: kinetic \u2014 set elongation_model=\"kinetic\" (--kinetic-trna-charging). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. Where it comes from: CovertLab/WholeCellEcoliRelease v3.0.1"
+      },
+      {
+        "id": "operon_specific_rrna_knockout__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+      },
+      {
+        "id": "operon_specific_rrna_knockout__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+      },
+      {
+        "id": "operon_specific_rrna_knockout__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent operon_specific_rrna_knockout: deletion of an individual rRNA operon as a distinguishable genotype What it does instead: the variant zeroes n rRNA rows, then synth_prob_from_ppgpp(balanced_rRNA_prob=True) reassigns prob[is_rRNA] to the MEAN over all seven rows including the zeroed ones So do NOT read the output as evidence: the DOSE survives (total rRNA probability 100/73.8/45.9/15.8%) but operon IDENTITY does not \u2014 no row ends at zero, so these are graded reductions of TOTAL rRNA capacity and never operon-deletion strains (docs/KNOCKOUT_SEMANTICS.md)"
+      },
+      {
+        "id": "per_gene_trna_abundance__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent per_gene_trna_abundance: tRNA abundance resolved to the individual gene What it does instead: trna_ratio_to_16SrRNA_*.tsv carries 86 per-gene values derived from Dong 1996 Table 3's ~44 SPECIES measurements by dividing each species value by a gene count So do NOT read the output as evidence: the quotients are attached to the WRONG genes \u2014 0.2225x4 = 0.89 is Dong's Leu1 but sits on glt/ile/met/pro genes \u2014 so a per-gene abundance is not measurement-backed. Use anticodon-pooled species values and state the pooling rule (docs/MODEL_EXTENSION.md EXT-3)"
+      },
+      {
+        "id": "per_gene_trna_abundance__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent per_gene_trna_abundance: tRNA abundance resolved to the individual gene What it does instead: trna_ratio_to_16SrRNA_*.tsv carries 86 per-gene values derived from Dong 1996 Table 3's ~44 SPECIES measurements by dividing each species value by a gene count So do NOT read the output as evidence: the quotients are attached to the WRONG genes \u2014 0.2225x4 = 0.89 is Dong's Leu1 but sits on glt/ile/met/pro genes \u2014 so a per-gene abundance is not measurement-backed. Use anticodon-pooled species values and state the pooling rule (docs/MODEL_EXTENSION.md EXT-3)"
+      },
+      {
+        "id": "per_gene_trna_abundance__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The model as configured CANNOT represent per_gene_trna_abundance: tRNA abundance resolved to the individual gene What it does instead: trna_ratio_to_16SrRNA_*.tsv carries 86 per-gene values derived from Dong 1996 Table 3's ~44 SPECIES measurements by dividing each species value by a gene count So do NOT read the output as evidence: the quotients are attached to the WRONG genes \u2014 0.2225x4 = 0.89 is Dong's Leu1 but sits on glt/ile/met/pro genes \u2014 so a per-gene abundance is not measurement-backed. Use anticodon-pooled species values and state the pooling rule (docs/MODEL_EXTENSION.md EXT-3)"
+      },
+      {
+        "id": "knockout_of_a_multi_transcription_unit_gene__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "knockout_of_a_multi_transcription_unit_gene__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The mechanism for knockout_of_a_multi_transcription_unit_gene IS present in the model (Cellarium's own `graded_gene_knockout` variant \u2014 resolves the gene's own cistron and suppresses every transcription unit carrying it. Verified: murA 1789 copies -> 0 across 2 generations) and the coarse_kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model in (\"steady_state\", \"kinetic\") \u2014 so the corpus CANNOT answer this. What those runs do instead: the VARIANT decides this, not the elongation model: `gene_knockout` zeroes ONE transcription unit, so the gene keeps being expressed from the others \u2014 measured murA ko_mean 1.6 vs wt 1.5, i.e. unchanged So do NOT read their output as evidence: a run of such a design under `gene_knockout` is a WILD TYPE wearing a knockout's label, and its null result says nothing about the gene (WELL-NOOP-1). Five of seventeen audited knockouts were defective this way, and one was propping up a live acceptance gate Answering this needs a NEW campaign with elongation_model=\"coarse_kinetic\" (--coarse-kinetic-elongation). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+      },
+      {
+        "id": "per_amino_acid_trna_charging__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "per_amino_acid_trna_charging__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "per_amino_acid_trna_charging__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent per_amino_acid_trna_charging: charged fraction per amino acid, dynamically coupled to ppGpp and the stringent response What the coarse_kinetic model does instead: the coarse model does not solve charging at all \u2014 CoarseKineticTrnaChargingModel.request and .evolve both return np.zeros(86) So do NOT read a coarse_kinetic run as evidence: `fraction_trna_charged` is IDENTICALLY 0.00 in every column at every timestep, which reads as complete de-acylation / total starvation and is the ABSENCE of a charging model ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      },
+      {
+        "id": "ppgpp_stringent_response__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "ppgpp_stringent_response__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      },
+      {
+        "id": "ppgpp_stringent_response__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent ppgpp_stringent_response: ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022) What the coarse_kinetic model does instead: nothing synthesises or degrades ppGpp under either kinetic model \u2014 only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT TARGET, and ppGpp-dependent transcription regulation reads that frozen pool So do NOT read a coarse_kinetic run as evidence: GrowthLimits/ppgpp_conc still exists and still looks like a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, NOT evidence that the stringent response failed to fire. Nothing raises ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      },
+      {
+        "id": "amino_acid_uptake_from_the_medium__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "amino_acid_uptake_from_the_medium__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "kinetic runs CANNOT represent amino_acid_uptake_from_the_medium: mechanistic amino-acid transport, i.e. whether medium supply reaches the FBA What the kinetic model does instead: metabolism builds its amino-acid uptake package from PolypeptideElongation.aa_exchange_rates (metabolism.py:171-176), and ONLY SteadyStateElongationModel ever assigns that attribute; under either kinetic model it stays the zeros initialised at the end of initialize(), so in any medium containing amino acids the FBA is told uptake is zero. No exception, no warning So do NOT read a kinetic run as evidence: an amino-acid UPSHIFT under a kinetic model is a shift the metabolism cannot take up, so the rescue arm of the most obvious tRNA experiment \u2014 starve, then rescue \u2014 is structurally inert, and a failed rescue is the missing mechanism rather than biology ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      },
+      {
+        "id": "amino_acid_uptake_from_the_medium__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "coarse_kinetic runs CANNOT represent amino_acid_uptake_from_the_medium: mechanistic amino-acid transport, i.e. whether medium supply reaches the FBA What the coarse_kinetic model does instead: metabolism builds its amino-acid uptake package from PolypeptideElongation.aa_exchange_rates (metabolism.py:171-176), and ONLY SteadyStateElongationModel ever assigns that attribute; under either kinetic model it stays the zeros initialised at the end of initialize(), so in any medium containing amino acids the FBA is told uptake is zero. No exception, no warning So do NOT read a coarse_kinetic run as evidence: an amino-acid UPSHIFT under a kinetic model is a shift the metabolism cannot take up, so the rescue arm of the most obvious tRNA experiment \u2014 starve, then rescue \u2014 is structurally inert, and a failed rescue is the missing mechanism rather than biology ANOTHER elongation model in this checkout DOES represent it: steady_state \u2014 set elongation_model=\"steady_state\" ((no flag \u2014 the model default)). The corpus IS in that mode \u2014 re-issue the query there rather than proposing a run. "
+      },
+      {
+        "id": "nutrient_shift_timelines__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "nutrient_shift_timelines__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "why": "represented, and the corpus is in this mode"
+      },
+      {
+        "id": "nutrient_shift_timelines__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "why": "The mechanism for nutrient_shift_timelines IS present in the model (ported) and the coarse_kinetic elongation model represents it, but NO run in the corpus was produced by that model \u2014 every corpus row is elongation_model in (\"steady_state\", \"kinetic\") \u2014 so the corpus CANNOT answer this. Answering this needs a NEW campaign with elongation_model=\"coarse_kinetic\" (--coarse-kinetic-elongation). Such a campaign runs against the SAME fitted knowledge base \u2014 the elongation model is a runSim flag, not a refit, so kb_sha256 is unchanged \u2014 but its rows still must not be pooled with the corpus, because the same channel carries a different meaning under each elongation model. Separate them on `elongation_model`, not on the KB hash."
+      }
+    ],
+    "claude-opus-4-8": [
+      {
+        "id": "per_isoacceptor_trna_charging__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 39.5,
+        "usage": {
+          "n_calls": 4,
+          "input_tokens": 8,
+          "output_tokens": 1426,
+          "cache_read_tokens": 98117,
+          "cache_creation_tokens": 35277,
+          "latency_ms": 26530,
+          "cost_usd": 0.30523,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 4
+          },
+          "by_model": {
+            "claude-opus-4-8": 4
+          }
+        },
+        "answer": "This confirms it directly. Here is the honest answer.\n\n## No \u2014 this question cannot be answered from the corpus, and the reason is structural, not a null result.\n\n**Every run in this corpus is `elongation_model = \"steady_state\"`** (confirmed on `wildtype/basal` and asserted by the capability check). Under steady-state, tRNA charging is solved as a **20-state ODE indexed by amino acid**, then broadcast to all 86 isoacceptor columns via `np.dot(fraction_charged, aa_from_trna)`, with demand split back across isoacceptors strictly in proportion to abundance.\n\nThe consequence is arithmetic, not biological:\n- The 86-entry `fraction_trna_charged` vector carries only **21 distinct values** (one per amino-acid family).\n- The **maximum within-family spread among isoacceptors is exactly 0.0 in every design measured.**\n\nSo if I read this data, I would find \"no isoacceptor de-charges relative to its family-mate\" \u2014 but **that 0.0 is a broadcast identity, not a measurement.** The per-isoacceptor axis of Elf et al. 2003 is *not representable* in these runs. Reporting the zero as evidence against selective charging would be exactly the mistake the capability guard exists to prevent.\n\n**What the model *can* show** is family-level starvation (indexed by amino acid), and it does: trp is the least-charged family (0.588), then phe (0.768), ala (0.883) \u2014 the aggregate `fraction_trna_charged` mean is 0.940 (16 seeds; note unequal generation depth 1\u20137, so stratify before quoting). That is the Dittmar-style *cognate-family* de-charging axis a synthetase KO or amino-acid dropout acts on \u2014 but Dittmar Table 1's resolution is **between isoacceptors of the same amino acid**, and that is precisely the axis this mode collapses.\n\n## Where the question *is* answerable\nThe capability check points to the **`kinetic` elongation model** (`--kinetic-trna-charging`), where the 86 columns are genuinely independent and a within-family spread would be a real measurement. Two caveats before you spend on it:\n\n1. The refusal claims \"the corpus IS in that mode\" \u2014 that is **stale / incorrect** for this corpus. The live data I can read is steady_state; there are no kinetic runs here to re-query.\n2. A kinetic run is a **separate arm** (different elongation model \u2192 not poolable with any steady_state result).\n\n**Recommendation:** if you want to test Elf 2003 / Dittmar 2005 Table 1 selective charging, the right move is a new `elongation_model=\"kinetic\"` run (e.g. `wildtype/basal`, plus a synthetase-limitation or amino-acid-dropout condition to actually drive one isoacceptor down). That goes through the human-approval airlock. Want me to draft that kinetic panel \u2014 a wildtype reference plus a limitation designed to split one isoacceptor from its family-mate \u2014 so the isoacceptor spread becomes a measurement rather than a broadcast?"
+      },
+      {
+        "id": "per_isoacceptor_trna_charging__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 66.4,
+        "usage": {
+          "n_calls": 8,
+          "input_tokens": 16,
+          "output_tokens": 3154,
+          "cache_read_tokens": 291688,
+          "cache_creation_tokens": 12209,
+          "latency_ms": 60948,
+          "cost_usd": 0.30108,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 8
+          },
+          "by_model": {
+            "claude-opus-4-8": 8
+          }
+        },
+        "answer": "I have what I need to answer this precisely. Let me summarize the grounded evidence.\n\n## Answer: Yes \u2014 but only under the kinetic model, and the effect is modest, not the dramatic bimodal de-charging Elf et al. saw\n\n**The structural prerequisite is met.** Under the kinetic per-isoacceptor charging model (Choi & Covert 2023, `--kinetic-trna-charging`), the 86 `fraction_trna_charged` columns are **genuinely independent measurements** \u2014 charging solved per isoacceptor as charged/(charged+free). This is confirmed by `model_capabilities`, which explicitly states the within-family isoacceptor axis of Elf et al. 2003 *is* representable in this mode (and is *not* under steady-state, where those 86 columns are one per-amino-acid scalar broadcast \u2014 a within-family spread of 0.00 by arithmetic, not measurement).\n\n**There is real kinetic corpus data to read it from:** `wildtype\u00b7basal#elong:kinetic`, 4 seeds \u00d7 3 generations, all qc:ok, and critically **not translationally arrested** (elongation running at 16.0 aa/s, `arrested: false`) \u2014 so the charged fractions are a genuine dynamic steady state, not the arithmetic table an arrested run produces.\n\n**The measured within-family spread (from `model_capabilities`, read off these kinetic runs):**\n- **Glycine: 0.32** spread across its isoacceptors\n- **Leucine: 0.25** spread across its isoacceptors\n\nA spread of ~0.25\u20130.32 between sibling isoacceptors of *one* amino acid means **yes \u2014 in this model one isoacceptor sits substantially more de-charged than another of the same amino acid**, exactly the qualitative phenomenon Elf et al. 2003 describe.\n\n## Important honesty caveats\n\n1. **I could not read the raw 86 columns directly** \u2014 the `unique`-listener reader requires the `wholecell` module, which isn't installed on this machine. The within-family spread numbers (GLY 0.32, LEU 0.25) come from the `model_capabilities` registry, which is probed against the model checkout AND manifest (`audit: true`). The `trna_families` and `selective_charging` tools I *can* run both collapse to the **21 amino-acid family level** \u2014 that is the Dittmar 2005 *between*-family axis, not the Elf 2003 *within*-family axis. So the direct per-isoacceptor table underlying 0.32/0.25 is one layer deeper than I could re-derive myself this session.\n\n2. **This is not a wet-lab validation.** The kinetic WT run is `in_sample` (a fitted/consistency condition), so agreement with Elf/Dittmar here is the model *reproducing* selective charging structurally, not an out-of-sample prediction. Dittmar et al. 2005 Table 1 is between-family charged fractions in real cells; a proper comparison to *that* table is family-level (which `trna_families` gives), whereas Elf's isoacceptor-resolved bimodality is what the 0.25\u20130.32 spread speaks to.\n\n3. **The corpus does not carry a per-isoacceptor selectivity verdict tool.** `selective_charging` deliberately returns no verdict and operates family-level; its wildtype-null (family gap median 13.4pp between unperturbed runs) is a between-family false-positive floor, not the within-family test.\n\n**If you want this nailed down**, the decisive next step is to read the raw 86-column `fraction_trna_charged` per isoacceptor on the kinetic WT run (needs the `wholecell` reader restored), or run an amino-acid **starvation** kinetic arm (e.g. an aaRS partial-knockdown, since the full `KO:argS#elong:kinetic` is `no_division`/arrested and unreadable for charging) to see whether the starved cognate family's isoacceptors *split* \u2014 the sharp Elf-style test. I can propose that panel if useful."
+      },
+      {
+        "id": "per_isoacceptor_trna_charging__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 21.5,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1233,
+          "cache_read_tokens": 96053,
+          "cache_creation_tokens": 3846,
+          "latency_ms": 20872,
+          "cost_usd": 0.102919,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "## Answer: The coarse-grained kinetic model cannot answer this \u2014 but the kinetic model can, and it says **yes**.\n\n**Under `coarse_kinetic`, this question is not answerable \u2014 and any number you'd read would be a fabrication.**\n\nThe `CoarseKineticTrnaChargingModel` does not solve tRNA charging at all. Its `.request` and `.evolve` methods both return `zero_charged_holder`, an 86-wide array of `np.zeros` allocated to the isoacceptor count. So every one of the 86 isoacceptor charging columns is **exact 0.00 at every timestep**. This is not a broadcast scalar (that's the `steady_state` artefact) and not an aggregation flattening \u2014 it is *the absence of a charging model*. Reading a within-family spread of 0.0 from a coarse_kinetic run would not show \"uniform charging\" or \"total de-acylation\"; it would be inventing a phenotype from an unfilled array. So I will not report a number from that mode.\n\n**Where the question IS answerable: the `kinetic` elongation model.**\n\nPer-isoacceptor charging with explicit codon reading (Choi & Covert 2023, NAR 51(12):5911, doi:10.1093/nar/gkad435) is the model where the 86 columns are genuinely independent measurements \u2014 exactly the axis Elf et al. 2003 predict and Dittmar et al. 2005 validate. The capability registry reports a **measured within-family spread there of GLY 0.32 and LEU 0.25**, i.e. isoacceptors of the *same* amino acid sitting at different charged fractions \u2014 differential/selective charging. And critically, `switch.in_corpus = true`: **kinetic runs already exist in this corpus**, so this is a query to re-issue, not a new simulation to propose.\n\n**What I recommend:** let me re-run the isoacceptor-charging analysis against the kinetic-mode runs rather than coarse_kinetic. That's where the real per-isoacceptor `fraction_trna_charged` values live and where the Elf/Dittmar selective-charging axis can actually be measured. Say the word and I'll pull the kinetic-mode designs and read out the within-family spread directly (`trna_families` / `selective_charging` on a kinetic run), grounding the \"one de-charges while its sibling stays loaded\" claim in actual per-column numbers rather than the registry's summary figures.\n\nOne caution I'll carry into that: `trna_families` and `selective_charging` return per-call `elongation_model` and `resolution` fields \u2014 I'll read those to confirm each run I quote is genuinely `kinetic` (independent columns), and I won't pool any kinetic reading with the steady_state corpus rows.\n\nWant me to proceed against the kinetic runs?"
+      },
+      {
+        "id": "codon_level_elongation__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 67.5,
+        "usage": {
+          "n_calls": 9,
+          "input_tokens": 18,
+          "output_tokens": 3779,
+          "cache_read_tokens": 335800,
+          "cache_creation_tokens": 10639,
+          "latency_ms": 63703,
+          "cost_usd": 0.328959,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 9
+          },
+          "by_model": {
+            "claude-opus-4-8": 9
+          }
+        },
+        "answer": "The chart tool collapsed to the single aggregate summary channel (0.773, the family mean) rather than the per-family breakdown, since `fraction_trna_charged` in the shard is one scalar. The per-family structure lives in the `trna_families` table I already read \u2014 that's the grounded source. Here is the answer.\n\n## Which codon is a ribosome waiting on \u2014 and does codon identity change elongation rate?\n\n**Yes to both \u2014 but only in the kinetic elongation model, and I answered it there, not from the corpus's steady-state rows.**\n\n### The framing correction first\nEvery ordinary corpus row is `elongation_model = steady_state`, and in that model **the question is structurally unanswerable**: charging is solved as one ODE per amino acid and *broadcast* across the 86 isoacceptor columns, and there is no per-codon ribosome-position state. Any per-codon number from steady-state would be an arithmetic artifact, so I did not report one.\n\nThere is, however, a genuine **kinetic-mode wildtype run** (`wildtype/basal#elong:kinetic`) with per-isoacceptor charging and explicit codon reading (Choi & Covert 2023). Its support is adequate \u2014 **4 seeds \u00d7 3 generations = 12 lineage-generations, `sufficient: true`, not arrested, mean elongation 16.0 aa/s** \u2014 so these are measurements, not identities.\n\n### Which codon the ribosome waits on\nThe ribosome stalls where its cognate charged tRNA is scarcest. In the kinetic wildtype, charged fractions per family (ascending = most-waited-on first):\n\n| Rank | Family | Charged fraction |\n|---|---|---|\n| **1 (most starved)** | **Ile** | **0.23** |\n| 2 | Trp | 0.39 |\n| 3 | Phe | 0.49 |\n| 4 | Gly | 0.56 |\n| 5 | Tyr | 0.64 |\n| \u2026 | \u2026 | \u2026 |\n| least | Met | 0.91 (Sel 1.00, special) |\n\n**Ile codons are where ribosomes wait longest** \u2014 isoleucine tRNA is only ~23% charged, versus ~91% for Met \u2014 with Trp and Phe next.\n\n### Does codon identity change elongation rate\n**Yes.** Because charged availability ranges from 0.23 to 0.91 across families in this mode, the local decoding delay is codon-specific: a ribosome positioned on an Ile/Trp/Phe codon dwells longer than one on a Met/Arg/Gln codon. The `resolution` field confirms the 86 columns are genuinely independent here (within-family spread is a measurement, so the Elf 2003 isoacceptor axis is real in this mode) \u2014 this is precisely the distinction the steady-state corpus **cannot** make, where all family values are broadcast-identical.\n\n### Honest caveats\n- **This is one design (kinetic wildtype, basal), not the whole corpus.** The corpus's science lives in steady-state; this codon-level answer stands on the 4-seed kinetic wildtype only.\n- **Never pool this with steady-state numbers** \u2014 the same column means different things across modes.\n- Ranks are cross-seed/last-generation means; I did not read per-codon dwell times directly (the model exposes charging + elongation rate, from which the waiting follows), and the aggregate mean charging is 0.735.\n\nIf you want, I can propose a matched **kinetic-mode nutrient dropout or aaRS knockout** (e.g. an Ile-limitation or `ileS` KO) to test whether starving one family *shifts which codon dominates the wait* \u2014 that would be the falsifying experiment for \"codon identity sets the rate.\" I already see `KO:argS#elong:kinetic` in the corpus (it collapses, `no_division`), which is consistent with charging-driven elongation being load-bearing in this mode.\n---\n**Provenance check \u2014 claims this conversation did not read.** The answer above names corpus identifiers that no tool call in this conversation retrieved. They are left exactly as written; this note is the record, not a correction.\n- `wildtype/basal` (design) \u2014 in: \u201cThere is, however, a genuine **kinetic-mode wildtype run** (`wildtype/basal#elong:kinetic`) with per-isoacceptor charging and explicit codon reading (Choi & Covert 2023).\u201d\n\nWhat this turn actually read: gene_knockout\u00b7KO:argS#elong:kinetic\u00b7s0, gene_knockout\u00b7KO:argS#elong:kinetic\u00b7s1, gene_knockout\u00b7KO:argS#elong:kinetic\u00b7s2, gene_knockout\u00b7KO:argS#elong:kinetic\u00b7s3, metabolism_kinetic_objective_weight/minimal|kin_w:0 seed0, metabolism_kinetic_objective_weight/minimal|kin_w:0 seed1, metabolism_kinetic_objective_weight/minimal|kin_w:0 seed2, metabolism_kinetic_objective_weight/minimal|kin_w:0 seed3, metabolism_kinetic_objective_weight/minimal|kin_w:0.1 seed0, metabolism_kinetic_objective_weight/minimal|kin_w:0.1 seed1, metabolism_kinetic_objective_weight/minimal|kin_w:0.1 seed2, metabolism_kinetic_objective_weight/minimal|kin_w:0.1 seed3, metabolism_kinetic_objective_weight/minimal|kin_w:1 seed0, metabolism_kinetic_objective_weight/minimal|kin_w:1 seed1, metabolism_kinetic_objective_weight/minimal|kin_w:1 seed2, metabolism_kinetic_objective_weight/minimal|kin_w:1 seed3, metabolism_kinetic_objective_weight/minimal|kin_w:1e-4 seed1, metabolism_kinetic_objective_weight/minimal|kin_w:1e-4 seed2, metabolism_kinetic_objective_weight/minimal|kin_w:1e-4 seed3, metabolism_kinetic_objective_weight/minimal|kin_w:1e-5 seed0, metabolism_kinetic_objective_weight/minimal|kin_w:1e-5 seed1, metabolism_kinetic_objective_weight/minimal|kin_w:1e-6 seed0, metabolism_kinetic_objective_weight/minimal|kin_w:1e-6 seed1, metabolism_kinetic_objective_weight/minimal|kin_w:1e-7_default seed0, metabolism_kinetic_objective_weight/minimal|kin_w:1e-7_default seed1, metabolism_kinetic_objective_weight/minimal|kin_w:1e-8 seed0, metabolism_kinetic_objective_weight/minimal|kin_w:1e-8 seed1, metabolism_kinetic_objective_weight\u00b7basal\u00b7s0, wildtype/basal#elong:kinetic, wildtype\u00b7basal#elong:kinetic\u00b7s0, wildtype\u00b7basal#elong:kinetic\u00b7s1, wildtype\u00b7basal#elong:kinetic\u00b7s2, wildtype\u00b7basal#elong:kinetic\u00b7s3.\nNon-corpus tools also ran this turn (their output is not a measurement of this corpus): `model_capabilities`\u00d72."
+      },
+      {
+        "id": "codon_level_elongation__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 53.9,
+        "usage": {
+          "n_calls": 6,
+          "input_tokens": 12,
+          "output_tokens": 2834,
+          "cache_read_tokens": 214842,
+          "cache_creation_tokens": 12079,
+          "latency_ms": 52654,
+          "cost_usd": 0.253825,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 6
+          },
+          "by_model": {
+            "claude-opus-4-8": 6
+          }
+        },
+        "answer": "The bar chart only pulled the single aggregate channel from the manifest (0.773), not the 21 per-family values \u2014 the manifest carries only the scalar mean, and the per-family breakdown lives in `trna_families` (which I already have). The chart tool can't render the family breakdown here, so I'll report the grounded per-family numbers directly rather than a misleading single-bar figure.\n\nI have what I need. Here is the answer.\n\n## Which codon is a ribosome waiting on, and does codon identity change elongation rate?\n\n**Yes \u2014 codon identity changes elongation rate, and the codon a ribosome waits longest on is an Ile codon.** This is answerable *only* under the kinetic model, and I answered it from the kinetic wildtype run, not from any steady-state row.\n\n**Why the model matters here (the key caveat).** `fraction_trna_charged` is 86 columns wide under every elongation model but means three different things. Under the corpus default (steady_state) it is one per\u2011amino\u2011acid scalar *broadcast* across the family, so within\u2011family spread is 0.00 by algebra \u2014 the per\u2011isoacceptor question is *not answerable there* and any number read from it would be an artifact. Under the **kinetic** model (Choi & Covert 2023, `--kinetic-trna-charging`) the 86 columns are genuinely independent measurements. So I used the kinetic arm (`kb_sha256 \u2026f228c171`), which cannot be pooled with the steady\u2011state corpus.\n\n**Grounded result** \u2014 kinetic wildtype/basal, **4 seeds \u00d7 3 generations (12 lineage\u2011generations, support `sufficient: true`), elongation not arrested** (mean elongation 16.0 aa/s; only 0.04 % of steps at zero):\n\nCharged fraction, most\u2011starved first:\n\n| tRNA family | charged fraction |\n|---|---|\n| **Ile** | **0.23** \u2190 lowest |\n| Trp | 0.39 |\n| Phe | 0.49 |\n| Gly | 0.56 |\n| \u2026 | \u2026 |\n| Arg | 0.88 |\n| Met | 0.91 |\n\n- **The ribosome waits longest on Ile codons.** Ile tRNA is only 23 % charged versus Met at 91 % and the aggregate mean of 0.735 \u2014 a ~4\u2011fold cognate spread that the single mean channel completely hides. A ternary complex arriving at an A\u2011site is delivered in proportion to its cognate charged\u2011tRNA availability, so the least\u2011charged family (Ile) is the rate\u2011limiting wait.\n- **Codon identity therefore changes local elongation rate:** a codon read by a well\u2011charged family (Met, Arg) is decoded fast; a codon read by Ile/Trp/Phe stalls the A\u2011site longer. This is exactly the selective\u2011charging axis of Elf et al. 2003 that the steady\u2011state model flattens to zero by construction.\n\n**Honesty bounds on the claim:**\n- This is the **unstressed wildtype** ranking \u2014 it says which codons are intrinsically slowest at baseline, not a starvation response. The kinetic *argS* KO (the direct synthetase\u2011starvation test) exists in the corpus but **all three seeds collapsed at generation 2 (no_division)**, so I cannot report a within\u2011generation charging read for it as a settled result.\n- The corpus tracks charging **per amino\u2011acid family (21 rows)**, not per synonymous codon triplet. So \"waiting on an Ile codon\" is resolved to the Ile tRNA family \u2014 I cannot rank *individual* synonymous codons (e.g. AUU vs AUC) from these runs; that would require the per\u2011codon reading listener, which the summary shard doesn't carry.\n\nIf you want the *stressed* version \u2014 codon\u2011waiting under an actual charging perturbation with lineages that survive \u2014 the informative next run would be a **graded** (partial, non\u2011lethal) synthetase knockdown under the kinetic model, so the lineage divides and the transient charging read is a settled measurement rather than a pre\u2011collapse snapshot. I can propose that panel if useful."
+      },
+      {
+        "id": "codon_level_elongation__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 20.9,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1134,
+          "cache_read_tokens": 95967,
+          "cache_creation_tokens": 3607,
+          "latency_ms": 20298,
+          "cost_usd": 0.098907,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "I can answer this directly and precisely \u2014 and the answer is a refusal with a concrete redirect, not a number.\n\n## The coarse-grained kinetic model cannot answer this\n\n**\"Which codon is a ribosome waiting on?\"** \u2014 The coarse_kinetic model has no notion of a ribosome waiting on a specific codon. In this model, elongation **draws from per-amino-acid pools, and codon identity has no effect on rate**. There is no codon\u00d7anticodon reading step being solved, so there is no \"codon the ribosome is stalled on\" to report.\n\n**\"Does codon identity change elongation rate?\"** \u2014 In the coarse_kinetic model, **no, by construction** \u2014 not because a simulation measured no effect, but because the model does not represent codon-resolved reading at all. Its tRNA-charging routine literally returns an 86-wide array of exact zeros at every timestep (`CoarseKineticTrnaChargingModel` returns `self.zero_charged_holder`); charging is not solved. Any codon or codon-bias number you pulled from a coarse_kinetic run would be arithmetic from an unfilled array, not a measurement \u2014 reporting it would invent a phenotype out of nothing.\n\nSo I will **not** give you a codon or a rate from this mode.\n\n## Two further honesty notes\n\n- **There are zero coarse_kinetic runs in the corpus.** Every existing row is `steady_state`, and a couple are `kinetic`. So there is nothing to read here even if the mode could represent it.\n- The reading matrix (codon\u00d7anticodon) and its consumer are present in the checkout, but they are only exercised under the **kinetic** elongation model \u2014 not coarse_kinetic.\n\n## Where this question IS answerable\n\nThe **kinetic** elongation model (`elongation_model=\"kinetic\"`, flag `--kinetic-trna-charging`; Choi & Covert 2023, NAR 51(12):5911) does solve per-isoacceptor charging with explicit codon reading \u2014 there the 86 charging columns are genuinely independent, and codon identity *can* affect elongation. And critically, **kinetic runs already exist in the corpus** \u2014 this is a query to re-issue, not a run to propose.\n\nWould you like me to re-issue \"which codon/isoacceptor is limiting, and does it change elongation rate\" against the **kinetic** runs? That's the mode that actually represents the mechanism you're asking about \u2014 I can pull per-family/per-isoacceptor charging and the elongation channel from those runs."
+      },
+      {
+        "id": "operon_specific_rrna_knockout__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 30.0,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1474,
+          "cache_read_tokens": 101867,
+          "cache_creation_tokens": 10425,
+          "latency_ms": 29250,
+          "cost_usd": 0.15297,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "This is a case where the honest answer is a boundary statement, not a phenotype number. Let me be precise.\n\n## What the model can \u2014 and cannot \u2014 tell you here\n\n**The model cannot represent deletion of a *specific* rRNA operon** (e.g. \"delete *rrnB*\"). The capability check is explicit: `can_answer: false`, `why_not: no_elongation_model_represents_it`.\n\nHere's the mechanism of *why* \u2014 and it's important, not a technicality. When the `rrna_operon_knockout` variant zeroes *n* of the 7 rRNA rows, the very next step (`synth_prob_from_ppgpp(balanced_rRNA_prob=True)`) **reassigns the rRNA synthesis probability to the mean over all seven rows, including the zeroed ones.** The consequence:\n\n- The **dose survives** \u2014 total rRNA transcription capacity drops in graded steps (measured as ~100 / 73.8 / 45.9 / 15.8% for 0/2op/4op/6op removed).\n- **Operon identity does not survive** \u2014 no single rRNA row ends at zero. So these runs are *graded reductions of total rRNA capacity*, **never operon-deletion strains.**\n\nSo if your question is *\"what is the distinct phenotype of losing rrnB vs rrnH vs rrnE?\"* \u2014 differential regulation, the position/gene-dosage effects, the specific tRNAs co-transcribed in each operon \u2014 **this model cannot answer it, and I will not report a number as if it could.** All 7 rRNA operons are interchangeable-by-construction in this reconstruction; there is no per-operon identity to delete.\n\n## What the corpus *does* contain\n\nThere are 17 reportable runs (`out_of_sample`, all QC-ok, `elongation_model: steady_state`) of `rrna_operon_knockout` at three graded levels \u2014 **2op, 4op, 6op** removed \u2014 in minimal media. These are legitimately readable, but only as a **rRNA-capacity dose-response**, not as operon-specific deletions.\n\nIf that graded-capacity question is useful to you (i.e. *\"what happens as you progressively lose ribosomal RNA operons, ignoring which ones\"*), I can pull it properly \u2014 the phenotype, ribosome_conc, growth_rate and ppGpp across 2op\u21924op\u21926op, with the 4op design's known depth split (it spans generations [1,4], so I'd compare at a common generation to avoid a depth artifact).\n\n**Which do you want?**\n1. The graded rRNA-**capacity** dose-response (answerable now, from the 17 runs).\n2. Operon-**specific** identity effects \u2014 not representable here; I'd instead tell you what published work (e.g. Asai / Condon rrn-deletion strains) reports, clearly marked as external literature, and could sketch what a model change would need.\n\nJust say which, and I'll ground it."
+      },
+      {
+        "id": "operon_specific_rrna_knockout__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 36.1,
+        "usage": {
+          "n_calls": 4,
+          "input_tokens": 8,
+          "output_tokens": 1760,
+          "cache_read_tokens": 129151,
+          "cache_creation_tokens": 6588,
+          "latency_ms": 35513,
+          "cost_usd": 0.14979,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 4
+          },
+          "by_model": {
+            "claude-opus-4-8": 4
+          }
+        },
+        "answer": "This is a case where the honest answer is: **the model cannot represent what you asked, and the runs that appear to answer it don't.**\n\n## The straight answer\n\n**The model \u2014 under *any* elongation mode, kinetic included \u2014 cannot represent deletion of a *specific* rRNA operon as a distinguishable genotype.** So there is no measurement of \"what happens when operon X is deleted.\" Reporting one would be reporting an artifact.\n\nHere's the mechanism, and why it matters:\n\n- The `rrna_operon_knockout` variant zeroes *n* of the seven rRNA rows. But then `synth_prob_from_ppgpp(balanced_rRNA_prob=True)` **reassigns the rRNA synthesis probability to the mean over all seven rows \u2014 including the zeroed ones.** Rebalancing washes the deletion back across the surviving operons.\n- The net effect: **the total rRNA *dose* survives, but operon *identity* does not.** No row ends at zero. Total rRNA synthesis probability steps down as 100 \u2192 73.8 \u2192 45.9 \u2192 15.8% across the KO levels \u2014 so these are **graded reductions of total rRNA capacity**, not operon-deletion strains. You could not tell rrnB-deleted from rrnE-deleted; the model has no handle for which operon.\n\nSo the question \"what happens when a **specific** rRNA operon is deleted\" \u2014 the biology of operon identity (differential rrn positioning, gene-dosage/replication effects, sequence heterogeneity between operons) \u2014 is `no_elongation_model_represents_it`. Switching to the kinetic model does not help here; kinetic changes how *elongation/charging* is solved, not how the rRNA-operon variant is constructed.\n\n## Two more things worth being explicit about\n\n1. **The kinetic framing is orthogonal to this question.** Kinetic per-isoacceptor charging (Choi & Covert 2023) *is* representable and *is* in the corpus \u2014 the model would give you 86 genuinely independent isoacceptor charging columns (measured within-family spread e.g. GLY 0.32, LEU 0.25). But that capability answers \"does one isoacceptor de-charge while another stays loaded,\" not \"which rRNA operon was deleted.\" The two don't intersect.\n\n2. **The existing runs are steady_state, not kinetic.** The corpus has 17 `rrna_operon_knockout` runs (levels 2op / 4op / 6op, ~4 seeds each) \u2014 **all `elongation_model=\"steady_state\"`, none kinetic.** So even the *total-dose* reduction (which the model *can* represent as a graded rRNA-capacity cut) has zero kinetic-mode coverage. There is no kinetic rRNA run to read, and no number from the steady_state runs can be carried into a kinetic claim.\n\n## What I can offer instead\n\n- **If you want the graded total-rRNA-capacity phenotype** (which is what these runs actually measure \u2014 not operon identity), I can survey the existing steady_state 2op/4op/6op runs for the dose-response on growth and ppGpp. Say the word and I'll pull it, clearly labelled as \"total rRNA dose,\" not \"operon X deleted.\"\n- **If you want it under the kinetic model**, that's a new arm \u2014 I'd propose kinetic 2op/4op/6op runs for you to approve. But note it would *still* only give the graded-dose phenotype, not operon identity.\n- **True operon-identity biology** (which specific operon, positional/dosage effects) would require a knowledge-base change that gives each operon a distinguishable genotype and disables the rRNA rebalancing \u2014 a rebuild, not a simulation, and it's a genuine gap in the model as configured.\n\nWhich of these is actually useful to you?"
+      },
+      {
+        "id": "operon_specific_rrna_knockout__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 28.6,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1572,
+          "cache_read_tokens": 95964,
+          "cache_creation_tokens": 3442,
+          "latency_ms": 27997,
+          "cost_usd": 0.108825,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "The answer is a structural refusal, and there are actually **two independent reasons** the question can't be answered as posed. Let me lay them out plainly.\n\n## The short answer\n\n**The coarse-grained kinetic model cannot represent the deletion of a *specific* rRNA operon.** Neither the requested elongation mode nor the rRNA-knockout machinery lets you ask this question \u2014 and there are no coarse_kinetic runs in the corpus to read anyway.\n\n## Reason 1 \u2014 operon *identity* is not representable (the knockout semantics)\n\n`can_answer: false`, `why_not: \"no_elongation_model_represents_it\"`. The rRNA-knockout variant does **not** produce an operon-deletion strain in *any* elongation mode. What it actually does:\n\n- it zeroes *n* rRNA rows, then\n- `synth_prob_from_ppgpp(balanced_rRNA_prob=True)` **reassigns** `prob[is_rRNA]` to the **mean over all seven rRNA rows \u2014 including the zeroed ones**.\n\nThe consequence (from `docs/KNOCKOUT_SEMANTICS.md`): the total rRNA *dose* survives as a graded reduction (total rRNA probability lands at 100 / 73.8 / 45.9 / 15.8% depending on how many rows are zeroed), but **no row ever ends at zero**, so operon *identity* is erased. These are strains with less *total* rRNA transcription capacity \u2014 they are **not** \"the *rrnB* operon is gone\" strains. The model literally cannot distinguish deleting operon A from deleting operon B; it only knows \"how much total rRNA capacity is left.\"\n\nSo even the \"specific\" part of your question dissolves: the mechanism collapses seven distinguishable operons into one scalar dose.\n\n## Reason 2 \u2014 the coarse_kinetic mode itself is empty and doesn't solve charging\n\nTwo further facts about the mode you named:\n\n- **`coarse_kinetic` is not in the corpus** (`in_corpus: false`). Every existing run is `steady_state` or `kinetic`. There is nothing on disk to read for this mode \u2014 answering would require proposing and running a new arm, and its results would not be poolable with the corpus.\n- Under coarse_kinetic, `fraction_trna_charged` is **86 exact zeros** because `CoarseKineticTrnaChargingModel` does not solve charging at all (`request`/`evolve` return a pre-allocated zeros array). That zero reads like \"total starvation\" but is the **absence of a charging model, not a measurement**. So even if you ran the graded-rRNA variant here, you could not read the tRNA/elongation consequences from it.\n\n## What you *can* actually ask instead\n\nTwo honest substitutes, depending on what you're really after:\n\n1. **\"What does reducing total rRNA capacity do?\"** \u2014 this *is* representable as the graded-dose variant (the 100/73.8/45.9/15.8% ladder). That's a real dose-response on total ribosome-synthesis capacity, not operon deletion. It can be run, but not in coarse_kinetic if you want the tRNA channels to mean anything \u2014 I'd propose it in **kinetic** (where charging is genuinely solved per isoacceptor) or steady_state.\n\n2. **If you want operon-specific rRNA biology** (which of the seven *rrn* operons matters, gene-dosage/position effects) \u2014 **no elongation model in this checkout represents it.** That's a structural gap, not something a run would fill.\n\nI won't report any number from a coarse_kinetic rRNA-deletion run, because both the operon identity and the charging channels would be artifacts rather than measurements.\n\nWould you like me to draft a **graded total-rRNA reduction** dose-response experiment (kinetic mode) as the closest answerable question? I'd propose it through the approval airlock and set up the dose ladder."
+      },
+      {
+        "id": "per_gene_trna_abundance__steady_state__direct",
+        "mode": "steady_state",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 20.6,
+        "usage": {
+          "n_calls": 2,
+          "input_tokens": 4,
+          "output_tokens": 1045,
+          "cache_read_tokens": 63642,
+          "cache_creation_tokens": 3139,
+          "latency_ms": 20047,
+          "cost_usd": 0.077585,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 2
+          },
+          "by_model": {
+            "claude-opus-4-8": 2
+          }
+        },
+        "answer": "Short answer: **the model cannot give you a trustworthy abundance for the tRNA from one specific tRNA *gene*.** Let me be precise about why, because the model *will* hand you a number and it would be the wrong number.\n\n## What the model can't represent here\n\nThe capability I checked (`per_gene_trna_abundance`) is explicitly **not representable** (`why_not: \"no_elongation_model_represents_it\"` \u2014 a flat refusal, not a \"wrong mode\" issue).\n\nThe reason is in how the per-gene values were constructed. The model carries 86 per-gene tRNA values, but they were **derived, not measured**:\n\n- The underlying data is **Dong 1996**, which measured ~44 tRNA **species** (anticodon-pooled), not individual genes.\n- To fill 86 gene rows, each species value was **divided by the number of genes** encoding it and the quotient stapled onto individual genes.\n- The concrete failure the tool flags: `0.2225 \u00d7 4 = 0.89` is Dong's **Leu1** value, but it ends up sitting on **glt / ile / met / pro** genes. The quotients are attached to the *wrong genes*.\n\nSo a \"per-gene abundance\" from this model is an arithmetic artifact of a division, not a measurement of the tRNA from that gene. I won't report it as a value.\n\n## What the model *can* legitimately give you\n\nThe measurement-backed resolution is the **anticodon-pooled species value** (Dong 1996's actual level of measurement). If you tell me the specific tRNA \u2014 either the **amino acid + anticodon** (e.g. tRNA-Leu(CAG)) or the gene name \u2014 I can pull the **pooled species abundance** and report it *with the pooling rule stated explicitly* (docs/MODEL_EXTENSION.md EXT-3), which is the honest answer to \"how abundant is this tRNA.\"\n\n## One important adjacent caveat\n\nIf your real question is about **charging** of a specific isoacceptor (how much of *this one* tRNA is aminoacylated), note that every corpus row is `steady_state`, where charging is solved per **amino acid** and broadcast across isoacceptors \u2014 so within-family differences are `0.00` **by construction**, not a measurement. That axis *is* representable, but only under the **kinetic** elongation model (`--kinetic-trna-charging`), and the corpus already has kinetic runs, so I could re-issue a charging query there.\n\n**Tell me which specific tRNA you mean** (amino acid + anticodon, or gene name), and whether you want **abundance** or **charging**, and I'll pull the right, grounded quantity at the resolution the model actually supports."
+      },
+      {
+        "id": "per_gene_trna_abundance__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": false,
+        "seconds": 18.7,
+        "usage": {
+          "n_calls": 2,
+          "input_tokens": 4,
+          "output_tokens": 988,
+          "cache_read_tokens": 63676,
+          "cache_creation_tokens": 663,
+          "latency_ms": 18079,
+          "cost_usd": 0.060702,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 2
+          },
+          "by_model": {
+            "claude-opus-4-8": 2
+          }
+        },
+        "answer": "This is a case where the model returns a number but that number is **not a measurement**, so I won't report it as one.\n\n## Short answer\n\n**Per-tRNA-gene abundance is not representable in this model** \u2014 not even under the kinetic per-isoacceptor charging mode (Choi & Covert 2023). `why_not = no_elongation_model_represents_it`: no elongation model in Cellarium resolves tRNA abundance down to the individual tRNA *gene*, so there is no honest number I can give you for \"the tRNA transcribed from one specific gene.\"\n\n## Why the number that exists is the wrong number\n\nThe model *does* carry 86 per-gene values (`trna_ratio_to_16SrRNA_*.tsv`), so if I just read a column I could hand you a figure \u2014 but it would be fabricated resolution:\n\n- Those 86 values are **derived**, not measured. They come from Dong et al. 1996 (Table 3), which measured ~**44 tRNA *species*** (anticodon-pooled), not individual genes.\n- The pipeline manufactured the per-gene table by **dividing each species value by a gene count**. That arithmetic attaches Dong's species measurement to the *wrong genes*: e.g. `0.2225 \u00d7 4 = 0.89` is Dong's **Leu1** value, but it ends up sitting on `glt`/`ile`/`met`/`pro` genes.\n\nSo a \"per-gene abundance\" read here is measurement-backed at the **species** level and pure bookkeeping at the **gene** level. Reporting it would be reporting a quotient pinned to a gene it was never measured on.\n\n## What the model *can* answer\n\n- **Anticodon-pooled tRNA *species* abundance** (the ~44-species resolution of Dong 1996) \u2014 that is the real, measurement-backed axis. Ask it as \"how abundant is the tRNA for anticodon X / amino-acid family Y\" and I can answer it, stating the pooling rule (docs/MODEL_EXTENSION.md EXT-3).\n- Under **kinetic** mode specifically, per-*isoacceptor* charged fractions are genuinely independent measurements (86 real values) \u2014 but that's charging *state*, not gene-level *abundance*, and note the entire current corpus is `steady_state`, where even the isoacceptor spread is a broadcast identity (0.0 by construction), not data.\n\nIf you tell me the specific tRNA gene you had in mind, I'll map it to its anticodon/species and give you the pooled abundance with the pooling rule stated explicitly \u2014 that's the same information at the resolution the model actually supports."
+      },
+      {
+        "id": "per_gene_trna_abundance__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 17.3,
+        "usage": {
+          "n_calls": 2,
+          "input_tokens": 4,
+          "output_tokens": 916,
+          "cache_read_tokens": 63660,
+          "cache_creation_tokens": 642,
+          "latency_ms": 16734,
+          "cost_usd": 0.058762,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 2
+          },
+          "by_model": {
+            "claude-opus-4-8": 2
+          }
+        },
+        "answer": "The answer is that **this question cannot be answered as a per-gene number** \u2014 under any elongation model, including coarse-grained kinetic.\n\n## What the model can and cannot represent here\n\nThe capability check (`why_not: no_elongation_model_represents_it`) is a flat refusal, not a model-configuration quirk. Here's the mechanistic reason:\n\n- The whole-cell model carries **86 per-gene tRNA values** in `trna_ratio_to_16SrRNA_*.tsv`, so it *will* return a plausible-looking number if you read that column blindly.\n- But those 86 values are **not per-gene measurements**. They were derived from Dong et al. 1996 (Table 3), which reports only ~**44 tRNA *species*** abundances. Each species value was mechanically divided by a gene count to spread it across the genes.\n- That division **attaches the quotients to the wrong genes**. The tool's own example: `0.2225 \u00d7 4 = 0.89` is Dong's *Leu1* species value, but in the file it sits on *glt/ile/met/pro* genes. So a \"per-gene abundance\" read from this data is arithmetic dressed as a measurement \u2014 it is not measurement-backed for any individual gene.\n\nThis compounds a deeper point specific to `coarse_kinetic`: that elongation model **does not solve tRNA charging at all** (the 86 charging columns are exact zeros by construction). So even the downstream dynamics you'd want the per-gene value *for* aren't represented in this mode.\n\n## What you can honestly ask instead\n\nThe measurement axis that *is* real is the **anticodon-pooled species value** \u2014 i.e., tRNA abundance resolved to the **species/anticodon** level (the ~44 quantities Dong actually measured), with the pooling rule stated explicitly (per `docs/MODEL_EXTENSION.md`, EXT-3).\n\nSo:\n- \u274c \"How abundant is the tRNA from *this one gene*?\" \u2192 not representable, and any number would be attached to the wrong gene.\n- \u2705 \"How abundant is *this tRNA species* (anticodon-pooled)?\" \u2192 answerable, measurement-backed.\n\nIf you give me the specific tRNA \u2014 either the gene name or its anticodon/species \u2014 I'll resolve it to the correct pooled species value and report it with the pooling rule spelled out. I won't hand you a per-gene number, because it would be wrong by construction."
+      },
+      {
+        "id": "knockout_of_a_multi_transcription_unit_gene__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 41.5,
+        "usage": {
+          "n_calls": 4,
+          "input_tokens": 8,
+          "output_tokens": 2110,
+          "cache_read_tokens": 136417,
+          "cache_creation_tokens": 11076,
+          "latency_ms": 40343,
+          "cost_usd": 0.190223,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 4
+          },
+          "by_model": {
+            "claude-opus-4-8": 4
+          }
+        },
+        "answer": "I have the decisive evidence. The key facts come straight from the QC verdicts and the measured `ko_footprint` for valS. Let me note the differential label form \u2014 for KO:rpoB there's no reportable design (all noop/empty), which is itself the answer for that gene.\n\n## Answer: it depends entirely on **which** transcription unit the `gene_knockout` variant happens to zero \u2014 and for a multi\u2011TU gene it usually does **not** work\n\nThe mechanism is the crux. Under the shipped knowledge base (operons **ON** \u2014 all 322 corpus rows), `sim_data.process.transcription.rna_data` rows are **transcription units**, not genes. The `gene_knockout` variant computes one positional index into that table and zeros **exactly one row** \u2014 i.e. one TU. A gene transcribed from *n* TUs still has its other *n\u22121* TUs firing, so it is at best a **partial knockdown**, not a knockout. This is measured on your four genes:\n\n| Gene | n_TU | Corpus KO verdict (measured) | What actually happened |\n|---|---|---|---|\n| **rpoB** | 3 | all 4 seeds `noop_knockout` / `empty` \u2014 **not reportable** | The zeroed TU is not the dominant one; rpoB stays expressed. **Not a knockout.** |\n| **murA** | 2 | all 4 `gene_knockout` seeds `noop_knockout` | murA stays expressed. **Not a knockout.** (Only the *graded* variant produced a real effect \u2014 see below.) |\n| **rpmJ** | 2 | all 4 seeds `ok`, **viable** (divides 4 gens) | Something *was* silenced \u2014 but per the model docs this KO silences **secY**, a gene it is not named after. The \"clean\" run is misleading. |\n| **valS** | 2 | 1 seed `ok`; footprint measured directly | valS mRNA **0.7 vs WT 1.9 \u2014 still expressed** (partial knockdown). Its TU partner **holC went to 0.0 (fully silenced)**. So this run silences holC, not valS. |\n\nThe valS footprint is the clearest illustration: the variant zeroed TU0\u201114474 (`holC\u2011valS`); valS is on 2 TUs so it survives, while its operon partner holC \u2014 on only that one TU \u2014 is fully deleted. **\"KO:valS\" is really a holC knockout with a valS knockdown.**\n\n### So, directly answering your question\n- **Can a multi\u2011TU gene be knocked out this way? Generally no.** The single-TU `gene_knockout` variant cannot fully silence a gene whose expression is spread across \u22652 TUs. Three outcome classes appear: (1) `noop_knockout` (gene untouched \u2014 rpoB, murA), (2) silences an *operon partner* instead (valS\u2192holC, rpmJ\u2192secY), (3) partial knockdown of the target.\n- **The QC label is doing its job** \u2014 `noop_knockout` is the system flagging exactly this. Do not read those runs as \"rpoB/murA are dispensable\"; the gene was never removed.\n\n### The correct way to knock out a multi\u2011TU gene here\nUse the **graded_gene_knockout** variant, which suppresses **every TU carrying the cistron** rather than one indexed row. That is precisely why murA has usable data: the graded runs at expr 0.5/0.1 are `ok`/`crashed` (a real dose\u2011dependent effect), while the plain `gene_knockout\u00b7KO:murA` seeds are all `noop`. This is the tool's own recommendation for this class of design (`use_graded_gene_knockout`).\n\nOne caveat worth flagging honestly: even the graded variant suppresses the *cistron across its TUs*, so for genes in tight operons you still delete operon partners (polar effect) \u2014 which is real biology (E. coli single-gene KOs do have polar effects), but you must report **n_genes_deleted**, not assume single-gene resolution.\n\nWould you like me to **propose graded_gene_knockout runs for rpoB, valS, and rpmJ** (matching the murA precedent, with a WT reference) so you get genuine knockdown phenotypes instead of the current no-ops? Note rpoB (RNAP) and valS (aaRS, benchmark-**essential**, expected lethal ~gen\u20113) will need enough generations to see the crash \u2014 I'd size those accordingly before queuing."
+      },
+      {
+        "id": "knockout_of_a_multi_transcription_unit_gene__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 41.0,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 2363,
+          "cache_read_tokens": 100678,
+          "cache_creation_tokens": 8577,
+          "latency_ms": 40249,
+          "cost_usd": 0.16305,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "This is a clean, decisive answer \u2014 and there are two separate findings, one of which reframes your premise.\n\n## First, the framing correction: this is not a kinetic-model question\n\nYou scoped this to the kinetic per-isoacceptor charging model (Choi & Covert 2023). But **the knockout mechanics you're asking about have nothing to do with the elongation model** \u2014 they're set at ParCa (knowledge-base build) time by the operon option, not at simulation time.\n\n- Every one of the four KO runs that exists in the corpus is `elongation_model = \"steady_state\"` (confirmed on all `list_results` rows above). There are **zero kinetic-mode KO runs** for murA/rpoB/rpmJ/valS.\n- `--kinetic-trna-charging` is a `runSim.py` flag; `--operons {off,on}` is a `runParca.py` flag. They are orthogonal. Whether a multi-TU gene gets knocked out is a **transcription-unit indexing** question decided entirely by the operon mode, identically under steady_state and kinetic.\n\nSo the honest answer isn't a kinetic measurement \u2014 it's a structural fact about how `gene_knockout` indexes `rna_data`, which I can ground directly.\n\n## The mechanism: `gene_knockout` zeroes ONE `rna_data` row, and under operons=ON that row is a transcription unit\n\nThe entire shipped corpus is `operons='on'` (322/322 rows). Under ON, `rna_data` rows are **transcription units**, not cistrons. `gene_knockout` computes a positional index into `rna_data` and zeroes exactly **one** row via `adjust_final_expression`. A multi-TU gene is therefore not fully silenced \u2014 the other TU(s) carrying that cistron keep transcribing it.\n\nThe corpus confirms this per gene:\n\n| Gene | n_tu | KO run QC verdict | What actually happened |\n|------|------|-------------------|------------------------|\n| **murA** | 2 | `noop_knockout` (all 4 seeds) | **NOT knocked out** \u2014 the QC gate literally names it a no-op |\n| **rpoB** | 3 | `noop_knockout` (3 seeds) + 1 `empty` | **NOT knocked out** \u2014 `KNOCKOUT_SEMANTICS` measures rpoB mRNA *10.4 vs wildtype 8.4* (it went *up*) |\n| **rpmJ** | 2 | `ok` (all 4 seeds, reportable) | **Wrong gene silenced** \u2014 it drives `secY`\u21920.0, not rpmJ. The run is \"ok\" but it's not an rpmJ KO |\n| **valS** | 2 | `ok` (1 seed, reportable) | Runs clean \u2014 but with n_tu=2, the same one-row-zeroed mechanism applies; the \"ok\" verdict does not confirm valS itself was silenced |\n\n## Direct answer to your question\n\n**No \u2014 a gene transcribed from more than one transcription unit cannot be reliably knocked out by `gene_knockout` under operons=ON, which is the only mode the corpus was built in.** The variant zeroes a single TU-indexed row, so:\n\n- **murA (n_tu=2) and rpoB (n_tu=3): confirmed NOT knocked out** \u2014 the model's own QC flags them `noop_knockout`, and rpoB mRNA actually *rises*.\n- **rpmJ (n_tu=2): silences the wrong gene** (`secY`), so a \"reportable, ok\" run is a mislabeled experiment, not an rpmJ KO.\n- **valS (n_tu=2): the single \"ok\" run does not establish that valS was silenced** \u2014 same one-row mechanism, and it hasn't been verified the way murA/rpoB were.\n\nThe `KNOCKOUT_SEMANTICS` audit's bottom line matches: of the corpus KO designs, 10 were genuinely knocked out, **2 were NOT (murA, rpoB)**, 1 was partial/wrong-target (rpmJ). A label `KO:X` is not a guarantee that X is off.\n\n## What you'd actually need\n\nThe tool's `recommendation` token is **`use_graded_gene_knockout`**: for a multi-TU gene, the cheaper correct fix is a *graded* knockout, which suppresses **every TU carrying the cistron**, rather than the one-row `gene_knockout` or a full ParCa rebuild with operons=OFF (which would be a separate arm \u2014 different `kb_sha256`, non-poolable with the corpus). Notably, murA *already has* graded runs in the corpus (`graded_gene_knockout\u00b7KO:murA#expr:0.1/0.5/0.9`), and the `expr:0.1` run crashes at one seed \u2014 a real lethality signal that the plain `noop_knockout` never showed.\n\nIf you want, I can:\n1. **Read the graded murA runs** (`expr:0.1/0.5/0.9`) to show the dose-response the plain KO couldn't produce; or\n2. **Propose graded-KO panels for rpoB, rpmJ, valS** so each is suppressed across all its TUs \u2014 the correct experiment for a multi-TU gene.\n\nOne caveat I won't overstate: everything above is **steady_state** provenance. If you specifically want these under the *kinetic* charging model, those are new runs to propose (kinetic KO runs don't exist in the corpus) \u2014 but the multi-TU knockout defect would behave identically, because it's an operon/ParCa property, not an elongation property. Which direction do you want to take?"
+      },
+      {
+        "id": "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 36.8,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 2253,
+          "cache_read_tokens": 100843,
+          "cache_creation_tokens": 8777,
+          "latency_ms": 36013,
+          "cost_usd": 0.161633,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "The corpus confirms the mechanism precisely. Let me give you the grounded answer.\n\n## The short answer\n\n**Your framing has a false premise, and it's an important one to correct: the coarse-grained kinetic elongation model is irrelevant to this question.** Whether a multi-TU gene can be knocked out is decided at *knowledge-base build time* (the ParCa `operons` option), not by the elongation model that runs the simulation.\n\n- The elongation model (`steady_state` / `kinetic` / `coarse_kinetic`) is a `runSim.py` choice \u2014 it governs how tRNA charging and elongation are solved during the run.\n- The multi-TU structure lives in `sim_data.process.transcription.rna_data`, which is built by `runParca.py --operons {on,off}`. **`runSim.py` has no operon override** (measured: `grep -c operons runscripts/manual/runSim.py` = 0).\n\nSo \"under the coarse-grained kinetic model, can a multi-TU gene be knocked out?\" has the same answer as under any elongation model. And separately: **there are zero `coarse_kinetic` runs in this corpus** \u2014 all 322 rows are `steady_state` (with a few `kinetic`). Every KO result below is `steady_state`.\n\n## Why multi-TU genes resist knockout (the actual mechanism)\n\n`gene_knockout` computes a positional index into `rna_data` and zeroes **one row**. Under `operons='on'` (all 322 corpus rows), each `rna_data` row is a **transcription unit**, not a gene. A gene covered by \u22652 TUs is only silenced if *the row that gets zeroed carries it and nothing else keeps it expressed*. That produces three failure classes, and your four genes are a clean illustration \u2014 this is what the corpus actually recorded:\n\n| Gene | n_tu | Corpus `gene_knockout` QC | What actually happened |\n|------|------|---------------------------|------------------------|\n| **murA** | 2 | `noop_knockout` (all 4 seeds) | **Not knocked out.** The zeroed row didn't remove murA \u2014 other TU(s) keep it expressed. |\n| **rpoB** | 3 | `noop_knockout` \u00d73, `empty` \u00d71 | **Not knocked out** (docs measure mRNA 10.4 vs WT 8.4 \u2014 *higher*, not zero). |\n| **rpmJ** | 2 | `ok` (all 4 seeds) | **Wrong gene silenced.** The KO runs \"successfully,\" but it drives *secY* to 0.0, not rpmJ \u2014 a mislabeled/polar hit. |\n| **valS** | 2 | `ok` (1 seed) | Ran clean \u2014 but \"ok\" \u2260 \"valS was removed.\" This is unverified at the mRNA/protein level; the QC verdict alone cannot confirm the target was zeroed. |\n\nThe `noop_knockout` QC flag is the tell: the platform detected that the named gene's expression did **not** change and refused to report it as a knockout. `murA` and `rpoB` are flagged non-reportable for exactly this reason.\n\n## What this means for your question\n\n- **Can a multi-TU gene be knocked out via `gene_knockout`?** Not reliably. Under operons-on (the only mode in the corpus), `gene_knockout` on a multi-TU gene is likely to be a no-op (murA, rpoB) or to silence the wrong cistron (rpmJ\u2192secY). This is independent of the elongation model.\n- **The correct tool is `graded_gene_knockout`**, which suppresses expression across *every TU carrying the cistron* \u2014 note murA already has graded runs (`expr:0.1/0.5/0.9`) that are reportable, precisely because the single-row `gene_knockout` was a no-op. `operon_mode_advice` returns exactly this: `recommendation = \"use_graded_gene_knockout\"`.\n- **Don't reach for operons-off.** It would make `gene_knockout` mean one cistron per row \u2014 but it's a *different knowledge base* (different `kb_sha256`), untested in this tree, and not poolable with any corpus row.\n\n## On the coarse-grained model specifically\n\nIf your real interest is running these KOs *under* `coarse_kinetic`: be aware that `coarse_kinetic` **does not solve tRNA charging at all** \u2014 `fraction_trna_charged` returns 86 exact zeros (the absence of a charging model, not starvation). For `valS` (valyl-tRNA synthetase) that matters a great deal: the whole point of knocking out an aaRS is to see charging collapse for its cognate family, and `coarse_kinetic` structurally cannot show that. If charging is the phenotype you want, the `kinetic` elongation model is the one that represents it \u2014 and there are already `kinetic` rows in the corpus, so that's a re-query, not necessarily a new run.\n\nWant me to (a) verify the valS `gene_knockout` actually zeroed valS mRNA/protein (it's the one \"ok\" case that's unconfirmed), or (b) draft a `graded_gene_knockout` panel for all four genes so you get real, TU-complete knockouts?"
+      },
+      {
+        "id": "per_amino_acid_trna_charging__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "refuse",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 66.2,
+        "usage": {
+          "n_calls": 7,
+          "input_tokens": 14,
+          "output_tokens": 3387,
+          "cache_read_tokens": 264016,
+          "cache_creation_tokens": 17456,
+          "latency_ms": 58966,
+          "cost_usd": 0.325853,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 7
+          },
+          "by_model": {
+            "claude-opus-4-8": 7
+          }
+        },
+        "answer": "## What fraction of tRNA is charged, and how it responds to starvation\n\n**First, a scope note that governs everything below.** The corpus is entirely `elongation_model = steady_state`, which solves tRNA charging as a **20-state ODE indexed by amino acid**, then broadcasts each per-family value across all 86 isoacceptor columns. So:\n- The model **can** answer *per-amino-acid* charging (your question as asked). \u2705\n- It **cannot** distinguish *isoacceptors within a family* (Elf 2003 / Dittmar 2005 selective charging) \u2014 the within-family spread is exactly 0.0 *by construction*, arithmetic not measurement. That axis exists only in the `kinetic` arm (4 rows in this checkout). I won't report a within-family number.\n\n### 1. Baseline charging (wildtype, minimal glucose)\nCharging is **high and heterogeneous across families** (mean over the last generation, 16 seeds \u2014 but note unequal depth 1\u20137 gen, so this is stratified, not pooled):\n\n- Aggregate mean across families: **0.94**\n- But the spread is the real story \u2014 the lowest-charged families sit far below the mean:\n  - **trp 0.59**, phe 0.77, ala 0.88, leu/his ~0.92\n  - most others 0.95\u20131.00 (val 0.9995, glt 0.999, gln 0.998)\n\nSo \"the fraction charged\" is not one number \u2014 trp is chronically ~40% *un*charged even in unstressed cells, while val/gln are near-fully charged. This is exactly why the corpus's single `fraction_trna_charged` channel (a mean) is misleading on its own.\n\n### 2. Response to starvation \u2014 nutrient downshift (aa-rich \u2192 minimal at 1200 s)\nThis is the genuine, *dynamic* starvation readout (4 seeds, 1 generation each \u2014 a **transient, not a settled state**; the support flag warns explicitly, so read this as a case study of the transient):\n\n- The **aggregate** charged fraction dips only **~3% at the nadir (~640 s post-shift)** then recovers to baseline (settled \u2248 pre-shift) \u2014 see the figure. At the pool level, starvation is *buffered*.\n- The dip is **selective by family** (charging measured vs WT null, translation NOT arrested): the families that lose the most ground are the ones already lowest at baseline \u2014 **trp \u221241%**, phe \u22129%, leu +6% (noisy). Several families don't drop at all.\n- **Crucially, this is not distinguishable from wild-type-to-wild-type noise:** `exceeds_wildtype_null_max = false`. The WT-vs-WT null already names trp as \"most starved\" (it's simply the lowest-charged family generally), with a median gap of 13 pp. So the selective-de-charging signature here is *suggestive of the expected biology but within the false-positive envelope* \u2014 I won't assert it as a measured effect.\n- **The stringent response fires clearly, and that's the robust signal:** ppGpp rises **+184% (median)** after the downshift and was **still climbing at the 900 s window edge** (overshoot undefined \u2014 monotonic rise in progress). This is the textbook uncharged-tRNA \u2192 RelA \u2192 ppGpp axis, and it's well above noise.\n\n### 3. Synthetase knockout (argS) \u2014 a caution, not a de-charging measurement\nA KO of arginyl-tRNA synthetase reads its cognate family (**arg = 0.0**) and all others ~0.9994 \u2014 but the run is **translationally arrested** (elongation rate pinned at 0, charged fractions constant). That table is *arithmetic derived from the isoacceptor count*, **not** a measured de-charging dynamic; the tool correctly refuses the selectivity reading. It also collapses at generation 2 (lethality view). So an aaRS KO shows you the *endpoint* (one family dead), not the *starvation dynamics*.\n\n### Bottom line\n- **Fraction charged is high (~0.94 aggregate) but family-specific**, ranging from trp ~0.59 to val ~1.0 even unstressed.\n- **Under a nutrient downshift the aggregate barely moves (~3% transient dip, then recovers), while ppGpp surges (+184% and climbing)** \u2014 the model buffers charging at the pool level and mounts the stringent response, consistent with the textbook mechanism.\n- **The selective single-family de-charging you'd want (Dittmar-style) is within the wild-type noise floor here, and the isoacceptor axis is structurally unrepresentable in these steady-state runs.** To measure *selective* charging properly, the `kinetic` elongation arm is required \u2014 I can propose a kinetic downshift run if that's the question you want to pin down.\n\nOne caveat on strength of evidence: the downshift measurements are **1-generation transients** (support `sufficient=false`). They're a solid case study of the *response shape*, not a settled steady-state result. If you want the settled response quantified, I'd propose deeper (\u22653-generation) downshift runs."
+      },
+      {
+        "id": "per_amino_acid_trna_charging__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "refuse",
+        "correct": false,
+        "proposes_run": false,
+        "seconds": 62.0,
+        "usage": {
+          "n_calls": 8,
+          "input_tokens": 16,
+          "output_tokens": 3349,
+          "cache_read_tokens": 298933,
+          "cache_creation_tokens": 16798,
+          "latency_ms": 58200,
+          "cost_usd": 0.338259,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 8
+          },
+          "by_model": {
+            "claude-opus-4-8": 8
+          }
+        },
+        "answer": "The aggregate `fraction_trna_charged` for the argS-KO is *not* zero and stays near 0.85 throughout \u2014 because that channel is the mean across all 21 families, and only the cognate arg family collapses. The per-family view is the only place the starvation shows. I now have everything grounded across 4 seeds \u00d7 3 generations for both designs.\n\n## Answer\n\n**Under the kinetic per-isoacceptor charging model (Choi & Covert 2023), charged fraction is a genuine, per-family measurement \u2014 and it responds to starvation *selectively*, hitting only the cognate family.**\n\nThis is one of only two questions the kinetic model can answer that the steady-state corpus cannot. Every ordinary corpus row is `elongation_model='steady_state'`, where the 86 isoacceptor columns are one per-amino-acid scalar broadcast \u2014 a within-family spread of 0.0 by construction. There is a real kinetic arm (separate `kb_sha256`, not poolable with the steady-state corpus), and it contains exactly the two runs needed.\n\n### 1. What fraction is charged at baseline (kinetic wildtype, 4 seeds \u00d7 3 gen)\n\nCharging is **partial and family-specific**, not uniformly ~100%. Per-family charged fraction ranges widely:\n\n| lowest-charged | | highest-charged | |\n|---|---|---|---|\n| ile | 0.23 | met | 0.91 |\n| trp | 0.39 | arg | 0.88 |\n| phe | 0.49 | gln | 0.86 |\n| gly | 0.56 | pro | 0.85 |\n\nAggregate mean over families \u2248 **0.735**. The demand-heavy families (ile, gly) run at lower charged fractions; trp is chronically the lowest-charged family in this model (which is why a naive \"most-starved\" rule always names it \u2014 see the null below).\n\n### 2. How it responds to starvation (argS KO = arginyl-tRNA synthetase, 4 seeds \u00d7 3 gen)\n\nKnocking out the arg-charging enzyme drives **arg-tRNA charged fraction to exactly 0.0 (\u2212100%)** \u2014 while the other 20 families stay charged or even read *higher*. This is the Dittmar/Elf selective-charging signature: starvation de-charges **one cognate family**, not the pool.\n\n- **The aggregate channel completely hides it:** mean charged fraction in the KO is ~0.85\u20130.88 \u2014 *higher* than WT's 0.735 (chart above). A single mean is the wrong instrument for a synthetase KO.\n- **The effect exceeds the noise floor:** worst-family selectivity gap = 115.1 pp vs. a wild-type-vs-wild-type null whose max is 92.7 pp (`exceeds_wildtype_null_max: true`, 702 null pairs). The arg collapse is real, not a false positive.\n- **It precedes collapse, so it's not a dead-generation artifact:** growth is already crawling (7.5e-5 \u2192 5.5e-5) at gens 0\u20131 before the lineage stops dividing at gen 2 (`no_division` all 4 seeds), and elongation rate is pinned near 0 (0.01 aa/s) with the arg codon un-read. The de-charging is the *cause* of the arrest, captured while the run is still valid.\n\n### Caveats (honest scope)\n- This is an **out-of-sample** kinetic-arm result on a **single starvation handle** (argS KO), 4 seeds \u00d7 3 generations \u2014 enough to be a result, not a survey. The general \"charged fractions and their starvation response\" claim rests on these two runs; other synthetase KOs or amino-acid dropouts under the kinetic model aren't in the corpus.\n- Kinetic and steady-state numbers **must not be pooled** \u2014 the same column means different things in each.\n- The per-*isoacceptor* axis (one isoacceptor de-charges while another of the same amino acid stays loaded, Elf 2003) *is* representable in this mode; I answered at the family level here. If you want the within-family isoacceptor spread for arg specifically, I can drill into the 86-column resolution next."
+      },
+      {
+        "id": "per_amino_acid_trna_charging__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": false,
+        "seconds": 26.0,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1663,
+          "cache_read_tokens": 95975,
+          "cache_creation_tokens": 4475,
+          "latency_ms": 25374,
+          "cost_usd": 0.117561,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "I can answer this directly and precisely \u2014 and the honest answer is that **the coarse-grained kinetic elongation model cannot answer this question at all**, so any number read from it would be an artifact, not a measurement.\n\n## The answer\n\n**Under the coarse_kinetic elongation model, there is no charged-tRNA fraction to report \u2014 and it does not respond to starvation, because the model does not solve tRNA charging.**\n\nHere is exactly what the model does, from the checkout:\n\n- `CoarseKineticTrnaChargingModel.request` and `.evolve` both return `self.zero_charged_holder` \u2014 an 86-wide `np.zeros` array allocated at `len(uncharged_trna_names)`.\n- So `GrowthLimits/fraction_trna_charged` is **exactly 0.00 in every one of the 86 columns, at every timestep**.\n\nThis is the critical trap: a na\u00efve read of that channel would say \"0% charged everywhere \u2192 the tRNA pool is completely de-acylated \u2192 the cell is in total, unresponsive starvation.\" **That interpretation would be wrong.** The zeros are not a measurement of empty tRNAs \u2014 they are the *absence of a charging model*. The coarse-grained model is a coarse-grained *elongation* model; charging simply isn't computed, so the array is never filled. There is no starvation response to characterize because there is no charging state variable that starvation could act on.\n\nTwo consequences follow, and I'm flagging them so the zero is never misread downstream:\n- The **level** (0.00) is not \"fully uncharged.\"\n- The **within-family / between-isoacceptor spread** (also 0.00) is not \"uniform charging\" or \"selective de-charging\" \u2014 it's the same unfilled array.\n\nNeither the level nor the spread is evidence about anything.\n\n## Where the question *can* be answered\n\nThe mechanism you're asking about exists in the other two elongation models, and **both are already in the corpus** (every current corpus row is `steady_state`; `kinetic` runs also exist). Note the answer differs by model:\n\n| Elongation model | Charged fraction | Responds to starvation? | Between-isoacceptor spread |\n|---|---|---|---|\n| **coarse_kinetic** | exact 0.00 (not solved) | no \u2014 no charging state exists | 0.00 (unfilled array, meaningless) |\n| **steady_state** (corpus default) | one **per-amino-acid** scalar (20-state ODE) broadcast across the 86 columns | yes, per amino-acid family, coupled to ppGpp | 0.00 **by construction** (algebraic identity, not a measurement) |\n| **kinetic** | 86 **genuinely independent** per-isoacceptor values | yes, per isoacceptor | real (measured e.g. GLY 0.32, LEU 0.25) |\n\n**So \u2014 how do you actually want to answer this?**\n\n- If you want **per-amino-acid charged fraction and its stringent-response starvation behavior** \u2192 I can read that now from the `steady_state` corpus (`trna_families` / `selective_charging` give the per-family charged fraction with a measured wild-type null, and `shift_response`/starvation runs show the dynamics). Just note: this is per *amino acid*, not per isoacceptor \u2014 within-family spread is 0.00 as an algebraic identity there, not a finding.\n- If you want the **per-isoacceptor selective-charging axis** (Elf 2003 / Dittmar 2005 \u2014 one isoacceptor de-charges while a sibling stays loaded) \u2192 that needs the **kinetic** runs, which are in the corpus. I can re-issue the query there.\n\nWhich of those two would you like me to pull? I won't report a coarse_kinetic number, because it would be a fabricated starvation phenotype out of an unfilled zeros array."
+      },
+      {
+        "id": "ppgpp_stringent_response__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 59.9,
+        "usage": {
+          "n_calls": 5,
+          "input_tokens": 10,
+          "output_tokens": 3405,
+          "cache_read_tokens": 186172,
+          "cache_creation_tokens": 18392,
+          "latency_ms": 56576,
+          "cost_usd": 0.293211,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 5
+          },
+          "by_model": {
+            "claude-opus-4-8": 5
+          }
+        },
+        "answer": "I have a clear, grounded picture. Let me summarize.\n\n## Yes \u2014 ppGpp rises on amino-acid starvation, and it is coupled to growth. But with important scope caveats.\n\n**The whole-corpus survey is the source; every number below is read from a run.** Note the model *does* declare `ppgpp_stringent_response` as a capability, so this is a legitimate axis to probe. All corpus rows are `elongation_model='steady_state'`.\n\n### 1. The direct starvation experiment (amino-acid downshift) \u2014 ppGpp rises\nOn the nutrient **downshift** (minimal+AA \u2192 minimal at t=1200 s), across **4 seeds** (but each only **1 generation deep** \u2014 these are transients, not settled states):\n- **ppGpp climbs ~184% (median peak vs pre-shift)** and was still rising at the window edge (settled +271%). The chart shows the flat pre-shift baseline (~20) then the rise past 90.\n- **Growth rate collapses within ~3\u20135 s** of the shift \u2014 one timestep \u2014 confirming the response is fast and the two channels move together.\n- The mirror-image **upshift** (minimal \u2192 minimal+AA) gives the opposite: **ppGpp falls 45%** (61.9\u219233.8, Welch p=0.037, 3 vs 26 seeds) while growth rises 62%. Both directions confirm the ppGpp\u2194growth anticorrelation.\n\n### 2. Genetic amino-acid starvation (biosynthesis KOs) \u2014 the textbook stringent signature\nWhere translation *keeps running*, the uncharged-tRNA\u2192RelA\u2192ppGpp response is legible (pre-collapse, at each KO's own generation vs depth-matched WT):\n- **dapA KO: ppGpp +929%, growth \u221280%**\n- **leuB KO: ppGpp +406%, growth \u221262%**\n- **graded argS (5% expression): ppGpp +432%, growth \u221272%**\n\nThese are flagged `stringent_signature: true` \u2014 the classic depressed-growth + elevated-ppGpp pattern. **Caveat:** these are essential-gene KOs that then *collapse* (division arrest ~gen 2\u20133), and the biosynthesis KOs are `fully_hidden` (0 reportable seeds) \u2014 I'm reading pre-collapse generations, which is the correct window for the mechanism but a shallow one.\n\n### 3. Does ppGpp *regulate* growth? \u2014 the coupling holds, but not yet a proven causal law\nFitting growth_rate vs ppGpp across designs (WT, +AA, dapA, leuB) gives a strong **negative correlation (Pearson r = \u22120.79)**, but the slope CI does **not** exclude zero at n=4, so this is a consistent *association*, not a fitted causal law. The mechanistic story (ppGpp \u2192 ribosome allocation \u2192 growth) is well-supported directionally but under-powered here.\n\n### Two honest caveats you should carry forward\n1. **The full aaRS KOs (argS, alaS, gltX at 100%) are a trap, not evidence.** `argS` is **translationally arrested** \u2014 elongation rate pinned at 0, charged-tRNA table frozen (arg family at 0.0, all others ~0.999 by construction). Its ppGpp reads \"0.0 / \u2212100%\" are pre-arrest/crash artifacts, **not** a stringent-response measurement. Don't read those as \"ppGpp fell on starvation.\" Use the *charging-competent* proxies (dapA, leuB, downshift) for the mechanism.\n2. **Depth.** The clean-physiology designs (downshift, with_aa) run only ~1 generation; the strong-ppGpp KOs collapse by gen 2\u20133. So the *transient* rise is well-established; the *settled* magnitude is not.\n\n**If you want to nail the causal claim,** the decisive experiments are: (a) run the downshift deeper (multi-generation) to settle the ppGpp plateau, and (b) a ppGpp clamp (`ppgpp_conc` variant) that raises ppGpp *without* removing amino acids \u2014 decoupling cause from consequence. I can draft either as a proposed run (human-approved) if useful."
+      },
+      {
+        "id": "ppgpp_stringent_response__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 77.0,
+        "usage": {
+          "n_calls": 7,
+          "input_tokens": 14,
+          "output_tokens": 4505,
+          "cache_read_tokens": 280760,
+          "cache_creation_tokens": 18919,
+          "latency_ms": 75249,
+          "cost_usd": 0.371319,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 7
+          },
+          "by_model": {
+            "claude-opus-4-8": 7
+          }
+        },
+        "answer": "## Answer\n\nThe question, as posed, contains a mode mismatch \u2014 and resolving it *is* the finding. Here's what the runs actually show.\n\n### The kinetic model does not wire the ppGpp arm \u2014 so under kinetic, ppGpp does **not** rise on starvation\nThe capability registry lists `ppgpp_stringent_response` (whose canonical question is verbatim yours) as **ported-but-off-by-default under kinetic**; it is represented in the **steady_state** mode instead. This isn't a footnote \u2014 it's borne out by the one kinetic starvation run that exists:\n\n- **`gene_knockout\u00b7KO:argS#elong:kinetic`** (arginyl-tRNA synthetase KO = arg starvation), 4 seeds \u00d7 3 generations.\n- Its tRNA charging is a *real* per-isoacceptor measurement here (86 independent columns): **arg-tRNA is fully de-charged (0.0) while the other 19 families stay 0.83\u20130.99 loaded** \u2014 the textbook selective-charging signature (Elf 2003 / Dittmar 2005), which is exactly what the RelA sensor keys off.\n- Yet **ppGpp is flat at 0.0 across generations 0 and 1**, then the lineage collapses (no_division) at gen 2. The survey independently tags it `stringent_signature: false`.\n\nSo the cell has the trigger (uncharged tRNA) but produces no ppGpp: the RelA\u2192ppGpp\u2192growth coupling is structurally absent in this mode. That 0.0 is **the absence of the mechanism, not a measured failure of ppGpp to respond** \u2014 I won't report it as \"ppGpp didn't rise\" in a biological sense.\n\n### Where the answer to your actual question lives: the steady_state arm (in corpus, no new run needed)\nIn steady_state, the mechanism is on, and both halves hold:\n- **ppGpp rises on starvation:** the amino-acid **downshift** transient (`minimal_plus_amino_acids \u2192 minimal`) shows ppGpp climbing **+184% by 900 s** (median; per-seed +91% to +329%) and still rising at the window edge \u2014 a clear stringent response. *(Caveat: these runs are 1 generation, so this is a transient, not a settled steady state.)*\n- **It regulates growth:** growth responds within one timestep of the shift, and ppGpp clamps exist as the causal handle. Note the *static* clamp dose-series (0.2\u00d7\u20132.0\u00d7) does **not** give a clean ppGpp\u2192growth slope (CI includes 0) \u2014 because clamping holds ppGpp fixed rather than letting it act dynamically; the growth regulation shows up in the *transient*, not the clamp scatter.\n\n### Bottom line\n- **Under the kinetic model specifically:** it delivers what it's built for \u2014 resolving *which* isoacceptor de-charges (arg \u2192 0, siblings loaded) \u2014 but it **does not** produce a ppGpp stringent response, because that coupling is off by default in this mode. ppGpp cannot be read as rising here.\n- **The ppGpp-rises-and-regulates-growth story is real, but it belongs to the steady_state arm**, where it's already in the corpus (downshift ppGpp +184%; growth couples dynamically).\n- **Never pool the two:** a kinetic ppGpp of 0 and a steady-state ppGpp of 65 are different instruments.\n\n### The genuinely interesting gap\nThere is **no kinetic run that has both** selective de-charging *and* a working stringent response, because no such configuration exists in the corpus (and no kinetic wildtype/downshift reference exists either). If you want to see ppGpp fire *from* per-isoacceptor de-charging \u2014 the mechanistic chain the two modes currently split between them \u2014 that requires a **new kinetic run with the stringent response enabled** (a nutrient downshift or an argS starvation, plus a kinetic wildtype reference). I can draft that as a proposal for approval if you'd like to close the gap."
+      },
+      {
+        "id": "ppgpp_stringent_response__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 22.8,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1295,
+          "cache_read_tokens": 98377,
+          "cache_creation_tokens": 3874,
+          "latency_ms": 22170,
+          "cost_usd": 0.105806,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "This question cannot be answered under the coarse-grained kinetic elongation model. Here is why, precisely.\n\n## The coarse_kinetic model does not represent this mechanism\n\nYour question has two parts, and the coarse_kinetic model structurally fails both:\n\n**1. \"Does ppGpp rise on amino-acid starvation?\"**\nUnder coarse_kinetic, **nothing synthesises or degrades ppGpp.** Only the steady-state elongation model runs those reactions. In this mode, `metabolism.py` holds **ppGpp at a constant target**, and the `GrowthLimits/ppgpp_conc` channel still emits a plausible-looking number \u2014 but a flat ppGpp trace here is *the absence of the mechanism, not evidence that the stringent response failed to fire.* Nothing can raise it.\n\n**2. \"Does that [ppGpp] regulate growth?\"**\nThe prerequisite signal \u2014 sensing starvation via uncharged tRNA \u2014 is also absent: coarse_kinetic **does not solve tRNA charging at all.** The 86 `fraction_trna_charged` columns are *exact zeros* at every timestep (an unfilled `np.zeros` array), which reads like total starvation but is simply an unmodeled quantity. So there is no charged-tRNA deficit for RelA to sense, and no ppGpp-dependent transcriptional regulation with anything real to read.\n\n**I will not report the ppGpp number a coarse_kinetic run would emit** \u2014 it would be inventing a phenotype out of a frozen pool.\n\n## Two things that would let me actually answer it\n\n1. **Re-issue in the mode that represents it \u2014 no new run needed.** The `ppgpp_stringent_response` capability (ppGpp dynamics with transcriptional attenuation, Ahn-Horst et al. 2022) *is* modeled under **`steady_state`** \u2014 and **every row in the corpus is steady_state.** So the underlying biological question is directly answerable from data I already have, just not from a coarse_kinetic run (of which there are **zero** in the corpus anyway).\n\n2. There is also no coarse_kinetic data to fall back on regardless \u2014 the corpus is entirely steady_state + kinetic.\n\n**Would you like me to answer the same question \u2014 does ppGpp rise on amino-acid starvation and regulate growth? \u2014 from the steady_state corpus?** That mode explicitly models RelA-driven ppGpp synthesis and its feedback onto ribosome allocation/growth, so I can survey the starvation/nutrient-shift designs, read the ppGpp trajectory through the transient, and test the ppGpp\u2192growth link against replicate noise and a decoupled control. Just confirm and I'll run the steady_state analysis."
+      },
+      {
+        "id": "amino_acid_uptake_from_the_medium__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 58.9,
+        "usage": {
+          "n_calls": 7,
+          "input_tokens": 14,
+          "output_tokens": 3456,
+          "cache_read_tokens": 283688,
+          "cache_creation_tokens": 20286,
+          "latency_ms": 57482,
+          "cost_usd": 0.355102,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 7
+          },
+          "by_model": {
+            "claude-opus-4-8": 7
+          }
+        },
+        "answer": "## Answer: Yes \u2014 the rescue works, at the viability level. But I can't yet put a number on the *uptake flux* itself.\n\n**What the corpus shows (the leuB starvation-rescue arm):**\n\nThe cleanest test in the corpus is the **leuLABCD operon knockout** (`KO:leuB`) \u2014 the cell can no longer synthesize leucine, so if it grows, it *must* be taking leucine from the medium.\n\n| Arm | Medium | Verdict |\n|---|---|---|\n| `KO:leuB` (bare) | minimal, no AAs | **crashes / no division** |\n| `KO:leuB#tl:38639c` | minimal **+ amino acids** throughout | **rescued \u2014 4/4 ok seeds divide** (growth \u2248 4.4e\u20114 across gens 0\u20133, no collapse) |\n| `KO:leuB#tl:379e4c` | AA-supplied, then **leucine dropped at 1200 s** | **collapses \u2014 growth falls to ~1e\u20114, 2/5 seeds \u2192 no_division by gen 3** |\n\nThe rescue **tracks the presence of the supplied amino acid**: supply it \u2192 the biosynthesis-dead KO divides; remove it \u2192 it collapses; never supply it \u2192 it never divides. That is the falsifier behaving exactly as a genuine rescue-by-uptake should.\n\n**Three honesty caveats you should carry:**\n\n1. **I could not read the leucine exchange flux itself.** The direct \"uptake = negative flux\" readout needs full-resolution FBA raw simOut, which is **not on local disk** and has **no packaged HF archive** for this run (only local regeneration is offered). So I've confirmed rescue *phenotypically*, not the uptake rate quantitatively. If you want the actual leucine uptake number, that requires regenerating the run's raw simOut.\n\n2. **`KO:leuB` is an operon KO, not a single gene** \u2014 it silences the whole *leuLABCD* transcription unit (5 genes). The phenotype belongs to that set. leuB is also benchmark-**essential** (`model_UNDER_predicts`), so the model's own tendency to reroute would normally *hide* essentiality \u2014 the fact that the bare KO crashes in minimal here is reassuring, and the rescue is the informative signal.\n\n3. **The AA-drop falsifier's media record is `undetermined`** (multi-generation runs only log the last generation's media), so I'm trusting its *declared* timeline that leucine was removed at 1200 s \u2014 the collapse is consistent with it, but the media column can't independently confirm the drop. (The reportable rescue-arm seeds, by contrast, *did* verifiably execute `minimal_plus_amino_acids`.)\n\n**If you want to nail the uptake flux quantitatively**, I can propose regenerating `KO:leuB#tl:38639c` (seed 0) to read the leucine exchange flux directly \u2014 say the word and I'll queue it through the approval airlock."
+      },
+      {
+        "id": "amino_acid_uptake_from_the_medium__kinetic__direct",
+        "mode": "kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 21.1,
+        "usage": {
+          "n_calls": 2,
+          "input_tokens": 4,
+          "output_tokens": 1251,
+          "cache_read_tokens": 63694,
+          "cache_creation_tokens": 2806,
+          "latency_ms": 20531,
+          "cost_usd": 0.08068,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 2
+          },
+          "by_model": {
+            "claude-opus-4-8": 2
+          }
+        },
+        "answer": "The capability registry gives a precise, structural answer. Let me pin down the key point.\n\n**`amino_acid_uptake_from_the_medium` is listed under `ported_but_off_by_default` for the kinetic mode**, with `why_not: \"another_mode_represents_it\"` and `switch.mode: \"steady_state\"`. That is the decisive fact: the kinetic elongation model (Choi & Covert 2023) does **not** represent amino-acid uptake from the medium \u2014 the mechanism that answers your question lives in the **steady-state** model instead.\n\nSo the honest answer is a refusal-plus-offer, not a number:\n\n## Answer\n\n**Under the kinetic per-isoacceptor charging model, I cannot answer whether the cell takes up a medium-supplied amino acid \u2014 that mechanism is not represented in that mode.** The kinetic model's contribution (and what it genuinely *can* answer) is the orthogonal axis: **per-isoacceptor charging** \u2014 whether one tRNA isoacceptor de-charges while another of the same amino acid stays charged (Elf 2003; measured spreads GLY 0.32, LEU 0.25 under kinetic). Uptake-from-medium is a different mechanism, and the registry places it in **steady-state**.\n\nTwo consequences worth stating plainly:\n\n1. **The \"starvation rescue arm actually rescued?\" question is a steady-state question.** In steady-state the 20-state charging ODE is coupled to the metabolic/uptake solution, so supplying an amino acid in the medium changes the charged-tRNA state \u2014 that is where \"is the rescue real?\" is answerable. Every existing corpus row is `elongation_model='steady_state'`, so the data to answer it already exists in the corpus (it is a query to re-issue, not a new run to propose).\n\n2. **If you specifically want it under kinetic, that is a NEW run, and it would be off-target.** Because uptake is off-by-default in kinetic, a kinetic run would not exercise the uptake pathway differently \u2014 you'd be testing the isoacceptor-charging response to whatever amino-acid state the medium sets, not the uptake step itself. And kinetic runs carry a different elongation model, so they are **not poolable** with the steady-state corpus.\n\n### What I'd do instead\n- **To ask \"is the starvation rescue arm rescued?\"** \u2014 pose it against steady-state corpus runs (e.g. a minimal\u2192minimal+amino-acids timeline, or a comparison of the rescue design vs its starved control), where uptake *is* coupled. I can pull that now from existing data \u2014 tell me the specific amino acid / rescue design and I'll survey it.\n- **To ask \"does one isoacceptor de-charge while its sibling stays charged during that rescue?\"** \u2014 *that* is the genuine kinetic question, and it would justify a new kinetic run (proposed through the approval airlock, reported as its own arm, never placed beside steady-state numbers as if from one instrument).\n\nWhich of those two is the one you actually want? If it's the rescue-viability question, name the amino acid or design and I'll ground it in the steady-state corpus right now."
+      },
+      {
+        "id": "amino_acid_uptake_from_the_medium__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "answer",
+        "correct": false,
+        "proposes_run": true,
+        "seconds": 21.5,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1235,
+          "cache_read_tokens": 95996,
+          "cache_creation_tokens": 3740,
+          "latency_ms": 20967,
+          "cost_usd": 0.102278,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "## No \u2014 under the coarse-grained kinetic elongation model the cell does NOT take up a medium-supplied amino acid, and a starvation-rescue arm is structurally inert, not biologically failed.\n\nThis is a **model-scope answer, not a measurement**. I am deliberately not reporting a number, because any number a `coarse_kinetic` run returns here would be an artifact of an unfilled array.\n\n### Why (grounded in the capability audit, traced to the model code)\n\n- Metabolism assembles its amino-acid uptake package from `PolypeptideElongation.aa_exchange_rates` (`metabolism.py:171\u2013176`).\n- **Only `SteadyStateElongationModel` ever assigns that attribute.** Under either kinetic model it stays at the zeros set at the end of `initialize()`.\n- Consequence: **in any medium containing amino acids, the FBA is told uptake is zero** \u2014 no exception, no warning. The transporter arm never fires.\n\nSo an amino-acid **upshift under `coarse_kinetic` is a shift the metabolism cannot ingest**. The classic tRNA experiment (starve \u2192 rescue) has its rescue arm rendered inert by construction: a failed rescue is the **missing mechanism**, not biology.\n\nA related trap in the same mode: `coarse_kinetic` also does not solve tRNA charging at all \u2014 `fraction_trna_charged` is 86 **exact zeros** (`CoarseKineticTrnaChargingModel.request`/`.evolve` return an all-zeros holder). That reads as \"total starvation\" but is the **absence of a model**, not a de-acylation phenotype. Don't read either the charging level or the uptake as evidence.\n\n### Where the question CAN be answered\n- **`steady_state`** represents `amino_acid_uptake_from_the_medium` \u2014 and it is the corpus default (every shipped row is `steady_state`). So this is a **query to re-issue, not a run to propose.**\n\nNote also: the corpus contains **no `coarse_kinetic` rows at all** (`in_corpus: false` for that mode), so there is nothing to read even if it were meaningful.\n\n### What I can do next\n1. **Re-issue this in `steady_state`** \u2014 check an actual amino-acid upshift rescue arm (`timeline/\u2026minimal \u2192 minimal_plus_amino_acids`) using `shift_response` / `segment_means`, where uptake is real. This needs no new run.\n2. If you specifically want the **kinetic** (not coarse) mode \u2014 which *does* represent per-isoacceptor charging (Choi & Covert 2023) \u2014 note that mode also leaves `aa_exchange_rates` at zero, so uptake is likewise inert there. Kinetic buys you charging resolution, **not** medium AA uptake.\n\nWant me to run the steady-state rescue check?"
+      },
+      {
+        "id": "nutrient_shift_timelines__steady_state__direct",
+        "mode": "steady_state",
+        "required": "answer",
+        "verdict": "answer",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 40.1,
+        "usage": {
+          "n_calls": 4,
+          "input_tokens": 8,
+          "output_tokens": 2320,
+          "cache_read_tokens": 143708,
+          "cache_creation_tokens": 14859,
+          "latency_ms": 36218,
+          "cost_usd": 0.222763,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 4
+          },
+          "by_model": {
+            "claude-opus-4-8": 4
+          }
+        },
+        "answer": "## How the cell responds to a media shift at t = 1200 s\n\nThe corpus contains two nutrient-shift experiments, both shifting at **t = 1200 s**, both **out-of-sample** (genuine model predictions, not fitted) and all QC-ok. The response is a textbook, mirror-image stringent-response transient \u2014 and it's the **transient**, not the before/after averages, that is the biology.\n\n### Downshift \u2014 amino acids removed (`minimal_plus_amino_acids \u2192 minimal`) \u00b7 4 seeds \u00d7 1 gen\nThe cell loses its amino-acid supply and must switch on biosynthesis:\n- **ppGpp rises steeply**: +184% at peak (median), still climbing at the 900 s window edge \u2192 this is a monotonic rise not yet turned over, settling ~+271% vs pre-shift. The classic stringent alarmone accumulation.\n- **Growth rate crashes within ~3\u20135 s** \u2014 one timestep. It overshoots *below* the new steady state (peak \u2212175% vs pre, i.e. transiently negative) then recovers to ~\u221238%. The instantaneous dip is dominated by the **metabolite pool re-equilibrating** (small-molecules = ~171% of the mass change), not biosynthesis collapsing \u2014 the biosynthetic read is protein synthesis essentially flat (fold 1.05) and DNA replication slowing hardest (fold 0.58).\n\n### Upshift \u2014 amino acids added (`minimal \u2192 minimal_plus_amino_acids`) \u00b7 3 seeds (depths 1\u20134)\nThe mirror image \u2014 the cell no longer needs to make its own amino acids:\n- **ppGpp falls ~59%** (peak) with a nadir at ~435 s, settling ~\u221256%. Stringent response relaxes.\n- **Growth rate jumps within one timestep** (latency is a *bound*, faster than the sampling interval). The channel spikes ~+1180% but that peak is ~95% **metabolite-pool filling** \u2014 the honest biosynthetic answer is the settled +49%, driven by **RNA synthesis up 1.5\u00d7** and protein up ~1.2\u20131.3\u00d7 (ribosome/rRNA sector expanding, the Scott/Hui allocation shift).\n\n### Two things worth flagging\n1. **The mean would lie to you.** A pre/post segment average discards exactly this transient \u2014 the growth-rate overshoot and the ppGpp trajectory. (Separately, the *stored* upshift segment means are corrupt: the media label truncated to `minimal`, flattening a 17\u00d7 step into one number \u2014 the reason these tools read the *declared* timeline, and why the blind scan-detector independently confirming both shifts matters.)\n2. **Support is thin on depth.** The downshift is 4 seeds but only **1 generation** deep \u2014 everything I've quoted is an intra-generation transient, which is exactly what a shift *is*, but it has not settled across a division. The upshift has one 4-generation seed. So treat the transient *shape/direction/timing* as solid (4 seeds, blind-confirmed) and the *settled steady-state* as provisional.\n\nIf you want the settled adaptation nailed down, the clean next step is **deeper multi-generation replicates of the downshift** (e.g. 4 seeds \u00d7 4 generations) so the post-shift steady state is measured across divisions, not inside one. I can propose that panel \u2014 want me to?\n\nYou also asked \"at a chosen time\" \u2014 both existing runs shift at 1200 s. If you have a *specific* time or a *different* media pair in mind (acetate, phosphate, etc.), tell me and I'll check feasibility and propose it."
+      },
+      {
+        "id": "nutrient_shift_timelines__kinetic__direct",
+        "mode": "kinetic",
+        "required": "answer",
+        "verdict": "refuse",
+        "correct": false,
+        "proposes_run": false,
+        "seconds": 60.8,
+        "usage": {
+          "n_calls": 4,
+          "input_tokens": 8,
+          "output_tokens": 2545,
+          "cache_read_tokens": 137050,
+          "cache_creation_tokens": 9226,
+          "latency_ms": 40435,
+          "cost_usd": 0.189853,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 4
+          },
+          "by_model": {
+            "claude-opus-4-8": 4
+          }
+        },
+        "answer": "Both kinetic nutrient-shift designs are inside the validated envelope, and the resource check is clean (fits as one batch: ~2 GB RAM, ~18 GB disk, ~1.8 h wall).\n\n## Answer\n\n**The corpus cannot answer this question as asked \u2014 the two required conditions never co-occur in any existing run, and I won't fabricate the answer by reading a steady-state run as if it were kinetic.**\n\nHere's the honest state of the data:\n\n- **All 7 nutrient-shift (timeline) runs are `elongation_model: steady_state`** \u2014 an amino-acid downshift (`minimal_plus_amino_acids \u2192 minimal` at 1200 s, 4 seeds) and an upshift (`minimal \u2192 minimal_plus_amino_acids` at 1200 s, 3 seeds).\n- **All 4 kinetic-charging runs are static `wildtype\u00b7basal` \u2014 no media shift.** (The `metabolism_kinetic_objective_weight` runs are a different \"kinetic,\" an FBA objective weight on a steady-state elongation model, and every one of them crashed.)\n\nWhy I can't just read a steady-state timeline run and hand it to you: under **steady_state**, `fraction_trna_charged` is a single per-amino-acid scalar **broadcast across all 86 isoacceptor columns**, so the within-family isoacceptor spread \u2014 the entire phenomenon the Choi & Covert 2023 kinetic model exists to capture (one isoacceptor de-charging while its family-mates stay loaded) \u2014 reads as **0.00 by algebraic construction, not as a measurement**. Reporting a steady-state shift transient as the \"kinetic response\" would carry a number across modes, which the model registry explicitly forbids. The kinetic charging response to a shift is *representable* \u2014 but only in a run that was actually executed with `--kinetic-trna-charging`, and none was.\n\n**What I can do:** the design is feasible and cheap. I recommend proposing the missing runs so this becomes answerable for real \u2014 with a steady-state twin so the kinetic-specific per-isoacceptor response can be isolated from the shift itself:\n\n- Kinetic downshift: `0 minimal_plus_amino_acids, 1200 minimal`, 3 seeds \u00d7 4 gen\n- Kinetic upshift: `0 minimal, 1200 minimal_plus_amino_acids`, 3 seeds \u00d7 4 gen\n\n(Resources: fits in one batch, ~1.8 h. Note these mint runs in the kinetic arm, so they're comparable to the *kinetic* wildtype baseline, not pooled with the steady-state timeline runs.)\n\nWould you like me to queue that panel for approval? If you'd instead accept the **steady-state** shift response as an answer \u2014 the ppGpp/growth transient, which *is* well-defined there (downshift: ppGpp rises, growth drops within one timestep; upshift: the reverse) \u2014 I can give you that immediately from the existing 7 runs, clearly labeled as steady-state and *not* the per-isoacceptor charging picture you asked about. Which do you want?"
+      },
+      {
+        "id": "nutrient_shift_timelines__coarse_kinetic__direct",
+        "mode": "coarse_kinetic",
+        "required": "refuse",
+        "verdict": "refuse",
+        "correct": true,
+        "proposes_run": true,
+        "seconds": 301.6,
+        "usage": {
+          "n_calls": 3,
+          "input_tokens": 6,
+          "output_tokens": 1322,
+          "cache_read_tokens": 97931,
+          "cache_creation_tokens": 7392,
+          "latency_ms": 23422,
+          "cost_usd": 0.128246,
+          "cost_partial": false,
+          "by_role": {
+            "agent": 3
+          },
+          "by_model": {
+            "claude-opus-4-8": 3
+          }
+        },
+        "answer": "I have what I need to answer honestly.\n\n## The coarse-grained kinetic elongation model isn't in this corpus \u2014 so there is no media-shift response to report from it\n\n**No run in Cellarium's corpus uses `coarse_kinetic` elongation.** The full design list (77 designs) contains exactly two elongation modes: `steady_state` (the default \u2014 every row) and `kinetic` (two runs, tagged `#elong:kinetic`). There is no `coarse_kinetic` run, and `model_capabilities` confirms it directly: `coarse_kinetic \u2192 in_corpus: false`. So I cannot read a media-shift trajectory under that model \u2014 there is no data to read, and I won't manufacture numbers from a model that wasn't run.\n\nThere's a second, deeper reason the question can't be answered *as posed* even if such a run existed:\n\n**The coarse_kinetic model does not solve tRNA charging at all.** Its `fraction_trna_charged` returns an 86-wide array of **exact zeros** at every timestep \u2014 not because the tRNAs are de-acylated, but because the charging model is simply absent (`CoarseKineticTrnaChargingModel` returns `self.zero_charged_holder`). A media shift's *central* biology \u2014 the tRNA-charging transient that drives ppGpp and re-allocates ribosomes \u2014 is the one channel this model structurally cannot express. Reading its charging output as a starvation response would invent a phenotype out of an unfilled array.\n\n## What Cellarium *can* answer about a media shift\n\nThe corpus has two real nutrient-shift timelines, both under `steady_state`, with a caveat you should know about:\n- `timeline/0 minimal, 1200 minimal_plus_amino_acids` \u2014 the amino-acid **upshift**\n- `timeline/0 minimal_plus_amino_acids, 1200 minimal` \u2014 the **downshift**\n\n\u26a0\ufe0f The `serialization_check` above flags that `FBAResults/media_id` truncates the upshift label `minimal_plus_amino_acids` \u2192 `minimal`, so the *stored* segment means for the upshift average pre- and post-shift together. The `shift_response` / `segment_means` tools correct for this by reading the untruncated column and the declared timeline.\n\n## Two honest paths forward\n\n**(A) Answer the media-shift question from the corpus's `steady_state` timelines** \u2014 I can give you the real transient (baseline \u2192 peak/nadir \u2192 settled level, overshoot, latency) for the up- or down-shift, correctly de-truncated. This is grounded data available *right now*, no download. Which direction interests you?\n\n**(B) If you specifically need the coarse-grained kinetic model**, that requires a *new simulation* \u2014 a new arm (different `kb_sha256`, not poolable with the existing corpus), gated by human approval. I can draft that proposal (a `coarse_kinetic` timeline run + its matched `steady_state`/`kinetic` comparators), but note upfront that its charging channel will be structurally uninformative for a nutrient shift; if the charging dynamics are what you care about, the **`kinetic`** model is the one that actually resolves per-isoacceptor charging.\n\nWhich would you like \u2014 (A) the real shift transient from the steady-state timelines, or (B) a proposed coarse_kinetic run?"
+      }
+    ]
+  }
+}

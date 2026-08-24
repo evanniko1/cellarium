@@ -1,0 +1,1261 @@
+{
+ "generated": "2026-08-24 09:35",
+ "protocol": "BACKLOG.md PARCA-6 incidental probe",
+ "rule": "failure = (c) AND NOT (a OR b OR d); 0 failures -> the claim path suffices",
+ "n_scored": 12,
+ "n_failures_by_proxy": 0,
+ "failure_ids": [],
+ "n_with_payload_stamp": 12,
+ "results": [
+  {
+   "id": "rpmJ-ko",
+   "model": "claude-opus-4-8",
+   "unit": "rpmJ",
+   "seconds": 37.3,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "list_results",
+    "mechanistic_scope",
+    "operon_mode_advice",
+    "viability",
+    "differential",
+    "raw_available"
+   ],
+   "usage": {
+    "n_calls": 3,
+    "input_tokens": 6,
+    "output_tokens": 1598,
+    "cache_read_tokens": 69499,
+    "cache_creation_tokens": 40991,
+    "latency_ms": 29876,
+    "cost_usd": 0.330923,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 3
+    },
+    "by_model": {
+     "claude-opus-4-8": 3
+    }
+   },
+   "answer": "I have what I need for an honest answer. The most important finding is a **model-semantics caveat**, not a phenotype. Let me summarize what the data actually shows.\n\n## Phenotype of the rpmJ \"knockout\"\n\n**The critical caveat first: this design is not actually a knockout of rpmJ.**\n\nrpmJ (50S ribosomal protein L36) is transcribed from **2 transcription units**, but the `gene_knockout` variant zeroes only **one** (TU00337, the `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ` operon). The measured expression confirms this:\n\n- **rpmJ is still expressed**: KO mean 50.1 vs wild-type 69.5 \u2014 a **partial knockdown (~28% down), not a knockout**.\n- The gene the design actually *silences* is **secY** (protein export channel): KO mean **0.0** vs WT 15.8 \u2014 fully off.\n- Ten operon partners (rplE/F/N/O/R/X, rpmD, rpsE/H/N) are also modestly reduced (~57 vs 69.6) but remain expressed.\n\nSo under the corpus's operons-ON knowledge base (322/322 rows), \"KO:rpmJ\" is really a partial rpmJ knockdown *plus a secY knockout*. Any phenotype below is driven mostly by the secY silencing and the operon-wide reduction, **not** by loss of L36.\n\n**What the runs actually show** (4 seeds \u00d7 4 generations, all QC-ok, all local raw):\n\n- **Viable**: verdict `viable`, division rate 1.0 in every seed, all lineages divided through 4 generations. Median division time ~6.7\u20137.3 ks.\n- **Growth**: ~12% lower growth_rate (p=0.019), but the depth note warns the wild-type reference itself drifts ~13% across the generations this comparison spans, so this is at the edge of generation drift, not a clean effect.\n- **fba_objective** is +87% \u2014 but this compares generation 4 of the KO against a mixed-depth WT reference; treat it as an exploration signal, not a verdict.\n- **ppGpp/RelA, proteostasis, protein mass**: no significant moves (all p>0.05). No stringent-response signature.\n\n**Benchmark reconciliation:** the essentiality benchmark (Baba 2006 Keio + Joyce 2006) lists rpmJ as **non-essential**, while the model's machinery prior expected a lethal crash \u2014 so this is a `model_OVER_predicts` gene in prior terms. The in-silico result (viable, mild growth cost) actually lands closer to the benchmark than the prior did \u2014 but that agreement is partly *because* rpmJ was never truly knocked out.\n\n**Bottom line:** I cannot report a genuine rpmJ-knockout phenotype from this corpus. The available \"KO:rpmJ\" runs are a viable, ~12%-slower-growing lineage whose real perturbation is a **secY silencing + operon-wide knockdown**, with rpmJ only partially reduced.\n\nIf you want a true rpmJ knockout, that requires a **graded gene_knockout / single-cistron approach** \u2014 the operon-ON `gene_knockout` variant cannot cleanly delete rpmJ alone. I can propose that experiment (with WT and a secY-KO control to separate the effects) if you'd like."
+  },
+  {
+   "id": "rpmJ-growth",
+   "model": "claude-opus-4-8",
+   "unit": "rpmJ",
+   "seconds": 39.0,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "mechanistic_scope",
+    "list_results",
+    "operon_mode_advice",
+    "survey_corpus",
+    "viability",
+    "raw_available",
+    "differential",
+    "disconfirm",
+    "chart"
+   ],
+   "usage": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 1994,
+    "cache_read_tokens": 187983,
+    "cache_creation_tokens": 13996,
+    "latency_ms": 33121,
+    "cost_usd": 0.231367,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-opus-4-8": 5
+    }
+   },
+   "answer": "## Answer\n\n**Growth rate barely changes: \u22122.6% versus wild type, and that difference is not statistically significant** (Welch p = 0.55; z = 0.32; overlapping CIs), measured across 4 seeds \u00d7 4 generations for each design at matched generation depth (gen 4).\n\n- KO:rpmJ growth rate: 0.000216 \u00b1 0.000024 (n = 4 seeds)\n- Wild type: 0.000222 \u00b1 0.000016 (n = 4 seeds)\n\nThe lineage is fully **viable** \u2014 all 4 seeds divided through all 4 generations.\n\n### Two important caveats \u2014 read before you trust this number\n\n**1. This is not actually a clean rpmJ knockout.** rpmJ (ribosomal protein L36) is transcribed from 2 transcription units, but the `gene_knockout` variant zeroes only *one* TU (TU00337, the `rplNXE\u2026secY-rpmJ` operon). The scope check measured the result directly: rpmJ is **still expressed** (protein 50.1 vs WT 69.5 \u2014 a ~28% knockdown, not a knockout), while its operon partner **secY was fully silenced** (0.0 vs WT 15.8). So this design is best read as *\"partial rpmJ knockdown + secY loss,\"* not a rpmJ KO. Don't publish it as a rpmJ knockout.\n\n**2. Beware the naive whole-run number (\u221211.7%).** A straight target-vs-reference comparison returns \u221211.7%, but that pools runs of different generation depth, and the wild-type reference's *own* growth drifts ~12.9% across generations. When you compare apples-to-apples at the same depth, the effect collapses to the \u22122.6% (n.s.) above. The \u221211.7% is mostly depth artifact.\n\n### Reality vs the model\nThe essentiality benchmark (Baba/Joyce) calls rpmJ **non-essential**, and the model here shows a viable, near-normal-growth cell \u2014 so on the growth-rate axis they agree. (The model's machinery-KO *prior* expected a crash \u2014 an over-prediction \u2014 but the actual run divides fine, consistent with the benchmark.)\n\nIf you want a genuine rpmJ result, the honest next step is a **graded knockdown of rpmJ** (which suppresses every TU carrying the cistron, avoiding the secY confound). I can propose that run if useful."
+  },
+  {
+   "id": "rpmJ-protein",
+   "model": "claude-opus-4-8",
+   "unit": "rpmJ",
+   "seconds": 92.1,
+   "axis_a_prose_check": true,
+   "axis_a_verdict": "claims_on_non_fits",
+   "axis_b_self_report": true,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "list_results",
+    "mechanistic_scope",
+    "operon_mode_advice",
+    "top_movers",
+    "viability",
+    "differential",
+    "list_species",
+    "list_species",
+    "dilution_clock",
+    "read_species",
+    "read_species"
+   ],
+   "usage": {
+    "n_calls": 7,
+    "input_tokens": 14,
+    "output_tokens": 2612,
+    "cache_read_tokens": 266047,
+    "cache_creation_tokens": 11107,
+    "latency_ms": 47076,
+    "cost_usd": 0.267812,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 7
+    },
+    "by_model": {
+     "claude-opus-4-8": 7
+    }
+   },
+   "answer": "WT raw isn't local, but the mechanistic_scope footprint already gave the measured WT protein mean (69.5 arbitrary units in that normalized footprint metric, KO 50.1). The dilution clock gives the absolute counts. I have enough to answer definitively.\n\n## rpmJ at the protein level: KO vs WT\n\n**The short answer: the \"knockout\" does not knock out the rpmJ protein.** Its pool stays essentially at wild-type level and is still being actively synthesized.\n\n### What the numbers say (across all 4 seeds \u00d7 4 generations, QC ok)\n\n- **The rpmJ protein pool is flat-to-rising, not decaying.** The dilution clock fits the target protein's own abundance vs generation: observed slope **\u22120.003 per generation** (CI [\u22120.059, +0.053], r\u00b2\u22480.001) against the **\u22121.0** slope a true knockout would show as the inherited pool halves each division. Verdict: **`slower_than_dilution`** \u2014 the signature of **residual synthesis / an incomplete knockout**, not a stopped gene.\n- Within a single generation the count climbs monotonically (~17,400 \u2192 ~31,200 monomers over one cycle in seed 0) \u2014 that is a protein being made, not diluted out.\n- The footprint read puts the KO mean at **50.1 vs WT 69.5** on its normalized metric \u2014 a mild ~28% depression, not a collapse. Modest, and consistent with a partial knockdown rather than an ablation.\n\n### Why \u2014 this is the important part\n\nThe `KO:rpmJ` variant zeroes **one transcription unit** (TU00337, the `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ` operon). But **rpmJ is transcribed from 2 TUs**, so the second unit keeps expressing it. Measured consequences of this operon-level semantics:\n\n- **rpmJ itself: still expressed** (partial knockdown at most \u2014 do not report this as a rpmJ knockout).\n- **secY: fully silenced (\u2192 0.0 protein)** \u2014 the design collateral-silences a gene it isn't named after.\n- The other 10 operon partners (rplE/F/N/O/R/X, rpmD, rpsE/H/N) also drop modestly (~57 vs ~69.6) from the shared TU hit.\n\n### Consistency checks\n- **Viability:** viable, division rate 1.0, 4 generations, all 4 seeds \u2014 no crash. (Note: rpmJ is *non-essential* in the Baba/Joyce benchmark, so the machinery-crash prior `over_predicts` here; but that's moot given the protein was never actually removed.)\n- **Whole-cell channels** barely move: protein_mass \u22125.8% (p=0.06, n.s.), growth \u221211.7% (p=0.02 but confounded by a depth mismatch \u2014 KO ran to gen 4, WT pooled 1/4/7). No proteome-wide collapse.\n\n### Bottom line for a hypothesis generator\nAt the protein level, KO:rpmJ \u2248 WT for rpmJ itself (mild ~28% knockdown, still synthesized and accumulating), **because the variant is an operon-level lesion, not a gene deletion.** The real, clean protein-level effect of this design is on **secY (\u2192 zero)**, not rpmJ. If you want a genuine rpmJ protein knockout to compare against WT, the right instrument is a **graded gene_knockout** (which suppresses every TU carrying the cistron) \u2014 I can propose that run for approval if useful.\n---\n**Degradation-rate check \u2014 this answer rests on values that are not fits.** The claims are left exactly as written; this is the record, not a correction.\n- `rpmJ[c]` \u2014 its rate is the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit (1.584482% of mRNA expression). In: \u201c- **The rpmJ protein pool is flat-to-rising, not decaying.** The dilution clock fits the target protein's own abundance vs generation: observed slope **\u22120.003 per generation** (CI [\u22120.059, +0.053], r\u00b2\u22480.001) against the **\u22121.0** slope a tru\u201d\n\nAcross this knowledge base, 854 of 3,133 mRNA units carry a value that is not a fit, holding 12.087% of mRNA expression (kb `3b2f8ebd`). `deg_rate_provenance` reports the full picture for any unit."
+  },
+  {
+   "id": "rplNXE-operon",
+   "model": "claude-opus-4-8",
+   "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO",
+   "seconds": 45.6,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 2,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    },
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "survey_corpus",
+    "operon_mode_advice",
+    "mechanistic_scope",
+    "list_results",
+    "list_results",
+    "list_results",
+    "lethality_landscape",
+    "viability",
+    "trajectory",
+    "metabolic_essentiality",
+    "mechanistic_scope"
+   ],
+   "usage": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 2173,
+    "cache_read_tokens": 186938,
+    "cache_creation_tokens": 16586,
+    "latency_ms": 42717,
+    "cost_usd": 0.251507,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-opus-4-8": 5
+    }
+   },
+   "answer": "I now have a complete, grounded picture. Let me summarize.\n\n## What happens to the cell if the rplN\u2013rplX\u2013rplE operon is disrupted\n\n**Bottom line: the cell dies.** All three genes are core ribosomal-protein (large-subunit) machinery, and all three are **essential** in the benchmark (Baba 2006 Keio + Joyce 2006, glucose-minimal \u2014 `essential_reference: true`, agreement `consistent_lethal`). The model prior and the experimental benchmark agree here \u2014 this is not a case where the model under-predicts essentiality.\n\n### How the death unfolds (mechanism)\n\nrplN, rplX, and rplE are structural proteins of the 50S ribosomal subunit. A disruption stops their *synthesis* but not the cell's existing *possession* of ribosomes, so the phenotype arrives by dilution:\n\n- New functional 50S subunits can no longer be assembled \u2192 translation capacity falls as the inherited ribosome pool is halved each division \u2192 protein synthesis fails \u2192 **division arrest / collapse**.\n- The closest measured analogue in the corpus, **KO:rplB** (another 50S protein), collapses at **generation 0** \u2014 every seed shows `no_division`/`empty`, zero reportable seeds (n=4 seeds, all collapse). So a 50S-protein disruption is among the *fastest-crashing* knockouts, faster than the aaRS KOs (which survive ~2\u20133 generations on their inherited charged-tRNA/enzyme pools).\n\n**Important caveat on directness:** I have **no simulation run for rplN, rplX, or rplE** in the corpus (`list_results` n=0 for each). The verdict above is grounded in (1) the essentiality benchmark for these exact genes and (2) the measured rplB analogue \u2014 not a run of this operon itself.\n\n### The operon dimension \u2014 this makes it far worse than a single-protein loss\n\nThis is genuinely an **operon disruption**, and the model's structure captures why that matters. All three genes lie on transcription unit **TU00337** = `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ` \u2014 **12 genes**. Under the corpus's operons-ON knowledge base, zeroing this unit silences the whole block, which includes:\n\n- Multiple additional 50S proteins (rplF, rplO, rplR, rpmD, rpmJ) and 30S proteins (rpsE, rpsH, rpsN) \u2014 compounding the ribosome-assembly failure, **and**\n- **secY** \u2014 the central channel of the Sec protein-export translocon, itself essential. So the lesion knocks out both ribosome assembly *and* protein secretion simultaneously.\n\n(One honesty note: rplN/rplX/rplE are each transcribed from 2 TUs, so in principle the second TU could provide partial rescue \u2014 the model has not measured whether TU00337-silencing fully silences these genes. But given both TUs and secY, and the benchmark verdict, viability is not in doubt.)\n\n### What I'd propose to measure it directly\n\nTo turn this from \"grounded inference\" into a measured result, the clean experiment is a **graded knockdown** of the operon (a full KO crashes at gen-0 and gives only a collapse, not a dose-response). A `graded_gene_knockout` of rplN across expression levels would show the ribosome-allocation \u2192 growth-rate collapse quantitatively. I can queue that panel (reference + a graded series) if you'd like \u2014 it needs human approval before it runs.\n\nWant me to draft that experiment?"
+  },
+  {
+   "id": "rmf-ppgpp",
+   "model": "claude-opus-4-8",
+   "unit": "TU0-42483",
+   "seconds": 27.6,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "clear",
+   "axis_b_self_report": true,
+   "axis_c_proxy_rests_on_unit": false,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "TU0-42483[c]",
+        "genes_in_payload": [
+         "rmf"
+        ],
+        "rate_class": "imputed",
+        "pct_of_mrna_expression": 0.714573
+       }
+      ],
+      "rate_classes": {
+       "imputed": "the MEAN of the reported half-lives \u2014 this unit's cistrons were never measured, so it carries a population default"
+      },
+      "n_units_matched": 1,
+      "n_units_shown": 1,
+      "n_genes_matched": 1,
+      "max_pct_of_mrna_expression": 0.714573,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "survey_corpus",
+    "model_capabilities",
+    "mechanistic_scope",
+    "model_capabilities",
+    "list_results"
+   ],
+   "usage": {
+    "n_calls": 3,
+    "input_tokens": 6,
+    "output_tokens": 1486,
+    "cache_read_tokens": 98921,
+    "cache_creation_tokens": 5043,
+    "latency_ms": 25670,
+    "cost_usd": 0.118159,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 3
+    },
+    "by_model": {
+     "claude-opus-4-8": 3
+    }
+   },
+   "answer": "This settles the core of your question. Let me be direct.\n\n## rmf is not mechanistically represented \u2014 so the model cannot answer \"how does rmf respond\"\n\nThe key finding from `mechanistic_scope`:\n\n- **rmf is EXPRESSED but its function is NOT simulated** (`mechanistic: false`, `role: \"no_modeled_function\"`, `ko_effect_prior: \"none_inert\"`).\n- The biology you're asking about \u2014 ppGpp rising \u2192 RMF induced \u2192 RMF binding 70S ribosomes to form translationally-silent **100S dimers** (ribosome hibernation) \u2014 is exactly the regulatory link that is **absent by construction** from this model.\n\nSo there is no coupling in the model from the ppGpp channel to rmf. rmf's mRNA/protein will be present in the transcription/translation machinery as an expressed gene, but **it has no downstream effect and no modeled input from ppGpp**. Any number you'd read for rmf during a stringent-response run would be the generic expression of an inert gene, not a measurement of \"rmf responding to ppGpp.\" Reporting it as a stringent-response readout would be misleading.\n\n## What the model *does* represent, and where the real answer lives\n\n- **The ppGpp stringent response itself IS modeled** (`ppgpp_stringent_response`, `can_answer: true`): ppGpp rises on amino-acid starvation and regulates growth \u2014 but it does so through **ribosome allocation / synthesis** (RNA-polymerase partitioning away from rRNA/ribosomal-protein operons), **not** through RMF-mediated ribosome hibernation.\n- The model's ribosome-down-regulation arm on the stringent response is the *transcriptional* one (fewer ribosomes made), not the *post-translational sequestration* one (existing ribosomes parked as 100S). RMF is that second arm, and it is the missing one.\n\n## One caveat worth flagging\n\nThe rmf transcript's degradation rate is **imputed** (the population mean, not a fitted/measured value \u2014 `deg_rate_provenance` class \"imputed\"). So even the passive expression level of rmf rests on an estimator default, not data. That's a second reason not to read anything quantitative into it.\n\n## If you want to actually pursue this\n\nTwo honest paths, neither of which I'll fake with the current corpus:\n\n1. **See the ppGpp response the model *can* show.** I can pull a genuine stringent-response transient \u2014 e.g. the amino-acid *downshift* timeline, where ppGpp rises and ribosome_conc/growth fall \u2014 via `shift_response`. That shows the modeled arm (ribosome allocation), and I'll label rmf explicitly as not participating. Want me to?\n\n2. **rmf's induction is a model-limit / rebuild question, not a simulation question.** Because RMF's regulatory function isn't in the parameter set, no simulation (however deep) will produce it \u2014 this is scope, not depth. Adding it would require model extension, not a new run.\n\nWould you like me to draw the modeled ppGpp/ribosome downshift transient (path 1) so you can see the part of the stringent response that *is* grounded \u2014 with a clear note that the RMF/100S hibernation arm is out of scope?"
+  },
+  {
+   "id": "rmf-vs-wt",
+   "model": "claude-opus-4-8",
+   "unit": "TU0-42483",
+   "seconds": 121.1,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": false,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "TU0-42483[c]",
+        "genes_in_payload": [
+         "rmf"
+        ],
+        "rate_class": "imputed",
+        "pct_of_mrna_expression": 0.714573
+       }
+      ],
+      "rate_classes": {
+       "imputed": "the MEAN of the reported half-lives \u2014 this unit's cistrons were never measured, so it carries a population default"
+      },
+      "n_units_matched": 1,
+      "n_units_shown": 1,
+      "n_genes_matched": 1,
+      "max_pct_of_mrna_expression": 0.714573,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "survey_corpus",
+    "list_results",
+    "list_species",
+    "design_space",
+    "list_results",
+    "model_capabilities",
+    "raw_available",
+    "raw_available",
+    "top_movers",
+    "differential",
+    "list_species",
+    "data_availability",
+    "read_species",
+    "list_species",
+    "list_species",
+    "list_species",
+    "read_species",
+    "list_species",
+    "read_species",
+    "list_species",
+    "mechanistic_scope"
+   ],
+   "usage": {
+    "n_calls": 13,
+    "input_tokens": 26,
+    "output_tokens": 3528,
+    "cache_read_tokens": 527365,
+    "cache_creation_tokens": 34733,
+    "latency_ms": 68559,
+    "cost_usd": 0.569094,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 12,
+     "summary": 1
+    },
+    "by_model": {
+     "claude-opus-4-8": 13
+    }
+   },
+   "answer": "This is decisive, and it changes the answer entirely. Both the rmf **protein** (EG11245-MONOMER) and its **mRNA** (EG11245_RNA) read exactly 0.0 at all 3,876 timesteps \u2014 and `mechanistic_scope` explains why: rmf is `role: no_modeled_function`, `mechanistic: false`. It is annotated in the genome but its function (ribosome dimerization / 100S formation) is **not simulated**, and here it isn't even being expressed. The abundance is a structural zero, not a measured stringent-response induction.\n\nI don't need to read the WT run separately \u2014 a zero-vs-zero comparison is not informative, and the reason (model scope) applies identically to both. Let me draw the one figure that honestly summarizes what the model *can* say about this stringent condition (the physiology it does represent), then give the answer."
+  },
+  {
+   "id": "rpmJ-ko",
+   "model": "claude-sonnet-5",
+   "unit": "rpmJ",
+   "seconds": 81.6,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 2,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    },
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "list_results",
+    "mechanistic_scope",
+    "viability",
+    "lethality_landscape",
+    "viability",
+    "differential",
+    "trajectory",
+    "compare_at_generation",
+    "disconfirm",
+    "mechanistic_scope",
+    "trajectory"
+   ],
+   "usage": {
+    "n_calls": 6,
+    "input_tokens": 12,
+    "output_tokens": 5525,
+    "cache_read_tokens": 212134,
+    "cache_creation_tokens": 50448,
+    "latency_ms": 76999,
+    "cost_usd": 0.335731,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 6
+    },
+    "by_model": {
+     "claude-sonnet-5": 6
+    }
+   },
+   "answer": "## Phenotype of the rpmJ knockout\n\n**Bottom line: viable, essentially wild-type growth \u2014 but read the caveat below before trusting this as a clean rpmJ result.**\n\n### What the corpus shows\n- `gene_knockout/KO:rpmJ` has 4 seeds, all QC-ok, all reaching 4 generations with division rate 1.0 and every terminal cell divided \u2192 **viability verdict: viable** (no crashes, not in the lethality_landscape collapse list at all).\n- **Growth rate**: flat across generations (gen0\u2192gen3: 0.000254 \u2192 0.000216 /s). A naive whole-run comparison to `wildtype/basal` showed \u221211.7%, but that comparison mixed different lineage depths (KO ran 4 gens, WT reference pooled 1/4/7-gen runs). At the matched depth (generation 3), growth is \u22122.6% vs WT and **not statistically significant** (Welch p=0.55, CIs overlapping) \u2014 so there is no reliable growth defect.\n- **ppGpp**: flat, ~57\u201365 \u03bcM across all 4 generations, no rise \u2014 no stringent-response signature, consistent with the absence of a growth defect.\n- `differential` shows nothing else moves meaningfully: `rela_conc` +8.6% (n.s.), `protein_mass` \u22125.8% (n.s.), `pw:proteostasis`/`pw:cell_division` small and n.s.\n\n### Why this needs a strong caveat\n`mechanistic_scope('rpmJ')` flags that **this design is not a clean single-gene rpmJ knockout**. Under the corpus's operon representation, the variant zeroes one transcription unit, TU00337 (`rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ`, 12 genes), but rpmJ is transcribed from **2 TUs**, so only one is silenced:\n- **rpmJ itself is only partially knocked down**: measured 50.1 vs WT 69.5 (~28% reduction) \u2014 still expressed, not eliminated.\n- Several co-transcribed ribosomal proteins (rplE, rplF, rplN, rplO, rplR, rplX, rpmD, rpsE, rpsH, rpsN) are similarly only partially reduced (57.0 vs WT 69.6).\n- **secY is fully silenced** (0.0 vs WT 15.8) as a side effect of hitting this TU \u2014 and secY is independently flagged as *essential in vivo* (Baba/Joyce) with `agreement: model_UNDER_predicts` (the model's FBA treats secY as a non-flux-constraining \"enzyme,\" so its KO can't show a metabolic growth defect by construction \u2014 a fabI-type null, not a real reroute).\n\nSo the \"viable, no phenotype\" result you get from the corpus is being driven by a **partial knockdown of rpmJ plus co-transcribed ribosomal genes, plus a full but mechanistically-invisible loss of SecY** \u2014 not a true, complete single-gene rpmJ null.\n\n### Against the essentiality benchmark\n`mechanistic_scope` reports rpmJ as `essential_reference: false` in the Baba/Joyce (Keio) benchmark \u2014 i.e., rpmJ (L36) is genuinely non-essential in real E. coli, consistent with the observed viability here. The flagged disagreement (`model_OVER_predicts`) refers to the *generic* machinery-KO prior (\"ribosomal protein KO \u2192 lethal crash\"), not to this specific outcome \u2014 here the model's viable call actually **agrees** with the real-world benchmark, though because the KO is incomplete (rpmJ still ~72% expressed) this run doesn't cleanly test rpmJ dispensability on its own.\n\n### Take-away\n- **What's measured**: a design labeled KO:rpmJ is viable across 4 seeds \u00d7 4 generations, with no significant growth or ppGpp effect once compared at matched generation depth.\n- **What it actually is**: a partial (~28%) knockdown of rpmJ + partial knockdown of ~10 other ribosomal-operon genes + a full but functionally-inert (in this model) loss of secY.\n- **What it is not**: strong evidence about a complete rpmJ deletion's phenotype \u2014 for that you'd want either operons-off (a separate, currently absent arm, per `operon_mode_advice`) or a graded knockdown targeting rpmJ's other TU specifically."
+  },
+  {
+   "id": "rpmJ-growth",
+   "model": "claude-sonnet-5",
+   "unit": "rpmJ",
+   "seconds": 56.0,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "survey_corpus",
+    "mechanistic_scope",
+    "list_results",
+    "differential",
+    "viability",
+    "compare_at_generation",
+    "compare_at_generation",
+    "disconfirm"
+   ],
+   "usage": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 3893,
+    "cache_read_tokens": 186712,
+    "cache_creation_tokens": 12005,
+    "latency_ms": 55012,
+    "cost_usd": 0.159457,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-sonnet-5": 5
+    }
+   },
+   "answer": "**Bottom line: growth rate is essentially unchanged \u2014 no detectable effect, and it's not even a clean rpmJ knockout.**\n\n**The number itself (grounded, matched-depth comparison, 4 seeds each):**\nAt the shared generation depth (gen 3, the deepest both runs reach at n=4 seeds), growth rate is:\n- KO:rpmJ: 0.000216 \u00b1 CI95 2.4e-5 (n=4 seeds)\n- wildtype/basal: 0.000222 \u00b1 CI95 1.6e-5 (n=4 seeds)\n- effect: **\u22122.6%**, Welch t=\u22120.65, p=0.55 \u2014 **not significant**, well within replicate noise (z vs corpus spread = 0.32).\n\nAt generation 0 the two are indistinguishable (+0.8%). So across the run, growth rate tracks wild type at every generation checked; there is no real growth-rate phenotype here.\n\n**Viability:** all 4 seeds divide every generation (division rate 1.0, all terminal-divided, no crashes) \u2014 this KO is fully viable in the model, consistent with the Baba/Joyce benchmark calling rpmJ non-essential (the ribosomal-machinery *prior* expects a lethal crash, but here the sim agrees with reality rather than over-predicting).\n\n**Important caveat you should know before trusting this as \"the rpmJ effect\":** this design is not a clean rpmJ-null. `rpmJ` is transcribed from **two** transcription units, and the `KO:rpmJ` variant only zeroes one of them (TU00337, the 12-gene operon `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ`). Measured expression:\n- rpmJ itself: 50.1 vs WT 69.5 (down ~28%, but **still expressed** \u2014 not silenced)\n- secY (translocon subunit, unrelated to the ribosome question): 0 vs WT 15.8 \u2014 **fully silenced**, an off-target knockout\n\nSo what you're actually looking at is a partial rpmJ knockdown plus an incidental secY-null, not a genotype specific to rpmJ. Given that mix, the null growth effect can't be attributed cleanly to rpmJ loss.\n\nOther channels do move (fba_objective +86.6%, p<0.001) \u2014 the metabolic network reroutes under this perturbation even though division rate and growth rate don't change, which is the classic \"flat growth, rerouted flux\" viable-KO signature.\n\nIf you want a cleaner test of rpmJ specifically, the honest next step would be a **graded knockdown targeting only the rpmJ-containing TU** (or confirming operon-off behavior) rather than reading this operon-level KO as an rpmJ result."
+  },
+  {
+   "id": "rpmJ-protein",
+   "model": "claude-sonnet-5",
+   "unit": "rpmJ",
+   "seconds": 60.7,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "mechanistic_scope",
+    "list_results",
+    "operon_mode_advice",
+    "top_movers",
+    "viability",
+    "list_species"
+   ],
+   "usage": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 4674,
+    "cache_read_tokens": 141783,
+    "cache_creation_tokens": 9096,
+    "latency_ms": 59592,
+    "cost_usd": 0.146779,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "answer": "## rpmJ protein level: knockout vs wild type\n\nShort answer: **it drops by only ~28% \u2014 it is not silenced.** That's the real (and slightly surprising) finding here, and it comes with an important caveat about what \"KO:rpmJ\" actually knocks out.\n\n### The numbers (4 seeds, corpus-measured)\n\n| | wild type | \"KO:rpmJ\" | change |\n|---|---|---|---|\n| **rpmJ protein** | 69.5 | 50.1 | \u2193 ~28% |\n| secY (operon partner, not the named target) | 15.8 | 0.0 | \u2193 100% (fully silenced) |\n| rplE/rplF/rplN/rplO/rplR/rplX/rpmD/rpsE/rpsH/rpsN (10 other operon members) | 69.6 | 57.0 | \u2193 ~18% each |\n\nViability: the design is fully **viable** \u2014 all 4 seeds divide at rate 1.0 through 4 generations, no crashes.\n\n### Why rpmJ is only partially knocked down\n\nrpmJ is transcribed from **two transcription units**, but the `gene_knockout` variant zeroes only one row in `rna_data`: TU00337, the 12-gene polycistronic operon `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ`. Because rpmJ has a second TU that isn't touched, it's **still expressed** \u2014 the 50.1 vs 69.5 reduction is the loss of just one of its two transcript sources, not a full knockout. This is measured directly (`target_silenced: false`).\n\nMeanwhile **secY**, which sits in the same operon but is not the gene named in the design, is fully zeroed (its only TU is TU00337) \u2014 a polar off-target effect on a gene the KO wasn't supposed to touch. The other 10 co-members show only a modest, roughly uniform ~18% drop (likely reflecting shared operon dosage effects, not individual silencing).\n\n### Bottom line\n\n\"KO:rpmJ\" in this corpus is best read as a **partial knockdown of rpmJ plus a full knockout of secY**, not a clean rpmJ null. This is a known artifact of running with operons ON (the model's default and the setting the whole corpus was built with) \u2014 knockouts index into transcription units, not single cistrons, so a gene transcribed from multiple TUs can survive its own \"knockout,\" while an unrelated operon-mate gets silenced instead. If you need a true, unconfounded rpmJ null, that requires either a differently-indexed graded knockdown or an operons-OFF rebuild (a separate, non-poolable arm) \u2014 not something answerable from the current corpus rows."
+  },
+  {
+   "id": "rplNXE-operon",
+   "model": "claude-sonnet-5",
+   "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO",
+   "seconds": 138.2,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 4,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    },
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    },
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    },
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "rpmJ[c]",
+        "genes_in_payload": [
+         "rpmJ"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.584482
+       },
+       {
+        "unit": "rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]",
+        "genes_in_payload": [
+         "rplE",
+         "rplF",
+         "rplN",
+         "rplO",
+         "rplR",
+         "rplX",
+         "rpmD",
+         "rpsE",
+         "rpsH",
+         "rpsN"
+        ],
+        "rate_class": "floor",
+        "pct_of_mrna_expression": 1.581586
+       }
+      ],
+      "rate_classes": {
+       "floor": "the rate FLOOR \u2014 the slowest single measured mRNA cistron in the organism, applied as a lower bound, not a fit for this unit"
+      },
+      "n_units_matched": 2,
+      "n_units_shown": 2,
+      "n_genes_matched": 11,
+      "max_pct_of_mrna_expression": 1.584482,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "list_results",
+    "list_results",
+    "list_results",
+    "operon_mode_advice",
+    "design_space",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "list_results",
+    "lethality_landscape",
+    "viability",
+    "trajectory",
+    "trajectory",
+    "differential",
+    "design_space",
+    "mechanistic_scope",
+    "compare_at_generation",
+    "disconfirm",
+    "chart"
+   ],
+   "usage": {
+    "n_calls": 8,
+    "input_tokens": 16,
+    "output_tokens": 11183,
+    "cache_read_tokens": 353238,
+    "cache_creation_tokens": 32066,
+    "latency_ms": 136483,
+    "cost_usd": 0.394012,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 8
+    },
+    "by_model": {
+     "claude-sonnet-5": 8
+    }
+   },
+   "answer": "## Short answer\n\nThere is **no direct corpus run** knocking out `rplN`, `rplX`, or `rplE` individually \u2014 `list_results(gene=...)` returns `n=0` for all three, so this exact design is genuinely absent. But the tools reveal something important: **all three genes sit on the same 12\u2011gene polycistronic transcription unit**, TU00337 (`rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ`), confirmed by `design_space`/`mechanistic_scope` (rplN, rplX and rplE all resolve to the identical `ko_index=2829`). So a genuine measured knockout of this exact operon **is** in the corpus \u2014 it's just filed under one of its other members, `gene_knockout/KO:rpmJ` (4 seeds \u00d7 4 generations, all QC-ok).\n\n## What that measured run shows\n\n`mechanistic_scope`'s footprint for that TU (MEASURED, not predicted) is the key finding: this \"knockout\" is only a **partial knockdown**, not a full deletion \u2014\n\n- **rplN, rplX, rplE** (plus rplF, rplO, rplR, rpsE, rpsH, rpsN, rpmD): expression drops from ~69.6 \u2192 ~57.0 (**not silenced**) \u2014 because each of these genes is also covered by a **second, independent transcription unit**, so they keep supplying ~82% of normal expression even when TU00337 is zeroed.\n- **secY** (the Sec translocon, riding on the same operon but with no backup TU): fully silenced (0.0 vs 15.8 WT) \u2014 an off\u2011target consequence, not a ribosomal effect.\n- **rpmJ** itself: also only reduced (50.1 vs 69.5), not eliminated.\n\nPhenotypically (viability tool, 4 seeds, all reaching 4 generations): the lineage is **fully viable** \u2014 `division_rate=1.0` every generation, no crash, no QC flags. At a like-for-like generation (gen 3 vs WT gen 3, avoiding the depth-mismatch trap), growth rate is essentially unchanged: **\u20112.6%, not significant** (Welch p=0.55), and ppGpp shows no stringent-response elevation \u2014 no textbook uncharged-tRNA\u2192RelA\u2192ppGpp signature. The FBA objective actually rises (+86.6%), consistent with a metabolic reroute rather than translational collapse.\n\n## Why this does NOT mean \"the operon is dispensable\"\n\nThis directly contradicts the model's own machinery-KO prior (`ko_effect_prior: \"lethal_crash\"`) and the Baba/Joyce Keio benchmark, which independently classifies **rplN, rplX and rplE each as ESSENTIAL** (`benchmark.agreement: \"consistent_lethal\"` for a true, complete deletion). The reason for the mismatch is mechanistic, not biological: `gene_knockout` zeroes exactly **one transcription unit**, and these ribosomal genes happen to have a second covering TU that survives \u2014 so what's labelled a \"knockout\" here is a partial knockdown of one of two redundant mRNA sources, not the gene's actual elimination. That's the same polar-effect/index-space quirk `operon_mode_advice` documents corpus-wide (e.g. `KO:rpmJ \u2192 secY silenced`, `KO:rpoB` leaves rpoB expressed).\n\n**Bottom line:** a genuine, complete disruption of the rplN\u2011rplX\u2011rplE operon would be expected \u2014 per the Keio essentiality benchmark and the model's own ribosomal-machinery prior \u2014 to be lethal (translation failure \u2192 division arrest, as seen for other ribosomal proteins like rplB crashing at generation 0). But the only measured proxy actually in this corpus only partially knocks the operon down (thanks to redundant transcription-unit coverage) and the cell tolerates it fine over 4 generations. If you want the real answer for a *complete* disruption, that's a genuine data gap \u2014 worth proposing as a `multi_gene_knockout` of rplN+rplX+rplE, though note it would likely hit the same single-TU ceiling unless the second covering TU is also targeted (a graded knockdown lever, like the `KO:argS#expr:0.05` design used elsewhere, would be the cleaner way to force a deeper reduction and actually observe collapse)."
+  },
+  {
+   "id": "rmf-ppgpp",
+   "model": "claude-sonnet-5",
+   "unit": "TU0-42483",
+   "seconds": 113.1,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": true,
+   "axis_c_proxy_rests_on_unit": true,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "TU0-42483[c]",
+        "genes_in_payload": [
+         "rmf"
+        ],
+        "rate_class": "imputed",
+        "pct_of_mrna_expression": 0.714573
+       }
+      ],
+      "rate_classes": {
+       "imputed": "the MEAN of the reported half-lives \u2014 this unit's cistrons were never measured, so it carries a population default"
+      },
+      "n_units_matched": 1,
+      "n_units_shown": 1,
+      "n_genes_matched": 1,
+      "max_pct_of_mrna_expression": 0.714573,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "mechanistic_scope",
+    "list_results",
+    "survey_corpus",
+    "list_species",
+    "list_species",
+    "comparable_designs",
+    "raw_available",
+    "raw_available",
+    "data_availability",
+    "model_capabilities",
+    "mechanistic_scope",
+    "top_movers",
+    "read_series",
+    "read_series",
+    "read_series",
+    "read_series",
+    "read_series",
+    "read_series"
+   ],
+   "usage": {
+    "n_calls": 9,
+    "input_tokens": 18,
+    "output_tokens": 8411,
+    "cache_read_tokens": 352482,
+    "cache_creation_tokens": 18722,
+    "latency_ms": 110936,
+    "cost_usd": 0.302171,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 9
+    },
+    "by_model": {
+     "claude-sonnet-5": 9
+    }
+   },
+   "answer": "**Short answer: this model cannot show you rmf's response, and it's not a data gap you can drill past \u2014 it's a scope limit.**\n\nWhat I checked, grounded:\n\n1. **`mechanistic_scope('rmf')`**: rmf is *expressed* (it has a transcription unit, TU0-42483) but its function is **not simulated** \u2014 `role: no_modeled_function`, `is_machinery: false`. The model tracks that the gene is transcribed/translated as bookkeeping, but rmf's actual biology (binding 30S/50S to form inactive 100S ribosome dimers \u2014 ribosome hibernation) has no downstream mechanism in wcEcoli. A knockout of rmf would show *zero* phenotype **by construction**, not because rmf is biologically dispensable.\n\n2. **The regulator that would drive an rmf \"response\" is also out of scope**: rmf's ppGpp-dependent induction during the stringent response is classically mediated by **ppGpp + DksA acting directly at the rmf promoter** (Izutsu et al. 2001). I checked `mechanistic_scope('dksA')` \u2014 DksA is likewise `no_modeled_function`. So the specific causal chain \"ppGpp rises \u2192 DksA co-activates rmf transcription \u2192 ribosomes hibernate as 100S dimers\" is not represented *at either end*: neither the trigger's cofactor nor the effector's downstream action exists in this model.\n\n3. **I also tried to at least pull rmf's raw expression trace** (mRNA/protein counts) across the ppGpp dose series (`ppgpp_conc/basal|ppGpp:0.2x/0.6x/1.6x/2.0x`) to see if transcription alone moves with dose, even without the downstream function. That failed: full per-species simOut (`list_species`) isn't available locally for these runs, and `data_availability` confirms there's no packaged HF archive for them either \u2014 only local regeneration would produce it. So I can't even give you an \"expression went up/down\" number honestly right now.\n\n**What the model *does* represent of the stringent response**, as the nearest honest substitute: the `ppgpp_conc` dose-series designs read ribosome concentration directly. Across 4 seeds/design at gen 3 (last generation):\n- 0.2x ppGpp \u2192 ribosome_conc 14.6\n- 0.6x \u2192 21.6\n- 1.6x \u2192 19.7\n- 2.0x \u2192 17.8\n\nThat's **not monotonic** \u2014 it doesn't cleanly reproduce the textbook \"more ppGpp \u2192 fewer ribosomes\" relationship in this corpus (growth_rate does drop modestly, 1.80e-4 \u2192 1.63e-4, from 0.2x to 2.0x). I'm flagging this honestly rather than smoothing it into agreement with expectation; it would need more seeds/replication to call it a real non-monotonicity vs noise.\n\n**Bottom line**: rmf's response to ppGpp during the stringent response is a real, well-published mechanism (Izutsu 2001, Wada 1995 on ribosome hibernation) \u2014 but it lives entirely outside this model's mechanistic scope (both rmf's function and DksA's regulatory role are inert placeholders here). If you need this, the model can't be coaxed into it via a different query; it would require adding rmf/DksA mechanism to the reconstruction, which is a knowledge-base change, not a new simulation. I'd rather say that plainly than report a proxy number as if it were rmf's answer."
+  },
+  {
+   "id": "rmf-vs-wt",
+   "model": "claude-sonnet-5",
+   "unit": "TU0-42483",
+   "seconds": 171.3,
+   "axis_a_prose_check": false,
+   "axis_a_verdict": "no_degradation_claims",
+   "axis_b_self_report": false,
+   "axis_c_proxy_rests_on_unit": false,
+   "axis_d_payload_stamp": true,
+   "failure_by_proxy": false,
+   "n_stamps": 1,
+   "stamps": [
+    {
+     "tool": "mechanistic_scope",
+     "provenance": {
+      "verdict": "rests_on_non_fits",
+      "what_this_means": "genes named in this result are transcribed from units whose degradation rate the ParCa estimator did not fit \u2014 it is a bound or the population mean. The numbers are left exactly as computed; this records what they rest on.",
+      "units": [
+       {
+        "unit": "TU0-42483[c]",
+        "genes_in_payload": [
+         "rmf"
+        ],
+        "rate_class": "imputed",
+        "pct_of_mrna_expression": 0.714573
+       }
+      ],
+      "rate_classes": {
+       "imputed": "the MEAN of the reported half-lives \u2014 this unit's cistrons were never measured, so it carries a population default"
+      },
+      "n_units_matched": 1,
+      "n_units_shown": 1,
+      "n_genes_matched": 1,
+      "max_pct_of_mrna_expression": 0.714573,
+      "pct_is_of_total_mrna_expression": "each unit's share of TOTAL mRNA expression in the knowledge base \u2014 not a share of this result, and not additive with the corpus-wide 12.087% figure",
+      "measured_on_kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+      "transfer_limit": "the classification was measured on ONE knowledge base. A result from a different arm may not carry the same classification \u2014 check `provenance` for this result's arm.",
+      "full_picture": "call `deg_rate_provenance` for any single unit"
+     }
+    }
+   ],
+   "tools_called": [
+    "survey_corpus",
+    "list_results",
+    "list_results",
+    "list_species",
+    "mechanistic_scope",
+    "raw_available",
+    "raw_available",
+    "data_availability",
+    "list_species",
+    "list_species",
+    "list_species",
+    "list_species",
+    "list_species",
+    "list_species",
+    "list_species",
+    "list_species",
+    "read_species",
+    "read_species"
+   ],
+   "usage": {
+    "n_calls": 13,
+    "input_tokens": 26,
+    "output_tokens": 5669,
+    "cache_read_tokens": 512620,
+    "cache_creation_tokens": 29952,
+    "latency_ms": 100043,
+    "cost_usd": 0.351219,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 12,
+     "summary": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 13
+    }
+   },
+   "answer": "(stopped: reached max turns without a synthesis)"
+  }
+ ]
+}

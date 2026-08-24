@@ -1583,6 +1583,20 @@ are what the journal version needs.
 - **KISS-2 — trial count.** 3,000 trials against our nine questions x two models x one run. Generating a few
   hundred questions programmatically over the design space would move the limits test from a discrimination
   check to a benchmark, and would give per-item variance, which we currently cannot report.
+  - ✅ **COST MEASURED 2026-08-24 by running the 27-item pilot. My estimate was 2.4x TOO HIGH.**
+    | | estimated | **measured** |
+    |---|---|---|
+    | opus grounded / question | $0.456 | **$0.1906** |
+    | tool calls / question | 8 (assumed) | **4.3** |
+    | fresh input tokens / question | ~20k | **8** |
+    | cache-read tokens / question | not modelled | **149,432** (billed at 1/10) |
+    - **Why the estimate was wrong: prompt caching does almost all the work.** Across 27 questions the run
+      billed 4,034,665 cache-read tokens against **230 total fresh input tokens**. I modelled the ~20.6k
+      prefix as a per-turn cache READ but still assumed twice the turns and a much larger fresh tail.
+    - **Re-budgeted from real numbers:** pilot (done, 27 items, opus only) **$5.15 actually spent**;
+      4 framings x both models (108 items) **~$37**; **8 framings x both models (216 items) ~$74.**
+      The FULL 8-framing benchmark now fits inside the $150 with room, which reverses the earlier advice to
+      descope to 4.
   - 💰 **COST, estimated 2026-08-23. API credits only — no cluster, no simulation, nothing to re-run.**
     Both arms are `agent.converse` calls; the corpus, the registry and the judges are already on disk. Per
     question, per model: **grounded ~$0.46 (opus) / ~$0.27 (sonnet)**, ungrounded ~$0.016 / ~$0.010. Both
@@ -1614,6 +1628,22 @@ are what the journal version needs.
       items are unanswerable by construction and would have depressed every arm equally — noise that looks
       like a finding. Fixed by injecting a mode clause for the two non-default models; `test_limits_generator`
       asserts no `ask` ever carries two answer keys.
+    - ✅ **PILOT RUN 2026-08-24 (27 items, opus, grounded). Registry 27/27; opus 21/27 by rubric, 3
+      disputed, 3 miss (judges agreed 24/27).** The keyword scorer said 20/27 and that number is not a
+      result: `rescore_discrimination.py`'s own docstring records the same failure at n=9 —
+      *"a keyword scorer measures its own vocabulary, not the system"* — and I reproduced it at n=27. Read by
+      hand, most "misses" were correct refusals phrased outside the list (*"Per-tRNA-gene abundance is not
+      representable in this model"*, *"I am deliberately not reporting a number"*).
+    - 🐛 **AND ONE OF THE THREE REMAINING MISSES IS PROBABLY THE ANSWER KEY, NOT THE AGENT.** On
+      `nutrient_shift_timelines__kinetic` the agent declined because *no run combines those conditions*; the
+      key says `answer` because the capability is present and the mode is in the corpus. Those are different
+      questions — **representational capability vs. data coverage** — and the agent's reading is defensible.
+      The key needs a coverage clause before the full run, or that whole class scores the agent down for
+      being right. This is exactly what a pilot is for.
+    - ⚠️ 1 of the 27 pilot answers (`per_isoacceptor_trna_charging__kinetic`) hit the missing `wholecell`
+      reader — same unset-`WCECOLI_DOCKER` defect as the inadmissible probe run. That item is compromised;
+      the other 26 are not, since limits questions are mostly answered from the manifest rather than raw
+      simOut. Token counts are unaffected.
     - **Strata:** `representational` (capability absent entirely, 4 cells) · `resolution` (present but not in
       this elongation model, 4) · `supported` (10) · `no_corpus_mode` (9, reported apart).
   - 🧩 **THE REAL BLOCKER IS GROUND TRUTH, NOT MONEY.** The nine questions were hand-built, each with a
@@ -2114,6 +2144,35 @@ were live defects, one was a false accusation against a correct corpus, and none
     plus the frozen baseline mean the classification is now defined, measured and testable rather than
     something the flag would have had to invent.
 
+- ✅ **PARCA-6 — CLOSED 2026-08-24 by its own pre-registered rule. The arm is NOT justified.**
+  The rule fixed on 2026-08-11, before any of this ran: *failure rate 0 of 12 -> the claim path suffices and
+  PARCA-6's arm is NOT justified; >= 1 -> it ships at boundary 854.* The first run scored 1 genuine failure of
+  12 and the arm was justified. Re-run against Tier 1: **0 of 12.**
+  - **The mechanism is Tier 1, and the axes say so unambiguously.** Across the 12:
+    prose check (a) fired **1/12** — correctly, since none of the six questions uses degradation vocabulary,
+    which is the whole definition of this regime; agent self-report (b) **3/12**; the payload stamp (d)
+    **12/12**. Axis (c) — the answer actually rests on the unit — was **9/12**, so the regime was live and
+    these are not refusals dodging the question.
+  - **The exact claim that failed the first probe now passes.** `opus / rpmJ-protein` produced
+    *"rpmJ protein sits at ~50 copies in the KO vs ~70 in wildtype"* unmarked by either route in August. The
+    same question now returns with all four axes true and `rpmJ[c]` + `rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]`
+    named on the payload.
+  - ⚠️ **THE FIRST ATTEMPT AT THIS RE-RUN WAS INADMISSIBLE AND IS KEPT AS SUCH.** It also scored 0/12, and
+    that 0 was worthless: nothing loads `.env` outside pytest's conftest, so `WCECOLI_DOCKER` was unset and
+    **4 of 12 answers came back with `ModuleNotFoundError: No module named 'wholecell'`** — every simOut read
+    fell through to a native worker that does not exist here. The pre-registration explicitly requires the
+    image set, *"the point is what it does when it CAN look, not when it cannot"*, and an agent that cannot
+    read per-species data has fewer chances to quote an unmarked number. Preserved at
+    `data/incidental_probe_rerun_NONCOMPLIANT.json` with the reason stamped inside; the compliant run shows
+    **0/12 answers hitting the reader**. `scripts/run_incidental_probe.py` now REFUSES to start without the
+    image rather than producing an inadmissible result quietly.
+  - **Two independent routes now agree the arm buys nothing:** this probe, and the in-container listener
+    probe (854/854 ids matched, 12.087% reproduced from `sim_data` + a mounted file, no `sim_data` change).
+  - 📌 **What stays open, and it is not the arm.** The runtime provenance listener remains worth building on
+    its own research merit — the per-timestep, count-weighted share is a number no post-hoc analysis can
+    reconstruct — and it needs no arm. Track it as its own item, not as PARCA-6.
+  *(the original OPEN entry follows, kept because the reasoning that justified the arm is the reasoning the
+  probe overturned)*
 - 🎯 **PARCA-6 — carry the `unknown` class INTO `sim_data`. OPEN; the free prerequisite is DONE and it
   WEAKENS the case for the arm. Recorded 2026-08-10, measured live 2026-08-11.**
   - ✅ **The prerequisite shipped** (`src/cellarium/deg_claims.py`, 13 tests, three verified by injection):
