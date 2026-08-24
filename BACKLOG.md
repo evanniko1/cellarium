@@ -1770,12 +1770,24 @@ metadata.json ends as seed: 2 (last to finish)
 
 Before the fix seeds 0 and 1 would have been stamped with seed 2's configuration, silently.
 
-- 🎯 **THE LIMIT, and it is an input to the campaign below: under `parallel=N` only ONE run per sim_path gets
-  a `model_class`.** The image and model-source halves survive on every row because they come from this
-  process; only the model class and its flags are withheld. **Run provenance-critical campaigns at
-  `parallel=1`, or accept that N-1 rows carry image-only provenance.** For CORPUS-REBUILD-1 this is not
-  optional — the whole point of re-running is the provenance, so those packages run at parallel=1 and the
-  wall-clock estimate must be computed on that basis, not on parallel-6 throughput.
+- ✅ **AND THE LIMIT IS NOW FIXED AT ITS SOURCE, so `parallel=1` is NOT required.** The root cause was never
+  concurrency in our code — it is that wcEcoli writes ONE `metadata.json` per sim_path and every run
+  overwrites it. No lock on our side can help, because the competing writer is the model's own process.
+  But `runscripts/manual/runSim.py` is ALREADY in Cellarium's overlay, so we own the loop that creates each
+  run's directory. It now writes the same metadata into the PER-SEED directory as well, with `seed` and
+  `variant_index` overridden to that run's values. `run_one` already moves every child of the model dir into
+  `run_root`, files included, so it travels with the output. `_capture_executed` prefers the per-run copy and
+  records which it used (`metadata_source`); the ownership check stays as the fallback for runs made before
+  this and for any image without the overlay.
+  - 📊 **MEASURED, three seeds in parallel into one sim_path, patched runSim.py mounted:**
+    `1/3 -> 3/3` runs recording their OWN model class, `source=per_run` on every one, while the shared file
+    still held only `seed: 0`. Each per-seed file carries its own seed (0/1/2) — the race is gone at source.
+  - 🐛 **The first attempt at this validation reported 1/3 and that number was MEANINGLESS**: `_EXEC_LOCAL` is
+    a `threading.local()`, so mounts set on the main thread are invisible to worker threads and the patched
+    `runSim.py` was never mounted. The harness measured the unpatched image. Worth remembering — mounting is
+    a testing device, and any future per-thread mount must be set inside the worker.
+  - **Consequence for CORPUS-REBUILD-1: the packages can run at full parallelism.** The earlier note that they
+    must run at `parallel=1` is withdrawn, and the wall-clock estimate goes back to parallel-6 throughput.
 
 ### ⛔ The 363 existing rows CANNOT be back-filled — the information is destroyed, not merely unrecorded
 

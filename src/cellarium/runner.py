@@ -192,6 +192,11 @@ _EXECUTED_FROM_METADATA = (
 )
 
 
+def _model_output_dir_metadata(sim_path: str) -> Path:
+    """The SHARED, overwritten metadata file — `<out>/<sim_path>/metadata/metadata.json`."""
+    return _out_root(sim_path) / "metadata" / "metadata.json"
+
+
 def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_variant=None) -> dict:
     """Write `executed.json` beside the run: which image, which model class, which model commit.
 
@@ -235,8 +240,15 @@ def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_va
     # file. So a parallel campaign always gets the image, and gets the model class only where it can be proven
     # to belong to that run — which is exactly the trade this project makes everywhere else: never fabricate.
     try:
-        # `_out_root(sim_path)` already ends in the sim_path, so this is `<out>/<sim_path>/metadata/…`.
-        meta = _out_root(sim_path) / "metadata" / "metadata.json"
+        # PREFER THE PER-RUN COPY. The overlay's `runSim.py` writes the same metadata into the per-seed
+        # directory, which is unique per run, so a parallel campaign has nothing to race over and every row
+        # gets its model class. The shared file below is the fallback for runs made before that landed (and
+        # for any image without the overlay), and it is exactly the one that needs the ownership check.
+        meta = Path(run_root) / "metadata.json"
+        rec["metadata_source"] = "per_run"
+        if not meta.is_file():
+            meta = _model_output_dir_metadata(sim_path)
+            rec["metadata_source"] = "shared_sim_path"
         if not meta.is_file():
             meta = Path("runs") / sim_path / "metadata" / "metadata.json"
         if meta.is_file():

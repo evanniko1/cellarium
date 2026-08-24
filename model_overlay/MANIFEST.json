@@ -389,8 +389,14 @@
    "upstream_bytes": 6430,
    "note": "Two independent reasons, either of which alone would require shipping it. (1) It defines --multi-ko-indices and multi_ko_variant_kwargs(), which is where the multi-KO gene set is validated and turned into variant_kwargs. (2) It is the SECOND call site of resolve_elongation_flags \u2014 the one that writes the RESOLVED elongation flags into metadata.json. Without it a --kinetic-trna-charging run simulates correctly and records \"trna_charging\": true, and every corpus row inherits that. It also wraps the per-variant loop in try/except so one failing variant does not abandon the rest of a sweep. 0 ROUTE1 markers, so it harvests directly with no cleaning.",
    "status": "ship",
-   "overlay_sha256": "fd431ec8f8661f8a60dbeeadce908db576807ab3384634206fa959e52794a411",
-   "overlay_bytes": 10477
+   "overlay_sha256": "1e09a557a742b5cd753e0816158c22d8d4b34a511372e43a126175f9bef5acdc",
+   "overlay_bytes": 11554,
+   "cellarium_patch": {
+    "why": "PROV-2. Writes the run metadata into the PER-SEED directory as well as the shared <sim_path>/metadata/ one. The shared file is overwritten by every run into that sim_path, so under manifest.campaign(parallel=N) only one run could prove ownership of its own configuration \u2014 measured 1/3 at parallel=3. With the per-run copy it is 3/3. This is also why 3.5 months of runs on a stale image went unnoticed: nothing recorded per-run provenance at all.",
+    "harvested_sha256": "fd431ec8f8661f8a60dbeeadce908db576807ab3384634206fa959e52794a411",
+    "harvested_bytes": 10477,
+    "verified_by": "tests/test_executed_provenance.py"
+   }
   },
   {
    "path": "wholecell/fireworks/firetasks/variantSimData.py",

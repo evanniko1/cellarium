@@ -108,6 +108,34 @@ def test_capture_follows_the_run_and_is_told_which_run_it_is():
     assert "expect_seed=seed" in body, "capture is not told which seed it is recording, so it cannot verify"
 
 
+def test_the_per_run_metadata_is_preferred_over_the_shared_one(tmp_path, monkeypatch):
+    """THE parallel=N fix. The overlay's runSim.py writes the same metadata into the per-SEED directory, which
+    is unique per run, so concurrent runs have nothing to race over. MEASURED: parallel=3 went from 1/3 runs
+    recording their own model class to 3/3, with the shared file still holding only one seed."""
+    (tmp_path / "metadata.json").write_text(json.dumps({
+        "seed": 0, "variant": "wildtype", "elongation_model": "SteadyStateElongationModel"}), encoding="utf-8")
+    shared = tmp_path / "sp" / "metadata"
+    shared.mkdir(parents=True)
+    (shared / "metadata.json").write_text(json.dumps({
+        "seed": 2, "variant": "wildtype", "elongation_model": "WrongOne"}), encoding="utf-8")
+    monkeypatch.setattr(runner, "_out_root", lambda sp: tmp_path / sp)
+    rec = runner._capture_executed(tmp_path, "sp", expect_seed=0, expect_variant="wildtype")
+    assert rec["metadata_source"] == "per_run"
+    assert rec["executed"]["elongation_model"] == "SteadyStateElongationModel"
+    assert not any("DIFFERENT run" in m for m in rec["missing"])
+
+
+def test_runsim_writes_the_per_run_copy_into_the_seed_directory():
+    """The overlay half of the fix. Without this write the per-run file never exists and every campaign falls
+    back to the shared, overwritten one — which is where the whole defect lives."""
+    src = (REPO / "model_overlay" / "files" / "runscripts" / "manual" / "runSim.py").read_text(encoding="utf-8")
+    i = src.index('seed_directory = fp.makedirs(variant_directory, "%06d" % j)')
+    block = src[i:i + 1800]
+    assert "constants.JSON_METADATA_FILE" in block, "no per-run metadata write follows seed_directory"
+    assert "seed=j" in block, "the per-run copy must carry THIS run's seed, not the invocation's start seed"
+    assert "os.path.join(seed_directory" in block, "the copy must land in the per-seed directory"
+
+
 def test_a_metadata_file_belonging_to_ANOTHER_run_is_refused(tmp_path, monkeypatch):
     """THE fix for the seed:1 problem. Under parallel=N the last run to finish owns metadata.json; every other
     run must notice and omit the executed block rather than attribute a stranger's configuration to itself."""

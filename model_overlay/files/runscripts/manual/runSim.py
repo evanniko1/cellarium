@@ -211,6 +211,21 @@ class RunSimulation(scriptBase.ScriptBase):
 				for j in range(args.seed, args.seed + args.init_sims):  # init sim seeds
 					seed_directory = fp.makedirs(variant_directory, "%06d" % j)
 
+					# PROV-2. The metadata written above lands at <sim_path>/metadata/metadata.json — ONE file
+					# for the whole campaign, overwritten by every run into that sim_path. Measured
+					# 2026-08-24: after five seeds it reports whichever finished last, so per-run provenance
+					# (which model class executed, under which flags, from which commit) was destroyed as
+					# soon as the next run started. Nothing downstream could recover it, which is how a
+					# 3.5-month-old image went unnoticed across the whole corpus.
+					#
+					# This writes the SAME metadata into the per-seed directory, which is unique per run, so
+					# a parallel campaign no longer has N runs competing for one file. `seed` and `variant`
+					# are overridden with THIS run's values because the shared copy carries the invocation's
+					# starting seed, not the seed of each init_sim the loop produces.
+					_per_run = dict(metadata)
+					_per_run.update(seed=j, variant=variant_type, variant_index=i)
+					fp.write_json_file(os.path.join(seed_directory, constants.JSON_METADATA_FILE), _per_run)
+
 					for k in range(args.generations):  # generation number k
 						gen_directory = fp.makedirs(seed_directory, "generation_%06d" % k)
 
