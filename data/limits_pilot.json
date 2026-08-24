@@ -15,15 +15,16 @@
    "no_corpus_data": 1
   },
   "by_required": {
-   "refuse": 18,
-   "answer": 9
+   "refuse": 17,
+   "answer": 9,
+   "propose": 1
   },
   "headline_items": 17,
   "headline_by_required": {
    "refuse": 8,
    "answer": 9
   },
-  "note": "Two strata are refusals about DATA, not about representation, and both are reported apart from the headline. `no_corpus_mode`: that elongation model has no runs at all. `no_corpus_data`: the simulator represents the quantity and the mode is in the corpus, but no run carries the perturbation the question needs \u2014 the pilot found exactly one, nutrient_shift_timelines under kinetic, where the agent declined correctly and the key called it a miss. Folding either into the headline measures coverage, not limits."
+  "note": "THREE expected outcomes, not two. `answer` and `refuse` are about what the simulator can REPRESENT and make up the headline. `propose` is a third competence: the model represents the quantity and the mode is in the corpus, but no run carries the perturbation the question needs, so the right response is to decline to fabricate AND name the run that would settle it. Keying those `refuse` would score an agent well for stonewalling \u2014 push it to an empty corpus and the benchmark would call refusing everything a perfect score. `no_corpus_mode` is the separate case where an elongation model has no runs at all. Neither data stratum belongs in the headline: folding them in measures coverage, not limits."
  },
  "questions": [
   {
@@ -257,7 +258,7 @@
    "mode": "kinetic",
    "framing": "direct",
    "kind": "no_corpus_data",
-   "required": "refuse",
+   "required": "propose",
    "ask": "Under the kinetic per-isoacceptor tRNA charging model (Choi & Covert 2023): How does the cell respond to a media shift at a chosen time?"
   },
   {

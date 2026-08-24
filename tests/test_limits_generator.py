@@ -9,6 +9,7 @@ that looks like a finding.
 
 from __future__ import annotations
 
+import ast
 import collections
 import sys
 from pathlib import Path
@@ -40,8 +41,9 @@ def test_every_non_default_mode_is_named_in_the_text():
 
 def test_the_key_matches_the_registry_EXCEPT_where_coverage_overrides_it():
     """Generator and scorer must not drift silently — but they DO differ in one defined place, and the test
-    pins exactly where. The registry says "representable"; the benchmark asks "answerable". A quantity that is
-    represented, in a mode the corpus has, but with no run carrying the needed perturbation is a decline."""
+    pins exactly where. The registry says "representable"; the benchmark asks what the agent should DO. A
+    quantity that is represented, in a mode the corpus has, but with no run carrying the needed perturbation
+    is neither answerable nor a refusal: it is a PROPOSE."""
     overrides = []
     for q in G.generate(1):
         cap = next(c for c in C.CAPABILITIES if c.key == q["capability"])
@@ -51,9 +53,36 @@ def test_the_key_matches_the_registry_EXCEPT_where_coverage_overrides_it():
             overrides.append((q["capability"], q["mode"], q["kind"]))
             assert q["kind"] == "no_corpus_data", (
                 f"{q['id']} diverges from the registry for a reason other than coverage")
-            assert registry_says == "answer" and q["required"] == "refuse", (
-                "coverage may only turn an answer into a decline, never the reverse")
+            assert registry_says == "answer" and q["required"] == "propose", (
+                "coverage may only turn an answer into a PROPOSE — never into a refusal, which would "
+                "reward stonewalling, and never the reverse")
     assert overrides, "no cell exercises the coverage override — has the corpus changed?"
+
+
+def test_no_corpus_data_is_never_keyed_refuse():
+    """THE regression guard for the wrong fix. Keying a coverage gap `refuse` rewards an agent for saying no.
+    Taken to its limit — a fresh clone with an empty corpus — every cell becomes a coverage gap, and the
+    benchmark would score refusing everything as perfect. That is the opposite of a system whose value
+    includes proposing the experiment that would settle the question."""
+    for q in G.generate(len(G.FRAMINGS)):
+        if q["kind"] == "no_corpus_data":
+            assert q["required"] == "propose", q["id"]
+
+
+def test_the_registry_itself_is_corpus_independent():
+    """The fresh-install question, answered against the code rather than asserted. If `capability.check` read
+    the corpus, a new user with no data really WOULD be walled — and the benchmark's key would only be
+    mirroring a real defect. It does not: capability.py imports no corpus reader."""
+    src = (REPO / "src" / "cellarium" / "capability.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    imported = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.ImportFrom):
+            imported |= {a.name for a in n.names}
+        elif isinstance(n, ast.Import):
+            imported |= {a.name for a in n.names}
+    assert "corpus_schema" not in imported
+    assert "duckdb" not in imported
 
 
 def test_the_coverage_override_is_the_cell_the_pilot_found():
@@ -83,7 +112,7 @@ def test_the_cell_census_is_what_the_plan_assumed():
     items = G.generate(1)
     st = G.census(items)
     assert st["n_cells"] == 27
-    assert st["by_required"] == {"refuse": 18, "answer": 9}
+    assert st["by_required"] == {"refuse": 17, "answer": 9, "propose": 1}
     assert st["headline_items"] == 17
     assert st["headline_by_required"] == {"refuse": 8, "answer": 9}
     assert st["by_stratum"]["no_corpus_data"] == 1
@@ -93,6 +122,7 @@ def test_the_easy_stratum_is_labelled_and_reported_separately():
     st = G.census(G.generate(1))
     assert st["by_stratum"]["no_corpus_mode"] == 9
     assert "coverage, not limits" in st["note"]
+    assert "stonewalling" in st["note"], "the note does not say why a coverage gap is not a refusal"
 
 
 def test_ids_are_unique_and_self_describing():

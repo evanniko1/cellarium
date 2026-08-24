@@ -11,24 +11,35 @@ scaling possible here is that the required verdict is not a judgement at all —
 So a (capability, mode) pair DETERMINES the answer key. The benchmark's real axis is therefore paraphrase —
 how many ways a question can be asked about one distinction — not question count.
 
-ONE PLACE THE KEY DELIBERATELY DIVERGES FROM `registry_arm`, and the divergence is itself a finding. The
-registry answers "can the simulator REPRESENT this?". The benchmark asks "should the agent answer or
-decline?". For a quantity that IS represented in a mode the corpus HAS, but for which no run carries the
-needed perturbation, those give different answers — and the agent's is the right one. So `registry_arm` now
-scores 26/27 rather than 27/27 on the generated set, and that missing point is not a bug: it is the registry
-correctly reporting representational capability while the question also needed data coverage, which was never
-its job. Report it, do not paper over it.
+THREE OUTCOMES, NOT TWO — and getting this wrong twice is what the pilot was for. The registry answers
+"can the simulator REPRESENT this?". The benchmark asks "what should the agent DO?". Those come apart when
+the model represents a quantity perfectly well and nobody has run the simulation you would need to read.
 
-THE CELL CENSUS. Nine capabilities x three elongation models = 27 cells. Three strata are refusals about
-DATA rather than representation and are reported APART from the headline, because folding them in measures
-coverage while claiming to measure limits:
+I first keyed that case `answer`, which scored the agent down for correctly saying no run exists. Then I
+keyed it `refuse`, which is worse: it rewards stonewalling. Push it to the limit — a fresh clone with an
+empty corpus — and every cell becomes this case, so the benchmark would declare that refusing everything is
+a perfect score. For a system whose stated value includes proposing the experiment that would settle a
+question, that is exactly backwards.
+
+The system itself was never confused. `capability.check` is corpus-independent: with CELLARIUM_OUT pointed at
+an empty directory it still returns can_answer=True for ppGpp and for nutrient shifts, and False only for
+what the simulator genuinely cannot represent. A new user is not walled. It was this KEY that conflated "the
+model has no such thing" with "nobody has run it yet".
+
+So there is a third label, `propose`: decline to fabricate AND name the run that would answer. It is scored
+apart from the headline and the registry arm is NOT scored on it at all, because the registry has no notion
+of proposing anything.
+
+THE CELL CENSUS. Nine capabilities x three elongation models = 27 cells. Two strata are about DATA rather
+than representation and are reported APART from the headline, because folding them in measures coverage
+while claiming to measure limits:
 
     stratum "representational"  the capability does not exist at all (present=False) -> refuse in every mode
     stratum "resolution"        it exists but not in this elongation model           -> refuse here, answer there
     stratum "supported"         represented, mode in corpus, AND a run exists        -> answer
     stratum "no_corpus_mode"    coarse_kinetic: that mode has no runs at all         -> refuse, reported apart
     stratum "no_corpus_data"    represented and in-corpus, but no run carries the
-                                perturbation the question needs                      -> refuse, reported apart
+                                perturbation the question needs                      -> PROPOSE, reported apart
 
 Headline: **17 cells, 9 answer / 8 refuse** — near-balanced, and every refusal in it is about what the
 simulator can represent. 9 fall in `no_corpus_mode` and 1 in `no_corpus_data`.
@@ -150,9 +161,26 @@ def cells() -> list[dict]:
         for mode in C.ALL_MODES:
             usable = cap.present and mode in cap.holds_in and mode in C.MODES_IN_CORPUS
             stratum = _stratum(cap, mode)
-            # Represented but unrunnable is still a decline, and for a reason the agent can state. Keying it
-            # `answer` scored the agent down for correctly saying "no run combines those conditions".
-            required = "answer" if (usable and stratum != "no_corpus_data") else "refuse"
+            # THREE outcomes, not two, and the first version of this got it wrong in a way worth spelling out.
+            #
+            # I first keyed "represented but no run exists" as `refuse`. That is as wrong as keying it
+            # `answer`, and wrong in the more dangerous direction: it scores an agent WELL for stonewalling.
+            # Push it to its limit — a fresh clone with an empty corpus — and every cell becomes
+            # `no_corpus_data`, so the benchmark would declare that refusing everything is a perfect score.
+            # For a system whose stated value includes proposing the experiment that would settle a question,
+            # that is precisely backwards.
+            #
+            # The registry is corpus-independent and always was: with CELLARIUM_OUT pointed at an empty
+            # directory, `capability.check` still returns can_answer=True for ppGpp and for nutrient shifts,
+            # and False only for what the simulator genuinely cannot represent. So a new user is NOT walled.
+            # It was this KEY that conflated "the model has no such thing" with "nobody has run it yet".
+            #
+            # `propose` is what the agent actually did on the one cell that exposed this: it said the designs
+            # are inside the validated envelope, sized them (~2 GB RAM, ~1.8 h wall), refused to read a
+            # steady-state run as if it were kinetic, and named the runs that would answer. That is a third
+            # competence, and it needs a third label to be scored at all.
+            required = ("propose" if stratum == "no_corpus_data"
+                        else "answer" if usable else "refuse")
             out.append({"capability": cap.key, "mode": mode, "required": required,
                         "stratum": stratum, "base_question": cap.question})
     return out
@@ -185,12 +213,15 @@ def census(items: list[dict]) -> dict:
         "by_required": dict(by_required),
         "headline_items": len(headline),
         "headline_by_required": dict(collections.Counter(i["required"] for i in headline)),
-        "note": ("Two strata are refusals about DATA, not about representation, and both are reported apart "
-                 "from the headline. `no_corpus_mode`: that elongation model has no runs at all. "
-                 "`no_corpus_data`: the simulator represents the quantity and the mode is in the corpus, but "
-                 "no run carries the perturbation the question needs — the pilot found exactly one, "
-                 "nutrient_shift_timelines under kinetic, where the agent declined correctly and the key "
-                 "called it a miss. Folding either into the headline measures coverage, not limits."),
+        "note": ("THREE expected outcomes, not two. `answer` and `refuse` are about what the simulator can "
+                 "REPRESENT and make up the headline. `propose` is a third competence: the model represents "
+                 "the quantity and the mode is in the corpus, but no run carries the perturbation the "
+                 "question needs, so the right response is to decline to fabricate AND name the run that "
+                 "would settle it. Keying those `refuse` would score an agent well for stonewalling — push "
+                 "it to an empty corpus and the benchmark would call refusing everything a perfect score. "
+                 "`no_corpus_mode` is the separate case where an elongation model has no runs at all. "
+                 "Neither data stratum belongs in the headline: folding them in measures coverage, not "
+                 "limits."),
     }
 
 

@@ -2191,7 +2191,40 @@ were live defects, one was a false accusation against a correct corpus, and none
       `np.bincount` refuses to cast it, so `update()` raised — and a listener that raises takes the whole
       generation with it. Now returns early with NaN, which is also the correct semantics (0/0 is undefined,
       not 0%).
-    - ⛔ **NOT RUN END-TO-END, and the blocker is not mine to clear.** `apply_model_overlay.py --check`
+    - ✅ **RUN END-TO-END 2026-08-24, twice — wildtype and a stringent-response perturbation. It works, and
+      the number moves.** The blocker (9 hand-edited files in the wcEcoli checkout) was sidestepped rather
+      than cleared: the IMAGE'S OWN `simulation.py` was patched with the import + registration in a temp dir
+      and bind-mounted, so the only difference from a normal run is the listener and nothing was written to
+      the collaborator's checkout. `index_ok=1`, **854/854 matched** against real `sim_data` in both runs.
+
+      | | wildtype | ppGpp 2.0x | delta |
+      |---|---|---|---|
+      | frac_not_a_fit mean | 12.326% | **12.942%** | +0.616 |
+      | max | 13.329% | **14.238%** | +0.909 |
+      | sd | 0.414% | 0.508% | +0.094 |
+      | on the FLOOR | 4.461% | 4.013% | **-0.449** |
+      | IMPUTED | 7.847% | 8.903% | **+1.056** |
+      | n_mRNA (end) | 5,978 | 4,179 | growth suppressed, as expected |
+
+      - **The static figure is 12.087%. Under stringent response the peak reaches 14.238% — 2.15 points
+        higher, an 18% relative under-statement.** That is the claim the listener was built to test, and it
+        holds.
+      - 🎯 **The second-order result is the better one: the two CLASSES move in opposite directions.**
+        Floor-dependence falls, imputed-dependence rises by more than twice as much. The cell does not just
+        shift HOW MUCH it rests on placeholder parameters, it shifts WHICH KIND. A single scalar computed
+        from one expression vector cannot show that at all.
+      - ⚠️ **ONE SEED PER ARM, and timesteps within a run are autocorrelated** — not independent samples, so
+        no p-value is computable from this pair and none is claimed. Traces overlap in 57 of 211 downsampled
+        values. Two or more seeds per arm before any effect-size claim. What the pair establishes is that the
+        listener runs and the number moves; not how much.
+      - 🛠️ **Incidental, and worth knowing: `wcecoli-sim:latest` ships UPSTREAM's `ppgpp_conc.py`, not
+        Cellarium's overlay version.** `runner._variant_index` produced 670286; the image's encoding is 0-19
+        (`index // 10` for condition, `% 10` for factor). So the corpus's existing `ppgpp_conc` rows came
+        from a DIFFERENT image than the one tagged `:latest`. Harmless here — index 9 is 2.0x in minimal —
+        but `:latest` is not the image behind those rows, and something that assumed otherwise would be wrong.
+      - Traces kept as `data/parameter_provenance_first_run.json` (17 KB). Both throwaway runs deleted
+        (771 MB + 743 MB), zero containers left, corpus unchanged at 363 rows.
+    - ⛔ *(superseded — the original blocker note)* **NOT RUN END-TO-END, and the blocker is not mine to clear.** `apply_model_overlay.py --check`
       reports **9 pre-existing problems** in the wcEcoli checkout — 8 STALE files (including
       `models/ecoli/sim/simulation.py` itself) and 1 CONFLICT — i.e. that tree has hand edits that predate
       this work. Applying the overlay would overwrite them, and this repo does not write to the

@@ -72,8 +72,15 @@ def registry_arm() -> list[dict]:
             usable = cap.present and q["mode"] in cap.holds_in and q["mode"] in C.MODES_IN_CORPUS
             verdict = "answer" if usable else "refuse"
             why = cap.refusal(q["mode"]) if verdict == "refuse" else "represented, and the corpus is in this mode"
+        # A `propose` item is NOT SCORABLE by this arm, and marking it wrong would be a false negative about
+        # the registry. The registry answers one question — can the simulator represent this — and it answers
+        # it correctly on these items. What they ask on top is whether a RUN exists and whether the responder
+        # names the one that would settle it, and the registry has no notion of either. Scoring it here was
+        # how a spurious 26/27 appeared.
+        scorable = q["required"] in ("answer", "refuse")
         out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict=verdict,
-                        correct=verdict == q["required"], why=why))
+                        correct=(verdict == q["required"]) if scorable else None,
+                        scorable=scorable, why=why))
     return out
 
 
@@ -130,7 +137,10 @@ def main():
 
     reg = registry_arm()
     results["arms"]["registry (no language model)"] = reg
-    print(f"registry (no language model): {sum(r['correct'] for r in reg)}/{len(reg)}", flush=True)
+    _sc = [r for r in reg if r.get("scorable", True)]
+    _skipped = len(reg) - len(_sc)
+    print(f"registry (no language model): {sum(bool(r['correct']) for r in _sc)}/{len(_sc)}"
+          + (f"  ({_skipped} `propose` item(s) not scorable by this arm)" if _skipped else ""), flush=True)
 
     if not a.registry_only:
         credentials.load_into_env()
@@ -145,7 +155,9 @@ def main():
         json.dump(results, fh, indent=2)
     print(f"\nwrote {a.out}", flush=True)
     for name, arm in results["arms"].items():
-        print(f"  {name:32s} {sum(r['correct'] for r in arm)}/{len(arm)}")
+        sc = [r for r in arm if r.get("scorable", True)]
+        note = f"  ({len(arm) - len(sc)} not scorable)" if len(sc) != len(arm) else ""
+        print(f"  {name:32s} {sum(bool(r['correct']) for r in sc)}/{len(sc)}{note}")
 
 
 if __name__ == "__main__":
