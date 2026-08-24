@@ -1745,6 +1745,38 @@ immediately after the sim. Columns: `executed_image_digest`, `executed_image_tag
   overwrites it every run — measured: after five seeds the file reports `seed: 1`, whichever finished last.
   Outside the lock a concurrent worker would already have replaced it.
 
+### ⚠️ THE OWNERSHIP CHECK, and the parallelism limit it exposes (fixed 2026-08-24, second pass)
+
+**The first version of this fix did not work and its test would have passed anyway.** Capture was placed
+inside `_model_dir_lock`, and a test asserted `lock_at < cap_at`. But that lock is keyed on
+`<out>/<variant>_<index>/<seed>` — **per seed** — while `metadata.json` is **per sim_path**, and
+`manifest.campaign(parallel=N)` submits every seed into one sim_path. N runs therefore sit in N different
+critical sections at once. **A test asserting source ORDERING while the defect is about EXCLUSION passes with
+the bug live** — the same "guard sharing no object with what it guards" shape closed earlier the same day,
+recurring in new code.
+
+Serialising cannot fix it: the competing writer is the model's own process, mid-run. So the capture VERIFIES
+instead — `metadata.json` carries `seed` and `variant`, and when they do not match the run being recorded the
+file belongs to somebody else and the executed block is dropped with a stated reason.
+
+**MEASURED, three seeds in parallel into one sim_path:**
+
+```
+metadata.json ends as seed: 2 (last to finish)
+  seed 0  executed_block=False  refused, owner {'seed': 2}   image=cellarium-wcm-code:latest
+  seed 1  executed_block=False  refused, owner {'seed': 2}   image=cellarium-wcm-code:latest
+  seed 2  executed_block=True   model_class=SteadyStateElongationModel
+```
+
+Before the fix seeds 0 and 1 would have been stamped with seed 2's configuration, silently.
+
+- 🎯 **THE LIMIT, and it is an input to the campaign below: under `parallel=N` only ONE run per sim_path gets
+  a `model_class`.** The image and model-source halves survive on every row because they come from this
+  process; only the model class and its flags are withheld. **Run provenance-critical campaigns at
+  `parallel=1`, or accept that N-1 rows carry image-only provenance.** For CORPUS-REBUILD-1 this is not
+  optional — the whole point of re-running is the provenance, so those packages run at parallel=1 and the
+  wall-clock estimate must be computed on that basis, not on parallel-6 throughput.
+
 ### ⛔ The 363 existing rows CANNOT be back-filled — the information is destroyed, not merely unrecorded
 
 `runs/cellarium/metadata/metadata.json` is a single overwritten file describing whichever run finished last.

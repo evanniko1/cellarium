@@ -89,18 +89,62 @@ def test_the_captured_field_list_covers_model_identity_and_configuration():
 
 # --------------------------------------------------------------------- the ordering that makes it work
 
-def test_capture_happens_inside_the_model_dir_lock():
-    """LOAD-BEARING. wcEcoli keeps ONE metadata.json per sim_path and overwrites it every run — measured, a
-    sim_path with five seeds reports `seed: 1`, whichever finished last. Capturing outside the lock means a
-    concurrent worker has already replaced the file and this run is stamped with that run's configuration."""
+def test_capture_follows_the_run_and_is_told_which_run_it_is():
+    """Ordering only — deliberately NOT claiming the lock protects metadata.json, because IT DOES NOT.
+
+    The first version of this test asserted `lock_at < cap_at` and treated that as the fix. It is not: the
+    lock is keyed on `<out>/<variant>_<index>/<seed>` — PER SEED — while metadata.json is per SIM_PATH, and
+    `manifest.campaign(parallel=N)` submits every seed into one sim_path. N runs therefore sit in N different
+    critical sections at once. A test asserting source ORDERING while the defect is about EXCLUSION passes
+    happily with the bug live — the same "guard sharing no object with what it guards" shape closed earlier
+    today, recurring in my own new code. The real protection is the ownership check, tested below.
+    """
     src = (REPO / "src" / "cellarium" / "runner.py").read_text(encoding="utf-8")
     body = src[src.index("def run_one("):]
     body = body[:body.index("\n    return run_root")]
-    lock_at = body.index("with _model_dir_lock(model_dir):")
-    cap_at = body.index("_capture_executed(run_root, sim_path)")
     exec_at = body.index('_exec(["runscripts/manual/runSim.py"')
-    assert lock_at < cap_at, "capture is outside the lock — a concurrent run can overwrite metadata.json first"
+    cap_at = body.index("_capture_executed(run_root, sim_path")
     assert exec_at < cap_at, "capture must follow the run, not precede it"
+    assert "expect_seed=seed" in body, "capture is not told which seed it is recording, so it cannot verify"
+
+
+def test_a_metadata_file_belonging_to_ANOTHER_run_is_refused(tmp_path, monkeypatch):
+    """THE fix for the seed:1 problem. Under parallel=N the last run to finish owns metadata.json; every other
+    run must notice and omit the executed block rather than attribute a stranger's configuration to itself."""
+    meta = tmp_path / "sp" / "metadata"
+    meta.mkdir(parents=True)
+    (meta / "metadata.json").write_text(json.dumps({
+        "seed": 4, "variant": "wildtype", "elongation_model": "SteadyStateElongationModel"}), encoding="utf-8")
+    monkeypatch.setattr(runner, "_out_root", lambda sp: tmp_path / sp)
+    rec = runner._capture_executed(tmp_path, "sp", expect_seed=0, expect_variant="wildtype")
+    assert "executed" not in rec, "a stranger's configuration was attributed to this run"
+    assert any("DIFFERENT run" in m for m in rec["missing"]), rec["missing"]
+    assert rec["metadata_owner"]["seed"] == 4
+
+
+def test_a_matching_metadata_file_IS_used(tmp_path, monkeypatch):
+    """The check must not be so strict it refuses the correct file — that trades a wrong record for none."""
+    meta = tmp_path / "sp" / "metadata"
+    meta.mkdir(parents=True)
+    (meta / "metadata.json").write_text(json.dumps({
+        "seed": 0, "variant": "wildtype", "elongation_model": "SteadyStateElongationModel"}), encoding="utf-8")
+    monkeypatch.setattr(runner, "_out_root", lambda sp: tmp_path / sp)
+    rec = runner._capture_executed(tmp_path, "sp", expect_seed=0, expect_variant="wildtype")
+    assert rec["executed"]["elongation_model"] == "SteadyStateElongationModel"
+    assert not any("DIFFERENT run" in m for m in rec["missing"])
+
+
+def test_the_image_half_survives_even_when_the_metadata_is_a_strangers(tmp_path, monkeypatch):
+    """The trade that makes a partial record acceptable: image and model-source come from THIS PROCESS and are
+    always right, so a parallel campaign still records which image ran every row."""
+    meta = tmp_path / "sp" / "metadata"
+    meta.mkdir(parents=True)
+    (meta / "metadata.json").write_text(json.dumps({"seed": 9, "variant": "wildtype"}), encoding="utf-8")
+    monkeypatch.setattr(runner, "_out_root", lambda sp: tmp_path / sp)
+    monkeypatch.setattr(runner, "WCECOLI_DOCKER", "cellarium-wcm-code:latest")
+    rec = runner._capture_executed(tmp_path, "sp", expect_seed=0, expect_variant="wildtype")
+    assert "executed" not in rec
+    assert rec["image_tag"] == "cellarium-wcm-code:latest"
 
 
 def test_capture_never_raises_and_says_what_it_could_not_read(tmp_path, monkeypatch):

@@ -192,7 +192,7 @@ _EXECUTED_FROM_METADATA = (
 )
 
 
-def _capture_executed(run_root: Path, sim_path: str) -> dict:
+def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_variant=None) -> dict:
     """Write `executed.json` beside the run: which image, which model class, which model commit.
 
     WHY THIS IS CAPTURED AT LAUNCH AND CANNOT BE RECOVERED LATER. wcEcoli writes ONE `metadata.json` per
@@ -221,16 +221,40 @@ def _capture_executed(run_root: Path, sim_path: str) -> dict:
         rec["model_upstream_commit"] = m.get("model_upstream_commit")
     except Exception as exc:
         rec["missing"].append(f"image/model provenance: {type(exc).__name__}")
+    # THE OWNERSHIP CHECK, and it is the whole reason this is not a straight read.
+    #
+    # The model-dir lock held by `run_one` is keyed on `<out>/<variant>_<index>/<seed>` — PER SEED — while
+    # metadata.json is per SIM_PATH. `manifest.campaign(parallel=N)` submits every (design, seed) into one
+    # sim_path, so N runs sit in N DIFFERENT critical sections and whichever finishes last owns the file.
+    # Serialising here cannot fix that: the competing writer is the model's own process, mid-run, not this
+    # code. So VERIFY instead — metadata.json carries `seed` and `variant`, and when they do not match the run
+    # being recorded, the file belongs to somebody else and the executed block is dropped with a reason.
+    #
+    # A partial record is the correct outcome, not a degraded one. The image and model-source fields above
+    # come from THIS process and are always right; only the model class and its flags come from the shared
+    # file. So a parallel campaign always gets the image, and gets the model class only where it can be proven
+    # to belong to that run — which is exactly the trade this project makes everywhere else: never fabricate.
     try:
-        meta = _out_root(sim_path).parent / sim_path / "metadata" / "metadata.json"
+        # `_out_root(sim_path)` already ends in the sim_path, so this is `<out>/<sim_path>/metadata/…`.
+        meta = _out_root(sim_path) / "metadata" / "metadata.json"
         if not meta.is_file():
             meta = Path("runs") / sim_path / "metadata" / "metadata.json"
         if meta.is_file():
             doc = json.loads(meta.read_text(encoding="utf-8"))
-            rec["executed"] = {k: doc.get(k) for k in _EXECUTED_FROM_METADATA if k in doc}
-            absent = [k for k in _EXECUTED_FROM_METADATA if k not in doc]
-            if absent:
-                rec["missing"].append("metadata.json lacks: " + ",".join(absent))
+            mism = [f"{k}={doc.get(k)!r} but this run is {v!r}"
+                    for k, v in (("seed", expect_seed), ("variant", expect_variant))
+                    if v is not None and k in doc and str(doc.get(k)) != str(v)]
+            if mism:
+                rec["missing"].append(
+                    "metadata.json describes a DIFFERENT run (" + "; ".join(mism) + ") — it is per-sim_path "
+                    "and a concurrent run overwrote it, so the executed block is omitted rather than "
+                    "attributed to this row")
+                rec["metadata_owner"] = {"seed": doc.get("seed"), "variant": doc.get("variant")}
+            else:
+                rec["executed"] = {k: doc.get(k) for k in _EXECUTED_FROM_METADATA if k in doc}
+                absent = [k for k in _EXECUTED_FROM_METADATA if k not in doc]
+                if absent:
+                    rec["missing"].append("metadata.json lacks: " + ",".join(absent))
         else:
             rec["missing"].append(f"no metadata.json at {meta}")
     except Exception as exc:
@@ -588,7 +612,7 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         # IMMEDIATELY after the run and INSIDE the lock, because the model keeps ONE metadata.json per sim_path
         # and overwrites it on the next run. Outside the lock a concurrent worker's run would already have
         # replaced it, and this would record that run's configuration against this run's output.
-        _capture_executed(run_root, sim_path)
+        _capture_executed(run_root, sim_path, expect_seed=seed, expect_variant=_variant_type(design))
         # Move the model's output into the CANONICAL dir, mirroring what multi_gene_knockout already does.
         if model_dir != run_root and model_dir.exists():
             for child in list(model_dir.iterdir()):
