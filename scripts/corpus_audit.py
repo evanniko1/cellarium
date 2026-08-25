@@ -86,6 +86,45 @@ def audit() -> dict:
         r["raw_hf"] = _hf_key(p) in tars
         r["raw_anywhere"] = r["raw_local"] or r["raw_hf"]
 
+    # (a) A SWEEP WHOSE OWN DEFAULT VALUE CRASHED. Judged over the whole PERTURBATION, because the sweep is
+    #     split across one design per dose. The discriminator is the DEFAULT crashing, not "everything
+    #     crashed" — a genuinely lethal perturbation should crash at every dose.
+    by_pert: dict[str, list[dict]] = collections.defaultdict(list)
+    for r in rows:
+        by_pert[r["perturbation"]].append(r)
+    broken_sweeps = {
+        p for p, rs in by_pert.items()
+        if any("default" in str(r["condition"] or "") for r in rs)
+        and not any(r["qc"] == "ok" for r in rs)}
+    # A SWEEP THAT IS 0-OK BUT LABELS NO DEFAULT CANNOT BE CALLED EITHER WAY FROM THE MANIFEST, and saying so
+    # is the point. `metabolism_secretion_penalty` is 0/18 ok across five doses, exactly like the sweep above,
+    # but nothing in its conditions marks which dose the model ships with — so "the variant never worked" and
+    # "this parameter is lethal at every dose tested" are indistinguishable here. Retiring it silently would
+    # destroy a possible finding; re-running it silently would spend hours on a possible dead variant. It goes
+    # to a human with the reason stated.
+    undecidable_sweeps = {
+        p for p, rs in by_pert.items()
+        if p not in broken_sweeps and len(rs) >= 8
+        and not any(r["qc"] == "ok" for r in rs)
+        and not any(r["reportable"] for r in rs)}
+
+    for r in rows:
+        r["retire"] = None
+        if r["perturbation"] in broken_sweeps:
+            r["retire"] = ("sweep whose own default value crashed — a variant that never worked, "
+                           "not a dose-response")
+        # (b) THE PRE-CLASSIFICATION ERA. `crash_type` is NULL on rows to 2026-07-29 and set afterwards, so a
+        #     NULL crash_type dates a row rather than describing it. These 1-generation rows never recorded
+        #     `gens_reached` at all, and each was superseded by a deeper re-run of the SAME design on the SAME
+        #     knowledge base — verified below, not assumed.
+        elif r["generations"] == 1 and r["gens_reached"] is None and not r["raw_anywhere"]:
+            deeper = [o for o in rows
+                      if _design_of(o) == _design_of(r) and o["kb_sha256"] == r["kb_sha256"]
+                      and (o["gens_reached"] or 0) > 1]
+            if deeper:
+                r["retire"] = (f"pre-classification 1-generation seeding run, superseded by "
+                               f"{len(deeper)} deeper run(s) of the same design on the same kb")
+
     designs: dict[tuple, list[dict]] = collections.defaultdict(list)
     for r in rows:
         designs[_design_of(r)].append(r)
@@ -103,7 +142,36 @@ def audit() -> dict:
         retirable = surplus if (len(rep) or len(evidence)) else []
         gens = sum(int(r["gens_reached"] or r["generations"] or 1) for r in rs)
 
-        if len(rep) or len(evidence):
+        # THE RETIRE DECISION IS PER ROW, NOT PER DESIGN — the first version got this wrong and caught 2 rows
+        # instead of 63. `wildtype/basal` is one design holding BOTH 16 lost 1-generation seeding rows AND the
+        # surviving 4- and 7-generation runs that superseded them; judging the design as a whole can only say
+        # "load-bearing", which is true and useless. The classification below runs over rows and the design
+        # verdict is a summary of it.
+        #
+        # TWO CLASSES OF DEV REMNANT, both established by measurement 2026-08-25 rather than by eye.
+        #
+        # (a) A SWEEP WHERE EVERY VALUE CRASHED, INCLUDING ITS OWN DEFAULT. `metabolism_kinetic_objective_weight`
+        #     is 0/24 ok and `metabolism_secretion_penalty` 0/18 — and the crashed set includes
+        #     `kin_w:1e-7_default`, the value the model ships with. A dose-response in which the default dose is
+        #     lethal is not biology, it is a variant that never worked. Note the discriminator is the DEFAULT
+        #     crashing, not "everything crashed": a genuinely lethal perturbation SHOULD crash at every dose.
+        # (b) THE PRE-CLASSIFICATION ERA. `crash_type` is NULL on rows from 2026-07-11 to 07-29 and set on
+        #     rows from 07-29 onward, so a NULL crash_type dates a row rather than describing it. The 1-
+        #     generation rows from 07-09 to 07-11 with `gens_reached` never recorded are the first seeding
+        #     runs, and every one of them was superseded on 07-26 by a 4- and 7-generation re-run of the same
+        #     design on the same knowledge base.
+        #
+        # Neither is deleted here. Step 5 of the campaign tombstones with a reason, because "this variant
+        # never worked" is itself a fact about the corpus worth keeping.
+        retire_rows = [r for r in rs if r.get("retire")]
+        if retire_rows and len(retire_rows) == len(rs):
+            verdict, why = "RETIRE", retire_rows[0]["retire"]
+        elif key[0] in undecidable_sweeps:
+            verdict, why = "DECIDE", ("0 of %d runs ok across the whole sweep, but no dose is labelled as the "
+                                      "model's default — cannot distinguish a broken variant from a parameter "
+                                      "that is lethal everywhere. Check the variant against the model source."
+                                      % len(by_pert[key[0]]))
+        elif len(rep) or len(evidence):
             verdict, why = "RERUN", "load-bearing: carries analysis rows or lethality evidence"
         elif all(r["qc"] in ("crashed", "empty") for r in rs) and not any(r["raw_anywhere"] for r in rs):
             verdict, why = "DECIDE", "every row crashed and no raw survives — re-run to confirm, or retire"
@@ -114,6 +182,8 @@ def audit() -> dict:
             "perturbation": key[0], "condition": key[1], "timeline": key[2], "elongation_model": key[3],
             "n_rows": len(rs), "n_seeds": len({r["seed"] for r in rs}), "n_reportable": len(rep),
             "n_evidence": len(evidence), "n_retirable": len(retirable),
+            "n_retire_rows": len(retire_rows),
+            "retire_reason": (retire_rows[0]["retire"] if retire_rows else None),
             "qc": dict(qc), "generations_total": gens,
             "raw_local": sum(1 for r in rs if r["raw_local"]),
             "raw_hf": sum(1 for r in rs if r["raw_hf"]),
@@ -184,6 +254,12 @@ def report(a: dict) -> None:
     print()
     surplus = sum(d["n_retirable"] for d in a["designs"])
     print(f"  rows the corpus itself flagged surplus/empty: {surplus}")
+    ret = sum(d["n_retire_rows"] for d in a["designs"])
+    print(f"  ROWS classified as dev remnants (retire, do not re-run): {ret}")
+    reasons = collections.Counter(d["retire_reason"] for d in a["designs"] if d["n_retire_rows"])
+    for k, v in reasons.most_common():
+        n = sum(d["n_retire_rows"] for d in a["designs"] if d["retire_reason"] == k)
+        print(f"    {n:>3} rows in {v} design(s): {str(k)[:76]}")
     print()
     print("DECIDE — these need a human call before the campaign starts")
     for d in a["designs"]:

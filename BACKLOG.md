@@ -1816,6 +1816,33 @@ half-migrated in a way a reader cannot detect:
    | **cost, serial** | **~190 h** |
    | **cost, parallel-6** | **~32 h** — safe for provenance since the per-run metadata fix |
 
+   - ✅ **REVISED 2026-08-25 — TWO CLASSES OF DEV REMNANT FOUND, 45 ROWS THAT SHOULD NOT BE RE-RUN AT ALL.**
+     Both were hypotheses from the user, and both survived testing:
+     - 🐛 **`metabolism_kinetic_objective_weight`: 0 of 24 runs ok — INCLUDING `kin_w:1e-7_default`, the value
+       the model ships with.** A dose-response in which the DEFAULT dose is lethal is not biology, it is a
+       variant that never worked. **24 rows, RETIRE.** The discriminator is deliberately "the default
+       crashed", not "everything crashed" — a genuinely lethal perturbation should crash at every dose, and
+       retiring on that alone would delete real lethality results.
+     - 🐛 **21 pre-classification 1-generation seeding rows (16 `wildtype/basal`, 5 `rrna_operon_knockout`),
+       dated 2026-07-09 to 07-11, `gens_reached` never recorded.** Every one is superseded by a 4- and
+       7-generation re-run of the SAME design on the SAME kb from 07-26, which survives locally. Verified per
+       row against the deeper runs, not inferred from the date. **RETIRE.**
+     - 📅 **`crash_type` DATES a row rather than describing it:** NULL on rows from 2026-07-11 to 07-29, set
+       on rows from 07-29 to 08-06. Crash classification landed on 07-29, so a NULL crash_type is an age
+       marker. 44 of the 52 unlocatable crashed rows are NULL-typed.
+   - ⚠️ **AND ONE CASE THAT CANNOT BE DECIDED FROM THE MANIFEST, surfaced rather than guessed.**
+     `metabolism_secretion_penalty` is **0 of 18 ok across five doses** — exactly like the retired sweep — but
+     **nothing marks which dose is the model's default**, so "the variant never worked" and "this parameter is
+     lethal at every dose tested" are indistinguishable here. Retiring it silently would destroy a possible
+     finding; re-running it silently would spend hours on a possible dead variant. **6 designs, 22 rows,
+     DECIDE — check the variant against the model source.**
+   - 📊 **ANSWERING "DO WE NEED 4 SEEDS x 4 GENS?" — THE CORPUS ALREADY HAS IT.** `wildtype/basal` carries
+     4 seeds x 4 gens AND 4 seeds x 7 gens on kb 3b2f8ebd, both surviving locally, plus 4 x 4 on 0d861f80 (HF)
+     and 4 x 3 twice on 5f19d040. The 16 lost rows are its 1-generation predecessors — the least informative
+     row type in the corpus. **The seed-count worry was misplaced: the depth is already there.**
+   - **REVISED SCOPE: RERUN 57 designs / 317 rows / ~178 h serial (~30 h at parallel-6); RETIRE 24 rows;
+     DECIDE 22 rows.** Down from 359 rows.
+
    - 🎯 **THE SCOPE LEVER IS SEED DEPTH, NOT DESIGN COUNT.** The 5 costliest designs are 80 rows and **54 h —
      29% of the cost in 7% of the designs.** `wildtype/basal` alone is 36 rows / 16 seeds / **19.9 h**, a
      tenth of the whole campaign. That is the one decision worth making deliberately: it is the reference every

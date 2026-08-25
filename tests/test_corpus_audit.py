@@ -29,10 +29,17 @@ def audit():
         pytest.skip(f"no readable corpus here: {type(exc).__name__}")
 
 
-def test_a_crashed_knockout_is_never_proposed_for_retirement(audit):
-    """The load-bearing safety property. Crashed KO rows ARE the lethality result."""
+def test_a_crashed_KNOCKOUT_is_never_proposed_for_retirement(audit):
+    """The load-bearing safety property: a crashed KO row IS the lethality result.
+
+    Scoped to knockouts on purpose. The first version matched any crashed design with evidence, which read as
+    the same rule but is not — it also covered `metabolism_kinetic_objective_weight`, a PARAMETER sweep whose
+    every dose including the model's own default crashed. That is a variant that never worked, and refusing to
+    retire it would have kept 24 rows of dev debris in the corpus forever on the strength of a test whose name
+    says "knockout". A guard that quietly covers more than it claims is as much of a problem as one that
+    covers less."""
     for d in audit["designs"]:
-        if d["qc"].get("crashed") and d["n_evidence"]:
+        if "knockout" in d["perturbation"] and d["qc"].get("crashed") and d["n_evidence"]:
             assert d["verdict"] == "RERUN", (d["perturbation"], d["condition"], d["verdict"])
 
 
@@ -65,3 +72,29 @@ def test_raw_availability_is_three_way_not_a_boolean(audit):
     for k in ("raw_local", "raw_hf", "raw_gone", "raw_gone_reportable"):
         assert k in t
     assert t["raw_local"] + t["raw_gone"] <= t["n_rows"] + t["raw_hf"]
+
+
+def test_a_sweep_is_only_retired_when_its_OWN_DEFAULT_crashed(audit):
+    """The discriminator is the default crashing, NOT "everything crashed" — a genuinely lethal perturbation
+    SHOULD crash at every dose, and retiring on that alone would delete real lethality results."""
+    for d in audit["designs"]:
+        if d["verdict"] == "RETIRE" and "default" in str(d["retire_reason"]):
+            assert d["perturbation"] == "metabolism_kinetic_objective_weight", d["perturbation"]
+
+
+def test_a_zero_ok_sweep_with_no_labelled_default_goes_to_a_human(audit):
+    """metabolism_secretion_penalty is 0/18 ok exactly like the retired sweep, but nothing marks its default
+    dose — so "broken variant" and "lethal at every dose" are indistinguishable from the manifest. Deciding
+    either way silently would destroy a finding or waste hours; it must surface."""
+    sp = [d for d in audit["designs"] if d["perturbation"] == "metabolism_secretion_penalty"]
+    assert sp, "the sweep is gone from the corpus — re-check this test"
+    assert all(d["verdict"] == "DECIDE" for d in sp), [d["verdict"] for d in sp]
+
+
+def test_superseded_rows_are_only_retired_when_a_DEEPER_run_really_exists(audit):
+    """The supersession claim is verified per row against the same design and the same knowledge base, not
+    assumed from the date. Without that check this would retire a 1-generation run that is the only copy."""
+    for d in audit["designs"]:
+        if d["n_retire_rows"] and "superseded" in str(d["retire_reason"]):
+            assert "deeper run(s)" in d["retire_reason"]
+            assert d["n_rows"] > d["n_retire_rows"] or d["verdict"] == "RETIRE"
