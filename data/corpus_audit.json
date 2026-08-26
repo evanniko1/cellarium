@@ -893,8 +893,8 @@
    "n_reportable": 0,
    "n_evidence": 4,
    "n_retirable": 0,
-   "n_retire_rows": 0,
-   "retire_reason": null,
+   "n_retire_rows": 4,
+   "retire_reason": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "qc": {
     "crashed": 4
    },
@@ -903,8 +903,8 @@
    "raw_hf": 0,
    "raw_gone": 4,
    "arm": "3b2f8ebd/on/steady_state",
-   "verdict": "DECIDE",
-   "why": "0 of 18 runs ok across the whole sweep, but no dose is labelled as the model's default \u2014 cannot distinguish a broken variant from a parameter that is lethal everywhere. Check the variant against the model source.",
+   "verdict": "RETIRE",
+   "why": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "rerun_minutes": 52
   },
   {
@@ -1038,8 +1038,8 @@
    "n_reportable": 0,
    "n_evidence": 4,
    "n_retirable": 0,
-   "n_retire_rows": 0,
-   "retire_reason": null,
+   "n_retire_rows": 4,
+   "retire_reason": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "qc": {
     "crashed": 4
    },
@@ -1048,8 +1048,8 @@
    "raw_hf": 0,
    "raw_gone": 4,
    "arm": "3b2f8ebd/on/steady_state",
-   "verdict": "DECIDE",
-   "why": "0 of 18 runs ok across the whole sweep, but no dose is labelled as the model's default \u2014 cannot distinguish a broken variant from a parameter that is lethal everywhere. Check the variant against the model source.",
+   "verdict": "RETIRE",
+   "why": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "rerun_minutes": 52
   },
   {
@@ -1182,8 +1182,8 @@
    "n_reportable": 0,
    "n_evidence": 4,
    "n_retirable": 0,
-   "n_retire_rows": 0,
-   "retire_reason": null,
+   "n_retire_rows": 4,
+   "retire_reason": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "qc": {
     "crashed": 4
    },
@@ -1192,8 +1192,8 @@
    "raw_hf": 0,
    "raw_gone": 4,
    "arm": "3b2f8ebd/on/steady_state",
-   "verdict": "DECIDE",
-   "why": "0 of 18 runs ok across the whole sweep, but no dose is labelled as the model's default \u2014 cannot distinguish a broken variant from a parameter that is lethal everywhere. Check the variant against the model source.",
+   "verdict": "RETIRE",
+   "why": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "rerun_minutes": 52
   },
   {
@@ -1302,8 +1302,8 @@
    "n_reportable": 0,
    "n_evidence": 4,
    "n_retirable": 0,
-   "n_retire_rows": 0,
-   "retire_reason": null,
+   "n_retire_rows": 4,
+   "retire_reason": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "qc": {
     "crashed": 4
    },
@@ -1312,8 +1312,8 @@
    "raw_hf": 0,
    "raw_gone": 4,
    "arm": "3b2f8ebd/on/steady_state",
-   "verdict": "DECIDE",
-   "why": "0 of 18 runs ok across the whole sweep, but no dose is labelled as the model's default \u2014 cannot distinguish a broken variant from a parameter that is lethal everywhere. Check the variant against the model source.",
+   "verdict": "RETIRE",
+   "why": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "rerun_minutes": 52
   },
   {
@@ -1686,8 +1686,8 @@
    "n_reportable": 0,
    "n_evidence": 2,
    "n_retirable": 0,
-   "n_retire_rows": 0,
-   "retire_reason": null,
+   "n_retire_rows": 2,
+   "retire_reason": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "qc": {
     "crashed": 2
    },
@@ -1696,8 +1696,8 @@
    "raw_hf": 0,
    "raw_gone": 2,
    "arm": "3b2f8ebd/on/steady_state",
-   "verdict": "DECIDE",
-   "why": "0 of 18 runs ok across the whole sweep, but no dose is labelled as the model's default \u2014 cannot distinguish a broken variant from a parameter that is lethal everywhere. Check the variant against the model source.",
+   "verdict": "RETIRE",
+   "why": "sweep whose own default value crashed \u2014 a variant that never worked, not a dose-response",
    "rerun_minutes": 26
   },
   {

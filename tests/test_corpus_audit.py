@@ -78,17 +78,37 @@ def test_a_sweep_is_only_retired_when_its_OWN_DEFAULT_crashed(audit):
     """The discriminator is the default crashing, NOT "everything crashed" — a genuinely lethal perturbation
     SHOULD crash at every dose, and retiring on that alone would delete real lethality results."""
     for d in audit["designs"]:
-        if d["verdict"] == "RETIRE" and "default" in str(d["retire_reason"]):
-            assert d["perturbation"] == "metabolism_kinetic_objective_weight", d["perturbation"]
+        if d["verdict"] == "RETIRE" and "default value crashed" in str(d["retire_reason"]):
+            assert d["perturbation"] in A.MODEL_DEFAULTS, d["perturbation"]
 
 
-def test_a_zero_ok_sweep_with_no_labelled_default_goes_to_a_human(audit):
-    """metabolism_secretion_penalty is 0/18 ok exactly like the retired sweep, but nothing marks its default
-    dose — so "broken variant" and "lethal at every dose" are indistinguishable from the manifest. Deciding
-    either way silently would destroy a finding or waste hours; it must surface."""
+def test_the_default_comes_from_the_model_not_from_a_label():
+    """THE fix for a discriminator that was luck rather than a rule. Matching the string "default" in a
+    condition name caught metabolism_kinetic_objective_weight only because someone wrote `kin_w:1e-7_default`,
+    and MISSED metabolism_secretion_penalty, which is just as broken but labels its doses as bare numbers.
+    These two values were read out of sim_data (kb 3b2f8ebd) and cross-checked against the variants' own
+    source: SECRETION_PENALTY[4] == 0.001 with a docstring saying "4: control"."""
+    assert A.MODEL_DEFAULTS["metabolism_secretion_penalty"] == 1e-3
+    assert A.MODEL_DEFAULTS["metabolism_kinetic_objective_weight"] == 1e-7
+    assert A._swept_value("minimal|sec_pen:1e-3") == 1e-3, "bare-number labels must parse"
+    assert A._swept_value("minimal|kin_w:1e-7_default") == 1e-7, "annotated labels must parse too"
+    assert A._swept_value("basal") is None, "a non-sweep condition has no dose"
+
+
+def test_an_unknown_sweep_is_never_retired_on_a_guess():
+    """A sweep whose default is not in MODEL_DEFAULTS answers False, never True — it must surface for a human
+    rather than be retired because it happens to be all-crashed."""
+    rs = [{"condition": "minimal|foo:1", "qc": "crashed"},
+          {"condition": "minimal|foo:2", "qc": "crashed"}]
+    assert A._control_crashed("some_sweep_nobody_looked_up", rs) is False
+
+
+def test_the_secretion_penalty_sweep_is_now_retired(audit):
+    """It sat in DECIDE until its control was read from the model source on 2026-08-26. All 18 rows crashed,
+    including sec_pen:1e-3, which IS the model's default — the same signature as the other sweep."""
     sp = [d for d in audit["designs"] if d["perturbation"] == "metabolism_secretion_penalty"]
     assert sp, "the sweep is gone from the corpus — re-check this test"
-    assert all(d["verdict"] == "DECIDE" for d in sp), [d["verdict"] for d in sp]
+    assert all(d["verdict"] == "RETIRE" for d in sp), [d["verdict"] for d in sp]
 
 
 def test_superseded_rows_are_only_retired_when_a_DEEPER_run_really_exists(audit):

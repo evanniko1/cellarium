@@ -1830,18 +1830,23 @@ half-migrated in a way a reader cannot detect:
      - 📅 **`crash_type` DATES a row rather than describing it:** NULL on rows from 2026-07-11 to 07-29, set
        on rows from 07-29 to 08-06. Crash classification landed on 07-29, so a NULL crash_type is an age
        marker. 44 of the 52 unlocatable crashed rows are NULL-typed.
-   - ⚠️ **AND ONE CASE THAT CANNOT BE DECIDED FROM THE MANIFEST, surfaced rather than guessed.**
-     `metabolism_secretion_penalty` is **0 of 18 ok across five doses** — exactly like the retired sweep — but
-     **nothing marks which dose is the model's default**, so "the variant never worked" and "this parameter is
-     lethal at every dose tested" are indistinguishable here. Retiring it silently would destroy a possible
-     finding; re-running it silently would spend hours on a possible dead variant. **6 designs, 22 rows,
-     DECIDE — check the variant against the model source.**
+   - ✅ **RESOLVED 2026-08-26 BY READING THE MODEL SOURCE: `metabolism_secretion_penalty` IS BROKEN TOO.**
+     Its variant file declares `SECRETION_PENALTY = [0, 1e-5, 1e-4, 5e-4, 1e-3, ...]` and its own docstring
+     says **"4: control"** — index 4 is `1e-3`. Read straight out of `sim_data` on kb 3b2f8ebd:
+     `process.metabolism.secretion_penalty_coeff = 0.001`. **The model's default IS `sec_pen:1e-3`, and all
+     4 rows at that dose crashed.** Same signature as the other sweep. **18 more rows, RETIRE — 42 in total
+     from the two sweeps.**
+   - 🐛 **AND THE FIRST DISCRIMINATOR WAS LUCK, NOT A RULE.** It matched the string `"default"` in a condition
+     label, which caught `kin_w:1e-7_default` only because somebody happened to annotate it, and MISSED the
+     secretion sweep entirely because its doses are bare numbers. Replaced by `MODEL_DEFAULTS`, holding each
+     swept parameter's default read from `sim_data` and cross-checked against the variant's own source. An
+     unknown sweep now answers False and surfaces for a human rather than being retired on a guess.
    - 📊 **ANSWERING "DO WE NEED 4 SEEDS x 4 GENS?" — THE CORPUS ALREADY HAS IT.** `wildtype/basal` carries
      4 seeds x 4 gens AND 4 seeds x 7 gens on kb 3b2f8ebd, both surviving locally, plus 4 x 4 on 0d861f80 (HF)
      and 4 x 3 twice on 5f19d040. The 16 lost rows are its 1-generation predecessors — the least informative
      row type in the corpus. **The seed-count worry was misplaced: the depth is already there.**
-   - **REVISED SCOPE: RERUN 57 designs / 317 rows / ~178 h serial (~30 h at parallel-6); RETIRE 24 rows;
-     DECIDE 22 rows.** Down from 359 rows.
+   - **REVISED SCOPE: RERUN 57 designs / 317 rows / ~178 h serial (~30 h at parallel-6); RETIRE 63 rows
+     (42 broken-sweep + 21 superseded); DECIDE 4 rows (`KO:rpmE` only).** Down from 359 rows.
 
    - 🎯 **THE SCOPE LEVER IS SEED DEPTH, NOT DESIGN COUNT.** The 5 costliest designs are 80 rows and **54 h —
      29% of the cost in 7% of the designs.** `wildtype/basal` alone is 36 rows / 16 seeds / **19.9 h**, a

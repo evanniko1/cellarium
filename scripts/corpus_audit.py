@@ -73,6 +73,48 @@ def _hf_key(simout_path) -> str | None:
     return f"runs/{m.group(1)}/{m.group(2)}/{m.group(3)}.tar.gz" if m else None
 
 
+# THE MODEL'S OWN DEFAULT for each swept parameter, read out of `sim_data` rather than inferred from a label.
+#
+# THE FIRST VERSION MATCHED THE STRING "default" IN A CONDITION NAME, and that was luck, not a rule. It caught
+# `metabolism_kinetic_objective_weight` only because somebody happened to write `kin_w:1e-7_default`, and it
+# MISSED `metabolism_secretion_penalty`, which is 0/18 ok and just as broken — its labels are bare numbers.
+# A discriminator that depends on a naming convention will keep missing sweeps nobody thought to annotate.
+#
+# MEASURED 2026-08-26 against kb 3b2f8ebd (`pickle.load(simData.cPickle).process.metabolism`):
+#   secretion_penalty_coeff  = 0.001   == SECRETION_PENALTY[4], and that variant's own docstring says
+#                                         "4: control"
+#   kinetic_objective_weight = 1e-07   == the value labelled `kin_w:1e-7_default` in the corpus
+#
+# So in BOTH sweeps the run at the model's own control value crashed. A dose-response whose control dose is
+# lethal is a variant that never worked. Adding a sweep means adding its default here — deliberately explicit,
+# because the alternative is unpickling sim_data inside an audit that otherwise needs no container.
+MODEL_DEFAULTS: dict[str, float] = {
+    "metabolism_secretion_penalty": 1e-3,
+    "metabolism_kinetic_objective_weight": 1e-7,
+}
+
+
+def _swept_value(condition) -> float | None:
+    """The dose a condition label encodes, e.g. `minimal|sec_pen:1e-3` -> 0.001."""
+    m = re.search(r":\s*([0-9.eE+-]+)", str(condition or "").split("|")[-1])
+    if not m:
+        return None
+    try:
+        return float(m.group(1).rstrip("_"))
+    except ValueError:
+        return None
+
+
+def _control_crashed(perturbation: str, rs: list[dict]) -> bool:
+    """Did the run at the MODEL'S OWN default value crash? Unknown sweeps answer False, never True."""
+    default = MODEL_DEFAULTS.get(perturbation)
+    if default is None:
+        return False
+    at_default = [r for r in rs if _swept_value(r["condition"]) is not None
+                  and abs(_swept_value(r["condition"]) - default) <= abs(default) * 1e-9]
+    return bool(at_default) and all(r["qc"] == "crashed" for r in at_default)
+
+
 def _design_of(r: dict) -> tuple:
     return (r["perturbation"], r["condition"] or "", r["timeline"] or "", r["elongation_model"])
 
@@ -94,14 +136,12 @@ def audit() -> dict:
         by_pert[r["perturbation"]].append(r)
     broken_sweeps = {
         p for p, rs in by_pert.items()
-        if any("default" in str(r["condition"] or "") for r in rs)
-        and not any(r["qc"] == "ok" for r in rs)}
-    # A SWEEP THAT IS 0-OK BUT LABELS NO DEFAULT CANNOT BE CALLED EITHER WAY FROM THE MANIFEST, and saying so
-    # is the point. `metabolism_secretion_penalty` is 0/18 ok across five doses, exactly like the sweep above,
-    # but nothing in its conditions marks which dose the model ships with — so "the variant never worked" and
-    # "this parameter is lethal at every dose tested" are indistinguishable here. Retiring it silently would
-    # destroy a possible finding; re-running it silently would spend hours on a possible dead variant. It goes
-    # to a human with the reason stated.
+        if _control_crashed(p, rs) and not any(r["qc"] == "ok" for r in rs)}
+    # A 0-OK SWEEP WHOSE DEFAULT IS NOT IN `MODEL_DEFAULTS` still cannot be called, and it must surface rather
+    # than fall through to "load-bearing". `metabolism_secretion_penalty` sat here until 2026-08-26, when its
+    # control was read from the model source and it moved to RETIRE; the branch stays for the next sweep
+    # nobody has looked up yet. Retiring an unknown sweep silently would destroy a possible finding;
+    # re-running it silently would spend hours on a possible dead variant.
     undecidable_sweeps = {
         p for p, rs in by_pert.items()
         if p not in broken_sweeps and len(rs) >= 8
