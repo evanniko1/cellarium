@@ -395,6 +395,7 @@ def test_campaign_interleaves_designs_so_the_lock_stays_uncontended():
     """Design-major ordering would fill a pool of N workers with N seeds of ONE design, and the variant lock
     would then collapse a parallel campaign to a single running sim."""
     import inspect
+
     from src.cellarium import manifest as _m
     src = inspect.getsource(_m.campaign)
     assert "for s in seeds for d in designs" in src
