@@ -125,7 +125,7 @@ freshly-archived **CRLF** tree reports `0 problems`.
 
 ## 4. What ships
 
-44 files, 6,090,304 bytes (6.09 MB), in four categories (`model_overlay/MANIFEST.json` is
+45 files, 6,102,001 bytes (6.10 MB), in four categories (`model_overlay/MANIFEST.json` is
 authoritative; every size below is that file's `overlay_bytes`, decimal MB):
 
 - **`port`** (28) — the v3.0.1 kinetic tRNA-charging port (EXT-PORT 1/10/11) plus EXT-PORT-12
@@ -161,7 +161,7 @@ is 43 files totalling 1,151,679 bytes (1.15 MB).
 ## 5. What is still missing — read this before trusting a checkout
 
 > **Status, 2026-08-03: nothing is blocked and nothing on Cellarium's launch path is absent.**
-> `apply_model_overlay.py` reports `44 shipped, 0 blocked`. §5a (the five ROUTE1-blocked port files)
+> `apply_model_overlay.py` reports `45 shipped, 0 blocked`. §5a (the five ROUTE1-blocked port files)
 > and §5c (the multi-KO channel and the condition/build fixes) are both **cleared**; they are kept
 > below because *how* they were cleared is the evidence. What remains genuinely open is listed in
 > §5b and at the end of §5c.

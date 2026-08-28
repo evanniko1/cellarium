@@ -84,7 +84,7 @@ def model_provenance() -> dict:
     bitwise over 2,529 timesteps.
 
     THE COLUMN IS NOT A GIT SHA, and that is deliberate. This model tree is assembled from two sources: public
-    CovertLab wcEcoli at the commit in `model_overlay/MANIFEST.json`, plus the 44 files that overlay ships. A
+    CovertLab wcEcoli at the commit in `model_overlay/MANIFEST.json`, plus the 45 files that overlay ships. A
     bare upstream commit would compare EQUAL across two different overlay states, which is precisely the false
     agreement the arm keys exist to prevent — a column that says "same code" when the code differs is worse
     than no column. So the value is `<upstream_commit>+<digest over the overlay's own file hashes>`, and it

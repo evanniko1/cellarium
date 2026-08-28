@@ -23,7 +23,7 @@ from src.cellarium import corpus_schema, manifest, provenance, runner  # noqa: E
 def test_model_sha_is_not_a_bare_commit():
     """A git sha alone would compare EQUAL across two different overlay states.
 
-    This tree is public wcEcoli plus the 44 files in model_overlay/. Storing only the upstream commit would say
+    This tree is public wcEcoli plus the 45 files in model_overlay/. Storing only the upstream commit would say
     "same code" when the code differs, which is worse than storing nothing.
     """
     m = provenance.model_provenance()

@@ -55,7 +55,7 @@ MISSING_COLUMNS = {
                     "the code. Two rows can share a fit and still come from different model source, which is "
                     "exactly the confound the phnE1 investigation had to rule out by hand (bitwise "
                     "reproduction over 2,529 timesteps). Shipped as `<upstream_commit>+<overlay digest>` and "
-                    "NOT as a bare git sha: this tree is public wcEcoli plus 44 overlay files, so a commit "
+                    "NOT as a bare git sha: this tree is public wcEcoli plus 45 overlay files, so a commit "
                     "alone would compare EQUAL across two different overlay states. Recorded in the backlog "
                     "under ARM-2's `model_git_sha`; renamed because a git-shaped name invites diffing commits "
                     "that would not explain the difference.",

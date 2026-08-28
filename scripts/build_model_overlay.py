@@ -187,6 +187,12 @@ PORT_NEW = [
 # they harvest straight from the source tree with no `cleaned/` intermediate.
 CELLARIUM_NEW = [
     "models/ecoli/sim/variants/multi_gene_knockout.py",
+    # PROV-1. Cellarium-authored and present in NO checkout, so its body lives in `authored/`. It was
+    # hand-added to `files/` and MANIFEST.json when PROV-1 landed and never registered here, which is why
+    # the manifest carried 45 entries while `counts.ship` said 44 — and why re-running this script DELETED
+    # it from `files/`. A shipped file the generator cannot reproduce is a file that silently disappears on
+    # the next regenerate.
+    "models/ecoli/listeners/parameter_provenance.py",
 ]
 CELLARIUM_MODIFIED = [
     "cloud/docker/runtime/Dockerfile",
@@ -600,8 +606,9 @@ def write_overlay(records: list[dict], bodies: dict[str, bytes]) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--source", default=os.environ.get("WCECOLI_PATH", r"C:\dev\wcEcoli"),
-                    help="the finished checkout to harvest from")
+    _wc = os.environ.get("WCECOLI_PATH") or os.environ.get("WCECOLI_DIR")
+    ap.add_argument("--source", default=_wc, required=_wc is None,
+                    help="the finished checkout to harvest from (or set WCECOLI_PATH / WCECOLI_DIR). No default: harvesting silently reached into whichever checkout sat at the hard-coded path, and a file missing from it is DELETED from model_overlay/files.")
     ap.add_argument("--upstream", default=r"C:\tmp\upstream_a4497e17",
                     help="a read-only materialisation of %s" % UPSTREAM_COMMIT)
     ap.add_argument("--check", action="store_true",
