@@ -352,3 +352,49 @@ def test_run_one_passes_the_transit_dir_so_the_preference_can_apply():
     src = inspect.getsource(runner.run_one)
     assert "model_dir=model_dir" in src
     assert src.index("_capture_executed") < src.index("shutil.move")
+
+
+# --------------------------------------------------------------------- the variant sim_data race, found by P1
+#
+# wcEcoli writes ONE `<variant>_<idx>/kb/simData_Modified.cPickle` (90 MB) per DESIGN and every seed reads it.
+# The lock keyed on `<variant>_<idx>/<seed>`, so it guarded the transit dir and left that file unguarded. Two
+# of four kinetic wildtype seeds died at generation 0 with an empty simOut, 3 s and 11 s before the write
+# finished. Re-run alone the same seed completes, and peak container memory is 0.72 GB of an 18.86 GB budget.
+
+def test_seeds_of_one_design_serialise_until_a_run_has_completed(tmp_path):
+    a = tmp_path / "wildtype_184115" / "000000"
+    b = tmp_path / "wildtype_184115" / "000002"
+    assert runner._variant_dir_lock(a) is runner._variant_dir_lock(b)
+
+
+def test_they_parallelise_once_the_shared_sim_data_is_PROVEN_complete(tmp_path):
+    """Proven by a run finishing -- not by the file existing. It appears at its final path the moment writing
+    starts, which is exactly how P1 handed a truncated pickle to two seeds."""
+    a = tmp_path / "wildtype_1" / "000000"
+    b = tmp_path / "wildtype_1" / "000002"
+    assert runner._variant_dir_lock(a) is runner._variant_dir_lock(b)
+    runner._mark_variant_kb_ready(a)
+    assert runner._variant_dir_lock(a) is not runner._variant_dir_lock(b)
+
+
+def test_two_different_designs_never_contend(tmp_path):
+    a = tmp_path / "wildtype_1" / "000000"
+    c = tmp_path / "gene_knockout_644" / "000000"
+    assert runner._variant_dir_lock(a) is not runner._variant_dir_lock(c)
+
+
+def test_the_ready_mark_is_only_set_after_the_move_completes():
+    """Marking before the run finished would reopen the race it closes."""
+    import inspect
+    src = inspect.getsource(runner.run_one)
+    assert "_mark_variant_kb_ready(model_dir)" in src
+    assert src.index("shutil.move") < src.index("_mark_variant_kb_ready")
+
+
+def test_campaign_interleaves_designs_so_the_lock_stays_uncontended():
+    """Design-major ordering would fill a pool of N workers with N seeds of ONE design, and the variant lock
+    would then collapse a parallel campaign to a single running sim."""
+    import inspect
+    from src.cellarium import manifest as _m
+    src = inspect.getsource(_m.campaign)
+    assert "for s in seeds for d in designs" in src

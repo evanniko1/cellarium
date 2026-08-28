@@ -1149,7 +1149,11 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
     corpus KB: either dying on an unknown medium, or producing rows whose `kb_sha256` does not match the
     experiment they claim to be. Threaded through to every job, serial and parallel.
     """
-    jobs = [(d, s) for d in designs for s in seeds]
+    # SEED-MAJOR, so consecutive jobs are DIFFERENT designs. Design-major filled a pool of N workers with N
+    # seeds of one design, and since `runner._variant_dir_lock` serialises seeds within a design (the variant
+    # sim_data they share is written once and read by all), that ordering would have collapsed a parallel
+    # campaign to one running sim. Interleaving keeps N designs in flight and the lock uncontended.
+    jobs = [(d, s) for s in seeds for d in designs]
     n = len(jobs)
     rows: list[dict] = []
 

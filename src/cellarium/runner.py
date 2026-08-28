@@ -131,10 +131,61 @@ _MODEL_DIR_LOCKS: dict[str, threading.Lock] = {}
 _LOCKS_GUARD = threading.Lock()
 
 
-def _model_dir_lock(model_dir: Path) -> threading.Lock:
-    key = str(model_dir).lower()
+# Variants whose shared sim_data is known COMPLETE, because a run of that variant finished in this
+# process. Guarded by `_LOCKS_GUARD`.
+_VARIANT_KB_READY: set[str] = set()
+
+
+def _variant_dir_lock(model_dir: Path) -> threading.Lock:
+    """Serialise on the VARIANT directory, not the per-seed transit dir.
+
+    The transit dir is not the only state seeds share. wcEcoli writes ONE variant-level knowledge base,
+    `<out>/<sim_path>/<variant>_<idx>/kb/simData_Modified.cPickle` (90 MB), and EVERY seed of that design
+    reads it. Keying the lock on `<variant>_<idx>/<seed>` protected the transit dir and left that file
+    completely unguarded, so a seed starting while another was still writing it loaded a truncated pickle.
+
+    MEASURED, CORPUS-REBUILD-1 package P1 (2026-08-28, parallel=4). Two of four `wildtype/basal#elong:kinetic`
+    seeds died at generation 0 with an EMPTY simOut, after writing a correct per-seed metadata.json — i.e.
+    the model started, then failed loading its own sim_data. Host mtimes:
+
+        wildtype_184115/kb/simData_Modified.cPickle   18:47:15   (finished writing)
+        crashed seed 000000                           18:47:04   11 s BEFORE
+        crashed seed 000002                           18:47:12    3 s BEFORE
+        surviving seed 000001                         19:30:40   43 min after
+        surviving seed 000003                         19:34:28   47 min after
+
+    Re-run alone, the same seed completes normally, and peak container memory is 0.72 GB against an 18.86 GB
+    Docker budget — so it is neither the model nor resources. It is the unguarded 90 MB write.
+
+    Checking whether the kb already exists is NOT a safe alternative: the file appears at its final path the
+    moment writing begins, so an existence test hands a truncated pickle to the next seed. The only correct
+    guard is to serialise the whole run against its variant.
+
+    ONLY THE FIRST SEED OF A VARIANT PAYS FOR THIS. Once one run of a design has COMPLETED, its variant kb is
+    known whole — not merely present — and the remaining seeds go back to the per-seed lock and run fully in
+    parallel. `_VARIANT_KB_READY` is populated on success only, so a run that crashed part-way through writing
+    the kb never marks it usable. The set is per-process: a fresh campaign re-serialises one seed per design
+    even if the file survives on disk from an earlier one, which costs a single run and keeps the guarantee
+    independent of anything this process did not itself observe.
+
+    `manifest.campaign` also orders jobs seed-major, so a pool of N workers holds N DIFFERENT designs rather
+    than N seeds of the same one, and the serialised first seeds overlap with each other.
+    """
+    variant_key = str(model_dir.parent).lower()
     with _LOCKS_GUARD:
-        return _MODEL_DIR_LOCKS.setdefault(key, threading.Lock())
+        if variant_key in _VARIANT_KB_READY:
+            return _MODEL_DIR_LOCKS.setdefault(str(model_dir).lower(), threading.Lock())
+        return _MODEL_DIR_LOCKS.setdefault(variant_key, threading.Lock())
+
+
+def _mark_variant_kb_ready(model_dir: Path) -> None:
+    """Record that a run of this variant FINISHED, so its shared sim_data is complete rather than in progress.
+
+    Called only after a successful run. Presence of the file is not the same claim: it appears at its final
+    path the moment writing starts, which is exactly how P1 lost two seeds.
+    """
+    with _LOCKS_GUARD:
+        _VARIANT_KB_READY.add(str(model_dir.parent).lower())
 
 
 def _evacuate(model_dir: Path, run_root: Path, sim_path: str) -> dict | None:
@@ -702,7 +753,7 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     # designs sharing a variant index race there no matter what we rename afterwards. That race destroyed
     # generation 0 of all four starved leu seeds — 0-byte `Main/time`, the generation containing the shift —
     # while generations 1-3 survived, which is the worst shape: a run that still looks complete on disk.
-    with _model_dir_lock(model_dir):
+    with _variant_dir_lock(model_dir):
         evac = _evacuate(model_dir, run_root, sim_path)      # rescue any other design's data sitting there
         if evac and not evac.get("evacuated"):
             raise RuntimeError(
@@ -728,6 +779,9 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
                 model_dir.rmdir()                  # only when empty — never remove another design's output
             except OSError:
                 pass
+        # The run FINISHED, so this variant's shared sim_data is whole rather than in progress. Later seeds of
+        # this design may now overlap; see `_variant_dir_lock`.
+        _mark_variant_kb_ready(model_dir)
     if design.perturbation == "multi_gene_knockout":
         # the index-0 variant writes to multi_gene_knockout_000000/<seed>; move its generations into the hashed
         # run_root so distinct gene sets don't overwrite each other. Run multi-gene batches with --parallel 1.
