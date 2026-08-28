@@ -10,7 +10,7 @@ regenerate‑locally path. Those call the **public Covert‑lab wcEcoli model** 
 > **not** open source. Clone it yourself, accept that license, and run it locally. Any image you build below is
 > built from *your* checkout and **must never be published**. Cellarium redistributes **no image**.
 >
-> It does redistribute a small set of **model source files** — [`model_overlay/`](../model_overlay/), 44 files —
+> It does redistribute a small set of **model source files** — [`model_overlay/`](../model_overlay/), 45 files —
 > without which Cellarium's designs cannot run. Most of it derives from CovertLab/WholeCellEcoliRelease **v3.0.1**
 > (Choi & Covert 2023, *NAR* 51(12):5911) and is redistributed **with Prof. Covert's permission**, under the same
 > non‑commercial terms. It is model source, not a model, and not model‑derived *data*.
@@ -56,7 +56,7 @@ python scripts/apply_model_overlay.py --wcecoli /path/to/wcEcoli
 may be hiding a real upstream fix, so the tool **stops and names the file** instead of overwriting it. `--force`
 proceeds anyway and prints each file it overwrote.
 
-Expected on a clean `a4497e17`: `44 shipped, 0 blocked`, then `31 to replace, 13 to create, 0 problems`.
+Expected on a clean `a4497e17`: `45 shipped, 0 blocked`, then `31 to replace, 14 to create, 0 problems`.
 Re-running is idempotent. Earlier versions of this guide warned that the overlay would exit non-zero and name
 files it was withholding; **nothing is withheld now** — see [docs/OVERLAY.md §5](OVERLAY.md) for what was cleared
 and what remains open. There is still **no** `docker/local/` in upstream wcEcoli; step 3 is the supported route.
@@ -92,9 +92,9 @@ Apply the overlay **before** building: the image bakes the model in at `/wcEcoli
 `_trna_charging.pyx` the overlay installs is compiled during the build by the `setup.py` the overlay also
 installs. Overlaying after the build leaves you with an image running stock code.
 
-Any image works as long as it can run `runscripts/manual/{runParca,runSim}.py`. The rest of this guide says
-`wcecoli-sim`, which is why the `docker tag` line above exists — `build-containers-locally.sh` names its output
-`${USER}-wcm-code`.
+Any image works as long as it can run `runscripts/manual/{runParca,runSim}.py`. The rest of this guide names it
+`${USER}-wcm-code:latest`, which is exactly what `build-containers-locally.sh` produces — no alias, nothing to
+re-point.
 
 > **Windows line endings.** If a build step fails with `\r: command not found`, set
 > `git config core.autocrlf input` in the wcEcoli checkout and re-clone/reset so shell scripts land LF. The
@@ -105,13 +105,13 @@ Any image works as long as it can run `runscripts/manual/{runParca,runSim}.py`. 
 Cellarium's `runner` mounts **only the output dir** into the image and calls the model's scripts. Set:
 
 ```bash
-export WCECOLI_DOCKER=wcecoli-sim            # the local model image (recommended path)
+export WCECOLI_DOCKER=${USER}-wcm-code:latest   # the image you just built (name the BUILD, not an alias)
 export CELLARIUM_OUT="$(pwd)/runs"           # host dir where simOut + sim_data land (Cellarium's runs/)
 # Native (no Docker) fallback instead: unset WCECOLI_DOCKER, set WCECOLI_DIR=/path/to/wcEcoli (+ WCECOLI_PY)
 ```
 
 The runner never mounts your checkout over `/wcEcoli` (that would shadow the compiled model): it runs
-`docker run --rm -v "$CELLARIUM_OUT:/wcEcoli/out" -e PYTHONPATH=/wcEcoli -w /wcEcoli wcecoli-sim python …`.
+`docker run --rm -v "$CELLARIUM_OUT:/wcEcoli/out" -e PYTHONPATH=/wcEcoli -w /wcEcoli ${USER}-wcm-code:latest python …`.
 
 ## 5. Calibrate once (ParCa)
 
@@ -141,7 +141,7 @@ A green `--sim` means the launch airlock and the regenerate path will work.
   approved experiments will actually execute (without it, the airlock queues but can't run — the read‑only mode
   used for the hosted/demo build):
   ```bash
-  WCECOLI_DOCKER=wcecoli-sim CELLARIUM_OUT="$(pwd)/runs" \
+  WCECOLI_DOCKER=${USER}-wcm-code:latest CELLARIUM_OUT="$(pwd)/runs" \
     .venv/Scripts/python.exe -m uvicorn apps.server:app --host 127.0.0.1 --port 8000
   ```
 
@@ -201,7 +201,7 @@ PY
 `wholecell` TableReader lives there, not in Cellarium's venv). Set the same image you'd use for sims:
 
 ```bash
-export WCECOLI_DOCKER=wcecoli-sim        # or wcecoli-sim:multiko — either carries the TableReader
+export WCECOLI_DOCKER=${USER}-wcm-code:latest   # carries the TableReader; multi-KO is a variant, not an image
 export CELLARIUM_OUT="$(pwd)/runs"       # where the raw was extracted
 ```
 
@@ -212,7 +212,7 @@ fallback: unset `WCECOLI_DOCKER`, set `WCECOLI_DIR=/path/to/wcEcoli` with `whole
 **Worked example — a regulon prediction on an out‑of‑sample stimulus:**
 
 ```bash
-export WCECOLI_DOCKER=wcecoli-sim
+export WCECOLI_DOCKER=${USER}-wcm-code:latest
 python - <<'PY'
 from cellarium import tools
 # does nitrate drive the nar regulon? control against the anaerobic (no_oxygen) reference
@@ -221,4 +221,4 @@ PY
 ```
 
 This is exactly how the report's nitrate and arabinose findings were produced: raw already local, read through
-`wcecoli-sim`, no new simulation.
+the model image, no new simulation.

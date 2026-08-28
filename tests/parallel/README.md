@@ -28,9 +28,10 @@ Needs the real, separately-licensed wcEcoli image and fitted `sim_data` (see
 [`docs/GENERATE.md`](../../docs/GENERATE.md)). Each real generation is ~9–20 min.
 
 ```bash
-# one-time: build the licensed image and fit parameters
-docker build -t wcecoli-sim -f /path/to/wcEcoli/docker/local/Dockerfile /path/to/wcEcoli
-export WCECOLI_DOCKER=wcecoli-sim CELLARIUM_OUT=$(pwd)/runs
+# one-time: build the licensed image and fit parameters (see docs/DOCKER_SETUP.md §1–§3)
+export USER=${USER:-$USERNAME}
+cd /path/to/wcEcoli && cloud/build-containers-locally.sh
+export WCECOLI_DOCKER=${USER}-wcm-code:latest CELLARIUM_OUT=$(pwd)/runs
 python -m cellarium.runner --cpus 16       # ParCa once (cached sim_data)
 
 python tests/parallel/real_run.py          # 8 sims, parallel=8, with a docker-ps concurrency watcher

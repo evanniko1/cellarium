@@ -192,7 +192,7 @@ Deeper guide (tuning, deep-dive reads, native fallback): **[docs/DOCKER_SETUP.md
 
 Stock wcEcoli is **not sufficient** — Cellarium needs the v3.0.1 kinetic tRNA-charging port, a 21-row condition
 table, the `multi_gene_knockout` variant, and two fixes without which upstream's own image build fails today.
-Those finished files live in **[`model_overlay/`](model_overlay/)** (44 files) and are copied onto a clean
+Those finished files live in **[`model_overlay/`](model_overlay/)** (45 files) and are copied onto a clean
 checkout by `apply_model_overlay.py`, which verifies each target against a pinned upstream SHA256 first and
 **stops rather than overwrite** a file upstream has since changed. See **[docs/OVERLAY.md](docs/OVERLAY.md)**.
 
@@ -220,8 +220,8 @@ python scripts/apply_model_overlay.py --wcecoli ../wcEcoli --check   # verify, w
 python scripts/apply_model_overlay.py --wcecoli ../wcEcoli
 ```
 
-Expected on a clean `a4497e17`: `44 shipped, 0 blocked` then `31 to replace, 13 to create, 0 problems`. Re-running
-is idempotent (`0 to replace, 0 to create, 44 already applied, 0 problems`). If it refuses with `!! STALE`, upstream changed a file the
+Expected on a clean `a4497e17`: `45 shipped, 0 blocked` then `31 to replace, 14 to create, 0 problems`. Re-running
+is idempotent (`0 to replace, 0 to create, 45 already applied, 0 problems`). If it refuses with `!! STALE`, upstream changed a file the
 overlay ships — read [docs/OVERLAY.md](docs/OVERLAY.md) before reaching for `--force`.
 
 **4. Build the image** — from the **wcEcoli** root. First build is slow (~15–30 min; it compiles OpenBLAS-free
@@ -278,7 +278,7 @@ missing module raises there rather than at run time.
 **6. Point Cellarium at it.**
 
 ```bash
-export WCECOLI_DOCKER=${USER}-wcm-code
+export WCECOLI_DOCKER=${USER}-wcm-code:latest    # name the BUILD; see .env.example if you set it there instead
 python apps/server.py
 ```
 
@@ -387,7 +387,7 @@ simulation. Organism: *E. coli* K-12 MG1655 (a lab strain).
 **Cellarium's own code is MIT** — see [LICENSE](LICENSE). The whole-cell model it depends on is **not** MIT: it is
 the [Covert-lab wcEcoli model](https://github.com/CovertLab/wcEcoli) under Stanford's academic (non-commercial)
 license, obtained and run separately by the user (see [docs/DECISIONS.md](docs/DECISIONS.md) D3). Cellarium ships
-**no model image and no model-derived data**, but it does redistribute 44 **model source files** under
+**no model image and no model-derived data**, but it does redistribute 45 **model source files** under
 [`model_overlay/`](model_overlay/) — the changes without which its designs cannot run. Most derive from
 CovertLab/WholeCellEcoliRelease **v3.0.1** (Choi & Covert 2023, *NAR* 51(12):5911, doi:10.1093/nar/gkad435),
 redistributed **with Prof. Covert's permission** under the same non-commercial terms; the rest are Cellarium's own

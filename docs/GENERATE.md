@@ -10,19 +10,22 @@ summary channels) is the shareable, mergeable corpus.
 
 ## One-time setup
 1. Obtain the model (`git clone https://github.com/CovertLab/wcEcoli`) under its Stanford academic license,
-   and build a **LOCAL** image from its own Dockerfile (model + compiled Cython baked in; **never push it**):
+   apply the Cellarium overlay, and build a **LOCAL** image (model + compiled Cython baked in; **never push
+   it**). The full procedure, including the two upstream pins that have bit-rotted, is
+   [docs/DOCKER_SETUP.md](DOCKER_SETUP.md) §1–§3:
    ```bash
-   cd /path/to/wcEcoli && docker build -t wcecoli-sim -f docker/local/Dockerfile .
-   docker images | grep wcecoli-sim        # confirm the tag
+   export USER=${USER:-$USERNAME}          # Git Bash on Windows leaves $USER empty
+   cd /path/to/wcEcoli && cloud/build-containers-locally.sh
+   docker image inspect "${USER}-wcm-code" >/dev/null && echo "image OK"
    ```
 2. Point Cellarium at the image + a host output dir:
    ```bash
-   export WCECOLI_DOCKER=wcecoli-sim       # the local model image (recommended path)
+   export WCECOLI_DOCKER=${USER}-wcm-code:latest   # the image build-containers-locally.sh produced
    export CELLARIUM_OUT=$(pwd)/runs        # host dir where simOut + sim_data land
    # native fallback instead of Docker: unset WCECOLI_DOCKER and set WCECOLI_DIR + WCECOLI_PY
    ```
    The runner mounts **only the output** (`docker run -v $CELLARIUM_OUT:/wcEcoli/out -e PYTHONPATH=/wcEcoli
-   -w /wcEcoli wcecoli-sim python …`). It does **not** mount the checkout over `/wcEcoli` — that would shadow
+   -w /wcEcoli ${USER}-wcm-code:latest python …`). It does **not** mount the checkout over `/wcEcoli` — that would shadow
    the compiled model. The model stays inside your local image; nothing is redistributed.
 3. Build parameters once (cached under `$CELLARIUM_OUT/cellarium/kb`):
    ```bash
