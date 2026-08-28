@@ -197,3 +197,92 @@ def test_the_new_columns_are_null_safe_for_readers():
     for col in manifest._EXECUTED_ABSENT:
         sql = manifest.optional_col_sql(col)
         assert col in sql and "AS" in sql
+
+
+# --------------------------------------------------------------------- PROV-3: what was mounted OVER the image
+#
+# The image digest above answers "which model was baked in". It cannot answer "was anything shadowed on top of
+# it", because `-v` is a host-side docker flag and the model's own metadata.json is written from INSIDE the
+# container. `_flat_file_mounts` shadows four files whenever WCECOLI_DIR is set, and two of them --
+# `variants/__init__.py` and `graded_gene_knockout.py` -- are applied at SIM time rather than during ParCa, so
+# they change which variant code runs while leaving `kb_sha256` untouched. Those two had no fingerprint
+# anywhere until this block.
+
+def test_a_windows_host_path_is_parsed_despite_its_drive_colon(tmp_path):
+    """`C:/x/f.tsv:/wcEcoli/f.tsv:ro` has three colons. Splitting from the left takes the drive letter as the
+    host path and silently records nothing."""
+    f = tmp_path / "condition_defs.tsv"
+    f.write_bytes(b"a\tb\n")
+    spec = f"{f.as_posix()}:/wcEcoli/reconstruction/ecoli/flat/condition/condition_defs.tsv:ro"
+    got = runner._mount_fingerprint(["-v", spec])
+    assert len(got) == 1
+    assert got[0]["container_path"] == "/wcEcoli/reconstruction/ecoli/flat/condition/condition_defs.tsv"
+    assert got[0]["host_path"] == f.as_posix()
+    assert got[0]["bytes"] == 4
+
+
+def test_the_output_directory_mount_is_not_recorded_as_shadowed_code(tmp_path):
+    """`-v <out>:/wcEcoli/out` is where results LAND, not code the model reads. Recording it would put a line
+    in every row that means nothing."""
+    d = tmp_path / "runs"
+    d.mkdir()
+    got = runner._mount_fingerprint(["-v", f"{d.as_posix()}:/wcEcoli/out"])
+    assert got == []
+
+
+def test_the_hash_is_crlf_normalised_so_it_compares_against_the_overlay(tmp_path):
+    """`model_overlay/MANIFEST.json` hashes CRLF-normalised. If this did not, a recorded mount could never be
+    matched against the file we ship, and the record would answer "something was mounted" without answering
+    "was it ours"."""
+    import hashlib
+    crlf, lf = tmp_path / "a.tsv", tmp_path / "b.tsv"
+    crlf.write_bytes(b"x\r\ny\r\n")
+    lf.write_bytes(b"x\ny\n")
+    a = runner._mount_fingerprint(["-v", f"{crlf.as_posix()}:/wcEcoli/a.tsv:ro"])[0]
+    b = runner._mount_fingerprint(["-v", f"{lf.as_posix()}:/wcEcoli/a.tsv:ro"])[0]
+    assert a["sha256"] == b["sha256"] == hashlib.sha256(b"x\ny\n").hexdigest()
+
+
+def test_an_unreadable_mount_records_null_and_a_note_rather_than_raising(tmp_path, monkeypatch):
+    f = tmp_path / "f.tsv"
+    f.write_bytes(b"data")
+
+    def boom(self, *a, **k):
+        raise PermissionError("locked")
+
+    monkeypatch.setattr(Path, "read_bytes", boom)
+    got = runner._mount_fingerprint(["-v", f"{f.as_posix()}:/wcEcoli/f.tsv:ro"])
+    assert got[0]["sha256"] is None and "unreadable" in got[0]["note"]
+
+
+def test_no_mounts_is_a_POSITIVE_claim_and_unknown_is_a_different_one(tmp_path, monkeypatch):
+    """The distinction this whole file is about, applied to mounts. `host_mounts: []` means "checked, nothing
+    was shadowed". The key ABSENT means nobody looked. A row that reads as unmounted when nothing checked is
+    exactly the silent absence PROV-2 exists to prevent."""
+    monkeypatch.setattr(runner._EXEC_LOCAL, "mount_record", [], raising=False)
+    rec = runner._capture_executed(tmp_path, "sim")
+    assert rec["host_mounts"] == []
+
+    monkeypatch.delattr(runner._EXEC_LOCAL, "mount_record", raising=False)
+    rec2 = runner._capture_executed(tmp_path, "sim")
+    assert "host_mounts" not in rec2
+    assert any("host_mounts" in m for m in rec2["missing"])
+
+
+def test_native_mode_is_named_rather_than_reported_as_zero_mounts(tmp_path, monkeypatch):
+    """Native mode bind-mounts nothing because the checkout IS the model -- every file is live, which is more
+    exposure than four mounts, not less. Writing `[]` there would be the wrong claim."""
+    monkeypatch.setattr(runner._EXEC_LOCAL, "mount_record", "native", raising=False)
+    monkeypatch.setattr(runner, "WCECOLI_DIR", "/some/checkout")
+    rec = runner._capture_executed(tmp_path, "sim")
+    assert rec["host_mounts"] is None
+    assert rec["native_checkout"] == "/some/checkout"
+
+
+def test_the_fingerprint_is_taken_at_launch_not_at_capture(tmp_path, monkeypatch):
+    """The host file is editable while the container runs. Hashing at capture would record a state the model
+    may never have seen, which is worse than not recording it."""
+    import inspect
+    src = inspect.getsource(runner._exec)
+    assert "_EXEC_LOCAL.mount_record = _mount_fingerprint(file_mounts)" in src
+    assert src.index("mount_record") < src.index("_run_checked")

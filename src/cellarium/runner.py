@@ -271,6 +271,20 @@ def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_va
             rec["missing"].append(f"no metadata.json at {meta}")
     except Exception as exc:
         rec["missing"].append(f"metadata.json: {type(exc).__name__}")
+    # PROV-3: which host files were shadowed over the image. `[]` means "checked, none" and is a positive
+    # claim; the key ABSENT means unknown. The distinction matters for the same reason it does everywhere else
+    # here — a row that silently reads as unmounted is exactly the shape this file exists to prevent.
+    try:
+        mr = getattr(_EXEC_LOCAL, "mount_record", "unset")
+        if mr == "unset":
+            rec["missing"].append("host_mounts: nothing executed on this thread, so no launch-time fingerprint")
+        elif mr == "native":
+            rec["host_mounts"] = None
+            rec["native_checkout"] = WCECOLI_DIR or None
+        else:
+            rec["host_mounts"] = mr
+    except Exception as exc:                          # noqa: BLE001
+        rec["missing"].append(f"host_mounts: {type(exc).__name__}")
     try:
         if run_root.exists():
             (run_root / _EXECUTED_FILE).write_text(json.dumps(rec, indent=2), encoding="utf-8")
@@ -346,6 +360,51 @@ def _flat_file_mounts() -> list[str]:
     return out
 
 
+def _mount_fingerprint(mount_args: list[str]) -> list[dict]:
+    """Every host FILE bind-mounted over the image, with the hash of what was mounted.
+
+    WHY THIS EXISTS. `_flat_file_mounts` shadows four files inside a running container, and the image digest
+    beside it in `executed.json` cannot see them: `-v` is a host-side docker flag, and the model's own
+    `metadata.json` is written from INSIDE the container. So a row could record the right image and still have
+    run different code.
+
+    Two of the four are caught indirectly today and two are not. `condition_defs.tsv` and `media_recipes.tsv`
+    change what ParCa FITS, so a run using them lands on a different `kb_sha256` and the ARM key partitions it.
+    `variants/__init__.py` and `graded_gene_knockout.py` are applied at SIM time by `runSim.py --variant`, never
+    during ParCa — they change which variant code runs and leave NO fingerprint in any recorded column. That is
+    the hole this closes.
+
+    Hashed CRLF-normalised, matching `model_overlay/MANIFEST.json`, so a recorded hash can be compared straight
+    against the overlay to answer "was this the file we ship, or someone else's copy of it?".
+
+    Directory mounts are skipped: the only one is the output dir, which is where results LAND rather than code
+    the model reads.
+    """
+    out: list[dict] = []
+    for i, tok in enumerate(mount_args):
+        if tok != "-v" or i + 1 >= len(mount_args):
+            continue
+        parts = mount_args[i + 1].split(":")
+        # host:container[:mode]; a Windows host carries a drive letter, so consume from the RIGHT
+        if len(parts) >= 3 and parts[-1] in ("ro", "rw"):
+            container, host = parts[-2], ":".join(parts[:-2])
+        else:
+            container, host = parts[-1], ":".join(parts[:-1])
+        p = Path(host)
+        if not p.is_file():
+            continue
+        rec: dict = {"container_path": container, "host_path": p.as_posix()}
+        try:
+            body = p.read_bytes()
+            rec["sha256"] = hashlib.sha256(body.replace(b"\r\n", b"\n")).hexdigest()
+            rec["bytes"] = len(body)
+        except Exception as exc:                      # noqa: BLE001 — a provenance read must not kill a run
+            rec["sha256"] = None
+            rec["note"] = f"unreadable: {type(exc).__name__}"
+        out.append(rec)
+    return out
+
+
 # Per-invocation env for the model process, set by run_one around _exec. Not a parameter because _exec is
 # called from several places and only one of them needs it — but THREAD-LOCAL, not a module global.
 #
@@ -395,14 +454,22 @@ def _exec(script_args: list[str]) -> None:
         extra_env: list[str] = []
         for k, v in (_get_exec_env() or {}).items():
             extra_env += ["-e", f"{k}={v}"]
+        # PROV-3: fingerprint the file mounts AT LAUNCH, not at capture. The host file is editable while the
+        # container runs, so hashing it afterwards would record a state the model may never have seen.
+        file_mounts = [*_flat_file_mounts(), *(getattr(_EXEC_LOCAL, "mounts", None) or [])]
+        _EXEC_LOCAL.mount_record = _mount_fingerprint(file_mounts)
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
-               *_flat_file_mounts(), *(getattr(_EXEC_LOCAL, "mounts", None) or []), *extra_env,
+               *file_mounts, *extra_env,
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
         _run_checked(cmd, None)   # the docker CLI has no use for a credential
         return
     if not WCECOLI_DIR:
         raise RuntimeError("Set WCECOLI_DOCKER (local model image) or WCECOLI_DIR (native checkout). "
                            "See docs/GENERATE.md.")
+    # PROV-3: native mode mounts nothing because the checkout IS the model — every file is live, which is
+    # strictly MORE exposure than four bind mounts. Recording an empty mount list here would read as "nothing
+    # was shadowed" and be the wrong claim, so the mode is named instead.
+    _EXEC_LOCAL.mount_record = "native"
     _run_checked([PY, *script_args], WCECOLI_DIR)
 
 
