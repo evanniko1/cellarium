@@ -51,7 +51,11 @@ OVERLAY_RNAS = REPO / "model_overlay" / "files" / "reconstruction" / "ecoli" / "
 
 
 def _flat_dir() -> Path:
-    root = Path(os.environ.get("WCECOLI_DIR") or "C:/dev/wcEcoli")
+    root = os.environ.get("WCECOLI_DIR") or os.environ.get("WCECOLI_PATH")
+    if not root:
+        raise SystemExit("set WCECOLI_DIR (or WCECOLI_PATH) to your wcEcoli checkout; there is "
+                         "deliberately no default path.")
+    root = Path(root)
     return root / "reconstruction" / "ecoli" / "flat"
 
 

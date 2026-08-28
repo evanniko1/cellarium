@@ -32,7 +32,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WC = Path(os.environ.get("WCECOLI_DIR") or "C:/dev/wcEcoli")
+_WC_ENV = os.environ.get("WCECOLI_DIR") or os.environ.get("WCECOLI_PATH")
+if not _WC_ENV:
+    raise SystemExit("set WCECOLI_DIR (or WCECOLI_PATH) to your wcEcoli checkout; there is "
+                     "deliberately no default path.")
+WC = Path(_WC_ENV)
 FLAT = WC / "reconstruction" / "ecoli" / "flat"
 
 

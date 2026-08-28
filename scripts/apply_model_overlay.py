@@ -189,8 +189,9 @@ def apply(wcecoli: str, check: bool = False, force: bool = False) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--wcecoli", default=os.environ.get("WCECOLI_PATH", r"C:\dev\wcEcoli"),
-                    help="the wcEcoli checkout to overlay onto")
+    _wc = os.environ.get("WCECOLI_PATH") or os.environ.get("WCECOLI_DIR")
+    ap.add_argument("--wcecoli", default=_wc, required=_wc is None,
+                    help="the wcEcoli checkout to act on (or set WCECOLI_PATH / WCECOLI_DIR). No default: a hard-coded path silently targeted whichever checkout happened to sit there.")
     ap.add_argument("--check", action="store_true", help="report only; write nothing")
     ap.add_argument("--force", action="store_true",
                     help="write even where the target matches neither the pinned upstream file nor "

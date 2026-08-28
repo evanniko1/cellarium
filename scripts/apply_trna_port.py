@@ -1019,7 +1019,8 @@ def apply_port(wcecoli: str, reference: str | None, check: bool = False,
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--wcecoli", default=os.environ.get("WCECOLI_DIR", "C:/dev/wcEcoli"))
+    _wc = os.environ.get("WCECOLI_PATH") or os.environ.get("WCECOLI_DIR")
+    ap.add_argument("--wcecoli", default=_wc, required=_wc is None, help="the wcEcoli checkout to act on (or set WCECOLI_PATH / WCECOLI_DIR). No default: a hard-coded path silently targeted whichever checkout happened to sit there.")
     ap.add_argument("--reference", default=os.environ.get("WCECOLI_V301", "vendor/v301"))
     ap.add_argument("--check", action="store_true", help="report only; write nothing")
     ap.add_argument("--image", default=os.environ.get("WCECOLI_DOCKER"),

@@ -149,7 +149,7 @@ def test_the_rrna_denominator_matches_the_models_own_operon_list():
     make the label lie. Skips when the wcEcoli checkout is absent."""
     import os
     import re
-    mg = os.environ.get("WCECOLI_DIR", "C:/dev/wcEcoli") + "/reconstruction/ecoli/dataclasses/molecule_groups.py"
+    mg = (os.environ.get("WCECOLI_DIR") or os.environ.get("WCECOLI_PATH") or "") + "/reconstruction/ecoli/dataclasses/molecule_groups.py"
     if not os.path.exists(mg):
         pytest.skip("no wcEcoli checkout")
     src = open(mg, encoding="utf-8").read()
