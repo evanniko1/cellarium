@@ -35,7 +35,9 @@ partition that nothing enforces, and it splits `wildtype/basal` — the referenc
 **`H-17`** (**corpus hygiene** — the invariant catalogue every cloner must not be able to skip, and where it has
 to live; thread `H-17a…H-17e` under [F-HYG](#f-hyg--corpus-hygiene--the-thread)).
 
-**▶ Next action:** the **live PUB-A1 sweep** — the last step in the publication's headline comparison, and the only
+**▶ Next action (2026-08-27):** **`CAPBENCH-1`** — author the selective-answering case corpus. `main.tex` §6 pre-registers a benchmark that does not exist; the case corpus gates the pilot, the arms, and the repetition count, and it is authoring work rather than compute. See [CAPBENCH](#capbench--the-selective-answering-capability-benchmark-p1--the-next-step-and-a-paper-of-its-own).
+
+**▶ Then:** the **live PUB-A1 sweep** — the last step in the publication's headline comparison, and the only
 one that needs an API key. Everything offline is built and green. See
 [⏳ TODO — the live PUB-A1 sweep](#-todo--the-live-pub-a1-sweep-the-last-step-that-needs-a-key).
 
@@ -565,6 +567,184 @@ python evals/run_ab.py <same batches> --reps 5 --out evals/results/ab_baseline.j
 **Do not** fold `grade.deterministic()` into the comparison — it is Arm-B-only by construction.
 Blocked-on afterwards: PUB-A2's cross-family judge panel + IRR (`shared_metric.grade()` already takes
 client+model, and its payload is arm-blind, so a panel is a loop over judges plus an agreement statistic).
+
+### CAPBENCH · The selective-answering capability benchmark (`P1` — the next step, and a paper of its own)
+
+**Filed 2026-08-27.** `main.tex` §6 pre-registers a benchmark that **does not exist**. This section is the
+build spec. It is scoped as its own publication leg, not as a missing figure in the Sim2Science workshop
+paper — see `CAPBENCH-0` for the consequence to that draft.
+
+**What it measures.** Given a natural-language biological question, does the system correctly decide whether the
+simulator can answer it at all — and if not, refuse or propose the right experiment, instead of returning a
+number that is an algebraic identity. The paper's claim is that the **capability registry** is what causes that
+behaviour. The benchmark's job is to make that attributable rather than asserted.
+
+**It launches no simulations.** Every case queries the *existing* corpus. It is API-bound, not compute-bound.
+That is the one thing about it that is cheap.
+
+---
+
+#### CAPBENCH-1 · The case corpus and its schema (the gating item — authoring, not compute)
+
+A **case** is one benchmark question plus its answer key. The **schema** is the fixed set of boxes every answer
+key fills, so grading is mechanical and labels can be frozen before any model sees them.
+
+Five boxes per case:
+
+1. **The question**, phrased as a biologist would ask it — not in Cellarium's vocabulary.
+2. **The typed tuple `r`** (`main.tex` §3): *entity, intervention, observable, granularity, regulatory
+   dependencies, evidence coverage*. This is the translation step — turning a question into a structured
+   statement of what it requires.
+3. **Admissible modes** — which of `steady_state` / `kinetic` / `coarse_kinetic` satisfies `r`, or none.
+4. **The correct action** — answer (via which mode), refuse, or propose.
+5. **An executable check where possible** — for `answer` cases, the query that confirms the number exists.
+   This is §6's "executable where possible"; it stops the key from being merely asserted.
+
+**Near-neighbour pairs are where the power is.** Two cases differing in **exactly one field of `r`**, where the
+correct action flips:
+
+| | Q1 | Q2 |
+|---|---|---|
+| question | "During leucine starvation, what fraction of leucine tRNA is charged?" | "During leucine starvation, which leucine tRNA isoacceptor stays charged longest?" |
+| entity / intervention / observable | leucine tRNAs / leucine withdrawal / charged fraction | *identical* |
+| **granularity** | **amino-acid family** | **individual isoacceptor** |
+| regulatory deps | supply + ppGpp | *identical* |
+| admissible modes | `steady_state` | **none** |
+| **correct action** | **answer**, routed to `steady_state` | **refuse**, then propose the coupled model |
+
+A system doing keyword matching sees "leucine + starvation + tRNA charging" in both and responds identically.
+Only a system that reads the granularity requirement and checks it against what the model computes splits them.
+The easy cases establish a floor; **the pairs are the measurement.**
+
+**Balance requirements** (§6). ~Half answerable, so over-refusal is measurable and not just over-answering. The
+unanswerable half spreads across the three distinct failure reasons — which map 1:1 onto the `why_not` tokens
+`capability.check()` already emits:
+
+| `why_not` | plain meaning | correct action |
+|---|---|---|
+| `no_elongation_model_represents_it` | nothing computes this | refuse |
+| `another_mode_represents_it` | this mode can't, another can | route, or propose a run in that mode |
+| `no_run_used_this_mode` | code supports it, corpus has no rows | propose a campaign |
+
+Modes balanced too: some answerable only from steady-state rows, some only from kinetic, some from neither.
+
+**Target: 40–60 cases.** Writing them properly — especially pairs, where exactly one field changes and the label
+must genuinely flip — is careful manual work.
+
+**CAPBENCH-1a** — two independent adjudications (simulator expert + domain expert) on **frozen** labels
+**before** any model runs. §6 pre-registers this; doing it afterwards voids the claim. Human bottleneck.
+
+**Current state (measured 2026-08-27, do not re-derive):** `evals/cases.py` has **25 cases** and they are the
+**Council construct** — `EVAL_SPEC.md` is titled *"vague question → falsifiable hypothesis"*, graded on M1–M4 /
+S1–S3 rubrics. **No `answer`/`refuse`/`propose` labels anywhere, no typed `r`.** Different construct, different
+grading, different purpose. The capability corpus is greenfield.
+
+---
+
+#### CAPBENCH-2 · The seven arms — two exist, one is trivial, four are builds
+
+Baselines exist to make the effect **attributable**. Each removes exactly one thing, so a reviewer cannot say the
+gain came from better prompting, from having tools at all, or from using Claude.
+
+| # | Arm | Status | What it isolates |
+|---|-----|--------|------------------|
+| 1 | **Direct LM** | trivial | how often a bare model invents an answer |
+| 2 | **Documentation RAG** | ❌ **build** | *"you just needed to give it the docs"* |
+| 3 | **KISS-style operational scaffold** | ❌ **build** | execution correctness vs answerability |
+| 4 | **Tool-using LM, capability metadata stripped** | ❌ **build** | the metadata, separated from the tools |
+| 5 | **Deterministic registry alone** | ✅ exists | `capability.check()`, no LM |
+| 6 | **Hard-gated Cellarium** | ✅ exists | the system as built |
+| 7 | **Second backbone** | ❌ **build** | model-specificity |
+
+**CAPBENCH-2a · Documentation RAG.** Index the wcEcoli docs + ours; retrieve per question; answer from passages.
+No retrieval infrastructure exists in the repo — no embedding store, no vector index. **Why it matters:** kills
+the cheapest objection to the whole paper. Expected to fail, and the reason is the paper's strongest argument —
+**the broadcast degeneracy is not documented anywhere.** It is an emergent property of
+`np.dot(fraction_charged, aa_from_trna)`; no doc page says "these 86 columns carry 21 values", so retrieval
+cannot find it. Running this converts that from assertion to measurement.
+
+**CAPBENCH-2b · KISS-style scaffold.** Li et al.'s design — validated operators, staged checks, recovery loops —
+with **no capability registry**. Makes the model execute correctly; never asks whether the question is
+answerable. **Why it matters:** `main.tex` §7 asserts *"Operational scaffolding and capability testing are
+therefore complementary."* This arm is the evidence for that sentence. It is also the arm that shows a
+well-scaffolded agent still confidently reports a within-family spread of 0.0 — scaffolding checks that the run
+succeeded, not that the question was meaningful.
+
+**CAPBENCH-2c · Tools without capability metadata.** Cellarium's real tools, capability annotations removed:
+`trna_families` etc. still callable, but the descriptions no longer warn that under `steady_state` the spread is
+0.0 by construction, and `model_capabilities` is out of the dispatch table. **This is a real code change, not a
+config flag** — the warnings are deliberately inline with the data (`reconcile.py`: an advisory the agent reads
+*after* it has written the sentence is an advisory it has already ignored), so a parallel tool registry is
+required. **Why it matters: sharpest arm in the set.** Same model, same tools, same corpus; one has the
+annotations, one doesn't. If the unannotated arm reports 0.0 as a finding and the annotated one refuses, that
+single comparison *is* the result.
+
+**CAPBENCH-2d · Second backbone.** `agent.py` and `council.py` have **no non-Anthropic path**. GPT appears in
+`ablate.py` / `audit.py` / `temperature_sweep.py` as a **grader** (`ablation.json` carries `claude_grader` and
+`gpt_grader`) — judging, not acting. A second backbone means a different SDK and tool-calling format for the
+**agent**. **Why it matters:** single-backbone results are challenged as model-specific by default, fairly.
+
+---
+
+#### CAPBENCH-3 · The repetition count — why it is open, and the cheap way to close it
+
+`main.tex` §6 says each stochastic system is repeated; it did not say how many times. In a pre-registration that
+gap is the shopping loophole: run 3, dislike the error bars, run 7 more, report 10, undetectable afterwards.
+
+**No committed number exists to copy.** `evals/run_ab.py:277` declares `--reps` with `default=1`; `5` appears
+only in a code comment as an example; Appendix D promises to *report* repetitions, which is disclosure after the
+fact, not a commitment before it. The draft now says the count is *fixed before any response is generated* —
+a timing commitment, standing in until a number is chosen.
+
+**There is no existing replicate data to estimate it from** (checked 2026-08-27):
+- `evals/results/ab_ledger.json` — 25 flat keys (`4.2`, `5.2`, …), **zero `#r` replicate cells**. The A/B ran at
+  `--reps 1`.
+- `evals/results/ablation.json` — **`reps=3`**, 4 configs × 10 cases = 120 records, temperature 0.7. But the
+  primary metric is **degenerate**: `quality_claude` and `quality_gpt` are **6.0 on every case, every config,
+  every replicate**, `ci95 [6.0, 6.0]`. Zero variance — a ceiling effect, not a precision result. It carries no
+  information about run-to-run noise. `convergence_rate` (p=0.9) is where the variance actually lives.
+  **Transferable lesson: spend the repetition budget on rate-type outcomes, not saturated rubric scores.**
+  It is also the wrong construct (Council deliberation quality, not capability routing), so it would not
+  transfer even if it were non-degenerate.
+
+**CAPBENCH-3a · The pilot that settles N.** One arm (hard-gated Cellarium), ~12 labelled cases, 5 repetitions =
+**60 episodes**. Measures the run-to-run SD of the unsupported-answer rate on the *real* construct. If that SD is
+small against the binomial interval on ~50 questions, `N=3` is defensible and the paper can say why; if not, more.
+**Blocked on CAPBENCH-1** — the 12 labelled cases must exist first.
+
+---
+
+#### CAPBENCH-4 · Cost
+
+7 arms × ~50 questions × N reps × 2 backbones. At N=5: ~1,750 episodes per backbone, ~3,500 total, and these are
+**multi-turn tool-using episodes**, not single completions. Same cost class as the ~$74 KISS-2 estimate and
+probably above it. Four of the seven arms are engineering builds before a single episode runs.
+
+**API key is available** (checked 2026-08-27 via the masked `credentials.status()` only — value never read, and
+`tests/test_credentials.py` deliberately NOT run, see [[investigate-what-could-have-caused-absence]]):
+`in_keychain: True`, backend `WinVaultKeyring`, `backend_secure: True`. `.env` holds only `WCECOLI_DOCKER`.
+
+---
+
+#### CAPBENCH-0 · Consequence for the Sim2Science draft (decide before submission)
+
+`main.tex` §6 currently spends a full body section on protocol for an unrun experiment — seven baselines named
+without explanation, "matched coverage", "binomial intervals", "the critical ablation" — none of which a reader
+can evaluate. That is a section of cryptic forward references to a benchmark that does not exist.
+
+**Proposal:** fold §6's honest content into §7 Discussion & limitations as a scoped future-work programme
+("this is the next study, and here is exactly what it is"), keep the protocol detail in Appendix D where it
+already lives, and cut the body section. Reads as *we know precisely what the next study is* rather than *we ran
+out of time*.
+
+**What must survive the fold, or the framework claim becomes unfalsifiable** — ironic in a paper about
+falsifiable misspecification: the **primary outcome** (unsupported-answer rate at matched coverage) and the
+**critical ablation** (advisory registry vs hard output gate). Those two lines *are* the pre-registration; the
+rest is protocol and belongs in the appendix.
+
+⚠️ **Knock-on:** removing a numbered section renumbers everything after it (§7 Discussion → §6, §8 Conclusion →
+§7). `checklist.tex` references section numbers **by hand** — "Section 7 states four strict boundaries",
+"Sections 3 and 6 describe…", "Sections 1, 5--7". All would need re-checking in the same pass.
 
 ---
 
@@ -1873,6 +2053,30 @@ half-migrated in a way a reader cannot detect:
    the lethality rows are non-reportable. Redundant seeds, crashed rows kept only as crash evidence, and the
    26 rows with a collaborator's absolute paths (CORPUS-PATH-1) are all candidates to retire rather than
    re-run. **Decide the target corpus first; re-running everything would re-import the redundancy.**
+2. ✅ **THE PACKAGES, FIXED 2026-08-26 FROM THE COMPLETED AUDIT.** Run in this order, smallest arm first so a
+   failure is cheap to diagnose. `parallel=6` is safe for provenance since PROV-2's per-run metadata fix
+   (3/3 runs record their own `model_class` under parallel=3), so these are wall-clock at parallel-6.
+
+   | # | package (arm) | rows | ~h | why this order |
+   |---|---|---|---|---|
+   | P1 | `5f19d040` / on / **kinetic** | 8 | ~0.3 | **pilot** — smallest, and the only kinetic arm, so it exercises the elongation-model axis end to end before anything large runs |
+   | P2 | `0d861f80` / on / steady_state | 40 | ~1.5 | second-smallest; includes the leucine-starvation timeline arm |
+   | P3 | `5f19d040` / on / steady_state | 36 | ~1.4 | completes the `5f19d040` kb so both its arms are re-run together |
+   | P4 | `3b2f8ebd` / on / steady_state | ~233 | ~27 | the bulk; run last, when the pipeline has been proven three times |
+
+   - **P1 is the pilot and its exit criteria are explicit:** all 8 rows carry non-NULL `executed_image_digest`
+     and `model_class`; `model_class` reads `KineticTrnaChargingModel` (NOT `SteadyStateElongationModel` —
+     that would mean the elongation flag did not wire through, which is the WELL-NOOP-1 shape); the
+     re-indexed rows still pool on the three `ARM_KEYS`; and `corpus_audit.py` reports the same design set.
+   - **Retire before running, not after:** the 63 dev-remnant rows (42 broken-sweep, 21 superseded seeding)
+     are tombstoned with `superseded_by` FIRST, so no package wastes time re-running them and no reader sees
+     a half-migrated corpus containing both.
+   - ⛔ **`gene_knockout/KO:rpmE` (4 rows) is the one open human decision** — 3 `over_replicated` + 1
+     `implausible_channel`. Not blocking P1-P3; must be resolved before P4.
+   - **Per package:** re-run -> verify `executed.json` present and non-NULL -> `manifest.compact` ->
+     `corpus_audit.py` diff -> upload to HF -> tombstone the superseded rows. In that order, so a failure
+     never leaves the corpus without either version.
+
 2. **Package by ARM, not by date.** Each package is one `(kb_sha256, operons, elongation_model)` group so a
    partially migrated corpus still has complete comparable sets. The 44 rows on `5f19d040` and 40 on
    `0d861f80` are small enough to be the pilot packages.
