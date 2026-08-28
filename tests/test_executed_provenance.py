@@ -192,11 +192,17 @@ def test_a_run_root_that_cannot_be_written_still_returns_a_record():
 # --------------------------------------------------------------------- the schema side
 
 def test_the_new_columns_are_null_safe_for_readers():
-    """Every existing shard lacks these columns entirely, so a bare reference raises a Binder Error — the
-    `machine` incident this file's neighbours record. They must go through `optional_col_sql`."""
-    for col in manifest._EXECUTED_ABSENT:
-        sql = manifest.optional_col_sql(col)
-        assert col in sql and "AS" in sql
+    """A bare reference to a column no shard carries raises a Binder Error — the `machine` incident this
+    file's neighbours record. Readers must go through `optional_col_sql`.
+
+    This asserts the CONTRACT, not a moment in time. It used to require "AS" in the expression, which only
+    held while NO shard had the columns; CORPUS-REBUILD-1 package P1 wrote the first shard that does, and the
+    string check failed on a correct expression. What must be true either way is that the SQL BINDS -- so run
+    it and let DuckDB decide."""
+    import duckdb
+    cols = ", ".join(manifest.optional_col_sql(c) for c in manifest._EXECUTED_ABSENT)
+    con = duckdb.connect()
+    con.execute(f"select {cols} from read_parquet('data/manifest/*.parquet') limit 1").fetchall()
 
 
 # --------------------------------------------------------------------- PROV-3: what was mounted OVER the image
@@ -286,3 +292,63 @@ def test_the_fingerprint_is_taken_at_launch_not_at_capture(tmp_path, monkeypatch
     src = inspect.getsource(runner._exec)
     assert "_EXEC_LOCAL.mount_record = _mount_fingerprint(file_mounts)" in src
     assert src.index("mount_record") < src.index("_run_checked")
+
+
+# --------------------------------------------------------------------- the transit dir, found by P1
+#
+# `run_one` captures INSIDE the lock and BEFORE moving model_dir -> run_root, so at capture time the model's
+# per-seed metadata.json is still in the transit dir. Those two paths coincide ONLY under steady_state; under
+# kinetic and coarse_kinetic run_root carries an `__el<mode>` suffix. So the per-run preference silently did
+# nothing for the two non-default elongation models, and every such run fell back to the shared file.
+
+def test_the_per_run_copy_is_read_from_the_transit_dir_not_the_destination(tmp_path):
+    """CORPUS-REBUILD-1 P1, measured: 0 of 8 kinetic runs took the per-run path. The file existed -- in
+    model_dir, which run_one had not moved yet."""
+    model_dir = tmp_path / "wildtype_184115" / "000000"
+    run_root = tmp_path / "wildtype_184115__elkinetic" / "000000"
+    model_dir.mkdir(parents=True)
+    run_root.mkdir(parents=True)
+    (model_dir / "metadata.json").write_text(json.dumps(
+        {"seed": 0, "variant": "wildtype", "elongation_model": "KineticTrnaChargingModel"}), encoding="utf-8")
+
+    rec = runner._capture_executed(run_root, "cellarium", expect_seed=0, expect_variant="wildtype",
+                                   model_dir=model_dir)
+    assert rec["metadata_source"] == "per_run"
+    assert rec["executed"]["elongation_model"] == "KineticTrnaChargingModel"
+
+
+def test_a_steady_state_run_still_finds_it_at_run_root(tmp_path):
+    """The mode where model_dir == run_root must keep working; it is the path the earlier parallel=3
+    validation exercised."""
+    d = tmp_path / "wildtype_704585" / "000000"
+    d.mkdir(parents=True)
+    (d / "metadata.json").write_text(json.dumps(
+        {"seed": 0, "variant": "wildtype", "elongation_model": "SteadyStateElongationModel"}), encoding="utf-8")
+    rec = runner._capture_executed(d, "cellarium", expect_seed=0, expect_variant="wildtype", model_dir=d)
+    assert rec["metadata_source"] == "per_run"
+    assert rec["executed"]["elongation_model"] == "SteadyStateElongationModel"
+
+
+def test_the_transit_copy_beats_a_stale_file_already_at_the_destination(tmp_path):
+    """If a previous run left a metadata.json at run_root, the fresh one the model just wrote must win.
+    Preferring the destination would attribute the OLD run's configuration to this row."""
+    model_dir = tmp_path / "wildtype_1" / "000000"
+    run_root = tmp_path / "wildtype_1__elkinetic" / "000000"
+    model_dir.mkdir(parents=True)
+    run_root.mkdir(parents=True)
+    (run_root / "metadata.json").write_text(json.dumps(
+        {"seed": 0, "variant": "wildtype", "elongation_model": "SteadyStateElongationModel"}), encoding="utf-8")
+    (model_dir / "metadata.json").write_text(json.dumps(
+        {"seed": 0, "variant": "wildtype", "elongation_model": "KineticTrnaChargingModel"}), encoding="utf-8")
+    rec = runner._capture_executed(run_root, "cellarium", expect_seed=0, expect_variant="wildtype",
+                                   model_dir=model_dir)
+    assert rec["executed"]["elongation_model"] == "KineticTrnaChargingModel"
+
+
+def test_run_one_passes_the_transit_dir_so_the_preference_can_apply():
+    """The fix is inert unless run_one actually hands model_dir over, and the capture must still happen
+    BEFORE the move -- moving first would reintroduce the shared-file race it exists to avoid."""
+    import inspect
+    src = inspect.getsource(runner.run_one)
+    assert "model_dir=model_dir" in src
+    assert src.index("_capture_executed") < src.index("shutil.move")

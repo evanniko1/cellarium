@@ -290,3 +290,44 @@ def test_the_arms_artefact_is_generated_and_separates_the_two_dates():
         assert on_disk.splitlines()[0] == body.splitlines()[0]
         stale = [ln for ln in on_disk.splitlines() if re.match(r"^\| `[0-9a-f]{8}` \|", ln)]
         assert stale, "the generated artefact carries no arm rows — regenerate with `--write`"
+
+
+# --------------------------------------------------------------------- argv is not arm-invariant, found by P1
+
+_ARM = {"kb_sha256": "k", "operons": "on", "elongation_model": "kinetic"}
+
+
+def _argv_conflicts(a, b):
+    return corpus_schema.arm_conflicts([{**_ARM, "runsim_argv": a}, {**_ARM, "runsim_argv": b}])
+
+
+def test_seeds_and_depth_do_not_split_an_arm():
+    """An arm is one code + one fit across MANY seeds -- that is what makes seeds buy power instead of
+    splitting the corpus. CORPUS-REBUILD-1 P1 wrote the first rows carrying argv and the detector reported 6
+    distinct values for 6 correct rows, differing only by `--seed 0/1/2/3`."""
+    assert not _argv_conflicts(
+        "runSim.py c --variant wildtype 1 1 --seed 0 --generations 3 --kinetic-trna-charging",
+        "runSim.py c --variant wildtype 1 1 --seed 9 --generations 7 --kinetic-trna-charging")
+
+
+def test_two_designs_in_one_arm_do_not_conflict():
+    """`wildtype/basal` and `gene_knockout/KO:argS` share kb + operons + elongation. Comparing them IS the
+    corpus's purpose, so `--variant` cannot be arm-invariant."""
+    assert not _argv_conflicts(
+        "runSim.py c --variant wildtype 184115 184115 --seed 0 --kinetic-trna-charging",
+        "runSim.py c --variant gene_knockout 644 644 --seed 0 --kinetic-trna-charging")
+
+
+def test_a_multi_ko_gene_set_is_a_design_not_an_arm():
+    assert not _argv_conflicts(
+        "runSim.py c --variant multi_gene_knockout 0 0 --multi-ko-indices 12 44 --seed 0",
+        "runSim.py c --variant multi_gene_knockout 0 0 --multi-ko-indices 7 --seed 1")
+
+
+def test_a_GLOBAL_flag_added_to_half_a_campaign_still_fires():
+    """The reason the column exists: a flag added later would split an arm invisibly, and nothing else records
+    the flags. Normalising the per-row and per-design parts must not cost this."""
+    hits = _argv_conflicts(
+        "runSim.py c --variant wildtype 1 1 --seed 0 --kinetic-trna-charging",
+        "runSim.py c --variant wildtype 1 1 --seed 1 --kinetic-trna-charging --no-ppgpp-regulation")
+    assert len(hits) == 1 and hits[0]["column"] == "runsim_argv"

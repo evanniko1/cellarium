@@ -197,7 +197,8 @@ def _model_output_dir_metadata(sim_path: str) -> Path:
     return _out_root(sim_path) / "metadata" / "metadata.json"
 
 
-def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_variant=None) -> dict:
+def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_variant=None,
+                      model_dir: Path | None = None) -> dict:
     """Write `executed.json` beside the run: which image, which model class, which model commit.
 
     WHY THIS IS CAPTURED AT LAUNCH AND CANNOT BE RECOVERED LATER. wcEcoli writes ONE `metadata.json` per
@@ -244,9 +245,33 @@ def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_va
         # directory, which is unique per run, so a parallel campaign has nothing to race over and every row
         # gets its model class. The shared file below is the fallback for runs made before that landed (and
         # for any image without the overlay), and it is exactly the one that needs the ownership check.
-        meta = Path(run_root) / "metadata.json"
+        #
+        # LOOK IN THE TRANSIT DIR FIRST, and that is not a micro-optimisation. `run_one` calls this INSIDE the
+        # lock and BEFORE it moves `model_dir` to `run_root`, so at this moment the model's per-seed file is
+        # still where the model wrote it. Those two paths are the same directory only when the design has no
+        # directory discriminator — i.e. only under steady_state. Under kinetic and coarse_kinetic `run_root`
+        # carries an `__el<mode>` suffix, the per-run file is not there yet, and this silently fell through to
+        # the shared file for every run.
+        #
+        # MEASURED, CORPUS-REBUILD-1 package P1 (2026-08-28, the kinetic pilot, parallel=4): 0 of 8 runs took
+        # the per-run path; all 6 survivors recorded `metadata_source: shared_sim_path`, and 7 of 8 rows got a
+        # NULL model_class because the ownership check correctly refused a stranger's file. The one row that
+        # did get `KineticTrnaChargingModel` finished LAST, so the shared file happened to describe it — a
+        # right answer read from the wrong file. That is why the earlier parallel=3 validation passed 3/3: it
+        # was steady_state, where the two paths coincide.
+        #
+        # The failure this prevents is worse than a NULL. The ownership check compares seed and variant only,
+        # so two runs of the SAME variant at the SAME seed differing only in elongation model both pass it —
+        # and the loser would be attributed the winner's `elongation_model`. A row that says
+        # SteadyStateElongationModel while kinetic code ran is the WELL-NOOP-1 shape, and it looks like data.
+        meta = None
         rec["metadata_source"] = "per_run"
-        if not meta.is_file():
+        for cand in ((Path(model_dir) / "metadata.json") if model_dir else None,
+                     Path(run_root) / "metadata.json"):
+            if cand is not None and cand.is_file():
+                meta = cand
+                break
+        if meta is None:
             meta = _model_output_dir_metadata(sim_path)
             rec["metadata_source"] = "shared_sim_path"
         if not meta.is_file():
@@ -691,7 +716,8 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         # IMMEDIATELY after the run and INSIDE the lock, because the model keeps ONE metadata.json per sim_path
         # and overwrites it on the next run. Outside the lock a concurrent worker's run would already have
         # replaced it, and this would record that run's configuration against this run's output.
-        _capture_executed(run_root, sim_path, expect_seed=seed, expect_variant=_variant_type(design))
+        _capture_executed(run_root, sim_path, expect_seed=seed, expect_variant=_variant_type(design),
+                          model_dir=model_dir)
         # Move the model's output into the CANONICAL dir, mirroring what multi_gene_knockout already does.
         if model_dir != run_root and model_dir.exists():
             for child in list(model_dir.iterdir()):

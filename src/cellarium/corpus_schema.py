@@ -13,6 +13,7 @@ cross-knowledge-base comparison was only caught by hand on 2026-08-07.
 """
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 
 # The columns that make two rows comparable. Adding one here tightens every consumer at once, which is the
@@ -70,6 +71,46 @@ MISSING_COLUMNS = {
 }
 
 
+# `runsim_argv` carries `--seed N` and `--generations N`, and BOTH vary within an arm by construction -- an
+# arm is one code + one fit across many seeds and depths, which is the whole reason seeds buy statistical
+# power rather than splitting the corpus. Comparing the raw string therefore reports a conflict for every
+# multi-seed campaign that ever records argv.
+#
+# It read as clean until now only because every pre-ARM-2 row has argv NULL (`record_existing` never launched
+# anything, so `last_argv()` is None) and NULL is not evidence. CORPUS-REBUILD-1 package P1 wrote the first
+# rows that carry it: 6 rows, 6 "distinct" values, differing solely by `--seed 0/1/2/3`. The detector fired on
+# a corpus that was entirely correct.
+#
+# The column is kept rather than dropped because its stated purpose is real -- a FLAG added later would split
+# an arm invisibly, and nothing else records the flags. So normalise away the two per-row fields and compare
+# what is left, which is exactly the flag set.
+# Everything argv carries that is per-ROW or per-DESIGN, and therefore varies within an arm by construction:
+#
+#   --seed N / --generations N     the row. Seeds are the point of an arm; depth varies across campaigns.
+#   --variant TYPE IDX IDX         the DESIGN. One arm holds many designs -- `wildtype/basal` and
+#                                  `gene_knockout/KO:argS` share kb + operons + elongation and are exactly the
+#                                  comparison the corpus exists to support.
+#   --multi-ko-indices I...        the gene set of a multi-KO design.
+#   --timeline ...                 the media schedule, i.e. also the design.
+#
+# What survives is the GLOBAL flag set -- the elongation flags and anything added later -- which is precisely
+# what the column was added to protect. `--timeline` is consumed to the next `--` because `last_argv()` joins
+# argv with spaces, so a timeline containing spaces is no longer separable from what follows it.
+_ARGV_NOT_ARM = re.compile(
+    r"\s--seed\s+\S+"
+    r"|\s--generations\s+\S+"
+    r"|\s--variant(?:\s+\S+){3}"
+    r"|\s--multi-ko-indices(?:\s+\d+)+"
+    r"|\s--timeline\s+.*?(?=\s--|$)")
+
+
+def _comparable(column: str, value):
+    """The part of a covariate that must agree WITHIN an arm. Identity for everything but argv."""
+    if column != "runsim_argv":
+        return value
+    return _ARGV_NOT_ARM.sub("", str(value)).strip()
+
+
 def arm_conflicts(rows: list[dict], columns=CONFLICT_COLUMNS) -> list[dict]:
     """Rows that share an arm but disagree on a recorded covariate — an arm the current keys MISS.
 
@@ -86,7 +127,7 @@ def arm_conflicts(rows: list[dict], columns=CONFLICT_COLUMNS) -> list[dict]:
         for c in columns:
             v = r.get(c)
             if v is not None and v != "":
-                seen[arm_of(r)][c].add(v)
+                seen[arm_of(r)][c].add(_comparable(c, v))
     out = []
     for arm, cols in seen.items():
         for c, vals in cols.items():
