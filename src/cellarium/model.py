@@ -76,6 +76,11 @@ class GenerationResult(BaseModel):
     is_dead: bool = False
     growth_mean: float | None = None        # per-generation means -> approach to steady state in multi-gen runs
     ppgpp_mean: float | None = None
+    # Mean effective ribosome elongation rate, amino acids/second. Carried because it is the ONLY channel that
+    # distinguishes a viable cell from a translationally dead one that still replicated its chromosome, and
+    # `divided` cannot: it is `full_chromosome_end == 2 and n_steps > 10`, which DNA replication satisfies
+    # without any functioning translation. None means the run predates this field — unknown, never "fine".
+    elongation_mean: float | None = None
 
 
 class SimResult(BaseModel):

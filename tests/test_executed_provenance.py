@@ -398,3 +398,61 @@ def test_campaign_interleaves_designs_so_the_lock_stays_uncontended():
     from src.cellarium import manifest as _m
     src = inspect.getsource(_m.campaign)
     assert "for s in seeds for d in designs" in src
+
+
+# --------------------------------------------------------------------- translation collapse (P1 follow-on)
+#
+# `divided` is `full_chromosome_end == 2 and n_steps > 10` -- chromosome count only. DNA replication proceeds
+# without functioning translation, so a cell whose ribosomes had stopped scored `divided=True` and fell through
+# every QC check to `ok`. `IMPLAUSIBLE_GROWTH` is a CEILING; there was no floor.
+
+def test_a_collapsed_run_is_no_longer_ok():
+    """MEASURED on gene_knockout/KO:argS under kinetic: 0.047 / 0.012 / 0.007 aa/s across three generations,
+    every one recorded qc=ok."""
+    from src.cellarium import qc
+    from src.cellarium.model import GenerationResult
+    for e in (0.047, 0.012, 0.007):
+        g = GenerationResult(index=0, full_chromosome_end=2, divided=True, division_time_sec=2500.0,
+                             n_steps=2500, growth_mean=0.00025, elongation_mean=e)
+        assert qc.check_generation(g) is qc.QCStatus.TRANSLATION_COLLAPSE
+
+
+def test_a_genuinely_slow_cell_is_NOT_flagged():
+    """The threshold must not criminalise slow growth. Dai et al. 2016 (PMID 27941827) show elongation is
+    MAINTAINED towards zero growth -- a slow cell cuts its active ribosome fraction, not its rate. Young &
+    Bremer 1976 measured 12 aa/s at 0.67 doublings/h, and this model's wild type runs 16.72."""
+    from src.cellarium import qc
+    from src.cellarium.model import GenerationResult
+    for e in (16.72, 12.0, 5.0, 1.5):
+        g = GenerationResult(index=0, full_chromosome_end=2, divided=True, division_time_sec=2500.0,
+                             n_steps=2500, growth_mean=0.00025, elongation_mean=e)
+        assert qc.check_generation(g) is qc.QCStatus.OK, e
+
+
+def test_an_absent_elongation_reading_is_unknown_not_healthy():
+    """Runs predating the channel must not be silently declared viable -- the same absence discipline the rest
+    of this file enforces."""
+    from src.cellarium import qc
+    from src.cellarium.model import GenerationResult
+    g = GenerationResult(index=0, full_chromosome_end=2, divided=True, division_time_sec=2500.0,
+                         n_steps=2500, growth_mean=0.00025, elongation_mean=None)
+    assert qc.check_generation(g) is qc.QCStatus.OK
+
+
+def test_the_reader_actually_records_the_channel():
+    """The rule is inert unless the channel is registered AND its table is readable."""
+    import re
+    src = open("src/cellarium/_reader_worker.py", encoding="utf-8").read()
+    assert '"effective_elongation_rate": ("RibosomeData", "effectiveElongationRate")' in src
+    assert '"RibosomeData"' in re.search(r"SCHEMA_TABLES\s*=\s*\[[^\]]*\]", src, re.S).group(0)
+    assert '"elongation_mean": _chan_mean(so, "effective_elongation_rate")' in src
+
+
+def test_cellwright_is_told_to_EXPLAIN_the_flag_not_just_report_it():
+    """The user must learn WHY a run is flagged, including the objection that it was merely a slow cell."""
+    from src.cellarium import agent
+    s = agent.SYSTEM
+    assert "translation_collapse" in s
+    assert "27941827" in s                      # the citation that rules out 'just growing slowly'
+    assert "active ribosome" in s.lower()
+    assert "evidence-ABSENT" in s

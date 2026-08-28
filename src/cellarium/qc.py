@@ -20,6 +20,22 @@ DEGENERATE_MAX_STEPS = 10
 # is numerical garbage — the signature of a crashed-but-"divided" run (gltX post-collapse read 0.0013-0.0021).
 IMPLAUSIBLE_GROWTH = 0.001
 
+# TRANSLATION COLLAPSE, in amino acids/second. `IMPLAUSIBLE_GROWTH` is a CEILING; nothing was a floor, so a
+# cell whose ribosomes had effectively stopped still returned `ok` provided its chromosome finished.
+#
+# The threshold is anchored to measurement, not taste. In E. coli the elongation rate is 20-21 aa/s above one
+# doubling/h (Forchhammer & Lindahl 1971, JMB 55:563) and 17 aa/s fast / 12 aa/s at 0.67 doublings/h (Young &
+# Bremer 1976, Biochem J 160:185). Crucially, Dai et al. 2016 (Nat Microbiol 2:16231, PMID 27941827) show the
+# rate does NOT collapse as growth slows: "an appreciable elongation rate is maintained even towards zero
+# growth, including the stationary phase" — a slow cell reduces its ACTIVE RIBOSOME FRACTION and keeps
+# elongating. So "the cell is just growing slowly" does not produce a near-zero rate in real E. coli.
+#
+# 1.0 aa/s sits an order of magnitude below the slowest rate ever measured and ~17x below this model's own
+# wild type (16.72 aa/s, measured on wildtype/basal#elong:kinetic). MEASURED on gene_knockout/KO:argS under
+# kinetic: 0.047, 0.012, 0.007 across three generations — 250-2400x below the slow-growth value, i.e. one
+# residue every 20-140 s. Every one of those generations was recorded `qc=ok`.
+TRANSLATION_COLLAPSE_AA_PER_S = 1.0
+
 
 class QCStatus(str, Enum):
     OK = "ok"
@@ -31,6 +47,7 @@ class QCStatus(str, Enum):
     IMPLAUSIBLE = "implausible_channel"   # divided, but a core channel is physically impossible (crash garbage)
     NO_DIVISION = "no_division"
     TRUNCATED = "truncated"                # data stops BEFORE the division that ended the generation
+    TRANSLATION_COLLAPSE = "translation_collapse"   # ribosomes stopped; the chromosome finished anyway
 
 
 # Generation n's data must reach generation n+1's first timestep. A gap larger than this (seconds) means
@@ -50,6 +67,11 @@ def check_generation(gen: GenerationResult) -> QCStatus:
         return QCStatus.FBA_INFEASIBLE
     if gen.growth_mean is not None and gen.growth_mean > IMPLAUSIBLE_GROWTH:
         return QCStatus.IMPLAUSIBLE   # a run can "divide" yet be numerically collapsed — don't report its channels (G2)
+    if gen.elongation_mean is not None and gen.elongation_mean < TRANSLATION_COLLAPSE_AA_PER_S:
+        # BEFORE the division test on purpose: this cell's chromosome may well have reached 2, and that is
+        # exactly the case that was scoring `ok`. Absent (None) stays silent — a run predating the channel is
+        # unknown, not healthy.
+        return QCStatus.TRANSLATION_COLLAPSE
     if not gen.divided or gen.division_time_sec is None:
         return QCStatus.NO_DIVISION
     return QCStatus.OK

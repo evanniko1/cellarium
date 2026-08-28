@@ -54,6 +54,10 @@ SUMMARY_CHANNELS = {
     "ribosome_conc": ("GrowthLimits", "ribosome_conc"),               # the ppGpp target (down when ppGpp high)
     "fraction_trna_charged": ("GrowthLimits", "fraction_trna_charged"),  # the stringent trigger (AA limitation)
     "rela_conc": ("GrowthLimits", "rela_conc"),                       # the sensor
+    # THE VIABILITY CHANNEL (see qc.TRANSLATION_COLLAPSE_AA_PER_S). Nothing else recorded separates a
+    # viable cell from a translationally dead one whose chromosome still finished: on the argS KO,
+    # growth_rate reads 0.00025 -- identical to wild type -- while elongation is 2400x lower.
+    "effective_elongation_rate": ("RibosomeData", "effectiveElongationRate"),
 }
 SPECIES_SOURCES = {
     "protein": ("MonomerCounts", "monomerCounts", "monomerIds"),
@@ -66,7 +70,8 @@ SPECIES_SOURCES = {
     "unique": ("UniqueMoleculeCounts", "uniqueMoleculeCounts", "uniqueMoleculeIds"),
 }
 SCHEMA_TABLES = ["Main", "Mass", "GrowthLimits", "FBAResults", "RNACounts",
-                 "MonomerCounts", "UniqueMoleculeCounts", "BulkMolecules", "RnaSynthProb"]
+                 "MonomerCounts", "UniqueMoleculeCounts", "BulkMolecules", "RnaSynthProb",
+                 "RibosomeData"]
 
 
 def _finite(x):
@@ -141,7 +146,12 @@ def _generation(so, i):
             "t_start": (float(t[0]) if n else None), "t_end": (float(t[-1]) if n else None),
             "divided": divided, "division_time_sec": (float(t[-1]) if divided else None),
             "growth_mean": _chan_mean(so, "growth_rate"),   # per-gen trajectory -> see approach to steady state
-            "ppgpp_mean": _chan_mean(so, "ppgpp_conc")}
+            "ppgpp_mean": _chan_mean(so, "ppgpp_conc"),
+            # THE VIABILITY CHANNEL. `divided` above is `fc == 2 and n > 10` — chromosome count only — and DNA
+            # replication proceeds without functioning translation, so a translationally dead cell scores
+            # `divided=True` and QC returns ok. Nothing else recorded reveals it: measured on the argS KO,
+            # `growth_rate` reads 0.00025, identical to wild type, while elongation is 2400x lower.
+            "elongation_mean": _chan_mean(so, "effective_elongation_rate")}
 
 
 def _downsample(t, s, k=16):
