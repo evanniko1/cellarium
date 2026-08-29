@@ -35,7 +35,9 @@ partition that nothing enforces, and it splits `wildtype/basal` — the referenc
 **`H-17`** (**corpus hygiene** — the invariant catalogue every cloner must not be able to skip, and where it has
 to live; thread `H-17a…H-17e` under [F-HYG](#f-hyg--corpus-hygiene--the-thread)).
 
-**▶ Next action (2026-08-27):** **`CAPBENCH-1`** — author the selective-answering case corpus. `main.tex` §6 pre-registers a benchmark that does not exist; the case corpus gates the pilot, the arms, and the repetition count, and it is authoring work rather than compute. See [CAPBENCH](#capbench--the-selective-answering-capability-benchmark-p1--the-next-step-and-a-paper-of-its-own).
+**▶ Next action (2026-08-29): `QC-VIA-1` step 1 FIRST, then `CAPBENCH-1`.** Step 1 of QC-VIA-1 costs nothing — no download, no simulation, just re-reading the 419 local generation-dirs — and it answers whether any of the 246 `reportable` rows are translationally dead cells recorded as clean divisions. That number decides whether existing lethality claims and the paper's use of those rows stand, so it gates more than it costs. See [QC-VIA-1](#qc-via-1--re-classify-the-existing-corpus-against-the-translation-collapse-floor-p1).
+
+**▶ Then:** **`CAPBENCH-1`** — author the selective-answering case corpus. `main.tex` §6 pre-registers a benchmark that does not exist; the case corpus gates the pilot, the arms, and the repetition count, and it is authoring work rather than compute. See [CAPBENCH](#capbench--the-selective-answering-capability-benchmark-p1--the-next-step-and-a-paper-of-its-own).
 
 **▶ Then:** the **live PUB-A1 sweep** — the last step in the publication's headline comparison, and the only
 one that needs an API key. Everything offline is built and green. See
@@ -567,6 +569,63 @@ python evals/run_ab.py <same batches> --reps 5 --out evals/results/ab_baseline.j
 **Do not** fold `grade.deterministic()` into the comparison — it is Arm-B-only by construction.
 Blocked-on afterwards: PUB-A2's cross-family judge panel + IRR (`shared_metric.grade()` already takes
 client+model, and its payload is arm-blind, so a panel is a loop over judges plus an agreement statistic).
+
+### QC-VIA-1 · Re-classify the existing corpus against the translation-collapse floor (`P1`)
+
+**Filed 2026-08-29, after `423a227`.** New runs and re-runs are handled automatically — `_reader_worker`
+records `effective_elongation_rate` and `qc.check_generation` applies the 1.0 aa/s floor, so anything generated
+from here carries the verdict. **This item is only about rows written BEFORE that landed**, which cannot
+self-correct because the channel they would be judged on was never recorded.
+
+**What changed.** `divided` is `full_chromosome_end == 2 and n_steps > 10` — chromosome count and nothing
+else. DNA replication proceeds without functioning translation, so a cell whose ribosomes had stopped scored
+`divided=True` and fell through every remaining check to `ok`. `IMPLAUSIBLE_GROWTH` is a CEILING; there was no
+floor. Measured on `gene_knockout/KO:argS` under kinetic: mean elongation **0.047 / 0.012 / 0.007 aa/s** across
+three generations against a wild-type **16.72** in the same model, ArgS protein **0.0** at every timestep, arg
+charging exactly **0** — and all three generations recorded `qc=ok`.
+
+**Why it is invisible without a re-read.** That KO reports `growth_rate` **0.00025 — identical to wild type** —
+while elongation is 2400x lower. No column in any existing shard separates the two. There is no query that
+finds these rows; the raw has to be opened.
+
+**Threshold is anchored to measurement** (recorded here so it is not re-litigated): 20-21 aa/s above one
+doubling/h (Forchhammer & Lindahl 1971, JMB 55:563); 17 fast / 12 at 0.67 doublings/h (Young & Bremer 1976,
+Biochem J 160:185); and decisively, **Dai et al. 2016 (Nat Microbiol 2:16231, PMID 27941827)** — the rate does
+NOT collapse as growth slows, *"an appreciable elongation rate is maintained even towards zero growth,
+including the stationary phase"*, because a slow cell reduces its ACTIVE RIBOSOME FRACTION rather than its
+elongation rate. So "it was just growing slowly" is not an available reading of 0.05 aa/s.
+
+#### The exposure, measured 2026-08-29
+
+| | |
+|---|---|
+| corpus rows | **375** across 3 shards |
+| `qc='ok'` / `reportable=True` | **246** — the population at risk |
+| shards carrying an elongation column | **0** (including the two written today, which predate the channel) |
+| raw still readable locally | **419** generation-dirs across 7 campaign roots |
+| raw deleted to HF, needs re-download | **60** run roots (`data/hf_reclaim_manifest.json` has a `download` per entry) |
+| raw gone from both | previously measured at **76 rows** — permanently unknowable, must stay `ok`-with-caveat, never re-labelled |
+
+#### Steps
+
+1. **Re-read the local 419 first** — no download, no simulation. `_reader_worker` already returns
+   `elongation_mean`; the work is re-running the generation read and re-applying `check_generation`.
+2. **Quantify before rewriting anything.** How many of the 246 `ok` rows flip to `translation_collapse`? If it
+   is a handful, this is a footnote; if it is a large fraction of the KO rows, every lethality claim built on
+   "the KO divided fine" needs revisiting, and so does anything in the paper that leans on those rows.
+3. **Then decide the HF 60** — 140 GB of download to re-evaluate. Worth it only if step 2 shows a real rate.
+4. **Rows whose raw is gone stay unknown.** A row that cannot be re-read must NOT be silently relabelled in
+   either direction; absence of the channel is not evidence of viability, and it is not evidence of collapse.
+
+⚠️ **This is a relabelling of published data.** The HF dataset card and `docs/REPORT_EVIDENCE.md` both quote
+`reportable` counts. If the count moves, they move with it, in the same pass — a corpus whose card disagrees
+with its manifest is worse than one with a known caveat.
+
+🔗 Interacts with [CAPBENCH](#capbench--the-selective-answering-capability-benchmark-p1--the-next-step-and-a-paper-of-its-own):
+`translation_collapse` is a new refusal reason with a real citation behind it, and it is exactly the shape a
+capability case should test — a run that looks like clean data and is not.
+
+---
 
 ### CAPBENCH · The selective-answering capability benchmark (`P1` — the next step, and a paper of its own)
 
