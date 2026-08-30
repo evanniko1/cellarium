@@ -84,10 +84,21 @@ CC-BY-NC-4.0). Checked directly, and it changes the answer:
   matrix, including the inosine- and lysidine-modified exceptions at specific Arg and Ile codons. The paper
   states it represents "85 tRNAs (in their aminoacylated and unaminoacylated forms)" and models "61 sense
   codons" with Watson-Crick and wobble pairing.
-* **Our checkout does not have it.** `MohammedNagdi/wcEcoli` exposes only `BaseElongationModel`,
-  `TranslationSupplyElongationModel` and `SteadyStateElongationModel`; we run the last. `KineticTrnaCharging`,
-  `trnas_to_codons` and `codons_to_trnas` return **zero matches** across `models/`, `reconstruction/` and
-  `wholecell/`. So this is a fork-lineage gap, not a missing capability in the model family.
+* ~~**Our checkout does not have it.**~~ **SUPERSEDED 2026-08-29 — the port landed and this is no longer
+  true.** Kept because it was the premise the extension work was planned against. The overlay now ships the
+  kinetic port (`models/ecoli/processes/polypeptide_elongation.py`, `wholecell/utils/_trna_charging.pyx` and
+  four `trna_charging_kinetics*` flat files, all category `port` in `model_overlay/MANIFEST.json`), and a
+  built image carries **three** elongation classes, verified directly:
+
+  | image | classes | `--kinetic-trna-charging` |
+  |---|---|---|
+  | `wcecoli-sim:latest` (2026-05-10, pre-overlay) | Base, SteadyState only | absent |
+  | `${USER}-wcm-code:latest` (overlay applied) | + `KineticTrnaChargingModel`, `CoarseKineticTrnaChargingModel` | present |
+
+  So it was a fork-lineage gap and it is now closed by the overlay, not by upstream. See
+  [OVERLAY.md](OVERLAY.md) and [CORPUS_ARMS.md](CORPUS_ARMS.md). *(original claim:* `MohammedNagdi/wcEcoli`
+  exposed only `BaseElongationModel`, `TranslationSupplyElongationModel` and `SteadyStateElongationModel`, and
+  `KineticTrnaCharging` / `trnas_to_codons` / `codons_to_trnas` returned zero matches.*)*
 * **Nobody has run the test.** Choi & Covert cite Elf's selective-aminoacylation theory but make **no attempt
   to reproduce Elf 2003 or Dittmar 2005**. So "does the published per-isoacceptor whole-cell model reproduce
   selective charging?" is an open question in a model that already has every mechanism required.

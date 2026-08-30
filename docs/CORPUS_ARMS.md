@@ -8,23 +8,35 @@ Rows from different arms are not poolable.
 | `3b2f8ebd` | on | steady_state | 279 | 188 | 0g:58, 1g:122, 3g:13, 4g:75, 7g:7, 8g:4 | 2026-07-08 | 2026-07-09 |
 | `0d861f80` | on | steady_state | 40 | 30 | 0g:7, 1g:3, 4g:30 | ? | 2026-07-29 |
 | `5f19d040` | on | steady_state | 36 | 14 | 3g:20, 4g:16 | 2026-08-06 | 2026-08-06 |
-| `5f19d040` | on | kinetic | 8 | 4 | 3g:8 | 2026-08-06 | 2026-08-06 |
+| `5f19d040` | on | kinetic | 20 | 14 | 0g:2, 3g:18 | 2026-08-06 | 2026-08-06 |
 
-4 arms, 363 live rows.
+4 arms, 375 live rows.
 
 ## Provenance coverage (ARM-2)
 
 Written on every new row; NULL on rows that predate the column. NULL means UNKNOWN and is never read as agreement — see `arm_conflicts`.
 
-| column | rows carrying it | of 236 analysable rows |
+| column | rows carrying it | of 246 analysable rows |
 |---|---|---|
-| `model_sha256` | 0 | 0% |
-| `image_digest` | 0 | 0% |
-| `reconstruction_sha` | 0 | 0% |
-| `parca_ts` | 206 | 87% |
-| `runsim_argv` | 0 | 0% |
+| `model_sha256` | 10 | 4% |
+| `image_digest` | 10 | 4% |
+| `reconstruction_sha` | 10 | 4% |
+| `parca_ts` | 216 | 88% |
+| `runsim_argv` | 10 | 4% |
 
-**1 conflict(s):** rows sharing an arm disagree on parca_ts.
+No arm carries rows that disagree on a recorded covariate.
+
+## The three elongation models
+
+`elongation_model` is an ARM KEY, not a label: the same 86-wide `GrowthLimits/fraction_trna_charged` column means something different under each, so rows from two of them can never be pooled.
+
+| mode | flag | what the 86 columns mean |
+|---|---|---|
+| `steady_state` | *(none — the model default)* | charging solved as a 20-state ODE indexed by AMINO ACID, then broadcast across the family: within-family isoacceptor spread is **0.00 by construction**, an algebraic identity rather than a measurement |
+| `kinetic` | `--kinetic-trna-charging` | per-isoacceptor charging with explicit codon reading (Choi & Covert 2023): the 86 values are genuinely independent, so a within-family spread IS a measurement |
+| `coarse_kinetic` | `--coarse-kinetic-elongation` | elongation capped by synthetase k_cat; charging is **not solved at all** and the 86 columns are EXACT ZEROS — the absence of a model, never total de-acylation |
+
+Only `steady_state` and `kinetic` solve charging, so only those two are candidates for a charging question; `coarse_kinetic` is refused as absent. `steady_state` couples the stringent response, `kinetic` does not — so under `kinetic` an amino-acid limitation can leave `ppgpp_conc` at 0.0 while translation dies unsensed. That is the case `translation_collapse` exists to catch; the QC vocabulary is documented in [QC_STATUSES.md](QC_STATUSES.md).
 
 ## What each provenance column answers
 

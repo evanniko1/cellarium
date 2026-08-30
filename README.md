@@ -322,6 +322,16 @@ Key modules: `src/cellarium/council.py` (the Council + blindness invariant), `ag
 (corpus), `instrument.py` (the capability view the Council sees), `launch.py` (the airlock). `apps/server.py` serves
 the SPA; `apps/sessions.py` + `apps/hypotheses.py` persist Cellwright + Council runs.
 
+## Reading the corpus
+
+Every row carries a `qc` value and an ARM. Two reference pages before you interpret any number:
+
+- **[docs/QC_STATUSES.md](docs/QC_STATUSES.md)** — what each `qc` value means, and the rule that decides how
+  to read one: for a continuous reading anything but `ok` is evidence-ABSENT, but for a viability question a
+  failure IS the readout.
+- **[docs/CORPUS_ARMS.md](docs/CORPUS_ARMS.md)** — the arms (`kb_sha256` + `operons` + `elongation_model`) and
+  the three elongation models. Rows from different arms are not poolable. Generated, never hand-edited.
+
 ## Known limitations
 
 Reported here because a user should meet them before a result does, not after. Each row points at the backlog

@@ -271,7 +271,27 @@ def report() -> str:
                        % (len(conflicts), ", ".join(sorted({c["column"] for c in conflicts})))
                        if conflicts else "No arm carries rows that disagree on a recorded covariate."), ""]
 
-    lines += ["## What each provenance column answers", ""]
+    lines += [
+        "## The three elongation models", "",
+        "`elongation_model` is an ARM KEY, not a label: the same 86-wide "
+        "`GrowthLimits/fraction_trna_charged` column means something different under each, so rows from two "
+        "of them can never be pooled.", "",
+        "| mode | flag | what the 86 columns mean |",
+        "|---|---|---|",
+        "| `steady_state` | *(none — the model default)* | charging solved as a 20-state ODE indexed by AMINO "
+        "ACID, then broadcast across the family: within-family isoacceptor spread is **0.00 by construction**, "
+        "an algebraic identity rather than a measurement |",
+        "| `kinetic` | `--kinetic-trna-charging` | per-isoacceptor charging with explicit codon reading (Choi "
+        "& Covert 2023): the 86 values are genuinely independent, so a within-family spread IS a measurement |",
+        "| `coarse_kinetic` | `--coarse-kinetic-elongation` | elongation capped by synthetase k_cat; charging "
+        "is **not solved at all** and the 86 columns are EXACT ZEROS — the absence of a model, never total "
+        "de-acylation |", "",
+        "Only `steady_state` and `kinetic` solve charging, so only those two are candidates for a charging "
+        "question; `coarse_kinetic` is refused as absent. `steady_state` couples the stringent response, "
+        "`kinetic` does not — so under `kinetic` an amino-acid limitation can leave `ppgpp_conc` at 0.0 while "
+        "translation dies unsensed. That is the case `translation_collapse` exists to catch; the QC vocabulary "
+        "is documented in [QC_STATUSES.md](QC_STATUSES.md).", "",
+        "## What each provenance column answers", ""]
     for k, why in MISSING_COLUMNS.items():
         lines.append("- **`%s`** — %s" % (k, why))
     return "\n".join(lines)
