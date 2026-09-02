@@ -295,7 +295,7 @@ reader backend behind gene-level tools. Deep-dive read path (pull raw + wire the
 ## The corpus
 
 The raw whole-cell simOut is published as an open Hugging Face dataset
-([`evanniko1/cellarium-corpus`](https://huggingface.co/datasets/evanniko1/cellarium-corpus), about 198 GB across 96 run
+(`evanniko1/cellarium-corpus`, about 198 GB across 96 run
 archives). The distilled Parquet manifest ships in-repo (about 5 MB) for fast, download-free reasoning; `download_raw`
 pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth.
 
@@ -345,13 +345,13 @@ vs 0.8295 (kinetic)**. Avcilar-Kucukgoze et al. 2016 (*NAR* 44(17):8324) measure
 condition, and Choi & Covert's own published aggregate is **78.8%** — so the steady-state figure is outside the
 measured band entirely and the kinetic one sits four points high. Separately, our kinetic within-family spread
 (**LEU 0.25, GLY 0.32**) is about twice the widest published spread (0.16, Dittmar et al. 2005). *The capability
-is real; the magnitudes are not validated.* → [`BACKLOG.md` EXT-PORT-12](BACKLOG.md) (open).
+is real; the magnitudes are not validated.* → `BACKLOG.md` EXT-PORT-12 (open).
 
 **2. The kinetic model's parameters are not identified against this knowledge base.** The shipped `K_T` values
 were optimised against tRNA abundances this KB no longer carries — `trpT` was assumed at 3.68 µM and this KB has
 1.10 µM, a **3.3× shortfall** — and because `K_T` (8.75 µM) already exceeds the pool, charging is first-order in
 abundance and the error passes straight through to the output. No ppGpp refit should be attempted before that is
-closed. → [`BACKLOG.md` EXT-PORT-13](BACKLOG.md) (open, next action), and EXT-4 behind it.
+closed. → `BACKLOG.md` EXT-PORT-13 (open, next action), and EXT-4 behind it.
 
 **3. Codon identity does not reach the elongation rate in any run that exists.** The codon × anticodon reading
 matrix and its consumer are both in the checkout, but only the **kinetic** path elongates by codon; under
@@ -363,7 +363,7 @@ absence of a model rather than total de-acylation. Any codon-usage or codon-bias
 inferred from sequence, not simulated. `model_capabilities` refuses these rather than returning a number — that
 refusal machinery exists *because* we once published the 0.00 as a result.
 → [`src/cellarium/capability.py`](src/cellarium/capability.py) (`codon_level_elongation`,
-`per_isoacceptor_trna_charging`) and [`BACKLOG.md` SCI-TRNA-1 / SCI-TRNA-5](BACKLOG.md).
+`per_isoacceptor_trna_charging`) and `BACKLOG.md` SCI-TRNA-1 / SCI-TRNA-5.
 
 **4. Some corpus rows are not reproducible from a fresh build, and some are thinner than the manifest suggests.**
 The corpus's cached knowledge base does **not** rebuild bit-identically from the current model image: exactly 1 of
@@ -371,15 +371,15 @@ The corpus's cached knowledge base does **not** rebuild bit-identically from the
 for it. The blast radius is bounded and stated — all four `minus_phosphate` runs are `qc=crashed`, **0 reportable**
 — so no published result rests on it, but *reproducibility of the published dataset depends on closing it*.
 Separately, the aaRS panel lists 4 seeds each for argS/pheS/alaS/lysS/gltX and only seed 0 is on disk, so
-`KO:lysS` is **n=1**. → [`BACKLOG.md` WELL-KBDRIFT-1](BACKLOG.md) (open) and
-[`BACKLOG.md` SCI-TRNA-2](BACKLOG.md) (open).
+`KO:lysS` is **n=1**. → `BACKLOG.md` WELL-KBDRIFT-1 (open) and
+`BACKLOG.md` SCI-TRNA-2 (open).
 
 **5. A `gene_knockout` is an operon knockout.** Under operons-ON — the model's default and the configuration all
 322 corpus rows were built in — `gene_knockout` zeroes one *transcription unit*. Measured: `KO:rpoB` leaves rpoB
 expressed, `KO:rpmJ` silences `secY`, `KO:flgB` deletes nine flagellar genes. Cellarium's `graded_gene_knockout`
 variant fixes the first two classes; nothing fixes the third short of a different knowledge base. The agent tool
 `operon_mode_advice` returns this decision with its citations and its gaps.
-→ [`docs/KNOCKOUT_SEMANTICS.md`](docs/KNOCKOUT_SEMANTICS.md), [`BACKLOG.md` OPERONS-1 / OPERONS-3](BACKLOG.md).
+→ [`docs/KNOCKOUT_SEMANTICS.md`](docs/KNOCKOUT_SEMANTICS.md), `BACKLOG.md` OPERONS-1 / OPERONS-3.
 
 **6. Upstream's own container build is broken today, and the overlay is what fixes it.** Two dependencies pinned
 in wcEcoli's `requirements.txt` have bit-rotted (`Equation`, `stochastic-arrow`); a clean `a4497e17` checkout
