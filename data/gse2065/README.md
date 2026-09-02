@@ -26,10 +26,9 @@ The derived outputs **are** committed, so `tests/test_gse2065.py` verifies the p
 no network. `--verify-download` re-runs the chain from the raw record.
 
 - `table_rg.csv` — $R_g(t)$ per probe group and time point, with technical spot IQRs
-- `summary.json` also carries the ordering check under all 72 leave-one-spot refits and the six
-  high-vs-low inequalities shared with the acidic Northern blot
 - `error_floors.csv` — RMSE and $L_\infty$ floors, plus the loci-weighted and leave-one-spot-out checks
-- `summary.json` — the above with the input hash, the probe grouping, and the measurement caveat
+- `summary.json` — the above with the input hash, the probe grouping, the measurement caveat, the
+  ordering check across all 72 leave-one-spot refits, and the six inequalities shared with the blot
 - `figure1_panels_bc.pdf` — panels (b) and (c). Panel (a) is a schematic, drawn separately.
 
 ## How the five groups are built
