@@ -142,8 +142,8 @@ pip install -e .                                     # adds anything the lock pr
 python apps/server.py                                # -> http://127.0.0.1:8000
 ```
 
-All runtime dependencies (Starlette, uvicorn, DuckDB, PyArrow, anthropic, numpy, pydantic) are declared in
-`pyproject.toml`, so the install is self-contained (`huggingface_hub` is an optional extra used only by the
+All runtime dependencies (Starlette, uvicorn, DuckDB, PyArrow, anthropic, numpy, pydantic, keyring) are
+declared in `pyproject.toml`, so the install is self-contained (`huggingface_hub` is an optional extra used only by the
 corpus-upload scripts). **With no API key at all**, the server boots and every read-only surface works: the
 **corpus browser** over the committed DuckDB/Parquet manifest, and — because a fresh clone auto-bootstraps
 `data/sessions.db` from the committed `data/sessions.seed.db` — the **43 recorded Cellwright investigations and 30
@@ -160,8 +160,9 @@ cp .env.example .env        # add ANTHROPIC_API_KEY=sk-ant-...   (get one at htt
 python apps/server.py
 ```
 
-The Settings panel stores the key in your **OS keychain** via the optional `keyring` extra
-(`pip install -e ".[keyvault]"`). Precedence at startup is an exported shell variable, then a repo-root `.env`,
+The Settings panel stores the key in your **OS keychain** via `keyring`, a core dependency since
+2026-08-11 — it used to be the `keyvault` extra, which is kept as a no-op alias so older install docs still
+work. Precedence at startup is an exported shell variable, then a repo-root `.env`,
 then the keychain. The key stays on your machine, is sent only to Anthropic's API, and **never enters the
 assistant's context** — there is deliberately no tool through which Cellwright can read or change it.
 
