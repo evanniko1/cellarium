@@ -82,19 +82,44 @@ def test_both_sensitivity_checks_match(floors):
         assert got == (want_lo, want_hi), f"t={t}: LOSO {got} != {(want_lo, want_hi)}"
 
 
-def test_ordering_holds_under_every_spot_exclusion(floors):
-    """The claim that survives the assay disagreement: LeuX and LeuZ stay above the other three.
+def test_ordering_holds_under_every_spot_exclusion():
+    """LeuX and LeuZ above the other three in EVERY leave-one-spot refit -- 18 spots x 4 times.
 
-    The magnitudes differ between the array and the Northern blot, so the paper rests the biological
-    reading on the ORDERING, not the values. A floor computed from a spread that could invert is a
-    weaker statement than the text makes, so check the separation directly.
+    The manuscript makes this claim about the exclusions, not about the pooled table, so checking
+    only the pooled table would leave the stated claim untested while looking like it covered it.
+    18 spots by 4 post-withdrawal times is 72 comparisons; anything less than 72 is a real failure.
     """
+    o = json.loads((OUT / "summary.json").read_text(encoding="utf-8"))["ordering_under_spot_exclusions"]
+    assert o["comparisons"] == 72, f"expected 18 spots x 4 times, got {o['comparisons']}"
+    assert o["held"] == 72, f"separation inverts in {72 - o['held']} of 72 refits"
+    assert o["min_margin"] > 0
+
+
+def test_six_shared_inequalities_hold_in_both_assays():
+    """The array and the blot disagree on magnitude; the ordering is what both support.
+
+    The Northern vector is transcribed from Dittmar et al. rather than derived here, so this checks
+    a derived result against a literature constant -- not two constants against each other.
+    """
+    a = json.loads((OUT / "summary.json").read_text(encoding="utf-8"))["assay_agreement"]
+    ineq = a["shared_high_vs_low"]
+    pairs = {k: v for k, v in ineq.items() if k != "all_six_hold_in_both"}
+    assert len(pairs) == 6, f"expected 2 high x 3 low = 6 inequalities, got {len(pairs)}"
+    for name, v in pairs.items():
+        assert v["array_all_times"], f"{name} fails in the derived array data"
+        assert v["northern"], f"{name} fails in the transcribed Northern vector"
+    assert ineq["all_six_hold_in_both"]
+    assert "not derived here" in a["northern_source"], "the blot must stay labelled as transcribed"
+
+
+def test_spot_iqrs_are_reported_and_bracket_the_median():
+    """The figure plots technical spot IQRs as whiskers, so they have to exist and be well-formed."""
     for r in _rows("table_rg.csv"):
         if int(r["time_min"]) == 0:
             continue
-        high = min(float(r["LeuX"]), float(r["LeuZ"]))
-        low = max(float(r["LeuPQVT"]), float(r["LeuU"]), float(r["LeuW"]))
-        assert high > low, f"t={r['time_min']}: LeuX/LeuZ do not separate from the rest"
+        for g in GROUPS:
+            lo, mid, hi = float(r[f"{g}_iqr_lo"]), float(r[g]), float(r[f"{g}_iqr_hi"])
+            assert lo <= mid <= hi, f"t={r['time_min']} {g}: IQR [{lo}, {hi}] does not bracket {mid}"
 
 
 def test_provenance_is_recorded():

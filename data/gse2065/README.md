@@ -25,7 +25,9 @@ resolved.
 The derived outputs **are** committed, so `tests/test_gse2065.py` verifies the published numbers with
 no network. `--verify-download` re-runs the chain from the raw record.
 
-- `table_rg.csv` — $R_g(t)$ per probe group and time point
+- `table_rg.csv` — $R_g(t)$ per probe group and time point, with technical spot IQRs
+- `summary.json` also carries the ordering check under all 72 leave-one-spot refits and the six
+  high-vs-low inequalities shared with the acidic Northern blot
 - `error_floors.csv` — RMSE and $L_\infty$ floors, plus the loci-weighted and leave-one-spot-out checks
 - `summary.json` — the above with the input hash, the probe grouping, and the measurement caveat
 - `figure1_panels_bc.pdf` — panels (b) and (c). Panel (a) is a schematic, drawn separately.
@@ -57,8 +59,14 @@ internal-amine correction is already folded into the deposited values cannot be 
 record.
 
 The magnitudes differ between this array and the acidic Northern blot in the same study. The claim
-that survives both is the **ordering** — LeuX and LeuZ above LeuPQVT, LeuU and LeuW — which is
-checked directly in `tests/test_gse2065.py`.
+that survives both is the **ordering** — LeuX and LeuZ above LeuPQVT, LeuU and LeuW — which holds
+in all 72 leave-one-spot refits (18 spots x 4 times, minimum margin 0.120) and in both assays.
+
+The Northern vector and its baseline fractions are **transcribed from Dittmar et al.**, not derived
+here: they are not in the GEO record. They are labelled as constants in `summary.json` so the
+agreement being checked is between this reanalysis and the published blot, not between two
+constants. The manuscript's *relative array* vector (0.086, 0.042, 0.039, 0.24, 0.21) does not
+reconcile with any row of `table_rg.csv` and is not reproduced here.
 
 One discrepancy against the manuscript, recorded rather than silently corrected: Table 3 prints LeuZ
 at t=17 as 0.267; the deposited data give 0.26641, which rounds to 0.266. Nothing derived changes,

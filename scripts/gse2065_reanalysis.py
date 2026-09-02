@@ -118,9 +118,23 @@ def parse(soft_text: str) -> tuple[dict[str, str], dict[int, dict[str, list[floa
             group = probe_to_group.get(id_to_probe.get(f[0], ""), "")
             if group and len(f) > 1:
                 try:
-                    by_time[minute].setdefault(group, []).append(float(f[1]))
+                    value = float(f[1])
                 except ValueError:
-                    pass    # a blank or flagged spot is absent, not zero
+                    continue    # a blank or flagged spot is absent, not zero
+                # Appendix B states VALUE = log2(PRE_VALUE). Check it rather than trust it: if GEO
+                # ever re-deposits with a different transform, every ratio below silently changes
+                # meaning while still looking like a number.
+                if len(f) > 2:
+                    try:
+                        pre = float(f[2])
+                    except ValueError:
+                        pre = 0.0
+                    if pre > 0 and abs(value - math.log2(pre)) > 1e-4:
+                        raise SystemExit(
+                            f"VALUE != log2(PRE_VALUE) at spot {f[0]} (t={minute}): {value} vs "
+                            f"{math.log2(pre)}. The deposited transform is not what Appendix B describes."
+                        )
+                by_time[minute].setdefault(group, []).append(value)
     return probe_to_group, by_time
 
 
@@ -132,6 +146,58 @@ def ratios(by_time, groups, drop: int | None = None) -> dict[int, dict[str, floa
 
     base = {g: med(0, g) for g in groups}
     return {t: {g: 2 ** (med(t, g) - base[g]) for g in groups} for t in TIMES}
+
+
+def _six_inequalities(R, northern: list[float], groups: list[str]) -> dict:
+    """The 2 high x 3 low comparisons, required to hold in the derived array AND the published blot.
+
+    The two assays disagree on magnitude, so the ordering is the only thing a component test can be
+    scored against. Checking it here keeps that claim falsifiable instead of asserted in prose.
+    """
+    idx = {g: i for i, g in enumerate(groups)}
+    high, low = ("LeuX", "LeuZ"), ("LeuPQVT", "LeuU", "LeuW")
+    out = {}
+    for h in high:
+        for lo in low:
+            array_ok = all(R[t][h] > R[t][lo] for t in TIMES[1:])
+            out[f"{h}>{lo}"] = {"array_all_times": array_ok,
+                                "northern": northern[idx[h]] > northern[idx[lo]]}
+    out["all_six_hold_in_both"] = all(v["array_all_times"] and v["northern"]
+                                      for k, v in out.items() if k != "all_six_hold_in_both")
+    return out
+
+
+def _spot_iqr(by_time, group, minute, R) -> tuple[float, float]:
+    """Quartiles of the 18 spots at `minute`, carried onto the ratio scale the figure plots.
+
+    Each spot is exponentiated against the SAME time-zero median the point uses, so the whisker and
+    the marker are on one scale. Spread across printed spots only -- one hybridisation per time point.
+    """
+    base = st.median(by_time[0][group])
+    spots = sorted(2 ** (v - base) for v in by_time[minute][group])
+    n = len(spots)
+    lo = st.median(spots[: n // 2])
+    hi = st.median(spots[(n + 1) // 2:])
+    return lo, hi
+
+
+def _ordering_under_exclusions(by_time, groups) -> dict:
+    """Does LeuX/LeuZ stay above LeuPQVT/LeuU/LeuW in every leave-one-spot-out refit?
+
+    Reported as counts rather than a bare bool so a partial failure is visible instead of collapsing
+    to False with no indication of how close the separation came to inverting.
+    """
+    high_g, low_g = ("LeuX", "LeuZ"), ("LeuPQVT", "LeuU", "LeuW")
+    total = held = 0
+    margin = None
+    for d in range(len(by_time[0][groups[0]])):
+        R = ratios(by_time, groups, drop=d)
+        for t in TIMES[1:]:
+            total += 1
+            gap = min(R[t][g] for g in high_g) - max(R[t][g] for g in low_g)
+            held += gap > 0
+            margin = gap if margin is None else min(margin, gap)
+    return {"comparisons": total, "held": held, "min_margin": round(margin, 5)}
 
 
 def floors(y: list[float], weights: list[float] | None = None) -> tuple[float, float]:
@@ -161,7 +227,19 @@ def main() -> None:
     R = ratios(by_time, groups)
     n_spots = {g: len(by_time[0][g]) for g in groups}
 
-    rows = [{"time_min": t, **{g: round(R[t][g], 5) for g in groups}} for t in TIMES]
+    # Technical spot IQRs -- what the figure whiskers show. These are the spread of printed spots
+    # within one hybridisation, so they are NOT confidence intervals and NOT biological variability;
+    # they are reported because a median over 18 spots with no dispersion shown invites the opposite
+    # reading. Carried on the ratio scale, so they sit against R_g(t).
+    iqr = {t: {g: _spot_iqr(by_time, g, t, R) for g in groups} for t in TIMES}
+
+    # The ordering claim, checked where the manuscript makes it: LeuX and LeuZ above the other three
+    # in EVERY single-spot exclusion, not merely in the pooled table.
+    ordering = _ordering_under_exclusions(by_time, groups)
+
+    rows = [{"time_min": t, **{g: round(R[t][g], 5) for g in groups},
+             **{f"{g}_iqr_lo": round(iqr[t][g][0], 5) for g in groups},
+             **{f"{g}_iqr_hi": round(iqr[t][g][1], 5) for g in groups}} for t in TIMES]
     stats = []
     for t in TIMES[1:]:
         y = [R[t][g] for g in groups]
@@ -180,9 +258,20 @@ def main() -> None:
             "rmse_leave_one_spot_max": round(max(lo_rmse), 6),
         })
 
+    # The six high-vs-low inequalities the two assays share. The Northern vector is TRANSCRIBED from
+    # Dittmar et al. -- it is not in the GEO record and this script cannot derive it, so it is pinned
+    # here as a literature constant and labelled as one. The array side IS derived, so the agreement
+    # being checked is between this reanalysis and the published blot, not between two constants.
+    inequalities = {
+        "northern_source": "Dittmar et al. 2005, acidic Northern blot (transcribed, not derived here)",
+        "northern_relative": dict(zip(groups, [0.024, 0.025, 0.017, 0.19, 0.11])),
+        "northern_baseline_fractions": dict(zip(groups, [0.80, 0.77, 0.68, 0.76, 0.84])),
+        "shared_high_vs_low": _six_inequalities(R, [0.024, 0.025, 0.017, 0.19, 0.11], groups),
+    }
+
     OUT.mkdir(parents=True, exist_ok=True)
     with (OUT / "table_rg.csv").open("w", newline="", encoding="utf-8") as fh:
-        w_ = csv.DictWriter(fh, fieldnames=["time_min"] + groups)
+        w_ = csv.DictWriter(fh, fieldnames=list(rows[0]))
         w_.writeheader()
         w_.writerows(rows)
     with (OUT / "error_floors.csv").open("w", newline="", encoding="utf-8") as fh:
@@ -192,6 +281,7 @@ def main() -> None:
     (OUT / "summary.json").write_text(json.dumps({
         "source": SOFT_URL, "input_sha256": SOFT_SHA256,
         "probe_to_group": probe_to_group, "spots_per_group": n_spots,
+        "ordering_under_spot_exclusions": ordering, "assay_agreement": inequalities,
         "note": ("Within-probe, time-zero-normalised processed ratios -- NOT absolute charged "
                  "fractions. One hybridisation per time point; the 18 spots are technical replicates, "
                  "so spot IQRs are reported and no biological p-value is."),
@@ -203,10 +293,13 @@ def main() -> None:
         print(f"  t={s['time_min']:2}  RMSE={s['rmse_floor']:.4f}  Linf={s['linf_floor']:.4f}  "
               f"range={s['range']:.4f}  loci-wt={s['rmse_loci_weighted']:.4f}  "
               f"LOSO={s['rmse_leave_one_spot_min']:.3f}-{s['rmse_leave_one_spot_max']:.3f}")
+    o = ordering
+    print(f"  ordering LeuX/LeuZ above the rest: {o['held']}/{o['comparisons']} leave-one-spot refits, min margin {o['min_margin']:.4f}")
+    print(f"  six shared inequalities hold in both assays: {inequalities['shared_high_vs_low']['all_six_hold_in_both']}")
     print(f"wrote {OUT / 'table_rg.csv'}, {OUT / 'error_floors.csv'}, {OUT / 'summary.json'}")
 
     if args.plot:
-        plot(R, stats, groups)
+        plot(R, stats, groups, iqr)
 
 
 def verify_genes() -> None:
@@ -223,7 +316,7 @@ def verify_genes() -> None:
     print(f"verified {len(GENE_SYMBOLS)} GeneID symbols against Entrez")
 
 
-def plot(R, stats, groups) -> None:
+def plot(R, stats, groups, iqr) -> None:
     """Figure 1b (trajectories) and 1c (error floors). Panel (a) is a schematic, drawn separately."""
     import matplotlib
     matplotlib.use("Agg")
@@ -232,7 +325,12 @@ def plot(R, stats, groups) -> None:
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.4))
     styles = [("o", "-"), ("s", "--"), ("^", ":"), ("D", "-."), ("v", (0, (3, 1, 1, 1)))]
     for (marker, ls), g in zip(styles, groups):     # marker AND line style, so it survives greyscale
-        ax1.plot(TIMES, [R[t][g] for t in TIMES], marker=marker, linestyle=ls, label=g, ms=4)
+        y = [R[t][g] for t in TIMES]
+        # Whiskers are technical spot IQRs, not confidence intervals -- said in the caption too.
+        err = [[y[i] - iqr[t][g][0] for i, t in enumerate(TIMES)],
+               [iqr[t][g][1] - y[i] for i, t in enumerate(TIMES)]]
+        ax1.errorbar(TIMES, y, yerr=err, marker=marker, linestyle=ls, label=g, ms=4,
+                     capsize=2, elinewidth=0.7, lw=1)
     ax1.set_xlabel("minutes after leucine withdrawal")
     ax1.set_ylabel("$R_g(t)$ (processed, $t{=}0{=}1$)")
     ax1.legend(fontsize=7, frameon=False)

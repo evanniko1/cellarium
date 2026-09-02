@@ -15,6 +15,55 @@
   "LeuX": 18,
   "LeuZ": 18
  },
+ "ordering_under_spot_exclusions": {
+  "comparisons": 72,
+  "held": 72,
+  "min_margin": 0.11965
+ },
+ "assay_agreement": {
+  "northern_source": "Dittmar et al. 2005, acidic Northern blot (transcribed, not derived here)",
+  "northern_relative": {
+   "LeuPQVT": 0.024,
+   "LeuU": 0.025,
+   "LeuW": 0.017,
+   "LeuX": 0.19,
+   "LeuZ": 0.11
+  },
+  "northern_baseline_fractions": {
+   "LeuPQVT": 0.8,
+   "LeuU": 0.77,
+   "LeuW": 0.68,
+   "LeuX": 0.76,
+   "LeuZ": 0.84
+  },
+  "shared_high_vs_low": {
+   "LeuX>LeuPQVT": {
+    "array_all_times": true,
+    "northern": true
+   },
+   "LeuX>LeuU": {
+    "array_all_times": true,
+    "northern": true
+   },
+   "LeuX>LeuW": {
+    "array_all_times": true,
+    "northern": true
+   },
+   "LeuZ>LeuPQVT": {
+    "array_all_times": true,
+    "northern": true
+   },
+   "LeuZ>LeuU": {
+    "array_all_times": true,
+    "northern": true
+   },
+   "LeuZ>LeuW": {
+    "array_all_times": true,
+    "northern": true
+   },
+   "all_six_hold_in_both": true
+  }
+ },
  "note": "Within-probe, time-zero-normalised processed ratios -- NOT absolute charged fractions. One hybridisation per time point; the 18 spots are technical replicates, so spot IQRs are reported and no biological p-value is.",
  "table_rg": [
   {
@@ -23,7 +72,17 @@
    "LeuU": 1.0,
    "LeuW": 1.0,
    "LeuX": 1.0,
-   "LeuZ": 1.0
+   "LeuZ": 1.0,
+   "LeuPQVT_iqr_lo": 0.97257,
+   "LeuU_iqr_lo": 0.94914,
+   "LeuW_iqr_lo": 0.93974,
+   "LeuX_iqr_lo": 0.95068,
+   "LeuZ_iqr_lo": 0.97598,
+   "LeuPQVT_iqr_hi": 1.02268,
+   "LeuU_iqr_hi": 1.06771,
+   "LeuW_iqr_hi": 1.0516,
+   "LeuX_iqr_hi": 1.06952,
+   "LeuZ_iqr_hi": 1.06461
   },
   {
    "time_min": 2,
@@ -31,7 +90,17 @@
    "LeuU": 0.04236,
    "LeuW": 0.0678,
    "LeuX": 0.30985,
-   "LeuZ": 0.24889
+   "LeuZ": 0.24889,
+   "LeuPQVT_iqr_lo": 0.07297,
+   "LeuU_iqr_lo": 0.03674,
+   "LeuW_iqr_lo": 0.05581,
+   "LeuX_iqr_lo": 0.2855,
+   "LeuZ_iqr_lo": 0.24161,
+   "LeuPQVT_iqr_hi": 0.08283,
+   "LeuU_iqr_hi": 0.04509,
+   "LeuW_iqr_hi": 0.07842,
+   "LeuX_iqr_hi": 0.33951,
+   "LeuZ_iqr_hi": 0.27497
   },
   {
    "time_min": 7,
@@ -39,7 +108,17 @@
    "LeuU": 0.04737,
    "LeuW": 0.05418,
    "LeuX": 0.23383,
-   "LeuZ": 0.27165
+   "LeuZ": 0.27165,
+   "LeuPQVT_iqr_lo": 0.08223,
+   "LeuU_iqr_lo": 0.04307,
+   "LeuW_iqr_lo": 0.04964,
+   "LeuX_iqr_lo": 0.20979,
+   "LeuZ_iqr_lo": 0.25651,
+   "LeuPQVT_iqr_hi": 0.09494,
+   "LeuU_iqr_hi": 0.05169,
+   "LeuW_iqr_hi": 0.05956,
+   "LeuX_iqr_hi": 0.24793,
+   "LeuZ_iqr_hi": 0.30003
   },
   {
    "time_min": 17,
@@ -47,7 +126,17 @@
    "LeuU": 0.07494,
    "LeuW": 0.08148,
    "LeuX": 0.27192,
-   "LeuZ": 0.26641
+   "LeuZ": 0.26641,
+   "LeuPQVT_iqr_lo": 0.08863,
+   "LeuU_iqr_lo": 0.06976,
+   "LeuW_iqr_lo": 0.07674,
+   "LeuX_iqr_lo": 0.26716,
+   "LeuZ_iqr_lo": 0.24061,
+   "LeuPQVT_iqr_hi": 0.1091,
+   "LeuU_iqr_hi": 0.08055,
+   "LeuW_iqr_hi": 0.08941,
+   "LeuX_iqr_hi": 0.29329,
+   "LeuZ_iqr_hi": 0.29673
   },
   {
    "time_min": 32,
@@ -55,7 +144,17 @@
    "LeuU": 0.04053,
    "LeuW": 0.04243,
    "LeuX": 0.18775,
-   "LeuZ": 0.222
+   "LeuZ": 0.222,
+   "LeuPQVT_iqr_lo": 0.05893,
+   "LeuU_iqr_lo": 0.03855,
+   "LeuW_iqr_lo": 0.03986,
+   "LeuX_iqr_lo": 0.18387,
+   "LeuZ_iqr_lo": 0.21008,
+   "LeuPQVT_iqr_hi": 0.07031,
+   "LeuU_iqr_hi": 0.04233,
+   "LeuW_iqr_hi": 0.04601,
+   "LeuX_iqr_hi": 0.1948,
+   "LeuZ_iqr_hi": 0.22747
   }
  ],
  "error_floors": [
