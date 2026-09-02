@@ -90,3 +90,8 @@ data/hf_reclaim_manifest.json
 # distributed supplement to carrying no planning notes, so they stay local.
 docs/ROADMAP.md
 docs/HYPOTHESIS_MODE_PLAN.md
+
+# The raw GEO record. NCBI asks that records be retrieved from GEO rather than redistributed, and
+# the paper's asset register commits to that, so scripts/gse2065_reanalysis.py fetches it on demand
+# and checks it against a pinned SHA-256. The DERIVED tables beside it are committed.
+data/gse2065/GSE2065_family.soft.gz

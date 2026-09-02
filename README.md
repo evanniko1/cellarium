@@ -300,6 +300,23 @@ out of the default, and `download_raw` reports that rather than failing as thoug
 The distilled Parquet manifest ships in-repo (about 5 MB) for fast, download-free reasoning; `download_raw`
 pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth.
 
+## Reproducing the deposited-data result
+
+The measurement the capability gap is quantified against is one command, no corpus and no simulator
+needed:
+
+```
+python scripts/gse2065_reanalysis.py
+```
+
+It fetches the GEO record for GSE2065 (115 KB), checks it against a pinned SHA-256, rebuilds the five
+leucine probe groups from the platform's Entrez GeneIDs, and writes the charging trajectories, the
+error floors on any family-constant prediction, and both sensitivity checks to
+[data/gse2065/](data/gse2065/). Runs in about a second on one CPU. `tests/test_gse2065.py` pins every
+number the paper prints, so drift fails in CI rather than silently invalidating a published claim —
+and it reads the committed tables, so it needs no network. See
+[data/gse2065/README.md](data/gse2065/README.md) for what the numbers are and are not.
+
 ## Architecture
 
 Two layers — reasoning agents on top, the data + model substrate below.

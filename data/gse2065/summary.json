@@ -1,0 +1,99 @@
+{
+ "source": "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE2nnn/GSE2065/soft/GSE2065_family.soft.gz",
+ "input_sha256": "038053436b2e295380f11bb6904d591013fd1cd2a634fd3c1fb0ff91915295d2",
+ "probe_to_group": {
+  "Leu-10": "LeuW",
+  "Leu-6": "LeuX",
+  "Leu-7": "LeuPQVT",
+  "Leu-8": "LeuU",
+  "Leu-9": "LeuZ"
+ },
+ "spots_per_group": {
+  "LeuPQVT": 18,
+  "LeuU": 18,
+  "LeuW": 18,
+  "LeuX": 18,
+  "LeuZ": 18
+ },
+ "note": "Within-probe, time-zero-normalised processed ratios -- NOT absolute charged fractions. One hybridisation per time point; the 18 spots are technical replicates, so spot IQRs are reported and no biological p-value is.",
+ "table_rg": [
+  {
+   "time_min": 0,
+   "LeuPQVT": 1.0,
+   "LeuU": 1.0,
+   "LeuW": 1.0,
+   "LeuX": 1.0,
+   "LeuZ": 1.0
+  },
+  {
+   "time_min": 2,
+   "LeuPQVT": 0.07987,
+   "LeuU": 0.04236,
+   "LeuW": 0.0678,
+   "LeuX": 0.30985,
+   "LeuZ": 0.24889
+  },
+  {
+   "time_min": 7,
+   "LeuPQVT": 0.08858,
+   "LeuU": 0.04737,
+   "LeuW": 0.05418,
+   "LeuX": 0.23383,
+   "LeuZ": 0.27165
+  },
+  {
+   "time_min": 17,
+   "LeuPQVT": 0.09932,
+   "LeuU": 0.07494,
+   "LeuW": 0.08148,
+   "LeuX": 0.27192,
+   "LeuZ": 0.26641
+  },
+  {
+   "time_min": 32,
+   "LeuPQVT": 0.06553,
+   "LeuU": 0.04053,
+   "LeuW": 0.04243,
+   "LeuX": 0.18775,
+   "LeuZ": 0.222
+  }
+ ],
+ "error_floors": [
+  {
+   "time_min": 2,
+   "rmse_floor": 0.108252,
+   "linf_floor": 0.133743,
+   "range": 0.267486,
+   "rmse_loci_weighted": 0.092026,
+   "rmse_leave_one_spot_min": 0.106728,
+   "rmse_leave_one_spot_max": 0.10973
+  },
+  {
+   "time_min": 7,
+   "rmse_floor": 0.094572,
+   "linf_floor": 0.112137,
+   "range": 0.224275,
+   "rmse_loci_weighted": 0.078668,
+   "rmse_leave_one_spot_min": 0.09296,
+   "rmse_leave_one_spot_max": 0.096473
+  },
+  {
+   "time_min": 17,
+   "rmse_floor": 0.090469,
+   "linf_floor": 0.098487,
+   "range": 0.196973,
+   "rmse_loci_weighted": 0.077105,
+   "rmse_leave_one_spot_min": 0.086898,
+   "rmse_leave_one_spot_max": 0.094932
+  },
+  {
+   "time_min": 32,
+   "rmse_floor": 0.077389,
+   "linf_floor": 0.090738,
+   "range": 0.181475,
+   "rmse_loci_weighted": 0.065127,
+   "rmse_leave_one_spot_min": 0.076257,
+   "rmse_leave_one_spot_max": 0.078585
+  }
+ ]
+}
