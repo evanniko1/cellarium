@@ -71,3 +71,15 @@ BACKLOG.md
 # The HF upload ledger is a hand-maintained record of ONE contributor's uploads (paths, sizes, what is still
 # local-only). Nothing generates it, so it is not a feature a cloner inherits — it is personal bookkeeping.
 data/hf/UPLOAD_LEDGER.md
+
+# Generated sweep outputs. scripts/refit_sweep.py writes refit_sweep/ (OUT = "refit_sweep"),
+# 2.7 GB across 28 pseudo_*_RNA trees; parca4_work/ holds its ParCa inputs. Both regenerate,
+# and neither belongs in a clone. They were previously excluded only at the editor level
+# (.vscode/settings.json), which does not stop `git add -A` from staging them.
+refit_sweep/
+parca4_work/
+
+# Records ONE contributor's HF uploads by repo id and local path, written when raw run
+# directories were deleted to reclaim disk. It is the key for restoring them, so it stays
+# local, but it names a personal HF repo and must never be committed.
+data/hf_reclaim_manifest.json

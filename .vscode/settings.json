@@ -12,7 +12,7 @@
     "gitignored, the watcher was still registering recursive handles over a 310 GB tree. On Windows that",
     "costs handles and CPU; on Linux it exhausts inotify watches outright.",
     "",
-    "refit_sweep/ (2.7G), parca4_work/, vendor/ and archive/ are NOT gitignored \u2014 they are working artefacts",
+    "refit_sweep/ (2.7G) and parca4_work/ are gitignored; vendor/ and archive/ are tracked. All are working artefacts",
     "that were never meant to be indexed either, and vendor/ + archive/ additionally carry duplicate copies of",
     "the wcEcoli package layout, which is the auto-import hazard pyrightconfig.json exists to stop.",
     "",
