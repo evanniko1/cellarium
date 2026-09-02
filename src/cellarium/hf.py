@@ -16,6 +16,12 @@ from . import store
 from .runner import OUT_ROOT
 
 HF_REPO = os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus")
+# An anonymous-review snapshot redacts the owner out of that default, leaving something like
+# "XXXX-9/cellarium-corpus". Every hub call then fails, _repo_sizes returns {}, and the availability
+# path below would report "offline / no hub client" — the wrong cause, and exactly the mistake the
+# comment in _repo_sizes exists to stop us repeating. Detect the redacted owner once, here.
+_HF_OWNER = HF_REPO.split("/", 1)[0]
+HF_REPO_REDACTED = "X" in _HF_OWNER.upper() and set(_HF_OWNER.upper()) <= set("X-0123456789")
 # The raw corpus IS uploaded to the HF dataset, so download_raw / data_availability offer HF pulls by DEFAULT —
 # users get that capability out of the box. Per-design HF presence is still checked (a design not on HF reports so
 # honestly). Set CELLARIUM_HF_HAS_RAW=0 to force the regenerate-locally path instead.
@@ -140,7 +146,9 @@ def download_raw(design: str, confirm: bool = False, on_progress=None) -> dict:
         return plan
     if plan["n_to_pull"] == 0:
         msg = ("already local — nothing to download." if plan["n_local"] == plan["n_seeds"]
-               else "none of the missing seeds are on HF yet (regenerate locally, or check the upload ledger).")
+               else ("the dataset owner is redacted in this snapshot, so no seed can be found on HF — set "
+                     "CELLARIUM_HF_REPO, or regenerate locally." if HF_REPO_REDACTED
+                     else "none of the missing seeds are on HF yet (regenerate locally, or check the upload ledger)."))
         return {**plan, "downloaded": [], "note": msg}
     if not confirm:
         return {**plan, "needs_confirmation": True,
@@ -208,7 +216,11 @@ def data_availability(result_id: str) -> dict:
     elif hf_exists is False:
         hf_alt["status"] = "this run's raw archive is NOT on HF — use alternative 2 (regenerate)"
     elif hf_exists is None:
-        hf_alt["status"] = "could not verify HF availability (offline / no hub client) — use alternative 2 (regenerate) to be safe"
+        hf_alt["status"] = (
+            "the dataset owner is redacted in this snapshot, so HF cannot be queried at all — set "
+            "CELLARIUM_HF_REPO to a dataset you can read, or use alternative 2 (regenerate)"
+            if HF_REPO_REDACTED else
+            "could not verify HF availability (offline / no hub client) — use alternative 2 (regenerate) to be safe")
     return {"result_id": result_id,
             "shard_answers": SHARD_ANSWERS, "needs_raw": NEEDS_RAW,
             "raw_local": raw_local, "raw_local_path": (path if raw_local else None),

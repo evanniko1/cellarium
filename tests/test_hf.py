@@ -134,3 +134,47 @@ def test_data_availability_verifies_real_hf_existence(monkeypatch):
 
     monkeypatch.setattr(hf, "HF_HAS_RAW", False)                                 # (4) flag off -> never available
     assert _hf("r1")["available"] is False
+
+
+def test_redacted_dataset_owner_is_named_as_the_cause_not_offline(monkeypatch):
+    """An anonymised copy of this repo has the HF owner redacted out of the default repo id, so every hub call
+    fails and _repo_sizes comes back empty -- indistinguishable, from inside, from being offline. Reporting it as
+    'offline / no hub client' would send a reviewer to debug their network for a cause that is in the artifact.
+    The status has to name the redaction instead. No network: _repo_sizes is stubbed to the empty dict either way."""
+    p = "/x/cellarium/gene_knockout/KO_pfkA/s0/simOut"
+    monkeypatch.setattr(store, "simout_path", lambda rid: p)
+    monkeypatch.setattr(store, "list_results",
+                        lambda: [{"id": "r1", "perturbation": "gene_knockout", "condition": "KO:pfkA", "seed": 0}])
+    monkeypatch.setattr(hf, "_full_simout_local", lambda path: False)
+    monkeypatch.setattr(hf, "HF_HAS_RAW", True)
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {})     # the ONE observable both cases share
+
+    def _status():
+        return hf.data_availability("r1")["alternatives"]["1_download_from_hf"]["status"]
+
+    monkeypatch.setattr(hf, "HF_REPO_REDACTED", True)
+    red = _status()
+    assert "redacted" in red and "CELLARIUM_HF_REPO" in red
+    assert "offline" not in red                                  # the wrong cause must not survive
+
+    monkeypatch.setattr(hf, "HF_REPO_REDACTED", False)           # a real owner: unchanged behaviour
+    assert "could not verify" in _status()
+
+
+def test_redaction_detector_does_not_fire_on_real_owners(monkeypatch):
+    """The detector keys on an owner made only of X, digits and dashes -- what 4open substitutes. A real owner
+    that merely contains an X ('X-Lab', 'xyz') must not be mistaken for a redacted one, or the public repo would
+    start telling users their dataset id was redacted when it was not. Exercises the module's own constant by
+    reloading it under each owner, rather than restating the predicate here (which would test nothing)."""
+    import importlib
+
+    def redacted(owner):
+        monkeypatch.setenv("CELLARIUM_HF_REPO", owner + "/cellarium-corpus")
+        return importlib.reload(hf).HF_REPO_REDACTED
+
+    try:
+        assert all(redacted(o) for o in ("XXXX-9", "XXXX", "XX-1"))
+        assert not any(redacted(o) for o in ("evanniko1", "some-lab", "X-Lab", "xyz", "openai", "0-9"))
+    finally:
+        monkeypatch.delenv("CELLARIUM_HF_REPO", raising=False)
+        importlib.reload(hf)          # leave the module as the rest of the suite expects it

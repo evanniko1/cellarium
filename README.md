@@ -294,9 +294,10 @@ reader backend behind gene-level tools. Deep-dive read path (pull raw + wire the
 
 ## The corpus
 
-The raw whole-cell simOut is published as an open Hugging Face dataset
-(`evanniko1/cellarium-corpus`, about 198 GB across 96 run
-archives). The distilled Parquet manifest ships in-repo (about 5 MB) for fast, download-free reasoning; `download_raw`
+The raw whole-cell simOut is published as an open Hugging Face dataset, about 198 GB across 96 run
+archives. `CELLARIUM_HF_REPO` selects it; anonymised copies of this repository have the owner redacted
+out of the default, and `download_raw` reports that rather than failing as though you were offline.
+The distilled Parquet manifest ships in-repo (about 5 MB) for fast, download-free reasoning; `download_raw`
 pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth.
 
 ## Architecture
