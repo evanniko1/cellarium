@@ -1,1903 +1,2057 @@
 [
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.548,
-  "ts": 1785329037.1573937,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.808,
-  "ts": 1785329040.7512195,
-  "host": "vmsi|Windows",
-  "arrested": false,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.808,
-  "ts": 1785329040.765307,
-  "host": "vmsi|Windows",
-  "arrested": false,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.808,
-  "ts": 1785329040.7854161,
-  "host": "vmsi|Windows",
-  "arrested": false,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.808,
-  "ts": 1785329040.8040228,
-  "host": "vmsi|Windows",
-  "arrested": false,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.821179,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.8395798,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.8637261,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.877625,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.8956165,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.911684,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.9252846,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.9431503,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.9662662,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329040.982857,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.0018258,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.020981,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.038919,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.0563278,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.072156,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.0932922,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.106798,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.1260743,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.143559,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.1638114,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.1834114,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.1990397,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.2170532,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.2358797,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.2499564,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.2685559,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.2906759,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.3112853,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.3278608,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.3536985,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.3710213,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.3855114,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.4056735,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.4271798,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.4508598,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.472628,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.4968612,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.5187027,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.5556426,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.584897,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.626706,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.6512144,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.6822376,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.7012568,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.716438,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.7351265,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.7561443,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.7765582,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.7948525,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.8119822,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.826785,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.842923,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.8620305,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.8776484,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.899214,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.264,
-  "ts": 1785329041.922904,
-  "host": "vmsi|Windows",
-  "arrested": null,
-  "source": "corpus_backfill"
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.605,
-  "ts": 1785329136.217794,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.624,
-  "ts": 1785329288.738547,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.647,
-  "ts": 1785329441.144961,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.646,
-  "ts": 1785329593.5482142,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.659,
-  "ts": 1785329745.7268596,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.66,
-  "ts": 1785329897.8712375,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.673,
-  "ts": 1785330050.2503269,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.694,
-  "ts": 1785330202.6243849,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.699,
-  "ts": 1785330355.0046656,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.713,
-  "ts": 1785330507.2813933,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.717,
-  "ts": 1785330659.6906428,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.739,
-  "ts": 1785330812.054394,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.769,
-  "ts": 1785330964.44298,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.757,
-  "ts": 1785331116.7815866,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.774,
-  "ts": 1785331268.9256582,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.668,
-  "ts": 1785331421.3858407,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.549,
-  "ts": 1785331573.7647936,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.525,
-  "ts": 1785331726.154977,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.527,
-  "ts": 1785331878.3608084,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.571,
-  "ts": 1785332030.746343,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.612,
-  "ts": 1785332183.1291656,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.66,
-  "ts": 1785332335.5079975,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.654,
-  "ts": 1785332487.8968318,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.66,
-  "ts": 1785332640.0362165,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.668,
-  "ts": 1785332792.4304054,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.672,
-  "ts": 1785332944.8137949,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.672,
-  "ts": 1785333097.2251308,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.672,
-  "ts": 1785333249.4649532,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.672,
-  "ts": 1785333401.8418224,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.682,
-  "ts": 1785333554.2525434,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.682,
-  "ts": 1785333706.640493,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.682,
-  "ts": 1785333858.9496148,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.668,
-  "ts": 1785334011.104309,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.668,
-  "ts": 1785334163.5532494,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.656,
-  "ts": 1785334315.9530442,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.656,
-  "ts": 1785334468.3354304,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.656,
-  "ts": 1785334620.5713646,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.656,
-  "ts": 1785334772.9803264,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.656,
-  "ts": 1785334925.3510325,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "per_sim_ram_gb",
-  "value": 0.672,
-  "ts": 1785335077.7378647,
-  "host": "vmsi|Windows",
-  "n_containers": 6
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.423905393481254,
-  "ts": 1785345322.7450478,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.96200296,
-  "ts": 1785345323.0207105,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.822749618689219,
-  "ts": 1785345418.4676619,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.93844777675,
-  "ts": 1785345418.5966334,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.974060806632043,
-  "ts": 1785345454.782347,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.96141579675,
-  "ts": 1785345455.0430872,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 16.922084046403565,
-  "ts": 1785345922.3079245,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.1554972425,
-  "ts": 1785345922.4063368,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.234674494465192,
-  "ts": 1785348511.6728337,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.58371104225,
-  "ts": 1785348511.721763,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.354197016358375,
-  "ts": 1785348638.5284472,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.59108979875,
-  "ts": 1785348638.574488,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.523606665929158,
-  "ts": 1785348945.2894254,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.5639641435,
-  "ts": 1785348945.334868,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.083495768904687,
-  "ts": 1785349089.8912995,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.60853006125,
-  "ts": 1785349089.9405317,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.797048578659693,
-  "ts": 1785363360.204777,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.97510717075,
-  "ts": 1785363360.3856785,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.90355251232783,
-  "ts": 1785363625.7647235,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.0011924825,
-  "ts": 1785363625.8668725,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 16.3279736161232,
-  "ts": 1785363727.6257885,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.09632140475,
-  "ts": 1785363727.6856065,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 18.649112698435783,
-  "ts": 1785364284.6991682,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.198619717,
-  "ts": 1785364285.111352,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.083173315723737,
-  "ts": 1785366782.0721269,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.59127908975,
-  "ts": 1785366782.130156,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.52657309571902,
-  "ts": 1785366862.9518843,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.5878404825,
-  "ts": 1785366863.002335,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.09454953968525,
-  "ts": 1785366969.962225,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.53626673,
-  "ts": 1785366970.006215,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.420850163698196,
-  "ts": 1785367209.752736,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.608580792,
-  "ts": 1785367209.8025942,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.344792826970417,
-  "ts": 1785408572.1336796,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.8523063725,
-  "ts": 1785408572.5414584,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.870031603177388,
-  "ts": 1785409178.189475,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.9863417275,
-  "ts": 1785409178.359185,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 10.57325314283371,
-  "ts": 1785411550.750329,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.56334105025,
-  "ts": 1785411550.7924995,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.34978754321734,
-  "ts": 1785411606.9002979,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.5496135675,
-  "ts": 1785411606.9400163,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.815136075019836,
-  "ts": 1785423077.8106573,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.640331202,
-  "ts": 1785423077.9741688,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 10.013520805040995,
-  "ts": 1785423089.713741,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.635523275,
-  "ts": 1785423089.7282243,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 10.04381883541743,
-  "ts": 1785423091.5326233,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.644810614,
-  "ts": 1785423091.5496292,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.808588863743678,
-  "ts": 1785980342.2048562,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6798874393333333,
-  "ts": 1785980342.7323775,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.91357178820504,
-  "ts": 1785980361.100782,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7220958863333333,
-  "ts": 1785980361.219709,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.96917082733578,
-  "ts": 1785980371.110951,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7109346823333333,
-  "ts": 1785980371.2611973,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.00559544165929,
-  "ts": 1785980377.6673815,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6994412506666667,
-  "ts": 1785980377.7788997,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.072498557302687,
-  "ts": 1785980389.708601,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.692111002,
-  "ts": 1785980389.831355,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.951667132642534,
-  "ts": 1785980547.9589446,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7638476233333332,
-  "ts": 1785980548.2493708,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.601174712181091,
-  "ts": 1785982456.2975998,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6555635956666667,
-  "ts": 1785982456.4955463,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.715022932158575,
-  "ts": 1785982492.909825,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7026482963333334,
-  "ts": 1785982493.0731444,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.771934133105809,
-  "ts": 1785982498.7288723,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.717113402,
-  "ts": 1785982498.858784,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.405711403157975,
-  "ts": 1785982629.3660274,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.754526098,
-  "ts": 1785982629.5754275,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.682033084498512,
-  "ts": 1785982638.0671892,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.74042312,
-  "ts": 1785982638.2605627,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.667760458257463,
-  "ts": 1785982655.4130435,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6805764526666667,
-  "ts": 1785982655.6222193,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.531685672865974,
-  "ts": 1785984538.2430289,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6721182786666667,
-  "ts": 1785984538.443886,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.804211694664424,
-  "ts": 1785984625.4413512,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7037542766666666,
-  "ts": 1785984625.739768,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.364256154166327,
-  "ts": 1785984731.1823533,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7386891926666667,
-  "ts": 1785984731.3025546,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.647590296798283,
-  "ts": 1785984741.660277,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6798847966666667,
-  "ts": 1785984742.0208,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.599086855517493,
-  "ts": 1785984749.8874838,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.695590579,
-  "ts": 1785984750.0159822,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.782640964455075,
-  "ts": 1785984757.613478,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.678605063,
-  "ts": 1785984757.7918127,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 10.2642277903027,
-  "ts": 1785986480.0749574,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.65555055,
-  "ts": 1785986480.273517,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.27882548570633,
-  "ts": 1785986575.124395,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7400566563333334,
-  "ts": 1785986575.2850006,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.483203064070807,
-  "ts": 1785989376.1574352,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.67028516,
-  "ts": 1785989376.6287646,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.635373183091481,
-  "ts": 1785989403.5348513,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.675748399,
-  "ts": 1785989403.6592815,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.88685896396637,
-  "ts": 1785989448.7752535,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6841798706666666,
-  "ts": 1785989449.018254,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 16.14734432829751,
-  "ts": 1785989495.6400356,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6727664913333333,
-  "ts": 1785989496.0681841,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 16.293964077366724,
-  "ts": 1785989522.0366116,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.663566878,
-  "ts": 1785989522.3820457,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 16.374645380179086,
-  "ts": 1785989536.5632596,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.732796342,
-  "ts": 1785989536.726847,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.742757908503215,
-  "ts": 1785991883.4488833,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.6651374596666667,
-  "ts": 1785991883.7231884,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.378333716922336,
-  "ts": 1785992151.4298346,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7290158940000001,
-  "ts": 1785992151.6099606,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 21.566079952981738,
-  "ts": 1786003177.8639412,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.4532624063333335,
-  "ts": 1786003178.0553436,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 21.610189571645524,
-  "ts": 1786003185.8106732,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.4320710146666666,
-  "ts": 1786003185.8475785,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 22.236960270669726,
-  "ts": 1786003298.6234007,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.4575118106666667,
-  "ts": 1786003298.765407,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 24.159795622030895,
-  "ts": 1786003644.7367609,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.698837695,
-  "ts": 1786003644.7772875,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 19.215308980147043,
-  "ts": 1786043442.798834,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.029319031,
-  "ts": 1786043443.1720278,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 21.063513600826262,
-  "ts": 1786043886.3669422,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.19902004175,
-  "ts": 1786043886.745672,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 24.860464452703795,
-  "ts": 1786044797.6321478,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.41670139725,
-  "ts": 1786044797.871542,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 25.38140287597974,
-  "ts": 1786044922.661369,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.45913147025,
-  "ts": 1786044922.738084,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 26.352930794159573,
-  "ts": 1786045155.82507,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.292155172,
-  "ts": 1786045155.9200072,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 28.94750362535318,
-  "ts": 1786045778.52355,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.67640195975,
-  "ts": 1786045778.5794966,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.902706343928973,
-  "ts": 1786048284.3119774,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.8216971665,
-  "ts": 1786048284.387264,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 13.649623514215152,
-  "ts": 1786048453.1482606,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.78712654475,
-  "ts": 1786048453.2179236,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 15.874118315180143,
-  "ts": 1786048620.9743671,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.017387156,
-  "ts": 1786048621.115384,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 20.021054109930994,
-  "ts": 1786048702.1038632,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.26530220225,
-  "ts": 1786048702.2046251,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 14.862181869149207,
-  "ts": 1786049367.6835365,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.922613128,
-  "ts": 1786049367.8595233,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 24.72816493610541,
-  "ts": 1786049397.2318096,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 1.57700422175,
-  "ts": 1786049397.5486784,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.5229649523894,
-  "ts": 1786051299.4716854,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.74940495725,
-  "ts": 1786051299.5270944,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.167227148016293,
-  "ts": 1786051382.4677362,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.71140792325,
-  "ts": 1786051382.5129292,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.103069233894349,
-  "ts": 1786051624.4745152,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.70844984025,
-  "ts": 1786051624.5224855,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 12.620013994971911,
-  "ts": 1786051670.0749683,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.7427783275,
-  "ts": 1786051670.1176844,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.355492901802062,
-  "ts": 1787587787.7066731,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.644857459,
-  "ts": 1787587787.8729782,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.998532692591349,
-  "ts": 1787589597.5510683,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.65489762,
-  "ts": 1787589597.7044523,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 10.007629676659901,
-  "ts": 1787589598.0968874,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.644859987,
-  "ts": 1787589598.1146152,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.876351102193196,
-  "ts": 1787589710.220173,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.81180812,
-  "ts": 1787589710.240192,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.892001219590504,
-  "ts": 1787592181.9509556,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.644861164,
-  "ts": 1787592182.0935352,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.918731494744618,
-  "ts": 1787592183.5537589,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.654897443,
-  "ts": 1787592183.572422,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.793801403045654,
-  "ts": 1787592296.0589666,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.811805398,
-  "ts": 1787592296.0943093,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.887453667322795,
-  "ts": 1787592959.4638858,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.644863142,
-  "ts": 1787592959.6177497,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 9.941630776723226,
-  "ts": 1787592962.7135122,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.654901257,
-  "ts": 1787592962.7323954,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "min_per_generation",
-  "value": 11.779447197914124,
-  "ts": 1787593072.9834976,
-  "host": "vmsi|Windows",
-  "arrested": false
- },
- {
-  "kind": "gb_per_generation",
-  "value": 0.811809958,
-  "ts": 1787593073.0012493,
-  "host": "vmsi|Windows",
-  "arrested": false
- }
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.548,
+    "ts": 1785329037.1573937,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.808,
+    "ts": 1785329040.7512195,
+    "host": "host-a|Windows",
+    "arrested": false,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.808,
+    "ts": 1785329040.765307,
+    "host": "host-a|Windows",
+    "arrested": false,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.808,
+    "ts": 1785329040.7854161,
+    "host": "host-a|Windows",
+    "arrested": false,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.808,
+    "ts": 1785329040.8040228,
+    "host": "host-a|Windows",
+    "arrested": false,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.821179,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.8395798,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.8637261,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.877625,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.8956165,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.911684,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.9252846,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.9431503,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.9662662,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329040.982857,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.0018258,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.020981,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.038919,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.0563278,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.072156,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.0932922,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.106798,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.1260743,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.143559,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.1638114,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.1834114,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.1990397,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.2170532,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.2358797,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.2499564,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.2685559,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.2906759,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.3112853,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.3278608,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.3536985,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.3710213,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.3855114,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.4056735,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.4271798,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.4508598,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.472628,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.4968612,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.5187027,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.5556426,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.584897,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.626706,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.6512144,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.6822376,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.7012568,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.716438,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.7351265,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.7561443,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.7765582,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.7948525,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.8119822,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.826785,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.842923,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.8620305,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.8776484,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.899214,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.264,
+    "ts": 1785329041.922904,
+    "host": "host-a|Windows",
+    "arrested": null,
+    "source": "corpus_backfill"
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.605,
+    "ts": 1785329136.217794,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.624,
+    "ts": 1785329288.738547,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.647,
+    "ts": 1785329441.144961,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.646,
+    "ts": 1785329593.5482142,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.659,
+    "ts": 1785329745.7268596,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.66,
+    "ts": 1785329897.8712375,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.673,
+    "ts": 1785330050.2503269,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.694,
+    "ts": 1785330202.6243849,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.699,
+    "ts": 1785330355.0046656,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.713,
+    "ts": 1785330507.2813933,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.717,
+    "ts": 1785330659.6906428,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.739,
+    "ts": 1785330812.054394,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.769,
+    "ts": 1785330964.44298,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.757,
+    "ts": 1785331116.7815866,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.774,
+    "ts": 1785331268.9256582,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.668,
+    "ts": 1785331421.3858407,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.549,
+    "ts": 1785331573.7647936,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.525,
+    "ts": 1785331726.154977,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.527,
+    "ts": 1785331878.3608084,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.571,
+    "ts": 1785332030.746343,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.612,
+    "ts": 1785332183.1291656,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.66,
+    "ts": 1785332335.5079975,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.654,
+    "ts": 1785332487.8968318,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.66,
+    "ts": 1785332640.0362165,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.668,
+    "ts": 1785332792.4304054,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.672,
+    "ts": 1785332944.8137949,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.672,
+    "ts": 1785333097.2251308,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.672,
+    "ts": 1785333249.4649532,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.672,
+    "ts": 1785333401.8418224,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.682,
+    "ts": 1785333554.2525434,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.682,
+    "ts": 1785333706.640493,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.682,
+    "ts": 1785333858.9496148,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.668,
+    "ts": 1785334011.104309,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.668,
+    "ts": 1785334163.5532494,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.656,
+    "ts": 1785334315.9530442,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.656,
+    "ts": 1785334468.3354304,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.656,
+    "ts": 1785334620.5713646,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.656,
+    "ts": 1785334772.9803264,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.656,
+    "ts": 1785334925.3510325,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "per_sim_ram_gb",
+    "value": 0.672,
+    "ts": 1785335077.7378647,
+    "host": "host-a|Windows",
+    "n_containers": 6
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.423905393481254,
+    "ts": 1785345322.7450478,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.96200296,
+    "ts": 1785345323.0207105,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.822749618689219,
+    "ts": 1785345418.4676619,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.93844777675,
+    "ts": 1785345418.5966334,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.974060806632043,
+    "ts": 1785345454.782347,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.96141579675,
+    "ts": 1785345455.0430872,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 16.922084046403565,
+    "ts": 1785345922.3079245,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.1554972425,
+    "ts": 1785345922.4063368,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.234674494465192,
+    "ts": 1785348511.6728337,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.58371104225,
+    "ts": 1785348511.721763,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.354197016358375,
+    "ts": 1785348638.5284472,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.59108979875,
+    "ts": 1785348638.574488,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.523606665929158,
+    "ts": 1785348945.2894254,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5639641435,
+    "ts": 1785348945.334868,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.083495768904687,
+    "ts": 1785349089.8912995,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.60853006125,
+    "ts": 1785349089.9405317,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.797048578659693,
+    "ts": 1785363360.204777,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.97510717075,
+    "ts": 1785363360.3856785,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.90355251232783,
+    "ts": 1785363625.7647235,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.0011924825,
+    "ts": 1785363625.8668725,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 16.3279736161232,
+    "ts": 1785363727.6257885,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.09632140475,
+    "ts": 1785363727.6856065,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 18.649112698435783,
+    "ts": 1785364284.6991682,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.198619717,
+    "ts": 1785364285.111352,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.083173315723737,
+    "ts": 1785366782.0721269,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.59127908975,
+    "ts": 1785366782.130156,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.52657309571902,
+    "ts": 1785366862.9518843,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5878404825,
+    "ts": 1785366863.002335,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.09454953968525,
+    "ts": 1785366969.962225,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.53626673,
+    "ts": 1785366970.006215,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.420850163698196,
+    "ts": 1785367209.752736,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.608580792,
+    "ts": 1785367209.8025942,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.344792826970417,
+    "ts": 1785408572.1336796,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.8523063725,
+    "ts": 1785408572.5414584,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.870031603177388,
+    "ts": 1785409178.189475,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.9863417275,
+    "ts": 1785409178.359185,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.57325314283371,
+    "ts": 1785411550.750329,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.56334105025,
+    "ts": 1785411550.7924995,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.34978754321734,
+    "ts": 1785411606.9002979,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5496135675,
+    "ts": 1785411606.9400163,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.815136075019836,
+    "ts": 1785423077.8106573,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.640331202,
+    "ts": 1785423077.9741688,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.013520805040995,
+    "ts": 1785423089.713741,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.635523275,
+    "ts": 1785423089.7282243,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.04381883541743,
+    "ts": 1785423091.5326233,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.644810614,
+    "ts": 1785423091.5496292,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.808588863743678,
+    "ts": 1785980342.2048562,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6798874393333333,
+    "ts": 1785980342.7323775,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.91357178820504,
+    "ts": 1785980361.100782,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7220958863333333,
+    "ts": 1785980361.219709,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.96917082733578,
+    "ts": 1785980371.110951,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7109346823333333,
+    "ts": 1785980371.2611973,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.00559544165929,
+    "ts": 1785980377.6673815,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6994412506666667,
+    "ts": 1785980377.7788997,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.072498557302687,
+    "ts": 1785980389.708601,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.692111002,
+    "ts": 1785980389.831355,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.951667132642534,
+    "ts": 1785980547.9589446,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7638476233333332,
+    "ts": 1785980548.2493708,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.601174712181091,
+    "ts": 1785982456.2975998,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6555635956666667,
+    "ts": 1785982456.4955463,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.715022932158575,
+    "ts": 1785982492.909825,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7026482963333334,
+    "ts": 1785982493.0731444,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.771934133105809,
+    "ts": 1785982498.7288723,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.717113402,
+    "ts": 1785982498.858784,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.405711403157975,
+    "ts": 1785982629.3660274,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.754526098,
+    "ts": 1785982629.5754275,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.682033084498512,
+    "ts": 1785982638.0671892,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.74042312,
+    "ts": 1785982638.2605627,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.667760458257463,
+    "ts": 1785982655.4130435,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6805764526666667,
+    "ts": 1785982655.6222193,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.531685672865974,
+    "ts": 1785984538.2430289,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6721182786666667,
+    "ts": 1785984538.443886,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.804211694664424,
+    "ts": 1785984625.4413512,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7037542766666666,
+    "ts": 1785984625.739768,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.364256154166327,
+    "ts": 1785984731.1823533,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7386891926666667,
+    "ts": 1785984731.3025546,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.647590296798283,
+    "ts": 1785984741.660277,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6798847966666667,
+    "ts": 1785984742.0208,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.599086855517493,
+    "ts": 1785984749.8874838,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.695590579,
+    "ts": 1785984750.0159822,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.782640964455075,
+    "ts": 1785984757.613478,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.678605063,
+    "ts": 1785984757.7918127,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.2642277903027,
+    "ts": 1785986480.0749574,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.65555055,
+    "ts": 1785986480.273517,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.27882548570633,
+    "ts": 1785986575.124395,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7400566563333334,
+    "ts": 1785986575.2850006,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.483203064070807,
+    "ts": 1785989376.1574352,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.67028516,
+    "ts": 1785989376.6287646,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.635373183091481,
+    "ts": 1785989403.5348513,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.675748399,
+    "ts": 1785989403.6592815,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.88685896396637,
+    "ts": 1785989448.7752535,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6841798706666666,
+    "ts": 1785989449.018254,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 16.14734432829751,
+    "ts": 1785989495.6400356,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6727664913333333,
+    "ts": 1785989496.0681841,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 16.293964077366724,
+    "ts": 1785989522.0366116,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.663566878,
+    "ts": 1785989522.3820457,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 16.374645380179086,
+    "ts": 1785989536.5632596,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.732796342,
+    "ts": 1785989536.726847,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.742757908503215,
+    "ts": 1785991883.4488833,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6651374596666667,
+    "ts": 1785991883.7231884,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.378333716922336,
+    "ts": 1785992151.4298346,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7290158940000001,
+    "ts": 1785992151.6099606,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 21.566079952981738,
+    "ts": 1786003177.8639412,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.4532624063333335,
+    "ts": 1786003178.0553436,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 21.610189571645524,
+    "ts": 1786003185.8106732,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.4320710146666666,
+    "ts": 1786003185.8475785,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 22.236960270669726,
+    "ts": 1786003298.6234007,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.4575118106666667,
+    "ts": 1786003298.765407,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 24.159795622030895,
+    "ts": 1786003644.7367609,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.698837695,
+    "ts": 1786003644.7772875,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 19.215308980147043,
+    "ts": 1786043442.798834,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.029319031,
+    "ts": 1786043443.1720278,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 21.063513600826262,
+    "ts": 1786043886.3669422,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.19902004175,
+    "ts": 1786043886.745672,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 24.860464452703795,
+    "ts": 1786044797.6321478,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.41670139725,
+    "ts": 1786044797.871542,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 25.38140287597974,
+    "ts": 1786044922.661369,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.45913147025,
+    "ts": 1786044922.738084,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 26.352930794159573,
+    "ts": 1786045155.82507,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.292155172,
+    "ts": 1786045155.9200072,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 28.94750362535318,
+    "ts": 1786045778.52355,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.67640195975,
+    "ts": 1786045778.5794966,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.902706343928973,
+    "ts": 1786048284.3119774,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.8216971665,
+    "ts": 1786048284.387264,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.649623514215152,
+    "ts": 1786048453.1482606,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.78712654475,
+    "ts": 1786048453.2179236,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.874118315180143,
+    "ts": 1786048620.9743671,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.017387156,
+    "ts": 1786048621.115384,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 20.021054109930994,
+    "ts": 1786048702.1038632,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.26530220225,
+    "ts": 1786048702.2046251,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.862181869149207,
+    "ts": 1786049367.6835365,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.922613128,
+    "ts": 1786049367.8595233,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 24.72816493610541,
+    "ts": 1786049397.2318096,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 1.57700422175,
+    "ts": 1786049397.5486784,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.5229649523894,
+    "ts": 1786051299.4716854,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.74940495725,
+    "ts": 1786051299.5270944,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.167227148016293,
+    "ts": 1786051382.4677362,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.71140792325,
+    "ts": 1786051382.5129292,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.103069233894349,
+    "ts": 1786051624.4745152,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.70844984025,
+    "ts": 1786051624.5224855,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 12.620013994971911,
+    "ts": 1786051670.0749683,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.7427783275,
+    "ts": 1786051670.1176844,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.355492901802062,
+    "ts": 1787587787.7066731,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.644857459,
+    "ts": 1787587787.8729782,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.998532692591349,
+    "ts": 1787589597.5510683,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.65489762,
+    "ts": 1787589597.7044523,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.007629676659901,
+    "ts": 1787589598.0968874,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.644859987,
+    "ts": 1787589598.1146152,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.876351102193196,
+    "ts": 1787589710.220173,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.81180812,
+    "ts": 1787589710.240192,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.892001219590504,
+    "ts": 1787592181.9509556,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.644861164,
+    "ts": 1787592182.0935352,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.918731494744618,
+    "ts": 1787592183.5537589,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.654897443,
+    "ts": 1787592183.572422,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.793801403045654,
+    "ts": 1787592296.0589666,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.811805398,
+    "ts": 1787592296.0943093,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.887453667322795,
+    "ts": 1787592959.4638858,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.644863142,
+    "ts": 1787592959.6177497,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 9.941630776723226,
+    "ts": 1787592962.7135122,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.654901257,
+    "ts": 1787592962.7323954,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 11.779447197914124,
+    "ts": 1787593072.9834976,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.811809958,
+    "ts": 1787593073.0012493,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.198239278793336,
+    "ts": 1787939202.7610176,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5525781776666666,
+    "ts": 1787939203.204924,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.242008517848122,
+    "ts": 1787939210.6384833,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5523801540000001,
+    "ts": 1787939210.9251933,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.299254993597666,
+    "ts": 1787939220.942849,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5536491926666667,
+    "ts": 1787939221.1922932,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.677800752056969,
+    "ts": 1787939289.0810854,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5987582746666666,
+    "ts": 1787939289.2368758,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 14.557659924030304,
+    "ts": 1787941840.837238,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.676732399,
+    "ts": 1787941840.879718,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 15.774780657556322,
+    "ts": 1787942068.6670341,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.6797907393333333,
+    "ts": 1787942068.7129018,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 13.70586765607198,
+    "ts": 1787947824.1361206,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.643586363,
+    "ts": 1787947824.2987025,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 10.232080744372473,
+    "ts": 1787952814.7342973,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5536408663333333,
+    "ts": 1787952815.266271,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 19.733077443970576,
+    "ts": 1787954524.9146998,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5525662846666667,
+    "ts": 1787954525.0578437,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 28.840097036626602,
+    "ts": 1787956164.1782265,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5523682323333333,
+    "ts": 1787956164.3463874,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "min_per_generation",
+    "value": 38.396682802836104,
+    "ts": 1787957884.3636644,
+    "host": "host-a|Windows",
+    "arrested": false
+  },
+  {
+    "kind": "gb_per_generation",
+    "value": 0.5987448446666667,
+    "ts": 1787957884.5184295,
+    "host": "host-a|Windows",
+    "arrested": false
+  }
 ]
