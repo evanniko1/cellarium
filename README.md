@@ -5,8 +5,8 @@ into a **falsifiable hypothesis — without seeing the data**; then a grounded a
 **real whole-cell simulations** and the **published literature**, and closes the loop by proposing experiments for
 your approval. Every number rides with its provenance. The agent never launches a run on its own.
 
-> Built for **Built with Claude: Life Sciences** (Builder track). Cellarium's own code is MIT; the whole-cell
-> model it runs on is obtained separately under Stanford's academic license (see [License](#license)).
+> Cellarium's own code is MIT; the whole-cell model it runs on is obtained separately under Stanford's
+> academic license (see [License](#license)).
 
 **Jump to:** [The problem](#the-problem) · [The two halves](#the-two-halves) · [Major results](#major-results) ·
 [The interactive report](#the-interactive-report) · [The demo](#the-demo) · [Install & run](#install--run-the-three-tiers) ·
@@ -36,7 +36,7 @@ Named for the **Socratic method**: a *Proposer* advances a claim, a *Skeptic* at
 single falsifiable hypothesis with a pre-registered falsifier — all **blind to the simulation data**. Framing the
 test *before* seeing the numbers is the scientific control against hypothesising-after-results (HARKing). Full
 design + evaluation: [docs/SOCRATIC_COUNCIL.md](docs/SOCRATIC_COUNCIL.md),
-[docs/SOCRATIC_COUNCIL_EVAL_REPORT.md](docs/SOCRATIC_COUNCIL_EVAL_REPORT.md), and [paper/](paper/).
+[docs/SOCRATIC_COUNCIL_EVAL_REPORT.md](docs/SOCRATIC_COUNCIL_EVAL_REPORT.md).
 
 - **The Maieutic Proposer** (Socratic midwifery; Plato, *Theaetetus*) performs **abduction** (Peirce 1903/1934):
   the best candidate explanation, operationalized onto **real instrument observables**, with a Popperian falsifier
@@ -78,6 +78,29 @@ calls viable — is treated as a result, not papered over.
 The differentiator is not "the AI answers the question" — a naive tool can print a number. It is that Cellarium
 makes the question **falsifiable and operational *before* it is tested**, and enforces the validated envelope,
 replication, and grounding *while* testing — **catching the failure modes a scientist would otherwise trust.**
+
+### A worked example — when the right answer is a refusal
+
+Ask *"which leucine tRNA isoacceptor keeps its charge during leucine starvation?"* and the model's output looks
+ready to answer. The `GrowthLimits` listener writes `fraction_trna_charged`, a column 86 entries wide, one per
+tRNA gene, named down to `leuU-tRNA[c]`.
+
+It is not ready. In the default steady-state mode those 86 entries carry at most 21 distinct values: charging is
+solved once per amino-acid family and the result is broadcast across every gene in that family. The difference
+between two leucine isoacceptors is therefore identically zero at every timestep and under every parameter
+setting, and no amount of fitting can create it.
+
+Cellarium checks this before anything runs. The capability registry is built from the model's source rather than
+its column names, and it reports:
+
+| elongation mode | resolves each tRNA? | couples starvation regulation? |
+|---|---|---|
+| `steady_state` (default) | no — 21 family values across 86 labels | yes, via RelA/SpoT ppGpp |
+| `kinetic` | yes — 86 identities as 172 charged/uncharged pools | no |
+| `coarse_kinetic` | does not solve charging; writes 86 zeros | no |
+
+No mode holds both halves, so the query is refused with the missing mechanism named — instead of being answered
+with a number that would look precise and mean nothing.
 
 ## Major results
 
@@ -408,9 +431,8 @@ retained).
 
 ## References
 
-Philosophy-of-science and key empirical works cited above (author–date); machine-readable entries for the paper are
-in [paper/references.bib](paper/references.bib). The interactive report carries its own 11 verified,
-DOI-linked sources for the results.
+Philosophy-of-science and key empirical works cited above (author–date). The interactive report carries its own
+11 verified, DOI-linked sources for the results.
 
 - Baba, T., Ara, T., Hasegawa, M., et al. (2006). Construction of *Escherichia coli* K-12 in-frame, single-gene knockout mutants: the Keio collection. *Molecular Systems Biology* 2: 2006.0008.
 - Bridgman, P. W. (1927). *The Logic of Modern Physics*. Macmillan.

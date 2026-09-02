@@ -43,13 +43,9 @@ src/cellarium/_pathway_resolved.json
 # only if the model is later recompiled locally.
 # Manifest shards (data/manifest/*.parquet) ARE committed — they are the shareable corpus.
 
-# LaTeX build artifacts
-paper/*.aux
-paper/*.bbl
-paper/*.blg
-paper/*.log
-paper/*.out
-paper/missfont.log
+# The whole paper/ tree is out of the distributed repo: it holds blind-review drafts and
+# manuscripts that are not part of the software artifact.
+paper/
 # scratch campaign scripts
 scratchpad_campaign.py*
 
@@ -67,11 +63,3 @@ data/evidence.jsonl
 pytest-report.xml
 vendor/wcEcoliRelease-v3.0.1.tar.gz
 
-# Blind-review submission drafts — double-blind venue, never commit
-paper/sim2science/
-paper/KISS_FRAMING.md
-paper/cellarium_5page.html
-paper/cellarium_appendix.html
-paper/build.py
-paper/check_appendix_refs.py
-paper/html_drafts/
