@@ -21,7 +21,7 @@ def test_the_python_and_sql_dedup_keys_agree_on_the_corpus():
     """`drop_run` and the dropped-filter key rows in Python (`dedup_key_py`); the survey dedups in SQL
     (`DEDUP_KEY`). If they disagree, a tombstone written against the Python key would never match the SQL row —
     the drop would silently do nothing. Pinned over every corpus path."""
-    os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+    os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/*.parquet")
     import duckdb
 
     from cellarium import manifest

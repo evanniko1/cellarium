@@ -11,7 +11,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/*.parquet")
 
 from cellarium import council, instrument  # noqa: E402
 

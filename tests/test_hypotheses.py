@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "apps"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/*.parquet")
 
 import hypotheses  # noqa: E402
 

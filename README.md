@@ -200,7 +200,7 @@ checkout by `apply_model_overlay.py`, which verifies each target against a pinne
 Every command below was run end-to-end, in this order, against a **fresh `git clone` of the public repo** on
 Windows 11 + Docker 29.4.2. Where a step has a trap, the trap is named — each one was hit for real.
 
-**1. Install Docker** — <https://docs.docker.com/get-started/>. Budget ~30 GB disk and 8 GB RAM for Docker.
+**1. Install Docker** — <https://docs.docker.com/get-started/>. Budget about 30 GB disk and 8 GB RAM for Docker.
 
 **2. Clone the model at the pinned commit — onto a BRANCH, not a detached HEAD.**
 
@@ -225,7 +225,7 @@ Expected on a clean `a4497e17`: `45 shipped, 0 blocked` then `31 to replace, 14 
 is idempotent (`0 to replace, 0 to create, 45 already applied, 0 problems`). If it refuses with `!! STALE`, upstream changed a file the
 overlay ships — read [docs/OVERLAY.md](docs/OVERLAY.md) before reaching for `--force`.
 
-**4. Build the image** — from the **wcEcoli** root. First build is slow (~15–30 min; it compiles OpenBLAS-free
+**4. Build the image** — from the **wcEcoli** root. First build is slow (about 15-30 min; it compiles OpenBLAS-free
 numpy/scipy wheels, the Cython extensions and the model):
 
 ```bash
@@ -293,8 +293,8 @@ reader backend behind gene-level tools. Deep-dive read path (pull raw + wire the
 ## The corpus
 
 The raw whole-cell simOut is published as an open Hugging Face dataset
-([`evanniko1/cellarium-corpus`](https://huggingface.co/datasets/evanniko1/cellarium-corpus), ~198 GB across 96 run
-archives). The distilled Parquet manifest ships in-repo (~5 MB) for fast, download-free reasoning; `download_raw`
+([`evanniko1/cellarium-corpus`](https://huggingface.co/datasets/evanniko1/cellarium-corpus), about 198 GB across 96 run
+archives). The distilled Parquet manifest ships in-repo (about 5 MB) for fast, download-free reasoning; `download_raw`
 pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth.
 
 ## Architecture

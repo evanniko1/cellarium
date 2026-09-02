@@ -10,7 +10,7 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/*.parquet")
 
 from cellarium import (  # noqa: E402
     raw,

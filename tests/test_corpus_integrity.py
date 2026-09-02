@@ -24,7 +24,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/*.parquet")
 os.environ.setdefault("CELLARIUM_OUT", "runs")
 
 import pytest  # noqa: E402
@@ -156,7 +156,7 @@ def test_the_dedup_outcome_is_pinned_on_the_corpus():
     chosen over absolute counts so the guard would survive legitimate corpus growth. That was sound until it
     collided with a guardrail: `manifest.compact()` (manifest.py:432) consolidates shards and physically drops
     exactly those superseded rows, and it is called AUTOMATICALLY at manifest.py:999 so re-indexes do not pile
-    up. A compaction ran on 2026-07-31, producing data/manifest/vmnik-compact.parquet. After it,
+    up. A compaction ran on 2026-07-31, producing the consolidated shard (now corpus-compact.parquet). After it,
     `raw == kept == 322` and dedup removes 0 — so the delta pin became UNSATISFIABLE BY CONSTRUCTION, and the
     test failed for a reason that was not a corpus defect. The test was wrong, not the guardrail: it pinned a
     transient on-disk condition that a maintenance operation exists to erase. Do not "fix" this by disabling
