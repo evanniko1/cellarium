@@ -5,11 +5,17 @@ into a **falsifiable hypothesis — without seeing the data**; then a grounded a
 **real whole-cell simulations** and the **published literature**, and closes the loop by proposing experiments for
 your approval. Every number rides with its provenance. The agent never launches a run on its own.
 
+<!-- VIDEO: replace the line below with the github.com/user-attachments/assets/... URL produced by
+     dragging the .mp4 into any GitHub issue or PR comment box. A bare asset URL on its own line renders
+     as an inline player; a relative path to a file in the repo does NOT. -->
+
+https://github.com/USER/REPO/assets/REPLACE-ME/cellarium-walkthrough.mp4
+
 > Cellarium's own code is MIT; the whole-cell model it runs on is obtained separately under Stanford's
 > academic license (see [License](#license)).
 
 **Jump to:** [The problem](#the-problem) · [The two halves](#the-two-halves) · [Major results](#major-results) ·
-[The interactive report](#the-interactive-report) · [The demo](#the-demo) · [Install & run](#install--run-the-three-tiers) ·
+[The interactive report](#the-interactive-report) · [Install & run](#install--run-the-three-tiers) ·
 [Architecture](#architecture) · [License](#license)
 
 ---
@@ -136,18 +142,6 @@ verified references with DOIs — is a self-contained page at **[`docs/report/in
   `/docs/report/index.html`).
 - **Export:** it is a single self-contained HTML file (copy/share as-is); to make a **PDF**, open it in a browser
   and use *Print → Save as PDF*.
-
-## The demo
-
-A hands-free **~3-minute walkthrough** auto-plays for screen-recording once the app is running:
-
-```
-http://127.0.0.1:8000/?demo=1
-```
-
-It covers the problem, the Council→Cellwright loop, two worked investigations (the argS stringent-response
-falsification in Council mode; the rRNA **numbers-vs-efficiency clash** in direct mode), the corpus, and the safety
-airlock. Script: [docs/DEMO.md](docs/DEMO.md).
 
 ## Install & run (the three tiers)
 

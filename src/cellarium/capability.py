@@ -500,7 +500,7 @@ CAPABILITIES: tuple[Capability, ...] = (
         # pair to drift. What the key forbids is the reverse — this sentence reaching a STEADY_STATE refusal,
         # where ppGpp is computed and "nothing synthesises or degrades it" is simply false.
         instead={("kinetic", "coarse_kinetic"): "nothing synthesises or degrades ppGpp under either kinetic "
-                 "model — only SteadyStateElongationModel runs those reactions. metabolism.py:52 turns "
+                 "model — only SteadyStateElongationModel runs those reactions. metabolism.py:69 turns "
                  "include_ppgpp back on once trna_charging is False and then HOLDS ppGpp AT A CONSTANT "
                  "TARGET, and ppGpp-dependent transcription regulation reads that frozen pool"},
         consequence={("kinetic", "coarse_kinetic"): "GrowthLimits/ppgpp_conc still exists and still looks like "
