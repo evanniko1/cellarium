@@ -280,8 +280,13 @@ def wildtype_null() -> dict:
     # TRNA-9 / H-17b: `analysis` — reportable, live, ONE comparability arm. `fraction_trna_charged` is the
     # channel where the elongation model changes what the number MEANS (INV-2), so a null pooled across arms
     # describes no instrument. MEASURED once the estimator was made deterministic: the MAX — the number that
-    # gates `exceeds_wildtype_null_max` — is 92.7 pp under all four candidate row sets, so narrowing costs
+    # gates `exceeds_wildtype_null_max` — was 92.7 pp under all four candidate row sets, so narrowing cost
     # nothing on the gate. It moves the reported MEDIAN (19.5 -> 13.4) and the pair count (3,306 -> 702).
+    # THAT COMPARISON IS CONDITIONAL ON THE RAW SET, not just on the row set. This null is computed from raw
+    # wild-type simOut on local disk, so pruning raw data changes it without touching the manifest or the
+    # estimator. MEASURED 2026-09-02, after 8 wild-type run directories were reclaimed to HF: units 48 -> 20,
+    # pairs 702 -> 380, max 92.7 -> 82.6 pp. The 92.7 above is the value on the 48-unit corpus and should be
+    # read with that qualifier; tests/test_trna_null.py now pins the corpus alongside the number.
     # The earlier claim that arm-pooling inflated the threshold ~1.75x was an ARTEFACT of the broken
     # one-arbitrary-reference estimator, not a property of the data.
     for r in hygiene.rows("analysis")[0]:

@@ -99,11 +99,35 @@ def test_the_null_is_built_from_one_comparability_arm(fresh):
         "the unfiltered primitive is being called again — the null is pooling arms")
 
 
+# The corpus the gate was pinned against. The null is computed from RAW wild-type simOut on local disk, not
+# from the manifest, so its value is a property of what is on THIS machine. Pruning raw data — which is a
+# supported operation, and one the reclaim manifest exists to make reversible — legitimately changes it.
+# MEASURED 2026-09-02: after 8 wild-type run directories were deleted to reclaim disk, units fell 48 -> 20,
+# pairs 702 -> 380 (n*(n-1) exactly, both times) and the max fell 92.7 -> 82.6 pp. Nothing about the estimator
+# changed. Pinning the VALUE without pinning the CORPUS therefore asserted two things at once and blamed the
+# estimator for a change in the inputs.
+_PINNED_UNITS = 48          # n_wildtype_units_on_disk when 92.7 was measured
+_PINNED_MAX_PP = 92.7
+
+
 def test_the_gate_is_the_max_and_it_survived_the_change(fresh):
     """Recorded as a value because the whole reason this migration was safe to land is that the gate does not
-    move. If it changes, someone changed what `exceeds_wildtype_null_max` means and should say so."""
+    move. If it changes ON THE SAME CORPUS, someone changed what `exceeds_wildtype_null_max` means and should
+    say so.
+
+    Guarded on the corpus for a second reason: this test ships. A user who follows the README to Tier 2 and runs
+    their own simulations has wild-type raw on disk, so the null computes — against THEIR seeds and THEIR fit,
+    where 92.7 means nothing. Unguarded, the first thing a new user got for doing what the README invited was a
+    red scientific test with no way to tell a real regression from a different corpus."""
     d = _null()
     if d.get("error"):
         pytest.skip(d["error"])
-    assert d["gap_pp"]["max"] == pytest.approx(92.7, abs=0.15), (
-        f"the verdict gate moved to {d['gap_pp']['max']} — this is a scientific threshold, not a detail")
+    units = d.get("n_wildtype_units_on_disk")
+    if units != _PINNED_UNITS:
+        pytest.skip(
+            f"the pin is corpus-specific: {_PINNED_UNITS} wild-type units on disk when {_PINNED_MAX_PP} pp was "
+            f"measured, {units} here, so the null is a different quantity (max reads "
+            f"{d['gap_pp']['max']} pp). Restore the raw set or re-pin deliberately; do not 'fix' the number.")
+    assert d["gap_pp"]["max"] == pytest.approx(_PINNED_MAX_PP, abs=0.15), (
+        f"the verdict gate moved to {d['gap_pp']['max']} on an UNCHANGED corpus ({units} units) — this is a "
+        f"scientific threshold, not a detail")

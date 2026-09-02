@@ -67,3 +67,7 @@ vendor/wcEcoliRelease-v3.0.1.tar.gz
 # BACKLOG.md is local working state, not part of the distributed artifact.
 # src/cellarium/harness.py recreates it (section X) on first use in a fresh clone.
 BACKLOG.md
+
+# The HF upload ledger is a hand-maintained record of ONE contributor's uploads (paths, sizes, what is still
+# local-only). Nothing generates it, so it is not a feature a cloner inherits — it is personal bookkeeping.
+data/hf/UPLOAD_LEDGER.md
