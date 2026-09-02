@@ -5,12 +5,6 @@ into a **falsifiable hypothesis — without seeing the data**; then a grounded a
 **real whole-cell simulations** and the **published literature**, and closes the loop by proposing experiments for
 your approval. Every number rides with its provenance. The agent never launches a run on its own.
 
-<!-- VIDEO: replace the line below with the github.com/user-attachments/assets/... URL produced by
-     dragging the .mp4 into any GitHub issue or PR comment box. A bare asset URL on its own line renders
-     as an inline player; a relative path to a file in the repo does NOT. -->
-
-https://github.com/USER/REPO/assets/REPLACE-ME/cellarium-walkthrough.mp4
-
 > Cellarium's own code is MIT; the whole-cell model it runs on is obtained separately under Stanford's
 > academic license (see [License](#license)).
 
