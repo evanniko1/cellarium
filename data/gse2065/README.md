@@ -29,7 +29,10 @@ no network. `--verify-download` re-runs the chain from the raw record.
 - `error_floors.csv` — RMSE and $L_\infty$ floors, plus the loci-weighted and leave-one-spot-out checks
 - `summary.json` — the above with the input hash, the probe grouping, the measurement caveat, the
   ordering check across all 72 leave-one-spot refits, and the six inequalities shared with the blot
-- `figure1_panels_bc.pdf` — panels (b) and (c). Panel (a) is a schematic, drawn separately.
+- `figure1_panels_bc.svg` — panels (b) and (c). Panel (a) is a schematic, drawn separately.
+  SVG, not PDF: anonymous.4open.science refuses to serve PDFs (`file_not_supported`), while it
+  serves parquet and SQLite without complaint, so a committed PDF is simply missing from the
+  artifact a reviewer downloads. `--plot` still writes a local PDF, which is gitignored.
 
 ## How the five groups are built
 

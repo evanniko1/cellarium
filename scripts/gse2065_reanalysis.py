@@ -352,9 +352,19 @@ def plot(R, stats, groups, iqr) -> None:
     ax2.set_ylabel("min equal-group RMSE")
     ax2.set_title("c  floor on any family-constant prediction", loc="left", fontsize=9)
     fig.tight_layout()
-    dest = OUT / "figure1_panels_bc.pdf"
-    fig.savefig(dest)
-    print(f"wrote {dest}")
+
+    # SVG is the committed format, PDF is a local convenience. anonymous.4open.science refuses to
+    # serve PDFs at all -- `{"error":"file_not_supported"}`, while parquet and SQLite serve fine --
+    # so a committed PDF is simply absent from the artifact a reviewer downloads. SVG is text, so it
+    # is served, and it stays readable under the same term substitution as everything else.
+    # svg.hashsalt fixes the element ids and Date:None drops the embedded timestamp, so the figure is
+    # byte-reproducible like the tables rather than changing on every run.
+    plt.rcParams["svg.hashsalt"] = "gse2065"
+    svg = OUT / "figure1_panels_bc.svg"
+    fig.savefig(svg, metadata={"Date": None})
+    pdf = OUT / "figure1_panels_bc.pdf"
+    fig.savefig(pdf, metadata={"CreationDate": None})
+    print(f"wrote {svg} (committed) and {pdf} (local only -- 4open does not serve PDFs)")
 
 
 if __name__ == "__main__":

@@ -95,3 +95,7 @@ docs/HYPOTHESIS_MODE_PLAN.md
 # the paper's asset register commits to that, so scripts/gse2065_reanalysis.py fetches it on demand
 # and checks it against a pinned SHA-256. The DERIVED tables beside it are committed.
 data/gse2065/GSE2065_family.soft.gz
+
+# anonymous.4open.science refuses to serve PDFs ("file_not_supported"), so a committed PDF is absent
+# from the artifact a reviewer downloads. The figure ships as SVG instead; the PDF stays local.
+data/gse2065/figure1_panels_bc.pdf
