@@ -132,7 +132,7 @@ change the **readout** (viability, not graded growth) and the **design** (graded
 - `[ ]` **Multi-gene / reduced-genome design generator** (`generate.py`): combinatorial deletions scored by
   viability. *Source: Gherman et al. 2025.*
 - `[ ]` **ML surrogate for viability/division** trained on the corpus (95% compute reduction) — the
-  "reason over the model at scale" primitive; artifact for "The Well for the Cell". *Source: Gherman et al. 2025.*
+  "reason over the model at scale" primitive. *Source: Gherman et al. 2025.*
 
 ## P5 — harness gaps from the audit round (2026-07-10)
 Stress-test (17 tools, edge cases) found no crashes and semantically-correct guardrails. These are the gaps the

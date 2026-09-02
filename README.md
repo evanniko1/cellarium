@@ -9,8 +9,7 @@ your approval. Every number rides with its provenance. The agent never launches 
 > academic license (see [License](#license)).
 
 **Jump to:** [The problem](#the-problem) · [The two halves](#the-two-halves) · [Major results](#major-results) ·
-[The interactive report](#the-interactive-report) · [Install & run](#install--run-the-three-tiers) ·
-[Architecture](#architecture) · [License](#license)
+[Install & run](#install--run-the-three-tiers) · [Architecture](#architecture) · [License](#license)
 
 ---
 
@@ -104,8 +103,8 @@ with a number that would look precise and mean nothing.
 
 ## Major results
 
-The full, citation-checked findings are in the [interactive report](#the-interactive-report). In brief, Cellarium
-mapped — provenance-controlled — **where the whole-cell model predicts and where it breaks**:
+The full derivations, statistics and literature anchors are in [docs/CASE_MATRIX.md](docs/CASE_MATRIX.md). In
+brief, Cellarium mapped — provenance-controlled — **where the whole-cell model predicts and where it breaks**:
 
 - **Trust, out-of-sample.** On axes it was never fitted to, the model reproduces the physiology: the ppGpp
   *allocation optimum* (growth worst at both clamp extremes, Zhu & Dai 2019); the **nitrate respiratory hierarchy**
@@ -126,16 +125,6 @@ mapped — provenance-controlled — **where the whole-cell model predicts and w
 
 Every finding is verified against the primary literature; the report grades honestly (some anomalies were
 *not* forced into failures), and an unverifiable "Scott law" claim was pulled after checking the source.
-
-## The interactive report
-
-The complete write-up — the glass-box method, strengths, boundaries, the clash, a cumulative verdict ledger, and 11
-verified references with DOIs — is a self-contained page at **[`docs/report/index.html`](docs/report/index.html)**.
-
-- **View it:** open the file directly in a browser, or serve the repo (`python -m http.server` then open
-  `/docs/report/index.html`).
-- **Export:** it is a single self-contained HTML file (copy/share as-is); to make a **PDF**, open it in a browser
-  and use *Print → Save as PDF*.
 
 ## Install & run (the three tiers)
 
@@ -301,13 +290,12 @@ instead of re-run (see below); Docker/ParCa is only for designs not already in t
 reader backend behind gene-level tools. Deep-dive read path (pull raw + wire the reader): the
 [Deep dives section of docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md).
 
-## The dataset — "The Well, for the cell"
+## The corpus
 
 The raw whole-cell simOut is published as an open Hugging Face dataset
 ([`evanniko1/cellarium-corpus`](https://huggingface.co/datasets/evanniko1/cellarium-corpus), ~198 GB across 96 run
 archives). The distilled Parquet manifest ships in-repo (~5 MB) for fast, download-free reasoning; `download_raw`
-pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth. This turns expensive,
-expert-only whole-cell runs into a queryable public corpus.
+pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth.
 
 ## Architecture
 
@@ -420,8 +408,8 @@ retained).
 
 ## References
 
-Philosophy-of-science and key empirical works cited above (author–date). The interactive report carries its own
-11 verified, DOI-linked sources for the results.
+Philosophy-of-science and key empirical works cited above (author–date). The per-result citations, with DOIs,
+are in [docs/CASE_MATRIX.md](docs/CASE_MATRIX.md).
 
 - Baba, T., Ara, T., Hasegawa, M., et al. (2006). Construction of *Escherichia coli* K-12 in-frame, single-gene knockout mutants: the Keio collection. *Molecular Systems Biology* 2: 2006.0008.
 - Bridgman, P. W. (1927). *The Logic of Modern Physics*. Macmillan.

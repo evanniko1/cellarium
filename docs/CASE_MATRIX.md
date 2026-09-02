@@ -1,6 +1,6 @@
-# Cellarium case matrix — the analysis behind the interactive report
+# Cellarium case matrix
 
-The evidence base for the interactive report (#3): curated whole-cell-model findings across four categories —
+Curated whole-cell-model findings across four categories —
 **controls** (the model agrees with textbook biology, so we can trust it), **novelty** (results only a whole-cell
 model produces), **failure** (the model contradicts biology), and **under-prediction** (the model is too robust).
 Every number is recomputed from the current de-duped corpus (239 runs, `data/manifest/vmnik-compact.parquet`) via

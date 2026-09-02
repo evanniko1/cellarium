@@ -1,4 +1,4 @@
-"""SCI-5: an ML surrogate for single-gene-KO viability — the "Well for the Cell" compute-reduction artifact.
+"""SCI-5: an ML surrogate for single-gene-KO viability — a compute-reduction triage prior.
 
 Running the whole-cell sim for a candidate KO costs ~hours; this surrogate predicts the sim's own viability verdict
 from CHEAP a-priori gene properties (the same scope features the deterministic tools use — machinery/metabolic role,

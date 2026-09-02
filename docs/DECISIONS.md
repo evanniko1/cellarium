@@ -13,9 +13,9 @@ trajectories.
 **HuggingFace dataset** (or object store) holding full tensors for a curated subset of trajectories, so
 either contributor can deep-query the other's runs. Decide: which subset, tensor format, upload cadence.
 
-**Why it matters beyond this hackathon.** This is exactly the sharding + full-tensor packaging problem
-that **"The Well, for the Cell"** needs — so whatever we choose here should slot into that dataset work
-(reproducible shards, checksummed manifests, leakage-free splits). Treat this as the seed of that pipeline.
+**Why it matters beyond this repo.** This is the sharding + full-tensor packaging problem any large
+public simulation dataset has to solve, so whatever we choose here should carry: reproducible shards,
+checksummed manifests, leakage-free splits.
 
 ## D3 — Model licensing & data distribution (constraint, not deferred)
 The whole-cell *E. coli* model is under the **Stanford Academic Software License (Docket S18-475)** —
@@ -25,7 +25,7 @@ redistributed without Stanford's written permission (§§5, 6, 8, 11). Consequen
   (papers/figures + the data behind them) *with acknowledgment* (§12 anticipates this) — low risk.
 - **Do NOT** bundle/vendor/redistribute the model. Cellarium points at a user-obtained checkout; any Docker
   image is built locally from that checkout and **never published**.
-- **Distributing a large standalone simulation dataset publicly** (e.g. "The Well, for the Cell") is the one
+- **Distributing a large standalone simulation dataset publicly** is the one
   action that **requires Stanford's written permission** — the license's own mechanism. This is a
   grant/dataset-level action, **not a hackathon blocker** (the hackathon submits code + a local demo; the
   corpus stays local). Track alongside D1. (Not legal advice.)
