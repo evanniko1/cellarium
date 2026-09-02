@@ -212,6 +212,9 @@ def test_a_campaign_where_nothing_passed_qc_says_so(tmp_path, monkeypatch):
     """
     from cellarium import launch, manifest
 
+    # Isolate the queue, as every other test here does: propose() writes to launch.QUEUE, which
+    # defaults to the tracked data/launch_queue.json. Without this the suite dirties a committed file.
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
     monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
     monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
     monkeypatch.setattr(manifest, "shard_outcome",
@@ -233,6 +236,9 @@ def test_a_campaign_that_produced_usable_runs_carries_no_note(tmp_path, monkeypa
     """The converse: a run that passed QC must not be decorated with a failure note."""
     from cellarium import launch, manifest
 
+    # Isolate the queue, as every other test here does: propose() writes to launch.QUEUE, which
+    # defaults to the tracked data/launch_queue.json. Without this the suite dirties a committed file.
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
     monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
     monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
     monkeypatch.setattr(manifest, "shard_outcome",
