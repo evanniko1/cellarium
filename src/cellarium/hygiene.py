@@ -185,7 +185,7 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
     "src/cellarium/manifest.py::quarantine_tombstones": {"kind": "maintenance", "why": "moves tombstoned rows to the dropped shard; reads exactly what the purposes hide"},
     "src/cellarium/manifest.py::dropped_rows": {"kind": "maintenance", "why": "reads the quarantined shard directly, which no purpose reaches by design"},
     "src/cellarium/manifest.py::manifest_columns": {"kind": "maintenance", "why": "schema introspection over the raw parquet; a row view cannot answer which columns exist"},
-    "src/cellarium/manifest.py::shard_row_count": {"kind": "maintenance", "why": "counts rows in ONE named shard to tell a total campaign failure from a success; a purpose view spans every shard and filters, which is exactly what this must not do"},
+    "src/cellarium/manifest.py::shard_outcome": {"kind": "maintenance", "why": "counts rows in ONE named shard to tell a total campaign failure from a success; a purpose view spans every shard and filters, which is exactly what this must not do"},
     "src/cellarium/manifest.py::integrity_check": {"kind": "maintenance", "why": "two targeted probe queries (D10 provenance, D11 partition columns) over columns the row projection omits"},
     "src/cellarium/manifest.py::backfill_condition": {"kind": "maintenance", "why": "reads every row to rewrite one column; a filtered view would silently skip rows"},
     "src/cellarium/manifest.py::backfill_elongation_model": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},

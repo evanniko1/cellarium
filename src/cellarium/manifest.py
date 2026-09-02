@@ -887,27 +887,44 @@ def quarantine_tombstones(dry_run: bool = True) -> dict:
     return res
 
 
-def shard_row_count(shard: Path | str) -> int:
-    """How many rows a shard actually holds; 0 if it is absent or unreadable.
+def shard_outcome(shard: Path | str) -> dict:
+    """What ONE campaign's shard actually contains: {"rows": n, "ok": n, "qc": {status: n}, "crash": {...}}.
 
     `campaign` is crash-isolated, so it returns a shard path whether every sim succeeded or every one
-    failed. Callers that need to tell those apart — the approval gate does, since it reports an outcome
-    to a human — have nothing else to go on. Absent or unreadable counts as 0 rather than raising: the
-    question being asked is "did anything land", and for that a file we cannot read is a no.
+    failed, and a crashed run still writes a row — a lethal knockout IS a result. So neither "did it
+    raise" nor "are there rows" tells a caller whether anything usable landed. The approval gate needs
+    that, because it reports an outcome to a human.
+
+    Deliberately NOT collapsed to a boolean. `_classify_crash` documents `crash_type="container"` as
+    ambiguous — an inviable design and a broken container exit the same way — so a caller that turned
+    this into pass/fail would either call a real lethal result a failure or call a broken container a
+    success. Report the counts and let the reader see which one this is.
+
+    Absent or unreadable returns zeros: the question is "what landed", and a file we cannot read is
+    nothing landed.
     """
     import duckdb
 
+    empty = {"rows": 0, "ok": 0, "qc": {}, "crash": {}}
     p = Path(shard)
     if not p.exists():
-        return 0
+        return empty
     con = duckdb.connect()
     try:
-        return int(con.execute(
-            f"SELECT count(*) FROM read_parquet('{p.as_posix()}')").fetchone()[0])
+        rows = con.execute(
+            f"SELECT qc, crash_type, count(*) FROM read_parquet('{p.as_posix()}') GROUP BY 1, 2"
+        ).fetchall()
     except Exception:
-        return 0
+        return empty
     finally:
         con.close()
+    qc: dict[str, int] = {}
+    crash: dict[str, int] = {}
+    for status, ctype, n in rows:
+        qc[str(status)] = qc.get(str(status), 0) + int(n)
+        if ctype:
+            crash[str(ctype)] = crash.get(str(ctype), 0) + int(n)
+    return {"rows": sum(qc.values()), "ok": qc.get("ok", 0), "qc": qc, "crash": crash}
 
 
 def append_shard(rows: list[dict], name: str | None = None, directory: Path | None = None) -> Path:

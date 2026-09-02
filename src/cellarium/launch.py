@@ -471,6 +471,7 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
                     params=d["params"], elongation_model=d.get("elongation_model", DEFAULT_MODE))
     shard: str | None = None
     error: str | None = None
+    outcome: dict | None = None   # stays None if campaign raised, so the real error is what surfaces
     try:
         # campaign runs the sim AND indexes the new run into its own shard (one reader container per run) — that
         # alone makes it agent-visible. Then compact() consolidates shards WITHOUT re-reading every run on disk
@@ -484,12 +485,7 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
         # status="done", error=None for a request that produced no rows at all. MEASURED on a fresh clone
         # with no ParCa output: the sim died on a missing simData.cPickle and the caller was told "done".
         # Count what landed BEFORE compact() folds the shard into the corpus and the evidence is gone.
-        recorded = manifest.shard_row_count(s)
-        if recorded == 0:
-            raise RuntimeError(
-                f"every run failed: 0 of {seeds} seed(s) recorded a row. The per-run error is in the log "
-                "above. A checkout that has never run the ParCa has no kb/simData.cPickle, which is the "
-                "usual cause — rebuild the knowledge base before launching sims.")
+        outcome = manifest.shard_outcome(s)   # read BEFORE compact folds this shard into the corpus
         if index:
             res = manifest.compact()
             s = res.get("shard") or s
@@ -507,7 +503,19 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
             else:
                 req["error"] = error
         _save(q)
-    return {"request_id": request_id, "status": status, "shard": shard, "error": error}
+    out = {"request_id": request_id, "status": status, "shard": shard, "error": error}
+    if outcome is not None:
+        out["recorded"] = outcome
+        if outcome["ok"] == 0:
+            # Not an error, and not silence either: the request completed and nothing it produced is
+            # usable. Whether that is a broken container or a genuinely inviable design is what the
+            # crash breakdown is for, and it is the reader's call to make, not ours to guess.
+            out["note"] = (f"0 of {outcome['rows']} recorded run(s) passed QC "
+                           f"(qc={outcome['qc']}, crash={outcome['crash']}). crash_type 'container' is "
+                           "ambiguous: a broken container and an inviable design exit alike. A checkout "
+                           "that has never run the ParCa has no kb/simData.cPickle, which is the usual "
+                           "cause of the former.")
+    return out
 
 
 def _run_rebuild(request_id: str, d: dict) -> dict:

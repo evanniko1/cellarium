@@ -197,40 +197,60 @@ def test_save_is_atomic_leaves_no_partial_file(tmp_path, monkeypatch):
     assert not (tmp_path / "q.json.tmp").exists()      # no leftover temp
 
 
-def test_a_campaign_where_every_sim_failed_is_not_reported_as_done(tmp_path, monkeypatch):
-    """The approval gate must not tell a human "done" for a request that produced nothing.
+def test_a_campaign_where_nothing_passed_qc_says_so(tmp_path, monkeypatch):
+    """The approval gate must not hand a human a bare "done" for a request that produced nothing usable.
 
     manifest.campaign is crash-isolated on purpose -- a failed sim is logged and skipped so a long
     unattended batch still leaves a usable corpus -- so it returns a shard path and raises nothing even
-    when every run died. approve_and_run took that as success. MEASURED on a fresh clone with no ParCa
-    output: the sim died on a missing simData.cPickle and the caller was handed status="done",
-    error=None. Here the campaign writes an EMPTY shard, exactly as a total failure does.
+    when every run died, AND a crashed run still writes a row, because a lethal design is a result.
+    approve_and_run therefore had no signal at all and reported status="done", error=None. MEASURED on a
+    fresh clone with no ParCa output: the sim died in the container on a missing simData.cPickle and the
+    caller was told "done", with the failure visible only in a log line.
+
+    The fix is not a boolean. _classify_crash documents crash_type="container" as ambiguous between a
+    broken container and an inviable design, so the counts are reported and the reader decides.
     """
     from cellarium import launch, manifest
 
-    empty = tmp_path / "empty-shard.parquet"
-    monkeypatch.setattr(manifest, "campaign", lambda *a, **k: empty)
-    monkeypatch.setattr(manifest, "shard_row_count", lambda s: 0)
-    called = []
-    monkeypatch.setattr(manifest, "compact", lambda *a, **k: called.append(1) or {"shard": "x"})
+    monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
+    monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
+    monkeypatch.setattr(manifest, "shard_outcome",
+                        lambda s: {"rows": 1, "ok": 0, "qc": {"crashed": 1}, "crash": {"container": 1}})
 
     p = launch.propose(perturbation="wildtype", condition="basal", seeds=1, generations=1,
                        elongation_model="steady_state")
     assert p.get("status") == "pending_approval", p
     out = launch.approve_and_run(p["request_id"], parallel=1, index=True)
 
-    assert out["status"] == "failed", f"a total failure was reported as {out['status']!r}"
-    assert out["error"], "no reason given for the failure"
-    assert "0 of 1 seed" in out["error"]
-    assert not called, "compact must not fold an empty campaign into the corpus"
+    assert out["recorded"]["ok"] == 0
+    assert out.get("note"), "a request that produced nothing usable reported no note"
+    assert "0 of 1 recorded run(s) passed QC" in out["note"]
+    assert "ambiguous" in out["note"], "the container/inviable ambiguity must not be hidden"
+    assert "simData.cPickle" in out["note"], "the usual cause is not named"
 
 
-def test_shard_row_count_treats_unreadable_as_nothing_landed(tmp_path):
-    """Absent or unreadable counts as 0 rows: the question is 'did anything land', and a file we
-    cannot read is a no. Raising here would turn a reporting helper into a second failure mode."""
+def test_a_campaign_that_produced_usable_runs_carries_no_note(tmp_path, monkeypatch):
+    """The converse: a run that passed QC must not be decorated with a failure note."""
+    from cellarium import launch, manifest
+
+    monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
+    monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
+    monkeypatch.setattr(manifest, "shard_outcome",
+                        lambda s: {"rows": 1, "ok": 1, "qc": {"ok": 1}, "crash": {}})
+
+    p = launch.propose(perturbation="wildtype", condition="basal", seeds=1, generations=1,
+                       elongation_model="steady_state")
+    out = launch.approve_and_run(p["request_id"], parallel=1, index=True)
+    assert out["status"] == "done" and out["recorded"]["ok"] == 1
+    assert "note" not in out
+
+
+def test_shard_outcome_treats_unreadable_as_nothing_landed(tmp_path):
+    """Absent or unreadable reports zeros: the question is "what landed", and a file we cannot read is
+    nothing. Raising here would turn a reporting helper into a second failure mode."""
     from cellarium import manifest
 
-    assert manifest.shard_row_count(tmp_path / "does-not-exist.parquet") == 0
+    assert manifest.shard_outcome(tmp_path / "nope.parquet") == {"rows": 0, "ok": 0, "qc": {}, "crash": {}}
     junk = tmp_path / "junk.parquet"
     junk.write_bytes(b"not a parquet file")
-    assert manifest.shard_row_count(junk) == 0
+    assert manifest.shard_outcome(junk)["rows"] == 0
