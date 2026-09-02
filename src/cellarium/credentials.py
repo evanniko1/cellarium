@@ -21,8 +21,10 @@ The invariants (each one asserted in tests/test_credentials.py):
       promise "saved to your keychain" into an unencrypted file.
   I4  Every message leaving this module is redacted against the key first, whatever an SDK put in its exception.
 
-`keyring` is an OPTIONAL dependency (extra: `keyvault`). With it absent — the CI case, and any headless box —
-every function here still works; `can_persist` simply reports False and the UI says so in plain language.
+`keyring` is a CORE dependency (promoted from the `keyvault` extra on 2026-08-11; the extra is kept as a no-op
+alias). What is still optional is a working OS keychain BACKEND — absent on CI and on headless boxes — and with
+no backend every function here still works; `can_persist` simply reports False and the UI says so in plain
+language.
 """
 
 from __future__ import annotations
@@ -58,7 +60,7 @@ def backend() -> dict:
     try:
         import keyring
     except Exception:
-        return {"name": None, "secure": False, "reason": "the optional `keyring` package is not installed"}
+        return {"name": None, "secure": False, "reason": "the `keyring` package is not installed (it is a core dependency; reinstall with `pip install -e .`)"}
     try:
         kr = keyring.get_keyring()
     except Exception as exc:

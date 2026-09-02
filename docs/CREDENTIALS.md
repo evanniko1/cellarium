@@ -51,7 +51,7 @@ works for the whole session, and `.env` remains available everywhere.
 | **WSL2** | `keyring.backends.fail.Keyring` | ❌ session-only | WSL2 does not see the Windows side's Credential Manager. Use `.env` or `export`. |
 | **BSD** | `keyring.backends.fail.Keyring` | ❌ session-only | Use `.env`. |
 | **any, with `keyrings.alt` installed** | `PlaintextKeyring` | ❌ **refused** | *"this backend stores secrets unencrypted on disk"*. We will not write a key there. |
-| **CI** | `keyring` absent entirely | ❌ session-only | *"the optional `keyring` package is not installed"*. |
+| **CI** | `keyring` absent entirely | ❌ session-only | *"the `keyring` package is not installed (it is a core dependency; reinstall with `pip install -e .`)"*. |
 
 `tests/test_credentials.py::test_backend_verdict_per_platform` pins the verdict for each of these backend
 classes, so the table is CI-enforced rather than prose.
@@ -64,8 +64,11 @@ Any insecure child condemns the chain — you lose persistence and are told exac
 ### Install
 
 ```bash
-pip install -e ".[keyvault]"      # adds `keyring`; optional by design
+pip install -e .                  # `keyring` is a core dependency; nothing extra to add
 ```
+
+(`pip install -e ".[keyvault]"` still works: the extra was kept as a no-op alias when `keyring` was promoted
+to a core dependency on 2026-08-11.)
 
 Windows and macOS need nothing further. Linux/GNOME is covered by the extra (`SecretStorage` + `jeepney` install
 under a `sys_platform == "linux"` marker); KDE additionally needs `python3-dbus`.

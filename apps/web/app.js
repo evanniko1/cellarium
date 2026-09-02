@@ -1377,7 +1377,7 @@ async function refreshSettings() {
   if (!st.can_persist) {
     b.appendChild(el("div", "set-note warn", safe`No secure keychain here — ${st.backend_reason || "no OS keychain is reachable"}. `
       + `A key saved now lasts until you stop the server; Cellarium won't write it to disk in plaintext. `
-      + `For persistence, install the extra (<code>pip install "cellarium[keyvault]"</code>) or add it to a repo-root .env yourself.`));
+      + `For persistence you need a working OS keychain; on a headless box add the key to a repo-root .env instead.`));
   }
 
   const row = el("div", "set-row");
