@@ -281,11 +281,11 @@ def main() -> None:
 
     OUT.mkdir(parents=True, exist_ok=True)
     with (OUT / "table_rg.csv").open("w", newline="", encoding="utf-8") as fh:
-        w_ = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w_ = csv.DictWriter(fh, fieldnames=list(rows[0]), lineterminator="\n")
         w_.writeheader()
         w_.writerows(rows)
     with (OUT / "error_floors.csv").open("w", newline="", encoding="utf-8") as fh:
-        w_ = csv.DictWriter(fh, fieldnames=list(stats[0]))
+        w_ = csv.DictWriter(fh, fieldnames=list(stats[0]), lineterminator="\n")
         w_.writeheader()
         w_.writerows(stats)
     (OUT / "summary.json").write_text(json.dumps({
@@ -296,7 +296,7 @@ def main() -> None:
                  "fractions. One hybridisation per time point; the 18 spots are technical replicates, "
                  "so spot IQRs are reported and no biological p-value is."),
         "table_rg": rows, "error_floors": stats,
-    }, indent=1), encoding="utf-8")
+    }, indent=1), encoding="utf-8", newline="\n")
 
     print(f"groups: {', '.join(f'{g} (n={n_spots[g]})' for g in groups)}")
     for s in stats:
