@@ -116,3 +116,39 @@ def test_the_reference_cell_is_not_pooled_across_arms():
                 "%s/%s reports n=%d; the arm holds %d (all arms: %d)"
                 % (entry["design"], ch, entry["n"], n_arm, n_all))
     assert any(e["design"] == ref for b in s["by_channel"].values() for e in b.get("ranked", [])) or True
+
+
+def test_a_design_in_another_arm_is_reported_as_a_mismatch_not_as_absent():
+    """The arm filter narrows to one comparability arm and records what it dropped in `_ARM_NOTE`. Nothing
+    surfaced that, so `differential.summary` answered "no design 'x'" for a design that exists — and an agent
+    reading the tool concluded the run had never happened. That is could-not-reach reported as does-not-exist,
+    the failure this codebase names everywhere else, arriving at the tool boundary."""
+    from src.cellarium import differential
+    every, _ = survey.analysis_rows(arm="all")
+    one, _ = survey.analysis_rows()
+    if not one or not every:
+        pytest.skip("corpus unreadable in this environment")
+    here = {survey.design_key(r) for r in one}
+    elsewhere = {survey.design_key(r) for r in every} - here
+    if not elsewhere:
+        pytest.skip("corpus has only one arm in this environment")
+    target = sorted(elsewhere)[0]
+
+    out = differential.summary(target, "%s/%s" % survey.REFERENCE)
+    assert out.get("reason") == "arm_mismatch", (
+        "a design that exists in another arm was reported as %r" % out.get("error"))
+    assert out.get("design_is_in"), "the mismatch must name the arm the design IS in"
+    assert out.get("current_arm"), "the mismatch must name the arm currently selected"
+    assert target in out["error"] and "exists" in out["error"]
+
+
+def test_a_design_that_truly_does_not_exist_still_says_so():
+    """The guard above must not swallow real absence into an arm story."""
+    from src.cellarium import differential
+    one, _ = survey.analysis_rows()
+    if not one:
+        pytest.skip("corpus unreadable in this environment")
+    out = differential.summary("gene_knockout/KO:definitely_not_a_gene", "%s/%s" % survey.REFERENCE)
+    assert out.get("reason") != "arm_mismatch"
+    assert "no design" in out.get("error", "")
+    assert out.get("available"), "a genuine absence still lists what IS available"

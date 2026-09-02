@@ -187,6 +187,36 @@ def _mark_dropped(rows: list[dict]) -> list[dict]:
     return rows
 
 
+def arm_miss(design: str) -> dict | None:
+    """Is `design` absent from the CURRENT arm but present in another one? Returns the disclosure, or None.
+
+    Exists because "no design 'x'" and "design 'x' is in a different arm" are different facts, and the second
+    one was being reported as the first. `_ARM_NOTE` already holds everything needed; nothing surfaced it, so a
+    caller (and an agent reading the caller) concluded the design did not exist. That is the silent-absence
+    failure mode this codebase names everywhere else, at the tool boundary."""
+    # Snapshot the note BEFORE widening: `analysis_rows(arm="all")` clears it, so reading it afterwards
+    # always sees {} and this function would silently answer "not an arm problem" to every question.
+    note = dict(_ARM_NOTE)
+    if not note:
+        analysis_rows()          # populate it (the caller may not have narrowed yet)
+        note = dict(_ARM_NOTE)
+    if not note:
+        return None
+    rows, _ = analysis_rows(arm="all")
+    hits = [r for r in rows if design_key(r) == design]
+    if not hits:
+        return None
+    arms = sorted({corpus_schema.arm_of(r) for r in hits})
+    return {"error": f"design '{design}' exists, but not in the arm currently selected.",
+            "reason": "arm_mismatch",
+            "current_arm": note.get("arm"),
+            "design_is_in": [dict(zip(corpus_schema.ARM_KEYS, a)) for a in arms],
+            "rows_in_other_arms": len(hits),
+            "why": note.get("why"),
+            "fix": "re-issue against that arm, or compare it with a reference from the SAME arm. "
+                   "Never carry a number across arms."}
+
+
 def analysis_rows(arm: "tuple | str | None" = None) -> tuple[list[dict], list[str]]:
     """THE row source for every comparison tool. One function, so a third copy of the filtering cannot drift.
 

@@ -138,9 +138,11 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
         return {"error": "corpus empty or unreadable."}
     t, r = vals.get(target), vals.get(reference)
     if t is None:
-        return {"error": f"no design '{target}'.", "available": sorted(vals)}
+        miss = survey.arm_miss(target)
+        return miss if miss else {"error": f"no design '{target}'.", "available": sorted(vals)}
     if r is None:
-        return {"error": f"no reference '{reference}'.", "available": sorted(vals)}
+        miss = survey.arm_miss(reference)
+        return miss if miss else {"error": f"no reference '{reference}'.", "available": sorted(vals)}
     movers = []
     for ch in channels:
         ta, ra = t.get(ch), r.get(ch)

@@ -122,6 +122,10 @@ READ_SITE_REGISTRY: dict[str, dict] = {
         "kind": "lookup", "why": "finds one row by id to report what is downloadable; filtering could hide it"},
     "src/cellarium/raw.py::seed_runs": {
         "kind": "lookup", "why": "resolves a design to its seeds on disk"},
+    "src/cellarium/survey.py::arm_miss": {
+        "kind": "lookup", "why": ("asks whether a design absent from the CURRENT arm exists in another one, so a "
+                                  "caller can report an arm mismatch instead of absence. Reads both the narrowed "
+                                  "and the widened set by construction; returns no channel value")},
     "src/cellarium/tools.py::_resolve_result": {
         "kind": "lookup", "why": "resolves a user-supplied id or label to a row"},
     "src/cellarium/tools.py::_run_label": {
