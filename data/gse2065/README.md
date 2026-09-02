@@ -48,6 +48,28 @@ Fourteen `Leu-*` probes carry 18 spots each; five carry *E. coli* leucine tRNA G
 whose loci cannot all be named is dropped rather than guessed at. `--verify-genes` re-checks the
 symbols against Entrez.
 
+## The probe-name trap
+
+GPL1746 is a **multi-species** array. Only `Leu-6`–`Leu-10` are *E. coli*: `Leu-1`–`Leu-5` are
+*Bacillus subtilis* (trnD-Leu2, trnB-Leu2, trnS-Leu1, trnJ-Leu2, trnJ-Leu1) and `Leu-11`–`Leu-14`
+are *S. cerevisiae*.
+
+Dittmar et al. independently label their five *E. coli* groups `Leu-1`–`Leu-5` in the manuscript:
+
+| Paper label | Group | GEO probe |
+|---|---|---|
+| Leu-1 | LeuPQVT | `Leu-7` |
+| Leu-2 | LeuU | `Leu-8` |
+| Leu-3 | LeuW | `Leu-10` |
+| Leu-4 | LeuX | `Leu-6` |
+| Leu-5 | LeuZ | `Leu-9` |
+
+The paper's labels therefore collide with the platform's probe names for the *B. subtilis* probes.
+Mapping one onto the other by name reads five *B. subtilis* probes and reports them as *E. coli*
+leucine charging — no error, entirely plausible numbers. That is why the grouping here goes through
+Entrez GeneIDs and never through names, and why
+`tests/test_gse2065.py::test_groups_come_from_the_ecoli_probes_not_the_paper_labels` pins it.
+
 ## What these numbers are, and are not
 
 Within-probe, time-zero-normalised **processed ratios** — not absolute charged fractions. Each time
@@ -61,11 +83,17 @@ The magnitudes differ between this array and the acidic Northern blot in the sam
 that survives both is the **ordering** — LeuX and LeuZ above LeuPQVT, LeuU and LeuW — which holds
 in all 72 leave-one-spot refits (18 spots x 4 times, minimum margin 0.120) and in both assays.
 
-The Northern vector and its baseline fractions are **transcribed from Dittmar et al.**, not derived
-here: they are not in the GEO record. They are labelled as constants in `summary.json` so the
-agreement being checked is between this reanalysis and the published blot, not between two
-constants. The manuscript's *relative array* vector (0.086, 0.042, 0.039, 0.24, 0.21) does not
-reconcile with any row of `table_rg.csv` and is not reproduced here.
+Both the Northern vector and the *relative array* vector are **Dittmar et al.'s published Table 1
+values**, not quantities derived here, and neither is in the GEO record. They are labelled as
+constants in `summary.json` so the agreement being checked is between this reanalysis and the
+published blot, not between two constants.
+
+The published array vector (0.086, 0.042, 0.039, 0.24, 0.21) does not reproduce from the deposit:
+sweeping median vs mean, log vs linear space, and ratio vs absolute `PRE_VALUE` across all four
+times, the closest is the t=32 row at about 13% mean relative error (LeuPQVT and LeuX are ~22% off).
+That is expected rather than alarming — GEO carries no raw channel signals, so the internal-amine
+correction Dittmar et al. describe cannot be applied to or removed from the deposited values. The
+published summary and the deposited processed values are simply different quantities.
 
 One discrepancy against the manuscript, recorded rather than silently corrected: Table 3 prints LeuZ
 at t=17 as 0.267; the deposited data give 0.26641, which rounds to 0.266. Nothing derived changes,

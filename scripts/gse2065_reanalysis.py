@@ -11,12 +11,22 @@ redistributed, so this fetches `GSE2065_family.soft.gz` (115 KB) on demand and v
 pinned SHA-256 before parsing. The DERIVED tables are committed, so the assertions in
 tests/test_gse2065.py run with no network at all; `--verify-download` re-runs the whole chain.
 
-HOW THE FIVE PROBE GROUPS ARE IDENTIFIED. Not by hand, and not by matching the paper. The GPL1746
-platform table gives each spot a probe name and up to six Entrez GeneIDs. Fourteen `Leu-*` probes
-carry 18 spots each; five of them carry E. coli GeneIDs, and exactly one of those five (`Leu-7`)
-carries four -- leuT, leuV, leuP and leuQ -- which is the pooled LeuPQVT group the assay cannot
-resolve. The other four are single-locus. The GeneID -> symbol table below is transcribed from NCBI
-Gene so the grouping is reproducible offline; `--verify-genes` re-checks it against Entrez.
+HOW THE FIVE PROBE GROUPS ARE IDENTIFIED, AND THE TRAP IN DOING IT BY NAME. GPL1746 is a
+MULTI-SPECIES tRNA array. Its fourteen `Leu-*` probes carry 18 spots each, and only `Leu-6` through
+`Leu-10` are E. coli: `Leu-1`..`Leu-5` are Bacillus subtilis (trnD-Leu2, trnB-Leu2, trnS-Leu1,
+trnJ-Leu2, trnJ-Leu1) and `Leu-11`..`Leu-14` are S. cerevisiae.
+
+Dittmar et al. independently label their five E. coli leucine groups "Leu-1".."Leu-5" in the
+manuscript -- Leu-1 = LeuPQVT, Leu-2 = LeuU, Leu-3 = LeuW, Leu-4 = LeuX, Leu-5 = LeuZ. Those labels
+COLLIDE with the platform's probe names for the B. subtilis probes. Mapping the paper's labels onto
+the deposit by name therefore reads five B. subtilis probes and reports them as E. coli leucine
+charging, with no error and entirely plausible-looking numbers.
+
+So the grouping here goes through Entrez GeneIDs, never names. A probe joins only if every one of
+its loci is a named E. coli leucine tRNA, and exactly one qualifying probe (`Leu-7`) carries four --
+leuT, leuV, leuP, leuQ -- which is the pooled group the assay cannot resolve. The GeneID -> symbol
+table below is transcribed from NCBI Gene so the grouping is reproducible offline; `--verify-genes`
+re-checks it against Entrez, and tests/test_gse2065.py pins the correspondence.
 
 Run:  python scripts/gse2065_reanalysis.py                  # fetch (cached), recompute, write outputs
       python scripts/gse2065_reanalysis.py --verify-download # re-fetch and re-check the input hash

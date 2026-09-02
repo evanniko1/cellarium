@@ -122,6 +122,22 @@ def test_spot_iqrs_are_reported_and_bracket_the_median():
             assert lo <= mid <= hi, f"t={r['time_min']} {g}: IQR [{lo}, {hi}] does not bracket {mid}"
 
 
+def test_groups_come_from_the_ecoli_probes_not_the_paper_labels():
+    """GPL1746 is multi-species and the paper's group labels collide with its probe names.
+
+    Dittmar et al. call their five E. coli leucine groups Leu-1..Leu-5. On the platform, Leu-1..Leu-5
+    are BACILLUS SUBTILIS tRNA-Leu probes; the E. coli ones are Leu-6..Leu-10. Mapping the paper's
+    labels onto the deposit by name reads B. subtilis and reports it as E. coli leucine charging --
+    silently, with plausible numbers. This pins the GeneID-derived correspondence so that a later
+    "fix" aligning the probe names with the manuscript fails loudly instead.
+    """
+    p2g = json.loads((OUT / "summary.json").read_text(encoding="utf-8"))["probe_to_group"]
+    assert p2g == {"Leu-7": "LeuPQVT", "Leu-8": "LeuU", "Leu-10": "LeuW",
+                   "Leu-6": "LeuX", "Leu-9": "LeuZ"}, f"probe grouping changed: {p2g}"
+    for foreign in ("Leu-1", "Leu-2", "Leu-3", "Leu-4", "Leu-5", "Leu-11", "Leu-14"):
+        assert foreign not in p2g, f"{foreign} is not an E. coli probe and must not be grouped"
+
+
 def test_provenance_is_recorded():
     """The summary must carry the input hash and the probe grouping, or the tables are unfalsifiable."""
     s = json.loads((OUT / "summary.json").read_text(encoding="utf-8"))
