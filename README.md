@@ -159,7 +159,8 @@ an isolated sandbox.)*
 ```bash
 git clone https://github.com/evanniko1/cellarium && cd cellarium
 python -m venv .venv && . .venv/Scripts/activate    # (or . .venv/bin/activate on macOS/Linux)
-pip install -e .
+pip install -r requirements.lock                     # pinned; `pip install -e .` alone resolves newer, untested deps
+pip install -e . --no-deps
 python apps/server.py                                # -> http://127.0.0.1:8000
 ```
 

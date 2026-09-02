@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Evangelos-Marios Nikolados" }]
 dependencies = [
-    "anthropic>=0.40",
+    "anthropic>=0.40,<1",   # 1.x removed `temperature` from messages.create; council.py and agent.py pass it
     "pydantic>=2.6",
     "python-dotenv>=1.0",
     "numpy>=1.26",
