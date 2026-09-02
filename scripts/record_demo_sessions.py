@@ -1,6 +1,10 @@
-"""Record the demo's two direct-mode investigations as GENUINE live Cellwright runs — replacing the curated
-reconstructions (s_rrna_clash, s_nitrate_control) with real agent transcripts, in place, so the ?demo=1 reel picks
-them up automatically (same sids/titles).
+"""Record two direct-mode investigations as GENUINE live Cellwright runs — replacing the curated
+reconstructions (s_rrna_clash, s_nitrate_control) with real agent transcripts, in place, under the same
+sids/titles.
+
+These land in `data/sessions.seed.db`, which a fresh clone bootstraps into `data/sessions.db` so the recorded
+investigations are browsable with no API key. (They also fed a `?demo=1` walkthrough that has since been
+removed from the distributed app; the seed DB is the reason this script stays.)
 
 This is the same seam the server uses: build a one-message history, run `agent.converse()` (which mutates it in
 place with the real tool_use / tool_result / text turns), then persist via SessionStore. Nothing here is faked — the
