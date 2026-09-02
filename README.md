@@ -137,8 +137,8 @@ Clone or download this repository, then from its root:
 
 ```bash
 python -m venv .venv && . .venv/Scripts/activate    # (or . .venv/bin/activate on macOS/Linux)
-pip install -r requirements.lock                     # pinned; `pip install -e .` alone resolves newer, untested deps
-pip install -e . --no-deps
+pip install -r requirements.lock                     # pinned versions, tested; do this FIRST
+pip install -e .                                     # adds anything the lock predates (e.g. keyring, for the OS keychain)
 python apps/server.py                                # -> http://127.0.0.1:8000
 ```
 
