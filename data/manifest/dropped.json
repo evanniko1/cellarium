@@ -438,5 +438,53 @@
     "ts": 1786268155.5714498,
     "simout_path": "runs/aadrop/gene_knockout_001818/000003",
     "design_key": "gene_knockout/KO:leuB#tl:379e4c"
+  },
+  {
+    "key": "gene_knockout_0_07d630c6@@runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000000",
+    "id": "gene_knockout_0_07d630c6",
+    "reason": "SUPERSEDED by the post-fix re-run of the same design/seed (runs_ko_argS_recheck, 2026-08-28 22:33-23:58). These four rows were produced by the CORPUS-REBUILD-1 P1 pilot (runs_rebuild_p1, 18:46-18:48), which failed 3 of its 4 exit criteria and surfaced three defects in the runner: per-run metadata was never read (the transit dir and run_root differ under kinetic/coarse_kinetic), runsim_argv was not arm-invariant, and the variant-level 90 MB simData_Modified.cPickle was unguarded by the per-seed lock. The third is a concurrency hazard on the inputs these runs consumed, so the pilot's rows are not the ones to analyse. The re-run after all three fixes recorded 4/4 qc=ok, 4/4 model_class, 4/4 image digest and 0 crashes. Raw is retained; only the manifest rows are withdrawn.",
+    "ts": 1788343812.974636,
+    "simout_path": "runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000000",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_1_b15232d9@@runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000001",
+    "id": "gene_knockout_1_b15232d9",
+    "reason": "SUPERSEDED by the post-fix re-run of the same design/seed (runs_ko_argS_recheck, 2026-08-28 22:33-23:58). These four rows were produced by the CORPUS-REBUILD-1 P1 pilot (runs_rebuild_p1, 18:46-18:48), which failed 3 of its 4 exit criteria and surfaced three defects in the runner: per-run metadata was never read (the transit dir and run_root differ under kinetic/coarse_kinetic), runsim_argv was not arm-invariant, and the variant-level 90 MB simData_Modified.cPickle was unguarded by the per-seed lock. The third is a concurrency hazard on the inputs these runs consumed, so the pilot's rows are not the ones to analyse. The re-run after all three fixes recorded 4/4 qc=ok, 4/4 model_class, 4/4 image digest and 0 crashes. Raw is retained; only the manifest rows are withdrawn.",
+    "ts": 1788343813.6451259,
+    "simout_path": "runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000001",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_2_47cfd5a9@@runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000002",
+    "id": "gene_knockout_2_47cfd5a9",
+    "reason": "SUPERSEDED by the post-fix re-run of the same design/seed (runs_ko_argS_recheck, 2026-08-28 22:33-23:58). These four rows were produced by the CORPUS-REBUILD-1 P1 pilot (runs_rebuild_p1, 18:46-18:48), which failed 3 of its 4 exit criteria and surfaced three defects in the runner: per-run metadata was never read (the transit dir and run_root differ under kinetic/coarse_kinetic), runsim_argv was not arm-invariant, and the variant-level 90 MB simData_Modified.cPickle was unguarded by the per-seed lock. The third is a concurrency hazard on the inputs these runs consumed, so the pilot's rows are not the ones to analyse. The re-run after all three fixes recorded 4/4 qc=ok, 4/4 model_class, 4/4 image digest and 0 crashes. Raw is retained; only the manifest rows are withdrawn.",
+    "ts": 1788343814.2733722,
+    "simout_path": "runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000002",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "gene_knockout_3_66c3cec7@@runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000003",
+    "id": "gene_knockout_3_66c3cec7",
+    "reason": "SUPERSEDED by the post-fix re-run of the same design/seed (runs_ko_argS_recheck, 2026-08-28 22:33-23:58). These four rows were produced by the CORPUS-REBUILD-1 P1 pilot (runs_rebuild_p1, 18:46-18:48), which failed 3 of its 4 exit criteria and surfaced three defects in the runner: per-run metadata was never read (the transit dir and run_root differ under kinetic/coarse_kinetic), runsim_argv was not arm-invariant, and the variant-level 90 MB simData_Modified.cPickle was unguarded by the per-seed lock. The third is a concurrency hazard on the inputs these runs consumed, so the pilot's rows are not the ones to analyse. The re-run after all three fixes recorded 4/4 qc=ok, 4/4 model_class, 4/4 image digest and 0 crashes. Raw is retained; only the manifest rows are withdrawn.",
+    "ts": 1788343814.8929615,
+    "simout_path": "runs_rebuild_p1/cellarium/gene_knockout_000644__elkinetic/000003",
+    "design_key": "gene_knockout/KO:argS#elong:kinetic"
+  },
+  {
+    "key": "wildtype_1_1f5e3bf0@@runs_rebuild_p1/cellarium/wildtype_184115__elkinetic/000001",
+    "id": "wildtype_1_1f5e3bf0",
+    "reason": "SUPERSEDED duplicate of the established 2026-08-06 wildtype/basal#elong:kinetic control (runs_kinetic_seeds, same seed and depth). This row is from the CORPUS-REBUILD-1 P1 pilot (runs_rebuild_p1), which failed 3 of its 4 exit criteria and surfaced three runner defects, one of them a concurrency hazard on the variant-level simData_Modified.cPickle these runs read. The pilot re-ran a control that already existed, so the older row is kept and this one withdrawn. The pilot's two CRASHED rows (seeds 0 and 2) are retained: crash rows are evidence and are never reportable, so they do not double-count a cell. Raw is retained; only the manifest row is withdrawn.",
+    "ts": 1788343971.5259566,
+    "simout_path": "runs_rebuild_p1/cellarium/wildtype_184115__elkinetic/000001",
+    "design_key": "wildtype/basal#elong:kinetic"
+  },
+  {
+    "key": "wildtype_3_00d0265d@@runs_rebuild_p1/cellarium/wildtype_184115__elkinetic/000003",
+    "id": "wildtype_3_00d0265d",
+    "reason": "SUPERSEDED duplicate of the established 2026-08-06 wildtype/basal#elong:kinetic control (runs_kinetic_seeds, same seed and depth). This row is from the CORPUS-REBUILD-1 P1 pilot (runs_rebuild_p1), which failed 3 of its 4 exit criteria and surfaced three runner defects, one of them a concurrency hazard on the variant-level simData_Modified.cPickle these runs read. The pilot re-ran a control that already existed, so the older row is kept and this one withdrawn. The pilot's two CRASHED rows (seeds 0 and 2) are retained: crash rows are evidence and are never reportable, so they do not double-count a cell. Raw is retained; only the manifest row is withdrawn.",
+    "ts": 1788343972.1621056,
+    "simout_path": "runs_rebuild_p1/cellarium/wildtype_184115__elkinetic/000003",
+    "design_key": "wildtype/basal#elong:kinetic"
   }
 ]
