@@ -34,7 +34,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/vmnik-compact.parquet")
+os.environ.setdefault("CELLARIUM_MANIFEST", "data/manifest/corpus-compact.parquet")
 os.environ.setdefault("WCECOLI_DOCKER", "wcecoli-sim:latest")   # nitrate top_movers needs the raw reader
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 sys.path.insert(0, str(ROOT / "src"))

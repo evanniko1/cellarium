@@ -4,7 +4,7 @@ The manifest embedded absolute paths like C:\\dev\\...\\runs\\cellarium\\<varian
 directory layout into the public HF dataset. This maps that column through manifest._portable_runpath in place.
 Idempotent (already-relative paths are unchanged). After running, re-commit the parquet and re-upload it to HF.
 
-    python scripts/sanitize_manifest_paths.py data/manifest/vmnik-compact.parquet
+    python scripts/sanitize_manifest_paths.py data/manifest/corpus-compact.parquet
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from cellarium.manifest import _portable_runpath
 
 
 def main() -> int:
-    path = Path(sys.argv[1] if len(sys.argv) > 1 else "data/manifest/vmnik-compact.parquet")
+    path = Path(sys.argv[1] if len(sys.argv) > 1 else "data/manifest/corpus-compact.parquet")
     t = pq.read_table(path)
     if "simout_path" not in t.schema.names:
         print("no simout_path column — nothing to do")

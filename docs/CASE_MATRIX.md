@@ -3,7 +3,8 @@
 Curated whole-cell-model findings across four categories —
 **controls** (the model agrees with textbook biology, so we can trust it), **novelty** (results only a whole-cell
 model produces), **failure** (the model contradicts biology), and **under-prediction** (the model is too robust).
-Every number is recomputed from the current de-duped corpus (239 runs, `data/manifest/vmnik-compact.parquet`) via
+Every number here was computed from the de-duped corpus **as it stood at that pass** (239 runs); the shard is
+now `data/manifest/corpus-compact.parquet` and has grown since, so re-deriving a row may not reproduce it exactly. Via
 `disconfirm` / `viability` / regression — reproducible, no model calls. Each row carries its literature anchor.
 
 Stats convention: `target vs reference | effect% | Welch t | n_seeds`. |t| ≥ 2 = beyond replicate noise.
