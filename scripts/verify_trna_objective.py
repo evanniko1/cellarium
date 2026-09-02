@@ -24,7 +24,7 @@ Runs against a built knowledge base (out/<parca>/kb/simData.cPickle) inside the 
 
   export MSYS_NO_PATHCONV=1
   docker run --rm -v "C:/dev/wcEcoli/out:/wcEcoli/out" \
-    -v "C:/dev/anthropic_hackathon/scripts/verify_trna_objective.py:/tmp/v.py" \
+    -v "<repo>/scripts/verify_trna_objective.py:/tmp/v.py" \
     -e PYTHONPATH=/wcEcoli -w /wcEcoli wcecoli-sim:kinetic \
     python /tmp/v.py --kb /wcEcoli/out/kinetic_parca/kb/simData.cPickle
 

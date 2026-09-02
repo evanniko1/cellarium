@@ -23,7 +23,7 @@ Every anchor is asserted to match EXACTLY ONCE before anything is written; a par
 reports as partial rather than as done.
 
     python ext_port_10_patch.py --wcecoli C:/dev/wcEcoli --check
-    python ext_port_10_patch.py --wcecoli C:/dev/wcEcoli [--cellarium C:/dev/anthropic_hackathon]
+    python ext_port_10_patch.py --wcecoli C:/dev/wcEcoli [--cellarium <repo>]
 
 THE FOUR ITEMS
 --------------

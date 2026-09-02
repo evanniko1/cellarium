@@ -62,7 +62,7 @@ the protected list, so they are **excluded from the deletion candidates** pendin
 sibling of the protected `kinetic_parca`). Together **5.665 GB**. Erring toward retention is deliberate:
 misclassifying reference data as extension work is the only irreversible error available here.
 
-**Not present.** No ROUTE1 run directory exists under `C:/dev/anthropic_hackathon/runs`. That tree holds
+**Not present.** No ROUTE1 run directory exists under `<repo>/runs`. That tree holds
 `runs/cellarium` (the corpus) plus 24 loose logs and scratch scripts. This is a MEASURED absence from a
 successful directory listing, not a failed read.
 
@@ -420,7 +420,7 @@ _starve_families.py _starve_readout.py ab_analyze.py ab_analyze_off_s2.py ab_ana
   `runs/cellarium`, untouched).
 - **Held pending a decision** (5.665 GB): `refit_none`, `refit2_none`, `refit_A055w3`, `refit_shipped`,
   `kinetic_parca_operons_off` — see §1.
-- Everything under `C:/dev/anthropic_hackathon/runs`, which contains no ROUTE1 run directory.
+- Everything under `<repo>/runs`, which contains no ROUTE1 run directory.
 
 **All nine survived, verified by name after the deletion (MEASURED).** `C:/dev/wcEcoli/out` now holds
 exactly `kinetic_parca`, `operonsON_kin_probe`, `operons_off_parca`, `kinetic_parca_operons_off`,
@@ -496,7 +496,7 @@ and no tombstone was written. This is the check that matters — orphaning is a 
 *after* deletion, and predicting it beforehand is not the same as confirming it.
 
 The only ROUTE1 trace anywhere in the manifest is textual: 12 rows carry the Docker command line in their
-`note` column, which mentions `-v C:\dev\anthropic_hackathon\runs:/wcEcoli/out`. That is the known
+`note` column, which mentions `-v <repo>\runs:/wcEcoli/out`. That is the known
 `note`-column path-disclosure issue, is about the *host path*, not about ROUTE1, and is unaffected by
 deleting anything under `out/`.
 
@@ -523,7 +523,7 @@ today, before any deletion, and is outside this task's scope.
   originals in `C:/dev/wcEcoli/out` were deleted. Whether they are *also* in the extension repo has
   **not** been checked from here — the remote is gone and no clone is present — which is exactly why
   they were treated as unique and copied.
-- **The `extension` git remote has been removed** from `C:/dev/anthropic_hackathon/.git/config`. It was the
+- **The `extension` git remote has been removed** from `<repo>/.git/config`. It was the
   last live push target for the extension repo on this machine, and `git push --all` would have overwritten
   that repo with Cellarium's history. The URL survives as prose in `BACKLOG.md` (`EXT-ISO-1`),
   `docs/MODEL_EXTENSION.md:134`, `docs/OVERLAY.md:190`, `scripts/apply_trna_port.py:1007` and

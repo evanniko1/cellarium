@@ -34,7 +34,7 @@ jobs:
       #     caught by the overlay guard (docs/OVERLAY.md:83,113-114) rather than by this regex.
       #   data/  DELIBERATELY NOT EXCLUDED. This is the one directory with a KNOWN disclosure problem: the
       #     manifest published to HuggingFace carries local absolute paths in its `note` column (14 rows with
-      #     the C:\dev\anthropic_hackathon\runs host path, 12 with /wcEcoli/out). Blinding the scanner to the
+      #     the <repo>\runs host path, 12 with /wcEcoli/out). Blinding the scanner to the
       #     only directory that has actually leaked would be exactly the wrong trade — see BACKLOG H-15.
       #
       # The regex itself is the wrong long-term instrument over TSV biological data (gitleaks, entropy- and

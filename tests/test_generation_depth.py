@@ -294,7 +294,7 @@ def test_the_sql_and_python_path_normalisers_agree():
     try:
         for p in ("/Users/fmenol/Downloads/cellarium/runs/cellarium/wildtype_199333/000013",
                   "runs/cellarium/wildtype_199333/000013",
-                  r"C:\dev\anthropic_hackathon\runs\cellarium\wildtype_199333\000013"):
+                  r"C:\dev\cellarium\runs\cellarium\wildtype_199333\000013"):
             got = con.execute(f"SELECT {manifest._NORM_PATH} FROM (SELECT ? AS simout_path)", [p]).fetchone()[0]
             assert got == manifest._portable_runpath(p), f"{p!r}: SQL {got!r} != Python"
     finally:
