@@ -57,7 +57,7 @@ Cellwright.
 ### Cellwright — the grounded wright
 
 **Cellwright** is a *wright* — a **maker, a craftsman**, as in ship-*wright*, play-*wright*, wheel-*wright* — one
-who *works the cell*. It is the grounded half: it **asserts nothing from memory**, only through **71 tools** over
+who *works the cell*. It is the grounded half: it **asserts nothing from memory**, only through **72 tools** over
 the corpus, the raw simulation traces, and the literature (statistics, differential expression, viability,
 provenance, regulon and flux reads, PubMed/OpenAlex/bioRxiv retrieval). Two guardrails make its answers
 trustworthy:
@@ -133,8 +133,9 @@ an isolated sandbox.)*
 
 ### Tier 0 — the repo alone (no credentials)
 
+Clone or download this repository, then from its root:
+
 ```bash
-git clone https://github.com/evanniko1/cellarium && cd cellarium
 python -m venv .venv && . .venv/Scripts/activate    # (or . .venv/bin/activate on macOS/Linux)
 pip install -r requirements.lock                     # pinned; `pip install -e .` alone resolves newer, untested deps
 pip install -e . --no-deps
