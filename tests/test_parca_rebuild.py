@@ -137,6 +137,10 @@ def test_a_pre_parca3_entry_still_routes_to_the_simulation_path(monkeypatch):
     from src.cellarium import manifest
     monkeypatch.setattr(manifest, "campaign", fake_campaign)
     monkeypatch.setattr(manifest, "compact", lambda: {"shard": "shard.parquet"})
+    # The fake campaign returns a path that does not exist, which approve_and_run now reads as "no rows
+    # landed" and reports as failed. That check is right; it is just not what this test is about, which
+    # is that a legacy entry routes to the simulation path rather than the rebuild path.
+    monkeypatch.setattr(manifest, "shard_row_count", lambda s: 1)
     monkeypatch.setattr(runner, "parca_rebuild",
                         lambda *a, **k: pytest.fail("a legacy entry was run as a rebuild"))
     out = launch.approve_and_run("req_legacy")

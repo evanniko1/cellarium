@@ -195,3 +195,42 @@ def test_save_is_atomic_leaves_no_partial_file(tmp_path, monkeypatch):
     launch._save([{"id": "a"}, {"id": "b"}])
     assert json.loads((tmp_path / "q.json").read_text()) == [{"id": "a"}, {"id": "b"}]
     assert not (tmp_path / "q.json.tmp").exists()      # no leftover temp
+
+
+def test_a_campaign_where_every_sim_failed_is_not_reported_as_done(tmp_path, monkeypatch):
+    """The approval gate must not tell a human "done" for a request that produced nothing.
+
+    manifest.campaign is crash-isolated on purpose -- a failed sim is logged and skipped so a long
+    unattended batch still leaves a usable corpus -- so it returns a shard path and raises nothing even
+    when every run died. approve_and_run took that as success. MEASURED on a fresh clone with no ParCa
+    output: the sim died on a missing simData.cPickle and the caller was handed status="done",
+    error=None. Here the campaign writes an EMPTY shard, exactly as a total failure does.
+    """
+    from cellarium import launch, manifest
+
+    empty = tmp_path / "empty-shard.parquet"
+    monkeypatch.setattr(manifest, "campaign", lambda *a, **k: empty)
+    monkeypatch.setattr(manifest, "shard_row_count", lambda s: 0)
+    called = []
+    monkeypatch.setattr(manifest, "compact", lambda *a, **k: called.append(1) or {"shard": "x"})
+
+    p = launch.propose(perturbation="wildtype", condition="basal", seeds=1, generations=1,
+                       elongation_model="steady_state")
+    assert p.get("status") == "pending_approval", p
+    out = launch.approve_and_run(p["request_id"], parallel=1, index=True)
+
+    assert out["status"] == "failed", f"a total failure was reported as {out['status']!r}"
+    assert out["error"], "no reason given for the failure"
+    assert "0 of 1 seed" in out["error"]
+    assert not called, "compact must not fold an empty campaign into the corpus"
+
+
+def test_shard_row_count_treats_unreadable_as_nothing_landed(tmp_path):
+    """Absent or unreadable counts as 0 rows: the question is 'did anything land', and a file we
+    cannot read is a no. Raising here would turn a reporting helper into a second failure mode."""
+    from cellarium import manifest
+
+    assert manifest.shard_row_count(tmp_path / "does-not-exist.parquet") == 0
+    junk = tmp_path / "junk.parquet"
+    junk.write_bytes(b"not a parquet file")
+    assert manifest.shard_row_count(junk) == 0

@@ -887,6 +887,29 @@ def quarantine_tombstones(dry_run: bool = True) -> dict:
     return res
 
 
+def shard_row_count(shard: Path | str) -> int:
+    """How many rows a shard actually holds; 0 if it is absent or unreadable.
+
+    `campaign` is crash-isolated, so it returns a shard path whether every sim succeeded or every one
+    failed. Callers that need to tell those apart — the approval gate does, since it reports an outcome
+    to a human — have nothing else to go on. Absent or unreadable counts as 0 rather than raising: the
+    question being asked is "did anything land", and for that a file we cannot read is a no.
+    """
+    import duckdb
+
+    p = Path(shard)
+    if not p.exists():
+        return 0
+    con = duckdb.connect()
+    try:
+        return int(con.execute(
+            f"SELECT count(*) FROM read_parquet('{p.as_posix()}')").fetchone()[0])
+    except Exception:
+        return 0
+    finally:
+        con.close()
+
+
 def append_shard(rows: list[dict], name: str | None = None, directory: Path | None = None) -> Path:
     """Write rows to a parquet shard, keeping EVERY column any row carries.
 

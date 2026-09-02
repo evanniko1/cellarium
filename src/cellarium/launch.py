@@ -478,6 +478,18 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
         # deleted the shard we then referenced). compact leaves ONE surviving shard, so point `shard` at it. Run OUTSIDE
         # the lock — a sim takes minutes and must not block propose/list/stamp on other threads.
         s = manifest.campaign([design], list(range(seeds)), generations, parallel)
+        # campaign is crash-isolated ON PURPOSE — a failed sim is logged and skipped so a long unattended
+        # batch still leaves a usable corpus. The consequence one layer up was not intended: a campaign in
+        # which EVERY run failed still returns a shard path and raises nothing, so this reported
+        # status="done", error=None for a request that produced no rows at all. MEASURED on a fresh clone
+        # with no ParCa output: the sim died on a missing simData.cPickle and the caller was told "done".
+        # Count what landed BEFORE compact() folds the shard into the corpus and the evidence is gone.
+        recorded = manifest.shard_row_count(s)
+        if recorded == 0:
+            raise RuntimeError(
+                f"every run failed: 0 of {seeds} seed(s) recorded a row. The per-run error is in the log "
+                "above. A checkout that has never run the ParCa has no kb/simData.cPickle, which is the "
+                "usual cause — rebuild the knowledge base before launching sims.")
         if index:
             res = manifest.compact()
             s = res.get("shard") or s
