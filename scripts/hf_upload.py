@@ -22,7 +22,8 @@ from pathlib import Path
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Upload the Cellarium corpus to a HF dataset repo (under your login).")
-    ap.add_argument("--repo", default=os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus"))
+    ap.add_argument("--repo", default=os.environ.get("CELLARIUM_HF_REPO"), required=not os.environ.get("CELLARIUM_HF_REPO"),
+                    help="TARGET dataset repo, e.g. your-org/your-corpus. Required: uploads go to YOUR repo under YOUR login, never to a default. Set CELLARIUM_HF_REPO to avoid retyping it.")
     ap.add_argument("--what", choices=["manifest", "runs", "all"], default="manifest")
     ap.add_argument("--out", default=os.environ.get("CELLARIUM_OUT", "runs"), help="local output root for raw runs")
     ap.add_argument("--dry-run", action="store_true", help="show what would upload without uploading")

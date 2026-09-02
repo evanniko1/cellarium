@@ -39,7 +39,8 @@ def _run_roots(out: str, sim_path: str = "cellarium") -> list[Path]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Package raw runs into per-run .tar.gz and upload to a HF dataset.")
-    ap.add_argument("--repo", default=os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus"))
+    ap.add_argument("--repo", default=os.environ.get("CELLARIUM_HF_REPO"), required=not os.environ.get("CELLARIUM_HF_REPO"),
+                    help="TARGET dataset repo, e.g. your-org/your-corpus. Required: uploads go to YOUR repo under YOUR login, never to a default. Set CELLARIUM_HF_REPO to avoid retyping it.")
     ap.add_argument("--out", default=os.environ.get("CELLARIUM_OUT", "runs"), help="local output root")
     ap.add_argument("--designs", default="", help="comma-separated design dir names (e.g. gene_knockout_002095) "
                                                    "-- upload only runs under these (for a curated subset)")

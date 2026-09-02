@@ -53,7 +53,7 @@ def test_detector_flags_unsupported_and_passes_executable():
 
 def test_writer_is_idempotent_and_respects_human_state(tmp_path):
     bl = tmp_path / "BACKLOG.md"
-    bl.write_text("# Backlog\n\n## Coordinate with Filippo\n\nx\n", encoding="utf-8")
+    bl.write_text("# Backlog\n\n## Coordinate\n\nx\n", encoding="utf-8")
     rec = harness.scan_hypothesis(_fake_hyp("use Mann-Whitney U"), "h_a")
 
     s1 = harness.write_gaps(rec, bl, today="2026-07-17")

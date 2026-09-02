@@ -96,7 +96,7 @@ CC-BY-NC-4.0). Checked directly, and it changes the answer:
   | `${USER}-wcm-code:latest` (overlay applied) | + `KineticTrnaChargingModel`, `CoarseKineticTrnaChargingModel` | present |
 
   So it was a fork-lineage gap and it is now closed by the overlay, not by upstream. See
-  [OVERLAY.md](OVERLAY.md) and [CORPUS_ARMS.md](CORPUS_ARMS.md). *(original claim:* `MohammedNagdi/wcEcoli`
+  [OVERLAY.md](OVERLAY.md) and [CORPUS_ARMS.md](CORPUS_ARMS.md). *(original claim: the upstream checkout
   exposed only `BaseElongationModel`, `TranslationSupplyElongationModel` and `SteadyStateElongationModel`, and
   `KineticTrnaCharging` / `trnas_to_codons` / `codons_to_trnas` returned zero matches.*)*
 * **Nobody has run the test.** Choi & Covert cite Elf's selective-aminoacylation theory but make **no attempt

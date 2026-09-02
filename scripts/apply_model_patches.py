@@ -14,8 +14,8 @@ Apply Cellarium's model-level additions to a wcEcoli checkout — idempotently, 
 
 Cellarium needs three media that stock wcEcoli does not define (SCI-TRNA-3: single-amino-acid dropouts). The
 definition has to live HERE, not only in a working copy, or the experiment is unreproducible: the wcEcoli
-checkout is a collaborator's fork (`MohammedNagdi/wcEcoli`) and the model runtime is not this half of the
-project's to push to.
+checkout is maintained outside this repository, and the model runtime is not this half of the project's to
+push to.
 
 **Why an applier and not a .patch file.** A unified diff carries line numbers and context; it breaks the moment
 upstream inserts an unrelated media row above ours, and `git apply` then fails in a way that reads like a

@@ -27,7 +27,8 @@ import os
 import sys
 from pathlib import Path
 
-REPO = os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus")
+# No default: this verifies an upload YOU made, so it must name YOUR repo (or set CELLARIUM_HF_REPO).
+REPO = os.environ.get("CELLARIUM_HF_REPO")
 
 
 def _local_run_roots(out: str, sim_path: str, designs: set[str]) -> list[Path]:
@@ -98,7 +99,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default=os.environ.get("CELLARIUM_OUT", "runs"))
     ap.add_argument("--sim-path", dest="sim_path", default="cellarium")
     ap.add_argument("--designs", default="")
-    ap.add_argument("--repo", default=REPO)
+    ap.add_argument("--repo", default=REPO, required=REPO is None,
+                    help="the dataset repo to verify, e.g. your-org/your-corpus")
     a = ap.parse_args(argv)
     res = verify(a.out, a.sim_path, {d.strip() for d in a.designs.split(",") if d.strip()}, a.repo)
     if res.get("why"):

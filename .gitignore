@@ -63,3 +63,7 @@ data/evidence.jsonl
 pytest-report.xml
 vendor/wcEcoliRelease-v3.0.1.tar.gz
 
+
+# BACKLOG.md is local working state, not part of the distributed artifact.
+# src/cellarium/harness.py recreates it (section X) on first use in a fresh clone.
+BACKLOG.md

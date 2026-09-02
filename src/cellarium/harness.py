@@ -201,7 +201,7 @@ def _ensure_section(doc: str) -> str:
     if _BEGIN in doc:
         return doc
     block = f"{_SECTION}\n\n{_PREAMBLE}\n\n{_render({})}\n"
-    anchor = "## Coordinate with Filippo"
+    anchor = "## Coordinate"      # optional placement hint; absent is fine, the block appends at the end
     if anchor in doc:
         return doc.replace(anchor, block + "\n" + anchor, 1)
     return doc.rstrip() + "\n\n" + block
