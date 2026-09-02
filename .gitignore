@@ -83,3 +83,10 @@ parca4_work/
 # directories were deleted to reclaim disk. It is the key for restoring them, so it stays
 # local, but it names a personal HF repo and must never be committed.
 data/hf_reclaim_manifest.json
+
+# Design-history and planning notes. Both are cited by code and docs as plain-text
+# references (no markdown links, no runtime reads), and HYPOTHESIS_MODE_PLAN.md carries
+# Status/Owners headers naming people. Appendix "Reproducibility and scope" commits the
+# distributed supplement to carrying no planning notes, so they stay local.
+docs/ROADMAP.md
+docs/HYPOTHESIS_MODE_PLAN.md
