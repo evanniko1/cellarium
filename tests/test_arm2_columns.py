@@ -142,6 +142,10 @@ def test_append_shard_keeps_a_column_that_is_absent_from_the_first_row():
 
 def test_parca_ts_is_stamped_only_where_the_kb_is_provably_the_rows_own():
     """A campaign path is reused across rebuilds, so 'the kb at this path' is not 'the kb this row used'."""
+    from conftest import kb_diverged
+    _why = kb_diverged()
+    if _why:
+        pytest.skip(_why)
     from src.cellarium import survey
     rows, _ = survey.analysis_rows(arm="all")
     if not rows:

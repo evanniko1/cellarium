@@ -159,5 +159,10 @@ def test_a_kb_change_is_detected_rather_than_silently_trusted(monkeypatch):
 
 
 def test_no_warning_when_the_kb_matches(monkeypatch):
+    """Guarded: after a local ParCa the cache is legitimately stale and the warning is CORRECT."""
+    from conftest import kb_diverged
+    _why = kb_diverged()
+    if _why:
+        pytest.skip(_why)
     monkeypatch.setattr(scope, "_FOOTPRINT_CACHE", None, raising=False)
     assert scope.footprint_staleness() is None
