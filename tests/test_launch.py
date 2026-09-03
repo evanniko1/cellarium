@@ -218,7 +218,7 @@ def test_a_campaign_where_nothing_passed_qc_says_so(tmp_path, monkeypatch):
     monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
     monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
     monkeypatch.setattr(manifest, "shard_outcome",
-                        lambda s: {"rows": 1, "ok": 0, "qc": {"crashed": 1}, "crash": {"container": 1}})
+                        lambda s: {"rows": 1, "ok": 0, "qc": {"crashed": 1}, "crash": {"container": 1}, "read": True})
 
     p = launch.propose(perturbation="wildtype", condition="basal", seeds=1, generations=1,
                        elongation_model="steady_state")
@@ -242,7 +242,7 @@ def test_a_campaign_that_produced_usable_runs_carries_no_note(tmp_path, monkeypa
     monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
     monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
     monkeypatch.setattr(manifest, "shard_outcome",
-                        lambda s: {"rows": 1, "ok": 1, "qc": {"ok": 1}, "crash": {}})
+                        lambda s: {"rows": 1, "ok": 1, "qc": {"ok": 1}, "crash": {}, "read": True})
 
     p = launch.propose(perturbation="wildtype", condition="basal", seeds=1, generations=1,
                        elongation_model="steady_state")
@@ -256,7 +256,53 @@ def test_shard_outcome_treats_unreadable_as_nothing_landed(tmp_path):
     nothing. Raising here would turn a reporting helper into a second failure mode."""
     from cellarium import manifest
 
-    assert manifest.shard_outcome(tmp_path / "nope.parquet") == {"rows": 0, "ok": 0, "qc": {}, "crash": {}}
+    assert manifest.shard_outcome(tmp_path / "nope.parquet")["read"] is False
     junk = tmp_path / "junk.parquet"
     junk.write_bytes(b"not a parquet file")
     assert manifest.shard_outcome(junk)["rows"] == 0
+
+
+def test_a_shard_from_an_all_successful_campaign_is_read_correctly(tmp_path):
+    """A campaign in which every run SUCCEEDED writes no crash_type column at all.
+
+    append_shard writes the union over the rows it is given, so nothing crashing means the key never
+    appears. Naming the column unconditionally raised BinderException, which a blanket except turned
+    into rows=0 -- and approve_and_run then rendered a failure note over a healthy run. MEASURED end to
+    end from the anonymous artifact: the sim finished qc=ok and was reported as 0 of 0 passing.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from cellarium import manifest
+
+    p = tmp_path / "all_ok.parquet"
+    pq.write_table(pa.Table.from_pylist([{"id": "a", "qc": "ok", "seed": 0},
+                                         {"id": "b", "qc": "ok", "seed": 1}]), p)
+    assert "crash_type" not in pq.read_schema(p).names, "the fixture must reproduce the real shape"
+
+    out = manifest.shard_outcome(p)
+    assert out["read"] is True
+    assert (out["rows"], out["ok"]) == (2, 2)
+    assert out["crash"] == {}
+
+
+def test_an_unreadable_shard_is_not_reported_as_a_failed_run(tmp_path, monkeypatch):
+    """ok=0 from an unreadable file must not become "nothing passed QC".
+
+    Both an unreadable shard and a genuinely all-crashed campaign report ok=0. Only the second is a
+    statement about the science; the first is a statement about our own I/O, and presenting it as the
+    former is the silent-absence failure this whole path is meant to avoid.
+    """
+    from cellarium import launch, manifest
+
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    monkeypatch.setattr(manifest, "campaign", lambda *a, **k: tmp_path / "s.parquet")
+    monkeypatch.setattr(manifest, "compact", lambda *a, **k: {"shard": "compacted.parquet"})
+    monkeypatch.setattr(manifest, "shard_outcome",
+                        lambda s: {"rows": 0, "ok": 0, "qc": {}, "crash": {}, "read": False})
+
+    p = launch.propose(perturbation="wildtype", condition="basal", seeds=1, generations=1,
+                       elongation_model="steady_state")
+    out = launch.approve_and_run(p["request_id"], parallel=1, index=True)
+    assert out["recorded"]["read"] is False
+    assert "note" not in out, "an unreadable shard was reported as a QC failure"

@@ -29,10 +29,13 @@ no network. `--verify-download` re-runs the chain from the raw record.
 - `error_floors.csv` — RMSE and $L_\infty$ floors, plus the loci-weighted and leave-one-spot-out checks
 - `summary.json` — the above with the input hash, the probe grouping, the measurement caveat, the
   ordering check across all 72 leave-one-spot refits, and the six inequalities shared with the blot
-- `figure1_panels_bc.svg` — panels (b) and (c). Panel (a) is a schematic, drawn separately.
-  SVG, not PDF: anonymous.4open.science refuses to serve PDFs (`file_not_supported`), while it
-  serves parquet and SQLite without complaint, so a committed PDF is simply missing from the
-  artifact a reviewer downloads. `--plot` still writes a local PDF, which is gitignored.
+
+`--plot` additionally writes `figure1_panels_bc.svg` and `.pdf` — panels (b) and (c); panel (a) is a
+schematic, drawn separately. Neither is committed. anonymous.4open.science serves **no image format**:
+probed against the live mirror, `.pdf`, `.svg`, `.png` and `.jpg` all return `file_not_supported`, and
+they do so for paths that do not exist, while `.csv` and `.txt` return `file_not_found` — so the check
+is on the extension, not the file. A committed figure would be missing from the artifact a reviewer
+downloads while appearing present in the repository. It regenerates in about a second instead.
 
 ## How the five groups are built
 

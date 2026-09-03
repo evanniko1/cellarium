@@ -141,7 +141,7 @@ def test_a_pre_parca3_entry_still_routes_to_the_simulation_path(monkeypatch):
     # landed" and reports as failed. That check is right; it is just not what this test is about, which
     # is that a legacy entry routes to the simulation path rather than the rebuild path.
     monkeypatch.setattr(manifest, "shard_outcome",
-                        lambda s: {"rows": 1, "ok": 1, "qc": {"ok": 1}, "crash": {}})
+                        lambda s: {"rows": 1, "ok": 1, "qc": {"ok": 1}, "crash": {}, "read": True})
     monkeypatch.setattr(runner, "parca_rebuild",
                         lambda *a, **k: pytest.fail("a legacy entry was run as a rebuild"))
     out = launch.approve_and_run("req_legacy")

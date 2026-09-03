@@ -353,10 +353,12 @@ def plot(R, stats, groups, iqr) -> None:
     ax2.set_title("c  floor on any family-constant prediction", loc="left", fontsize=9)
     fig.tight_layout()
 
-    # SVG is the committed format, PDF is a local convenience. anonymous.4open.science refuses to
-    # serve PDFs at all -- `{"error":"file_not_supported"}`, while parquet and SQLite serve fine --
-    # so a committed PDF is simply absent from the artifact a reviewer downloads. SVG is text, so it
-    # is served, and it stays readable under the same term substitution as everything else.
+    # NEITHER format is committed. anonymous.4open.science serves no image format at all: probed
+    # against the live mirror, .pdf, .svg, .png and .jpg all return {"error":"file_not_supported"},
+    # and they do so for paths that do not exist -- while .csv and .txt return file_not_found -- so
+    # the check is on the extension, not the file. Committing a figure would put it in the repository
+    # and not in the artifact a reviewer downloads, which is worse than not shipping it: it would read
+    # as present. Both formats regenerate here in about a second.
     # svg.hashsalt fixes the element ids and Date:None drops the embedded timestamp, so the figure is
     # byte-reproducible like the tables rather than changing on every run.
     plt.rcParams["svg.hashsalt"] = "gse2065"
@@ -364,7 +366,7 @@ def plot(R, stats, groups, iqr) -> None:
     fig.savefig(svg, metadata={"Date": None})
     pdf = OUT / "figure1_panels_bc.pdf"
     fig.savefig(pdf, metadata={"CreationDate": None})
-    print(f"wrote {svg} (committed) and {pdf} (local only -- 4open does not serve PDFs)")
+    print(f"wrote {svg} and {pdf} (local only -- 4open serves no image format)")
 
 
 if __name__ == "__main__":

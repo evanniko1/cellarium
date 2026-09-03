@@ -506,7 +506,9 @@ def approve_and_run(request_id: str, parallel: int = 1, index: bool = True) -> d
     out = {"request_id": request_id, "status": status, "shard": shard, "error": error}
     if outcome is not None:
         out["recorded"] = outcome
-        if outcome["ok"] == 0:
+        # Gate on `read`, never on the counts alone. An unreadable shard also reports ok=0, and saying
+        # "nothing passed QC" because we could not open a file is the failure this note exists to end.
+        if outcome.get("read") and outcome["ok"] == 0:
             # Not an error, and not silence either: the request completed and nothing it produced is
             # usable. Whether that is a broken container or a genuinely inviable design is what the
             # crash breakdown is for, and it is the reader's call to make, not ours to guess.

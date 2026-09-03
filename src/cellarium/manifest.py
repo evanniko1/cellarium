@@ -900,31 +900,42 @@ def shard_outcome(shard: Path | str) -> dict:
     this into pass/fail would either call a real lethal result a failure or call a broken container a
     success. Report the counts and let the reader see which one this is.
 
-    Absent or unreadable returns zeros: the question is "what landed", and a file we cannot read is
-    nothing landed.
+    `read` says whether the shard was actually readable, and it is NOT decoration. Absent or unreadable
+    returns zeros, and zeros must never be mistaken for a measured "nothing landed" — that is how a
+    successful run gets reported as a failure. Callers key their reporting on `read`, not on the counts.
     """
     import duckdb
 
-    empty = {"rows": 0, "ok": 0, "qc": {}, "crash": {}}
+    unread = {"rows": 0, "ok": 0, "qc": {}, "crash": {}, "read": False}
     p = Path(shard)
     if not p.exists():
-        return empty
+        return unread
     con = duckdb.connect()
     try:
+        # `crash_type` is only present when something crashed. append_shard writes the union over the
+        # rows it was given, so a campaign in which every run SUCCEEDED produces a shard with no such
+        # column, and naming it unconditionally raises BinderException. MEASURED: that is exactly what
+        # happened on the first end-to-end run from the anonymous artifact — the sim finished qc=ok and
+        # this reported rows=0, which the caller then rendered as a failure note on a healthy run.
+        have = {c.lower() for c in
+                con.execute(f"DESCRIBE SELECT * FROM read_parquet('{p.as_posix()}')").df()["column_name"]}
+        if "qc" not in have:
+            return {**unread, "read": True}      # readable, but carries no QC verdict to report
+        ctype = "crash_type" if "crash_type" in have else "NULL"
         rows = con.execute(
-            f"SELECT qc, crash_type, count(*) FROM read_parquet('{p.as_posix()}') GROUP BY 1, 2"
+            f"SELECT qc, {ctype}, count(*) FROM read_parquet('{p.as_posix()}') GROUP BY 1, 2"
         ).fetchall()
     except Exception:
-        return empty
+        return unread                            # genuinely unreadable — NOT the same as "nothing landed"
     finally:
         con.close()
     qc: dict[str, int] = {}
     crash: dict[str, int] = {}
-    for status, ctype, n in rows:
+    for status, ct, n in rows:
         qc[str(status)] = qc.get(str(status), 0) + int(n)
-        if ctype:
-            crash[str(ctype)] = crash.get(str(ctype), 0) + int(n)
-    return {"rows": sum(qc.values()), "ok": qc.get("ok", 0), "qc": qc, "crash": crash}
+        if ct:
+            crash[str(ct)] = crash.get(str(ct), 0) + int(n)
+    return {"rows": sum(qc.values()), "ok": qc.get("ok", 0), "qc": qc, "crash": crash, "read": True}
 
 
 def append_shard(rows: list[dict], name: str | None = None, directory: Path | None = None) -> Path:

@@ -96,6 +96,10 @@ docs/HYPOTHESIS_MODE_PLAN.md
 # and checks it against a pinned SHA-256. The DERIVED tables beside it are committed.
 data/gse2065/GSE2065_family.soft.gz
 
-# anonymous.4open.science refuses to serve PDFs ("file_not_supported"), so a committed PDF is absent
-# from the artifact a reviewer downloads. The figure ships as SVG instead; the PDF stays local.
+# anonymous.4open.science serves NO image format. Probed against the live mirror: .pdf, .svg, .png and
+# .jpg all return {"error":"file_not_supported"} — and they do so for paths that do not exist, while
+# .csv and .txt return file_not_found, so the check is on the extension, not the file. A committed
+# figure in any image format is therefore simply absent from the artifact a reviewer downloads.
+# `--plot` regenerates both locally in about a second, which is the honest place for it to live.
 data/gse2065/figure1_panels_bc.pdf
+data/gse2065/figure1_panels_bc.svg
