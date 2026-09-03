@@ -306,3 +306,28 @@ def test_an_unreadable_shard_is_not_reported_as_a_failed_run(tmp_path, monkeypat
     out = launch.approve_and_run(p["request_id"], parallel=1, index=True)
     assert out["recorded"]["read"] is False
     assert "note" not in out, "an unreadable shard was reported as a QC failure"
+
+
+def test_shard_outcome_works_without_pandas(tmp_path, monkeypatch):
+    """Core read paths must not route through pandas, which is not a core dependency.
+
+    pandas ships only in the fba/rnaseq extras; CI installs ".[dev,hf,surrogate]" without them. An
+    earlier version of shard_outcome used DuckDB's .df(), which materialises through pandas -- the
+    ImportError was swallowed by the function's own except and returned as read=False, so it passed
+    locally (pandas installed) and failed only in CI. Blocking the import here reproduces the CI
+    environment on a developer machine that has pandas.
+    """
+    import sys
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from cellarium import manifest
+
+    p = tmp_path / "s.parquet"
+    pq.write_table(pa.Table.from_pylist([{"id": "a", "qc": "ok"}]), p)
+
+    monkeypatch.setitem(sys.modules, "pandas", None)   # `import pandas` now raises ImportError
+    out = manifest.shard_outcome(p)
+    assert out["read"] is True, "shard_outcome still depends on pandas"
+    assert (out["rows"], out["ok"]) == (1, 1)

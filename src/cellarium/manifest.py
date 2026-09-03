@@ -917,8 +917,12 @@ def shard_outcome(shard: Path | str) -> dict:
         # column, and naming it unconditionally raises BinderException. MEASURED: that is exactly what
         # happened on the first end-to-end run from the anonymous artifact — the sim finished qc=ok and
         # this reported rows=0, which the caller then rendered as a failure note on a healthy run.
-        have = {c.lower() for c in
-                con.execute(f"DESCRIBE SELECT * FROM read_parquet('{p.as_posix()}')").df()["column_name"]}
+        # fetchall(), NOT .df(): DuckDB's .df() materialises through pandas, which is NOT a core
+        # dependency — it ships only in the fba/rnaseq extras, and CI installs ".[dev,hf,surrogate]"
+        # without them. The import error was caught by the except below and returned as read=False,
+        # so this passed locally (pandas present) and failed only in CI. Core paths use fetchall().
+        have = {str(r[0]).lower() for r in
+                con.execute(f"DESCRIBE SELECT * FROM read_parquet('{p.as_posix()}')").fetchall()}
         if "qc" not in have:
             return {**unread, "read": True}      # readable, but carries no QC verdict to report
         ctype = "crash_type" if "crash_type" in have else "NULL"
