@@ -152,6 +152,7 @@ def consistency_panel(claim: str, bundle: dict, *, client=None, models: dict | N
     from . import council  # reuse the metered, cache-aware, retrying forced-tool call
 
     n_orders = max(1, min(int(n_orders), 3))
+    from . import agent
     if client is None:
         import anthropic
         client = anthropic.Anthropic(max_retries=4)
@@ -164,8 +165,15 @@ def consistency_panel(claim: str, bundle: dict, *, client=None, models: dict | N
             payload = {"claim": claim, "evidence": var,
                        "instruction": "Decide whether the CLAIM holds given the evidence. The value-listing order "
                                       "carries no information. Emit the verdict tool."}
-            out = council._emit(client, model, system, _VERDICT_TOOL, payload,
-                                max_tokens=1024, temperature=0.0, role=f"robustness:{role}")
+            # temperature_for(model), NOT a hardcoded 0.0. This panel wants pinned sampling — the
+            # evidence is deterministic, so the model's reasoning is the only variance being measured —
+            # but whole model families REJECT an explicit temperature with a 400, and the default judge
+            # (claude-sonnet-5) is one of them. MEASURED from the anonymous artifact: every
+            # robustness_check call died before a single juror voted. agent.py already owns that policy
+            # and says plainly that where a temperature cannot be pinned, sampling is not pinned; the bug
+            # was that this call site bypassed it.
+            out = council._emit(client, model, system, _VERDICT_TOOL, payload, max_tokens=1024,
+                                temperature=agent.temperature_for(model), role=f"robustness:{role}")
             v = out.get("verdict")
             if v in _VERDICTS:
                 votes.append({"role": role, "verdict": v, "order": var.get("_order", 0),

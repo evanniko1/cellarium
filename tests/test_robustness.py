@@ -156,3 +156,31 @@ def test_robustness_check_is_wired_as_an_agent_tool():
     from cellarium import tools
     assert "robustness_check" in tools._DISPATCH
     assert any(t["name"] == "robustness_check" for t in tools.TOOLS)
+
+
+def test_the_juror_panel_does_not_hardcode_a_rejected_temperature(monkeypatch):
+    """The panel must ask agent.temperature_for, not pin 0.0 and hope the model accepts it.
+
+    Whole model families reject an explicit `temperature` with a 400, and the panel's own default judge
+    (claude-sonnet-5) is one of them. MEASURED end to end from the anonymous artifact: every
+    robustness_check call died with `invalid_request_error` before a single juror voted, while the
+    Council -- which passes temperature=None -- ran fine. agent.py already owns this policy and states
+    that where a temperature cannot be pinned, sampling is not pinned; the defect was a call site that
+    bypassed it.
+    """
+    from cellarium import council, robustness
+
+    seen: list = []
+
+    def fake_emit(client, model, system, tool, payload, **kw):
+        seen.append((model, kw.get("temperature")))
+        return {"verdict": "supported", "rationale": "", "key_check": ""}
+
+    monkeypatch.setattr(council, "_emit", fake_emit)
+    bundle = {"target": {"values": [1.0, 2.0]}, "reference": {"values": [3.0, 4.0]}}
+    robustness.consistency_panel("a claim", bundle, client=object(), n_orders=1)
+
+    assert seen, "no juror was called"
+    for model, temp in seen:
+        if any(fam in model.lower() for fam in ("opus", "sonnet-5", "fable", "mythos")):
+            assert temp is None, f"{model} rejects an explicit temperature but was sent {temp}"
