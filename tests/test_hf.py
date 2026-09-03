@@ -115,6 +115,11 @@ def test_data_availability_verifies_real_hf_existence(monkeypatch):
                         lambda: [{"id": "r1", "perturbation": "gene_knockout", "condition": "KO:pfkA", "seed": 0}])
     monkeypatch.setattr(hf, "_full_simout_local", lambda path: False)
     monkeypatch.setattr(hf, "HF_HAS_RAW", True)
+    # Pin the redaction branch OFF. In an anonymised copy of this repo the default repo id has its owner
+    # substituted, so HF_REPO_REDACTED is True and case (3) reports the redaction rather than "could not
+    # verify" -- a correct message for that tree, and not what this test is about. Without this pin the
+    # suite passes from git and fails from the anonymous download, which reads as broken software.
+    monkeypatch.setattr(hf, "HF_REPO_REDACTED", False)
     rel = hf._hf_rel(p)
 
     def _hf(rid):
@@ -165,7 +170,13 @@ def test_redaction_detector_does_not_fire_on_real_owners(monkeypatch):
     """The detector keys on an owner made only of X, digits and dashes -- what 4open substitutes. A real owner
     that merely contains an X ('X-Lab', 'xyz') must not be mistaken for a redacted one, or the public repo would
     start telling users their dataset id was redacted when it was not. Exercises the module's own constant by
-    reloading it under each owner, rather than restating the predicate here (which would test nothing)."""
+    reloading it under each owner, rather than restating the predicate here (which would test nothing).
+
+    NO REAL ACCOUNT NAME APPEARS IN THE NEGATIVE LIST, deliberately. An anonymised copy of this repository
+    has term substitution applied to its TEXT, tests included, so a real owner written here as an example
+    of "not redacted" comes back as XXXX-N in that copy -- and the line then asserts the exact opposite of
+    the line above it. MEASURED: this test failed on the anonymous download while passing from git, which
+    reads to a reviewer as broken software rather than as the redaction doing its job."""
     import importlib
 
     def redacted(owner):
@@ -174,7 +185,7 @@ def test_redaction_detector_does_not_fire_on_real_owners(monkeypatch):
 
     try:
         assert all(redacted(o) for o in ("XXXX-9", "XXXX", "XX-1"))
-        assert not any(redacted(o) for o in ("evanniko1", "some-lab", "X-Lab", "xyz", "openai", "0-9"))
+        assert not any(redacted(o) for o in ("some-lab", "X-Lab", "xyz", "openai", "0-9", "lab7"))
     finally:
         monkeypatch.delenv("CELLARIUM_HF_REPO", raising=False)
         importlib.reload(hf)          # leave the module as the rest of the suite expects it
