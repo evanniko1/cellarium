@@ -30,7 +30,9 @@ import os
 # adapter, which covers OpenAI, most hosted endpoints and local vLLM/Ollama in one shape.
 PROVIDER = (os.environ.get("CELLARIUM_LLM_PROVIDER") or "anthropic").strip().lower()
 
-SUPPORTED = ("anthropic",)
+# "openai" is the OpenAI-compatible shape: OpenAI itself, most hosted endpoints, and local vLLM /
+# Ollama / LM Studio, which all serve /v1/chat/completions. OPENAI_BASE_URL points it at a local one.
+SUPPORTED = ("anthropic", "openai")
 
 
 def client(max_retries: int = 4, **kwargs):
@@ -43,9 +45,12 @@ def client(max_retries: int = 4, **kwargs):
     if PROVIDER == "anthropic":
         import anthropic
         return anthropic.Anthropic(max_retries=max_retries, **kwargs)
+    if PROVIDER in ("openai", "openai_compatible", "vllm", "ollama", "local"):
+        from ._openai_compat import OpenAICompatClient
+        return OpenAICompatClient(max_retries=max_retries, **kwargs)
     raise NotImplementedError(
-        f"CELLARIUM_LLM_PROVIDER={PROVIDER!r} is not implemented; supported: {', '.join(SUPPORTED)}. "
-        "An OpenAI-compatible adapter is LLM-7b — see BACKLOG.md.")
+        f"CELLARIUM_LLM_PROVIDER={PROVIDER!r} is not implemented; supported: {', '.join(SUPPORTED)} "
+        "(and the openai-compatible aliases openai_compatible / vllm / ollama / local).")
 
 
 # ------------------------------------------------------------------------------------------------------

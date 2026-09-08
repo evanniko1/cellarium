@@ -71,10 +71,13 @@ def test_the_seam_refuses_an_unimplemented_provider_by_name():
 
     real = llm.PROVIDER
     try:
-        llm.PROVIDER = "openai"
+        llm.PROVIDER = "gemini"          # genuinely unimplemented; "openai" landed with LLM-7b
         with pytest.raises(NotImplementedError) as e:
             llm.client()
-        assert "openai" in str(e.value) and "anthropic" in str(e.value), str(e.value)
+        msg = str(e.value)
+        assert "gemini" in msg, msg
+        for supported in llm.SUPPORTED:
+            assert supported in msg, f"the error must name what IS supported; missing {supported}: {msg}"
     finally:
         llm.PROVIDER = real
 

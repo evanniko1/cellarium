@@ -187,6 +187,26 @@ Or the CLI (same seam):
 python -m cellarium.cli "Does an argS knockout raise or lower ppGpp versus wildtype?"   # add --no-council to skip the Council
 ```
 
+#### Running on a different provider
+
+Cellarium is not tied to one vendor. Client construction and sampling policy live behind a single seam
+(`src/cellarium/llm.py`), and an OpenAI-compatible adapter covers OpenAI, most hosted endpoints, and a
+**local** server — vLLM, Ollama, LM Studio — because they all serve `/v1/chat/completions`:
+
+```bash
+pip install -e ".[openai]"
+export CELLARIUM_LLM_PROVIDER=openai
+export OPENAI_BASE_URL=http://localhost:8000/v1   # omit for OpenAI itself
+export CELLARIUM_MODEL=<the model your endpoint serves>
+```
+
+Two honest caveats. Prompt-cache *savings* do not transfer — OpenAI-style endpoints cache automatically
+and report nothing in Anthropic's terms, so the cost meter shows 0 cached tokens rather than guessing. And
+token counts are estimated (`tiktoken` if installed, else chars//4) because Chat Completions has no
+count endpoint; that affects when the agent compacts its context, not what it answers. Selecting a
+provider that has no adapter fails immediately and names the supported set, rather than falling back to a
+model you did not ask for.
+
 ### Tier 2 — add Docker + the wcEcoli model (deep reads + new simulations)
 
 The last tier unlocks **per-species raw reads** and **running brand-new whole-cell simulations**. It is the only
