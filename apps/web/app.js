@@ -1556,6 +1556,35 @@ async function refreshSettings() {
     }
   }
 
+  // UX-3: the palette picker. Swatches rather than a dropdown, because the thing being chosen IS a set
+  // of colours — a list of names would make the user apply each one to find out what it looks like.
+  b.appendChild(el("div", "set-sec", "Appearance"));
+  b.appendChild(el("div", "set-note",
+    "Palette is independent of light/dark — the sun/moon button in the top bar still switches those."));
+  const palRow = el("div", "pal-row");
+  PALETTES.forEach((pal) => {
+    const btn = el("button", "pal");
+    btn.type = "button";
+    btn.setAttribute("aria-pressed", String(currentPalette() === pal.id));
+    btn.setAttribute("aria-label", pal.name + " palette");
+    const dots = el("div", "pal-dots");
+    pal.dots.forEach((c) => {
+      const d = el("span", "pal-dot");
+      d.style.background = c;                       // a colour literal from PALETTES, never user input
+      dots.appendChild(d);
+    });
+    btn.appendChild(dots);
+    btn.appendChild(el("span", "pal-name", pal.name));
+    btn.onclick = () => {
+      applyPalette(pal.id);
+      palRow.querySelectorAll(".pal").forEach((x, i) =>
+        x.setAttribute("aria-pressed", String(PALETTES[i].id === pal.id)));
+      announce(pal.name + " palette applied.");
+    };
+    palRow.appendChild(btn);
+  });
+  b.appendChild(palRow);
+
   b.appendChild(el("div", "set-sec", "Where keys come from"));
   const consoleUrl = st.console_url || "https://console.anthropic.com/settings/keys";
   let host = "the provider console";
@@ -1734,6 +1763,25 @@ $("#themeBtn").onclick = () => {
   root.setAttribute("data-theme", next);
   try { localStorage.setItem("cellarium-theme", next); } catch (e) { /* private mode — session-only toggle */ }
 };
+// UX-3: PALETTES. Orthogonal to the light/dark toggle — `data-palette` swaps hues, `data-theme` still
+// swaps light and dark, so every combination is reachable. "paper" is the shipped look and stays the
+// default; the alternatives exist because an external critique read the original as Claude-derived, and
+// the answer to a taste objection is a choice rather than a forced swap.
+const PALETTES = [
+  { id: "paper", name: "Paper", dots: ["#F4F2EC", "#C96442", "#20201D"] },
+  { id: "lab", name: "Lab", dots: ["#0F172A", "#22D3EE", "#E7EEF8"] },
+  { id: "gfp", name: "GFP", dots: ["#121212", "#10B981", "#E8EDE8"] },
+];
+function currentPalette() {
+  return document.documentElement.getAttribute("data-palette") || "paper";
+}
+function applyPalette(id) {
+  const root = document.documentElement;
+  if (id === "paper") root.removeAttribute("data-palette");
+  else root.setAttribute("data-palette", id);
+  try { localStorage.setItem("cellarium-palette", id); } catch (e) { /* private mode — session only */ }
+}
+
 $("#figuresBtn").onclick = () => { renderFigures(state.cur); openDrawer("figures"); };
 $("#scrim").onclick = closeDrawers;
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeCorpus(); closeHyp(); closeDrawers(); togglePalette(false); } });

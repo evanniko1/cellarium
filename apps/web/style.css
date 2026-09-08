@@ -3,7 +3,7 @@
   --paper:#F4F2EC; --paper-2:#FAF9F5; --card:#FFFFFF;
   --ink:#20201D; --ink-2:#6B6862; --ink-3:#9A968D;
   --line:#E7E4DB; --line-2:#EFEDE6;
-  --clay:#C96442; --clay-ink:#A9502F; --clay-tint:#F5E7DF;
+  --clay:#C96442; --clay-ink:#A9502F; --clay-tint:#F5E7DF; --mark-lift:#E08A63;
   --green:#4F8A5B; --green-tint:#E7F0E7;
   --amber:#B27E2A; --amber-tint:#F5ECD7;
   --red:#B4483C; --red-tint:#F6E1DD;
@@ -26,7 +26,7 @@
   --paper:#1C1B18; --paper-2:#232120; --card:#2A2825;
   --ink:#ECEAE3; --ink-2:#B4B0A6; --ink-3:#847F74;
   --line:#38352F; --line-2:#302E29;
-  --clay:#D9755A; --clay-ink:#EC9C80; --clay-tint:#3A2A22;
+  --clay:#D9755A; --clay-ink:#EC9C80; --clay-tint:#3A2A22; --mark-lift:#E8917A;
   --green:#6FB07C; --green-tint:#243026;
   --amber:#D6A54E; --amber-tint:#332A17;
   --red:#DB6E62; --red-tint:#38211E;
@@ -42,7 +42,7 @@
     --paper:#1C1B18; --paper-2:#232120; --card:#2A2825;
     --ink:#ECEAE3; --ink-2:#B4B0A6; --ink-3:#847F74;
     --line:#38352F; --line-2:#302E29;
-    --clay:#D9755A; --clay-ink:#EC9C80; --clay-tint:#3A2A22;
+    --clay:#D9755A; --clay-ink:#EC9C80; --clay-tint:#3A2A22; --mark-lift:#E8917A;
     --green:#6FB07C; --green-tint:#243026;
     --amber:#D6A54E; --amber-tint:#332A17;
     --red:#DB6E62; --red-tint:#38211E;
@@ -84,7 +84,7 @@ svg{display:block}
 .sidebar-top{display:flex; align-items:flex-start; justify-content:space-between; gap:8px}
 .brand{display:flex; align-items:flex-start; gap:9px}
 .brand-mark{width:26px; height:26px; flex:0 0 auto; border-radius:7px; display:grid; place-items:center; color:#fff;
-  background:radial-gradient(120% 120% at 30% 20%,#E08A63,var(--clay)); box-shadow:var(--shadow)}
+  background:radial-gradient(120% 120% at 30% 20%,var(--mark-lift),var(--clay)); box-shadow:var(--shadow)}
 .brand-text{padding-top:0}
 .brand-name{font-family:var(--serif); font-size:21px; font-weight:600; letter-spacing:.2px; line-height:1.25}
 .brand-sub{font-size:11.5px; color:var(--ink-3); margin-top:0}
@@ -158,7 +158,7 @@ svg{display:block}
   align-items:center; gap:14px}
 .app-chatting .hero-wrap{display:none}
 .brand-mark-lg{width:60px; height:60px; border-radius:15px; display:grid; place-items:center; color:#fff;
-  background:radial-gradient(120% 120% at 30% 20%,#E08A63,var(--clay)); box-shadow:var(--shadow)}
+  background:radial-gradient(120% 120% at 30% 20%,var(--mark-lift),var(--clay)); box-shadow:var(--shadow)}
 .hero{font-family:var(--serif); font-weight:500; font-size:33px; line-height:1.15; margin:0; letter-spacing:.2px}
 .hero .accent{color:var(--clay)}
 .hero-hint{font-size:14px; color:var(--ink-2); line-height:1.6; max-width:520px}
@@ -692,3 +692,79 @@ progress.op-bar::-moz-progress-bar{background:var(--clay); border-radius:99px}
    has to look different from the one that merely asked. Amber rather than red: it is a warning about what
    the NEXT click does, not an error that has happened. */
 .set-btn.danger.armed{background:var(--amber-tint); border-color:var(--amber); color:var(--amber); font-weight:600}
+
+/* ------------------------------------------------------------------------------------------------
+   UX-3 — PALETTES. Orthogonal to the light/dark toggle: `data-palette` on :root swaps the hues,
+   `data-theme` still swaps light and dark. No palette is the default, which keeps the shipped look
+   exactly as it was — an external critique read it as Claude-derived (warm brown-grey ground,
+   terracotta accent, serif display face), and the honest response is to OFFER alternatives rather
+   than to force one, since the current palette is a legitimate choice and some users prefer it.
+
+   Each palette redefines only the tokens that carry hue, and must define BOTH modes: the theme
+   toggle is independent, so a palette with only a light block renders dark text on a dark ground
+   for anyone whose OS is set to dark. Same three-block shape the base theme uses.
+   ------------------------------------------------------------------------------------------------ */
+
+/* LAB — cool slate with a cyan accent. Reads as instrumentation rather than as a writing app. */
+:root[data-palette="lab"]{
+  --paper:#F1F5F9; --paper-2:#F8FAFC; --card:#FFFFFF;
+  --ink:#0F172A; --ink-2:#475569; --ink-3:#7C8AA0;
+  --line:#DBE3ED; --line-2:#E8EDF4;
+  --clay:#0E7490; --clay-ink:#0B5F76; --clay-tint:#DDF1F7; --mark-lift:#3BA8C4;
+  --blue:#2563EB; --blue-tint:#E0EAFD;
+  --serif:var(--sans);
+  --paper-blur:rgba(248,250,252,.82);
+}
+:root[data-palette="lab"][data-theme="dark"]{
+  --paper:#0F172A; --paper-2:#16203A; --card:#1C2942;
+  --ink:#E7EEF8; --ink-2:#9FB0C9; --ink-3:#6E819C;
+  --line:#2A3B57; --line-2:#243149;
+  --clay:#22D3EE; --clay-ink:#67E8F9; --clay-tint:#123241; --mark-lift:#7DE7F7;
+  --blue:#60A5FA; --blue-tint:#17264A;
+  --paper-blur:rgba(15,23,42,.84);
+}
+
+/* GFP — neutral carbon with the green of the protein every E. coli lab already knows. */
+:root[data-palette="gfp"]{
+  --paper:#F4F5F4; --paper-2:#FAFBFA; --card:#FFFFFF;
+  --ink:#141614; --ink-2:#585D58; --ink-3:#8B918B;
+  --line:#E1E4E1; --line-2:#EBEEEB;
+  --clay:#047857; --clay-ink:#03624A; --clay-tint:#DCF2E9; --mark-lift:#2E9E77;
+  --serif:var(--sans);
+  --paper-blur:rgba(250,251,250,.82);
+}
+:root[data-palette="gfp"][data-theme="dark"]{
+  --paper:#121212; --paper-2:#1A1C1A; --card:#1E211E;
+  --ink:#E8EDE8; --ink-2:#A6ADA6; --ink-3:#767D76;
+  --line:#2C302C; --line-2:#262A26;
+  --clay:#10B981; --clay-ink:#34D399; --clay-tint:#0E2B22; --mark-lift:#5AD6A8;
+  --paper-blur:rgba(18,18,18,.85);
+}
+
+@media (prefers-color-scheme: dark){
+  :root[data-palette="lab"]:not([data-theme="light"]){
+    --paper:#0F172A; --paper-2:#16203A; --card:#1C2942;
+    --ink:#E7EEF8; --ink-2:#9FB0C9; --ink-3:#6E819C;
+    --line:#2A3B57; --line-2:#243149;
+    --clay:#22D3EE; --clay-ink:#67E8F9; --clay-tint:#123241; --mark-lift:#7DE7F7;
+    --blue:#60A5FA; --blue-tint:#17264A;
+    --paper-blur:rgba(15,23,42,.84);
+  }
+  :root[data-palette="gfp"]:not([data-theme="light"]){
+    --paper:#121212; --paper-2:#1A1C1A; --card:#1E211E;
+    --ink:#E8EDE8; --ink-2:#A6ADA6; --ink-3:#767D76;
+    --line:#2C302C; --line-2:#262A26;
+    --clay:#10B981; --clay-ink:#34D399; --clay-tint:#0E2B22; --mark-lift:#5AD6A8;
+    --paper-blur:rgba(18,18,18,.85);
+  }
+}
+
+/* The palette swatches in Settings. */
+.pal-row{display:flex; gap:8px; flex-wrap:wrap; margin:2px 0 6px}
+.pal{display:flex; flex-direction:column; gap:5px; align-items:center; cursor:pointer; padding:7px 9px;
+  border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--card); min-width:78px}
+.pal:hover{border-color:var(--ink-3)}
+.pal[aria-pressed="true"]{border-color:var(--clay); box-shadow:0 0 0 1px var(--clay) inset}
+.pal-dots{display:flex; gap:3px}
+.pal-dot{width:11px; height:11px; border-radius:50%; border:1px solid var(--overlay)}
+.pal-name{font-size:10.5px; color:var(--ink-2); font-weight:600}
