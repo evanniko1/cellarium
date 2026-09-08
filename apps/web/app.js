@@ -1335,7 +1335,15 @@ async function refreshSettings() {
     return;
   }
   state.keyStatus = st;
-  b.appendChild(el("div", "set-sec", "Anthropic API key"));
+  // LLM-7e: the vault holds one entry per provider, so the panel is labelled by what the server says it
+  // is managing rather than by a hard-coded vendor. `provider_label` and `env_var` come from PROVIDERS,
+  // so adding a provider does not mean editing this file.
+  b.appendChild(el("div", "set-sec", (st.provider_label || "Anthropic") + " API key"));
+  if (st.env_var) {
+    b.appendChild(el("div", "set-note",
+      "Cellarium is configured for " + (st.provider_label || "Anthropic") + ", so this is the key for "
+      + st.env_var + ". Switch providers with CELLARIUM_LLM_PROVIDER; each one keeps its own entry."));
+  }
 
   // THREE states, not two. `configured` reports whether the key is in THIS PROCESS's environment;
   // `in_keychain` reports whether one is stored in the OS vault. They come apart in a case that looks
@@ -1451,12 +1459,19 @@ async function refreshSettings() {
   };
 
   b.appendChild(el("div", "set-foot",
-    "Your key stays on this machine. It is sent only to Anthropic's API, from this computer — never to us, never "
-    + "to another server, and never into the assistant's context: Cellwright has no way to read or change it."));
+    "Your key stays on this machine. It is sent only to " + (st.provider_label || "Anthropic")
+    + ", from this computer — never to us, never to another server, and never into the assistant's context: "
+    + "Cellwright has no way to read or change it."));
   b.appendChild(el("div", "set-sec", "Where keys come from"));
+  const consoleUrl = st.console_url || "https://console.anthropic.com/settings/keys";
+  let host = "the provider console";
+  try { host = new URL(consoleUrl).host; } catch { /* keep the fallback label */ }
   b.appendChild(el("div", "set-note", safe`Precedence at startup: an exported shell variable, then a repo-root `
     + `<code>.env</code>, then your OS keychain. Get a key at `
-    + `<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.`));
+    // esc() explicitly, NOT safe``: the tag applies only to the FIRST template literal, so these `+`
+    // continuations are plain literals and interpolating into them escapes nothing. The frontend lint
+    // caught exactly that when this link became dynamic.
+    + `<a href="${esc(consoleUrl)}" target="_blank" rel="noopener noreferrer">${esc(host)}</a>.`));
 }
 
 // ---------------- drawers / models / plumbing ----------------

@@ -30,8 +30,8 @@ LOCAL = {"base_url": "http://127.0.0.1:8000"}   # the endpoints are loopback-onl
 def _clean_env(monkeypatch):
     """Never touch the developer's real key or real keychain: isolate the env and force the no-backend path."""
     monkeypatch.delenv(C.ENV_VAR, raising=False)
-    monkeypatch.setattr(C, "_SOURCE", None, raising=False)
-    monkeypatch.setattr(C, "_IN_KEYCHAIN", False, raising=False)
+    C._reset_state()          # LLM-7e: per-provider state, reset through the module's own seam
+                              # rather than by assigning to internals whose shape can change
     monkeypatch.setattr(C, "backend", lambda: {"name": None, "secure": False, "reason": "test: no backend"})
     yield
 
@@ -143,7 +143,7 @@ def test_environment_wins_over_the_keychain_and_is_not_managed_here(monkeypatch)
     must not offer to 'Remove' a key Cellarium didn't put there."""
     monkeypatch.setenv(C.ENV_VAR, FAKE)
     monkeypatch.setattr(C, "backend", lambda: {"name": "test.Secure", "secure": True, "reason": ""})
-    monkeypatch.setattr(C, "_read_keychain", lambda: "sk-ant-adifferentstored")
+    monkeypatch.setattr(C, "_read_keychain", lambda provider=None: "sk-ant-adifferentstored")
     st = C.load_into_env()
     assert os.environ[C.ENV_VAR] == FAKE           # the environment survived
     assert st["source"] == "environment" and st["managed_here"] is False
@@ -178,7 +178,9 @@ def test_a_keychain_write_failure_reports_without_leaking(monkeypatch):
 
 
 def test_probe_without_a_key_is_a_clean_no():
-    assert C.probe() == {"ok": False, "detail": "No key is configured."}
+    # LLM-7e: probe reports WHICH provider it answered for, so the answer is unambiguous when two are
+    # configured. The no-key contract itself is unchanged.
+    assert C.probe() == {"ok": False, "detail": "No key is configured.", "provider": "anthropic"}
 
 
 # ---------------------------------------------------------------- I1: the key never reaches the model
@@ -471,7 +473,9 @@ def test_delete_has_exactly_one_caller_and_it_is_the_remove_button():
     """Pins the blast radius. If a second caller of `clear()` ever appears, the "keys do not vanish" promise
     needs re-checking rather than re-asserting."""
     server = Path("apps/server.py").read_text(encoding="utf-8")
-    assert server.count("credentials.clear()") == 1
+    # LLM-7e gave clear() an optional provider, so match the CALL rather than an exact arg list. The
+    # claim being pinned is unchanged: exactly one caller, and it is the Remove button.
+    assert server.count("credentials.clear(") == 1
     assert "settings_key_delete" in server
 
 
@@ -499,6 +503,107 @@ def test_an_expired_key_is_not_something_the_vault_can_notice():
     from cellarium import credentials
     src = Path("src/cellarium/credentials.py").read_text(encoding="utf-8")
     assert src.count("delete_password") == 1, "a second deletion path appeared"
-    assert "def clear()" in src
+    assert "def clear(" in src            # signature gained `provider=` in LLM-7e; the point is ONE path
     assert "expir" not in src.lower(), "nothing here reasons about expiry, and nothing should"
     assert credentials.probe()  # shape only; no network assertion
+
+
+# ---------------------------------------------------------------------------------------------------
+# LLM-7e — one entry per provider
+# ---------------------------------------------------------------------------------------------------
+def test_each_provider_gets_its_own_env_var_and_keychain_account():
+    """The gap this closes: the vault stored one secret, so the Settings panel had nowhere to put a second
+    key -- it would save it and the adapter would never read it."""
+    assert C.env_var("anthropic") == "ANTHROPIC_API_KEY"
+    assert C.env_var("openai") == "OPENAI_API_KEY"
+    assert C.account("anthropic") != C.account("openai")
+    # The anthropic account name is UNCHANGED, which is the whole of the migration: a key stored by an
+    # earlier version is found exactly where it was left.
+    assert C.account("anthropic") == "anthropic-api-key"
+
+
+def test_the_openai_compatible_aliases_share_one_bucket():
+    """A local vLLM/Ollama server uses the OpenAI shape and reads OPENAI_API_KEY, so it belongs in that
+    bucket rather than in one of its own -- otherwise the key saved for `openai` is invisible to `ollama`."""
+    for alias in ("openai", "openai_compatible", "vllm", "ollama", "local"):
+        assert C.resolve(alias) == "openai", alias
+        assert C.env_var(alias) == "OPENAI_API_KEY"
+
+
+def test_an_unknown_provider_falls_back_rather_than_exploding_on_the_boot_path():
+    """A typo in CELLARIUM_LLM_PROVIDER should surface as llm.client() refusing BY NAME -- which says what
+    is supported -- not as the credential layer raising first with a worse message."""
+    assert C.resolve("gemini") == "anthropic"
+    assert C.resolve("") == "anthropic"
+
+
+def test_two_providers_do_not_overwrite_each_other(monkeypatch):
+    """The actual behaviour being bought: storing one key must not disturb the other."""
+    store = {}
+    monkeypatch.setattr(C, "backend", lambda: {"name": "test.Secure", "secure": True, "reason": ""})
+    monkeypatch.setattr(C, "_read_keychain", lambda provider=None: store.get(C.account(provider)))
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    C._reset_state()
+
+    class _KR:
+        @staticmethod
+        def set_password(_s, acct, val):
+            store[acct] = val
+
+    monkeypatch.setitem(__import__("sys").modules, "keyring", _KR)
+
+    a = C.set_key("sk-ant-" + "a" * 30, provider="anthropic")
+    o = C.set_key("sk-" + "b" * 40, provider="openai")
+
+    assert a["provider"] == "anthropic" and o["provider"] == "openai"
+    assert store[C.account("anthropic")].startswith("sk-ant-")
+    assert store[C.account("openai")].startswith("sk-") and not store[C.account("openai")].startswith("sk-ant-")
+    assert os.environ["ANTHROPIC_API_KEY"] != os.environ["OPENAI_API_KEY"]
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    C._reset_state()
+
+
+def test_a_key_pasted_into_the_wrong_provider_is_flagged_but_not_refused(monkeypatch):
+    """A hazard the multi-provider vault CREATES: two fields means there is now a wrong one to paste into,
+    and an Anthropic key in the OpenAI slot fails later as an opaque 401 from a different vendor.
+
+    WARN, never reject -- key formats change, and a vault that refuses a valid new-format key is worse than
+    one that lets a mistake through with a note.
+    """
+    monkeypatch.setattr(C, "backend", lambda: {"name": None, "secure": False, "reason": "test: no backend"})
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    C._reset_state()
+
+    st = C.set_key("sk-ant-" + "z" * 30, provider="openai")
+    assert st["configured"] is True, "the key must still be accepted -- this is a warning, not a gate"
+    assert "Anthropic" in st.get("prefix_warning", ""), st.get("prefix_warning")
+
+    clean = C.set_key("sk-" + "y" * 40, provider="openai")
+    assert "prefix_warning" not in clean
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    C._reset_state()
+
+
+def test_status_tells_the_ui_which_provider_it_is_describing():
+    """The panel is labelled from this rather than from a hard-coded vendor name, so adding a provider does
+    not mean editing app.js."""
+    st = C.status("openai")
+    assert st["provider"] == "openai"
+    assert st["provider_label"] and st["env_var"] == "OPENAI_API_KEY"
+    assert st["console_url"].startswith("https://")
+    assert set(st["providers"]) == set(C.PROVIDERS)
+
+
+def test_the_masked_only_invariant_holds_for_every_provider(monkeypatch):
+    """I2 is the invariant the whole module exists for; it must not have been weakened per-provider."""
+    monkeypatch.setattr(C, "backend", lambda: {"name": None, "secure": False, "reason": "test: no backend"})
+    for prov in C.PROVIDERS:
+        secret = "sk-" + prov + "-" + "q" * 40
+        monkeypatch.setenv(C.env_var(prov), secret)
+        C._reset_state()
+        import json as _json
+        blob = _json.dumps(C.status(prov))
+        assert secret not in blob, f"{prov}: status leaked the raw key"
+        monkeypatch.delenv(C.env_var(prov), raising=False)

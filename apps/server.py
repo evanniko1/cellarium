@@ -596,19 +596,25 @@ async def _settings_call(request, fn):
 async def settings_get(request):
     """Masked credential status. This response can never contain the key (credentials.status is masked-only)."""
     from cellarium import credentials
-    return await _settings_call(request, lambda: {"key": credentials.status()})
+    # LLM-7e: `provider` is optional and defaults to the one `llm` is configured for, so an older client
+    # that does not send it keeps getting exactly what it got before.
+    prov = request.query_params.get("provider") or None
+    return await _settings_call(request, lambda: {"key": credentials.status(prov)})
 
 
 async def settings_key_set(request):
     from cellarium import credentials
     b = await request.json()
     key, persist = b.get("key") or "", bool(b.get("persist", True))
-    return await _settings_call(request, lambda: {"key": credentials.set_key(key, persist=persist)})
+    prov = b.get("provider") or None
+    return await _settings_call(
+        request, lambda: {"key": credentials.set_key(key, persist=persist, provider=prov)})
 
 
 async def settings_key_delete(request):
     from cellarium import credentials
-    return await _settings_call(request, lambda: {"key": credentials.clear()})
+    prov = request.query_params.get("provider") or None
+    return await _settings_call(request, lambda: {"key": credentials.clear(prov)})
 
 
 async def settings_key_reload(request):
@@ -617,12 +623,16 @@ async def settings_key_reload(request):
     WSL2 with no X server). Returns the same masked status shape; it can no more leak the key than /api/settings.
     """
     from cellarium import credentials
-    return await _settings_call(request, lambda: {"key": credentials.load_into_env(override=True)})
+    prov = request.query_params.get("provider") or None
+    return await _settings_call(
+        request, lambda: {"key": credentials.load_into_env(override=True, provider=prov)})
 
 
 async def settings_key_test(request):
     from cellarium import credentials
-    return await _settings_call(request, lambda: {"probe": credentials.probe(), "key": credentials.status()})
+    prov = request.query_params.get("provider") or None
+    return await _settings_call(
+        request, lambda: {"probe": credentials.probe(prov), "key": credentials.status(prov)})
 
 
 def index(request):

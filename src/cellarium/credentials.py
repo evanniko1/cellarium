@@ -35,20 +35,82 @@ from __future__ import annotations
 
 import os
 
-ENV_VAR = "ANTHROPIC_API_KEY"
-SERVICE = "cellarium"                  # keyring "service" namespace
-ACCOUNT = "anthropic-api-key"          # the entry within that service
+# LLM-7e — ONE ENTRY PER PROVIDER, in one service namespace.
+#
+# The vault was single-provider: one env var, one keychain account, one set of globals. Once `llm` could talk
+# to an OpenAI-compatible endpoint that became a real gap rather than a cosmetic one — the Settings panel had
+# nowhere to put a second key, so it would save it and the adapter would never read it. Keying by provider
+# fixes that without changing the storage model: the same `SERVICE`, a different ACCOUNT per provider.
+#
+# The anthropic account name is UNCHANGED, so a key stored by any earlier version is found exactly where it
+# was left. That is the whole of the migration.
+PROVIDERS: dict[str, dict] = {
+    "anthropic": {"env": "ANTHROPIC_API_KEY", "account": "anthropic-api-key", "label": "Anthropic",
+                  "console": "https://console.anthropic.com/settings/keys", "prefix": "sk-ant-"},
+    "openai": {"env": "OPENAI_API_KEY", "account": "openai-api-key", "label": "OpenAI-compatible",
+               "console": "https://platform.openai.com/api-keys", "prefix": "sk-"},
+}
+
+# The aliases `llm.client` accepts, mapped onto the credential bucket they share. A local vLLM/Ollama server
+# uses the OpenAI shape and usually ignores the key entirely, but it still reads OPENAI_API_KEY, so it belongs
+# in the same bucket rather than in one of its own.
+_ALIASES = {"openai_compatible": "openai", "vllm": "openai", "ollama": "openai", "local": "openai"}
+
+SERVICE = "cellarium"                  # keyring "service" namespace, shared by every provider
+ENV_VAR = PROVIDERS["anthropic"]["env"]        # back-compat: the DEFAULT provider's names, unchanged
+ACCOUNT = PROVIDERS["anthropic"]["account"]    # ditto — existing callers and tests keep working
 _MIN_LEN = 20                          # shorter than this is a truncated paste, not a key
 _REDACTED = "[redacted]"
 
-# How the value currently in os.environ got there. Set ONLY by this module, so "environment" (an explicit shell
-# export or a .env the user wrote themselves) stays distinguishable from a key we injected — the UI must not
-# offer to "remove" a key it does not actually control.
-_SOURCE: str | None = None             # "keychain" | "session" | None
 
-# Cached existence flag for the keychain entry. macOS prompts the user on a Keychain READ, so status() must not
-# re-read on every poll; we remember what the last authoritative operation saw.
-_IN_KEYCHAIN: bool | None = None
+def resolve(provider: str | None = None) -> str:
+    """Which provider's credential are we talking about? Defaults to the one `llm` is configured to use.
+
+    An unknown name falls back to anthropic rather than raising: this module is on the boot path, and a
+    typo in CELLARIUM_LLM_PROVIDER should surface as `llm.client()` refusing by name — which it does, and
+    which says what IS supported — not as the credential layer exploding first with a worse message.
+    """
+    if provider:
+        p = provider.strip().lower()
+    else:
+        try:
+            from . import llm
+            p = llm.PROVIDER
+        except Exception:
+            p = "anthropic"
+    p = _ALIASES.get(p, p)
+    return p if p in PROVIDERS else "anthropic"
+
+
+def env_var(provider: str | None = None) -> str:
+    """The environment variable this provider's SDK reads."""
+    return PROVIDERS[resolve(provider)]["env"]
+
+
+def account(provider: str | None = None) -> str:
+    """The keychain account name holding this provider's key."""
+    return PROVIDERS[resolve(provider)]["account"]
+
+
+# How the value currently in os.environ got there, PER PROVIDER. Set ONLY by this module, so "environment"
+# (an explicit shell export or a .env the user wrote themselves) stays distinguishable from a key we
+# injected — the UI must not offer to "remove" a key it does not actually control.
+_SOURCE: dict[str, str | None] = {}    # provider -> "keychain" | "session" | None
+
+# Cached existence flag for the keychain entry, per provider. macOS prompts the user on a Keychain READ, so
+# status() must not re-read on every poll; we remember what the last authoritative operation saw.
+_IN_KEYCHAIN: dict[str, bool | None] = {}
+
+
+def _reset_state() -> None:
+    """Forget what this process learned about every provider's credential. TEST + boot hook.
+
+    Exists so a caller resets through one supported call instead of assigning to `_SOURCE` and
+    `_IN_KEYCHAIN` directly — the shape of those changed when the vault became provider-aware (LLM-7e),
+    and every test that had reached into them broke. A named seam keeps the next such change internal.
+    """
+    _SOURCE.clear()
+    _IN_KEYCHAIN.clear()
 
 
 # ---------------------------------------------------------------- backend detection
@@ -130,32 +192,39 @@ def _redact(text: str, *keys: str | None) -> str:
 
 
 # ---------------------------------------------------------------- read / write
-def _read_keychain() -> str | None:
+def _read_keychain(provider: str | None = None) -> str | None:
     """The ONLY function that returns the raw secret. Its one legitimate caller is load_into_env()."""
     if not backend()["secure"]:
         return None
     try:
         import keyring
-        return keyring.get_password(SERVICE, ACCOUNT) or None
+        return keyring.get_password(SERVICE, account(provider)) or None
     except Exception:
         return None                        # a locked or absent keychain is a miss, never a crash
 
 
-def status() -> dict:
+def status(provider: str | None = None) -> dict:
     """I2 — the masked-only credential state; the only shape that crosses the HTTP boundary. Never the key."""
-    global _IN_KEYCHAIN
-    env = os.environ.get(ENV_VAR) or ""
+    prov = resolve(provider)
+    env = os.environ.get(env_var(prov)) or ""
     b = backend()
-    if _IN_KEYCHAIN is None:               # probe once per process, then trust the cache (macOS prompts on read)
-        _IN_KEYCHAIN = bool(_read_keychain()) if b["secure"] else False
+    if _IN_KEYCHAIN.get(prov) is None:     # probe once per provider, then trust it (macOS prompts on read)
+        _IN_KEYCHAIN[prov] = bool(_read_keychain(prov)) if b["secure"] else False
     return {
+        # Which credential this describes, and what else could be configured. The UI needs both to label the
+        # field and to offer the other providers without hard-coding a list that would drift from PROVIDERS.
+        "provider": prov,
+        "provider_label": PROVIDERS[prov]["label"],
+        "env_var": env_var(prov),
+        "console_url": PROVIDERS[prov]["console"],
+        "providers": {k: {"label": v["label"], "env": v["env"]} for k, v in PROVIDERS.items()},
         "configured": bool(env),
         # keychain / session = we put it there and can remove it; environment = the user's own export or .env,
         # which this UI must report but must never claim to manage.
-        "source": (_SOURCE or "environment") if env else None,
+        "source": (_SOURCE.get(prov) or "environment") if env else None,
         "masked": mask(env),
-        "managed_here": _SOURCE in ("keychain", "session") and bool(env),
-        "in_keychain": bool(_IN_KEYCHAIN),
+        "managed_here": _SOURCE.get(prov) in ("keychain", "session") and bool(env),
+        "in_keychain": bool(_IN_KEYCHAIN.get(prov)),
         "backend": b["name"],
         "backend_secure": b["secure"],
         "backend_reason": b["reason"],
@@ -163,33 +232,35 @@ def status() -> dict:
     }
 
 
-def load_into_env(*, override: bool = False) -> dict:
+def load_into_env(*, override: bool = False, provider: str | None = None) -> dict:
     """Boot hook: make the stored key visible to every `llm.client()` in this process.
 
     Precedence is deliberate — an explicit shell export or a .env value WINS over the keychain, because it is the
     more explicit, more local signal (and it is how CI, the eval runners and `docker run -e` all work). Only when
     the environment is empty do we reach for the keychain.
     """
-    global _SOURCE, _IN_KEYCHAIN
-    if os.environ.get(ENV_VAR) and not override:
-        return status()
-    val = _read_keychain()
-    _IN_KEYCHAIN = bool(val)
+    prov = resolve(provider)
+    var = env_var(prov)
+    if os.environ.get(var) and not override:
+        return status(prov)
+    val = _read_keychain(prov)
+    _IN_KEYCHAIN[prov] = bool(val)
     if val:
-        os.environ[ENV_VAR] = val
-        _SOURCE = "keychain"
+        os.environ[var] = val
+        _SOURCE[prov] = "keychain"
     from . import redact
-    redact.register_secret(os.environ.get(ENV_VAR))   # covers the .env / exported-variable case too
-    return status()
+    redact.register_secret(os.environ.get(var))       # covers the .env / exported-variable case too
+    return status(prov)
 
 
-def set_key(key: str, *, persist: bool = True) -> dict:
+def set_key(key: str, *, persist: bool = True, provider: str | None = None) -> dict:
     """Set the key for this process and, when a SECURE keychain exists and persist is asked for, store it there.
 
     Returns masked status only (I2). Raises ValueError with a plain-language message on an obviously malformed
     value — the three ways a pasted key actually goes wrong, caught before we bother the API with them.
     """
-    global _SOURCE, _IN_KEYCHAIN
+    prov = resolve(provider)
+    var = env_var(prov)
     k = (key or "").strip()
     if not k:
         raise ValueError("No key provided.")
@@ -197,59 +268,94 @@ def set_key(key: str, *, persist: bool = True) -> dict:
         raise ValueError("That value contains a space or line break — an API key is one unbroken token.")
     if len(k) < _MIN_LEN:
         raise ValueError("That looks too short to be an API key — check for a truncated paste.")
-    os.environ[ENV_VAR] = k
+    # A hazard the multi-provider vault CREATES: with two fields there is now a wrong one to paste into,
+    # and an Anthropic key in the OpenAI slot fails later as an opaque 401 from a different vendor. WARN,
+    # never reject — key formats change, and a vault that refuses a valid new-format key is worse than one
+    # that lets a mistake through with a note. anthropic's sk-ant- is the discriminating prefix; OpenAI's
+    # bare sk- is a prefix OF it, so only the specific direction is checkable.
+    wrong = None
+    if prov == "openai" and k.startswith("sk-ant-"):
+        wrong = "This looks like an Anthropic key (sk-ant-…), but Cellarium is configured for OpenAI."
+    elif prov == "anthropic" and k.startswith("sk-") and not k.startswith("sk-ant-"):
+        wrong = "This does not look like an Anthropic key (they start sk-ant-…)."
+    os.environ[var] = k
     from . import redact
     redact.forget_secret()                 # a replaced key stops being a literal we scrub for
     redact.register_secret(k)              # ...and the new one starts, so a SHAPE-LESS key is caught too
-    _SOURCE = "session"                    # true unless the keychain write below succeeds
+    _SOURCE[prov] = "session"              # true unless the keychain write below succeeds
     if persist and backend()["secure"]:
         try:
             import keyring
-            keyring.set_password(SERVICE, ACCOUNT, k)
-            _SOURCE, _IN_KEYCHAIN = "keychain", True
+            keyring.set_password(SERVICE, account(prov), k)
+            _SOURCE[prov], _IN_KEYCHAIN[prov] = "keychain", True
         except Exception as exc:
             # The key still works for this session — say so, and be honest that it did not persist. I4 applies:
             # a keychain error can quote what it was handed.
-            return dict(status(), persist_error=_redact(f"{type(exc).__name__}: {exc}", k))
-    return status()
+            return dict(status(prov), persist_error=_redact(f"{type(exc).__name__}: {exc}", k))
+    st = status(prov)
+    return dict(st, prefix_warning=wrong) if wrong else st
 
 
-def clear() -> dict:
+def clear(provider: str | None = None) -> dict:
     """Remove the key from this process AND from the keychain. Idempotent; deleting a missing entry is a no-op."""
-    global _SOURCE, _IN_KEYCHAIN
-    os.environ.pop(ENV_VAR, None)
+    prov = resolve(provider)
+    os.environ.pop(env_var(prov), None)
     from . import redact
     redact.forget_secret()
-    _SOURCE = None
+    _SOURCE[prov] = None
     # ALWAYS attempt the delete — never gate it on the current secure verdict. A key stored while a keychain was
     # available must still be removable from a later run where it is not (a different venv without the extra, a
     # Secret Service daemon that isn't up, a container). Gating meant "Remove" could report success while the
     # credential quietly survived in the keychain — the worst kind of security-UI lie.
     try:
         import keyring
-        keyring.delete_password(SERVICE, ACCOUNT)
+        keyring.delete_password(SERVICE, account(prov))
     except Exception:
         pass                                   # already absent, or no backend at all — both are "nothing to do"
-    _IN_KEYCHAIN = False
-    return status()
+    _IN_KEYCHAIN[prov] = False
+    return status(prov)
 
 
-def probe() -> dict:
-    """Is the configured key live? Uses messages.count_tokens — it authenticates like any other call but is FREE,
-    so 'Test key' costs the user nothing. Returns {ok, detail}; the detail is redacted (I4) and never echoes."""
-    key = os.environ.get(ENV_VAR)
+def probe(provider: str | None = None) -> dict:
+    """Is the configured key live? Returns {ok, detail}; the detail is redacted (I4) and never echoes.
+
+    THE PROBE MUST ACTUALLY REACH THE NETWORK, and that is why this is not one call for both providers.
+    Anthropic's `messages.count_tokens` authenticates like any other request but is FREE, so "Test key"
+    costs nothing. The OpenAI-compatible adapter implements `count_tokens` LOCALLY (tiktoken or chars//4,
+    because Chat Completions has no such endpoint), so calling it there would return a number without ever
+    contacting the server and this would report a wrong, missing or revoked key as live. For that provider
+    the probe is a real 1-token completion instead — a few cents per year, and it answers the question
+    actually being asked.
+    """
+    prov = resolve(provider)
+    key = os.environ.get(env_var(prov))
+    label = PROVIDERS[prov]["label"]
     if not key:
-        return {"ok": False, "detail": "No key is configured."}
+        return {"ok": False, "detail": "No key is configured.", "provider": prov}
     try:
         from . import llm
     except Exception:
-        return {"ok": False, "detail": "The `anthropic` package is not installed."}
+        return {"ok": False, "detail": "The provider package is not installed.", "provider": prov}
     try:
-        llm.client(max_retries=1).messages.count_tokens(
-            model="claude-haiku-4-5-20251001", messages=[{"role": "user", "content": "ping"}])
-        return {"ok": True, "detail": "Accepted by the Anthropic API."}
+        client = llm.client(max_retries=1)
+        if prov == "anthropic":
+            client.messages.count_tokens(model="claude-haiku-4-5-20251001",
+                                         messages=[{"role": "user", "content": "ping"}])
+        else:
+            model = os.environ.get("CELLARIUM_MODEL") or "gpt-4o-mini"
+            client.messages.create(model=model, max_tokens=1,
+                                   messages=[{"role": "user", "content": "ping"}])
+        return {"ok": True, "detail": f"Accepted by {label}.", "provider": prov}
     except Exception as exc:
         name = type(exc).__name__
         if "Authentication" in name or "PermissionDenied" in name:
-            return {"ok": False, "detail": "The Anthropic API rejected this key."}
-        return {"ok": False, "detail": _redact(f"Could not reach the API ({name}).", key)}
+            return {"ok": False, "detail": f"{label} rejected this key.", "provider": prov}
+        # A wrong MODEL name is the other common answer here, and it is not a credential problem -- saying
+        # "could not reach" for it would send the user to debug their key instead of their model id.
+        msg = str(exc).lower()
+        if "model" in msg and ("not found" in msg or "does not exist" in msg or "unknown" in msg):
+            return {"ok": False, "provider": prov,
+                    "detail": _redact(f"The key was accepted but the model was not recognised ({name}). "
+                                      "Check CELLARIUM_MODEL.", key)}
+        return {"ok": False, "provider": prov,
+                "detail": _redact(f"Could not reach {label} ({name}).", key)}
