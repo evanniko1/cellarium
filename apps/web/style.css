@@ -693,6 +693,16 @@ progress.op-bar::-moz-progress-bar{background:var(--clay); border-radius:99px}
    the NEXT click does, not an error that has happened. */
 .set-btn.danger.armed{background:var(--amber-tint); border-color:var(--amber); color:var(--amber); font-weight:600}
 
+/* UX-3 — MACHINE IDENTIFIERS in monospace. A gene symbol, a design key, a channel name and a
+   perturbation type are STRINGS THE SYSTEM MATCHES ON, not prose: `argS` and `args` are different
+   experiments, and `fraction_trna_charged` is a column name. Proportional type hides exactly the
+   distinctions that matter -- underscores, case, and 1/l/I -- so identifiers get the mono stack.
+
+   HUMANISED labels deliberately do NOT: `pertLabel` turns `gene_knockout` into "Gene knockouts",
+   which is prose about a group and reads worse in mono. The rule is the string's PROVENANCE, not its
+   subject: if it came from the corpus verbatim it is an identifier; if this UI wrote it, it is text. */
+.ident{font-family:var(--mono); font-size:.94em; letter-spacing:-.1px}
+
 /* ------------------------------------------------------------------------------------------------
    UX-3 — PALETTES. Orthogonal to the light/dark toggle: `data-palette` on :root swaps the hues,
    `data-theme` still swaps light and dark. No palette is the default, which keeps the shipped look

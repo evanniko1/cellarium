@@ -694,7 +694,7 @@ function falsifierEl(f) {   // the decisive test, as human prose — never the d
   const box = el("div", "falsi");
   box.appendChild(el("div", "falsi-k", `${FLASK_SVG}<span>Falsifier — the decisive test</span>`));
   const body = el("div", "falsi-body");
-  if (f.channel) body.appendChild(el("p", "falsi-line", `Measure <b>${esc(f.channel)}</b> for <b>${esc(f.target || "the target")}</b> against <b>${esc(f.reference || "the reference")}</b>.`));
+  if (f.channel) body.appendChild(el("p", "falsi-line", `Measure <b class="ident">${esc(f.channel)}</b> for <b class="ident">${esc(f.target || "the target")}</b> against <b class="ident">${esc(f.reference || "the reference")}</b>.`));
   if (f.decision_rule) body.appendChild(el("p", "falsi-line", `<span class="fl">Test</span> ${esc(f.decision_rule)}`));
   if (f.refuting_result) body.appendChild(el("p", "falsi-line refute", `<span class="fl">Refuted if</span> ${esc(f.refuting_result)}`));
   box.appendChild(body);
@@ -790,7 +790,8 @@ function designEl(dv, i) {
   // lead with the GENE for a KO (KO:gltX), not 'basal' — the gene is the identity of the experiment
   const isKO = String(dv.perturbation || "").includes("gene_knockout") && genes;
   const tag = isKO ? ("KO:" + genes + (dv.condition && dv.condition !== "basal" ? " · " + dv.condition : "")) : dv.condition;
-  c.appendChild(el("div", "d-name", `<span class="pert">${esc(dv.perturbation)}</span>${tag ? " · " + esc(tag) : ""}`));
+  c.appendChild(el("div", "d-name", `<span class="pert ident">${esc(dv.perturbation)}</span>`
+    + (tag ? ` · <span class="ident">${esc(tag)}</span>` : "")));
   c.appendChild(el("div", "d-meta", `${isKO ? "" : esc(genes || "control") + " · "}Council proposed ${dv.seeds}×${dv.generations} — override below`));
   const ctr = el("div", "d-controls");
   // default to the scale the Council PROPOSED (not 1×1) — a one-click queue must not silently underpower the test
@@ -943,7 +944,7 @@ function qitem(r) {
   const d = r.design || {}, it = el("div", "qitem");
   const genes = (d.params && d.params.target_genes && d.params.target_genes.length) ? d.params.target_genes.join("+") : "";
   const meta = [genes, d.condition].filter(Boolean).map(esc).join(" · ");
-  it.appendChild(el("div", "q-top", `<span class="q-id">${esc(r.id)}</span><span class="q-design"><b>${esc(d.perturbation)}</b>${meta ? " · " + meta : ""} · ${r.seeds}×${r.generations}</span><span class="status ${esc(r.status)}">${esc(r.status.replace(/_/g, " "))}</span>`));
+  it.appendChild(el("div", "q-top", `<span class="q-id ident">${esc(r.id)}</span><span class="q-design"><b class="ident">${esc(d.perturbation)}</b>${meta ? " · " + meta : ""} · ${r.seeds}×${r.generations}</span><span class="status ${esc(r.status)}">${esc(r.status.replace(/_/g, " "))}</span>`));
   const inv = r.session_id ? (state.invs || []).find((v) => v.sid === r.session_id) : null;   // provenance: chat OR Hypothesis run
   const from = inv ? (inv.title || "an investigation") : (r.hyp_id ? "Hypothesis · " + (r.from_question || "a run") : r.from_question);
   if (from) {
