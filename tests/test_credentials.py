@@ -607,3 +607,60 @@ def test_the_masked_only_invariant_holds_for_every_provider(monkeypatch):
         blob = _json.dumps(C.status(prov))
         assert secret not in blob, f"{prov}: status leaked the raw key"
         monkeypatch.delenv(C.env_var(prov), raising=False)
+
+
+def test_the_key_form_cannot_be_submitted_without_choosing_a_provider():
+    """The defect this closes, pinned in the source it lives in.
+
+    MEASURED on a real install: with one key field and no provider choice, an OpenAI key pasted while
+    Anthropic was active overwrote the Anthropic entry in the keychain. The old key is not recoverable --
+    a vault that silently replaces one credential with another is worse than one that refuses.
+
+    Three things have to hold together, so all three are pinned: the selector starts UNSET (a default is
+    the same bug with better odds), the input and button start disabled, and the POST carries the chosen
+    provider rather than letting the server pick.
+    """
+    src = Path("apps/web/app.js").read_text(encoding="utf-8")
+    form = src[src.index("const form = el(\"div\", \"set-form\")"):src.index("save.onclick")]
+    assert 'ph.value = ""' in form, "the provider selector must start with an EMPTY placeholder option"
+    assert "inp.disabled = true" in form, "the key field must start disabled"
+    assert "save.disabled = true" in form, "the save button must start disabled"
+    assert "pick.onchange" in form and "syncGate" in form, "choosing a provider must ungate the field"
+
+    handler = src[src.index("save.onclick"):src.index("save.onclick") + 1400]
+    assert 'if (!prov)' in handler, "submitting without a provider must be refused client-side too"
+    assert "provider: prov" in handler, "the POST must name the provider rather than letting the server guess"
+
+
+def test_a_mismatched_key_warning_is_actually_rendered():
+    """The warning existed server-side and the UI never showed it, which is why it stopped nothing. A guard
+    nobody can see is not a guard."""
+    src = Path("apps/web/app.js").read_text(encoding="utf-8")
+    assert "prefix_warning" in src, "set_key's mismatch warning is never surfaced in the panel"
+
+
+def test_the_panel_can_switch_providers_and_says_which_is_active():
+    src = Path("apps/web/app.js").read_text(encoding="utf-8")
+    assert "/api/settings_provider" in src, "no way to switch providers from the panel"
+    assert "vault.active" in src, "the panel does not mark which provider is active"
+    server = Path("apps/server.py").read_text(encoding="utf-8")
+    assert "settings_provider" in server and "set_active_provider" in server
+
+
+def test_the_active_provider_choice_persists_and_env_still_wins(tmp_path, monkeypatch):
+    """Retaining the choice is the point -- and an explicit operator export must still outrank it, the same
+    precedence load_into_env uses for the key itself."""
+    from cellarium import llm
+
+    monkeypatch.setattr(llm, "PROVIDER_FILE", tmp_path / "provider.json")
+    real = llm.PROVIDER
+    try:
+        llm.set_active_provider("ollama")
+        assert llm.PROVIDER == "openai", "an alias must normalise to its bucket"
+        import json as _json
+        assert _json.loads((tmp_path / "provider.json").read_text())["provider"] == "openai"
+        assert llm._persisted_provider() == "openai"
+        with pytest.raises(ValueError):
+            llm.set_active_provider("gemini")
+    finally:
+        llm.PROVIDER = real

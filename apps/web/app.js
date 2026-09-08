@@ -1328,7 +1328,11 @@ const KEY_SOURCE = {
 async function refreshSettings() {
   const b = $("#settingsBody"); if (!b) return;
   let st = null;
-  try { st = (await (await fetch("/api/settings")).json()).key; } catch { /* server offline */ }
+  let vault = null;
+  try {
+    const j = await (await fetch("/api/settings")).json();
+    st = j.key; vault = j.vault;
+  } catch { /* server offline */ }
   b.innerHTML = "";
   if (!st) {
     b.appendChild(el("div", "drawer-empty", "Settings aren't available from this server — restart it to pick up this panel."));
@@ -1341,8 +1345,8 @@ async function refreshSettings() {
   b.appendChild(el("div", "set-sec", (st.provider_label || "Anthropic") + " API key"));
   if (st.env_var) {
     b.appendChild(el("div", "set-note",
-      "Cellarium is configured for " + (st.provider_label || "Anthropic") + ", so this is the key for "
-      + st.env_var + ". Switch providers with CELLARIUM_LLM_PROVIDER; each one keeps its own entry."));
+      "Cellarium is using " + (st.provider_label || "Anthropic") + ", so live reasoning reads "
+      + st.env_var + ". Each provider keeps its own entry — pick one below to switch."));
   }
 
   // THREE states, not two. `configured` reports whether the key is in THIS PROCESS's environment;
@@ -1371,16 +1375,45 @@ async function refreshSettings() {
 
   // the field. type=password + autocomplete off + the password-manager opt-outs: this is a machine credential,
   // not a login, and a manager silently capturing it is a copy we never asked for.
+  // A PROVIDER MUST BE CHOSEN BEFORE A KEY CAN BE SUBMITTED. Without this the field silently wrote to
+  // whichever provider happened to be active, and an OpenAI key pasted while Anthropic was active
+  // OVERWROTE the Anthropic entry — measured, on a real install, and unrecoverable. The selector starts
+  // UNSET on purpose: a default here is the same bug with better odds.
+  const provs = (vault && vault.providers) || {};
+  const provKeys = Object.keys(provs);
   const form = el("div", "set-form");
+  const pick = el("select", "set-input");
+  pick.setAttribute("aria-label", "Which provider is this key for?");
+  const ph = el("option", "", "Choose a provider…"); ph.value = ""; pick.appendChild(ph);
+  provKeys.forEach((k) => {
+    const o = el("option", "", provs[k].label + " (" + provs[k].env_var + ")");
+    o.value = k; pick.appendChild(o);
+  });
+  form.appendChild(pick);
+
   const inp = el("input", "set-input");
   inp.type = "password"; inp.autocomplete = "off"; inp.spellcheck = false;
   inp.setAttribute("data-1p-ignore", "true"); inp.setAttribute("data-lpignore", "true");
-  inp.setAttribute("aria-label", "Anthropic API key");
-  inp.placeholder = st.configured ? "Paste a new key to replace it" : "sk-ant-…";
+  inp.setAttribute("aria-label", "API key");
+  inp.placeholder = "Choose a provider first";
+  inp.disabled = true;
   form.appendChild(inp);
+
   const save = el("button", "set-btn primary", st.can_persist ? "Save to keychain" : "Use for this session");
+  save.disabled = true;
   form.appendChild(save);
   b.appendChild(form);
+
+  const syncGate = () => {
+    const chosen = pick.value;
+    inp.disabled = !chosen;
+    inp.placeholder = chosen
+      ? (provs[chosen].configured ? "Paste a new key to replace it" : "Paste the " + provs[chosen].label + " key")
+      : "Choose a provider first";
+    save.disabled = !chosen || !inp.value.trim();
+  };
+  pick.onchange = syncGate;
+  inp.oninput = syncGate;
 
   if (!st.can_persist) {
     b.appendChild(el("div", "set-note warn", safe`No secure keychain here — ${st.backend_reason || "no OS keychain is reachable"}. `
@@ -1447,9 +1480,18 @@ async function refreshSettings() {
 
   save.onclick = async () => {
     const v = inp.value;
+    const prov = pick.value;
+    if (!prov) { inlineError(form, "Choose which provider this key is for.", null); return; }
     if (!v.trim()) { inlineError(form, "Paste your key first.", null); return; }
     save.disabled = true; save.textContent = "Saving…";
-    const r = await postJSON("/api/settings_key", { key: v, persist: true });
+    const r = await postJSON("/api/settings_key", { key: v, persist: true, provider: prov });
+    // The server flags a key that looks like a DIFFERENT provider's. It is a warning, not a rejection —
+    // but it has to be shown, or it is no guard at all. This is the check that existed and was invisible
+    // when an OpenAI key went into the Anthropic slot.
+    if (r.key && r.key.prefix_warning) {
+      inlineError(form, r.key.prefix_warning + " It was saved anyway — remove it if that was a mistake.", null);
+      announce(r.key.prefix_warning);
+    }
     inp.value = "";                                   // drop the plaintext from the DOM the moment it is sent
     save.disabled = false;
     if (r.error) { save.textContent = "Save"; inlineError(form, r.error, null); return; }
@@ -1462,6 +1504,52 @@ async function refreshSettings() {
     "Your key stays on this machine. It is sent only to " + (st.provider_label || "Anthropic")
     + ", from this computer — never to us, never to another server, and never into the assistant's context: "
     + "Cellwright has no way to read or change it."));
+  // WHICH KEYS EXIST, AND WHICH ONE IS IN USE. The vault holds one entry per provider; before this the
+  // panel could describe only one of them, so a second key was invisible and the active choice was
+  // guesswork. Switching persists, so the choice survives a restart.
+  if (vault && provKeys.length > 1) {
+    b.appendChild(el("div", "set-sec", "Stored keys"));
+    provKeys.forEach((k) => {
+      const v = provs[k];
+      const isActive = vault.active === k;
+      const rowk = el("div", "set-card" + (isActive ? " on" : ""));
+      const h = el("div", "set-head");
+      h.appendChild(el("span", "set-pill " + (isActive ? "on" : v.in_keychain ? "warn" : "off"),
+        isActive ? "Active" : v.in_keychain ? "Stored" : "No key"));
+      h.appendChild(el("span", "set-title", esc(v.label)));
+      rowk.appendChild(h);
+      rowk.appendChild(el("div", "set-why", esc(
+        (v.in_keychain ? "A key is stored for this provider." : "No key stored for this provider.")
+        + (v.masked ? " Loaded: " + v.masked + "." : ""))));
+      if (!isActive) {
+        const useBtn = el("button", "set-btn", "Use this provider");
+        // Offer the switch even with no key stored: choosing the provider you are ABOUT to paste a key for
+        // is the natural order, and the panel then shows that provider's state honestly.
+        useBtn.onclick = async () => {
+          useBtn.disabled = true; useBtn.textContent = "Switching…";
+          const r = await postJSON("/api/settings_provider", { provider: k });
+          if (r.error) {
+            useBtn.disabled = false; useBtn.textContent = "Use this provider";
+            inlineError(rowk, r.error, null); announce(r.error); return;
+          }
+          const msg = v.label + " is now the active provider"
+            + (v.in_keychain ? " and its stored key is loaded." : " — it has no key yet.");
+          await refreshSettings();
+          const body = $("#settingsBody");
+          if (body) body.insertBefore(el("div", "set-note ok", esc(msg)), body.firstChild);
+          announce(msg);
+        };
+        rowk.appendChild(useBtn);
+      }
+      b.appendChild(rowk);
+    });
+    if (vault.env_pinned) {
+      b.appendChild(el("div", "set-note warn",
+        "CELLARIUM_LLM_PROVIDER is set in this server's environment, so it outranks a choice made here. "
+        + "Unset it to switch providers from this panel."));
+    }
+  }
+
   b.appendChild(el("div", "set-sec", "Where keys come from"));
   const consoleUrl = st.console_url || "https://console.anthropic.com/settings/keys";
   let host = "the provider console";

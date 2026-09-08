@@ -232,6 +232,27 @@ def status(provider: str | None = None) -> dict:
     }
 
 
+def overview() -> dict:
+    """Every provider's credential state at once, plus which one is active. Masked-only (I2).
+
+    The panel needs all of it in one shot: which providers exist, which already hold a key, and which is
+    in use. Deriving that client-side from repeated single-provider calls is how a UI ends up describing
+    one provider while operating another — which is precisely the failure that put an OpenAI key into the
+    Anthropic slot.
+    """
+    from . import llm
+    out = {}
+    for prov in PROVIDERS:
+        st = status(prov)
+        out[prov] = {"label": st["provider_label"], "env_var": st["env_var"],
+                     "console_url": st["console_url"], "configured": st["configured"],
+                     "in_keychain": st["in_keychain"], "masked": st["masked"],
+                     "source": st["source"], "managed_here": st["managed_here"]}
+    return {"active": llm.PROVIDER, "default": llm.DEFAULT_PROVIDER,
+            "env_pinned": bool(os.environ.get("CELLARIUM_LLM_PROVIDER")),
+            "can_persist": backend()["secure"], "providers": out}
+
+
 def load_into_env(*, override: bool = False, provider: str | None = None) -> dict:
     """Boot hook: make the stored key visible to every `llm.client()` in this process.
 

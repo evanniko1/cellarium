@@ -107,3 +107,4 @@ data/gse2065/figure1_panels_bc.svg
 # Ad-hoc notes written into the repo root by other tools/sessions. Not part of the artifact, and a
 # stray `git add -A` would publish them.
 Claude outputs/
+data/provider.json

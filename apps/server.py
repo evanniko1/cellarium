@@ -599,7 +599,10 @@ async def settings_get(request):
     # LLM-7e: `provider` is optional and defaults to the one `llm` is configured for, so an older client
     # that does not send it keeps getting exactly what it got before.
     prov = request.query_params.get("provider") or None
-    return await _settings_call(request, lambda: {"key": credentials.status(prov)})
+    # `vault` carries EVERY provider's state plus which is active, so the panel never has to infer which
+    # provider it is describing. `key` stays for older clients.
+    return await _settings_call(
+        request, lambda: {"key": credentials.status(prov), "vault": credentials.overview()})
 
 
 async def settings_key_set(request):
@@ -626,6 +629,29 @@ async def settings_key_reload(request):
     prov = request.query_params.get("provider") or None
     return await _settings_call(
         request, lambda: {"key": credentials.load_into_env(override=True, provider=prov)})
+
+
+async def settings_provider(request):
+    """Switch the active provider and remember it. Refuses an unknown name rather than falling back."""
+    from cellarium import credentials, llm
+    b = await request.json()
+    want = (b.get("provider") or "").strip().lower()
+
+    def _apply():
+        if os.environ.get("CELLARIUM_LLM_PROVIDER"):
+            # An explicit operator export outranks the UI, and silently ignoring it would leave the panel
+            # claiming a switch that did not happen.
+            return {"error": "CELLARIUM_LLM_PROVIDER is set in the environment, which takes precedence. "
+                             "Unset it to choose a provider from here.",
+                    "vault": credentials.overview()}
+        try:
+            llm.set_active_provider(want)
+        except ValueError as exc:
+            return {"error": str(exc), "vault": credentials.overview()}
+        credentials.load_into_env()          # make the newly active provider's stored key live NOW
+        return {"vault": credentials.overview(), "key": credentials.status()}
+
+    return await _settings_call(request, _apply)
 
 
 async def settings_key_test(request):
@@ -670,6 +696,7 @@ routes = [
     Route("/api/settings_key_delete", settings_key_delete, methods=["POST"]),
     Route("/api/settings_key_reload", settings_key_reload, methods=["POST"]),  # re-read the vault into this process
     Route("/api/settings_key_test", settings_key_test, methods=["POST"]),      # free count_tokens liveness probe
+    Route("/api/settings_provider", settings_provider, methods=["POST"]),     # LLM-7e: switch + remember
     Mount("/static", app=StaticFiles(directory=str(WEB)), name="static"),
 ]
 

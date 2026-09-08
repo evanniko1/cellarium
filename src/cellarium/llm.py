@@ -24,11 +24,52 @@ the credential probe, where a slow retry storm would be worse than a clean failu
 """
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
-# The configured provider. Only "anthropic" is implemented today; LLM-7b adds an OpenAI-compatible
-# adapter, which covers OpenAI, most hosted endpoints and local vLLM/Ollama in one shape.
-PROVIDER = (os.environ.get("CELLARIUM_LLM_PROVIDER") or "anthropic").strip().lower()
+_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PROVIDER = "anthropic"
+
+# Where the UI's provider choice persists. Same idiom as launch.QUEUE: an env override, else a file under
+# data/. Gitignored -- it is per-install state, not part of the artifact.
+PROVIDER_FILE = Path(os.environ.get("CELLARIUM_PROVIDER_FILE") or (_ROOT / "data" / "provider.json"))
+
+
+def _persisted_provider() -> str | None:
+    try:
+        return (json.loads(PROVIDER_FILE.read_text(encoding="utf-8")) or {}).get("provider") or None
+    except Exception:
+        return None          # absent or unreadable is "no choice recorded", never a crash on the boot path
+
+
+def set_active_provider(provider: str) -> str:
+    """Record the UI's choice and apply it to THIS process. Returns the normalised value.
+
+    Updates the module global as well as the file, because `client()` reads `PROVIDER` -- a switch that
+    only wrote the file would take effect on the next boot and silently keep using the old provider until
+    then, which is exactly the class of confusion this whole thread exists to remove.
+    """
+    global PROVIDER
+    p = (provider or "").strip().lower()
+    if p not in SUPPORTED and p not in _PROVIDER_ALIASES:
+        raise ValueError(f"unknown provider {provider!r}; supported: {', '.join(SUPPORTED)}")
+    PROVIDER = _PROVIDER_ALIASES.get(p, p)
+    try:
+        PROVIDER_FILE.parent.mkdir(parents=True, exist_ok=True)
+        PROVIDER_FILE.write_text(json.dumps({"provider": PROVIDER}, indent=1), encoding="utf-8")
+    except Exception:
+        pass                 # the switch still holds for this process; persistence is best-effort
+    return PROVIDER
+
+
+_PROVIDER_ALIASES = {"openai_compatible": "openai", "vllm": "openai", "ollama": "openai", "local": "openai"}
+
+# PRECEDENCE: an explicit CELLARIUM_LLM_PROVIDER wins, because an operator export is the more explicit,
+# more local signal -- the same rule credentials.load_into_env uses for the key itself. Otherwise the UI's
+# remembered choice, otherwise the default.
+_ENV_PROVIDER = (os.environ.get("CELLARIUM_LLM_PROVIDER") or "").strip().lower()
+PROVIDER = _PROVIDER_ALIASES.get(_ENV_PROVIDER, _ENV_PROVIDER) or _persisted_provider() or DEFAULT_PROVIDER
 
 # "openai" is the OpenAI-compatible shape: OpenAI itself, most hosted endpoints, and local vLLM /
 # Ollama / LM Studio, which all serve /v1/chat/completions. OPENAI_BASE_URL points it at a local one.
