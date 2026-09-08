@@ -288,8 +288,8 @@ def main():
         LEDGER = Path(a.out)
 
     _resolve_api_key(_log)
-    import anthropic
-    client = anthropic.Anthropic(max_retries=4)
+    from cellarium import llm
+    client = llm.client(max_retries=4)
     council_models = {"proposer": a.council_model, "skeptic": a.council_model, "judge": a.council_model}
 
     selected = cases_mod.by_id(a.ids or None)

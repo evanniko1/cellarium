@@ -40,7 +40,7 @@ def test_converse_configures_sdk_retry_backoff(monkeypatch):
         agent.converse([{"role": "user", "content": "hi"}], model="claude-haiku-4-5-20251001")
 
     assert captured.get("max_retries", 0) >= 1, \
-        "converse must construct anthropic.Anthropic(max_retries=...) for 429/5xx backoff"
+        "converse must construct llm.client(max_retries=...) for 429/5xx backoff"
 
 
 def test_context_tokens_prefilters_then_counts_exact():

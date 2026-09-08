@@ -120,8 +120,8 @@ def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader
     import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    import anthropic
-    client = anthropic.Anthropic(max_retries=6)  # ride out 429s under concurrency
+    from cellarium import llm
+    client = llm.client(max_retries=6)  # ride out 429s under concurrency
     oai = None
     if os.environ.get("OPENAI_API_KEY"):
         import openai

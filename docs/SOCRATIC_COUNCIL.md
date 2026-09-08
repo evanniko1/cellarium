@@ -322,7 +322,7 @@ result-values, or read `CORPUS_OBSERVATIONS.md`. A test asserts this.
 
 - *Per-role model config*, extending the single-env-var pattern:
   `CELLARIUM_PROPOSER_MODEL`, `CELLARIUM_SKEPTIC_MODEL`, `CELLARIUM_JUDGE_MODEL`,
-  each defaulting to `CELLARIUM_MODEL`. One shared `anthropic.Anthropic()` client,
+  each defaulting to `CELLARIUM_MODEL`. One shared client from the `llm` seam,
   one `_ask(role, messages)` helper.
 - *Structured outputs via forced tool-use* (`tool_choice={"type": "tool"}`): one
   "emit" tool per role whose `input_schema` is the structured shape, so

@@ -95,8 +95,8 @@ def main():
     p.add_argument("--workers", type=int, default=6)
     a = p.parse_args()
     load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))
-    import anthropic
-    client = anthropic.Anthropic(max_retries=6)
+    from cellarium import llm
+    client = llm.client(max_retries=6)
     oai = None
     if os.environ.get("OPENAI_API_KEY"):
         import openai

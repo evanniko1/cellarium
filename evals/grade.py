@@ -111,8 +111,8 @@ _ASK_POLICY = ("Operationalize onto the single most directly measurable in-model
 
 def run(case_ids, rounds, quota, council_model, grader_model, out_path):
     load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))
-    import anthropic
-    client = anthropic.Anthropic()
+    from cellarium import llm
+    client = llm.client(max_retries=2)
     models = {"proposer": council_model, "skeptic": council_model, "judge": council_model}
 
     selected = cases_mod.by_id(case_ids)

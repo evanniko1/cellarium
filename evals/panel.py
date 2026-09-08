@@ -346,10 +346,10 @@ def main():
         sys.path.insert(0, str(ROOT / "evals"))
         from run_ab import _resolve_api_key
         _resolve_api_key()
-        import anthropic
+        from cellarium import llm
         sys.path.insert(0, str(ROOT / "evals"))
         import cases as cases_mod
-        client = anthropic.Anthropic(max_retries=4)
+        client = llm.client(max_retries=4)
         by_id = {c["id"]: c for c in cases_mod.by_id(None)}
         panel = regrade(ledger, judges, a.samples, client, by_id,
                         on_progress=lambda u, j, s, q: print(f"  {u}  {j}  #{s}  q={q}"))

@@ -10,7 +10,7 @@ Implementation: [`src/cellarium/credentials.py`](../src/cellarium/credentials.py
 
 ## Three ways to supply a key, in precedence order
 
-Resolved **once at server boot**, then injected into `os.environ` so every `anthropic.Anthropic()` call site in
+Resolved **once at server boot**, then injected into `os.environ` so every `llm.client()` call site in
 the codebase picks it up unchanged:
 
 1. **An exported shell variable** — `ANTHROPIC_API_KEY=…`. Wins over everything; this is how CI, the eval

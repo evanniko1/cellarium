@@ -106,16 +106,17 @@ def run(case_ids, temps, reps, model, out_path, gpt_model, claude_grader, worker
     import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    import anthropic
     import cases as cases_mod
     from dotenv import load_dotenv
+
+    from cellarium import llm
     load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))
 
     if "opus" in (model or "").lower():
         print("WARNING: a reasoning model (opus) FORCES temperature=1 and rejects an explicit value — the sweep is "
               "a no-op there. Use a non-reasoning model (e.g. claude-sonnet-5).", flush=True)
 
-    client = anthropic.Anthropic(max_retries=6)
+    client = llm.client(max_retries=6)
     oai = None
     if os.environ.get("OPENAI_API_KEY"):
         import openai

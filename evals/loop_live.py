@@ -131,10 +131,8 @@ if __name__ == "__main__":  # quick manual check on a live Council hypothesis fo
 
     from dotenv import load_dotenv
     load_dotenv(str(Path(__file__).resolve().parents[1] / ".env"))   # .env at the repo root (was a hardcoded mac path)
-    import anthropic
-
-    from cellarium import council
-    cl = anthropic.Anthropic()
+    from cellarium import council, llm
+    cl = llm.client(max_retries=2)
     hyp = council.deliberate("Do genetically identical E. coli cells behave differently, and why?",
                              temperature=0.7, client=cl, verbose=False)
     print("falsifier channel:", hyp.falsifier.channel if hyp.falsifier else None)

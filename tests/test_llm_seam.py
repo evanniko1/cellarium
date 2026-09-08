@@ -16,9 +16,10 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SEAM = ROOT / "src" / "cellarium" / "llm.py"
 
-# The runtime. evals/ and scripts/ are one-off harnesses and are migrated separately (LLM-7a follow-up);
-# pinning them here now would fail for work that is deliberately out of this change's scope.
-RUNTIME = [ROOT / "src" / "cellarium", ROOT / "apps"]
+# The runtime AND the eval harnesses. evals/ was migrated in the same LLM-7a thread; including it here is
+# the point -- the sweeps are exactly where a second provider has to work for LLM-7d to mean anything, and a
+# seam that the harnesses bypass would let the ablation silently run on the wrong backbone.
+RUNTIME = [ROOT / "src" / "cellarium", ROOT / "apps", ROOT / "evals"]
 
 
 def _py_files():

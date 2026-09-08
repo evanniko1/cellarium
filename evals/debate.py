@@ -294,10 +294,8 @@ def main():
     p.add_argument("--workers", type=int, default=4, help="concurrent cases")
     p.add_argument("--out", default=str(ROOT / "evals" / "results" / "debate"))
     a = p.parse_args()
-    import anthropic
-
-    from cellarium import instrument
-    client = anthropic.Anthropic(max_retries=6)
+    from cellarium import instrument, llm
+    client = llm.client(max_retries=6)
     labels = instrument.dial_labels()
     outdir = Path(a.out); outdir.mkdir(parents=True, exist_ok=True)
 
