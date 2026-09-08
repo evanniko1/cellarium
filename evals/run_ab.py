@@ -147,11 +147,25 @@ def _tool_rollup(rows: list) -> dict:
     calls = sum(int(r.get("tool_calls") or 0) for r in rows)
     errs = sum(int(r.get("tool_errors") or 0) for r in rows)
     hist: Counter = Counter()
+    sel: Counter = Counter()
     for r in rows:
         hist.update(r.get("errored_tools") or {})
+        sel.update(r.get("selected_tools") or {})
+    # `never_selected` is computed against the LIVE registry rather than stored, so it cannot go stale as
+    # tools are added. It is evidence about the tool surface only for tools this arm could actually reach:
+    # the sweep answers questions from the corpus and never proposes or launches an experiment, so every
+    # tool on the proposal/launch path scores zero BY CONSTRUCTION. See evals/results/ag2_tool_selection.json
+    # for that partition -- the raw list is not a delete list.
+    try:
+        from cellarium import tools as _tools
+        never = sorted({t["name"] for t in _tools.TOOLS} - set(sel))
+    except Exception:
+        never = []
     return {"tool_calls": calls, "tool_errors": errs,
             "tool_error_rate": round(errs / calls, 3) if calls else None,
-            "errored_tools": dict(hist.most_common())}
+            "errored_tools": dict(hist.most_common()),
+            "selected_tools": dict(sel.most_common()),
+            "never_selected": never}
 
 
 # --- Arm B: the blind Socratic Council, persisted + graded --------------------------------------------------
@@ -246,6 +260,13 @@ def run_arm_a(case: dict, agent_model: str | None, client=None, judge_model: str
     n_tool = len(tool_events)
     n_err = sum(1 for _, e in tool_events if e)
     errored = dict(Counter(name for name, e in tool_events if e))   # which tools errored, and how often
+    # AG-2, MEASURED 2026-09-08: the error histogram alone cannot answer the question this instrument was
+    # built for. `_tool_rollup`'s own docstring says the data should drive "merge/drop the high-error or
+    # NEVER-SELECTED ones", and a histogram of failures names no tool that was never called. Recovering the
+    # first sweep's selection histogram meant re-parsing every persisted transcript for `tool_use` blocks
+    # (it reconciled exactly: 356 calls / 35 errors), which worked only because the transcripts happened to
+    # be kept. Recording it here costs one Counter and removes the reconstruction.
+    selected = dict(Counter(name for name, _ in tool_events))
     # PUB-A1: the rep MUST be in the session id. Without it every replicate of a case writes the same row and
     # `SessionStore.put` overwrites, so a --reps 5 sweep would keep 5 scores but only the LAST transcript —
     # silently, and only discoverable after paying for the run.
@@ -259,7 +280,8 @@ def run_arm_a(case: dict, agent_model: str | None, client=None, judge_model: str
             "quality_score": shared["quality_score"], "shared": shared, "matched_framing": matched_framing,
             "data_informed": reads > 0, "answer_chars": len(final or ""), "llm": _m.summary(),   # LLM-6 telemetry
             "tool_calls": n_tool, "tool_errors": n_err,                                          # AG-2 tool-selection
-            "tool_error_rate": round(n_err / n_tool, 3) if n_tool else None, "errored_tools": errored}
+            "tool_error_rate": round(n_err / n_tool, 3) if n_tool else None, "errored_tools": errored,
+            "selected_tools": selected}
 
 
 # --- sweep -------------------------------------------------------------------------------------------------

@@ -22,7 +22,24 @@ _WORKER = Path(__file__).with_name("_reader_worker.py")
 
 
 def _container_path(host_run_root: Path) -> str:
-    rel = Path(host_run_root).resolve().relative_to(OUT_ROOT)
+    """The run's path INSIDE the container, which exists only for runs under the mounted output root.
+
+    AG-2 MEASURED 2026-09-08: `Path.relative_to` raises a bare `ValueError("... is not in the subpath of
+    ...")`, and `reroute_diagnosis` and `regulon_response` surfaced exactly that string to the agent -- 4 of
+    the 35 tool errors in the sweep. The run existed and was readable; it simply sat under `runs_seed_aars/`
+    while `CELLARIUM_OUT` pointed at `runs/`, so the only mount (`{OUT_ROOT}:/wcEcoli/out`) could not see it.
+    A Python-internal phrase cannot tell anyone that, which is this repo's recurring failure shape: a
+    "could not read" reported as though it described the data. The condition is unchanged -- an unmountable
+    path still cannot be read -- but the message now names both paths and the setting that reconciles them.
+    """
+    p = Path(host_run_root).resolve()
+    try:
+        rel = p.relative_to(OUT_ROOT)
+    except ValueError:
+        raise ValueError(
+            f"run root {p} is outside the configured output root {OUT_ROOT}, so the reader container -- "
+            f"which mounts only {OUT_ROOT} at /wcEcoli/out -- cannot see it. Point CELLARIUM_OUT at the "
+            f"root that contains this run, or move the run under {OUT_ROOT}.") from None
     return "/wcEcoli/out/" + ("" if str(rel) == "." else str(rel).replace("\\", "/"))
 
 

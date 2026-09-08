@@ -1,0 +1,282 @@
+{
+ "n_sessions": 25,
+ "registry_size": 72,
+ "tool_use_blocks": 356,
+ "never_selected": [
+  "corpus_audit",
+  "design_panel",
+  "estimate_sim_resources",
+  "fba_essentiality_panel",
+  "fba_gene_deletion",
+  "fba_gene_knockout",
+  "fba_qc",
+  "fba_sensitivity",
+  "fba_synthetic_lethal",
+  "generate_designs",
+  "propose_experiment",
+  "propose_experiments",
+  "propose_rebuild",
+  "prune_candidates",
+  "read_species",
+  "revise_experiment",
+  "rnaseq_concordance",
+  "run_experiment",
+  "scan_series",
+  "screen_design",
+  "screen_phenotype",
+  "selective_charging",
+  "serialization_check",
+  "similar_designs",
+  "system_resources",
+  "vet_hypothesis",
+  "viability_surrogate"
+ ],
+ "selected": {
+  "list_results": {
+   "calls": 45,
+   "errors": 0
+  },
+  "compare_at_generation": {
+   "calls": 28,
+   "errors": 9
+  },
+  "chart": {
+   "calls": 25,
+   "errors": 0
+  },
+  "read_series": {
+   "calls": 22,
+   "errors": 0
+  },
+  "mechanistic_scope": {
+   "calls": 20,
+   "errors": 0
+  },
+  "survey_corpus": {
+   "calls": 19,
+   "errors": 0
+  },
+  "web_get": {
+   "calls": 19,
+   "errors": 0
+  },
+  "trajectory": {
+   "calls": 18,
+   "errors": 0
+  },
+  "fit_relation": {
+   "calls": 15,
+   "errors": 0
+  },
+  "viability": {
+   "calls": 15,
+   "errors": 0
+  },
+  "raw_available": {
+   "calls": 12,
+   "errors": 0
+  },
+  "disconfirm": {
+   "calls": 12,
+   "errors": 0
+  },
+  "shift_response": {
+   "calls": 12,
+   "errors": 8
+  },
+  "differential": {
+   "calls": 10,
+   "errors": 0
+  },
+  "use_skill": {
+   "calls": 10,
+   "errors": 0
+  },
+  "variance_band": {
+   "calls": 8,
+   "errors": 1
+  },
+  "comparable_designs": {
+   "calls": 7,
+   "errors": 1
+  },
+  "model_capabilities": {
+   "calls": 6,
+   "errors": 0
+  },
+  "design_space": {
+   "calls": 5,
+   "errors": 0
+  },
+  "trna_families": {
+   "calls": 4,
+   "errors": 4
+  },
+  "read_raw_series": {
+   "calls": 4,
+   "errors": 0
+  },
+  "lethality_landscape": {
+   "calls": 4,
+   "errors": 0
+  },
+  "reroute_diagnosis": {
+   "calls": 3,
+   "errors": 3
+  },
+  "bimodality": {
+   "calls": 3,
+   "errors": 0
+  },
+  "exchange_flux": {
+   "calls": 2,
+   "errors": 2
+  },
+  "download_raw": {
+   "calls": 2,
+   "errors": 0
+  },
+  "dilution_clock": {
+   "calls": 2,
+   "errors": 2
+  },
+  "scan_overview": {
+   "calls": 2,
+   "errors": 1
+  },
+  "model_validation": {
+   "calls": 2,
+   "errors": 0
+  },
+  "provenance": {
+   "calls": 2,
+   "errors": 0
+  },
+  "experiment_integrity": {
+   "calls": 2,
+   "errors": 0
+  },
+  "check_feasibility": {
+   "calls": 2,
+   "errors": 0
+  },
+  "list_species": {
+   "calls": 2,
+   "errors": 2
+  },
+  "top_movers": {
+   "calls": 1,
+   "errors": 1
+  },
+  "fba_flux": {
+   "calls": 1,
+   "errors": 0
+  },
+  "fba_growth": {
+   "calls": 1,
+   "errors": 0
+  },
+  "coverage_check": {
+   "calls": 1,
+   "errors": 0
+  },
+  "operon_mode_advice": {
+   "calls": 1,
+   "errors": 0
+  },
+  "metabolic_essentiality": {
+   "calls": 1,
+   "errors": 0
+  },
+  "power_check": {
+   "calls": 1,
+   "errors": 0
+  },
+  "robustness_check": {
+   "calls": 1,
+   "errors": 0
+  },
+  "regulon_response": {
+   "calls": 1,
+   "errors": 1
+  },
+  "segment_means": {
+   "calls": 1,
+   "errors": 0
+  },
+  "deg_rate_provenance": {
+   "calls": 1,
+   "errors": 0
+  },
+  "data_availability": {
+   "calls": 1,
+   "errors": 0
+  }
+ },
+ "analysis": {
+  "unreachable_proposal_path": [
+   "design_panel",
+   "estimate_sim_resources",
+   "generate_designs",
+   "propose_experiment",
+   "propose_experiments",
+   "propose_rebuild",
+   "prune_candidates",
+   "revise_experiment",
+   "run_experiment",
+   "screen_design",
+   "vet_hypothesis"
+  ],
+  "unreachable_ops": [
+   "corpus_audit",
+   "system_resources"
+  ],
+  "fba_unused": [
+   "fba_essentiality_panel",
+   "fba_gene_deletion",
+   "fba_gene_knockout",
+   "fba_qc",
+   "fba_sensitivity",
+   "fba_synthetic_lethal"
+  ],
+  "fba_used": [
+   "fba_flux",
+   "fba_growth"
+  ],
+  "reachable_and_unused": [
+   "read_species",
+   "rnaseq_concordance",
+   "scan_series",
+   "screen_phenotype",
+   "selective_charging",
+   "serialization_check",
+   "similar_designs",
+   "viability_surrogate"
+  ],
+  "failed_every_call": {
+   "dilution_clock": 2,
+   "exchange_flux": 2,
+   "list_species": 2,
+   "reroute_diagnosis": 3,
+   "trna_families": 4
+  },
+  "high_error": {
+   "trna_families": {
+    "calls": 4,
+    "errors": 4,
+    "rate": 1.0
+   },
+   "shift_response": {
+    "calls": 12,
+    "errors": 8,
+    "rate": 0.667
+   },
+   "compare_at_generation": {
+    "calls": 28,
+    "errors": 9,
+    "rate": 0.321
+   }
+  },
+  "note": "The sweep is a corpus-READING arm. Tools on the proposal/launch path were unreachable by construction, so their zero counts say nothing about their value. Only `reachable_and_unused`, `fba_unused`, `failed_every_call` and `high_error` are evidence about the tool surface itself."
+ }
+}

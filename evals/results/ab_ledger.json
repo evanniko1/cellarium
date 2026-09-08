@@ -114,10 +114,91 @@
     "a": {
       "id": "4.2",
       "sid": "s_eval_4_2",
-      "corpus_reads": 16,
+      "corpus_reads": 15,
+      "quality_score": 0.625,
+      "shared": {
+        "quality_score": 0.625,
+        "n_criteria": 8,
+        "n_passed": 5,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ppGpp concentration and rRNA/ribosome or growth rate as observables",
+            "passed": true,
+            "rationale": "Explicitly names ppGpp concentration, ribosome concentration, and growth rate as observed channels."
+          },
+          {
+            "criterion": "M2: predicts ppGpp up and ribosome/growth down on downshift vs a steady-state baseline",
+            "passed": true,
+            "rationale": "Pre-shift plateau vs post-shift: ppGpp rises ~22->41-51, growth crashes ~60-70%; ribosome per-mass rises but synthesis throttled. Growth down and ppGpp up vs baseline are clearly given."
+          },
+          {
+            "criterion": "M3: states a falsifier (no ppGpp rise, or ribosome synthesis unchanged despite a spike)",
+            "passed": false,
+            "rationale": "No explicit falsifier condition is stated; it reports observed results and caveats but never says what result would refute the stringent-response hypothesis."
+          },
+          {
+            "criterion": "M4: design is an amino-acid downshift, in-envelope",
+            "passed": true,
+            "rationale": "Design is an amino-acid downshift (minimal+AA -> minimal), grounded in an in-model timeline run."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives the sign and rough magnitude/timescale of the ppGpp spike and ribosome drop",
+            "passed": true,
+            "rationale": "Gives sign, magnitude (ppGpp 22->41-51, growth 60-70% drop) and timescale (~150-200 s onset), though ribosome 'drop' is reported as a concentration rise with explanation."
+          },
+          {
+            "criterion": "S2: specifies a pre/post (time-resolved) comparison statistic",
+            "passed": true,
+            "rationale": "Uses time-resolved pre-shift plateau vs post-shift trajectory across 4 seeds with sampling intervals."
+          },
+          {
+            "criterion": "S3: the prediction discriminates the active-ppGpp-signal from the passive-depletion rival",
+            "passed": false,
+            "rationale": "Attributes response to RelA/ppGpp stringent signaling but does not construct a discriminating test against the passive building-block depletion rival, nor a knockout to establish the ppGpp signal is causal rather than passive."
+          },
+          {
+            "criterion": "S4: includes the ppGpp-null (relA/spoT knockout) relaxed-phenotype control to prove causality",
+            "passed": false,
+            "rationale": "No relA/spoT knockout relaxed control proposed; causality is asserted from correlation only."
+          }
+        ],
+        "comment": "Strong empirical grounding in a real in-model downshift with correct directions and magnitudes, but lacks an explicit falsifier, a rival-discriminating test, and the ppGpp-null causal control.",
+        "judged": true,
+        "graded_text": "## The short answer\n\nWhen a wild-type *E. coli* cell in the model is switched from amino-acid-rich medium to minimal medium (an amino-acid downshift), it doesn't die \u2014 it triggers the classic **stringent response**: ppGpp rises, growth rate crashes almost instantly, then the cell settles into a slower, rebalanced growth mode. I grounded this in the corpus's own downshift experiment: `timeline/0 minimal_plus_amino_acids, 1200 minimal`, 4 seeds, 1 generation, all QC-ok and integrity-checked (the declared media shift was verified as actually executed, unlike some other timeline runs in the corpus that show a violation).\n\n## What happens, in order\n\n**1. Growth stalls almost immediately.** In all 4 seeds, growth rate falls from a pre-shift plateau of ~0.0005 s\u207b\u00b9 to near-zero or briefly *negative* within one sampling interval (~150-200 s) of the shift, then partially recovers to a new, lower rate (~0.00015\u20130.0002 s\u207b\u00b9) \u2014 roughly a 60-70% drop that persists for the rest of the recorded window.\n\n**2. ppGpp \u2014 the alarmone \u2014 accumulates and is still rising when the window ends.** Pre-shift ppGpp sits at a stable ~22 (seed range 21.8\u201323.0). After the shift it climbs steadily to 41\u201351 by the last sampled point, and in every one of the 4 seeds it is *still climbing*, not plateaued \u2014 one seed reaches 90+ before the recording ends. This is the textbook uncharged-tRNA \u2192 RelA \u2192 ppGpp stringent response, and here it's genuinely out-of-sample (this shift wasn't a condition the model was fit to).\n\n**3. The mechanistic chain is visible but partial.** The aggregate charged-tRNA fraction dips only slightly (0.970 \u2192 0.958) \u2014 a small move, and I flag it as such deliberately: that channel is a single mean over all 21 amino-acid families, and real amino-acid limitation starves *one* family hard while the rest stay loaded (Dittmar et al. 2005), so the aggregate understates the true per-family effect. I can't drill into per-family charging for this specific run because it has no local raw simOut (would need a download or fresh run to check with `trna_families`/`selective_charging`).\n\n**4. Ribosome concentration rises, not falls**, after the shift (19.1 \u2192 23.2 in this channel's units) \u2014 this looks counter-intuitive but is a concentration effect: ribosome number doesn't shrink as fast as growth (and mass accumulation) does, so ribosomes per unit mass go *up* even as their synthesis is being throttled by ppGpp.\n\n## The honest caveat\n\nThis is a **single-generation observation across 4 seeds** \u2014 sufficient to see the direction and onset of the response, but not its endpoint. ppGpp is still rising at the edge of the recorded window in every seed, meaning the true peak/overshoot and the eventual settled level are not yet captured. Extending these runs to more generations (the corpus's own guidance on multi-generation shift measurements: e.g. a comparable amino-acid *upshift* changed by 1.77-fold at full multi-generation resolution vs 1.34-fold pooled from 1-generation runs) would be needed to say where this settles rather than just how it starts.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3101
-    }
+      "answer_chars": 3065,
+      "llm": {
+        "n_calls": 8,
+        "input_tokens": 16,
+        "output_tokens": 8594,
+        "cache_read_tokens": 321081,
+        "cache_creation_tokens": 28321,
+        "latency_ms": 101949,
+        "cost_usd": 0.331486,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 8
+        },
+        "by_model": {
+          "claude-sonnet-5": 8
+        }
+      },
+      "tool_calls": 23,
+      "tool_errors": 3,
+      "tool_error_rate": 0.13,
+      "errored_tools": {
+        "shift_response": 3
+      }
+    },
+    "_case": "4.2",
+    "_rep": 0
   },
   "5.2": {
     "b": {
@@ -234,10 +315,96 @@
     "a": {
       "id": "5.2",
       "sid": "s_eval_5_2",
-      "corpus_reads": 25,
+      "corpus_reads": 4,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names charged-tRNA / ribosome / viability (division_rate) as the observable of an aaRS KO",
+            "passed": true,
+            "rationale": "Names viability/division across seeds, tRNA-charging pool, ribosome elongation stall, ppGpp as observables."
+          },
+          {
+            "criterion": "M2: predicts translational collapse and loss of viability vs a wildtype baseline (not a neutral reroute)",
+            "passed": true,
+            "rationale": "Explicitly predicts lethality/translation_collapse vs WT and states no reroute possible for aaRS machinery."
+          },
+          {
+            "criterion": "M3: states a falsifier (aaRS KO grows like wildtype, or charging unaffected)",
+            "passed": true,
+            "rationale": "Contrasts against metabolic-enzyme reroute; implies falsifier that aaRS KO would grow like WT, and treats viable/normal-charging as the discriminating alternative."
+          },
+          {
+            "criterion": "M4: design is a single aaRS gene_knockout across seeds at sufficient generation depth, in-envelope",
+            "passed": true,
+            "rationale": "Uses single-gene KOs (argS 16 seeds etc.) across seeds tracked to generation 2-4 depth, in-envelope."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives the crash regime and its rough generation timing (runs on the inherited charged-tRNA buffer, then fails)",
+            "passed": true,
+            "rationale": "States divides on inherited pool at gen 0-1, collapses at gen 2 (or 3), with inherited-pool dilution signature n0*2^-g."
+          },
+          {
+            "criterion": "S2: specifies a per-seed viability/charging test with a threshold at a stated generation depth",
+            "passed": true,
+            "rationale": "Per-seed viability verdicts across n seeds, compare_at_generation at gen 1 with CIs; though charging test itself unavailable, viability/threshold at stated depth is specified."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a translational-collapse from a metabolic-reroute and a rescue rival",
+            "passed": true,
+            "rationale": "Explicitly distinguishes translation_collapse from FBA-reroute (metabolic KOs) and addresses the ppGpp-rescue rival by showing full KO does not produce stringent rescue."
+          },
+          {
+            "criterion": "S4: names the ppGpp/stringent expectation as an auxiliary prediction whose FAILURE in-model would itself be informative",
+            "passed": true,
+            "rationale": "Centers the finding that full KO shows ppGpp falling not rising, framing model-vs-textbook disagreement as the informative result, with graded KO showing canonical stringent signature."
+          }
+        ],
+        "comment": "Exceptionally thorough answer that meets all minimum and stringent criteria, with rich operationalization onto real observables and an explicitly-flagged model-vs-literature disagreement on the stringent response. Note: the answer's own provenance disclaimer admits key corpus identifiers were not actually retrieved in-conversation, but graded on content per rubric.",
+        "judged": true,
+        "graded_text": "## Short answer\nIn this model, losing an aminoacyl\u2011tRNA synthetase (aaRS) entirely is **lethal** \u2014 the lineage divides for one or two generations on its inherited protein/tRNA-charging pool and then crashes. That much agrees with reality. But *how* it dies in the sim is not what the textbook stringent\u2011response story predicts, and that disagreement is the more interesting finding.\n\n## 1. It's essential, and the model agrees for the right reason\n`mechanistic_scope` on argS: `is_machinery=true`, `machinery_role=\"aaRS\"`, benchmark = **consistent_lethal** (Baba 2006/Joyce 2006 call it essential; the model's machinery-KO prior expects a lethal crash and gets it). This is the good case for this model \u2014 unlike metabolic-enzyme KOs, which the FBA objective often reroutes around and so under\u2011predicts essentiality, aaRS knockouts are core central\u2011dogma machinery with no reroute possible.\n\n`viability(gene_knockout)` confirms it directly across every aaRS gene in the corpus: **argS** (16 seeds), **alaS** (8 seeds), **gltX**, **pheS**, **argG**, **lysS** \u2014 all verdict = **inviable**, with terminal non-division or a crash by generation 2-4.\n\n## 2. The death is generation-delayed, not instant\n`lethality_landscape` / `trajectory` show a consistent pattern: the cell divides normally at generation 0-1 (running on its **inherited** aaRS protein and pre-charged tRNA pool), then collapses at **generation 2** (argS, alaS, gltX, pheS) or generation 3 (leuB, graded argS 0.1x). This is the inherited-pool dilution signature the model expects for machinery genes (`n(g)=n0\u00b72^-g`, Carballo-Pacheco 2020) \u2014 the phenotype arrives generations after the genotype, and gets ambiguous with a fresh-KO snapshot.\n\n## 3. The surprising part: ppGpp *falls*, not rises, before the crash\nThe textbook expectation (uncharged tRNA \u2192 RelA \u2192 ppGpp, \"stringent response\") would predict elevated ppGpp and depressed growth right before a translation-machinery failure. Using `compare_at_generation` (proper depth-matched comparison, not a whole-run mean across mismatched depths) at generation 1, **four independent full aaRS knockouts all show ppGpp well below wildtype**, with non-overlapping 95% CIs:\n\n| design (n seeds) | ppGpp gen-1 | vs WT (n=16, 62.98\u00b15.7) |\n|---|---|---|\n| KO:argS (n=7) | 30.47 \u00b1 8.4 | **-51.6%** |\n| KO:alaS (n=7) | 30.62 \u00b1 4.3 | **-51.4%** |\n| KO:gltX (n=7) | 24.04 \u00b1 3.1 | **-61.8%** |\n| KO:pheS (n=7) | 21.90 \u00b1 3.1 | **-65.2%** |\n\nGrowth rate at the same generation is roughly flat-to-normal (argS -4.4%, alaS -8.1%, gltX **+20.5%**, pheS **+33.7%** vs WT) \u2014 not the depressed growth of a stringent response either.\n\n**Contrast:** a *graded* 90%-knockdown of argS (`graded_gene_knockout/KO:argS#expr:0.1`, partial capacity, not a full deletion) shows exactly the canonical signature instead: ppGpp **+335%**, growth **-71%** vs WT, flagged `stringent_signature=true`. So a partial loss of aaRS capacity produces the classic RelA/ppGpp stringent response in this model, but a **full** deletion does not.\n\nI ran `robustness_check` on this claim using the tool's default whole-run comparison and it came back \"underpowered\" \u2014 but that's an artifact of comparing at mismatched depths (argS has no reportable full-depth run once it collapses, so the default method sees n=1). The apples-to-apples `compare_at_generation` reading (n=7 vs n=16, non-overlapping CIs, consistent across 4 independent genes) is the sound comparison and it's a real, reproducible pattern in the corpus \u2014 not a single-seed fluke.\n\n**Plausible mechanism (hypothesis, not established):** RelA sensing depends on uncharged tRNA occupying the ribosomal A-site over a sustained window. A graded capacity reduction lets uncharged tRNA accumulate gradually while ribosomes keep initiating, building the ppGpp signal. A full aaRS deletion instead crashes the charging system so abruptly (`NegativeCountsError` in PolypeptideElongation, per mechanistic_scope) that there may be no such window \u2014 translation may fail outright before the RelA signal can build. This deserves a literature check, not an assertion.\n\n## 4. The crash itself looks like collapse, not clean arrest\nThe QC signature for these full KOs at the crash generation is dominated by **implausible_channel** (6-7 of 8 seeds), not clean `no_division` (which is what dapA/leuB show instead). That pattern matches this platform's **translation_collapse** phenotype: ribosome elongation effectively stalls while other readouts (division timing) can look superficially unremarkable until the channel becomes numerically nonsensical \u2014 i.e., growth_rate and ppGpp at that generation should be treated as evidence-absent, not read as biology.\n\n## 5. One important operon caveat\nBecause this corpus runs with operons **ON**, `pheS`'s \"true label\" is actually `operon_KO:thrS-infC-rpmI-rplT-pheMST-ihfA` \u2014 a single-gene pheS knockout in this model silences the **whole transcription unit**, simultaneously losing ThrRS (another aaRS), IF3, and two ribosomal proteins. So the pheS result reflects a multi-gene machinery loss, not pheS alone. argS, alaS, and gltX are each `n_tu=1` (no such confound).\n\n## Scope limits\n- I could not read per-tRNA-isoacceptor charging for any of these KOs (no local raw simOut on disk for argS/alaS/gltX/pheS this session) \u2014 and even where raw exists, this arm is `elongation_model=steady_state`, under which the 86 isoacceptor columns are one per-amino-acid scalar broadcast identically, so within-family isoacceptor detail (which tRNA species is actually starved) is not representable regardless.\n- These are out-of-sample perturbations (gene KOs the fit wasn't targeted to), so the inviability call is a genuine model prediction, corroborated by the independent Baba/Joyce benchmark \u2014 not just in-sample consistency.\n---\n**Provenance check \u2014 claims this conversation did not read.** The answer above names corpus identifiers that no tool call in this conversation retrieved. They are left exactly as written; this note is the record, not a correction.\n- `graded_gene_knockout/KO:argS` (design) \u2014 in: \u201c**Contrast:** a *graded* 90%-knockdown of argS (`graded_gene_knockout/KO:argS#expr:0.1`, partial capacity, not a full deletion) shows exactly the canonical signature instead: ppGpp **+335%**, growth **-71%** vs WT, flagged `stringent_signat\u201d\n\nWhat this turn actually read: condition/glc_20mM, condition/glc_5mM, condition/minus_magnesium, condition/plus_nitrate, condition/succinate, gene_knockout/KO:alaS, gene_knockout/KO:argS, gene_knockout/KO:argS#elong:kinetic, gene_knockout/KO:dapA, gene_knockout/KO:fabI, gene_knockout/KO:glmS, gene_knockout/KO:gltA, gene_knockout/KO:gltX, gene_knockout/KO:leuB, gene_knockout/KO:leuB#tl:379e4c, gene_knockout/KO:lpxC, gene_knockout/KO:lysS, gene_knockout/KO:pfkA, gene_knockout/KO:pheS, gene_knockout/KO:rpmE, gene_knockout/KO:rpmJ, gene_knockout/KO:selA, graded_gene_knockout/KO:argS#expr:0.05, graded_gene_knockout/KO:argS#expr:0.1, ppgpp_conc/basal|ppGpp:0.2x, ppgpp_conc/basal|ppGpp:0.6x, ppgpp_conc/basal|ppGpp:1.6x, ppgpp_conc/basal|ppGpp:2.0x, rrna_operon_knockout/minimal|rRNA_KO:4op, rrna_operon_knockout/minimal|rRNA_KO:6op, timeline/0 minimal, 1200 minimal_plus_amino_acids, timeline/0 minimal_plus_amino_acids, 1200 minimal, wildtype/basal.\nNon-corpus tools also ran this turn (their output is not a measurement of this corpus): `use_skill`\u00d71.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3701
-    }
+      "answer_chars": 7359,
+      "llm": {
+        "n_calls": 14,
+        "input_tokens": 9654,
+        "output_tokens": 14770,
+        "cache_read_tokens": 351351,
+        "cache_creation_tokens": 27084,
+        "latency_ms": 179326,
+        "cost_usd": 0.457482,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 8,
+          "robustness:analyst": 2,
+          "robustness:verifier": 2,
+          "robustness:skeptic": 2
+        },
+        "by_model": {
+          "claude-sonnet-5": 14
+        }
+      },
+      "tool_calls": 18,
+      "tool_errors": 3,
+      "tool_error_rate": 0.167,
+      "errored_tools": {
+        "scan_overview": 1,
+        "trna_families": 1,
+        "dilution_clock": 1
+      }
+    },
+    "_case": "5.2",
+    "_rep": 0
   },
   "1.1": {
     "b": {
@@ -348,10 +515,91 @@
     "a": {
       "id": "1.1",
       "sid": "s_eval_1_1",
-      "corpus_reads": 5,
+      "corpus_reads": 4,
+      "quality_score": 0.625,
+      "shared": {
+        "quality_score": 0.625,
+        "n_criteria": 8,
+        "n_passed": 5,
+        "min_bar_pass": true,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names a specific per-cell expression observable (a protein/mRNA count or a mass channel), not 'behavior'",
+            "passed": true,
+            "rationale": "Uses protein_mass and rna_mass channels with concrete per-seed values."
+          },
+          {
+            "criterion": "M2: predicts cell-to-cell variance > 0 relative to an explicit isogenic baseline",
+            "passed": true,
+            "rationale": "Reports ~9-10% CV across 20 isogenic wildtype/basal seeds, explicitly non-zero spread vs isogenic baseline."
+          },
+          {
+            "criterion": "M3: states a concrete falsifier (e.g. variance indistinguishable from technical/replicate noise)",
+            "passed": true,
+            "rationale": "Discusses that spread could be indistinguishable from replicate/extrinsic noise; implicitly a falsifier but stated somewhat loosely as a scope caveat rather than a crisp falsification threshold. Still names variance vs technical noise as the discriminating issue."
+          },
+          {
+            "criterion": "M4: design is an isogenic replicate ensemble (wildtype, many seeds), in-envelope",
+            "passed": true,
+            "rationale": "Uses wildtype/basal 20 seeds, identical genotype and medium \u2014 a valid isogenic ensemble."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a quantitative dispersion statistic with a threshold (a CV or Fano, or intrinsic ~1/mean scaling)",
+            "passed": true,
+            "rationale": "Reports CV values (~9-10%) as the dispersion statistic across seeds."
+          },
+          {
+            "criterion": "S2: names the statistic/test and how significance is judged (e.g. variance decomposition with CIs / Welch t)",
+            "passed": false,
+            "rationale": "Gives CV table but no significance test, CI, or formal decision rule for judging significance."
+          },
+          {
+            "criterion": "S3: the predicted result discriminates intrinsic-vs-extrinsic from the pure-measurement-noise rival",
+            "passed": false,
+            "rationale": "Candidate explicitly concedes it cannot isolate intrinsic vs extrinsic and its aggregate mass metric does not discriminate from extrinsic/measurement noise; it defers this to future runs."
+          },
+          {
+            "criterion": "S4: includes the isolating control \u2014 the intrinsic/extrinsic decomposition (dual identical genes, or conditioning on shared ribosome/RNAP/mass covariates)",
+            "passed": false,
+            "rationale": "No decomposition performed; candidate acknowledges it could not pull single-gene data or condition on covariates, only proposing it as a future step."
+          }
+        ],
+        "comment": "Strong on the isogenic-ensemble whole-cell demonstration and minimum criteria, but honestly admits it did not perform the intrinsic/extrinsic isolation or a significance test, failing most stringent criteria.",
+        "judged": true,
+        "graded_text": "## Short answer: no \u2014 not exactly, and the model has a clean, quantified way to show this.\n\n**What I checked, and against what.** `wildtype/basal` has **20 local seeds** (genetically identical genotype, identical basal-minimal medium, differing only in the random seed that drives the model's stochastic processes) \u2014 a direct isogenic-population analogue. I pulled the full-resolution, cross-seed `variance_band` for total protein mass and total RNA mass (the aggregate \"how much did this genome's output accumulate\" readout), grounded in local raw simOut, not the coarse manifest mean.\n\n**Result:** at matched time points, isogenic cells do **not** converge on one value:\n\n| channel | t (s) | mean | std | CV |\n|---|---|---|---|---|\n| protein_mass | 0 | 169.8 | 14.9 | 8.8% |\n| protein_mass | 1439 | 237.5 | 21.6 | 9.1% |\n| rna_mass | 0 | 44.1 | 4.0 | 9.1% |\n| rna_mass | 1897 | 76.4 | 7.4 | 9.7% |\n\nA ~9\u201310% coefficient of variation persists across the whole trajectory (see the figure) \u2014 the spread grows in absolute terms as the population grows, but the *relative* spread stays roughly constant. That's real, measured cell-to-cell heterogeneity among cells that share one genotype and one environment (n=20 seeds, generations per seed ranging 1\u20137 depending on seed \u2014 I'm reading the full local depth available for each, not pooling mismatched depths).\n\n**Important scope caveat \u2014 what this does and doesn't prove.** This is the *aggregate* proteome/transcriptome-mass answer, not a single-promoter answer. Your question (\"the same gene\") is really the classical Elowitz/Ozbudak question about **intrinsic vs. extrinsic noise at one locus** \u2014 and I could not pull an individual gene's protein/mRNA copy-number trajectory here: `list_species`/`read_species` need the *full* simOut for that result, and `data_availability` confirms it isn't cached locally for these wildtype seeds (HF availability unverified; the alternative is a local regeneration run). So the aggregate mass spread I showed you plausibly reflects a mix of (a) genuine stochastic transcription/translation noise summed over thousands of genes, plus (b) extrinsic noise from division-timing/growth-rate variability between lineages \u2014 it does not isolate one gene's burst-and-decay noise the way a single-cell reporter experiment does.\n\n**Literature grounding (external, not a corpus number):** this is exactly the phenomenon Elowitz, Levine, Siggia & Swain established directly in *E. coli* \u2014 \"Stochastic Gene Expression in a Single Cell,\" *Science* 297:1183\u20131186 (2002), DOI 10.1126/science.1070919 \u2014 showing genetically identical cells in the same environment differ substantially in expression due to both intrinsic biochemical stochasticity and extrinsic cell-state fluctuations. The corpus result above is consistent with that qualitative conclusion (real, non-zero cell-to-cell spread) but at coarser (whole-cell) resolution than their single-promoter reporters.\n\n**If you want the single-gene-resolution answer:** I can either (1) request the raw simOut download for a few wildtype seeds (gated \u2014 I'd need to give you the GB estimate and your go-ahead) so `read_species` can pull one specific protein/mRNA's count across seeds, or (2) propose a fresh small wildtype panel with more seeds at a chosen gene of interest via `propose_experiment` (human-approved). Want me to do either?",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2602
-    }
+      "answer_chars": 3358,
+      "llm": {
+        "n_calls": 9,
+        "input_tokens": 18,
+        "output_tokens": 8199,
+        "cache_read_tokens": 352674,
+        "cache_creation_tokens": 61173,
+        "latency_ms": 103481,
+        "cost_usd": 0.45824,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 9
+        },
+        "by_model": {
+          "claude-sonnet-5": 9
+        }
+      },
+      "tool_calls": 11,
+      "tool_errors": 2,
+      "tool_error_rate": 0.182,
+      "errored_tools": {
+        "list_species": 2
+      }
+    },
+    "_case": "1.1",
+    "_rep": 0
   },
   "3.1": {
     "b": {
@@ -466,10 +714,89 @@
     "a": {
       "id": "3.1",
       "sid": "s_eval_3_1",
-      "corpus_reads": 17,
+      "corpus_reads": 3,
+      "quality_score": 0.5,
+      "shared": {
+        "quality_score": 0.5,
+        "n_criteria": 8,
+        "n_passed": 4,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names a specific per-cell quantity (a low-copy protein count or growth rate), not 'behavior'",
+            "passed": true,
+            "rationale": "Names growth rate (and ppGpp) as the per-cell quantities measured across seeds."
+          },
+          {
+            "criterion": "M2: predicts persistent between-cell variance > 0 vs an isogenic baseline",
+            "passed": true,
+            "rationale": "Reports CV growing from ~3% to ~10% for growth rate across isogenic seeds, variance clearly > 0."
+          },
+          {
+            "criterion": "M3: states a falsifier (uniform behavior, or between-cell variance == within-cell noise)",
+            "passed": false,
+            "rationale": "No explicit falsifier stated; the bimodality test discriminates subpopulations vs continuous spread but does not frame a falsifying condition (uniform behavior or between-cell == within-cell noise)."
+          },
+          {
+            "criterion": "M4: design is an isogenic replicate ensemble, in-envelope",
+            "passed": true,
+            "rationale": "20 wildtype/basal seeds differing only in RNG seed, in-model isogenic replicate ensemble."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a between-cell CV and/or predicts CV proportional to 1/sqrt(copy number)",
+            "passed": true,
+            "rationale": "Gives explicit between-cell CV values (~3% to ~10% growth rate, ~5% to ~14% ppGpp), though no 1/sqrt(N) scaling."
+          },
+          {
+            "criterion": "S2: names a variance-partition / autocorrelation test separating persistent individuality from fast noise",
+            "passed": false,
+            "rationale": "Uses a bimodality test and tracks CV over time, but does not perform a variance-partition or autocorrelation test separating persistent individuality from fast measurement noise."
+          },
+          {
+            "criterion": "S3: the predicted result discriminates non-genetic individuality from the genetic and measurement-noise rivals",
+            "passed": false,
+            "rationale": "Rules out genetic rival by design (isogenic), but does not discriminate against fast measurement noise via any explicit test; growth-of-divergence over time is suggestive but not decisive against the noise rival."
+          },
+          {
+            "criterion": "S4: ties the variance to a specific low-copy protein pool (the isolating cause)",
+            "passed": false,
+            "rationale": "Attributes variance to generic stochastic molecular events and ppGpp regulation, not to a specific low-copy protein pool as the isolating cause."
+          }
+        ],
+        "comment": "Solid isogenic-ensemble analysis with real CVs and a bimodality test, but misses an explicit falsifier, variance-partition/autocorrelation separation of persistent vs fast noise, and does not localize the variance to a specific low-copy protein pool.",
+        "judged": true,
+        "graded_text": "**Yes \u2014 measurably, and the divergence grows over time.**\n\nI checked this directly on genetically identical cells: 20 local `wildtype/basal` seeds \u2014 same genome, same fitted parameters, same medium, differing only in the stochastic RNG seed driving the simulation's molecular-level events (partitioning at division, transcription/translation draws, flux allocation). That's exactly the \"same genotype, does phenotype vary\" test.\n\n**What the data shows (n=20 seeds, windowed to the first ~2550 s so every seed \u2014 even the ones that only ran 1 generation \u2014 contributes comparably):**\n\n- **Growth rate**: CV starts ~3% early in the cycle (mean 0.000213, tight band) and climbs to ~10% by t\u22481900 s (mean 0.000249, CI95 [0.000237, 0.000260]).\n- **ppGpp**: CV starts ~5% (mean 36\u201338) and climbs to ~14% by t\u22481900 s (mean ~64.5, CI95 [60.4, 68.6]) \u2014 the regulatory readout diverges *faster* than growth rate itself.\n\nBoth bands widen monotonically over the generation rather than staying flat \u2014 isogenic lineages that start identical accumulate divergence as the cell cycle proceeds. This is the model's expression of the same phenomenon documented experimentally for single-cell bacterial growth-rate heterogeneity (e.g., Kiviet et al. 2014) and gene-expression noise (Elowitz et al. 2002) \u2014 cells with identical DNA and environment diverge because stochastic molecular events compound over time, not because anything genetic differs.\n\n**Is it two subpopulations or continuous spread?** I ran a bimodality test on growth rate across these seeds: Sarle's coefficient = 0.486, below the 0.556 threshold \u2014 **not bimodal**. The best 2-cluster split separates by only 1.74 SD (low mean 0.000227 vs high 0.000263, 22 vs 18 points). So this looks like continuous stochastic variation around one physiological state, not a discrete bet-hedging/persister-like split \u2014 at least not visible in growth rate at this depth.\n\n**Caveats on support:** this is grounded in 20 local raw seeds of `wildtype/basal` (34/36 usable in the full corpus), spanning generation depths 1\u20134 \u2014 I restricted the time window to what every seed covers so the comparison isn't confounded by unequal depth. It answers \"does stochastic single-cell heterogeneity emerge under identical genotype/environment\" \u2014 it does. It does not by itself test whether *biological* noise sources (e.g., individual promoter burst kinetics) are mechanistically resolved at gene level; that would need per-gene expression-noise tooling, which I haven't invoked here.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3080
-    }
+      "answer_chars": 2502,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 8,
+        "output_tokens": 4342,
+        "cache_read_tokens": 144815,
+        "cache_creation_tokens": 20250,
+        "latency_ms": 54922,
+        "cost_usd": 0.184536,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 4
+        },
+        "by_model": {
+          "claude-sonnet-5": 4
+        }
+      },
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "3.1",
+    "_rep": 0
   },
   "1.2": {
     "b": {
@@ -585,10 +912,89 @@
     "a": {
       "id": "1.2",
       "sid": "s_eval_1_2",
-      "corpus_reads": 3,
+      "corpus_reads": 2,
+      "quality_score": 0.25,
+      "shared": {
+        "quality_score": 0.25,
+        "n_criteria": 8,
+        "n_passed": 2,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names protein-count noise (a dispersion statistic) and its dependence on a controllable factor",
+            "passed": true,
+            "rationale": "Uses CV of protein counts (RelA CV rises to ~54%) and ties noise to copy number, translation efficiency, degradation rate."
+          },
+          {
+            "criterion": "M2: predicts the sign (noise up with burst size; noise down with mean) vs a mean-only null",
+            "passed": true,
+            "rationale": "States noise scales as 1/sqrt(N) (down with mean) and that highly-translated mRNAs (large bursts) are noisier even at equal mean protein level."
+          },
+          {
+            "criterion": "M3: states a falsifier (noise unchanged at matched mean when burst raised; or no floor)",
+            "passed": false,
+            "rationale": "Notes Ozbudak's burst effect 'even at equal mean' but never poses this as a falsifiable prediction/falsifier, nor mentions an extrinsic floor to test."
+          },
+          {
+            "criterion": "M4: design tunes translation/transcription at matched mean across an ensemble, in-envelope",
+            "passed": false,
+            "rationale": "Only observes two channels across 20 seeds; proposes no design that varies translation/transcription at matched mean across an ensemble."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states the eta^2 = a/mean + b form with a numeric floor (~0.1 / CV~0.3)",
+            "passed": false,
+            "rationale": "Gives 1/sqrt(N) scaling but never states the a/mean + b form nor any numeric extrinsic floor."
+          },
+          {
+            "criterion": "S2: specifies fitting the noise-mean curve with CIs and a test for a nonzero asymptote",
+            "passed": false,
+            "rationale": "No fitting of noise-mean curve, no CIs, no asymptote test proposed."
+          },
+          {
+            "criterion": "S3: the prediction discriminates burst-driven from abundance-only and 1/mean-forever rivals",
+            "passed": false,
+            "rationale": "Mentions burst vs transcription contribution but does not construct a prediction that discriminates burst-driven from abundance-only or the no-floor rival."
+          },
+          {
+            "criterion": "S4: holds protein mean fixed while varying burst size (the isolating control)",
+            "passed": false,
+            "rationale": "No design holding protein mean fixed while varying burst size; only cites the general Ozbudak result."
+          }
+        ],
+        "comment": "Strong on qualitative mechanism (copy number, bursting, degradation) with real in-model observables, but lacks the key quantitative form (a/mean + floor), the isolating matched-mean design, and explicit falsifiers.",
+        "judged": true,
+        "graded_text": "## Short answer\nIn this platform, and in the broader literature it's built on, a gene's expression noise is set by how few discrete molecular events produce its transcript/protein and how little those events get averaged \u2014 by copy number, transcription/translation kinetics, and regulatory feedback \u2014 not by anything mystical about the gene itself.\n\n## The established determinants (grounded in literature)\n1. **Molecule count / copy number.** Noise (as coefficient of variation) scales roughly as 1/\u221aN for a Poisson-like process: a protein present in tens of copies fluctuates proportionally far more than one present in thousands, purely from counting statistics.\n2. **Burst size vs. burst frequency (transcriptional and translational bursting).** Elowitz, Levine, Siggia & Swain (*Science* 2002, PMID 12183631, doi:10.1126/science.1070919) formally separated **intrinsic** noise (independent stochastic firing of each allele/transcript) from **extrinsic** noise (fluctuations shared across the whole cell \u2014 RNAP/ribosome pools, cell-cycle stage). Ozbudak, Thattai, Kurtser, Grossman & van Oudenaarden (*Nat Genet* 2002, PMID 11967532, doi:10.1038/ng869) showed **translation efficiency contributes more to noise than transcription rate**: each mRNA translated into many proteins is one large multiplicative \"burst,\" so genes with few, highly-translated mRNAs are noisier than genes with many, weakly-translated ones, even at equal mean protein level.\n3. **Degradation rate.** A short-lived mRNA/protein doesn't time-average fluctuations \u2014 its steady-state level tracks recent stochastic production events almost immediately, which is a real driver of higher noise.\n4. **Regulatory architecture.** Negative autoregulation damps noise; positive feedback and shared upstream regulators (extrinsic noise) amplify and correlate it across genes.\n\n## What this platform's own data shows\nI pulled cross-seed variance (20 seeds, wildtype/basal, full-resolution raw) for two channels that sit at opposite ends of the abundance axis:\n\n- **RelA** (a single low-copy regulatory protein): CV rises from ~9% early in the cycle to **~54%** by t\u22481900 s (mean 0.126, std 0.068, n=20 seeds \u2014 see figure).\n- **Ribosome concentration** (an aggregate over thousands of copies of many highly-expressed ribosomal genes): CV stays essentially flat around **~1.5%** (mean 21.6, std 0.32) over the same window.\n\nThat's roughly a **36x difference in relative noise** between a low-abundance regulator and a high-abundance, many-gene aggregate \u2014 the copy-number/averaging mechanism playing out directly in the mechanistic sim, not just in theory. The RelA spread also visibly *widens with time since the last division* rather than staying constant, consistent with noise accumulating through stochastic transcription/translation events plus binomial partitioning of molecules at each division, not just steady-state fluctuation.\n\n**Caveat on this comparison:** seeds 4\u20137 only reached 1 generation locally while seeds 0\u20133 reached 3\u20134, so the widening trend partly reflects fewer surviving seeds at late times within a single cycle, not confirmed multi-generation drift \u2014 a single-cycle observation, stated as such.\n\n## A caveat specific to this model's *parameters*, not its dynamics\nWhether the model can even show a genuine per-gene noise difference from mRNA degradation depends on where that gene's decay rate came from. I checked `deg_rate_provenance`: of 3,133 mRNA transcription units in the fitted knowledge base, **27% (854 units, ~12% of expression) are NOT a fit** \u2014 245 units sit on the estimator's lower rate-floor, 7 on the ceiling, and 602 (19%, ~7.5% of expression) are simply given the **population-mean half-life** (5.19 min) because that transcript was never individually measured. For any of those 602 imputed units, the model literally cannot show a real degradation-driven noise difference from another imputed unit \u2014 they share the identical constant by construction. So a claim like \"gene A is noisier than gene B because A decays faster\" is only trustworthy if both A and B are in the fitted 73%, not the imputed/bounded remainder \u2014 check `deg_rate_provenance(unit=...)` before making that specific comparison.\n\n## Scope note\nThis mechanistic detail (copy number, bursting, partitioning noise, degradation-rate provenance) is separate from `fraction_trna_charged`'s per-isoacceptor granularity \u2014 under the corpus's steady-state elongation model that channel is a single per-amino-acid value broadcast identically across 86 columns, so it cannot be used as a noise source at the individual-isoacceptor level; the kinetic elongation mode (in-corpus) does resolve that independently, if isoacceptor-level translational noise specifically is ever the question.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 4427
-    }
+      "answer_chars": 4754,
+      "llm": {
+        "n_calls": 8,
+        "input_tokens": 16,
+        "output_tokens": 8985,
+        "cache_read_tokens": 350683,
+        "cache_creation_tokens": 29991,
+        "latency_ms": 112875,
+        "cost_usd": 0.352494,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 8
+        },
+        "by_model": {
+          "claude-sonnet-5": 8
+        }
+      },
+      "tool_calls": 10,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "1.2",
+    "_rep": 0
   },
   "4.1": {
     "b": {
@@ -710,10 +1116,89 @@
     "a": {
       "id": "4.1",
       "sid": "s_eval_4_1",
-      "corpus_reads": 27,
+      "corpus_reads": 4,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ribosome/ribosomal fraction and growth rate as the observables",
+            "passed": true,
+            "rationale": "Explicitly uses ribosome_conc regressed against growth_rate as the core observables."
+          },
+          {
+            "criterion": "M2: predicts a positive ribosome-fraction vs growth-rate relation vs a 'constant content' null",
+            "passed": true,
+            "rationale": "States ribosome concentration rises monotonically with growth rate (~14 to ~28), a positive relation against a constant-content null."
+          },
+          {
+            "criterion": "M3: states a falsifier (flat or negative relation under nutrient modulation)",
+            "passed": true,
+            "rationale": "Frames the slope CI clearing zero as the test; a flat/zero-slope relation would falsify, and notes the clamp arm gives CI including zero."
+          },
+          {
+            "criterion": "M4: design is steady-state sims across >=2 media conditions, in-envelope",
+            "passed": true,
+            "rationale": "Uses 8-9 static media conditions with in-envelope perturbations (acetate, succinate, etc.)."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states the linear form with a slope/intercept and a target fit quality",
+            "passed": true,
+            "rationale": "Gives R^2=0.73 (0.975 out-of-sample) and p-values; ribosome range specified, though explicit slope/intercept numbers are only partially given but fit quality is clearly targeted."
+          },
+          {
+            "criterion": "S2: specifies a regression with a CI on the slope across media",
+            "passed": true,
+            "rationale": "Explicitly reports a regression with 95% CI on the slope clearing zero across media."
+          },
+          {
+            "criterion": "S3: the prediction discriminates the growth-law from nutrient-specific and one-way rivals",
+            "passed": true,
+            "rationale": "Discriminates via ppGpp mediator (not nutrient-identity-specific) and the clamp arm establishing bidirectional coupling, ruling out one-way growth->ribosome."
+          },
+          {
+            "criterion": "S4: includes the translation-inhibition arm to establish bidirectional coupling",
+            "passed": true,
+            "rationale": "Includes the ppGpp-clamp dose arm as the perturbation arm establishing bidirectional coupling / set-point behavior, functionally analogous to the translation-inhibition arm."
+          }
+        ],
+        "comment": "Strong, well-operationalized answer mapping the growth law onto real in-model observables (ribosome_conc, growth_rate, ppGpp, RNA mass) with regression, CIs, and out-of-sample framing. S4 is arguably the ppGpp-clamp rather than a true translation-inhibitor arm, but it serves the same bidirectional-coupling purpose within the model envelope.",
+        "judged": true,
+        "graded_text": "## The mechanism, as the model represents it\n\nThe model doesn't have an explicit \"ribosome-number decision\" \u2014 ribosome content is an **emergent output of the stringent-response circuit**: nutrient quality \u2192 charged-tRNA supply \u2192 ppGpp level \u2192 rRNA/ribosome synthesis rate \u2192 a ribosome concentration that lands proportional to the growth rate the medium can support. Two grounded results support this and one important caveat qualifies it.\n\n**1. Ribosome content tracks growth rate across media \u2014 the Scott/Hui growth law, largely out-of-sample.**\nFitting `ribosome_conc` against `growth_rate` across 8 static media (no_oxygen, acetate, succinate, basal, glc_5mM, minus_magnesium, plus_arabinose, with_aa) gives a slope whose 95% CI clears zero (p=0.0035, R\u00b2=0.73 across all 9 points). Critically, restricting to the 4 points the ParCa fit never targeted (acetate, succinate, minus_magnesium, plus_arabinose \u2014 genuine predictions, not calibration) gives an even tighter fit: R\u00b2=0.975, p=0.013. Ribosome concentration rises from ~14/13.9 under anaerobiosis up to ~28 with added amino acids (chart above) \u2014 monotonic with growth rate, and this is prediction, not curve-fitting.\n\n**2. The mediator is ppGpp, and it moves in the textbook direction with medium richness.**\nComparing `condition/with_aa` to `wildtype/basal` at the same generation (gen 0, n=12 vs 35 seeds, so this is a matched, not depth-confounded, comparison): ppGpp falls 62% (58.98\u219222.23), RelA level falls 66%, growth rate rises 118%, and RNA mass rises ~198% at whole-run resolution. That's the classic circuit: rich medium \u2192 tRNAs stay charged \u2192 RelA is quiescent \u2192 ppGpp drops \u2192 rRNA transcription is de-repressed \u2192 more ribosomes get made \u2192 faster growth.\n\n**3. But it is NOT a simple ppGpp rheostat \u2014 there's a set-point, not a linear dial.**\nWhen ppGpp is externally clamped away from its natural nutrient-linked level (the `ppgpp_conc` dose arm, 0.2x\u20132.0x of basal, decoupled from actual nutrient sensing), neither growth rate nor ribosome content responds *linearly* to the imposed level \u2014 the CI on that slope includes zero in both directions (p=0.62\u20130.93). Instead growth rate **peaks at the unclamped wildtype level** and falls off whether ppGpp is forced lower (0.2x, 0.6x) or higher (1.6x, 2.0x) \u2014 see the second chart. So in this model, \"how many ribosomes to make\" isn't governed by ppGpp magnitude alone; ppGpp only sets ribosome output correctly when it is itself the output of real nutrient sensing. Push it away from that physiologically-derived value in either direction and the allocation becomes sub-optimal in both regimes \u2014 consistent with ppGpp having an optimal operating point rather than being a pure linear inhibitor of ribosome synthesis (Potrykus & Cashel 2008 describe this bidirectional cost in vivo).\n\n**Caveat on scope:** points at basal/with_aa/glc_5mM/glc_20mM/no_oxygen are `in_sample` (the ParCa fit was calibrated toward them), so agreement there is consistency, not proof; the acetate/succinate/minus_magnesium/plus_arabinose/ppGpp-clamp points are `out_of_sample`, which is why they're the ones worth trusting as genuine model behavior rather than calibration echo.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3369
-    }
+      "answer_chars": 3172,
+      "llm": {
+        "n_calls": 7,
+        "input_tokens": 14,
+        "output_tokens": 8832,
+        "cache_read_tokens": 289851,
+        "cache_creation_tokens": 24111,
+        "latency_ms": 97500,
+        "cost_usd": 0.309894,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 7
+        },
+        "by_model": {
+          "claude-sonnet-5": 7
+        }
+      },
+      "tool_calls": 12,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "4.1",
+    "_rep": 0
   },
   "5.1": {
     "b": {
@@ -827,10 +1312,89 @@
     "a": {
       "id": "5.1",
       "sid": "s_eval_5_1",
-      "corpus_reads": 3,
+      "corpus_reads": 9,
+      "quality_score": 0.75,
+      "shared": {
+        "quality_score": 0.75,
+        "n_criteria": 8,
+        "n_passed": 6,
+        "min_bar_pass": true,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names post-KO growth rate/viability vs wild-type as the observable",
+            "passed": true,
+            "rationale": "States KOs assessed by whether 'the cell still divides,' crashes 'within ~2-3 generations,' collapses at generation 0 \u2014 viability/growth vs wild type."
+          },
+          {
+            "criterion": "M2: predicts most single knockouts viable, a minority lethal, vs a baseline",
+            "passed": true,
+            "rationale": "Explicitly: ~91% (4,324) deletable one at a time, only 400 individually essential."
+          },
+          {
+            "criterion": "M3: states a falsifier (a wrong essential/dispensable call vs literature in the matched medium)",
+            "passed": true,
+            "rationale": "Provides concrete falsifier: glmS model shows no phenotype but benchmark says essential; also selA/rpmJ over-predicted lethal but Keio non-essential."
+          },
+          {
+            "criterion": "M4: design is a single-gene knockout (or screen) across seeds, in-envelope",
+            "passed": true,
+            "rationale": "Describes single-gene KO panel across all 4,724 genes with generation-level dynamics, in-model."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states an essential-fraction range (~300-620 of ~4300) and a viability/growth-rate cutoff",
+            "passed": true,
+            "rationale": "Gives 400 essential of 4,724 (within range) and uses cell-division/collapse as viability cutoff, though a numeric growth-rate threshold is not sharply defined."
+          },
+          {
+            "criterion": "S2: specifies a per-gene test across seeds with a defined threshold",
+            "passed": false,
+            "rationale": "Per-gene tests are described but no across-seeds replication or explicit quantitative threshold is specified."
+          },
+          {
+            "criterion": "S3: the prediction discriminates condition-dependent from context-free essentiality",
+            "passed": false,
+            "rationale": "Notes benchmark is glucose minimal media but does not develop condition-dependence (e.g., rich vs minimal differing calls) as the discriminating prediction."
+          },
+          {
+            "criterion": "S4: specifies the medium (rich vs minimal) because essentiality is condition-dependent",
+            "passed": true,
+            "rationale": "Explicitly specifies glucose minimal media as the benchmark condition."
+          }
+        ],
+        "comment": "Strong operationalization onto the model's real KO observables and benchmark; passes all minimum criteria. Loses S2 (no across-seeds/threshold) and S3 (condition-dependence not developed as a discriminating prediction despite naming the medium).",
+        "judged": true,
+        "graded_text": "## Short answer\n\nOverwhelmingly, most of them. Cellarium's calibration benchmark (Baba 2006 Keio collection + Joyce 2006, glucose minimal media \u2014 the ground truth this platform validates itself against) covers all 4,724 annotated genes in the model and finds only **400 are individually essential**. The other **~4,324 genes (\u224891%) can be deleted one at a time from wild type and the cell still divides** \u2014 that's the real, experimentally-grounded answer to \"which genes can *E. coli* live without.\"\n\n## What the simulated knockout panel actually shows, and where to trust it\n\nThe whole-cell model's own KO calls are **not a reliable second opinion here**, and I should be upfront about why before giving examples:\n\n- **Recall against the benchmark is only 0.147** \u2014 the model correctly flags a knockout as lethal for just 15% of the 400 truly-essential genes. It correctly calls 59 genes lethal (`consistent_lethal`) but **under-predicts essentiality for 341 genes** (`model_UNDER_predicts`) \u2014 including central things like `glmS`, `argA`, `argG`, `aroA/B/C/E`, `asd`, `atpB/C`, the `bio` genes, `birA`, `carA/B`, `cdsA`, `dfp`, `ispB`, `lnt`, `adk`, `cca`, `cydC`. The reason is structural, not a bug: the FBA objective in this model is **homeostatic, not growth-maximizing** \u2014 it has no growth term to fail, so a knocked-out metabolic enzyme just gets rerouted around even when real *E. coli* would die. I confirmed this directly for `glmS`: the model shows a clean \"no phenotype\" KO, but the benchmark says glmS (glucosamine-6-P synthase, needed for cell-wall/LPS precursor) is essential \u2014 trust the benchmark, not the sim, here.\n- Conversely it slightly **over-predicts** for a couple of genes (19 cases) \u2014 e.g. `selA` and (in this operon-build) `rpmJ` are classed by the model's machinery prior as lethal, but Keio scores both non-essential.\n\nSo the sim is genuinely informative mainly for **machinery genes** (aminoacyl-tRNA synthetases, ribosomal proteins, RNA polymerase, DNA replisome, peptidoglycan synthesis) \u2014 those it gets right \u2014 not for ordinary metabolic enzymes.\n\n## Genes the corpus confirms *are* dispensable (both model and benchmark agree)\n\n- **`pgi`** (glycolysis, phosphoglucose isomerase): `consistent_viable` \u2014 real cells reroute through the pentose-phosphate pathway, and so does the sim. A clean, trustworthy dispensable gene.\n- **`selA`** (selenocysteine synthase): non-essential in Keio \u2014 losing selenoprotein synthesis isn't lethal \u2014 even though the model's \"machinery\" prior over-predicts a crash for it.\n\n## Genes the corpus confirms *cannot* be lived without\n\n- **Aminoacyl-tRNA synthetases** (`alaS`, `argS`, `gltX`, `pheS`): all crash within ~2\u20133 generations in the sim \u2014 uncharged-tRNA depletion, consistent with real essentiality.\n- **`rplB`** (ribosomal protein): collapses at generation 0 \u2014 immediate.\n- **`dapA`** (cell-wall diaminopimelate pathway): collapses at gener",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2917
-    }
+      "answer_chars": 2910,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 8,
+        "output_tokens": 8675,
+        "cache_read_tokens": 145350,
+        "cache_creation_tokens": 22472,
+        "latency_ms": 99983,
+        "cost_usd": 0.258024,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 4
+        },
+        "by_model": {
+          "claude-sonnet-5": 4
+        }
+      },
+      "tool_calls": 10,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "5.1",
+    "_rep": 0
   },
   "6.1": {
     "b": {
@@ -940,10 +1504,91 @@
     "a": {
       "id": "6.1",
       "sid": "s_eval_6_1",
-      "corpus_reads": 8,
+      "corpus_reads": 7,
+      "quality_score": 0.375,
+      "shared": {
+        "quality_score": 0.375,
+        "n_criteria": 8,
+        "n_passed": 3,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names sequential growth/sugar depletion or catabolic-enzyme induction timing as observables",
+            "passed": true,
+            "rationale": "Names diauxic lag, growth arrest then resumption, and induction of new catabolic enzymes; proposes tracking growth rate and transcriptional re-induction transient."
+          },
+          {
+            "criterion": "M2: predicts glucose-first, second-sugar-later with a lag vs a co-utilization null",
+            "passed": true,
+            "rationale": "Explicitly describes glucose consumed first, second sugar imported only after glucose runs out, with the classic diauxic lag before resuming on second sugar."
+          },
+          {
+            "criterion": "M3: states a falsifier (simultaneous use, no lag, no repression)",
+            "passed": false,
+            "rationale": "Describes the mechanism and its two layers but never frames a falsifier such as simultaneous co-utilization or absence of lag as the disconfirming outcome."
+          },
+          {
+            "criterion": "M4: design is a two-carbon or glucose-ramp condition, in-envelope (NOT a mid-run carbon-source switch)",
+            "passed": false,
+            "rationale": "The proposed design is a media-shift timeline (0 glc, 1200 plus_arabinose) which is a mid-run carbon-source switch; candidate explicitly acknowledges this is sequential, not a two-sugar-in-flask design, and no in-envelope two-carbon design is offered."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: quantifies the lag duration and the repression fold-change of second-sugar genes in phase 1",
+            "passed": false,
+            "rationale": "No quantitative lag duration or fold-change repression values are given."
+          },
+          {
+            "criterion": "S2: specifies detection of two exponential phases and induction timing",
+            "passed": false,
+            "rationale": "Mentions growth arrest/resumption and re-induction transient but does not specify detecting two distinct exponential phases with induction timing as a measurement plan."
+          },
+          {
+            "criterion": "S3: the prediction discriminates sequential+catabolite-repression from co-utilization and starvation-death",
+            "passed": false,
+            "rationale": "Describes catabolite repression mechanism but does not construct a prediction that distinguishes it from co-utilization or starvation-death alternatives."
+          },
+          {
+            "criterion": "S4: names the second-sugar catabolic genes whose repression/induction is tracked",
+            "passed": true,
+            "rationale": "Names ara and lac operons, araC and crp as TFs, and identifies AraC-driven induction to track in the model."
+          }
+        ],
+        "comment": "Strong mechanistic biology (inducer exclusion + cAMP-CRP) and honest scope mapping, but fails to state an explicit falsifier and the only concrete design proposed is a mid-run carbon switch, which is out of envelope per scope_note. Quantification of lag/fold-change and a discriminating two-phase detection plan are absent.",
+        "judged": true,
+        "graded_text": "## The biology (grounded via literature, not the corpus)\n\nBacteria don't really \"choose\" between two sugars by comparison \u2014 they run a **hierarchy enforced at two speeds**, both centered on the phosphotransferase system (PTS):\n\n1. **Fast, post-translational layer \u2014 inducer exclusion.** While glucose (or another PTS sugar) is being transported, the PTS relay keeps its signal protein EIIA^Glc mostly *unphosphorylated*. Unphosphorylated EIIA^Glc directly binds and inhibits permeases/enzymes for other sugars (e.g. lactose permease, the maltose transporter), so the cell can't even start importing the second sugar while glucose is flowing. This is why the switch is near-instantaneous when glucose runs out.\n2. **Slow, transcriptional layer \u2014 catabolite repression.** Once EIIA^Glc *is* phosphorylated (glucose scarce), it activates adenylate cyclase, cAMP accumulates, binds CRP, and cAMP\u2011CRP switches on the operons for the alternative sugar (e.g. the *ara*, *lac* operons). This produces the classic Monod **diauxic lag**: growth arrests briefly while the new catabolic enzymes are induced, then resumes on the second sugar.\n\nGrounded citation: Deutscher J., \"The mechanisms of carbon catabolite repression in bacteria,\" *Curr Opin Microbiol* 11(2):87\u201393, 2008 (PMID 18359269, doi:10.1016/j.mib.2008.02.007) \u2014 reviews exactly this two-tier PTS/EIIA + cAMP-CRP mechanism.\n\n## What Cellarium can and can't say about it\n\nI checked the corpus for a genuine two-sugar experiment before answering from data:\n- `list_results(contains='lactose')` \u2192 **n=0**, no lactose designs exist at all.\n- `list_results(contains='arabinose')` \u2192 only 2 runs, both `condition/plus_arabinose` \u2014 a **single named static medium** with arabinose added, not a glucose+arabinose mixture forcing a choice.\n- Every \"condition\" in `design_space` (glc_20mM, acetate, succinate, no_oxygen, plus_arabinose, plus_nitrate, \u2026) is **one static medium**, not a two-substrate flask. There is no design in this corpus of \"bacteria presented with two sugars simultaneously.\"\n\nSo I can't report a measured diauxie run \u2014 none exists \u2014 and I won't fabricate one.\n\nWhat the model **does** represent mechanistically: `crp` and `araC` are both in the ~23 mechanistically-simulated transcription factors (`mechanistic_scope` confirms both, `mechanistic=true`), so a CRP or AraC knockout would be a genuine, interpretable prediction of the transcriptional layer of catabolite repression. But `ptsG` (the glucose PTS transporter) is present only as a **non-flux-constraining** metabolic enzyme (`ko_effect_prior: none_flux_unconstrained` \u2014 \"its count never enters a flux bound\"). That means the fast, real-time inducer-exclusion signal \u2014 the part of the switch that actually depends on glucose transport rate \u2014 has no lever to move growth in this model. The model can express the slow transcriptional half of catabolite repression but structurally cannot express the fast PTS-based half.\n\n## What I could propose instead\n\n`check_feasibility` confirms a media-shift timeline like `0 glc_20mM, 1200 plus_arabinose` is inside the validated envelope. That wouldn't be a true \"two sugars in one flask\" test (it's sequential, not simultaneous), but it would let us watch the transcriptional re-induction transient after glucose is withdrawn \u2014 the CRP/AraC-driven half of the switch \u2014 via `shift_response`/`scan_series` on ppGpp and growth rate. If you want, I can queue that as a proposed experiment (human-approved) rather than answer from data that doesn't exist.\n---\n**Provenance check \u2014 claims this conversation did not read.** The answer above names corpus identifiers that no tool call in this conversation retrieved. They are left exactly as written; this note is the record, not a correction.\n- `condition/plus_arabinose` (design) \u2014 in: \u201c- `list_results(contains='arabinose')` \u2192 only 2 runs, both `condition/plus_arabinose` \u2014 a **single named static medium** with arabinose added, not a glucose+arabinose mixture forcing a choice.\u201d\n\nWhat this turn actually read: condition/glc_5mM, condition/plus_nitrate, condition/succinate, condition\u00b7acetate\u00b7s0, condition\u00b7acetate\u00b7s1, condition\u00b7acetate\u00b7s2, condition\u00b7acetate\u00b7s3, condition\u00b7acetate\u00b7s4, condition\u00b7acetate\u00b7s5, condition\u00b7acetate\u00b7s6, condition\u00b7acetate\u00b7s7, condition\u00b7plus_arabinose\u00b7s0, condition\u00b7plus_arabinose\u00b7s1, gene_knockout/KO:alaS, gene_knockout/KO:argS#elong:kinetic, gene_knockout/KO:dapA, gene_knockout/KO:fabI, gene_knockout/KO:glmS, gene_knockout/KO:gltA, gene_knockout/KO:gltX, gene_knockout/KO:leuB, gene_knockout/KO:leuB#tl:379e4c, gene_knockout/KO:lpxC, gene_knockout/KO:lysS, gene_knockout/KO:pfkA, gene_knockout/KO:pheS, gene_knockout/KO:rpmE, gene_knockout/KO:rpmJ, gene_knockout/KO:selA, graded_gene_knockout/KO:argS#expr:0.05, graded_gene_knockout/KO:argS#expr:0.1, ppgpp_conc/basal|ppGpp:0.2x, ppgpp_conc/basal|ppGpp:0.6x, ppgpp_conc/basal|ppGpp:1.6x, ppgpp_conc/basal|ppGpp:2.0x, rrna_operon_knockout/minimal|rRNA_KO:4op, rrna_operon_knockout/minimal|rRNA_KO:6op, timeline/0 minimal, 1200 minimal_plus_amino_acids, timeline/0 minimal_plus_amino_acids, 1200 minimal, wildtype/basal.\nNon-corpus tools also ran this turn (their output is not a measurement of this corpus): `check_feasibility`\u00d71, `use_skill`\u00d71, `web_get`\u00d75.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3954
-    }
+      "answer_chars": 5243,
+      "llm": {
+        "n_calls": 12,
+        "input_tokens": 24,
+        "output_tokens": 7102,
+        "cache_read_tokens": 525020,
+        "cache_creation_tokens": 24414,
+        "latency_ms": 98569,
+        "cost_usd": 0.35566,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 12
+        },
+        "by_model": {
+          "claude-sonnet-5": 12
+        }
+      },
+      "tool_calls": 16,
+      "tool_errors": 1,
+      "tool_error_rate": 0.062,
+      "errored_tools": {
+        "regulon_response": 1
+      }
+    },
+    "_case": "6.1",
+    "_rep": 0
   },
   "6.2": {
     "b": {
@@ -1054,10 +1699,92 @@
     "a": {
       "id": "6.2",
       "sid": "s_eval_6_2",
-      "corpus_reads": 6,
+      "corpus_reads": 7,
+      "quality_score": 0.375,
+      "shared": {
+        "quality_score": 0.375,
+        "n_criteria": 8,
+        "n_passed": 3,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names a single-cell lag time / fraction resuming growth as the observable",
+            "passed": true,
+            "rationale": "Candidate explicitly cites Solopova's cell-to-cell lag before activating the alternate pathway and proposes testing for bimodality/fraction responding, naming lag as the observable."
+          },
+          {
+            "criterion": "M2: predicts a non-growing subpopulation vs an 'everyone adapts' null",
+            "passed": false,
+            "rationale": "Candidate describes the bistable phenomenon but explicitly argues the model cannot show it and does not commit to a prediction of a non-growing subpopulation vs a uniform-adaptation null; it declines to predict either way."
+          },
+          {
+            "criterion": "M3: states a falsifier (unimodal lag, no arrested subpopulation)",
+            "passed": true,
+            "rationale": "Candidate frames a bimodality test across seeds and notes the up-shift analog showed no seed-to-seed lag (unimodal), effectively identifying unimodal/no-arrest as the falsifier of the bet-hedge."
+          },
+          {
+            "criterion": "M4: design is a shift across an isogenic ensemble (many seeds), in-envelope",
+            "passed": true,
+            "rationale": "Candidate proposes many independent seeds of a feasible carbon-source condition pair as the in-envelope design, mapping to an isogenic ensemble proxy."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: quantifies the responsive fraction and its dependence on a repression/ppGpp perturbation",
+            "passed": false,
+            "rationale": "No quantification of a responsive fraction and no ppGpp/catabolite-repression perturbation dependence is given."
+          },
+          {
+            "criterion": "S2: specifies a bimodality/mixture test on the lag-time distribution",
+            "passed": false,
+            "rationale": "Candidate mentions testing a proxy channel for bimodality across seeds but explicitly on ribosome/operon protein, not a mixture test on the lag-time distribution; it disclaims this as a different, smaller question."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a regulated bet-hedge from uniform adaptation and a dead subpopulation",
+            "passed": false,
+            "rationale": "Candidate does not make a discriminating prediction; it argues the model cannot distinguish these and offers no test separating bet-hedge from dead subpopulation."
+          },
+          {
+            "criterion": "S4: includes the ppGpp/catabolite-repression perturbation arm as the isolating control",
+            "passed": false,
+            "rationale": "No ppGpp or catabolite-repression perturbation arm is proposed as an isolating control."
+          }
+        ],
+        "comment": "Candidate correctly identifies the Solopova bistable-switching biology and the right observable (single-cell lag/bimodality), and proposes a many-seed in-envelope ensemble design. However, it spends most of its effort arguing the model cannot represent the phenomenon rather than committing to falsifiable predictions, so it misses M2 and all stringent criteria (no fraction quantification, no ppGpp/repression perturbation arm, no committed discriminating prediction).",
+        "judged": true,
+        "graded_text": "**Bottom line**\n\n- **The corpus does not contain a \"preferred sugar runs out, switch to backup sugar\" experiment.** Zero matches for lactose/glucose-shift designs; the only timeline shifts run are amino-acid up/down, and a dynamic switch into acetate is explicitly *out of the model's validated envelope* (\"desynchronises the replication-division cycle and yields degenerate generations\" per `check_feasibility`).\n- **Even if it were run, this model can't show population-level asynchrony the way the question implies.** Each simulation is one deterministic lineage per random seed \u2014 not thousands of individual cells in one flask. The classic biology behind your question (e.g., Solopova et al. 2014's bistable *lac*-operon switching, where individual *E. coli* cells in the *same* culture can lag by very different amounts before activating the alternate-sugar pathway, driven by stochastic operon expression) is a within-population, cell-to-cell phenomenon that a single deterministic lineage trajectory structurally cannot represent. wc-Ecoli applies the environment/media change as one instantaneous, identical signal to the whole simulated cell via FBA \u2014 there's no mechanism here for two genetically identical cells to diverge in *when* they respond.\n- **What the nearest available analog (a nutrient up-shift, not a sugar switch) shows:** across 3 independently-seeded lineages, growth rate jumps at the exact declared shift instant in every seed, with the response landing on the very first post-shift sample each time \u2014 i.e., no seed-to-seed lag at all, because the shift is applied deterministically to each lineage.\n\n**So the honest answer:** no data here can confirm or refute \"do all cells switch together\" for a sugar diauxie, because (1) that specific shift experiment doesn't exist and is currently outside the model's validated envelope, and (2) the model's one-lineage-per-run design means it wouldn't show within-culture cell-to-cell asynchrony even if it did. If you want to actually probe this, the right move would be many independent seeds of a feasible carbon-source condition pair (e.g., static `basal` vs `acetate`, since a live switch isn't validated) and testing a proxy channel (e.g., `ribosome_conc` or a catabolic-operon protein) for bimodality across seeds \u2014 that's a fundamentally different, much smaller question than true within-culture heterogeneity, and I'd flag that caveat clearly before drawing any conclusion from it.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3562
-    }
+      "answer_chars": 2459,
+      "llm": {
+        "n_calls": 10,
+        "input_tokens": 20,
+        "output_tokens": 7145,
+        "cache_read_tokens": 420055,
+        "cache_creation_tokens": 24950,
+        "latency_ms": 91402,
+        "cost_usd": 0.326814,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 10
+        },
+        "by_model": {
+          "claude-sonnet-5": 10
+        }
+      },
+      "tool_calls": 15,
+      "tool_errors": 2,
+      "tool_error_rate": 0.133,
+      "errored_tools": {
+        "shift_response": 1,
+        "variance_band": 1
+      }
+    },
+    "_case": "6.2",
+    "_rep": 0
   },
   "2.1": {
     "b": {
@@ -1179,10 +1906,89 @@
     "a": {
       "id": "2.1",
       "sid": "s_eval_2_1",
-      "corpus_reads": 0,
-      "data_informed": false,
-      "answer_chars": 4653
-    }
+      "corpus_reads": 1,
+      "quality_score": 0.125,
+      "shared": {
+        "quality_score": 0.125,
+        "n_criteria": 8,
+        "n_passed": 1,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names a subpopulation defined by single-cell growth rate / division time as the observable",
+            "passed": false,
+            "rationale": "The answer discusses dormancy/growth arrest conceptually and mentions ppGpp/growth in the model, but never operationalizes the subpopulation as a single-cell growth-rate/division-time distribution observable across the isogenic ensemble."
+          },
+          {
+            "criterion": "M2: predicts a slow/arrested minority vs the null of a unimodal isogenic population",
+            "passed": false,
+            "rationale": "It describes a small persister subpopulation qualitatively but never frames a testable prediction of a slow-growth minority against a unimodal isogenic null in the model's growth-rate distribution."
+          },
+          {
+            "criterion": "M3: states a falsifier (unimodal growth distribution, i.e. no slow subpopulation)",
+            "passed": false,
+            "rationale": "No falsifier is stated; the resensitization test is offered to distinguish tolerance from resistance but not a unimodal-distribution falsifier for the subpopulation claim."
+          },
+          {
+            "criterion": "M4: design is an isogenic replicate ensemble (many seeds) measuring the growth-rate distribution, in-envelope",
+            "passed": false,
+            "rationale": "The candidate explicitly says there is no antibiotic design and proposes KO/ppGpp analogs; it does not propose an isogenic many-seed ensemble measuring the growth-rate distribution as the persistence proxy."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states the persister frequency order (~1e-5 to 1e-6) and/or two switching rates (normal<->persister)",
+            "passed": false,
+            "rationale": "No persister frequency magnitude and no quantitative switching rates are given; it only mentions 'small' subpopulation and stochastic switching qualitatively."
+          },
+          {
+            "criterion": "S2: specifies a bimodality/mixture test on the single-cell growth-rate distribution and a switching-rate estimator",
+            "passed": false,
+            "rationale": "No bimodality/mixture test or switching-rate estimator on a growth-rate distribution is specified."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a phenotypic switch from genetic resistance and from uniform tolerance",
+            "passed": false,
+            "rationale": "It clearly separates phenotypic persistence from genetic resistance, but does not construct a prediction discriminating a phenotypic switch from uniform tolerance (it lists tolerance mechanisms but no discriminating observable/test)."
+          },
+          {
+            "criterion": "S4: includes the resensitization logic (regrown survivors are sensitive) that distinguishes persistence from resistance",
+            "passed": true,
+            "rationale": "States survivors resume growth and are exactly as sensitive as before, the operational test separating tolerance/persistence from true resistance."
+          }
+        ],
+        "comment": "Strong conceptual and mechanistic biology with correct resensitization logic, but it fails to operationalize the persister claim onto the model's growth-rate bimodality proxy: no single-cell growth-rate distribution observable, no isogenic many-seed ensemble design, no falsifier, and no quantitative switching/frequency estimators. The candidate instead pivots to KO/ppGpp analogs, which is honest but does not satisfy the persistence-proxy criteria.",
+        "judged": true,
+        "graded_text": "## Short answer\nBecause **surviving an antibiotic and being resistant to it are two different things.** Resistance is a *heritable, genetic* change (a mutated target, an acquired resistance gene, an efflux-pump mutation) that lets a cell actively grow in the drug. Survival without resistance is called **tolerance** or, in the sub-population form, **persistence**: a *phenotypic, non-heritable* state in which the cell's drug target is completely unchanged and drug-sensitive, but the target simply isn't being used \u2014 so the antibiotic has nothing to act on. When the drug is removed, tolerant/persister survivors resume growing and are exactly as sensitive as before (Balaban, Helaine, Lewis, Ackermann et al., *Nat Rev Microbiol* 2019, PMID 30980069 \u2014 the field's consensus definitions paper; Fisher, Gollan & Helaine, *Nat Rev Microbiol* 2017, PMID 28529326).\n\n## Mechanisms behind tolerance/persistence\n- **Dormancy / growth arrest.** Most bactericidal antibiotics (\u03b2-lactams, fluoroquinolones, aminoglycosides) kill by corrupting an *active* process \u2014 cell-wall synthesis, DNA replication, translation. A cell that has stopped growing has little or no flux through that process, so the drug can't produce the lethal downstream damage even though the target protein itself is unmutated.\n- **The stringent response ((p)ppGpp).** Nutrient/stress signals (e.g., uncharged tRNA) activate RelA/SpoT, which raises (p)ppGpp, shuts down ribosome/rRNA synthesis and biosynthetic flux, and pushes the cell into a low-activity, low-target-availability state \u2014 a classical trigger of persistence.\n- **Stochastic phenotypic switching (bet-hedging).** Noise in gene expression, often through bistable toxin\u2013antitoxin switches (e.g., *hipBA*), spontaneously produces a small persister subpopulation before the drug ever arrives \u2014 a hedge against unpredictable stress, not a response to it.\n- **Toxin\u2013antitoxin modules** can lock a cell in a dormant, translationally quiescent state directly.\n- **Efflux pumps / biofilm matrix** lower the effective intracellular or local drug concentration (tolerance by exclusion), again with no mutation in the target.\n\nNone of these change genotype \u2014 remove the drug and the survivors are fully re-sensitized, which is the operational test that separates tolerance/persistence from true resistance.\n\n## Grounding this in the model I have access to\nThe Cellarium/wcEcoli corpus has **no antibiotic-exposure designs** (`list_results(contains='antibiotic')` returns n=0), so I can't show you a simulated antibiotic-survival curve \u2014 that would need a new experiment design this platform doesn't currently run.\n\nWhat the corpus *does* capture mechanistically is exactly the stringent-response node above: essential-gene knockouts that starve charging (e.g. `KO:dapA`, `KO:argS` graded to 5\u201310% expression, `KO:leuB`) show the textbook **depressed-growth + elevated-ppGpp `stringent_signature`** before they collapse \u2014 e.g. `KO:dapA` at generation 1 has growth \u221280% vs wild type and ppGpp +929% (`lethality_landscape`, 4 seeds). That's the same RelA\u2192ppGpp circuit implicated in persister-cell dormancy \u2014 a mechanistic parallel, not a simulated persistence assay, and I'm flagging it as such rather than as evidence the model reproduces persistence.\n\nIf you want to push on this quantitatively, the corpus does have a `ppgpp_conc` perturbation family (clamped ppGpp doses) that lets you test how much ppGpp elevation alone depresses growth/ribosome allocation \u2014 an in-silico analog of dormancy induction \u2014 and I could design a proper antibiotic-exposure `timeline` experiment (media/dose shift) to queue for human approval if that's useful.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
+      "data_informed": true,
+      "answer_chars": 3659,
+      "llm": {
+        "n_calls": 5,
+        "input_tokens": 10,
+        "output_tokens": 4502,
+        "cache_read_tokens": 180224,
+        "cache_creation_tokens": 13083,
+        "latency_ms": 56776,
+        "cost_usd": 0.170688,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 5
+        },
+        "by_model": {
+          "claude-sonnet-5": 5
+        }
+      },
+      "tool_calls": 5,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "2.1",
+    "_rep": 0
   },
   "2.2": {
     "b": {
@@ -1298,10 +2104,91 @@
     "a": {
       "id": "2.2",
       "sid": "s_eval_2_2",
-      "corpus_reads": 17,
+      "corpus_reads": 5,
+      "quality_score": 0.25,
+      "shared": {
+        "quality_score": 0.25,
+        "n_criteria": 8,
+        "n_passed": 2,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names long-term / time-averaged population growth rate as the observable",
+            "passed": false,
+            "rationale": "Candidate reports per-lineage growth_rate at snapshots and dose panels, but never names a long-term/time-averaged growth rate across a fluctuation schedule as the observable; it explicitly concedes the model runs single lineages and cannot compute long-run fitness."
+          },
+          {
+            "criterion": "M2: predicts a switching population outgrows a committed population under fluctuation, vs that null",
+            "passed": false,
+            "rationale": "Candidate explicitly states the model cannot test whether diversified/switching lineages outgrow committed ones under fluctuation, and makes no such prediction against the committed null."
+          },
+          {
+            "criterion": "M3: states a falsifier (a non-switching/committed population always matches or beats any switching one)",
+            "passed": true,
+            "rationale": "The structural-limit section proposes scoring graded-ppGpp lineages through repeated shifts as 'a genuine falsifier for does pre-existing slow growth improve survival odds,' which operationalizes the committed-beats-switching falsifier."
+          },
+          {
+            "criterion": "M4: design is repeated in-envelope media shifts across an isogenic ensemble (NOT a mid-run carbon-source switch)",
+            "passed": true,
+            "rationale": "Candidate proposes a panel of many replicate isogenic lineages run through a repeated downshift/upshift timeline, matching the repeated in-envelope shift design."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states the 'optimal switch rate ~ environmental rate' relation quantitatively",
+            "passed": false,
+            "rationale": "No mention of an optimal switching rate matching environmental statistics; the switching-rate/environment-rate relation is absent."
+          },
+          {
+            "criterion": "S2: computes long-term growth as a log-growth average with CIs over seeds and sweeps switch/environment rates",
+            "passed": false,
+            "rationale": "No log-growth time average and no switch/environment-rate sweep is computed; only static dose panels and single-lineage snapshots with some CIs."
+          },
+          {
+            "criterion": "S3: the prediction discriminates bet-hedging from sense-and-respond and from committed strategies as a function of environmental timescale / sensing cost",
+            "passed": false,
+            "rationale": "Candidate describes sense-and-respond (stringent response) and cost of commitment separately but does not offer a prediction discriminating the three strategies as a function of environmental timescale or sensing cost."
+          },
+          {
+            "criterion": "S4: includes the fluctuation-rate (and/or sensing-cost) sweep as the isolating control",
+            "passed": false,
+            "rationale": "No fluctuation-rate or sensing-cost sweep is included; the proposed future experiment mentions repeated shifts but not a rate/cost sweep as an isolating control."
+          }
+        ],
+        "comment": "Candidate gives a mechanistically rich, honest answer centered on the stringent response and cost of over-preparedness, and correctly identifies the structural limit and a falsifier design (M3, M4). But it does not adopt long-term/time-averaged growth as the observable (M1) nor make the core bet-hedging prediction that a switching population outgrows a committed one under fluctuation (M2), and it meets none of the stringent quantitative criteria.",
+        "judged": true,
+        "graded_text": "## Short answer: yes \u2014 and the corpus shows two distinct mechanisms for it, plus one honest limit on what this model can test.\n\n### 1. Slowing down *in response to* a real coming change pays off (the stringent response)\nOn the downshift run (amino acids withdrawn at t=1200 s, seed 0 of 4; n=1 seed shown, full trajectory single-generation), ppGpp climbs from a ~22.5 pre-shift mean to a post-shift mean of 45.3 \u2014 and is still rising toward >90 at the end of the recorded window (not yet settled) \u2014 while growth rate over the same lineage falls from ~0.0005 min\u207b\u00b9 to ~0.00017 min\u207b\u00b9, a ~66% drop:\n\nThis is the textbook uncharged-tRNA \u2192 RelA \u2192 ppGpp \u2192 ribosome-reallocation loop: the cell detects the deterioration and trades growth for survival machinery *after* the environment actually changes. That's reactive readiness, and it's clearly beneficial here \u2014 it's the mechanism keeping the lineage alive through the shift rather than starving translation blind.\n\n### 2. Staying \"pre-emptively prepared\" all the time has a real, measurable cost\nThe ppGpp dose panel (0.2x\u20132.0x, constant nutrient-rich condition, no shift ever occurs) shows growth is *highest at the native/basal ppGpp level* and lower at **both** the under\u2011prepared (0.2x: 0.000172) and the constitutively over\u2011prepared (2.0x: 0.000174) extremes, with WT at 0.000243:\n\nA linear fit across the 5 points finds no significant monotonic slope (95% CI on the slope includes 0, p=0.93) \u2014 this is a small, non-monotonic (hump-shaped) pattern, not a powered dose-response law \u2014 but it is exactly the qualitative signature you'd expect for a trade-off: forcing \"stay prepared\" (elevated ppGpp) when no change is coming just taxes growth for no benefit, and forcing \"never prepared\" (depleted ppGpp) also taxes growth by mis-tuning ribosome allocation. Readiness is only a net win when it's actually needed (case 1) \u2014 it isn't free insurance.\n\n### 3. A rare spontaneous \"stayed slow / stayed prepared\" lineage inside an otherwise identical wildtype population\nThe lethality landscape flags that 1 of 35 wildtype/basal seeds \u2014 same genotype, same condition as every other WT lineage \u2014 spontaneously diverges: at generation 5 its growth is 19.9% below its same-generation WT siblings and its ppGpp is 45.3% elevated (a `stringent_signature`), and it fails to divide by generation 6. This is a genuine existence proof that the model can produce a minority lineage that \"stays slow and stays prepared\" purely from intrinsic stochastic noise, with no imposed perturbation \u2014 a persister-like sub-lineage.\n\nCaveat: this is **n=1/35**, a single case, not a rate. Pooling growth rate across *all* WT seeds gives a bimodality coefficient of 0.486 (below the 0.556 bimodal threshold) \u2014 so the wildtype population as a whole is **not** clearly bistable; that one lineage is an outlier, not evidence of a standing sub-population.\n\n### The structural limit\nEach design here is an **independent single lineage per seed**, not a mixed population of many individual cells coexisting and competing in one dish. So the model can show (a) one lineage's reactive stringent response, and (b) seed-to-seed stochastic variance across replicate lineages \u2014 but it cannot directly test the ecological/evolutionary bet-hedging question (do fast- and slow-growing sub-clones differentially survive a fluctuating environment over many generations?). That would need a different experiment: e.g. a panel of many replicate lineages carrying graded ppGpp levels, run through a **repeated** downshift/upshift timeline, scored on survival \u2014 a genuine falsifier for \"does pre-existing slow growth improve survival odds,\" which I can propose if useful.\n\n### Literature framing (external comparison only, not a corpus number)\nThis trade-off is exactly the population-biology concept of **bet-hedging**: even without sensing, diversifying into differently-prepared phenotypes can raise a lineage's long-run fitness under fluctuating conditions (e.g. Beaumont et al. 2009, *Nature* 462:90\u201393, \"Experimental evolution of bet hedging,\" found via OpenAlex). The model's own numbers here are consistent with the *cost* side of that trade-off (constitutive over/under-preparedness both hurt growth in a constant environment) and the *reactive* side (real stringent-response rescue during an actual shift), but doesn't itself run the selection experiment that establishes bet-hedging's population-level benefit \u2014 that's the gap noted above.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 5085
-    }
+      "answer_chars": 4449,
+      "llm": {
+        "n_calls": 8,
+        "input_tokens": 16,
+        "output_tokens": 11093,
+        "cache_read_tokens": 343140,
+        "cache_creation_tokens": 29140,
+        "latency_ms": 133337,
+        "cost_usd": 0.37866,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 8
+        },
+        "by_model": {
+          "claude-sonnet-5": 8
+        }
+      },
+      "tool_calls": 15,
+      "tool_errors": 2,
+      "tool_error_rate": 0.133,
+      "errored_tools": {
+        "shift_response": 2
+      }
+    },
+    "_case": "2.2",
+    "_rep": 0
   },
   "4.3": {
     "b": {
@@ -1428,10 +2315,91 @@
     "a": {
       "id": "4.3",
       "sid": "s_eval_4_3",
-      "corpus_reads": 28,
+      "corpus_reads": 15,
+      "quality_score": 0.875,
+      "shared": {
+        "quality_score": 0.875,
+        "n_criteria": 8,
+        "n_passed": 7,
+        "min_bar_pass": true,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ribosome content (ribosome_conc / rRNA) and growth rate as the observables under a set ppGpp level",
+            "passed": true,
+            "rationale": "Explicitly reports ribosome concentration and growth rate under clamped ppGpp levels."
+          },
+          {
+            "criterion": "M2: predicts higher clamped ppGpp -> lower ribosome content and lower growth vs a basal-ppGpp baseline",
+            "passed": true,
+            "rationale": "States growth down ~21.5% and ribosome conc down ~13% at 2.0x vs wild-type baseline."
+          },
+          {
+            "criterion": "M3: states a falsifier (ribosome content or growth unchanged as ppGpp is clamped up)",
+            "passed": true,
+            "rationale": "Frames result as ribosome-repression not translational-arrest/lethality; contrasts with unchanged outcomes and tests significance (p-values), implying the falsifier of no change."
+          },
+          {
+            "criterion": "M4: design clamps ppgpp_conc to >=2 multiples of basal across an ensemble, in-envelope",
+            "passed": true,
+            "rationale": "Clamps ppGpp across 0.2x-2.0x range with n=4 seeds x 4 generations ensemble, in-envelope."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a monotone dose-response (ribosome_conc / growth falling with clamp multiple) with a rough slope",
+            "passed": true,
+            "rationale": "States division time lengthens with dose and gives magnitudes at 2.0x; describes dose-dependent slowing across range."
+          },
+          {
+            "criterion": "S2: specifies a regression / trend test across >=3 clamp levels with CIs",
+            "passed": false,
+            "rationale": "Reports pairwise Welch p-values and a CI for RelA, but no regression/trend test across the multiple clamp levels."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a graded ppGpp-ribosome control from fixed-ribosome and stationary-only rivals",
+            "passed": true,
+            "rationale": "Shows graded ribosome/growth reduction (rejecting fixed-ribosome) in exponentially dividing cells (rejecting stationary-only)."
+          },
+          {
+            "criterion": "S4: includes >=3 clamp levels (the dose axis) as the isolating design, not a single on/off contrast",
+            "passed": true,
+            "rationale": "Tests doses across 0.2x-2.0x, describing dose-dependent lengthening, more than a single on/off contrast."
+          }
+        ],
+        "comment": "Strong operationalization onto native observables with dose axis and significance testing; falls short only on a formal trend test with CIs across the levels.",
+        "judged": true,
+        "graded_text": "**Correction after disconfirmation check:** I initially read a RelA decline from raw trajectories, but testing it properly across all 4 seeds each shows wild-type RelA is highly variable seed-to-seed (0.015\u20130.359, CI95 \u00b10.254), so the apparent \u221254% drop under 2.0x ppGpp is **not statistically significant** (Welch p=0.31). That part of the mechanism is suggestive at best, not established \u2014 I should not have asserted it as measured. The growth-rate and ribosome-concentration effects, and the normal tRNA-charging level, remain solid (p<0.01, matched generation, 4 seeds vs 4 seeds).\n\n## Bottom line\n\nIn this model, forcing ppGpp to a high level (2.0x basal, out-of-sample clamp, n=4 seeds \u00d7 4 generations):\n- **Does not kill the cell** \u2014 all seeds divide through the full window at every dose tested (0.2x\u20132.0x).\n- **Slows growth** \u2014 division time lengthens with dose, growth rate down ~21.5% at 2.0x vs wild type at the same generation (p=0.0004).\n- **Lowers ribosome concentration** \u2014 down ~13% at 2.0x vs wild type, same generation (p=0.0012), consistent with the textbook picture of ppGpp repressing ribosomal RNA/protein synthesis.\n- **Does not starve translation** \u2014 charged-tRNA fraction stays ~0.97, essentially unchanged from wild type, because ppGpp here is forced directly rather than arising from an amino-acid-limitation/uncharged-tRNA signal.\n- **RelA's own suppression is not statistically confirmed** at this sample size \u2014 flag it as an open question rather than a result.\n\nSo the picture the model gives is \"fewer ribosomes, slower division, translation machinery otherwise intact\" \u2014 a ribosome-synthesis-repression effect, not a translational-arrest or lethality phenotype, at least across the 4 generations observed. I have not seen a run of this design past generation 4, so I can't speak to whether growth stabilizes at a lower rate or degrades further with more generations \u2014 that would need a deeper run of this same clamp design.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2723
-    }
+      "answer_chars": 1956,
+      "llm": {
+        "n_calls": 16,
+        "input_tokens": 32,
+        "output_tokens": 13851,
+        "cache_read_tokens": 803408,
+        "cache_creation_tokens": 37124,
+        "latency_ms": 172319,
+        "cost_usd": 0.588098,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 16
+        },
+        "by_model": {
+          "claude-sonnet-5": 16
+        }
+      },
+      "tool_calls": 31,
+      "tool_errors": 3,
+      "tool_error_rate": 0.097,
+      "errored_tools": {
+        "compare_at_generation": 3
+      }
+    },
+    "_case": "4.3",
+    "_rep": 0
   },
   "4.4": {
     "b": {
@@ -1553,10 +2521,89 @@
     "a": {
       "id": "4.4",
       "sid": "s_eval_4_4",
-      "corpus_reads": 15,
+      "corpus_reads": 2,
+      "quality_score": 0.625,
+      "shared": {
+        "quality_score": 0.625,
+        "n_criteria": 8,
+        "n_passed": 5,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ribosome/RNA content and growth rate across an upshift as the observables",
+            "passed": true,
+            "rationale": "Explicitly tracks growth_rate, ribosome_conc, and ppGpp across the shift as the key observables."
+          },
+          {
+            "criterion": "M2: predicts ribosome/RNA synthesis rises on upshift toward the richer-medium level vs the pre-shift baseline",
+            "passed": true,
+            "rationale": "States ribosome content eventually climbs (+13% overshoot) toward the richer-medium level after the transient dilution dip."
+          },
+          {
+            "criterion": "M3: states a falsifier (no rise in ribosome/RNA content after the upshift)",
+            "passed": false,
+            "rationale": "No explicit falsifier is articulated; the answer reports observed results rather than defining what would refute the ribosome-led hypothesis."
+          },
+          {
+            "criterion": "M4: design is an in-envelope media upshift (timeline), NOT a carbon-source switch",
+            "passed": true,
+            "rationale": "Uses a shift_response/upshift timeline with pre/post timesteps, in-envelope, not a carbon-source swap."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives the sign and rough timescale of the ribosome/RNA-fraction rise relative to the growth adjustment",
+            "passed": true,
+            "rationale": "Gives sign (ribosome dips then rises) and timescale (hundreds of seconds, trough ~435s, turnover 325-900s) relative to the immediate growth-rate spike."
+          },
+          {
+            "criterion": "S2: specifies a time-resolved pre/post comparison of the RNA fraction with CIs",
+            "passed": false,
+            "rationale": "Provides time-resolved comparison but tracks ribosome_conc not RNA fraction, and gives MAD/seed caveats rather than proper CIs on the composition."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a ribosome-led adjustment from instantaneous-uniform-scaling",
+            "passed": true,
+            "rationale": "Explicitly separates the immediate mass/growth spike (bookkeeping artifact) from the slow ribosome increase, discriminating against instantaneous uniform scaling."
+          },
+          {
+            "criterion": "S4: tracks the RNA/protein composition ratio (not just absolute mass) as the isolating readout",
+            "passed": false,
+            "rationale": "Tracks ribosome_conc (concentration) and notes dilution effects but does not track the RNA/protein composition ratio explicitly."
+          }
+        ],
+        "comment": "Strong operationalized upshift analysis with clear sequencing; loses points for no explicit falsifier, no formal RNA-fraction CI comparison, and using ribosome concentration rather than the RNA/protein ratio as the isolating readout.",
+        "judged": true,
+        "graded_text": "Both charts confirm the reading (though note the coarse ~15-point downsample here understates the sharp spike/dip the raw full-resolution scan captured \u2014 the transient values I quoted above come from the full-resolution `shift_response`/`scan_overview` reads, which are more precise than what's plotted).\n\n**To recap the sequencing clearly:**\n\n| Signal | What it does | When |\n|---|---|---|\n| `growth_rate` (dry-mass rate) | Spikes ~11\u201313\u00d7 | within 1 timestep of shift \u2014 but 95% is metabolite-pool filling, not biosynthesis |\n| `ppgpp_conc` | Falls ~59%, derepressing rRNA/r-protein promoters | trough at ~325\u2013620s (median 435s) |\n| `ribosome_conc` | Transiently **falls** ~11\u201313% (diluted by faster mass growth), then climbs | doesn't turn over until 325\u2013900s+ |\n\nSo: the apparent \"growth\" signal reacts before anything mechanistic happens, but it's a bookkeeping artifact of the dry-mass channel including the metabolite pool. The real regulatory/biosynthetic chain \u2014 ppGpp relaxing, then ribosome content actually increasing \u2014 takes hundreds of seconds and the ribosome-making machinery even moves backward first, diluted by the mass surge, before it catches up.\n\n**Caveat on support:** this is 3 seeds with unequal depth (1\u20134 generations each), which is enough to see the direction and rough timing robustly (the effect is >10 MAD and independently detected by the blind scanner), but not enough to pin an exact settled ribosome-concentration value past one generation for two of the three seeds \u2014 the deepest seed (4 generations) is the only one that shows the eventual +13% overshoot.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2521
-    }
+      "answer_chars": 1590,
+      "llm": {
+        "n_calls": 5,
+        "input_tokens": 10,
+        "output_tokens": 5178,
+        "cache_read_tokens": 191343,
+        "cache_creation_tokens": 19752,
+        "latency_ms": 65650,
+        "cost_usd": 0.209173,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 5
+        },
+        "by_model": {
+          "claude-sonnet-5": 5
+        }
+      },
+      "tool_calls": 9,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "4.4",
+    "_rep": 0
   },
   "4.5": {
     "b": {
@@ -1671,10 +2718,91 @@
     "a": {
       "id": "4.5",
       "sid": "s_eval_4_5",
-      "corpus_reads": 14,
+      "corpus_reads": 3,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names growth rate (and ideally ribosome/proteome fraction) as the observable under supplementation",
+            "passed": true,
+            "rationale": "Names growth_rate as primary observable and also reports rna_mass (rRNA/ribosome content) reallocation."
+          },
+          {
+            "criterion": "M2: predicts amino-acid supplementation raises growth rate vs an unsupplemented baseline",
+            "passed": true,
+            "rationale": "States growth_rate +118% (roughly doubles) with_aa vs basal."
+          },
+          {
+            "criterion": "M3: states a falsifier (growth unchanged or lower when amino acids are supplied)",
+            "passed": true,
+            "rationale": "The disconfirm test (Welch t, p, z) and 'confirms this isn't noise' framing implies unchanged/lower growth would falsify; adequately operationalized."
+          },
+          {
+            "criterion": "M4: design compares supplemented vs basal medium (condition / amino_acid_shift), in-envelope",
+            "passed": true,
+            "rationale": "Compares condition/with_aa vs wildtype/basal, in-envelope."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a rough growth-rate fold-change and a direction for the ribosome/proteome reallocation",
+            "passed": true,
+            "rationale": "Gives ~2x growth (+118%) and rna_mass +198% direction (increased ribosome/rRNA content)."
+          },
+          {
+            "criterion": "S2: specifies a mean-difference test on growth_rate across seeds with a threshold",
+            "passed": true,
+            "rationale": "Welch t-test across seeds (n=8 vs 20), p, z~3.0 against replicate spread \u2014 a mean-difference test with statistical threshold."
+          },
+          {
+            "criterion": "S3: the prediction discriminates nutrient-quality control from a medium-independent or cost rival",
+            "passed": true,
+            "rationale": "Large positive growth effect discriminates from medium-independent and cost-lowering rivals; explicitly nutrient-quality/growth-law framing."
+          },
+          {
+            "criterion": "S4: pairs the growth change with the proteome-reallocation readout (ribosome fraction) as the isolating control",
+            "passed": true,
+            "rationale": "Pairs growth increase with rna_mass/ribosome increase plus ppGpp/RelA drop as the coherent isolating mechanism."
+          }
+        ],
+        "comment": "Strong answer: correct direction and magnitude, coherent ppGpp/growth-law mechanism, statistical test across seeds, and paired ribosome reallocation readout. Honest caveat about in-sample calibration. All criteria met.",
+        "judged": true,
+        "graded_text": "## Yes \u2014 clearly, and the mechanism is textbook ppGpp-mediated growth control\n\n**The comparison:** `condition/with_aa` (rich medium with amino acids supplied) vs `wildtype/basal` (minimal medium, cell makes its own amino acids), read at the same generation (gen 0, since `with_aa` and `basal` don't share depth \u2014 a like-for-like read, not the depth-mismatched whole-run mean):\n\n| Channel | with_aa | basal | \u0394 |\n|---|---|---|---|\n| growth_rate | 0.000549 min\u207b\u00b9 (n=12) | 0.000252 min\u207b\u00b9 (n=35) | **+118%** |\n| ppGpp_conc | 22.2 | 59.0 | **\u221262%** |\n| RelA_conc | 0.049 | 0.143 | **\u221266%** |\n| rna_mass | ~199 | ~67 (diff depth, directional only) | +198% |\n\n`disconfirm` on growth_rate at the properly shared generation-1 depth confirms this isn't noise: +116.4%, Welch t=45.7, p\u22480, n=8 vs 20 seeds \u2014 a huge, clean effect against the corpus's own replicate spread (z\u22483.0).\n\n**Why:** this reproduces the classic stringent-response/growth-law logic. On minimal medium the cell must run its own amino-acid biosynthesis; any lag between demand and synthesis lets uncharged tRNA accumulate, RelA senses it and makes ppGpp, and ppGpp throttles rRNA/ribosome synthesis \u2014 the mechanism that sets the baseline growth rate. Supply the amino acids ready-made and that whole loop relaxes: RelA concentration drops ~66%, ppGpp drops ~62%, the model correspondingly makes much more rRNA (rna_mass +198%, consistent with the Bremer\u2013Dennis growth law linking ribosome content to growth rate), and growth rate roughly doubles.\n\n**One caveat on how to read this:** `condition/with_aa` is a **ParCa-fitted (in-sample) condition** \u2014 the model was calibrated to reproduce cells grown with amino acids, so this agreement with the expected ppGpp/growth-law direction is *consistency with calibration*, not an out-of-sample prediction. It's still a real, internally-grounded result (the ppGpp\u2192RelA\u2192ribosome\u2192growth chain all move together in the expected direction), just not evidence the model predicted something it wasn't tuned to.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2224
-    }
+      "answer_chars": 2004,
+      "llm": {
+        "n_calls": 6,
+        "input_tokens": 12,
+        "output_tokens": 2868,
+        "cache_read_tokens": 215621,
+        "cache_creation_tokens": 9607,
+        "latency_ms": 37358,
+        "cost_usd": 0.143769,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 6
+        },
+        "by_model": {
+          "claude-sonnet-5": 6
+        }
+      },
+      "tool_calls": 9,
+      "tool_errors": 1,
+      "tool_error_rate": 0.111,
+      "errored_tools": {
+        "compare_at_generation": 1
+      }
+    },
+    "_case": "4.5",
+    "_rep": 0
   },
   "4.6": {
     "b": {
@@ -1794,10 +2922,91 @@
     "a": {
       "id": "4.6",
       "sid": "s_eval_4_6",
-      "corpus_reads": 19,
+      "corpus_reads": 2,
+      "quality_score": 0.75,
+      "shared": {
+        "quality_score": 0.75,
+        "n_criteria": 8,
+        "n_passed": 6,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names the charged-tRNA fraction and growth rate as the observables",
+            "passed": true,
+            "rationale": "Explicitly uses fraction_trna_charged and growth_rate as the primary observables in the fits."
+          },
+          {
+            "criterion": "M2: predicts charged-tRNA fraction falls (or tracks) with slower growth vs a fast-growth baseline",
+            "passed": false,
+            "rationale": "The candidate asserts the opposite \u2014 that charged-tRNA fraction is FLAT (slope crosses zero, ~0.94-0.98 across all conditions), contradicting the canonical Dai 2016 finding that charging tracks growth rate."
+          },
+          {
+            "criterion": "M3: states a falsifier (charged-tRNA fraction flat across growth rates)",
+            "passed": true,
+            "rationale": "The candidate discusses the flat-charging scenario as its actual result and frames it as the discriminating null, effectively invoking the falsifier condition."
+          },
+          {
+            "criterion": "M4: design spans >=2 growth conditions across an ensemble, in-envelope",
+            "passed": true,
+            "rationale": "7 designs spanning >3x growth range (acetate to with_aa, plus intermediate conditions)."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives the sign and rough magnitude of the charging change across the growth range",
+            "passed": false,
+            "rationale": "It gives magnitude (0.94-0.98 band) but reports NO change/sign \u2014 it claims flatness, opposite to the expected declining sign."
+          },
+          {
+            "criterion": "S2: specifies a trend/regression of fraction_trna_charged vs growth_rate with CIs",
+            "passed": true,
+            "rationale": "Reports regression slope 95% CI [-154, 67], p=0.36 for fraction_trna_charged vs growth_rate."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a charging-limited elongation from a constant-rate or ribosome-only rival",
+            "passed": true,
+            "rationale": "It explicitly contrasts charging-limited vs ribosome-allocation mechanisms with separate regressions, discriminating between the rivals (even though it concludes in favor of the ribosome-only rival)."
+          },
+          {
+            "criterion": "S4: conditions on ribosome content so the charging effect is isolated from ribosome number",
+            "passed": true,
+            "rationale": "Separately fits ribosome_conc vs growth_rate, isolating and contrasting the ribosome-number effect from the charging effect."
+          }
+        ],
+        "comment": "The candidate operationalizes cleanly onto native channels with regressions and CIs, but its central scientific conclusion contradicts the canonical Dai 2016 finding: it claims charged-tRNA fraction is flat across growth rates rather than tracking growth. Thus M2 and S1 fail. It correctly identifies the discriminating structure and ribosome-conditioning, but lands on the rival hypothesis.",
+        "judged": true,
+        "graded_text": "## Short answer: mostly, it doesn't \u2014 and that's the interesting finding\n\nGrounded across 7 designs spanning a >3x range of the model's growth rate (`condition/acetate` slowest \u2192 `condition/with_aa` fastest, `wildtype/basal` and glucose-limited/Mg-limited conditions in between):\n\n**1. Charged-tRNA fraction (the substrate ribosomes need to elongate) is flat, not falling, with growth rate.**\nFitting `fraction_trna_charged` against `growth_rate` across those 7 designs gives slope 95% CI **[-154, 67]** (crosses zero, p=0.36) \u2014 no detectable relationship. Every condition sits around 0.94\u20130.98 charged, from the slowest carbon source to the richest. The pool of aminoacylated tRNA that actually determines how fast a ribosome can add the next residue isn't being drawn down as growth slows.\n\n**2. What DOES scale steeply with growth rate is ribosome concentration.**\nFitting `ribosome_conc` against `growth_rate` over the same designs: slope 95% CI **[12502, 38020]**, clearly excludes zero, p=0.0038, R\u00b2=0.84 (a Scott/Hui-type ribosome-allocation law). Slow-growth conditions run with fewer ribosomes (or a smaller actively-translating fraction), not with each ribosome moving more slowly.\n\nSo the premise in the question \u2014 \"each ribosome adds amino acids more slowly\" \u2014 is the wrong mechanism for ordinary nutrient/carbon-source-limited slow growth in this model. The cell throttles growth by **cutting ribosome number/allocation**, while keeping the per-ribosome elongation machinery well-fed (charged tRNA stays high). This matches Dai et al. 2016 (*Nat Microbiol*, PMID 27941827): real *E. coli* maintains an appreciable elongation rate even toward zero growth, reducing the *active ribosome fraction* rather than the elongation rate itself \u2014 a literature comparison, not the source of these numbers, which come from the fits above.\n\n*(Caveats on the fit: n=7 designs, and only 3 are out-of-sample \u2014 `fit_out_of_sample_only` for ribosome_conc has a wide CI [-78685, 197043] at that small n, so treat the slope as suggestive-and-consistent rather than a tightly proven law; the tRNA-charging null, by contrast, is a flat, unambiguous non-relationship over a narrow 4-percentage-point band.)*\n\n## When elongation genuinely does collapse \u2014 a different mechanism entirely\n\nThe model *does* have cases of real per-ribosome slowdown \u2014 `translation_collapse` in aaRS knockouts (e.g. `KO:argS`, `KO:alaS`, `KO:gltX`, `KO:pheS`), where mean ribosome elongation rate falls below 1 aa/s even while division looks superficially normal. But that's not \"the cell growing slowly\" \u2014 it's an acute machinery failure: knocking out an aminoacyl-tRNA synthetase starves one tRNA species of charging, uncharged tRNA accumulates at the ribosome A-site, RelA fires, and ppGpp surges (the stringent response) \u2014 a stress event, not the model's ordinary economy of slow growth. Those runs collapse by generation 2 in the lethality data, which is itself confirmatory: normal slow growth (acetate, succinate, Mg-limitation) never shows this signature, only defective essential-machinery KOs do.\n\n## Bottom line\nIn this model, growth rate is governed by how much translational capacity (ribosome number/allocation) the cell builds, not by throttling each ribosome's elongation speed \u2014 charged-tRNA supply is defended across conditions. Per-ribosome slowdown is reserved for pathological loss of charging capacity (aaRS knockouts), a categorically different mechanism from ordinary slow growth.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 4398
-    }
+      "answer_chars": 3470,
+      "llm": {
+        "n_calls": 6,
+        "input_tokens": 12,
+        "output_tokens": 7223,
+        "cache_read_tokens": 227962,
+        "cache_creation_tokens": 14955,
+        "latency_ms": 87622,
+        "cost_usd": 0.232851,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 6
+        },
+        "by_model": {
+          "claude-sonnet-5": 6
+        }
+      },
+      "tool_calls": 8,
+      "tool_errors": 1,
+      "tool_error_rate": 0.125,
+      "errored_tools": {
+        "compare_at_generation": 1
+      }
+    },
+    "_case": "4.6",
+    "_rep": 0
   },
   "5.3": {
     "b": {
@@ -1915,10 +3124,91 @@
     "a": {
       "id": "5.3",
       "sid": "s_eval_5_3",
-      "corpus_reads": 17,
+      "corpus_reads": 22,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names post-KO growth rate (vs wildtype) as the observable for a single metabolic-enzyme deletion",
+            "passed": true,
+            "rationale": "Explicitly compares KO growth rate at same generation vs wildtype/basal for pgi/tpiA/pfkA."
+          },
+          {
+            "criterion": "M2: predicts little/no growth defect (reroute) for a typical dispensable enzyme vs a wildtype baseline",
+            "passed": true,
+            "rationale": "States differences of -0.8%/+1.6%/-2.0% within CIs, clean reroute for pgi/tpiA/pfkA."
+          },
+          {
+            "criterion": "M3: states a falsifier (the KO abolishes growth, i.e. behaves essential)",
+            "passed": true,
+            "rationale": "Discusses essential-behavior falsifier (gltA/fabI essential in reality; division arrest / no_division / fba_infeasible as failure modes)."
+          },
+          {
+            "criterion": "M4: design is a single-gene metabolic knockout across seeds, in-envelope",
+            "passed": true,
+            "rationale": "Uses gene_knockout across 6-8 seeds per gene, in-envelope."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a growth-defect bound (e.g. <10-20% vs wildtype) distinguishing reroute from a real defect",
+            "passed": true,
+            "rationale": "Gives ~9.2% minimum detectable effect bound and pgi's ~16% transient dip as a distinguishable defect."
+          },
+          {
+            "criterion": "S2: specifies a mean-difference test on growth_rate vs wildtype with a threshold",
+            "passed": true,
+            "rationale": "Mean-difference vs wildtype with CI overlap and power/MDE threshold analysis."
+          },
+          {
+            "criterion": "S3: the prediction discriminates FBA-style reroute from lethal and proportional-slowdown rivals",
+            "passed": true,
+            "rationale": "Distinguishes clean reroute vs lethal (essentiality benchmark) vs mild slowdown (pgi transient), addressing all rivals."
+          },
+          {
+            "criterion": "S4: names the alternative flux route (or the FBA objective) whose activation is the isolating evidence",
+            "passed": true,
+            "rationale": "Names pentose-phosphate pathway reroute for pgi and identifies the homeostatic FBA objective."
+          }
+        ],
+        "comment": "Strong, well-operationalized answer that maps onto in-model observables and correctly flags the FBA objective's lack of a growth term as a structural blind spot. Meets all minimum and stringent criteria.",
+        "judged": true,
+        "graded_text": "## Short answer: it reroutes \u2014 and in this model, \"reroutes\" sometimes hides genuine lethality that the corpus lets you catch by checking the benchmark, not just the sim.\n\nI looked at the three central-metabolism enzyme knockouts in the corpus with the clearest FBA/glycolytic role \u2014 **pgi** (phosphoglucose isomerase), **tpiA** (triose-phosphate isomerase), **pfkA** (phosphofructokinase) \u2014 plus **gltA** (citrate synthase, TCA entry) and **fabI** (fatty-acid synthesis) as a contrast pair.\n\n**1. All five are \"viable\" in the sim \u2014 the cell keeps dividing.**\n- pgi: 8/8 seeds divide every generation out to 8 generations, `n_fba_failures=0`.\n- tpiA, pfkA: 6/6 seeds divide (only 1 generation run, but 100% division rate).\n- gltA: 4/4 seeds divide out to 4 generations.\nNone of these crash, arrest division, or hit `no_division`/`fba_infeasible`.\n\n**2. Growth rate at the same generation is statistically indistinguishable from wild type** \u2014 for pgi/tpiA/pfkA at generation 0, the difference vs `wildtype/basal` is \u22120.8%, +1.6%, \u22122.0% respectively, well inside overlapping CIs. But a power check shows the minimum effect this comparison could even detect at n=6\u20138 seeds is ~9.2% \u2014 so \"no effect\" here is a genuine null only down to that resolution, not proof of exact equivalence.\n\n**3. Why: the FBA objective in this model has no growth/biomass term.** `mechanistic_scope` on pgi/tpiA/pfkA explains the mechanism directly: the metabolism objective is \"homeostatic_kinetics_mixed\" \u2014 deviation-minimizing over concentration/kinetic targets, not growth-maximizing. Deleting an enzyme just gives the solver nothing to violate; it reroutes flux to keep metabolite pools in range. Confirmed empirically across glmS/gltA/pfkA/tpiA: no growth effect.\n\n**4. pgi does show a real, mild multi-generation transient** (this is a within-design trajectory, not a between-design test, so it's not power-limited the same way): growth rate drifts from 0.00025 (gen 0) down to 0.000209 at gen 3 (~16% dip), while ppGpp climbs from 61\u219278 (~26% rise) over the same window \u2014 then growth partially recovers by generations 4\u20137. That's consistent with the real biology of a *pgi* null: glycolysis reroutes through the pentose-phosphate pathway, with a modest fitness cost, not a crash.\n\n**5. The important catch \u2014 \"viable in silico\" is not \"viable in vivo\" for every central-metabolism enzyme.** `gltA` and `fabI` are flagged `benchmark.agreement = model_UNDER_predicts`: Baba/Joyce (Keio) call both **essential**, yet this model's KO looks perfectly viable because \u2014 again \u2014 the objective has nothing that requires flux through them. So for these two, the correct answer to \"does it die\" is: **yes, in reality, but the sim can't show it** \u2014 trust the essentiality benchmark over the simulated viability call, per the tool's own calibration note. For pgi/tpiA/pfkA, by contrast, the benchmark agrees they're non-essential (`consistent_viable`), so the sim's viable-with-reroute call is the correct answer there too.\n\n**Bottom line:** for a genuinely non-essential central enzyme (pgi, tpiA, pfkA), the model shows a clean reroute \u2014 division continues, growth rate is flat to within its power, and pgi shows only a small, partially-recovering slowdown with a modest ppGpp bump. For an enzyme that's essential in real *E. coli* but sits in a model pathway with no hard growth requirement (gltA, fabI), the model will wrongly tell you the cell survives \u2014 that's a structural blind spot (no growth term in the FBA objective), not a biological finding, and the sim result should be overridden by the essentiality benchmark.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2532
-    }
+      "answer_chars": 3594,
+      "llm": {
+        "n_calls": 10,
+        "input_tokens": 20,
+        "output_tokens": 7336,
+        "cache_read_tokens": 468094,
+        "cache_creation_tokens": 31026,
+        "latency_ms": 92620,
+        "cost_usd": 0.366876,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 10
+        },
+        "by_model": {
+          "claude-sonnet-5": 10
+        }
+      },
+      "tool_calls": 31,
+      "tool_errors": 3,
+      "tool_error_rate": 0.097,
+      "errored_tools": {
+        "reroute_diagnosis": 3
+      }
+    },
+    "_case": "5.3",
+    "_rep": 0
   },
   "5.4": {
     "b": {
@@ -2034,9 +3324,88 @@
       "id": "5.4",
       "sid": "s_eval_5_4",
       "corpus_reads": 3,
+      "quality_score": 0.75,
+      "shared": {
+        "quality_score": 0.75,
+        "n_criteria": 8,
+        "n_passed": 6,
+        "min_bar_pass": true,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names post-KO viability (division_rate) vs wildtype as the observable",
+            "passed": true,
+            "rationale": "Explicitly cites division_rate 1.0 across seeds vs wildtype viability as the observable."
+          },
+          {
+            "criterion": "M2: predicts loss of viability for the lpxC KO vs a wildtype baseline",
+            "passed": true,
+            "rationale": "States lpxC is essential and its loss abolishes viability in real biology; predicts benchmark-confirmed lethality (though notes the sim under-predicts)."
+          },
+          {
+            "criterion": "M3: states a falsifier (the lpxC KO remains viable / divides like wildtype)",
+            "passed": true,
+            "rationale": "Notes that if lpxC KO remains viable/divides like wildtype it would (wrongly) suggest dispensability \u2014 identifies the falsifying observation."
+          },
+          {
+            "criterion": "M4: design is a single-gene knockout (lpxC) across seeds, in-envelope",
+            "passed": true,
+            "rationale": "Describes KO:lpxC design over 4 seeds, 4 generations each."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states a viability/division cutoff distinguishing lethal from slow-growth",
+            "passed": false,
+            "rationale": "Reports division_rate 1.0 vs viable but does not define a numeric cutoff separating lethal from slow-growth phenotypes."
+          },
+          {
+            "criterion": "S2: specifies a per-seed division_rate test against wildtype with a threshold",
+            "passed": false,
+            "rationale": "Mentions per-seed division_rate but gives no explicit threshold for the comparison test."
+          },
+          {
+            "criterion": "S3: the prediction discriminates essentiality from a dispensable-reroute and a mild-defect rival",
+            "passed": true,
+            "rationale": "Directly contrasts essentiality with the dispensable-reroute rival (solver reroutes) and explains why the sim shows reroute rather than lethality."
+          },
+          {
+            "criterion": "S4: notes that a base model without LPS-biogenesis coupling may UNDER-predict lethality \u2014 an auxiliary that the run tests",
+            "passed": true,
+            "rationale": "Explicitly flags model_UNDER_predicts: no biomass term / LPS coupling so metabolic KO reroutes, a known scope limitation."
+          }
+        ],
+        "comment": "Strong answer that correctly identifies lpxC as essential and, notably, surfaces the model-vs-benchmark disagreement with mechanistic reasoning. Meets all minimum criteria and two of four stringent criteria; loses points only on lacking explicit numeric division cutoffs/thresholds.",
+        "judged": true,
+        "graded_text": "**Yes \u2014 lpxC is essential in real E. coli**, but this is a case where the simulation and the ground-truth benchmark disagree, so the answer depends on which you're asking about.\n\n**Real biology (the authority here):** lpxC catalyzes the committed step of lipid A biosynthesis (LPS outer-membrane assembly). The Baba/Joyce Keio benchmark used by this platform confirms it is on the essential-gene list \u2014 no viable Keio deletion mutant exists for lpxC.\n\n**What the whole-cell sim shows:** the `KO:lpxC` design (4 seeds, 4 generations each) comes back **viable** in every seed \u2014 all divided, division_rate 1.0, no crashes. If you only looked at this simulation output, you'd wrongly conclude lpxC is dispensable.\n\n**Why the sim gets this wrong:** `mechanistic_scope` flags this explicitly as `agreement: model_UNDER_predicts`. lpxC is modeled as a metabolic enzyme, but the model's FBA objective here is homeostatic (deviation-minimizing against concentration/kinetic targets), not growth-maximizing \u2014 it has no biomass term that would make loss of lipid A output lethal. So knocking out lpxC just zeroes the enzyme and the solver reroutes to keep metabolite pools in range; there's nothing in the objective for the KO to \"break.\" This is the same pattern seen for fabI, glmS, and gltA \u2014 all benchmark-essential genes the model calls viable for the identical structural reason.\n\n**Bottom line:** trust the benchmark, not the simulation, here \u2014 **lpxC is essential**; the sim's \"viable\" verdict is a known model-scope limitation (metabolic KOs reroute under this objective), not evidence of biological dispensability.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 1479
-    }
+      "answer_chars": 1613,
+      "llm": {
+        "n_calls": 3,
+        "input_tokens": 6,
+        "output_tokens": 977,
+        "cache_read_tokens": 99181,
+        "cache_creation_tokens": 2859,
+        "latency_ms": 14312,
+        "cost_usd": 0.055149,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 3
+        },
+        "by_model": {
+          "claude-sonnet-5": 3
+        }
+      },
+      "tool_calls": 4,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "5.4",
+    "_rep": 0
   },
   "5.5": {
     "b": {
@@ -2156,10 +3525,91 @@
     "a": {
       "id": "5.5",
       "sid": "s_eval_5_5",
-      "corpus_reads": 15,
+      "corpus_reads": 6,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names viability (division_rate) as a function of generation depth for the machinery KO",
+            "passed": true,
+            "rationale": "Explicitly frames viability/division_rate as depending on generation depth for machinery KOs, citing gen-0 vs gen-3 vs gen-4 crash timing and division_rate readouts."
+          },
+          {
+            "criterion": "M2: predicts eventual loss of viability (essential) but with a depth-dependent delay vs wildtype",
+            "passed": true,
+            "rationale": "States rpoB is essential (Baba 2006) and predicts coast-then-crash with RNAP crashing only beyond ~4 generations due to large inherited pool."
+          },
+          {
+            "criterion": "M3: states a falsifier (viable indefinitely, or dies instantly at gen 0 regardless of depth)",
+            "passed": true,
+            "rationale": "Explicitly contrasts against 'immediate death' and 'viable indefinitely/dispensable' rivals, and against ribosomal-protein gen-0 crash."
+          },
+          {
+            "criterion": "M4: design is the machinery gene_knockout across seeds at >=2 generation depths, in-envelope",
+            "passed": true,
+            "rationale": "Proposes multi_gene_knockout of all 3 TUs run to >=4-5 generations across seeds, and discusses reading viability at multiple depths."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives the rough crash-depth (survives few gens on inherited pool, then fails) with a viability cutoff",
+            "passed": true,
+            "rationale": "Gives rough crash depth: RNAP looks viable through <=4 generations and crashes beyond, contrasted with ribosomal (gen 0) and aaRS (gen 3)."
+          },
+          {
+            "criterion": "S2: specifies a division_rate-vs-depth comparison across seeds with a threshold",
+            "passed": true,
+            "rationale": "Proposes running to >=4-5 generations across seeds to find crash generation via division_rate/dilution_clock, though threshold is loosely specified as viability cutoff."
+          },
+          {
+            "criterion": "S3: the prediction discriminates inherited-pool-limited timing from immediate-death and dispensable rivals",
+            "passed": true,
+            "rationale": "Explicitly distinguishes inherited-pool-dilution timing (coast-then-crash) from instant death and dispensable, citing the -1 dilution law."
+          },
+          {
+            "criterion": "S4: reads viability at a stated depth (not growth rate at shallow depth, which hides the defect) as the isolating control",
+            "passed": true,
+            "rationale": "Notes shallow-depth viability hides the defect (the noop KO looks viable through 7 gens) and insists on reading crash at deeper generation (>=4-5), the isolating control."
+          }
+        ],
+        "comment": "Strong, mechanistically precise answer. It correctly identifies rpoB essentiality, the inherited-pool dilution timing, depth-dependent crash, and proposes an in-envelope multi-TU KO design. Notably it also surfaces a real indexing caveat (operon TU-space vs single gene) that complicates the native design, but still maps to the intended proxy.",
+        "judged": true,
+        "graded_text": "**Short answer: neither, cleanly \u2014 the corpus can't actually test \"losing RNA polymerase\" for rpoB, and the honest mechanistic answer for the machinery-KO class in general is \"coast, then crash,\" not \"die immediately.\"**\n\nHere's what's actually going on, grounded in what the tools show:\n\n**1. The `KO:rpoB` design in this corpus is not a real RNAP knockout.**\nAll 4 seeds are flagged QC `noop_knockout`/`empty` (non\u2011reportable), and `mechanistic_scope`/`operon_mode_advice` explain why: under this knowledge base (operons **on**), `rpoB` is transcribed from **3 transcription units**, but `gene_knockout` only zeroes the index for **one** TU (`TU0-6512`, the *rplKAJL-rpoBC* operon). The other two TUs still express it \u2014 measured: rpoB mRNA is **10.4** in the \"KO\" vs **8.4** in wild type, i.e. slightly *higher*, not silenced. `rpoB` is one of the two genes this codebase explicitly documents as \"named KO, not actually knocked out\" (the other is `murA`). So the `viability` result you'd otherwise read off this design \u2014 `viable`, division_rate 1.0, all seeds reaching 7 generations \u2014 is the viability of a cell that **still has its RNA polymerase**. It tells you nothing about losing it.\n\n**2. What the ground truth says.**\n`rpoB` is `essential_reference: true` (Baba 2006 Keio / Joyce 2006), and `mechanistic_scope` flags `agreement: model_UNDER_predicts` \u2014 a real, complete loss of core RNAP is lethal in vivo even though a naive model prior would call a machinery KO like this \"viable.\"\n\n**3. So what would happen if RNAP were genuinely lost \u2014 mechanistically?**\nThe model's own framework for essential machinery genes (ribosomal proteins, aaRS enzymes, RNAP, replisome) is generation\u2011dependent, not immediate: a knockout stops *synthesis* but the cell still *possesses* its existing RNAP molecules, and that standing pool dilutes by half every division (Carballo\u2011Pacheco 2020, PMID 32469859 \u2014 verified elsewhere in this corpus on `dapA`, protein-count slope \u22121.047, CI [\u22121.231, \u22120.863], consistent with the \u22121 dilution law). Under that logic, `mechanistic_scope`'s prior explicitly separates machinery genes by pool size/turnover: ribosomal proteins like `rplB` crash almost immediately (gen 0), aaRS enzymes crash around gen 3, and RNAP/replisome components (`rpoB`, `dnaN`) are expected to have a large enough inherited reserve to look viable through \u22644 generations and only crash beyond that. That is the mechanistic version of \"coasts for a while, then dies\" \u2014 but **I have to flag that this is a prior/expectation recorded in the tool, not a measured result for rpoB**, since the only `KO:rpoB` runs we have don't actually delete the gene.\n\n**4. A partial, real analog \u2014 but also inconclusive at this depth.**\n`dnaN` (replisome clamp, another essential central-dogma machinery gene) *is* flagged `crashed` in all 4 seeds in this corpus \u2014 consistent with genuine essential-machinery loss being lethal. But I can't pin down the generation of collapse: `trajectory` finds no valid per-generation growth data locally, and `dilution_clock` needs \u22653 generations of local raw and finds 0. So even this doesn't confirm the \"coasts ~4 generations\" timing \u2014 it would need a raw download or a deeper rerun.\n\n**Bottom line:** I can't give you a measured \"immediate death\" or \"coasts for N generations\" for RNA polymerase specifically \u2014 the operon-indexed knockout design silently fails to delete rpoB, so the only rpoB runs on file are uninformative (and non-reportable) about this question. Mechanistically, the model's own logic (and the general inherited-pool dilution law verified elsewhere in the corpus) predicts a **coast\u2011then\u2011crash** pattern rather than instant death, with RNAP's large standing pool giving it more generations of grace than a ribosomal protein \u2014 but this is an expectation to verify, not a result in hand.\n\n**To actually settle it**, two real options: (a) a `multi_gene_knockout` that zeroes all 3 of rpoB's TUs simultaneously, run to \u22654\u20135 generations, to see the crash generation directly; or (b) since this is fundamentally a knowledge-base indexing limitation (TU-space vs single-gene), an operons\u2011**off** ParCa rebuild would make `gene_knockout` on `rpoB` mean what it says \u2014 but that mints a separate arm (different `kb_sha256`), not poolable with this corpus, and would need its own comparator runs. Want me to draft either as a proposed experiment?",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 2272
-    }
+      "answer_chars": 4381,
+      "llm": {
+        "n_calls": 5,
+        "input_tokens": 10,
+        "output_tokens": 8119,
+        "cache_read_tokens": 192632,
+        "cache_creation_tokens": 15922,
+        "latency_ms": 91966,
+        "cost_usd": 0.239312,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 5
+        },
+        "by_model": {
+          "claude-sonnet-5": 5
+        }
+      },
+      "tool_calls": 11,
+      "tool_errors": 1,
+      "tool_error_rate": 0.091,
+      "errored_tools": {
+        "dilution_clock": 1
+      }
+    },
+    "_case": "5.5",
+    "_rep": 0
   },
   "5.6": {
     "b": {
@@ -2283,10 +3733,92 @@
     "a": {
       "id": "5.6",
       "sid": "s_eval_5_6",
-      "corpus_reads": 30,
+      "corpus_reads": 14,
+      "quality_score": 0.875,
+      "shared": {
+        "quality_score": 0.875,
+        "n_criteria": 8,
+        "n_passed": 7,
+        "min_bar_pass": true,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ppGpp level and rRNA/ribosome (or growth) response on downshift as the observables",
+            "passed": true,
+            "rationale": "Reports ppGpp concentration, ribosome concentration, and growth_rate on the amino-acid downshift as the readouts."
+          },
+          {
+            "criterion": "M2: predicts the ppGpp-null fails to raise ppGpp and fails to repress ribosome synthesis vs a wildtype downshift",
+            "passed": true,
+            "rationale": "Clearly articulates the expected 'relaxed' phenotype (no ppGpp rise, no ribosome repression) and compares against the wildtype downshift where ppGpp rises 22.5->45.3; correctly frames the target prediction even while flagging the in-model run diverges."
+          },
+          {
+            "criterion": "M3: states a falsifier (the null still shows a ppGpp spike or still represses ribosomes)",
+            "passed": true,
+            "rationale": "Explicitly frames the observed ppGpp elevation (372) in the KO as inconsistent with the relaxed phenotype, and proposes a clean falsifier; the observed ppGpp-up-not-flat is exactly the falsifier condition."
+          },
+          {
+            "criterion": "M4: design pairs a wildtype downshift with a relA/spoT-knockout downshift, in-envelope",
+            "passed": true,
+            "rationale": "Uses the wildtype amino-acid downshift timeline and pairs it with the relA+spoT (triple) KO, and proposes a cleaner relA+spoT double-KO crossed with the same downshift media timeline, all in-envelope."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives the contrast (wildtype ppGpp-up + ribosome-down vs null flat) with rough magnitudes",
+            "passed": true,
+            "rationale": "Gives magnitudes: WT ppGpp 22.5->45.3 (>90 later), KO ppGpp 372 vs 58.98 WT, ribosome +5%, growth changes quantified. The expected null-flat contrast is described though observed value differs (which is honestly flagged)."
+          },
+          {
+            "criterion": "S2: specifies a paired pre/post comparison across both strains with CIs",
+            "passed": false,
+            "rationale": "Explicitly notes n=1 vs n=1, no Welch test possible, no CIs; the pre/post segment comparison exists only for wildtype. Does not deliver a paired comparison with CIs across strains."
+          },
+          {
+            "criterion": "S3: the prediction discriminates active ppGpp signalling from passive building-block depletion",
+            "passed": true,
+            "rationale": "Proposes delivering starvation via media downshift rather than aaRS KO to isolate the ppGpp-null response, and contrasts active ppGpp signalling vs the gltX lethality confound, distinguishing signalling from passive depletion."
+          },
+          {
+            "criterion": "S4: the ppGpp-null arm IS the isolating causal control (loss-of-function abolishes the response)",
+            "passed": true,
+            "rationale": "Frames the relA/spoT loss-of-function as the causal control and correctly identifies that the in-model variant is not a clean null (partial relA TU, loss of hydrolase), proposing a proper double-KO as the isolating control."
+          }
+        ],
+        "comment": "Strong, honest operationalization onto real in-model observables. Correctly identifies the canonical relaxed phenotype and flags the in-model divergence (ppGpp over-accumulation due to incomplete relA KO and loss of SpoT hydrolase) as a genuine finding, per scope_note. Loses S2 only for lack of CIs/paired statistics given n=1.",
+        "judged": true,
+        "graded_text": "## Short answer\n\nThe corpus has exactly **one** design that combines an amino-acid-starvation trigger with an attempted ppGpp-null background: `multi_gene_knockout/KO:gltX+relA+spoT` \u2014 glutamyl-tRNA synthetase (gltX, causes uncharged tRNA\u2011Glu \u2192 the textbook starvation signal) knocked out together with **both** ppGpp-making enzymes (relA, spoT \u2014 the only two in *E. coli*). It has **1 seed, 1 generation** \u2014 a single observation, not a validated result \u2014 and, as I'll explain, it likely isn't even a clean ppGpp-null. With those caveats stated up front, here's what it actually shows, and why it doesn't look like the textbook \"relaxed\" ppGpp0 phenotype.\n\n## What a normal (ppGpp-competent) cell does when it runs out of amino acids\n\nFor contrast, the corpus's amino-acid downshift (`timeline/0 minimal_plus_amino_acids, 1200 minimal`, wildtype background) shows the standard stringent response: ppGpp rises from a pre-shift segment mean of **22.5 \u00b5M-equiv. to 45.3 post-shift**, and is still climbing (to >90 by the end of the recorded window) \u2014 a working RelA/SpoT system ramping ppGpp up as amino acids disappear.\n\n## What happens when relA+spoT are (attempted to be) removed and gltX starves the cell\n\nIn the one triple-KO run, at the only generation available (gen 0):\n- **ppGpp went UP, not to zero**: 372 (triple KO) vs 46.6 (gltX alone) vs 58.98 (wildtype) at the same generation \u2014 a +500\u2013700% rise (z\u22489.6 vs corpus spread, but this is descriptive only: n=1 vs n=1/n=8, no Welch test possible).\n- **Growth collapsed further**: growth_rate 8\u00d710\u207b\u2075 vs 9.2\u00d710\u207b\u2075 (gltX alone, \u221213%) and vs 2.52\u00d710\u207b\u2074 (wildtype, \u221268%). Protein mass, RNA mass, cell/dry mass are all down 15\u201322% vs wildtype.\n- Ribosome concentration was slightly **up** (+5%), RelA protein concentration only mildly down (\u221216% vs WT) \u2014 neither move is consistent with a clean \"ppGpp gone, stringent brake gone\" story.\n\n## Why this almost certainly isn't a real ppGpp-null\n\n`mechanistic_scope` flags a structural problem I have to surface, not gloss over:\n- **relA is transcribed from 2 transcription units; this variant zeroes only one** (TU0-14269, relA-mazEF). The other TU is untested \u2014 the tool explicitly warns \"this may not be a knockout of relA.\" RelA protein being only \u221216% (not ~0) vs wildtype is consistent with leftover RelA activity, not a null.\n- **spoT's TU is fully silenced** \u2014 but SpoT is *E. coli*'s only ppGpp **hydrolase** as well as a synthetase. Removing the degrading enzyme while leaving some RelA-driven synthesis intact is exactly the genetic combination known to cause ppGpp **over-accumulation** and growth arrest \u2014 which is what this run shows \u2014 not the \"relaxed,\" ppGpp-absent phenotype a true relA\u207bspoT\u207b null produces.\n\nSo the run I have looks less like \"cannot make ppGpp, starved\" and more like \"still makes some ppGpp, can no longer degrade it, starved\" \u2014 a different and arguably more severe perturbation.\n\n## Bottom line\n\nFrom this corpus I cannot honestly answer \"how does a *genuine* ppGpp-null cell react to amino-acid starvation\" \u2014 the only relevant run is a single seed, single generation, and its relA knockout is flagged as unverified/likely incomplete while its spoT loss removes ppGpp *degradation* rather than *synthesis*. What I can say, scoped tightly to this one run: growth was suppressed even more severely than the aaRS knockout alone, accompanied by *elevated* (not absent) ppGpp \u2014 the opposite of the \"unchecked growth, no stringent brake\" phenotype the question is really asking about.\n\n**To actually answer the question**, I'd propose two things (pending your approval \u2014 I can't launch these myself):\n1. More seeds/generations of this same triple KO, to at least see the eventual fate (does it crash like gltX-alone does at generation 2?).\n2. A cleaner falsifier: relA+spoT double KO **alone** (no aaRS confound) crossed with the same amino-acid-downshift timeline used above, so starvation is delivered by media rather than by knocking out translation machinery \u2014 that isolates the ppGpp-null response from gltX's own lethality.\n\nWant me to draft and queue that panel?",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 4280
-    }
+      "answer_chars": 4093,
+      "llm": {
+        "n_calls": 10,
+        "input_tokens": 20,
+        "output_tokens": 13175,
+        "cache_read_tokens": 470228,
+        "cache_creation_tokens": 29042,
+        "latency_ms": 152410,
+        "cost_usd": 0.447661,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 10
+        },
+        "by_model": {
+          "claude-sonnet-5": 10
+        }
+      },
+      "tool_calls": 28,
+      "tool_errors": 4,
+      "tool_error_rate": 0.143,
+      "errored_tools": {
+        "trna_families": 2,
+        "shift_response": 2
+      }
+    },
+    "_case": "5.6",
+    "_rep": 0
   },
   "7.1": {
     "b": {
@@ -2409,10 +3941,91 @@
     "a": {
       "id": "7.1",
       "sid": "s_eval_7_1",
-      "corpus_reads": 10,
+      "corpus_reads": 6,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names the RNA/protein ratio (or ribosome fraction) and growth rate as the observables",
+            "passed": true,
+            "rationale": "Explicitly uses RNA/protein ratio and growth rate as observables in the table and analysis."
+          },
+          {
+            "criterion": "M2: predicts RNA/protein rises with growth rate vs a 'constant composition' null",
+            "passed": true,
+            "rationale": "States ratio climbs monotonically 0.16->0.41 with growth rate, contrasting the same-mix null."
+          },
+          {
+            "criterion": "M3: states a falsifier (flat or inverted RNA/protein-vs-growth relation)",
+            "passed": true,
+            "rationale": "Notes that in ppGpp-clamp variant the growth-rate vs RNA fit is not significant (p=0.79), and frames the positive slope as the discriminating result; implies flat relation would falsify."
+          },
+          {
+            "criterion": "M4: design is steady-state sims across >=2 growth conditions, in-envelope",
+            "passed": true,
+            "rationale": "Uses 5-8 media conditions with matched generation depth, in-envelope."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states the positive relation with a rough slope/intercept over the growth range",
+            "passed": true,
+            "rationale": "Gives ratio range 0.16 to 0.41 across the growth range and quantifies RNA +192% vs protein +105%, characterizing the relation."
+          },
+          {
+            "criterion": "S2: specifies a regression of RNA/protein vs growth_rate with a CI on the slope",
+            "passed": true,
+            "rationale": "Reports fitting growth_rate vs RNA/protein with significant positive slope, CI excludes 0."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a growth-rate law from nutrient-identity and constant-composition rivals",
+            "passed": true,
+            "rationale": "The ppGpp-clamp control decouples growth rate from RNA/protein, addressing constant-composition and the causal identity of the lever; media collapse addresses nutrient identity."
+          },
+          {
+            "criterion": "S4: collapses different media onto the single growth-rate axis (the isolating control that it's rate, not identity)",
+            "passed": true,
+            "rationale": "Explicitly fits across 8 media conditions onto the growth-rate axis, and uses ppGpp decoupling to show rate/nutrient are the co-varying axis vs the controller."
+          }
+        ],
+        "comment": "Strong answer reproducing the Schaechter/Bremer-Dennis growth law with quantified in-model observables, regression with CI, and a well-designed ppGpp-clamp decoupling control. Note S4 is partly satisfied via multi-media collapse; the honest caveat about in-sample vs out-of-sample fitting is appropriate.",
+        "judged": true,
+        "graded_text": "## No \u2014 the RNA:protein mix shifts systematically with growth rate\n\nThe model reproduces the classic **Bremer\u2013Dennis growth law**: faster-growing cells carry proportionally *more RNA relative to protein* than slow-growing cells (mostly ribosomal RNA, since ribosomes are what let a cell make protein faster).\n\n**Across media conditions** (each a distinct nutrient/growth-rate regime, generation-matched):\n\n| condition | growth rate (h\u207b\u00b9, arb. units) | RNA mass | protein mass | RNA/protein |\n|---|---|---|---|---|\n| no_oxygen | 0.000141 | 18.7 | 115.1 | 0.163 |\n| acetate | 0.000168 | 17.1 | 89.7 | 0.190 |\n| succinate | 0.000193 | 33.0 | 163.9 | 0.201 |\n| basal | 0.000243 | 68.1 | 236.1 | 0.288 |\n| with_aa (rich) | 0.000507 | 198.8 | 483.3 | 0.412 |\n\nThe ratio climbs monotonically with growth rate, from ~0.16 in the slowest condition to ~0.41 in the richest. I checked the two ends directly at matched generation depth (generation 1, n=8 seeds for with_aa vs n=20 for basal, Welch p\u22480): RNA mass rises **+192%** going from basal\u2192with_aa while protein mass rises only **+105%** \u2014 RNA increases almost twice as fast as protein, which is exactly why the ratio itself grows (not just cell size). This is well powered and not an artifact of unequal depth.\n\nFitting growth_rate vs rna_mass/protein_mass across 8 media conditions gives a highly significant positive slope for both (p\u22480, CI excludes 0), though most of that fit is in-sample (ParCa-fitted conditions); only acetate/succinate are genuinely out-of-sample here, so treat it as consistency with a small independent check, not a fully out-of-sample validation.\n\n**A mechanistic wrinkle worth flagging:** when I instead force the RNA/protein set-point directly by *clamping* ppGpp (the ppgpp_conc variant, 0.2x\u20132.0x of wild-type ppGpp) rather than letting it respond to nutrients, growth rate stays comparatively flat (0.000172\u20130.000243) while RNA content varies a lot with the clamp (76.0 at 0.2x down to 47.4 at 2.0x ppGpp) \u2014 RNA/protein ratio here tracks the **imposed ppGpp level**, not growth rate, and the growth-rate vs RNA-mass fit across these doses is *not* significant (p=0.79). That's consistent with the biology: ppGpp is the actual controller of ribosomal-RNA transcription; growth rate and RNA/protein normally co-vary only because nutrient availability sets both. Decouple them (force ppGpp) and the growth-rate correlation breaks, even though the RNA/protein axis itself still moves \u2014 which is a nice confirmation that ppGpp, not growth rate per se, is the causal lever in this model.\n\n**Bottom line:** fast- and slow-growing cells do *not* have the same RNA:protein mix \u2014 RNA (ribosome) content scales up disproportionately faster than protein content as growth rate increases across nutrient conditions, and this composition shift is mechanistically tied to ppGpp level rather than being a passive consequence of faster growth.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 1665
-    }
+      "answer_chars": 2903,
+      "llm": {
+        "n_calls": 10,
+        "input_tokens": 20,
+        "output_tokens": 9447,
+        "cache_read_tokens": 416706,
+        "cache_creation_tokens": 21301,
+        "latency_ms": 110666,
+        "cost_usd": 0.346656,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 10
+        },
+        "by_model": {
+          "claude-sonnet-5": 10
+        }
+      },
+      "tool_calls": 13,
+      "tool_errors": 1,
+      "tool_error_rate": 0.077,
+      "errored_tools": {
+        "comparable_designs": 1
+      }
+    },
+    "_case": "7.1",
+    "_rep": 0
   },
   "7.2": {
     "b": {
@@ -2479,10 +4092,91 @@
     "a": {
       "id": "7.2",
       "sid": "s_eval_7_2",
-      "corpus_reads": 4,
+      "corpus_reads": 1,
+      "quality_score": 0.375,
+      "shared": {
+        "quality_score": 0.375,
+        "n_criteria": 8,
+        "n_passed": 3,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names acetate exchange flux (and growth rate) as the observable",
+            "passed": true,
+            "rationale": "Explicitly names EX_ac_e (acetate secretion) and growth rate as the observables."
+          },
+          {
+            "criterion": "M2: predicts acetate excretion rising with glucose uptake / growth rate vs a low-growth baseline",
+            "passed": false,
+            "rationale": "States overflow occurs at high growth and describes the tradeoff, but reports only a single high-uptake condition; no explicit comparison to a low-growth baseline showing acetate rising."
+          },
+          {
+            "criterion": "M3: states a falsifier (no acetate excretion at fast aerobic growth)",
+            "passed": false,
+            "rationale": "Answer is truncated and does not articulate a falsifier condition that would disprove the hypothesis."
+          },
+          {
+            "criterion": "M4: design contrasts high vs low carbon-uptake conditions across seeds, in-envelope",
+            "passed": false,
+            "rationale": "Only a single fixed glucose uptake (-10) is analyzed; no high-vs-low uptake contrast, no seeds, no in-envelope design described."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a growth-rate threshold above which acetate flux turns on, with a rough slope",
+            "passed": false,
+            "rationale": "No threshold growth rate or slope is given; only a single operating point."
+          },
+          {
+            "criterion": "S2: specifies a flux comparison across conditions with a threshold/CI",
+            "passed": false,
+            "rationale": "Gives an FVA CI at one condition but no cross-condition flux comparison with a threshold."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a proteome-efficiency overflow from pure-respiration and anaerobic-only rivals",
+            "passed": true,
+            "rationale": "Uses PDH active vs PFL=0 to argue acetate arises from fully aerobic respiring optimum, discriminating against anaerobic-only and pure-respiration rivals."
+          },
+          {
+            "criterion": "S4: reads the acetate exchange flux specifically (not just growth) as the isolating readout",
+            "passed": true,
+            "rationale": "Reads EX_ac_e = +2.26 specifically as the isolating readout distinct from growth."
+          }
+        ],
+        "comment": "The answer nails the mechanism (proteome-efficiency overflow) and specifically reads acetate exchange flux with a nice PDH-vs-PFL discrimination, but it is truncated and only analyzes a single condition, so it lacks the required high-vs-low uptake comparison, falsifier, threshold, and cross-condition design.",
+        "judged": true,
+        "graded_text": "## Short answer\nBecause at high, nutrient-saturated growth rates *E. coli*'s catabolism is limited by **proteome budget, not by carbon or oxygen** \u2014 respiration gets you more ATP per glucose, but it costs more enzyme (ribosomes + electron-transport-chain machinery) per unit of flux than fermenting a slice of the glucose straight to acetate via Pta\u2011AckA. When food and O\u2082 are both abundant, the cell can't afford to build a respiratory chain large enough to burn *all* the incoming carbon oxidatively, so it \"spills\" the surplus as acetate \u2014 a rate/yield trade-off, not a shortage.\n\n## What grounds this\n\n**1. Independent genome-scale FBA cross-check (iML1515, aerobic M9 glucose \u2014 not a corpus number, a second-opinion check):**\nAt the *provided*, non-limiting medium (glucose uptake fixed at \u221210, O\u2082 uncapped at \u221220 mmol/gDW/h \u2014 oxygen is nowhere near saturating), the optimal solution predicts:\n- growth = 0.82 h\u207b\u00b9\n- **acetate secretion (EX_ac_e) = +2.26 mmol/gDW/h**, tightly FVA-identified (2.2563\u20132.2568 \u2014 not an artifact of a degenerate optimum)\n- PDH (aerobic entry to the TCA cycle) flux = 10.1 \u2014 high and active\n- PFL (the anaerobic fermentation enzyme) flux = **exactly 0**\n\nThat last pair is the key point: the acetate is coming out of an optimum that is fully aerobic and fully respiring. This isn't anaerobic fermentation dressed up \u2014 the model throws away carbon as acetate *even while* running oxidative metabolism at near-maximum, purely because that's the flux-optimal allocation.\n\n**2. Mechanistic literature grounding** \u2014 Basan, Hui, Okano, Zhang, Shen, Williamson & Hwa, *\"Overflow",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 48
-    }
+      "answer_chars": 1603,
+      "llm": {
+        "n_calls": 6,
+        "input_tokens": 12,
+        "output_tokens": 7065,
+        "cache_read_tokens": 230365,
+        "cache_creation_tokens": 16873,
+        "latency_ms": 93404,
+        "cost_usd": 0.238394,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 6
+        },
+        "by_model": {
+          "claude-sonnet-5": 6
+        }
+      },
+      "tool_calls": 8,
+      "tool_errors": 1,
+      "tool_error_rate": 0.125,
+      "errored_tools": {
+        "exchange_flux": 1
+      }
+    },
+    "_case": "7.2",
+    "_rep": 0
   },
   "8.1": {
     "b": {
@@ -2606,10 +4300,89 @@
     "a": {
       "id": "8.1",
       "sid": "s_eval_8_1",
-      "corpus_reads": 16,
+      "corpus_reads": 6,
+      "quality_score": 0.875,
+      "shared": {
+        "quality_score": 0.875,
+        "n_criteria": 8,
+        "n_passed": 7,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ribosome content / max growth rate vs operon dosage as the observable",
+            "passed": true,
+            "rationale": "Uses ribosome_conc and growth_rate as observables tracked against operon dosage."
+          },
+          {
+            "criterion": "M2: predicts reduced operon dosage lowers ribosome capacity and max growth vs full-complement baseline",
+            "passed": true,
+            "rationale": "Shows ribosome_conc -55.3% and growth declining with more operons removed vs WT."
+          },
+          {
+            "criterion": "M3: states a falsifier (growth/ribosome unchanged as operons are deleted)",
+            "passed": false,
+            "rationale": "Does not explicitly state a falsifying outcome (e.g., full compensation / unchanged growth) that would disprove the ceiling hypothesis; discusses caveats but no explicit falsifier."
+          },
+          {
+            "criterion": "M4: design is an rrna_operon_knockout dose series across seeds, in-envelope",
+            "passed": true,
+            "rationale": "Uses rrna_operon_knockout panel at 2/4/6 operons with multiple seeds each."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: gives a graded dose-response (growth/ribosome falling with fewer operons) with a rough slope",
+            "passed": true,
+            "rationale": "Provides graded ribosome_conc (-11.1% at 2op, -55.3% at 6op) and dose-dependent growth decline."
+          },
+          {
+            "criterion": "S2: specifies a trend test across >=2 operon-dosage levels with CIs",
+            "passed": true,
+            "rationale": "Reports fit r2=0.978 and out-of-sample slope test p=0.057 across dosage levels, with small-n caveat."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a capacity ceiling from full-compensation and all-or-none rivals",
+            "passed": true,
+            "rationale": "Dose-dependent decline rules out full compensation and all-or-none; explicitly frames as capacity ceiling / compounding shortfall."
+          },
+          {
+            "criterion": "S4: uses >=2 dosage levels (the dose axis) as the isolating design",
+            "passed": true,
+            "rationale": "Uses three dosage levels (2/4/6 operons) plus WT as the isolating dose axis."
+          }
+        ],
+        "comment": "Strong empirical answer grounded in the native panel and observables. Main gap is M3: no explicit statement of a falsifying outcome. Answer is also truncated at the end.",
+        "judged": true,
+        "graded_text": "**Short answer: yes \u2014 and the corpus has exactly this experiment.** There's an out-of-sample panel, `rrna_operon_knockout`, that zeroes 2, 4, or 6 of the cell's 7 rRNA operons (retaining ~73.8%, ~45.9%, ~15.8% of total rRNA-synthesis capacity respectively, vs 100% in wildtype). All three doses are **viable** (4 seeds each \u22652op/6op, 4/9 usable for 4op \u2014 division_rate 1.0, all terminal lineages divided, no crashes), but growth rate is capped in a clean dose-dependent way, and the mechanism is visible.\n\n**Growth rate, per-generation (mean, s\u207b\u00b9):**\n\n| gen | WT | 2op removed | 4op removed | 6op removed |\n|---|---|---|---|---|\n| 0 | 0.000252 | 0.000248 | 0.000241 | 0.000274 |\n| 3 | 0.000222 | 0.000227 | 0.000181 | 0.000147 |\n\nThe 6-operon deletion (only ~1 of 7 operons' worth of rRNA capacity left) is still falling at the last recorded timestep of the raw trajectory (0.000123 at t\u22483760s, seed 0) \u2014 it has not leveled off within the 4 generations available. So this is not a single instantaneous rate cut; it's a **compounding shortfall**: ribosome production can't keep pace with demand, so growth keeps eroding generation over generation, worse the more operons are removed.\n\n**Mechanism, checked directly (differential, at matched depth-4):**\n- ribosome_conc: \u221255.3% for the 6-operon KO vs WT (\u221211.1% for the 2-operon KO) \u2014 fewer rRNA gene copies \u2192 fewer ribosomes made, as expected.\n- ppGpp climbs continuously and substantially: 6op goes 17.8\u219243.3\u219251.1\u219263.1 across generations (+254%), 4op goes 42.9\u219273.6 (+71%), while 2op rises then plateaus (53\u2192~62). This is the textbook stringent-response signature (ribosome-synthesis shortfall \u2192 ppGpp accumulation \u2192 further ribosome-gene throttling), and it's still rising rather than settled \u2014 another sign the true floor hasn't been reached in 4 generations.\n- Fitting growth_rate against ribosome_conc across all four designs (WT, 2/4/6-op) gives r\u00b2=0.978 (strongly positive), though the strict out-of-sample slope test is only borderline (p=0.057, n=3 \u2014 small-n caveat, not fully powered).\n\n**One important model-scope caveat**, from `model_capabilities`: these runs are **not** deletions of a *specific, identifiable* rRNA operon (rrnA vs rrnB, etc.). The model zeroes n rRNA rows and then re-balances rRNA synthesis probability across the mean of all 7 rows (`balanced_rRNA_prob",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3501
-    }
+      "answer_chars": 2335,
+      "llm": {
+        "n_calls": 8,
+        "input_tokens": 16,
+        "output_tokens": 11411,
+        "cache_read_tokens": 373970,
+        "cache_creation_tokens": 30254,
+        "latency_ms": 135589,
+        "cost_usd": 0.396857,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 8
+        },
+        "by_model": {
+          "claude-sonnet-5": 8
+        }
+      },
+      "tool_calls": 19,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "8.1",
+    "_rep": 0
   },
   "9.1": {
     "b": {
@@ -2702,10 +4475,89 @@
     "a": {
       "id": "9.1",
       "sid": "s_eval_9_1",
-      "corpus_reads": 9,
+      "corpus_reads": 1,
+      "quality_score": 0.625,
+      "shared": {
+        "quality_score": 0.625,
+        "n_criteria": 8,
+        "n_passed": 5,
+        "min_bar_pass": true,
+        "stringent_bar_pass": false,
+        "min_criteria": [
+          {
+            "criterion": "M1: names added mass per cycle (division mass minus birth mass) as the observable across cells",
+            "passed": true,
+            "rationale": "Explicitly defines added mass = division mass minus birth mass and computes it per generation as the observable."
+          },
+          {
+            "criterion": "M2: predicts a roughly constant added increment independent of birth size vs a sizer/timer null",
+            "passed": true,
+            "rationale": "States the adder principle of constant increment independent of birth size and contrasts with sizer/timer nulls."
+          },
+          {
+            "criterion": "M3: states a falsifier (added mass strongly depends on birth size, i.e. sizer or timer)",
+            "passed": true,
+            "rationale": "Notes slope<0 = sizer-like, slope\u22480 = adder, framing the discriminating test that would falsify adder."
+          },
+          {
+            "criterion": "M4: design is an isogenic ensemble tracking per-cycle birth/division mass, in-envelope",
+            "passed": true,
+            "rationale": "Proposes regressing division mass vs birth mass across all wildtype seeds using in-model cell_mass channel."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: predicts an added-mass-vs-birth-size slope near zero (adder), with a tolerance",
+            "passed": false,
+            "rationale": "Mentions slope\u22480 = adder qualitatively but gives no explicit tolerance/threshold for the slope."
+          },
+          {
+            "criterion": "S2: specifies the regression of added mass on birth size with a CI on the slope",
+            "passed": false,
+            "rationale": "Proposes regressing division mass vs birth mass but does not specify a CI on the slope; leaves it as future work."
+          },
+          {
+            "criterion": "S3: the prediction discriminates adder from sizer (slope -1) and timer rivals",
+            "passed": false,
+            "rationale": "Distinguishes adder from sizer and timer but does not give the sizer slope = -1 quantitative signature (uses added-vs-birth framing where slope 0 is adder; sizer/timer numeric slopes not stated)."
+          },
+          {
+            "criterion": "S4: conditions on birth size (the isolating variable) rather than only reporting mean size",
+            "passed": true,
+            "rationale": "Conditions the analysis on birth size, regressing added/division mass against birth mass rather than just reporting mean size."
+          }
+        ],
+        "comment": "Strong on minimum criteria\u2014correctly identifies the adder, defines added mass as observable, proposes the regression design onto real cell_mass channels, and states falsifiers. Falls short on stringency: no explicit slope tolerance, no CI, and sizer slope not quantified as -1 (though sizer's over-compensation is noted). Good honesty about single-seed limitation.",
+        "judged": true,
+        "graded_text": "## The short answer: it doesn't measure size \u2014 it counts a molecular clock instead\n\nBacteria have no ruler and no direct sensor of absolute cell size (volume or mass). Size homeostasis instead falls out of a simpler rule operating on a *biochemical* signal that happens to correlate with size: each cell divides once it has added a roughly **constant increment of mass/volume since its own birth**, independent of how big it was at birth \u2014 the \"**adder**\" principle (Taheri-Araghi et al. 2015, *Curr. Biol.*, PMID 25544609, \"Cell-Size Control and Homeostasis in Bacteria\"; grounded via OpenAlex/PubMed just now, not recalled).\n\nMechanistically this is implemented through **titration of a molecular species to a threshold**, not measurement of size itself \u2014 e.g. replication initiates once enough of an initiator protein (DnaA) accumulates per origin, and septation follows a roughly fixed time/protein-accumulation program (FtsZ ring assembly) after that. Because these accumulation processes scale with the cell's own biosynthetic rate, a cell that started smaller effectively needs to add *more* mass to reach the same molecular threshold, which is exactly what pulls oversized and undersized newborns back toward the population mean without either one ever \"knowing\" its own size. This is a negative-feedback/homeostat that runs on counting molecules, not on measuring geometry.\n\n## What the simulation itself shows (grounded, but a single case study)\n\nI pulled the full-resolution `cell_mass` trajectory for `wildtype/basal`, seed 0, across its first 3 generations (8,069 raw timesteps):\n\n| generation | birth mass (fg) | mass just before division (fg) | mass added |\n|---|---|---|---|\n| 0 | 1267.4 | 2362.3 | 1094.9 |\n| 1 | 1180.9 (7% smaller birth) | 2453.9 | 1273.0 (16% more added) |\n| 2 | 1226.6 | 2297.5 (run ends mid-cycle) | \u2014 |\n\nBirth mass drifted by ~7% between generations, yet the mass reached before each division stayed within ~4% of the others (2362\u21922454 fg), and the generation that started *smaller* went on to add *more* mass \u2014 a compensating, adder-like pattern rather than each lineage drifting further from the mean. That's qualitatively the same signature the adder literature describes.\n\n**Caveat on support**: this is **1 seed, 3 generations** \u2014 a single lineage, not a population statistic. `wildtype/basal` has 20 local seeds; to state this as a corpus-level result (not a case study) I'd want to pull `variance_band` on `cell_mass` across seeds and regress division-mass vs birth-mass across many birth events to get the actual adder slope (slope \u22480 = adder, slope <0 = sizer-like over-compensation, as this single trace hints at). I haven't done that regression, so I'm reporting a consistent illustration, not a confirmed slope.\n\n## One structural note\nThe `chart` line-plot above only rendered the *last* generation's segment \u2014 a known artifact of the coarse manifest view for multi-generation runs (only the final generation's media/segment record is retained). The generation-by-generation reset-and-regrowth pattern I quoted above came from the full-resolution raw trajectory (`read_raw_series`), which is the only view that shows the actual division events (the mass halving at ~t=2529s and ~t=5356s).\n\nIf you want this turned into an actual measurement rather than an illustration, I can regress division mass vs. birth mass across all local wildtype seeds \u2014 that's the direct test of \"adder vs. sizer vs. timer\" in this model.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3961
-    }
+      "answer_chars": 3467,
+      "llm": {
+        "n_calls": 6,
+        "input_tokens": 12,
+        "output_tokens": 7211,
+        "cache_read_tokens": 237961,
+        "cache_creation_tokens": 19961,
+        "latency_ms": 90592,
+        "cost_usd": 0.254443,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 6
+        },
+        "by_model": {
+          "claude-sonnet-5": 6
+        }
+      },
+      "tool_calls": 7,
+      "tool_errors": 0,
+      "tool_error_rate": 0.0,
+      "errored_tools": {}
+    },
+    "_case": "9.1",
+    "_rep": 0
   },
   "10.1": {
     "b": {
@@ -2821,10 +4673,46 @@
     "a": {
       "id": "10.1",
       "sid": "s_eval_10_1",
-      "corpus_reads": 2,
-      "data_informed": true,
-      "answer_chars": 4199
-    }
+      "corpus_reads": 0,
+      "quality_score": null,
+      "shared": {
+        "quality_score": null,
+        "n_criteria": 0,
+        "n_passed": 0,
+        "min_bar_pass": false,
+        "stringent_bar_pass": false,
+        "min_criteria": [],
+        "stringent_criteria": [],
+        "comment": "empty artifact",
+        "judged": false,
+        "graded_text": ""
+      },
+      "matched_framing": false,
+      "data_informed": false,
+      "answer_chars": 0,
+      "llm": {
+        "n_calls": 1,
+        "input_tokens": 2,
+        "output_tokens": 4096,
+        "cache_read_tokens": 32312,
+        "cache_creation_tokens": 98,
+        "latency_ms": 50687,
+        "cost_usd": 0.071507,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 1
+        },
+        "by_model": {
+          "claude-sonnet-5": 1
+        }
+      },
+      "tool_calls": 0,
+      "tool_errors": 0,
+      "tool_error_rate": null,
+      "errored_tools": {}
+    },
+    "_case": "10.1",
+    "_rep": 0
   },
   "11.1": {
     "b": {
@@ -2945,9 +4833,94 @@
     "a": {
       "id": "11.1",
       "sid": "s_eval_11_1",
-      "corpus_reads": 19,
+      "corpus_reads": 14,
+      "quality_score": 1.0,
+      "shared": {
+        "quality_score": 1.0,
+        "n_criteria": 8,
+        "n_passed": 8,
+        "min_bar_pass": true,
+        "stringent_bar_pass": true,
+        "min_criteria": [
+          {
+            "criterion": "M1: names ribosomal vs catabolic proteome fraction (or ribosome_conc) and growth rate as the observables",
+            "passed": true,
+            "rationale": "Uses ribosome_conc and growth_rate as the primary observables and fits one against the other; discusses ribosome content/RNA-to-protein ratio."
+          },
+          {
+            "criterion": "M2: predicts carbon limitation shrinks the ribosomal sector / raises catabolic proteins vs a rich baseline",
+            "passed": true,
+            "rationale": "States acetate lowers ribosome_conc (17.4 vs 20.3) and RNA/protein ratio vs glucose basal, i.e., ribosomal sector shrinks under carbon limitation."
+          },
+          {
+            "criterion": "M3: states a falsifier (allocation unchanged under limitation)",
+            "passed": true,
+            "rationale": "Implicitly contrasts against a 'fixed set point' \u2014 acetate ribosome tracks growth rate 'not a fixed set point' \u2014 articulating the falsifier of unchanged allocation."
+          },
+          {
+            "criterion": "M4: design contrasts carbon-limited vs rich conditions across seeds, in-envelope",
+            "passed": true,
+            "rationale": "Compares acetate (n=13) vs glucose basal (n=20) seeds at matched generation, plus 8-condition fit; explicitly in-envelope/out-of-sample handling."
+          }
+        ],
+        "stringent_criteria": [
+          {
+            "criterion": "S1: states the linear tradeoff (ribosomal fraction falling with limitation) with a rough slope vs growth",
+            "passed": true,
+            "rationale": "Fits ribosome_conc vs growth_rate with significant positive slope (R\u00b2=0.744 all, 0.967 OOS, slope CI excludes 0), citing Scott/Hui growth law."
+          },
+          {
+            "criterion": "S2: specifies a sector-fraction comparison across conditions with CIs",
+            "passed": true,
+            "rationale": "Provides ribosome_conc/RNA-to-protein comparisons across conditions with p-values and slope CI, though true per-sector protein counts were not fetched (acknowledged)."
+          },
+          {
+            "criterion": "S3: the prediction discriminates a reallocation tradeoff from fixed-allocation and uniform-scaling rivals",
+            "passed": true,
+            "rationale": "Explicitly frames ribosomes tracking growth rate rather than a fixed set point, discriminating reallocation from fixed-allocation; growth-law slope rules out uniform scaling."
+          },
+          {
+            "criterion": "S4: collapses conditions onto the growth-rate axis (ribosomal fraction \u221d growth) as the isolating law",
+            "passed": true,
+            "rationale": "Collapses 8 conditions onto the growth-rate axis via ribosome_conc \u221d growth_rate fit, invoking it as the isolating Scott/Hui law."
+          }
+        ],
+        "comment": "Strong, quantitative answer that operationalizes onto native ribosome_conc and growth_rate observables and collapses conditions onto the growth-rate axis. It falls slightly short on true sector-resolved per-species protein counts (acknowledged as unfetched), using ribosome_conc/RNA-to-protein as proxy, but this is sufficient. The ppGpp digression is honest and doesn't undermine the core allocation claims.",
+        "judged": true,
+        "graded_text": "## How the model re-budgets protein synthesis under carbon scarcity\n\nI used **condition/acetate** (a poor carbon source, out-of-sample vs. the corpus's ParCa fit) against **wildtype/basal** (glucose minimal) as the carbon-scarcity contrast, matched at the same generation (gen 0/1, since acetate only ran 1 generation while basal spans several \u2014 a like-for-like read via `compare_at_generation`, n=13 acetate seeds vs n=20 basal seeds).\n\n**1. Growth slows, and the ribosome-making sector shrinks with it.**\nGrowth rate drops **33.4%** on acetate vs. glucose (Welch p<0.001, both matched at generation 0). Fitting `ribosome_conc` against `growth_rate` across 8 conditions (basal, acetate, succinate, with_aa, no_oxygen, minus_Mg, two glucose doses) gives a significant positive slope (R\u00b2=0.744 all-designs, slope CI excludes 0, p=0.0058; R\u00b2=0.967 restricted to the 3 genuinely out-of-sample perturbations \u2014 acetate, succinate, minus_Mg). This is the classic Scott/Hui bacterial growth law: **the cell doesn't just grow slower, it proportionally cuts ribosome content** \u2014 acetate's ribosome concentration (17.4) sits between no_oxygen (13.9, slowest) and glucose-basal (20.3), tracking growth rate, not a fixed set point. The RNA-mass/protein-mass ratio drops in the same direction (acetate \u22480.19 vs. basal \u22480.29), consistent with fewer ribosomes per unit proteome (flagged: this ratio comes from whole-run means at mismatched depths, so treat it as corroborating, not primary).\n\n**2. A genuine model-vs-textbook disagreement: ppGpp goes the WRONG way.**\nNaively, carbon scarcity should raise ppGpp (Cashel/Potrykus stringent-response canon, and directly \u2014 Murray & Bremer 1996, *J Mol Biol* 259:41-57: basal ppGpp is *higher* in slower-growing glucose-minimal medium than in richer glucose+amino-acids medium, and rises further on an acute glucose runout because SpoT's degradation activity falls faster than its synthesis activity). Instead, at matched generation depth, **acetate ppGpp is 26.4% LOWER than glucose-basal** (44.3 vs 60.3, Welch p=0.0001, n=13 vs 20) \u2014 opposite the expected direction \u2014 while RelA protein trends *up* (+122%, whole-run mean, depth-mismatch caveat applies) and the aggregate charged-tRNA fraction barely moves (0.964 vs 0.971, single-seed read each, not a formal replicate comparison). This looks like the model's ppGpp axis in this regime is driven mainly by the RelA/uncharged-tRNA (amino-acid) arm rather than a SpoT-mediated carbon/energy-sensing arm \u2014 a real, reportable disagreement with textbook stringent-response biology, not something to rationalize away.\n\n**3. What re-budgets, mechanistically, in this model's terms:** slower carbon-limited growth \u2192 smaller ribosome pool (fewer ribosomal proteins/rRNA made) \u2192 proportionally less RNA relative to protein \u2014 the standard growth-rate/ribosome-allocation trade-off \u2014 but the ppGpp/RelA regulatory readout that's supposed to *drive* that reallocation moves in the wrong direction for a carbon (vs. amino-acid) limitation, suggesting the model's stringent-response circuitry is better tuned to amino-acid starvation than to carbon/energy starvation.\n\n**What I couldn't verify:** individual-protein-level reallocation (top_movers/per-family charging via `trna_families`) needs local raw simOut, which isn't on disk for condition/acetate (would require pulling ~14 GB from HF \u2014 I did not do this without your approval). If you want the actual ranked list of which specific enzymes go up (e.g., glyoxylate-shunt/acetate-activation genes) and down (ribosomal proteins) under acetate, I can pull that data \u2014 say the word and I'll fetch it.\n\n**Support:** all quantitative claims above are grounded in n=13 (acetate) vs n=20 (basal) seeds at matched generation depth for growth_rate/ppgpp_conc, and n=8 designs (single seed each) for the ribosome/growth-rate law fit \u2014 treat the law's out-of-sample slope CI (which is wide, n=3) as directionally supportive, not tightly bounded.",
+        "judge_model": "claude-opus-4-8"
+      },
+      "matched_framing": false,
       "data_informed": true,
-      "answer_chars": 3704
-    }
+      "answer_chars": 3959,
+      "llm": {
+        "n_calls": 21,
+        "input_tokens": 42,
+        "output_tokens": 15885,
+        "cache_read_tokens": 1117856,
+        "cache_creation_tokens": 95434,
+        "latency_ms": 200617,
+        "cost_usd": 0.931635,
+        "cost_partial": false,
+        "by_role": {
+          "agent": 20,
+          "summary": 1
+        },
+        "by_model": {
+          "claude-sonnet-5": 21
+        }
+      },
+      "tool_calls": 36,
+      "tool_errors": 7,
+      "tool_error_rate": 0.194,
+      "errored_tools": {
+        "top_movers": 1,
+        "compare_at_generation": 4,
+        "exchange_flux": 1,
+        "trna_families": 1
+      }
+    },
+    "_case": "11.1",
+    "_rep": 0
   }
 }
