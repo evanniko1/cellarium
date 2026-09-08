@@ -1,0 +1,1727 @@
+{
+ "floor_aa_per_s": 1.0,
+ "n_read": 286,
+ "counts": {
+  "ok": 271,
+  "translation_collapse": 15
+ },
+ "rows": [
+  {
+   "path": "cellarium/condition_000002/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.327403871404385,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000002/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.61897156073208,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000002/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.617385487413422,
+   "n_steps": 3309,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000003/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.327403871404385,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000003/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.61897156073208,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000003/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.617385487413422,
+   "n_steps": 3309,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000006/000000/generation_000000/000000/simOut",
+   "elongation_mean": 18.308226185104314,
+   "n_steps": 4946,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000006/000001/generation_000000/000000/simOut",
+   "elongation_mean": 18.021978824544444,
+   "n_steps": 4825,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000006/000002/generation_000000/000000/simOut",
+   "elongation_mean": 18.51776882395467,
+   "n_steps": 5812,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.430352650588457,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000001/generation_000000/000000/simOut",
+   "elongation_mean": 15.842466107870235,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.20249801704592,
+   "n_steps": 3309,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000003/generation_000000/000000/simOut",
+   "elongation_mean": 16.544641553773598,
+   "n_steps": 2523,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000004/generation_000000/000000/simOut",
+   "elongation_mean": 16.002327853555325,
+   "n_steps": 3131,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000005/generation_000000/000000/simOut",
+   "elongation_mean": 16.683019705675896,
+   "n_steps": 2984,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000006/generation_000000/000000/simOut",
+   "elongation_mean": 17.47739711972381,
+   "n_steps": 3267,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000011/000007/generation_000000/000000/simOut",
+   "elongation_mean": 18.1481021679709,
+   "n_steps": 2554,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000014/000000/generation_000000/000000/simOut",
+   "elongation_mean": 15.962265677023916,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000014/000001/generation_000000/000000/simOut",
+   "elongation_mean": 17.009392299443498,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000016/000000/generation_000000/000000/simOut",
+   "elongation_mean": 17.83467226101196,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000016/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.972504433130847,
+   "n_steps": 2575,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000017/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.615405978948946,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/condition_000017/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.518402290934944,
+   "n_steps": 2576,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.83154950142642,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000000/generation_000001/000000/simOut",
+   "elongation_mean": 16.24116423360346,
+   "n_steps": 2978,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000000/generation_000002/000000/simOut",
+   "elongation_mean": 15.635204643327334,
+   "n_steps": 2981,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000000/generation_000003/000000/simOut",
+   "elongation_mean": 16.977255869789033,
+   "n_steps": 3092,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.59388245111247,
+   "n_steps": 2575,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000001/generation_000001/000000/simOut",
+   "elongation_mean": 16.004775515295997,
+   "n_steps": 2967,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000001/generation_000002/000000/simOut",
+   "elongation_mean": 16.590853457792473,
+   "n_steps": 3088,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000001/generation_000003/000000/simOut",
+   "elongation_mean": 15.70119080743312,
+   "n_steps": 2916,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000002/generation_000000/000000/simOut",
+   "elongation_mean": 16.625697716165245,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000002/generation_000001/000000/simOut",
+   "elongation_mean": 17.12035077066559,
+   "n_steps": 2965,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000002/generation_000002/000000/simOut",
+   "elongation_mean": 16.93874254106607,
+   "n_steps": 2616,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000002/generation_000003/000000/simOut",
+   "elongation_mean": 15.55647567969482,
+   "n_steps": 2677,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000003/generation_000000/000000/simOut",
+   "elongation_mean": 18.416084538010143,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000003/generation_000001/000000/simOut",
+   "elongation_mean": 16.433116246477148,
+   "n_steps": 2834,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000003/generation_000002/000000/simOut",
+   "elongation_mean": 15.555132043609685,
+   "n_steps": 3089,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000084/000003/generation_000003/000000/simOut",
+   "elongation_mean": 14.355209524493706,
+   "n_steps": 3416,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000397/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.673370759386955,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000397/000001/generation_000000/000000/simOut",
+   "elongation_mean": 17.50231586324101,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000397/000002/generation_000000/000000/simOut",
+   "elongation_mean": 16.667348673281637,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000397/000003/generation_000000/000000/simOut",
+   "elongation_mean": 16.780011525089456,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000397/000004/generation_000000/000000/simOut",
+   "elongation_mean": 17.339011958764782,
+   "n_steps": 3129,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000397/000005/generation_000000/000000/simOut",
+   "elongation_mean": 16.384122558076495,
+   "n_steps": 2983,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000000/generation_000000/000000/simOut",
+   "elongation_mean": 17.088738209426587,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000000/generation_000001/000000/simOut",
+   "elongation_mean": 16.442562391289304,
+   "n_steps": 3056,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000000/generation_000002/000000/simOut",
+   "elongation_mean": 17.133197586969104,
+   "n_steps": 3028,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000000/generation_000003/000000/simOut",
+   "elongation_mean": 15.867436747682552,
+   "n_steps": 2746,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.398985641030468,
+   "n_steps": 2576,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000001/generation_000001/000000/simOut",
+   "elongation_mean": 13.776780171467568,
+   "n_steps": 3119,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000001/generation_000002/000000/simOut",
+   "elongation_mean": 16.576082598806757,
+   "n_steps": 3680,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000001/generation_000003/000000/simOut",
+   "elongation_mean": 15.166305907993376,
+   "n_steps": 3156,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.176038891856994,
+   "n_steps": 3311,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000002/generation_000001/000000/simOut",
+   "elongation_mean": 16.419623598637294,
+   "n_steps": 3129,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000002/generation_000002/000000/simOut",
+   "elongation_mean": 16.220851073088774,
+   "n_steps": 3026,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000002/generation_000003/000000/simOut",
+   "elongation_mean": 15.85962886755752,
+   "n_steps": 2902,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000003/generation_000000/000000/simOut",
+   "elongation_mean": 17.195189563989917,
+   "n_steps": 2523,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000003/generation_000001/000000/simOut",
+   "elongation_mean": 15.561862604706343,
+   "n_steps": 3161,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000003/generation_000002/000000/simOut",
+   "elongation_mean": 15.289877225077298,
+   "n_steps": 3160,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_000425/000003/generation_000003/000000/simOut",
+   "elongation_mean": 14.160473162480528,
+   "n_steps": 3189,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000000/generation_000000/000000/simOut",
+   "elongation_mean": 17.8743181328517,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000000/generation_000001/000000/simOut",
+   "elongation_mean": 17.727708868604328,
+   "n_steps": 2739,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000000/generation_000002/000000/simOut",
+   "elongation_mean": 15.884006901444074,
+   "n_steps": 2449,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000000/generation_000003/000000/simOut",
+   "elongation_mean": 16.48588208966746,
+   "n_steps": 2516,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.84001006509778,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000001/generation_000001/000000/simOut",
+   "elongation_mean": 16.670902758288367,
+   "n_steps": 2817,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000001/generation_000002/000000/simOut",
+   "elongation_mean": 15.787620440924561,
+   "n_steps": 2639,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000001/generation_000003/000000/simOut",
+   "elongation_mean": 15.766399490003739,
+   "n_steps": 2905,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000002/generation_000000/000000/simOut",
+   "elongation_mean": 16.44789966938469,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000002/generation_000001/000000/simOut",
+   "elongation_mean": 14.483270228627724,
+   "n_steps": 3007,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000002/generation_000002/000000/simOut",
+   "elongation_mean": 14.943771514847366,
+   "n_steps": 2882,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000002/generation_000003/000000/simOut",
+   "elongation_mean": 16.10412285969939,
+   "n_steps": 3201,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000003/generation_000000/000000/simOut",
+   "elongation_mean": 17.168178312022302,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000003/generation_000001/000000/simOut",
+   "elongation_mean": 16.069781164417737,
+   "n_steps": 2840,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000003/generation_000002/000000/simOut",
+   "elongation_mean": 16.09237189927858,
+   "n_steps": 2822,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001027/000003/generation_000003/000000/simOut",
+   "elongation_mean": 14.9185393724993,
+   "n_steps": 2861,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001461/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.868229478646903,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000000/generation_000000/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 2530,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000000/generation_000001/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 7437,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000000/generation_000002/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 6999,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000000/generation_000003/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 507,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000001/generation_000000/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 2576,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000001/generation_000001/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 7608,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000001/generation_000002/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 7090,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000002/generation_000000/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 3312,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000002/generation_000001/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 10801,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000002/generation_000002/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 1749,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000002/generation_000003/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 143,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000003/generation_000000/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 2521,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000003/generation_000001/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 7419,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000003/generation_000002/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 7079,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001943/000003/generation_000003/000000/simOut",
+   "elongation_mean": 0.0,
+   "n_steps": 512,
+   "verdict": "translation_collapse"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.42899766534941,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000000/generation_000001/000000/simOut",
+   "elongation_mean": 13.558479409775828,
+   "n_steps": 2768,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000000/generation_000002/000000/simOut",
+   "elongation_mean": 13.433645793155357,
+   "n_steps": 3050,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000000/generation_000003/000000/simOut",
+   "elongation_mean": 12.966657945750594,
+   "n_steps": 3402,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000001/generation_000000/000000/simOut",
+   "elongation_mean": 17.16764001677279,
+   "n_steps": 2577,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000001/generation_000001/000000/simOut",
+   "elongation_mean": 16.01300682355861,
+   "n_steps": 2807,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000001/generation_000002/000000/simOut",
+   "elongation_mean": 15.85028153812132,
+   "n_steps": 2817,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000001/generation_000003/000000/simOut",
+   "elongation_mean": 15.915169461576328,
+   "n_steps": 3369,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000002/generation_000000/000000/simOut",
+   "elongation_mean": 16.858763844767783,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000002/generation_000001/000000/simOut",
+   "elongation_mean": 15.70805282117945,
+   "n_steps": 2841,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000002/generation_000002/000000/simOut",
+   "elongation_mean": 14.010280250997003,
+   "n_steps": 2597,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000002/generation_000003/000000/simOut",
+   "elongation_mean": 14.215038784785644,
+   "n_steps": 2724,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000003/generation_000000/000000/simOut",
+   "elongation_mean": 16.763593239016785,
+   "n_steps": 2520,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000003/generation_000001/000000/simOut",
+   "elongation_mean": 15.07593592746784,
+   "n_steps": 2745,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000003/generation_000002/000000/simOut",
+   "elongation_mean": 14.832022388578837,
+   "n_steps": 2650,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000003/generation_000003/000000/simOut",
+   "elongation_mean": 15.965872155316278,
+   "n_steps": 2974,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000000/000000/simOut",
+   "elongation_mean": 16.54402154789731,
+   "n_steps": 3131,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000001/000000/simOut",
+   "elongation_mean": 14.470214682405343,
+   "n_steps": 2870,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000002/000000/simOut",
+   "elongation_mean": 13.648619505035425,
+   "n_steps": 3109,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000003/000000/simOut",
+   "elongation_mean": 14.02102814506255,
+   "n_steps": 3350,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000004/000000/simOut",
+   "elongation_mean": 15.656037134344409,
+   "n_steps": 3838,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000005/000000/simOut",
+   "elongation_mean": 15.65159529652724,
+   "n_steps": 3789,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000006/000000/simOut",
+   "elongation_mean": 15.42815024461587,
+   "n_steps": 3184,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000004/generation_000007/000000/simOut",
+   "elongation_mean": 15.822473157753977,
+   "n_steps": 2963,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000000/000000/simOut",
+   "elongation_mean": 16.40940820448238,
+   "n_steps": 2984,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000001/000000/simOut",
+   "elongation_mean": 15.306123104711627,
+   "n_steps": 2876,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000002/000000/simOut",
+   "elongation_mean": 16.211220801573262,
+   "n_steps": 3057,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000003/000000/simOut",
+   "elongation_mean": 16.70310279453345,
+   "n_steps": 3161,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000004/000000/simOut",
+   "elongation_mean": 18.199879728259138,
+   "n_steps": 3012,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000005/000000/simOut",
+   "elongation_mean": 17.29722597605884,
+   "n_steps": 2545,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000006/000000/simOut",
+   "elongation_mean": 15.032693599605782,
+   "n_steps": 2551,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000005/generation_000007/000000/simOut",
+   "elongation_mean": 15.846636613852091,
+   "n_steps": 2794,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000000/000000/simOut",
+   "elongation_mean": 16.78082293803493,
+   "n_steps": 3269,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000001/000000/simOut",
+   "elongation_mean": 17.27025748831836,
+   "n_steps": 2818,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000002/000000/simOut",
+   "elongation_mean": 16.68541931972461,
+   "n_steps": 2884,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000003/000000/simOut",
+   "elongation_mean": 15.229131930605034,
+   "n_steps": 2749,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000004/000000/simOut",
+   "elongation_mean": 14.894824358856344,
+   "n_steps": 3022,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000005/000000/simOut",
+   "elongation_mean": 13.949991861615425,
+   "n_steps": 3233,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000006/000000/simOut",
+   "elongation_mean": 13.056957243136054,
+   "n_steps": 3524,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000006/generation_000007/000000/simOut",
+   "elongation_mean": 14.229641185645464,
+   "n_steps": 3760,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000000/000000/simOut",
+   "elongation_mean": 16.271819846133578,
+   "n_steps": 2554,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000001/000000/simOut",
+   "elongation_mean": 17.122894756887696,
+   "n_steps": 2905,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000002/000000/simOut",
+   "elongation_mean": 16.148077098346388,
+   "n_steps": 2718,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000003/000000/simOut",
+   "elongation_mean": 14.463924507568985,
+   "n_steps": 2836,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000004/000000/simOut",
+   "elongation_mean": 16.152339969879804,
+   "n_steps": 3496,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000005/000000/simOut",
+   "elongation_mean": 16.730630162209394,
+   "n_steps": 3468,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000006/000000/simOut",
+   "elongation_mean": 15.848126115325211,
+   "n_steps": 2685,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_001984/000007/generation_000007/000000/simOut",
+   "elongation_mean": 15.655470513587705,
+   "n_steps": 2761,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000000/generation_000000/000000/simOut",
+   "elongation_mean": 17.01905796315772,
+   "n_steps": 2528,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000000/generation_000001/000000/simOut",
+   "elongation_mean": 16.18707567469509,
+   "n_steps": 2847,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000000/generation_000002/000000/simOut",
+   "elongation_mean": 15.16437675809585,
+   "n_steps": 2594,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000000/generation_000003/000000/simOut",
+   "elongation_mean": 15.340953734909299,
+   "n_steps": 3009,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.96118384643345,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000001/generation_000001/000000/simOut",
+   "elongation_mean": 17.85580417819449,
+   "n_steps": 2846,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000001/generation_000002/000000/simOut",
+   "elongation_mean": 17.42796600994397,
+   "n_steps": 3149,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000001/generation_000003/000000/simOut",
+   "elongation_mean": 15.747500239840397,
+   "n_steps": 2661,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000002/generation_000000/000000/simOut",
+   "elongation_mean": 16.031652966940538,
+   "n_steps": 3310,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000002/generation_000001/000000/simOut",
+   "elongation_mean": 14.546545327413051,
+   "n_steps": 2800,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000002/generation_000002/000000/simOut",
+   "elongation_mean": 14.297498612298092,
+   "n_steps": 2839,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000002/generation_000003/000000/simOut",
+   "elongation_mean": 14.799594992171539,
+   "n_steps": 3297,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000003/generation_000000/000000/simOut",
+   "elongation_mean": 16.3446746849108,
+   "n_steps": 2520,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000003/generation_000001/000000/simOut",
+   "elongation_mean": 14.36820059566607,
+   "n_steps": 2805,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000003/generation_000002/000000/simOut",
+   "elongation_mean": 14.86174395280956,
+   "n_steps": 2947,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002657/000003/generation_000003/000000/simOut",
+   "elongation_mean": 16.79873163557986,
+   "n_steps": 3086,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002791/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.57845543537396,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002791/000001/generation_000000/000000/simOut",
+   "elongation_mean": 15.516519526429926,
+   "n_steps": 2575,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002791/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.163342063970106,
+   "n_steps": 3311,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002791/000003/generation_000000/000000/simOut",
+   "elongation_mean": 16.657949340222338,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002791/000004/generation_000000/000000/simOut",
+   "elongation_mean": 15.750853542603695,
+   "n_steps": 3130,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002791/000005/generation_000000/000000/simOut",
+   "elongation_mean": 16.227562093720856,
+   "n_steps": 2984,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000000/generation_000000/000000/simOut",
+   "elongation_mean": 17.1350927213342,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000000/generation_000001/000000/simOut",
+   "elongation_mean": 16.50961316559346,
+   "n_steps": 2823,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000000/generation_000002/000000/simOut",
+   "elongation_mean": 16.728944924474106,
+   "n_steps": 2702,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000000/generation_000003/000000/simOut",
+   "elongation_mean": 16.296719167974402,
+   "n_steps": 2714,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000001/generation_000000/000000/simOut",
+   "elongation_mean": 17.47014360033495,
+   "n_steps": 2575,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000001/generation_000001/000000/simOut",
+   "elongation_mean": 15.089470905307449,
+   "n_steps": 2849,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000001/generation_000002/000000/simOut",
+   "elongation_mean": 16.112619991126255,
+   "n_steps": 3067,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000001/generation_000003/000000/simOut",
+   "elongation_mean": 14.16799047004647,
+   "n_steps": 3268,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.664243683937283,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000002/generation_000001/000000/simOut",
+   "elongation_mean": 16.36923518576441,
+   "n_steps": 2709,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000002/generation_000002/000000/simOut",
+   "elongation_mean": 16.22355806995994,
+   "n_steps": 2506,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000002/generation_000003/000000/simOut",
+   "elongation_mean": 15.46116082547789,
+   "n_steps": 2651,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000003/generation_000000/000000/simOut",
+   "elongation_mean": 16.41461055972065,
+   "n_steps": 2520,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000003/generation_000001/000000/simOut",
+   "elongation_mean": 16.57009748887927,
+   "n_steps": 2838,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000003/generation_000002/000000/simOut",
+   "elongation_mean": 17.077882268133923,
+   "n_steps": 2913,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002829/000003/generation_000003/000000/simOut",
+   "elongation_mean": 17.22854265369954,
+   "n_steps": 2851,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000000/generation_000000/000000/simOut",
+   "elongation_mean": 16.863550043238334,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000000/generation_000001/000000/simOut",
+   "elongation_mean": 17.44358011506686,
+   "n_steps": 2868,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000000/generation_000002/000000/simOut",
+   "elongation_mean": 16.321570179064484,
+   "n_steps": 2670,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000000/generation_000003/000000/simOut",
+   "elongation_mean": 16.14573785643299,
+   "n_steps": 2683,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000001/generation_000000/000000/simOut",
+   "elongation_mean": 17.14823402762146,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000001/generation_000001/000000/simOut",
+   "elongation_mean": 16.570354135564834,
+   "n_steps": 2707,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000001/generation_000002/000000/simOut",
+   "elongation_mean": 14.264075343068692,
+   "n_steps": 2669,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000001/generation_000003/000000/simOut",
+   "elongation_mean": 14.088118113689614,
+   "n_steps": 2968,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000002/generation_000000/000000/simOut",
+   "elongation_mean": 17.667988154174747,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000002/generation_000001/000000/simOut",
+   "elongation_mean": 17.59846420399434,
+   "n_steps": 2793,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000002/generation_000002/000000/simOut",
+   "elongation_mean": 18.085446322333773,
+   "n_steps": 3127,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000002/generation_000003/000000/simOut",
+   "elongation_mean": 16.89948472757411,
+   "n_steps": 2975,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000003/generation_000000/000000/simOut",
+   "elongation_mean": 17.137813110026343,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000003/generation_000001/000000/simOut",
+   "elongation_mean": 17.218406149141213,
+   "n_steps": 2926,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000003/generation_000002/000000/simOut",
+   "elongation_mean": 15.767311902286131,
+   "n_steps": 2987,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/gene_knockout_002840/000003/generation_000003/000000/simOut",
+   "elongation_mean": 15.31864225795916,
+   "n_steps": 3122,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/metabolism_kinetic_objective_weight_000005/000000/generation_000000/000000/simOut",
+   "elongation_mean": 19.13968894950266,
+   "n_steps": 222,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000000/generation_000000/000000/simOut",
+   "elongation_mean": 14.145739080443446,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000000/generation_000001/000000/simOut",
+   "elongation_mean": 10.903572822439138,
+   "n_steps": 2553,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000000/generation_000002/000000/simOut",
+   "elongation_mean": 10.215557540676787,
+   "n_steps": 2877,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000000/generation_000003/000000/simOut",
+   "elongation_mean": 10.255120584069921,
+   "n_steps": 2963,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000001/generation_000000/000000/simOut",
+   "elongation_mean": 13.01206115589121,
+   "n_steps": 2575,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000001/generation_000001/000000/simOut",
+   "elongation_mean": 11.122056867614424,
+   "n_steps": 2582,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000001/generation_000002/000000/simOut",
+   "elongation_mean": 10.553440633740633,
+   "n_steps": 2684,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000001/generation_000003/000000/simOut",
+   "elongation_mean": 10.416432066412035,
+   "n_steps": 3378,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000002/generation_000000/000000/simOut",
+   "elongation_mean": 13.742144781778007,
+   "n_steps": 3310,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000002/generation_000001/000000/simOut",
+   "elongation_mean": 10.388051718146354,
+   "n_steps": 2519,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000002/generation_000002/000000/simOut",
+   "elongation_mean": 9.714789322488796,
+   "n_steps": 3102,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000002/generation_000003/000000/simOut",
+   "elongation_mean": 10.820436963317045,
+   "n_steps": 3274,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000003/generation_000000/000000/simOut",
+   "elongation_mean": 13.021667028728404,
+   "n_steps": 2521,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000003/generation_000001/000000/simOut",
+   "elongation_mean": 11.224877323235582,
+   "n_steps": 2690,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000003/generation_000002/000000/simOut",
+   "elongation_mean": 11.354778034453771,
+   "n_steps": 2994,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000002/000003/generation_000003/000000/simOut",
+   "elongation_mean": 10.811270896840272,
+   "n_steps": 3128,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000000/generation_000000/000000/simOut",
+   "elongation_mean": 15.060487603953131,
+   "n_steps": 2529,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000000/generation_000001/000000/simOut",
+   "elongation_mean": 15.085318865455264,
+   "n_steps": 3045,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000000/generation_000002/000000/simOut",
+   "elongation_mean": 15.030373155398308,
+   "n_steps": 3047,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000000/generation_000003/000000/simOut",
+   "elongation_mean": 14.992879443862803,
+   "n_steps": 3139,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000001/generation_000000/000000/simOut",
+   "elongation_mean": 15.024884931228934,
+   "n_steps": 2575,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000001/generation_000001/000000/simOut",
+   "elongation_mean": 15.007716507584004,
+   "n_steps": 3155,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000001/generation_000002/000000/simOut",
+   "elongation_mean": 14.872957478986374,
+   "n_steps": 3233,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000001/generation_000003/000000/simOut",
+   "elongation_mean": 14.87479613375115,
+   "n_steps": 3238,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000002/generation_000000/000000/simOut",
+   "elongation_mean": 14.987798903075012,
+   "n_steps": 3309,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000002/generation_000001/000000/simOut",
+   "elongation_mean": 14.891577900781364,
+   "n_steps": 3449,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000002/generation_000002/000000/simOut",
+   "elongation_mean": 14.806317416994572,
+   "n_steps": 3805,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000002/generation_000003/000000/simOut",
+   "elongation_mean": 14.695850120615216,
+   "n_steps": 3858,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000003/generation_000000/000000/simOut",
+   "elongation_mean": 15.025268553926345,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000003/generation_000001/000000/simOut",
+   "elongation_mean": 14.964552331433111,
+   "n_steps": 3224,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000003/generation_000002/000000/simOut",
+   "elongation_mean": 14.91711081273527,
+   "n_steps": 3530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/ppgpp_conc_000007/000003/generation_000003/000000/simOut",
+   "elongation_mean": 14.956142308508722,
+   "n_steps": 3474,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000000/generation_000000/000000/simOut",
+   "elongation_mean": 19.16235693363635,
+   "n_steps": 2533,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000000/generation_000001/000000/simOut",
+   "elongation_mean": 18.61531375154819,
+   "n_steps": 2985,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000000/generation_000002/000000/simOut",
+   "elongation_mean": 17.224483534309265,
+   "n_steps": 3072,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000000/generation_000003/000000/simOut",
+   "elongation_mean": 16.222629158046864,
+   "n_steps": 3332,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000001/generation_000000/000000/simOut",
+   "elongation_mean": 19.44895684589451,
+   "n_steps": 2580,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000001/generation_000001/000000/simOut",
+   "elongation_mean": 17.92266638774304,
+   "n_steps": 2892,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000001/generation_000002/000000/simOut",
+   "elongation_mean": 17.20151267574284,
+   "n_steps": 2896,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000001/generation_000003/000000/simOut",
+   "elongation_mean": 16.20925017458638,
+   "n_steps": 3209,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000002/generation_000000/000000/simOut",
+   "elongation_mean": 18.57833935823765,
+   "n_steps": 3313,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000002/generation_000001/000000/simOut",
+   "elongation_mean": 17.328861115393558,
+   "n_steps": 3083,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000002/generation_000002/000000/simOut",
+   "elongation_mean": 16.819921733030572,
+   "n_steps": 3251,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000002/generation_000003/000000/simOut",
+   "elongation_mean": 15.8203589853931,
+   "n_steps": 3372,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000003/generation_000000/000000/simOut",
+   "elongation_mean": 20.014176836927767,
+   "n_steps": 2525,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000003/generation_000001/000000/simOut",
+   "elongation_mean": 18.551765808821017,
+   "n_steps": 2800,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000003/generation_000002/000000/simOut",
+   "elongation_mean": 16.441229647844118,
+   "n_steps": 2860,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000004/000003/generation_000003/000000/simOut",
+   "elongation_mean": 15.191115356784675,
+   "n_steps": 3438,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000000/generation_000000/000000/simOut",
+   "elongation_mean": 22.394492185230973,
+   "n_steps": 2543,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000000/generation_000001/000000/simOut",
+   "elongation_mean": 20.088025087938163,
+   "n_steps": 2778,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000000/generation_000002/000000/simOut",
+   "elongation_mean": 19.286543806914256,
+   "n_steps": 3171,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000000/generation_000003/000000/simOut",
+   "elongation_mean": 18.538271097296267,
+   "n_steps": 3762,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000001/generation_000000/000000/simOut",
+   "elongation_mean": 22.30094485421122,
+   "n_steps": 2586,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000001/generation_000001/000000/simOut",
+   "elongation_mean": 19.62050438842705,
+   "n_steps": 2717,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000001/generation_000002/000000/simOut",
+   "elongation_mean": 19.992200106258277,
+   "n_steps": 3029,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000001/generation_000003/000000/simOut",
+   "elongation_mean": 18.1356639375045,
+   "n_steps": 3748,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000002/generation_000000/000000/simOut",
+   "elongation_mean": 21.940352635976183,
+   "n_steps": 3322,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000002/generation_000001/000000/simOut",
+   "elongation_mean": 19.46397074380659,
+   "n_steps": 2649,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000002/generation_000002/000000/simOut",
+   "elongation_mean": 18.273925634060003,
+   "n_steps": 3491,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000002/generation_000003/000000/simOut",
+   "elongation_mean": 16.444957151963315,
+   "n_steps": 4031,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000003/generation_000000/000000/simOut",
+   "elongation_mean": 22.376403838492692,
+   "n_steps": 2535,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000003/generation_000001/000000/simOut",
+   "elongation_mean": 19.69008128494473,
+   "n_steps": 2715,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000003/generation_000002/000000/simOut",
+   "elongation_mean": 17.608286469270848,
+   "n_steps": 3151,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/rrna_operon_knockout_000006/000003/generation_000003/000000/simOut",
+   "elongation_mean": 16.299763098126476,
+   "n_steps": 4562,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000000/generation_000000/000000/simOut",
+   "elongation_mean": 17.8743181328517,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000000/generation_000001/000000/simOut",
+   "elongation_mean": 17.727708868604328,
+   "n_steps": 2739,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000000/generation_000002/000000/simOut",
+   "elongation_mean": 15.884006901444074,
+   "n_steps": 2449,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000000/generation_000003/000000/simOut",
+   "elongation_mean": 16.48588208966746,
+   "n_steps": 2516,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000001/generation_000000/000000/simOut",
+   "elongation_mean": 16.84001006509778,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000001/generation_000001/000000/simOut",
+   "elongation_mean": 16.670902758288367,
+   "n_steps": 2817,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000001/generation_000002/000000/simOut",
+   "elongation_mean": 15.787620440924561,
+   "n_steps": 2639,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000001/generation_000003/000000/simOut",
+   "elongation_mean": 15.766399490003739,
+   "n_steps": 2905,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000002/generation_000000/000000/simOut",
+   "elongation_mean": 16.44789966938469,
+   "n_steps": 3312,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000002/generation_000001/000000/simOut",
+   "elongation_mean": 14.483270228627724,
+   "n_steps": 3007,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000002/generation_000002/000000/simOut",
+   "elongation_mean": 14.943771514847366,
+   "n_steps": 2882,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000002/generation_000003/000000/simOut",
+   "elongation_mean": 16.10412285969939,
+   "n_steps": 3201,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000003/generation_000000/000000/simOut",
+   "elongation_mean": 17.168178312022302,
+   "n_steps": 2522,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000003/generation_000001/000000/simOut",
+   "elongation_mean": 16.069781164417737,
+   "n_steps": 2840,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000003/generation_000002/000000/simOut",
+   "elongation_mean": 16.09237189927858,
+   "n_steps": 2822,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000003/generation_000003/000000/simOut",
+   "elongation_mean": 14.9185393724993,
+   "n_steps": 2861,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000004/generation_000000/000000/simOut",
+   "elongation_mean": 16.735905154071517,
+   "n_steps": 3128,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000005/generation_000000/000000/simOut",
+   "elongation_mean": 16.628067957769197,
+   "n_steps": 2982,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000006/generation_000000/000000/simOut",
+   "elongation_mean": 17.125642234499995,
+   "n_steps": 3268,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_199333/000007/generation_000000/000000/simOut",
+   "elongation_mean": 16.638048716756426,
+   "n_steps": 2552,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_630057/000000/generation_000000/000000/simOut",
+   "elongation_mean": 19.480547625777316,
+   "n_steps": 2530,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_630057/000000/generation_000001/000000/simOut",
+   "elongation_mean": 21.14260309378587,
+   "n_steps": 2387,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_630057/000000/generation_000002/000000/simOut",
+   "elongation_mean": 21.01220538594718,
+   "n_steps": 1539,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_630057/000000/generation_000003/000000/simOut",
+   "elongation_mean": 20.81376315885074,
+   "n_steps": 1686,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_630057/000001/generation_000000/000000/simOut",
+   "elongation_mean": 18.98339901627428,
+   "n_steps": 2574,
+   "verdict": "ok"
+  },
+  {
+   "path": "cellarium/wildtype_630057/000002/generation_000000/000000/simOut",
+   "elongation_mean": 19.120924858113543,
+   "n_steps": 3312,
+   "verdict": "ok"
+  }
+ ],
+ "note": "QC-VIA-1 step 1. MEASUREMENT ONLY - nothing was relabelled. 286 locally-readable generation dirs re-read for RibosomeData/effectiveElongationRate and re-judged against the 1.0 aa/s floor. 15 fell below it, ALL from gene_knockout_001943 (KO:rpmE, ribosomal protein L31) at exactly 0.0 aa/s across 4 seeds - and all 4 of those manifest rows are ALREADY reportable=False, caught by over_replicated (3) and implausible_channel (1). So zero currently-reportable rows flip. COVERAGE: 103 of the 240 reportable rows have local raw; the other 137 are on HF or gone and remain unknown, which is not evidence of viability."
+}
