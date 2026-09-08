@@ -47,7 +47,7 @@ import os
 PROVIDERS: dict[str, dict] = {
     "anthropic": {"env": "ANTHROPIC_API_KEY", "account": "anthropic-api-key", "label": "Anthropic",
                   "console": "https://console.anthropic.com/settings/keys", "prefix": "sk-ant-"},
-    "openai": {"env": "OPENAI_API_KEY", "account": "openai-api-key", "label": "OpenAI-compatible",
+    "openai": {"env": "OPENAI_API_KEY", "account": "openai-api-key", "label": "OpenAI",
                "console": "https://platform.openai.com/api-keys", "prefix": "sk-"},
 }
 

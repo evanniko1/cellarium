@@ -1367,7 +1367,7 @@ async function refreshSettings() {
   const head = el("div", "set-head");
   head.appendChild(el("span", "set-pill " + (st.configured ? "on" : stored_not_loaded ? "warn" : "off"),
     st.configured ? "Active" : stored_not_loaded ? "Stored — not loaded" : "Not set"));
-  head.appendChild(el("span", "set-title", esc(title)));
+  head.appendChild(el("span", "set-title", esc((st.provider_label || "") + " — " + title)));
   card.appendChild(head);
   if (st.masked) card.appendChild(el("code", "set-mask", esc(st.masked)));
   card.appendChild(el("div", "set-why", esc(why)));
@@ -1381,6 +1381,7 @@ async function refreshSettings() {
   // UNSET on purpose: a default here is the same bug with better odds.
   const provs = (vault && vault.providers) || {};
   const provKeys = Object.keys(provs);
+  b.appendChild(el("div", "set-label", "Provider"));
   const form = el("div", "set-form");
   const pick = el("select", "set-input");
   pick.setAttribute("aria-label", "Which provider is this key for?");
@@ -1389,27 +1390,32 @@ async function refreshSettings() {
     const o = el("option", "", provs[k].label + " (" + provs[k].env_var + ")");
     o.value = k; pick.appendChild(o);
   });
-  form.appendChild(pick);
 
+  const keyLabel = el("div", "set-label", "API key");
   const inp = el("input", "set-input");
   inp.type = "password"; inp.autocomplete = "off"; inp.spellcheck = false;
   inp.setAttribute("data-1p-ignore", "true"); inp.setAttribute("data-lpignore", "true");
   inp.setAttribute("aria-label", "API key");
-  inp.placeholder = "Choose a provider first";
+  inp.placeholder = "";
   inp.disabled = true;
-  form.appendChild(inp);
 
+  form.appendChild(pick);
+  b.appendChild(form);
+  b.appendChild(keyLabel);
+  const keyRow = el("div", "set-form");
+  keyRow.appendChild(inp);
   const save = el("button", "set-btn primary", st.can_persist ? "Save to keychain" : "Use for this session");
   save.disabled = true;
-  form.appendChild(save);
-  b.appendChild(form);
+  keyRow.appendChild(save);
+  b.appendChild(keyRow);
 
   const syncGate = () => {
     const chosen = pick.value;
     inp.disabled = !chosen;
+    keyLabel.textContent = chosen ? "API key for " + provs[chosen].label : "API key";
     inp.placeholder = chosen
-      ? (provs[chosen].configured ? "Paste a new key to replace it" : "Paste the " + provs[chosen].label + " key")
-      : "Choose a provider first";
+      ? (provs[chosen].in_keychain ? "Paste a new key to replace the stored one" : "Paste your key")
+      : "Select a provider above first";
     save.disabled = !chosen || !inp.value.trim();
   };
   pick.onchange = syncGate;

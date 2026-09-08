@@ -34,12 +34,26 @@ sys.path.insert(0, "src")
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 os.environ["CELLARIUM_LLM_PROVIDER"] = "openai"
-os.environ["OPENAI_BASE_URL"] = "http://localhost:11434/v1"
-os.environ.setdefault("OPENAI_API_KEY", "ollama-local-no-key-required")
 
-MODEL = os.environ.get("SMOKE_MODEL", "llama3.1:8b")
+# The endpoint is whatever the environment says. Unset OPENAI_BASE_URL to hit OpenAI itself; set it to a
+# local server (Ollama :11434, vLLM :8000) to run for free. Hardcoding the local URL made this script
+# unable to check the hosted case, which is the one with the stricter schema validation.
+BASE = os.environ.get("OPENAI_BASE_URL") or ""
+if BASE:
+    os.environ["OPENAI_BASE_URL"] = BASE
+    os.environ.setdefault("OPENAI_API_KEY", "local-endpoint-no-key-required")
+else:
+    os.environ.pop("OPENAI_BASE_URL", None)
 
-from cellarium import llm  # noqa: E402
+MODEL = os.environ.get("SMOKE_MODEL") or ("llama3.1:8b" if BASE else "gpt-4o-mini")
+
+from cellarium import credentials, llm  # noqa: E402
+
+# Load the key from the vault rather than requiring it in the environment. The Settings panel is where a
+# user puts it, so a smoke that ignored the vault would demand they export it a second time -- and the
+# obvious workaround (writing it to a temp file to pass along) puts a plaintext secret on disk.
+if not BASE:
+    credentials.load_into_env(provider="openai")
 
 results: dict[str, str] = {}
 
@@ -54,7 +68,7 @@ def check(name, fn):
     print(f"[{name}] {results[name]}", flush=True)
 
 
-print(f"provider={llm.PROVIDER}  base_url={os.environ['OPENAI_BASE_URL']}  model={MODEL}\n", flush=True)
+print(f"provider={llm.PROVIDER}  endpoint={BASE or 'api.openai.com (default)'}  model={MODEL}\n", flush=True)
 client = llm.client(max_retries=2)
 print(f"client: {type(client).__name__}\n", flush=True)
 
@@ -131,6 +145,6 @@ check("4 agent tool loop", agent_loop)
 
 print("\n" + "=" * 70)
 ok = sum(1 for v in results.values() if v.startswith("OK"))
-print(f"SMOKE: {ok}/{len(results)} passed against {MODEL} @ {os.environ['OPENAI_BASE_URL']}")
+print(f"SMOKE: {ok}/{len(results)} passed against {MODEL} @ {BASE or 'api.openai.com'}")
 for k, v in results.items():
     print(f"  {k:24} {v[:150]}")

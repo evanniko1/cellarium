@@ -459,6 +459,9 @@ progress.op-bar::-moz-progress-bar{background:var(--clay); border-radius:99px}
 .drawer-empty{font-size:13px; color:var(--ink-3); line-height:1.55; padding:8px 2px}
 /* ---- Settings drawer: the local credential vault. Tokens only, so it themes with everything else. The field is
    a credential input — no reveal affordance anywhere in here, by design (the server never sends the key back). */
+/* LLM-7e: a field label. The provider select and the key input each need one -- without them the
+   disabled input rendered its placeholder as a second control and the form read as two dropdowns. */
+.set-label{font-size:11.5px; color:var(--ink-2); font-weight:600; margin:8px 0 3px}
 .set-sec{font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); font-weight:700; margin-top:4px}
 .set-card{border:1px solid var(--line); background:var(--card); border-radius:12px; padding:12px 13px; box-shadow:var(--shadow)}
 .set-head{display:flex; align-items:center; gap:8px}

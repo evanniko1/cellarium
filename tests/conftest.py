@@ -180,3 +180,26 @@ def local_rows_present() -> str:
         return ""
     return (f"{n} row(s) here were produced by the local ParCa ({local[:12]}), which is not a kb the "
             "shipped corpus was fitted against. See docs/KB_DIVERGENCE.md.")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_the_persisted_provider(tmp_path_factory, monkeypatch):
+    """Never let this machine's remembered provider choice decide what the suite tests.
+
+    LLM-7e persists the UI's provider selection to data/provider.json, and `llm.PROVIDER` reads it at
+    import. That is right for the app and wrong for the suite: a developer who switched to OpenAI in the
+    panel made `credentials.resolve()` default to openai, and every test that assumed the anthropic
+    default started failing for a reason that had nothing to do with the code under test. Point the file
+    at a scratch path and pin the default, so the suite tests the SHIPPED default rather than a local
+    preference.
+    """
+    try:
+        from cellarium import credentials, llm
+    except Exception:
+        yield
+        return
+    monkeypatch.setattr(llm, "PROVIDER_FILE", tmp_path_factory.mktemp("prov") / "provider.json")
+    monkeypatch.setattr(llm, "PROVIDER", llm.DEFAULT_PROVIDER)
+    credentials._reset_state()
+    yield
+    credentials._reset_state()

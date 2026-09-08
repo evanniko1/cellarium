@@ -435,7 +435,9 @@ def test_a_saved_key_is_found_by_a_BRAND_NEW_process(scratch_service, real_keych
         os.environ.pop("ANTHROPIC_API_KEY", None)
         from cellarium import credentials
         credentials.SERVICE = {scratch_service!r}
-        st = credentials.load_into_env()
+        # Name the provider: LLM-7e made load_into_env default to the PERSISTED choice, so a
+        # developer who switched the panel to OpenAI would otherwise make this read the wrong slot.
+        st = credentials.load_into_env(provider="anthropic")
         # masked only — a test that printed the key would be the leak it is meant to prevent
         print("FOUND" if st["configured"] else "MISSING", st["source"], st["masked"])
     """)
