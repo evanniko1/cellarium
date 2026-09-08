@@ -103,3 +103,7 @@ Closing it means either re-fitting the corpus against the current knowledge base
 mints a new arm — or shipping the fitted `simData.cPickle` alongside the manifest, which the Stanford
 licence does not permit. Neither is a code change, which is why this is a recorded limitation and not
 a bug.
+
+Tracked as `REPRO-1` in the backlog. `REPRO-2` covers the correction this measurement forces on
+`data/claims_audit.json` entry 40, which records the fur half-life shift in the wrong unit and is
+therefore filed as unsupported when the mechanism is real.

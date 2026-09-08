@@ -384,13 +384,17 @@ refusal machinery exists *because* we once published the 0.00 as a result.
 `per_isoacceptor_trna_charging`) and `BACKLOG.md` SCI-TRNA-1 / SCI-TRNA-5.
 
 **4. Some corpus rows are not reproducible from a fresh build, and some are thinner than the manifest suggests.**
-The corpus's cached knowledge base does **not** rebuild bit-identically from the current model image: exactly 1 of
-67 conditions differs (`minus_phosphate`), and a run added to the corpus today would silently use a different fit
-for it. The blast radius is bounded and stated — all four `minus_phosphate` runs are `qc=crashed`, **0 reportable**
-— so no published result rests on it, but *reproducibility of the published dataset depends on closing it*.
-Separately, the aaRS panel lists 4 seeds each for argS/pheS/alaS/lysS/gltX and only seed 0 is on disk, so
-`KO:lysS` is **n=1**. → `BACKLOG.md` WELL-KBDRIFT-1 (open) and
-`BACKLOG.md` SCI-TRNA-2 (open).
+The corpus's cached knowledge base does **not** rebuild from the current model image. This entry previously
+said "exactly 1 of 67 conditions differs (`minus_phosphate`)"; comparing the two builds leaf by leaf shows that
+understated it. 97.2% of the knowledge base is identical, but the remainder is not drift: phnE1 is retyped
+(**4539 → 4538 cistrons**), 311 leaves exist only in the rebuild (the amino-acid dropout media), and
+**amino-acid metabolism is genuinely re-fitted** — 21 of 21 forward kcats move, THR reverse by −52%, MET import
+by −22%. A cistron-index shift also swaps two transcription units' degradation rates, making `fur` mRNA
+half-life 24 s in one build and 91 min in the other. Every published number was computed against the shipped
+knowledge base and is internally consistent, but **a design re-run after a fresh ParCa will not reproduce it**.
+The full measurement, and what it does and does not license, is in
+[docs/KB_DIVERGENCE.md](docs/KB_DIVERGENCE.md). Separately, the aaRS panel lists 4 seeds each for
+argS/pheS/alaS/lysS/gltX and only seed 0 is on disk, so `KO:lysS` is **n=1**.
 
 **5. A `gene_knockout` is an operon knockout.** Under operons-ON — the model's default and the configuration all
 322 corpus rows were built in — `gene_knockout` zeroes one *transcription unit*. Measured: `KO:rpoB` leaves rpoB
