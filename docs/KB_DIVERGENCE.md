@@ -68,13 +68,81 @@ one exception that is not a re-fit at all. Three units **exchange** values:
 | `TU0-1283` | **fur** | 0.0289 /s (t½ 24 s) | 0.000127 /s (t½ 91 min) |
 | `TU0-1281` | uof, **fur** | 0.000127 /s (t½ 91 min) | 0.00261 /s (t½ 4.4 min) |
 
-`tnaC` and the fur-only unit swap rates outright. So **fur mRNA stability differs by 228× between the
-two builds** — a consequence of the cistron removal shifting an index, not of any parameter being
-re-estimated.
+`tnaC` and the fur-only unit swap rates outright — a consequence of the cistron removal shifting an
+index, not of any parameter being re-estimated.
 
-This confirms the mechanism behind `data/claims_audit.json` entry 40 and corrects its magnitude: that
-entry reads "24 to 91 s" and is marked *unsupported*. The measured values are 24 **seconds** and 91
-**minutes**.
+### The sentence this section used to end with was wrong, and it was wrong in the same way the paper is
+
+It read: *"So **fur mRNA stability differs by 228× between the two builds**"*, and offered that as a
+correction to `data/claims_audit.json` entry 40 — whose only fault, it said, was writing minutes as
+seconds. **REPRO-2 re-measured it on 2026-09-08 and the 228× is not a statement about fur.**
+
+`fur` (cistron `EG10359_RNA`) sits in **three** transcription units, and the one carrying the 228× holds
+none of the gene's expression:
+
+| TU | share of fur expression | shipped t½ | rebuild t½ |
+|---|---|---|---|
+| `TU0-1281[c]` | 45.4935% | 91.200 min | 4.427 min |
+| `TU0-1282[c]` | 54.5065% | 2.744 min | 2.700 min |
+| `TU0-1283[c]` | **0.0000%** (5.06e-20) | **0.400 min (24.00 s)** | **91.200 min** |
+
+Weighting each unit by the expression it actually carries, fur's messenger half-life moves
+**4.911 min → 3.282 min**: a **1.50×** change, and a change to a *shorter* half-life, not a longer one.
+So "24 → 91" is wrong in its unit, wrong in its magnitude by two orders of magnitude, and wrong in its
+**sign** — and quoting it as "24 s → 91 min, a 228-fold change" would fix the unit while making the
+other two worse.
+
+Two further facts, both measured rather than reasoned:
+
+* **91.200 min is not a fitted half-life.** It is the estimator's floor — the minimum mRNA *cistron*
+  degradation rate (`G0-10634_RNA`, shoB), 2.81× slower than the next-slowest of 847 — assigned to any
+  TU whose NNLS coefficient returns zero. **245 of 3133** mRNA TUs sit bit-exactly on it in the shipped
+  build and **244** in the rebuild; the half-life distribution runs p90 11.0 min then p95 = p99 = max =
+  91.200. A TU "moving to 91 min" means it fell onto the floor.
+* **`deg_rate` is not what the simulation runs on**, and it takes three fields to say what does.
+  `rna_data['deg_rate']` reaches the running model at exactly one site (`rna_degradation.py:77-79`) and is
+  consumed at exactly one (`:182`), where it feeds the `DiffRelativeFirstOrderDecay` **listener** —
+  a diagnostic, nothing more. `rna_decay.Km_first_order_decay` is a ParCa *intermediate*
+  (`fit_sim_data_1.py:3758`, `Km = capacity/k_deg − conc`) and is likewise never read at run time.
+  What degradation is actually allocated on is **`rna_data['Km_endoRNase']`**
+  (`rna_degradation.py:141-143`). All three track `1/k_deg` and all three carry the same 228× for
+  `TU0-1283[c]` — `deg_rate` 2.888e-02 → 1.267e-04 /s, `Km_first_order_decay` 1.223e-05 → 2.789e-03,
+  `Km_endoRNase` 1.176e-05 → 2.681e-03 mol/L — so the swing is real in the parameters either way.
+
+  **And reading that code is not enough to know which field to edit — it gives the wrong answer.** From the
+  above one would conclude `deg_rate` is inert in a fitted pickle and `Km_endoRNase` is the lever. Both
+  halves are false, because the variant step re-derives Km from `deg_rate` before the simulation starts.
+  Measured across four seeds: an arm setting `Km_first_order_decay` and an arm setting `Km_endoRNase` both
+  came back **bit-identical** to an arm setting `deg_rate` alone (their edits are overwritten), while a
+  round-trip with **nothing** changed came back bit-identical to the byte copy (the re-pickle is innocent).
+  So `deg_rate` is the field to edit, and it took three arms and a null to establish that.
+
+### What the swing costs a cell: measured, and smaller than the noise it makes
+
+A one-parameter experiment, four seeds per arm, one generation: the shipped kb with **only** `deg_rate`
+for `TU0-1283[c]` swapped to the rebuild value, against the shipped kb untouched.
+
+| quantity | ctl | treated | ratio | worst per-seed deviation |
+|---|---|---|---|---|
+| `TU0-1283[c]` — **the perturbed unit** | 0.1219 | **0.0000** | — | consistent in 4/4 seeds |
+| fur message total | 6.050 | 6.409 | 1.065× | 0.26 |
+| Fur protein `PD00365[c]` | 406.2 | 307.8 | 0.865× | 0.45 |
+| instantaneous growth rate | 2.513e-04 | 2.433e-04 | 0.969× | 0.06 |
+| `TU0-1281[c]` — *parameters untouched* | 2.500 | 2.610 | 1.017× | **0.40** |
+| `TU0-1282[c]` — *parameters untouched* | 3.428 | 3.799 | 1.155× | **0.64** |
+
+The last two rows are the yardstick. Their parameters were not touched; they move only because any
+perturbation reseeds the stochastic draws downstream of it. **Every downstream quantity moves less than,
+or about as much as, they do** — so at four seeds and one generation this design resolves no downstream
+consequence at all. What it does resolve is direct and consistent: the perturbed unit's own standing pool
+goes to exactly zero in all four seeds, removing a transcript that was 2.0% of the fur message.
+
+Anyone tempted to read the Fur-protein column as a 13.5% drop should look at the 186% spread across seeds
+*within the control arm alone* (217 to 622 copies). A single seed of this comparison happened to give
+−0.34%, which is how a fluke gets published.
+
+Entry 40 stays **unsupported**. What changes is the reason: not a unit slip in a true finding, but a
+number belonging to a transcription unit the gene does not use.
 
 ## What this means for the five tests
 
