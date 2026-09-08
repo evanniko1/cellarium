@@ -32,7 +32,9 @@ def test_converse_configures_sdk_retry_backoff(monkeypatch):
         captured.update(kwargs)          # we only care about the construction kwargs
         raise _StopBeforeAPICall()        # stop before any real network call
 
-    monkeypatch.setattr(agent.anthropic, "Anthropic", _fake_anthropic)
+    # LLM-7a: patch the seam, not the SDK symbol. These tests reached through `agent.anthropic`,
+    # which coupled them to WHERE the client came from rather than to the behaviour under test.
+    monkeypatch.setattr(agent.llm, "client", _fake_anthropic)
 
     with pytest.raises(_StopBeforeAPICall):
         agent.converse([{"role": "user", "content": "hi"}], model="claude-haiku-4-5-20251001")
@@ -133,7 +135,7 @@ def test_converse_forces_final_synthesis_when_tool_budget_exhausted(monkeypatch)
     """If the agent is still calling tools when max_turns runs out, converse must make ONE final NO-TOOLS call so the
     session ends with a real answer — not a dangling tool_result (the eval Arm A truncation)."""
     client = _Client()
-    monkeypatch.setattr(agent.anthropic, "Anthropic", lambda **kw: client)
+    monkeypatch.setattr(agent.llm, "client", lambda **kw: client)
     monkeypatch.setattr(agent.tools, "dispatch", lambda name, inp: {"ok": True})   # don't run real tools
 
     messages = [{"role": "user", "content": "a hard, broad question"}]
@@ -187,7 +189,7 @@ def test_converse_circuit_breaker_stops_on_repeated_identical_tool_call(monkeypa
         return _Resp()
 
     monkeypatch.setattr(agent, "_run_turn", fake_run_turn)
-    monkeypatch.setattr(agent.anthropic, "Anthropic", lambda **k: object())
+    monkeypatch.setattr(agent.llm, "client", lambda **k: object())
     monkeypatch.setattr(tools, "dispatch", lambda n, a: {"value": 1})     # always succeeds, always identical
     agent.converse([{"role": "user", "content": "hi"}], model="claude-haiku-4-5-20251001", max_turns=30)
     # 3 identical rounds trip the breaker, then ONE forced-synthesis call — far below the 30-turn budget

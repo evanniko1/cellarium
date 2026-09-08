@@ -43,7 +43,7 @@ from sessions import SessionStore
 
 WEB = Path(__file__).resolve().parent / "web"
 
-# ---- credentials, resolved ONCE at boot so every lazy `anthropic.Anthropic()` below just reads the environment.
+# ---- credentials, resolved ONCE at boot so every lazy `llm.client()` below just reads the environment.
 # Precedence: an exported shell variable > a repo-root .env > the OS keychain (the in-app Settings field). The
 # .env step also fixes a real gap: this server never loaded .env, so the README's `cp .env.example .env` only ever
 # worked for the CLI. Wrapped because a missing optional keyring backend must never block server start.
@@ -122,8 +122,8 @@ def _classify(question: str):
     """A tiny Haiku call that sizes the question's reasoning difficulty up front. Returns 'lookup'|'moderate'|
     'hard', or None if unavailable (no key / error) so the caller falls back to the keyword heuristic."""
     try:
-        import anthropic
-        resp = anthropic.Anthropic(max_retries=1).messages.create(
+        from cellarium import llm
+        resp = llm.client(max_retries=1).messages.create(
             model=_HAIKU, max_tokens=8,
             system=("Classify the reasoning difficulty of a question about a whole-cell E. coli simulation into "
                     "exactly one lowercase word: 'lookup' (a fact, list, definition, or browse), 'moderate' (a "

@@ -9,47 +9,17 @@ from __future__ import annotations
 import json
 import os
 
-import anthropic
-
-from . import observability, tools
+from . import llm, observability, tools
 
 MODEL = os.environ.get("CELLARIUM_MODEL", "claude-sonnet-5")
-# Reproducibility (M-2/LLM-3): pin sampling temperature instead of the API default. Anthropic exposes no seed, so
-# temperature is the only reproducibility lever — and it's recorded per run so the sampling variance is named.
-TEMPERATURE = float(os.environ.get("CELLARIUM_TEMPERATURE", "0.0"))
 
-
-# Model families that REJECT an explicit `temperature` outright (HTTP 400, "`temperature` is deprecated for
-# this model"). Kept as a family list rather than exact ids because ids carry dated suffixes.
-#
-# MEASURED 2026-08-05: the default model (claude-sonnet-5) began rejecting `temperature`, and because the old
-# rule omitted it only for names containing "opus", EVERY Cellwright call failed with a 400 before reaching a
-# single tool. Nine of nine protocol questions returned the same 210-character error in under a second. A
-# name-based allow/deny list drifts the moment a family is added, so `_send_temperature` below ALSO treats the
-# 400 as authoritative and retries without it — the list is the fast path, the retry is the guarantee.
-_NO_EXPLICIT_TEMPERATURE = ("opus", "sonnet-5", "fable", "mythos")
-
-
-def temperature_for(model: str | None, *, thinking: bool = False) -> float | None:
-    """The temperature to SEND to the API (None => omit). Pinned to CELLARIUM_TEMPERATURE only for models that
-    accept an explicit temperature with thinking OFF. None for reasoning models, and whenever extended thinking
-    is on (the API forces temperature=1 there, so pinning would error).
-
-    Reproducibility note: for a model that refuses an explicit temperature, sampling is NOT pinned and cannot
-    be. Anything depending on run-to-run identity must say so rather than cite CELLARIUM_TEMPERATURE."""
-    m = (model or "").lower()
-    if thinking or any(fam in m for fam in _NO_EXPLICIT_TEMPERATURE):
-        return None
-    return TEMPERATURE
-
-
-def _temperature_is_rejected(exc: BaseException) -> bool:
-    """Is this the API telling us the model will not accept an explicit temperature?
-
-    Matched on the message rather than the status code alone, so an unrelated 400 (a malformed tool schema, an
-    over-long request) is never silently retried into a second failure with a misleading cause."""
-    s = str(exc).lower()
-    return "temperature" in s and ("deprecat" in s or "not supported" in s or "unsupported" in s)
+# LLM-7a: client construction and sampling policy now live in `llm`, the provider seam. Re-exported here
+# because `temperature_for` is part of this module's public surface -- apps/server.py, robustness.py and
+# tests all reach for `agent.temperature_for`, and moving the definition should not move the name.
+TEMPERATURE = llm.TEMPERATURE
+_NO_EXPLICIT_TEMPERATURE = llm._NO_EXPLICIT_TEMPERATURE
+temperature_for = llm.temperature_for
+_temperature_is_rejected = llm.temperature_is_rejected
 
 SYSTEM = (
     "You are Cellwright, the grounded reasoning agent of Cellarium — a whole-cell E. coli (K-12 MG1655) "
@@ -419,7 +389,7 @@ def _summarize(old_turns: list, model: str) -> str:
                     elif bt == "tool_result":
                         parts.append("[tool result]")
     transcript = "\n".join(parts)[:20000]
-    client = anthropic.Anthropic(max_retries=4)   # LLM-5: same backoff as the main loop + Council (SDK default is 2)
+    client = llm.client(max_retries=4)   # LLM-5: same backoff as the main loop + Council (SDK default is 2)
     resp = client.messages.create(
         model=model, max_tokens=900,
         system=("Summarize this whole-cell reasoning conversation into a compact brief that will REPLACE the raw "
@@ -574,7 +544,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     tools.set_progress((lambda done, total, label: on_note(
         f"Pulling raw simOut from Hugging Face — {done}/{total} archive(s){(' · ' + label) if label else ''}"))
         if on_note is not None else None)
-    client = anthropic.Anthropic(max_retries=4)   # exponential backoff on rate limits / transient 5xx
+    client = llm.client(max_retries=4)   # exponential backoff on rate limits / transient 5xx
     mdl = model or MODEL
     system, tool_defs = _system_blocks(), _cached_tools()
     budget = _REASON.get(reasoning, 0)

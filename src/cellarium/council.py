@@ -659,8 +659,8 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
                 "rationale": "names a runnable manipulation and a measurable observable (deterministic pre-pass)."}
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
+        from . import llm
+        client = llm.client(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     # ONE cheap classification call (not a deliberation) — pin a small fast model; specification-adequacy + scope-only
     # clarifying questions don't need a frontier model. Overridable; tests pass their own `models`.
     model = (models or {}).get("judge") or os.environ.get("CELLARIUM_GATE_MODEL") or "claude-haiku-4-5-20251001"
@@ -714,8 +714,8 @@ def web_research(question: str, *, focus: str | None = None, client=None, model:
     role emits: web_search needs tool_choice=auto, which the forced-tool _emit cannot use. Returns {brief, sources}."""
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
+        from . import llm
+        client = llm.client(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     model = model or os.environ.get("CELLARIUM_LIBRARIAN_MODEL") or _default_models()["proposer"]
     payload = {"question": question,   # capabilities are metadata (what's measurable), never readings — stays blind
                "instrument_capabilities": {"channels": list(labels.get("channels") or {}),
@@ -747,8 +747,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     `adversarial_skeptic` strengthens the critic."""
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
+        from . import llm
+        client = llm.client(max_retries=4)   # LLM-5: match the agent's backoff (SDK default is only 2)
     models = models or _default_models()
     # DD-MTH-2: pin the Council's warm temperature BY CONSTRUCTION when the caller didn't specify one — so the eval
     # A/B (run_ab passes none), tests, and any bare call all reproduce, without routing through Cellwright's 0.0. An

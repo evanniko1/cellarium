@@ -154,8 +154,8 @@ def consistency_panel(claim: str, bundle: dict, *, client=None, models: dict | N
     n_orders = max(1, min(int(n_orders), 3))
     from . import agent
     if client is None:
-        import anthropic
-        client = anthropic.Anthropic(max_retries=4)
+        from . import llm
+        client = llm.client(max_retries=4)
     model = (models or {}).get("judge") or os.environ.get("CELLARIUM_ROBUSTNESS_MODEL") or "claude-sonnet-5"
     variants = _order_variants(bundle, n_orders)
 

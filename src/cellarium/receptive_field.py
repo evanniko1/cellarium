@@ -189,9 +189,8 @@ if __name__ == "__main__":   # live benchmark — needs ANTHROPIC_API_KEY (runs 
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("Set ANTHROPIC_API_KEY to run the live fan-out arm (the deterministic arm needs no key).")
         sys.exit(2)
-    import anthropic
-
-    _client = anthropic.Anthropic(max_retries=4)
+    from . import llm
+    _client = llm.client(max_retries=4)
     _res = benchmark(worker=make_llm_worker(_client))
     print(json.dumps(_res, indent=2, default=str))
     _d, _f, _v = _res["deterministic"], _res["fanout"], _res["verdict"]

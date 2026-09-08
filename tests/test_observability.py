@@ -160,7 +160,7 @@ class _StreamClient:
 def test_converse_on_usage_aggregates_the_turn(monkeypatch):
     """The per-agent-turn aggregate: converse hands on_usage a summary covering every model call it made — the
     tool-loop turns ('agent') plus the forced final synthesis ('summary')."""
-    monkeypatch.setattr(agent.anthropic, "Anthropic", lambda **kw: _StreamClient())
+    monkeypatch.setattr(agent.llm, "client", lambda **kw: _StreamClient())
     monkeypatch.setattr(agent.tools, "dispatch", lambda name, inp: {"ok": True})
     captured = {}
     out = agent.converse([{"role": "user", "content": "q"}], model="claude-haiku-4-5-20251001",

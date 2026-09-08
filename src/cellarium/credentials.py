@@ -1,12 +1,16 @@
 """The local credential vault — the ONE place Cellarium reads or writes the Anthropic API key.
 
-Why this exists. Every entry point (apps/server.py, the CLI, the eval runners) constructs `anthropic.Anthropic()`
+Why this exists. Every entry point (apps/server.py, the CLI, the eval runners) constructs `llm.client()`
 with no explicit api_key, so the SDK reads ANTHROPIC_API_KEY out of the process environment. Historically the only
 way to set it was an exported shell variable or a repo-root .env — correct, but a CLI-shaped wall in front of an
 app whose whole point is that you can clone it and click through the glass box. This module adds an in-app path
 that is *at least as safe as* the .env it replaces: the key goes to the OS keychain (Windows Credential Manager /
-macOS Keychain / Linux Secret Service) via `keyring`, and is injected into os.environ once at boot so all twelve
-existing `anthropic.Anthropic()` call sites keep working untouched.
+macOS Keychain / Linux Secret Service) via `keyring`, and is injected into os.environ once at boot so every
+`llm.client()` call site keeps working untouched.
+
+LLM-7a note: clients are now constructed through the `llm` seam, but the KEY this module stores is still the
+Anthropic one, under a single fixed service/account and the ANTHROPIC_API_KEY environment variable. Making the
+vault provider-aware -- one stored secret per configured provider -- is part of LLM-7b, not of the seam.
 
 The invariants (each one asserted in tests/test_credentials.py):
 
@@ -160,7 +164,7 @@ def status() -> dict:
 
 
 def load_into_env(*, override: bool = False) -> dict:
-    """Boot hook: make the stored key visible to every `anthropic.Anthropic()` in this process.
+    """Boot hook: make the stored key visible to every `llm.client()` in this process.
 
     Precedence is deliberate — an explicit shell export or a .env value WINS over the keychain, because it is the
     more explicit, more local signal (and it is how CI, the eval runners and `docker run -e` all work). Only when
@@ -237,11 +241,11 @@ def probe() -> dict:
     if not key:
         return {"ok": False, "detail": "No key is configured."}
     try:
-        import anthropic
+        from . import llm
     except Exception:
         return {"ok": False, "detail": "The `anthropic` package is not installed."}
     try:
-        anthropic.Anthropic(max_retries=1).messages.count_tokens(
+        llm.client(max_retries=1).messages.count_tokens(
             model="claude-haiku-4-5-20251001", messages=[{"role": "user", "content": "ping"}])
         return {"ok": True, "detail": "Accepted by the Anthropic API."}
     except Exception as exc:
