@@ -196,9 +196,16 @@ Cellarium is not tied to one vendor. Client construction and sampling policy liv
 ```bash
 pip install -e ".[openai]"
 export CELLARIUM_LLM_PROVIDER=openai
-export OPENAI_BASE_URL=http://localhost:8000/v1   # omit for OpenAI itself
-export CELLARIUM_MODEL=<the model your endpoint serves>
+export OPENAI_BASE_URL=http://localhost:11434/v1  # Ollama. vLLM defaults to :8000; omit for OpenAI itself
+export CELLARIUM_MODEL=llama3.1:8b               # whatever your endpoint serves
 ```
+
+`scripts/llm_provider_smoke.py` checks a real endpoint end to end — plain completion, the forced-tool
+emit the Council depends on, a streamed tool call, and the agent loop dispatching a real Cellarium
+tool. Measured against local Ollama: **4/4 for `llama3.1:8b`, `mistral-nemo`, `hermes3:8b` and
+`llama3.2:3b`**. A small model can drive the plumbing and still be wrong about the biology, which is
+the distinction the smoke is designed to keep visible — `mistral-nemo` passed all four while answering
+the science question incorrectly by never calling the tool.
 
 Two honest caveats. Prompt-cache *savings* do not transfer — OpenAI-style endpoints cache automatically
 and report nothing in Anthropic's terms, so the cost meter shows 0 cached tokens rather than guessing. And
