@@ -367,6 +367,15 @@ def main():
              f"comparison:\n    python evals/aggregate_ab.py {LEDGER} --metric quality_score")
 
 
+# Read from the CAPBENCH module rather than restated here -- a pre-registered number written down twice
+# can drift, and the drift would be invisible in exactly the artefact meant to prevent it. None when the
+# module is absent, so this runner keeps working standalone.
+try:
+    from capbench_cases import PREREGISTERED_REPS as _PREREGISTERED_REPS
+except Exception:
+    _PREREGISTERED_REPS = None
+
+
 def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
     """Roll the ledger up into a scorecard: Council min/stringent-bar pass rates + the HARKing contrast."""
     ok_b = [led[c["id"]]["b"] for c in selected if led.get(c["id"], {}).get("b", {}).get("status") == "done"]
@@ -381,6 +390,15 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
 
     summary = {
         "n_cases": len(selected), "arm": args.arm, "elapsed_sec": round(elapsed, 1),
+        # CAPBENCH-3: a result that cannot say how many replicates produced it is unauditable, and that
+        # is the pre-registration loophole in miniature -- run 3, dislike the error bars, run 7 more,
+        # report 10. This sweep is NOT the pre-registered CAPBENCH evaluation and is not bound to its
+        # count, but it must still carry its own n. `preregistered_reps` is recorded alongside so a reader
+        # can see the commitment and the actual side by side rather than having to know one of them.
+        "reps": int(getattr(args, "reps", 1) or 1),
+        "preregistered_reps": _PREREGISTERED_REPS,
+        "meets_preregistered_reps": (int(getattr(args, "reps", 1) or 1) == _PREREGISTERED_REPS
+                                     if _PREREGISTERED_REPS else None),
         "council_model": args.council_model, "grader_model": args.grader_model,
         "arm_b_council": {
             "n_deliberated": len(ok_b), "n_error": len(err_b), "error_ids": err_b,

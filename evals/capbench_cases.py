@@ -107,6 +107,24 @@ R_FIELDS = ("entity", "intervention", "observable", "granularity", "regulatory_d
 #     BACKLOG's corpus-state record puts 101 of 322 rows in that state: they "sit in the table and are shaped
 #     exactly like data". A system that answers from such a row has not over-answered an unanswerable question;
 #     it has answered an answerable one from the wrong rows, which no refusal token describes.
+# CAPBENCH-3 -- the repetition count, pinned in code because a pre-registration that lives only in prose is
+# not one. The manuscript commits to FIVE in two places: section 6 ("each stochastic system is run five
+# times") and Appendix ML ("run five times on the frozen case set, a count fixed before any response is
+# generated"). The number here must equal that, and the TIMING is the actual commitment: five is chosen
+# before any response exists, so the loophole it closes is "run 3, dislike the error bars, run 7 more,
+# report 10".
+#
+# WHY THIS CONSTANT EXISTS AT ALL, rather than a default on a flag. A default can be overridden silently and
+# leaves no trace in the result. Every runner that executes a CAPBENCH arm must read this value AND record
+# the count it actually used, so a reported result always carries its own n and can be checked against the
+# commitment by anyone reading the file. `evals/run_ab.py` now records `reps` in its summary for the same
+# reason -- it is a different experiment and is NOT bound to five, but a sweep whose output cannot say how
+# many replicates produced it is unauditable either way.
+#
+# CHANGING IT IS A PROTOCOL CHANGE, not a config tweak: it may be edited BEFORE any arm has been run against
+# the frozen labels (CAPBENCH-1a), and after that only with the change and its reason recorded in the paper.
+PREREGISTERED_REPS = 5
+
 ACTIONS = ("answer", "qualify", "refuse", "propose", "flag")
 
 # The registry's three `why_not` tokens, verbatim from `capability.check()`. A case governed by the capability
