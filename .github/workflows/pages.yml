@@ -1,0 +1,68 @@
+# DOC-1 (publication half) — deploy the MkDocs site to GitHub Pages.
+#
+# WHY THIS IS MANUAL-ONLY, deliberately. Publishing is a DECISION, not a build step: the site carries the
+# repository owner's username in its URL and in every "edit this page" link, which matters while the paper
+# is under review. So this workflow fires only when a human clicks "Run workflow". Two consequences worth
+# stating rather than discovering:
+#   * Adding this file publishes NOTHING. Until Settings -> Pages -> Source is set to "GitHub Actions",
+#     `deploy-pages` has no target and the run would fail, so nothing is scheduled to run.
+#   * To make publication automatic later, add the three commented lines under `on:` below. Do that only
+#     after Pages is enabled, otherwise every push to main goes red on a deploy with nowhere to deploy to.
+#
+# The build here is deliberately IDENTICAL to the `Docs — build (strict)` step in ci.yml: same --strict,
+# same install. If the two ever diverge, the site that ships stops being the site CI checked.
+
+name: Docs — publish to GitHub Pages
+
+on:
+  workflow_dispatch:
+  # Uncomment once Settings -> Pages -> Source == "GitHub Actions":
+  # push:
+  #   branches: [main]
+  #   paths: ["docs/**", "mkdocs.yml", ".github/workflows/pages.yml"]
+
+permissions:
+  contents: read
+  pages: write            # required by actions/deploy-pages
+  id-token: write         # required by actions/deploy-pages (OIDC, no long-lived token)
+
+# Never let two deploys race; let a newer one supersede a queued older one but never cancel a
+# deploy already in flight, which can leave Pages serving a half-uploaded site.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (docs extra)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      # --strict is the point: a broken internal link or an unlisted page fails the build rather than
+      # shipping a site with a dead link in it. tests/test_docs_site.py covers the case --strict CANNOT
+      # see — a nav entry or in-page link pointing at a file that exists locally and is gitignored.
+      - name: Build (strict)
+        run: mkdocs build --strict --site-dir ./site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

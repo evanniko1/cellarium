@@ -18,7 +18,10 @@ jobs:
       - name: Install (package + dev tools)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,hf,surrogate]"   # surrogate (scikit-learn) is light enough to test in CI, unlike fba/rnaseq
+          pip install -e ".[dev,hf,surrogate,mcp]"   # surrogate (scikit-learn) is light enough to test in CI, unlike fba/rnaseq.
+          # mcp is here so tests/test_mcp_server_wire.py RUNS rather than skipping: it importorskips the SDK, and a
+          # suite where the wiring test always skips reports nothing about the wiring. The policy half
+          # (tests/test_mcp_surface.py) needs no SDK by design and runs either way.
 
       # H-14: secret scanning with gitleaks, replacing the regex that could not tell a protein from a key.
       #

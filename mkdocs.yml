@@ -80,6 +80,7 @@ nav:
       - Running simulations (Docker): DOCKER_SETUP.md
       - Generating the corpus: GENERATE.md
       - Credentials and your API key: CREDENTIALS.md
+      - Connecting your own agent (MCP): MCP_SURFACE.md
 
   - Reading the data:
       - What a 'knockout' means here: KNOCKOUT_SEMANTICS.md

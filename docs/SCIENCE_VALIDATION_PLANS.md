@@ -11,6 +11,13 @@ machinery rather than the output of an optimisation. Write them as "a standard c
 it has not been applied to", and let the method be boring on purpose. Overclaiming novelty here invites the
 one objection any referee in the field will make immediately.
 
+**Revised 2026-09-10 (second pass).** Three things changed and are worth flagging rather than absorbing:
+§1 now names the specific contrasts, measured against what PRECISE-1K actually contains — and that
+measurement **withdrew this document's own first suggestion**, which was to start from the acid-stress pair
+(the model has no pH). §2 answers "why is this necessary" with an argument instead of an appeal to
+interest. §3 records the decision to screen the whole grid with FBA first and simulate only the cells the
+screen makes interesting. §4 is parked by decision.
+
 ---
 
 ## 1. RNA-seq concordance — does the simulated transcriptome look like a real one?
@@ -31,22 +38,76 @@ strain-fidelity filter. `rnaseq_concordance` is exposed as a tool.
 **The simulation side of the same contrast.** The reference is built; nothing has yet run the matched
 condition pair *in the model* and compared the two fold-change vectors.
 
-### The plan
-1. **Pick contrasts the model can actually represent.** Not every PRECISE-1K condition has a model
-   counterpart. Start with one where it clearly does and the biology is unambiguous; the acid-stress pair is
-   already validated on the measurement side, so if the model supports a low-pH condition that is the
-   cheapest first pass. Where it does not, the honest move is to say the contrast is out of scope rather
-   than approximate it.
-2. **Run both arms with enough seeds.** This is a per-gene comparison over thousands of genes, and
-   single-seed noise at low copy numbers is large. Use the project's own coverage rule — never one seed, and
-   report `n` beside the correlation.
-3. **Compute the comparison the way the tool already frames it:** per-gene log2 fold change, sim vs measured,
-   reported as Pearson *and* Spearman *and* a Deming slope (which, unlike ordinary regression, does not
-   assume the x-axis is error-free — both axes here are noisy), plus sign concordance, **always against a
-   null baseline** (shuffle the gene labels and recompute).
-4. **Report the divergent genes, not just the summary statistic.** A correlation of 0.4 with a named set of
-   systematically-wrong genes is a far more useful result than a correlation of 0.4 alone. Each divergent
-   gene is a model-limit hypothesis.
+### Which contrasts actually exist — MEASURED 2026-09-10, and it narrows the plan sharply
+A contrast needs a model condition on one side and same-strain samples on the other, and the intersection
+is much smaller than either list. Measured by crossing the model's 23 media conditions
+(`reconstruction/ecoli/flat/condition/condition_defs.tsv`) against the 420 non-evolved MG1655 samples in
+PRECISE-1K:
+
+| Model condition | PRECISE-1K arm | n measured | Reference arm | Verdict |
+|---|---|---|---|---|
+| `acetate` | `wt_ac` | 3 | `wt_glc` (n=19) | **Experiment 1** |
+| `no_oxygen` | `wt_glc_anaero` | 2 | `wt_glc` (n=19) | **Experiment 2** |
+| `with_aa` | `wt_lb` | 4 | `wt_glc` (n=19) | **Experiment 3** — approximate, see below |
+| `plus_nitrate` | `no3_anaero` | 2 | `wt_glc_anaero` (n=2) | Underpowered on both sides |
+| `glc_2mM` / `glc_5mM` / `glc_20mM` | glucose 2 g/L (≈11 mM) and 4 g/L (≈22 mM) | many | — | No 2 mM or 5 mM arm exists |
+| `plus_arabinose` | arabinose samples are all ALE (evolved) | 6, all evolved | — | Fails the strain-fidelity filter |
+| `succinate`, `fumarate`, `malate`, `plus_indole`, `plus_gallate`, `plus_quercetin`, `plus_tungstate`, `plus_nitrite`, `minus_calcium`, `minus_magnesium`, `minus_phosphate` | — | **0** | — | No reference data at all |
+
+Two findings from that cross change the plan as it was previously written here:
+
+**(a) The acid-stress pair cannot be simulated — and the earlier draft of this section assumed it could.**
+It said the `wt_ph5` contrast was "the cheapest first pass" *if the model supports a low-pH condition*. It
+does not: there is no pH among the 23 conditions, and pH is not a state variable of the model. So the one
+contrast whose measurement side is already DESeq2-validated is the one contrast with no simulation side.
+That is a scope statement, not a failure — but it must be stated, because the validated reference invites
+exactly the mistake of reaching for it first.
+
+**(b) The largest reference set available is one the model cannot use.** Glycerol has **111** MG1655
+samples in PRECISE-1K — the biggest non-glucose block by a wide margin — and there is no glycerol condition
+in the model. Fructose (8), pyruvate (8) and xylose (5) are the same story. If more carbon-source coverage
+is ever wanted, adding glycerol to the model buys more reference data than any other single condition.
+
+### The three experiments, named
+
+**Experiment 1 — acetate versus glucose. Run this one first.**
+*Simulation side:* `condition/acetate` (13 corpus runs) against `wildtype/basal` (46 runs). **Both arms are
+already simulated.** What is missing is not compute but the per-gene read-out: `sim_lfc` needs the all-gene
+mRNA reader, which needs raw `simOut`, and raw is not on local disk for acetate. It **is** on HuggingFace
+and verified present (`runs/cellarium/condition_000005/000000.tar.gz`), so step 0 is a download, not a
+simulation campaign. Both gene maps this join needs are already committed
+(`data/cache/bnumber_map.json`, `data/cache/cistron_map.json`).
+*Measurement side:* `wt_ac` (n=3) versus `wt_glc` (n=19), MG1655-filtered, through the existing DESeq2 path.
+*Why first:* carbon source is a first-class model condition rather than something approximated; the biology
+is unambiguous (gluconeogenesis and the glyoxylate shunt up, glycolysis down); and both sides are the
+best-replicated pair available.
+
+**Experiment 2 — anaerobic versus aerobic growth on glucose.**
+*Simulation side:* `condition/no_oxygen` (8 corpus runs) against `wildtype/basal`. Same download-then-read
+route as Experiment 1.
+*Measurement side:* `wt_glc_anaero` (n=2) versus `wt_glc` (n=19).
+*Why worth doing at n=2:* the aerobic→anaerobic switch is one of the largest coordinated transcriptional
+responses *E. coli* has (the whole FNR/ArcA programme), so the effect size dwarfs the replication weakness.
+Report the n beside the correlation and do not present this as the powered result — it is a high-signal
+confirmation that the model moves the right genes, not a precise estimate of how much.
+
+**Experiment 3 — amino-acid supplementation, scored on a restricted gene set only.**
+*Simulation side:* `condition/with_aa` (12 corpus runs) against `wildtype/basal`.
+*Measurement side:* `wt_lb` (n=4) versus `wt_glc` (n=19).
+*The caveat that determines how it is scored:* **LB is not minimal-plus-amino-acids.** LB supplies peptides,
+nucleosides and vitamins and essentially no glucose, so a transcriptome-wide correlation here measures the
+mismatch between the two media as much as it measures the model. Score it on the gene set where the two
+media genuinely agree — **amino-acid biosynthesis operon repression** — and report it as a directional
+check on a named pathway, never as a whole-transcriptome concordance. If that reads as too weak to be worth
+running, that is a fair reading; it is listed third for exactly that reason.
+
+### How each is computed
+Unchanged from what `sci2.py` already implements, and worth restating because the discipline is the point:
+per-gene log2 fold change, sim versus measured, reported as Pearson **and** Spearman **and** a Deming slope
+(which, unlike ordinary regression, does not assume the x-axis is error-free — both axes here are noisy),
+plus sign concordance, **always against a shuffled-label null**. Then **report the divergent genes, not just
+the summary statistic**: a correlation of 0.4 with a named set of systematically-wrong genes is far more
+useful than a correlation of 0.4 alone, because each divergent gene is a model-limit hypothesis.
 
 ### What would count against the model
 Sign concordance indistinguishable from the shuffled null. That would mean the simulated transcriptome
@@ -70,12 +131,44 @@ pattern in downstream metabolites, and you can infer the actual internal flux ma
 through glycolysis versus the pentose-phosphate pathway, how much through the TCA cycle, how much was
 excreted as acetate. Compare that to what the simulation does internally.
 
-### Why this is a strong test, and why the framing matters
-Constraint-based models have been ¹³C-validated for ~20 years (Schuetz et al. 2007), so **the method is not
-the contribution.** But those models *optimise* toward a flux distribution — you are largely testing whether
-the objective function was well chosen. A whole-cell model's fluxes are not optimised; they fall out of
-simulated enzyme amounts, kinetics and demand. Matching ¹³C data is therefore a much stronger claim, and it
-appears not to have been done for an object of this kind.
+### Why it is necessary — the argument, not the appeal
+You said the experiment is interesting and asked why it is *necessary*. Three reasons, in descending order
+of how much they would survive a referee, plus the honest limit on all three.
+
+**1. It is the only one of the three that tests the model's interior.** RNA-seq tests what the cell
+*intends* — transcript levels, the input side. Essentiality tests what happens to the cell *in the end* —
+live or die, the output side. Neither constrains the metabolic flux map in between, and that gap is not
+small: growth rate is a single number, and a very large family of internal flux distributions produces the
+same one. A model can get transcription approximately right and growth approximately right while routing
+carbon through the wrong pathways, and **nothing in the other two plans would notice**. ¹³C is the
+measurement that pins the interior, and there is no substitute for it.
+
+**2. It answers the specific objection the whole-cell framing invites.** The claim this project makes is
+"mechanism, not fitted curves". For metabolism specifically, that claim is at its weakest: wcEcoli's
+metabolism *is* an FBA problem with an objective, so the sharpest available criticism is "your metabolism
+is a constraint-based model like everyone else's, and the whole-cell part is decoration". The ¹³C test
+speaks to that directly, because the fluxes are constrained by simulated enzyme amounts and simulated
+demand rather than chosen by the objective alone. Passing it substantiates the framing; failing it locates
+exactly where the objective is doing the work that mechanism is being credited for.
+
+**3. It is the only measurement that can adjudicate a parameter this corpus already sweeps and has never
+validated.** The corpus contains **eight levels** of the metabolic kinetic-objective weight —
+`kin_w` ∈ {0, 1e-8, 1e-7 (the model's own default), 1e-6, 1e-5, 1e-4, 0.1, 1} — which is precisely the knob
+controlling how much the metabolic answer is *optimised* versus *kinetically determined*. That default was
+inherited from upstream, not chosen on evidence produced here, and no measurement in this project currently
+discriminates among the eight. ¹³C-resolved fluxes are the natural discriminator: they are internal, they
+are per-reaction, and they respond to exactly the trade-off `kin_w` controls. This turns an inherited
+parameter into a validated one, which is a stronger contribution than the concordance number itself.
+
+**The honest limit: necessary for the scientific claim, not for the submission.** This is the most
+expensive of the three plans — the reaction-identity mapping alone is real work — and a workshop paper does
+not need it. Treat it as necessary for the *claim that the metabolism is mechanistic*, and optional for the
+*deadline*. If it is cut, the correct move is to state plainly that the interior is unvalidated rather than
+to let the other two checks imply it is.
+
+**One thing that is not a reason:** novelty of the method. Constraint-based models have been ¹³C-validated
+for roughly twenty years (Schuetz et al. 2007). What is new is the object, not the technique, and the
+write-up should say so first.
 
 ### Reference data
 **Gerosa et al. 2015** (*Cell Systems* 1:270, PMID 27136056) — ¹³C-resolved fluxes for *E. coli* across
@@ -134,19 +227,51 @@ The narrower, defensible claims are:
 
 Frame it as *"compute what was not assayed, and explain what was."*
 
-### The plan
-1. **Choose the gene × environment grid deliberately.** Amino-acid biosynthesis genes crossed with
+### DECIDED 2026-09-10 — screen the whole grid cheaply, then simulate only what the screen makes interesting
+This is the shape you proposed and it is the right one, for a reason worth writing down: it makes the cost
+argument disappear without weakening the test. The grid is run **twice, at two resolutions**.
+
+**Stage 1 — FBA over the entire gene × environment grid.** Seconds, not days. `fba_essentiality_panel` and
+`fba_gene_knockout` score every cell against iML1515 in each medium. The output is a complete in-silico
+conditional-essentiality map, and it is a deliverable in its own right: scored against Nichols 2011 it is a
+benchmark result, and it is the thing claim (a) — *compute what was not assayed* — actually rests on.
+
+**Stage 2 — whole-cell simulation of the cells the screen makes interesting.** "Interesting" has to be
+defined before the screen is read, not after, or this becomes a search for cells that confirm us. Three
+categories qualify:
+- **Disagreements with Nichols** — FBA says essential where the screen says viable, or the reverse. These
+  are where a mechanistic model can say something a stoichiometric one cannot.
+- **Conditional flips** — a gene FBA calls essential in one medium and dispensable in another. The flip is
+  the phenomenon; the simulation says *how* the cell reroutes.
+- **Cells no screen assayed** — the media the model supports that nobody plated. This is where the
+  extrapolation lives, so a handful should be simulated rather than asserted from FBA alone.
+
+**Why this costs less than it looks: the simulations were owed anyway.** Every Stage-2 run becomes a corpus
+row with the same provenance, QC and arm columns as everything else. The dataset needs to grow regardless,
+and this is a principled selection rule for what to grow it with — better than picking designs by interest,
+which is what has largely happened so far. The validation and the dataset expansion are the same compute.
+
+**The limit that keeps Stage 1 honest.** FBA and the whole-cell model disagree *by construction* in places —
+that is exactly what `metabolic_essentiality` versus `viability` measures — so "FBA says this cell is
+boring" is not evidence the whole-cell model would agree. Stage 1 **selects**; it does not substitute. Say
+so in the write-up, and report the FBA verdict for the unsimulated cells as an FBA verdict, never as a
+result of the model this paper is about.
+
+### The plan, in order
+1. **Fix the grid and the selection rule in writing, before Stage 1 runs.** Which genes, which media, and
+   what makes a cell "interesting". Pre-registered, in the repository, like the A/B reps count.
+2. **Choose the gene × environment core deliberately.** Amino-acid biosynthesis genes crossed with
    minimal / minimal+AA is the clean core, because the mechanism is unambiguous and the expected answer is
    known — which is what makes it a *test* rather than an exploration.
-2. **Establish the benchmark cells first.** Score the pairs Nichols measured, before scoring any that were
+3. **Establish the benchmark cells first.** Score the pairs Nichols measured before scoring any that were
    not. Agreement there is what licenses the unassayed predictions; without it the extrapolation is
    unsupported.
-3. **Use the project's own viability semantics, not a growth threshold invented here.** "Divided" is
+4. **Use the project's own viability semantics, not a growth threshold invented here.** "Divided" is
    chromosome count and nothing else — `KO:rpmE` divided with translation stopped dead. Any essentiality
    call must go through the existing QC verdicts and the elongation floor, or it will repeat exactly the
    error CAPBENCH's seed case exists to catch.
-4. **Report the mechanism per cell**, since that is claim (b): which reactions carry flux in the viable
-   condition and not the lethal one.
+5. **Report the mechanism per simulated cell**, since that is claim (b): which reactions carry flux in the
+   viable condition and not the lethal one.
 
 ### What would count against the model
 A gene whose conditional pattern **inverts** — lethal on rich, viable on minimal, where the measurement says
@@ -154,15 +279,17 @@ the opposite. That is a mechanism error, not a calibration one, and it would be 
 possible outcome.
 
 ### The trap
-**Cost.** This is a grid, and grids multiply: 20 genes × 5 media × 3 seeds is 300 simulations, which at
-roughly 10 minutes a generation is days of compute. Two mitigations, both already in the repo: the
-`viability_surrogate` triages which knockouts are worth simulating from cheap a-priori gene properties, and
-FBA can pre-screen the whole grid in seconds to identify the cells where the answer is *interesting* rather
-than obvious. Simulate the interesting cells; report the rest as FBA-screened.
-
----
+**Cost was the trap; the two-stage design above removes it. What replaces it is selection bias.** A grid
+scored cheaply and then sampled for expensive follow-up is a selection procedure, and a selection made
+after looking at the results is how a screen becomes a search for agreement. The rule that stops it is the
+one in step 1: the definition of "interesting" is written down before Stage 1 is read, and the cells that
+were selected but came out uninteresting are reported alongside the ones that did not.
 
 ## 4. The tRNA charging thread — why there is no plan here
+
+> **Status 2026-09-10 — parked by decision, to be revisited.** The scope question below is still
+> open and is deliberately not being answered yet. Nothing here blocks the other three plans; when it
+> is picked up again, the choice among A / B / C is the first thing to settle, not the last.
 
 You asked for extra thinking on this one rather than a plan, and that is the right instinct, because the
 problem is not "what experiment do we run" but **"what can this model legitimately say?"** Three facts are
