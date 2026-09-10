@@ -99,7 +99,13 @@ def test_a_reindexed_row_does_not_claim_todays_code_image_or_flat_files():
         # `model_sha256` reads the overlay manifest and is known in native mode too, while `image_digest` and
         # `reconstruction_sha` need a container and are honestly None without one. What must never happen is
         # a value appearing on the re-index path above.
-        if runner.WCECOLI_DOCKER:      # the constant the run itself used, not the environment behind it
+        # The constant the run itself used, not the environment behind it -- AND the engine has to be
+        # able to answer, or `image_digest` is honestly None and this asserts a value no probe could
+        # have read. That is what made this test FAIL rather than skip when Docker stopped mid-suite.
+        from conftest import docker_available
+        if runner.WCECOLI_DOCKER and docker_available():
+            pytest.skip(docker_available())
+        if runner.WCECOLI_DOCKER:
             assert ran.get("image_digest"), "a Dockered run must record which image it executed"
         else:
             assert ran.get("image_digest") is None, "no container ran, so no digest may be claimed"

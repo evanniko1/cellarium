@@ -1,0 +1,42 @@
+# gitleaks configuration — H-14.
+#
+# WHY THIS REPLACES A REGEX. The previous scan was `git grep -E 'AKIA[0-9A-Z]{16}|...'`. Proteins are
+# written as strings of uppercase single-letter amino-acid codes, so that pattern matched **40 lines** of
+# `vendor/v301/reconstruction/ecoli/flat/proteins.tsv` — 20-mers, not AWS keys. Because the step exits 1 on
+# any match it blocked ruff and pytest from running at all, and the workaround was to stop scanning
+# `vendor/` and `model_overlay/` entirely. That traded a false alarm for a blind spot.
+#
+# gitleaks decides with the rule's own shape plus Shannon entropy, so a run of amino-acid letters does not
+# look like a credential and those directories can be SCANNED AGAIN rather than skipped.
+
+title = "Cellarium"
+
+[extend]
+useDefault = true          # the maintained upstream ruleset: ~170 providers, entropy-aware
+
+[allowlist]
+description = "Paths that cannot contain a credential, and one that provably does not."
+
+paths = [
+  # Build/tooling output and local simulation data. Not tracked by git; excluded so a filesystem scan does
+  # not spend minutes crawling gigabytes it can never find a secret in.
+  '''^\.venv/''',
+  '''^\.git/''',
+  '''^runs[^/]*/''',
+  '''^out/''',
+  '''^node_modules/''',
+  '''\.parquet$''',
+  '''\.tar\.gz$''',
+  '''\.cPickle$''',
+
+  # The scanner's own configuration and the CI step that runs it both quote example secret PREFIXES so a
+  # reader can see what is matched. Allowlisting them keeps the tool from flagging its own documentation.
+  '''^\.gitleaks\.toml$''',
+]
+
+# NOTE on what is deliberately NOT allowlisted:
+#   * `data/` is scanned. It is the one directory with a KNOWN disclosure problem (the published manifest
+#     carried local absolute host paths in its `note` column), so blinding the scanner to it would be
+#     exactly the wrong trade.
+#   * `vendor/` and `model_overlay/` are scanned. They were excluded from the old regex only because of the
+#     protein false positive, which this tool does not have.

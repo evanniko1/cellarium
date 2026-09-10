@@ -45,6 +45,13 @@ def _docker_or_skip():
     """
     if not runner.WCECOLI_DOCKER:
         pytest.skip("needs the model image (WCECOLI_DOCKER)")
+    # ...and the image being NAMED is not the same as an engine being able to serve it. Both of the
+    # tests below read a flat file THROUGH the container, so a stopped daemon made them RAISE where
+    # their 29 siblings skipped (2026-09-10). `docker_available()` probes the daemon, not the setting.
+    from conftest import docker_available
+    why = docker_available()
+    if why:
+        pytest.skip(why)
 
 
 # ---------------------------------------------------------------------------------------------------------

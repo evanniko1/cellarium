@@ -29,6 +29,7 @@ FOUR PROPERTIES THAT MATTER:
 
 from __future__ import annotations
 
+import functools
 import os
 from pathlib import Path
 
@@ -151,6 +152,60 @@ def kb_diverged() -> str:
     return (f"the kb at runs/cellarium is {local[:12]}, the corpus was fitted against {shipped[:12]} "
             "— a fresh ParCa builds a newer model, so this pin is unmeasurable here. "
             "See docs/KB_DIVERGENCE.md.")
+
+
+def docker_available() -> str:
+    """Reason string when the model container cannot be used, else '' — truthy is 'skip'.
+
+    WHY THE SETTING IS NOT THE CONDITION. `WCECOLI_DOCKER` being set says an image was NAMED; it says nothing
+    about whether a daemon is running to serve it. On 2026-09-10 Docker Desktop crashed mid-suite and the two
+    diverged: 29 container-dependent tests skipped correctly on their own preconditions while three RAISED
+    `RuntimeError: could not read reconstruction/ecoli/flat/rnas.tsv from cellarium-wcm-code:latest`. With the
+    engine restored all 44 tests in those modules pass and none skips, so they were never "inapplicable here" —
+    they were applicable and had no engine.
+
+    That asymmetry is the defect this closes. An unavailable engine is an ordinary state of a dev machine, and
+    a red suite that means "Docker is off" teaches people to read red as noise — which is exactly what happened
+    that day, to me, correctly, and would have happened just the same if one of the three had been a real
+    regression.
+
+    THREE DISTINGUISHABLE CAUSES, each named rather than collapsed into one message, because "cannot use
+    Docker" sends someone hunting in the wrong place: no client binary, no responding daemon, or a daemon that
+    answers but does not hold the image the caller needs.
+
+    Cached: this is consulted by many tests and each probe costs a subprocess. The engine going up or down
+    mid-run is not a case worth paying for on every call.
+    """
+    return _docker_reason()
+
+
+@functools.lru_cache(maxsize=1)
+def _docker_reason() -> str:
+    import shutil
+    import subprocess
+
+    from src.cellarium import runner
+
+    if not runner.WCECOLI_DOCKER:
+        # Guard on the object the runner reads, not os.environ: `runner.WCECOLI_DOCKER` is captured at import
+        # time, so a later `load_dotenv()` elsewhere in the suite would make a guard and the guarded call
+        # disagree. That exact drift is documented in tests/test_parca_rebuild.py::_docker_or_skip.
+        return "no model image configured (WCECOLI_DOCKER is unset)"
+    if not shutil.which("docker"):
+        return "the docker client is not on PATH"
+    try:
+        p = subprocess.run(["docker", "version", "--format", "{{.Server.Version}}"],
+                           capture_output=True, text=True, timeout=25)
+    except Exception as e:                                    # noqa: BLE001
+        return f"the docker client did not respond ({type(e).__name__}) — is the engine running?"
+    if p.returncode != 0:
+        return ("the docker daemon is not responding — the client is installed but the engine is down "
+                f"({(p.stderr or p.stdout or '').strip()[:120]})")
+    img = runner.WCECOLI_DOCKER
+    q = subprocess.run(["docker", "image", "inspect", img], capture_output=True, text=True)
+    if q.returncode != 0:
+        return f"the engine is up but the image {img!r} is not present on this machine"
+    return ""
 
 
 def local_rows_present() -> str:

@@ -20,35 +20,44 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,hf,surrogate]"   # surrogate (scikit-learn) is light enough to test in CI, unlike fba/rnaseq
 
-      # H-4: fail fast on a committed secret (high-signal, known-prefix patterns — Anthropic / AWS / GitHub / Slack
-      # tokens + private keys). Dependency-free; gitleaks can be layered on later for entropy-based coverage.
+      # H-14: secret scanning with gitleaks, replacing the regex that could not tell a protein from a key.
       #
-      # SCOPE — two directories are excluded, and one conspicuously is not:
-      #   vendor/, model_overlay/  EXCLUDED. Both are upstream wcEcoli source, not ours to hold secrets. They
-      #     produced 40 false positives, all in vendor/v301/reconstruction/ecoli/flat/proteins.tsv, where
-      #     AKIA[0-9A-Z]{16} matches amino-acid single-letter sequences (e.g. the 20-mer AKIA<AILEEPPRMGNSDLGV>,
-      #     written split here because an intact one in this file trips the scanner — a protein, not an AWS
-      #     key). Because the step exits 1 on ANY match, this blocked ruff and pytest from ever
-      #     running. model_overlay/ is excluded on the same upstream-source grounds AND is independently
-      #     covered: every file's sha256 is pinned in model_overlay/MANIFEST.json, so any change there is
-      #     caught by the overlay guard (docs/OVERLAY.md:83,113-114) rather than by this regex.
-      #   data/  DELIBERATELY NOT EXCLUDED. This is the one directory with a KNOWN disclosure problem: the
-      #     manifest published to HuggingFace carries local absolute paths in its `note` column (14 rows with
-      #     the <repo>\runs host path, 12 with /wcEcoli/out). Blinding the scanner to the
-      #     only directory that has actually leaked would be exactly the wrong trade — see BACKLOG H-15.
+      # WHAT WAS WRONG. The old step was `git grep -E 'AKIA[0-9A-Z]{16}|...'`. Proteins are written as runs of
+      # uppercase single-letter amino-acid codes, so that pattern matched 40 lines of
+      # vendor/v301/reconstruction/ecoli/flat/proteins.tsv — 20-mers, not AWS keys. Because the step exits 1
+      # on any match it once blocked ruff and pytest from running at all; the workaround was to stop scanning
+      # vendor/ and model_overlay/ entirely, which traded a false alarm for a blind spot.
       #
-      # The regex itself is the wrong long-term instrument over TSV biological data (gitleaks, entropy- and
-      # file-type-aware, would not fire on a protein sequence) — BACKLOG H-14.
+      # WHY THIS IS BETTER, MEASURED 2026-09-10 on the tracked tree (499 files, 28 MB, 3.5 s):
+      #   * 0 findings — on the SAME proteins.tsv where the old regex still fires 40 times. gitleaks decides
+      #     with each rule's own shape plus Shannon entropy, so amino-acid letters do not look like a secret.
+      #   * vendor/ and model_overlay/ are therefore SCANNED AGAIN rather than excluded.
+      #   * detection verified by planting three non-example credentials (a random AKIA + secret, and a
+      #     ghp_ token): 2 leaks found. Note that AWS's *documented example* key is allowlisted upstream by
+      #     design, so a planted AKIAIOSFODNN7EXAMPLE proves nothing — the check has to use random values.
       #
-      # This is a SCOPING change, not a weakening: the pattern set is untouched, and a planted key in any
-      # non-excluded path (data/ included) still fails the build.
-      - name: Secret scan
+      # Scans the TRACKED tree via `git archive`, so untracked local state (.venv, runs*/, out/) is out of
+      # scope by construction rather than by an exclude list that could drift.
+      - name: Secret scan — gitleaks
         run: |
-          if git grep -nIE 'sk-ant-[A-Za-z0-9_-]{24,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[baprs]-[0-9A-Za-z-]{10,}' -- . ':(exclude)vendor/' ':(exclude)model_overlay/'; then
-            echo "::error::A potential secret was found in tracked files — remove it from git history and rotate the key."
+          set -euo pipefail
+          VER=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz"             | tar -xz -C /tmp gitleaks
+          mkdir -p /tmp/scan && git archive HEAD | tar -x -C /tmp/scan
+          cp .gitleaks.toml /tmp/scan/
+          if ! /tmp/gitleaks detect --source=/tmp/scan --no-git --config=/tmp/scan/.gitleaks.toml                  --redact --no-banner --report-format=sarif --report-path=/tmp/gitleaks.sarif; then
+            echo "::error::gitleaks found a potential secret in tracked files — remove it from git history and rotate the credential."
             exit 1
           fi
-          echo "No high-signal secrets in tracked files (vendor/ and model_overlay/ excluded as upstream source; data/ IS scanned)."
+          echo "gitleaks ${VER}: no secrets in tracked files (vendor/ and model_overlay/ INCLUDED; see .gitleaks.toml)."
+
+      - name: Upload gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-sarif
+          path: /tmp/gitleaks.sarif
+          if-no-files-found: ignore
 
       - name: Lint — ruff
         run: ruff check .
