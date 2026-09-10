@@ -1,0 +1,2594 @@
+{
+ "model": "claude-sonnet-5",
+ "max_turns": 8,
+ "registry_size": 72,
+ "n_cases": 27,
+ "selected": 20,
+ "selected_but_errored": 2,
+ "near_miss": 1,
+ "not_selected": 6,
+ "not_selected_tools": [
+  "screen_phenotype",
+  "design_panel",
+  "propose_rebuild",
+  "run_experiment",
+  "vet_hypothesis",
+  "revise_experiment"
+ ],
+ "near_miss_tools": {
+  "read_species": [
+   "raw_available",
+   "data_availability",
+   "list_results"
+  ]
+ },
+ "tools_called_here": {
+  "list_results": 29,
+  "mechanistic_scope": 24,
+  "viability": 13,
+  "rnaseq_concordance": 7,
+  "design_space": 7,
+  "raw_available": 6,
+  "list_species": 4,
+  "screen_design": 4,
+  "survey_corpus": 3,
+  "trna_families": 3,
+  "selective_charging": 3,
+  "estimate_sim_resources": 3,
+  "system_resources": 3,
+  "data_availability": 2,
+  "download_raw": 2,
+  "chart": 2,
+  "differential": 2,
+  "fba_qc": 2,
+  "fba_gene_deletion": 2,
+  "fba_synthetic_lethal": 2,
+  "check_feasibility": 2,
+  "generate_designs": 2,
+  "corpus_audit": 2,
+  "prune_candidates": 2,
+  "provenance": 1,
+  "shift_response": 1,
+  "scan_series": 1,
+  "read_series": 1,
+  "serialization_check": 1,
+  "experiment_integrity": 1,
+  "similar_designs": 1,
+  "viability_surrogate": 1,
+  "metabolic_essentiality": 1,
+  "operon_mode_advice": 1,
+  "fba_gene_knockout": 1,
+  "fba_essentiality_panel": 1,
+  "model_validation": 1,
+  "fba_sensitivity": 1,
+  "propose_experiment": 1,
+  "lethality_landscape": 1,
+  "propose_experiments": 1,
+  "comparable_designs": 1,
+  "reroute_diagnosis": 1
+ },
+ "newly_reached": [
+  "corpus_audit",
+  "estimate_sim_resources",
+  "fba_essentiality_panel",
+  "fba_gene_deletion",
+  "fba_gene_knockout",
+  "fba_qc",
+  "fba_sensitivity",
+  "fba_synthetic_lethal",
+  "generate_designs",
+  "propose_experiment",
+  "propose_experiments",
+  "prune_candidates",
+  "rnaseq_concordance",
+  "scan_series",
+  "screen_design",
+  "selective_charging",
+  "serialization_check",
+  "similar_designs",
+  "system_resources",
+  "viability_surrogate"
+ ],
+ "still_never_selected": [
+  "design_panel",
+  "propose_rebuild",
+  "read_species",
+  "revise_experiment",
+  "run_experiment",
+  "screen_phenotype",
+  "vet_hypothesis"
+ ],
+ "spend_usd": 3.5498,
+ "rows": [
+  {
+   "id": "P-A1",
+   "family": "reachable",
+   "expect": "read_species",
+   "question": "I want the actual time course of a single molecule in one run \u2014 GapA protein copy number, every timestep, for one wild-type seed. Not a summary or a mean: the trajectory itself. Can you get it?",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": true,
+   "near_miss_tools": [
+    "raw_available",
+    "data_availability",
+    "list_results"
+   ],
+   "n_tool_calls": 8,
+   "tools_called": [
+    "raw_available",
+    "list_species",
+    "list_results",
+    "list_results",
+    "list_species",
+    "data_availability",
+    "list_species",
+    "list_species"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "wildtype/basal"
+     }
+    },
+    {
+     "order": 1,
+     "name": "list_species",
+     "errored": true,
+     "error": "full simOut not available locally for this trajectory (see DECISIONS D1 \u2014 HF sharing).",
+     "args": {
+      "result_id": "wildtype/basal",
+      "kind": "protein",
+      "search": "gapA"
+     }
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "contains": "wildtype/basal"
+     }
+    },
+    {
+     "order": 3,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "wildtype"
+     }
+    },
+    {
+     "order": 4,
+     "name": "list_species",
+     "errored": true,
+     "error": "reader worker produced no JSON",
+     "args": {
+      "result_id": "wildtype_0_bf2f3e3b",
+      "kind": "protein",
+      "search": "gapA"
+     }
+    },
+    {
+     "order": 5,
+     "name": "data_availability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "result_id": "wildtype_0_bf2f3e3b"
+     }
+    },
+    {
+     "order": 6,
+     "name": "list_species",
+     "errored": true,
+     "error": "full simOut not available locally for this trajectory (see DECISIONS D1 \u2014 HF sharing).",
+     "args": {
+      "result_id": "wildtype/basal",
+      "kind": "protein",
+      "search": "gapA"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_species",
+     "errored": true,
+     "error": "reader worker produced no JSON",
+     "args": {
+      "result_id": "wildtype_1_20064096",
+      "kind": "protein",
+      "search": "gapA"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2378,
+   "llm": {
+    "n_calls": 9,
+    "input_tokens": 18,
+    "output_tokens": 2447,
+    "cache_read_tokens": 277601,
+    "cache_creation_tokens": 44724,
+    "latency_ms": 41886,
+    "cost_usd": 0.287754,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 8,
+     "summary": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 9
+    }
+   },
+   "elapsed_s": 55.8
+  },
+  {
+   "id": "P-A2",
+   "family": "reachable",
+   "expect": "rnaseq_concordance",
+   "question": "How well does this model's simulated transcriptome actually agree with real measured E. coli RNA-seq? I want the per-gene fold-change agreement for a matched condition contrast, against a null baseline \u2014 not a hand-wave that it 'looks reasonable'.",
+   "selected": true,
+   "selected_but_errored": true,
+   "expect_error": "contrast wt_glc_aerobic_exponential vs anaerobic (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 9,
+   "tools_called": [
+    "list_results",
+    "rnaseq_concordance",
+    "provenance",
+    "rnaseq_concordance",
+    "rnaseq_concordance",
+    "rnaseq_concordance",
+    "rnaseq_concordance",
+    "rnaseq_concordance",
+    "rnaseq_concordance"
+   ],
+   "first_call_index": 1,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "condition"
+     }
+    },
+    {
+     "order": 1,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "contrast wt_glc_aerobic_exponential vs anaerobic (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+     "args": {
+      "design": "condition/no_oxygen",
+      "contrast": "{'column': 'condition', 'cond_B': 'anaerobic', 'cond_A': 'wt"
+     }
+    },
+    {
+     "order": 2,
+     "name": "provenance",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "condition",
+      "condition": "no_oxygen"
+     }
+    },
+    {
+     "order": 3,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "rnaseq_concordance failed: KeyError: 'carbon_source'",
+     "args": {
+      "design": "condition/acetate",
+      "contrast": "{'column': 'carbon_source', 'cond_B': 'acetate', 'cond_A': '"
+     }
+    },
+    {
+     "order": 4,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "contrast aerobic vs anaerobic (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+     "args": {
+      "design": "condition/no_oxygen",
+      "contrast": "{'column': 'condition', 'cond_B': 'anaerobic', 'cond_A': 'ae"
+     }
+    },
+    {
+     "order": 5,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "contrast wt_glc_aerobic_exponential vs wt_glc_anaerobic_exponential (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+     "args": {
+      "design": "condition/no_oxygen",
+      "contrast": "{'column': 'condition', 'cond_B': 'wt_glc_anaerobic_exponent"
+     }
+    },
+    {
+     "order": 6,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "contrast wt_glc_aerobic_exponential vs wt_lb_aerobic_exponential (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+     "args": {
+      "design": "condition/with_aa",
+      "contrast": "{'column': 'condition', 'cond_B': 'wt_lb_aerobic_exponential"
+     }
+    },
+    {
+     "order": 7,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "contrast wt_glc_aerobic_exponential vs acetate_exponential (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+     "args": {
+      "design": "condition/acetate",
+      "contrast": "{'column': 'condition', 'cond_B': 'acetate_exponential', 'co"
+     }
+    },
+    {
+     "order": 8,
+     "name": "rnaseq_concordance",
+     "errored": true,
+     "error": "contrast wt_glc_aerobic_exponential vs mg_starvation (strain MG1655) has <4 replicates in PRECISE-1K \u2014 underpowered.",
+     "args": {
+      "design": "condition/minus_magnesium",
+      "contrast": "{'column': 'condition', 'cond_B': 'mg_starvation', 'cond_A':"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 4933,
+   "llm": {
+    "n_calls": 6,
+    "input_tokens": 12,
+    "output_tokens": 6366,
+    "cache_read_tokens": 206036,
+    "cache_creation_tokens": 12699,
+    "latency_ms": 71219,
+    "cost_usd": 0.204958,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5,
+     "summary": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 6
+    }
+   },
+   "elapsed_s": 109.5
+  },
+  {
+   "id": "P-A3",
+   "family": "reachable",
+   "expect": "scan_series",
+   "question": "After a nutrient downshift, is there a short ppGpp transient that a coarse sixteen-point view of the trajectory would flatten out and hide? I need every timestep scanned for spikes and level shifts, with the false-discovery rate controlled.",
+   "selected": true,
+   "selected_but_errored": true,
+   "expect_error": "no local raw simOut for 'timeline_0_76701071' \u2014 see data_availability for the HF/regenerate path.",
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 9,
+   "tools_called": [
+    "list_results",
+    "list_results",
+    "shift_response",
+    "scan_series",
+    "read_series",
+    "raw_available",
+    "data_availability",
+    "download_raw",
+    "download_raw"
+   ],
+   "first_call_index": 3,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "contains": "minimal"
+     }
+    },
+    {
+     "order": 1,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline"
+     }
+    },
+    {
+     "order": 2,
+     "name": "shift_response",
+     "errored": true,
+     "error": "no local raw simOut for 'timeline/0 minimal_plus_amino_acids, 1200 minimal' \u2014 the transient needs full-resolution series",
+     "args": {
+      "design": "timeline/0 minimal_plus_amino_acids, 1200 minimal",
+      "channel": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 3,
+     "name": "scan_series",
+     "errored": true,
+     "error": "no local raw simOut for 'timeline_0_76701071' \u2014 see data_availability for the HF/regenerate path.",
+     "args": {
+      "result_id": "timeline_0_76701071",
+      "channel": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 4,
+     "name": "read_series",
+     "errored": false,
+     "error": null,
+     "args": {
+      "result_id": "timeline_0_76701071",
+      "channel": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 5,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "timeline/0 minimal_plus_amino_acids, 1200 minimal"
+     }
+    },
+    {
+     "order": 6,
+     "name": "data_availability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "result_id": "timeline_0_76701071"
+     }
+    },
+    {
+     "order": 7,
+     "name": "download_raw",
+     "errored": true,
+     "error": "no runs match 'timeline/0 minimal_plus_amino_acids, 1200 minimal'.",
+     "args": {
+      "design": "timeline/0 minimal_plus_amino_acids, 1200 minimal",
+      "confirm": "False"
+     }
+    },
+    {
+     "order": 8,
+     "name": "download_raw",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "timeline/shift:down:minimal_plus_amino_acids->minimal",
+      "confirm": "False"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 189,
+   "llm": {
+    "n_calls": 8,
+    "input_tokens": 16,
+    "output_tokens": 1141,
+    "cache_read_tokens": 290425,
+    "cache_creation_tokens": 7157,
+    "latency_ms": 19195,
+    "cost_usd": 0.131129,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 8
+    },
+    "by_model": {
+     "claude-sonnet-5": 8
+    }
+   },
+   "elapsed_s": 23.6
+  },
+  {
+   "id": "P-A4",
+   "family": "reachable",
+   "expect": "screen_phenotype",
+   "question": "Set aside what the designs were meant to do \u2014 do any of their simulated proteomes actually come out up-regulating antimicrobial-resistance efflux relative to wild type? I want the phenotype screened, not the stated intent.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 9,
+   "tools_called": [
+    "survey_corpus",
+    "list_results",
+    "design_space",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "survey_corpus",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 2,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 3,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "condition"
+     }
+    },
+    {
+     "order": 4,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 5,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 6,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "rrna_operon_knockout"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "graded_gene_knockout"
+     }
+    },
+    {
+     "order": 8,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 0,
+   "llm": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 7635,
+    "cache_read_tokens": 181965,
+    "cache_creation_tokens": 25390,
+    "latency_ms": 89780,
+    "cost_usd": 0.264357,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-sonnet-5": 5
+    }
+   },
+   "elapsed_s": 92.0
+  },
+  {
+   "id": "P-A5",
+   "family": "reachable",
+   "expect": "selective_charging",
+   "question": "In the argS knockout, which tRNA families lose charged fraction the most \u2014 and is that drop bigger than what two wild-type lineages already show against each other?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": "no local raw simOut for 'gene_knockout/KO:argS' \u2014 this needs the run directory on this machine",
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 13,
+   "tools_called": [
+    "list_results",
+    "mechanistic_scope",
+    "trna_families",
+    "selective_charging",
+    "raw_available",
+    "raw_available",
+    "raw_available",
+    "raw_available",
+    "trna_families",
+    "selective_charging",
+    "trna_families",
+    "selective_charging",
+    "chart"
+   ],
+   "first_call_index": 3,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "argS"
+     }
+    },
+    {
+     "order": 1,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "argS"
+     }
+    },
+    {
+     "order": 2,
+     "name": "trna_families",
+     "errored": true,
+     "error": "no local raw simOut for 'gene_knockout/KO:argS' \u2014 this needs the run directory on this machine",
+     "args": {
+      "design": "gene_knockout/KO:argS"
+     }
+    },
+    {
+     "order": 3,
+     "name": "selective_charging",
+     "errored": true,
+     "error": "no local raw simOut for 'gene_knockout/KO:argS' \u2014 this needs the run directory on this machine",
+     "args": {
+      "design": "gene_knockout/KO:argS"
+     }
+    },
+    {
+     "order": 4,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "gene_knockout/KO:argS"
+     }
+    },
+    {
+     "order": 5,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "graded_gene_knockout/KO:argS#expr:0.25"
+     }
+    },
+    {
+     "order": 6,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "graded_gene_knockout/KO:argS#expr:0.5"
+     }
+    },
+    {
+     "order": 7,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "wildtype/basal"
+     }
+    },
+    {
+     "order": 8,
+     "name": "trna_families",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "graded_gene_knockout/KO:argS#expr:0.25"
+     }
+    },
+    {
+     "order": 9,
+     "name": "selective_charging",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "graded_gene_knockout/KO:argS#expr:0.25",
+      "reference": "wildtype/basal"
+     }
+    },
+    {
+     "order": 10,
+     "name": "trna_families",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "graded_gene_knockout/KO:argS#expr:0.5"
+     }
+    },
+    {
+     "order": 11,
+     "name": "selective_charging",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "graded_gene_knockout/KO:argS#expr:0.5",
+      "reference": "wildtype/basal"
+     }
+    },
+    {
+     "order": 12,
+     "name": "chart",
+     "errored": false,
+     "error": null,
+     "args": {
+      "kind": "bar",
+      "channel": "fraction_trna_charged",
+      "results": "['wildtype/basal', 'graded_gene_knockout/KO:argS#expr:0.5', ",
+      "title": "Arg-tRNA charged fraction under argS knockdown",
+      "rationale": "The aggregate fraction_trna_charged (single mean) barely mov"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 4531,
+   "llm": {
+    "n_calls": 6,
+    "input_tokens": 12,
+    "output_tokens": 6327,
+    "cache_read_tokens": 222580,
+    "cache_creation_tokens": 15848,
+    "latency_ms": 77871,
+    "cost_usd": 0.221145,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 6
+    },
+    "by_model": {
+     "claude-sonnet-5": 6
+    }
+   },
+   "elapsed_s": 121.7
+  },
+  {
+   "id": "P-A6",
+   "family": "reachable",
+   "expect": "serialization_check",
+   "question": "Before I quote anything from the stored simulation output: is there a risk some of it was silently truncated when it was written to disk? I am worried about values that were cut short with no error raised.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 2,
+   "tools_called": [
+    "serialization_check",
+    "experiment_integrity"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "serialization_check",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "experiment_integrity",
+     "errored": false,
+     "error": null,
+     "args": {}
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3538,
+   "llm": {
+    "n_calls": 2,
+    "input_tokens": 4,
+    "output_tokens": 2099,
+    "cache_read_tokens": 64947,
+    "cache_creation_tokens": 5658,
+    "latency_ms": 27609,
+    "cost_usd": 0.072199,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 2
+    },
+    "by_model": {
+     "claude-sonnet-5": 2
+    }
+   },
+   "elapsed_s": 154.9
+  },
+  {
+   "id": "P-A7",
+   "family": "reachable",
+   "expect": "similar_designs",
+   "question": "Which other designs in the corpus came out looking like KO:argS \u2014 similar by the mechanism of their response profile, not merely because they are equally sick?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 10,
+   "tools_called": [
+    "list_results",
+    "similar_designs",
+    "mechanistic_scope",
+    "differential",
+    "viability",
+    "viability",
+    "viability",
+    "list_results",
+    "differential",
+    "chart"
+   ],
+   "first_call_index": 1,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "argS"
+     }
+    },
+    {
+     "order": 1,
+     "name": "similar_designs",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "gene_knockout/KO:argS",
+      "k": "10"
+     }
+    },
+    {
+     "order": 2,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "argS"
+     }
+    },
+    {
+     "order": 3,
+     "name": "differential",
+     "errored": false,
+     "error": null,
+     "args": {
+      "target": "gene_knockout/KO:argS"
+     }
+    },
+    {
+     "order": 4,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 5,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "multi_gene_knockout"
+     }
+    },
+    {
+     "order": 6,
+     "name": "viability",
+     "errored": true,
+     "error": "no runs for perturbation='multi_gene_knockout', condition='KO:gltX+relA+spoT'.",
+     "args": {
+      "perturbation": "multi_gene_knockout",
+      "condition": "KO:gltX+relA+spoT"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "contains": "gltX+relA+spoT"
+     }
+    },
+    {
+     "order": 8,
+     "name": "differential",
+     "errored": false,
+     "error": null,
+     "args": {
+      "target": "multi_gene_knockout/KO:gltX+relA+spoT"
+     }
+    },
+    {
+     "order": 9,
+     "name": "chart",
+     "errored": false,
+     "error": null,
+     "args": {
+      "kind": "bar",
+      "channel": "ppgpp_conc",
+      "results": "['gene_knockout/KO:argS', 'gene_knockout/KO:alaS', 'gene_kno",
+      "title": "ppGpp across KO:argS and its mechanistic neighbours",
+      "rationale": "The three other aaRS KOs (alaS, gltX, pheS) share argS's col"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3506,
+   "llm": {
+    "n_calls": 9,
+    "input_tokens": 18,
+    "output_tokens": 6954,
+    "cache_read_tokens": 342790,
+    "cache_creation_tokens": 31592,
+    "latency_ms": 86591,
+    "cost_usd": 0.325671,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 8,
+     "summary": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 9
+    }
+   },
+   "elapsed_s": 97.0
+  },
+  {
+   "id": "P-A8",
+   "family": "reachable",
+   "expect": "viability_surrogate",
+   "question": "A single knockout simulation costs hours. Before I spend that, can you predict from cheap a-priori gene properties whether knocking out murA is likely to be viable, so I can triage what is worth running?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 7,
+   "tools_called": [
+    "viability_surrogate",
+    "metabolic_essentiality",
+    "list_results",
+    "operon_mode_advice",
+    "mechanistic_scope",
+    "viability",
+    "viability"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "viability_surrogate",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "murA"
+     }
+    },
+    {
+     "order": 1,
+     "name": "metabolic_essentiality",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "murA"
+     }
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "murA"
+     }
+    },
+    {
+     "order": 3,
+     "name": "operon_mode_advice",
+     "errored": false,
+     "error": null,
+     "args": {
+      "question": "gene_knockout KO:murA"
+     }
+    },
+    {
+     "order": 4,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "murA"
+     }
+    },
+    {
+     "order": 5,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "graded_gene_knockout",
+      "condition": "KO:murA"
+     }
+    },
+    {
+     "order": 6,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "KO:murA"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3729,
+   "llm": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 4244,
+    "cache_read_tokens": 175046,
+    "cache_creation_tokens": 10507,
+    "latency_ms": 57360,
+    "cost_usd": 0.155605,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-sonnet-5": 5
+    }
+   },
+   "elapsed_s": 107.8
+  },
+  {
+   "id": "P-B1",
+   "family": "fba",
+   "expect": "fba_qc",
+   "question": "Before I trust a single flux-balance number: is the metabolic model itself sane? With every nutrient uptake closed it should not be able to make ATP or biomass out of nothing, and its internal reactions should mass-balance.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 1,
+   "tools_called": [
+    "fba_qc"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "fba_qc",
+     "errored": false,
+     "error": null,
+     "args": {}
+    }
+   ],
+   "crash": null,
+   "answer_chars": 789,
+   "llm": {
+    "n_calls": 2,
+    "input_tokens": 4,
+    "output_tokens": 352,
+    "cache_read_tokens": 64963,
+    "cache_creation_tokens": 586,
+    "latency_ms": 6484,
+    "cost_usd": 0.026978,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 2
+    },
+    "by_model": {
+     "claude-sonnet-5": 2
+    }
+   },
+   "elapsed_s": 33.3
+  },
+  {
+   "id": "P-B2",
+   "family": "fba",
+   "expect": "fba_gene_knockout",
+   "question": "What does genome-scale flux-balance analysis say about deleting pgi on its own, and does that call agree with the Keio experimental knockout collection?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 1,
+   "tools_called": [
+    "fba_gene_knockout"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "fba_gene_knockout",
+     "errored": false,
+     "error": null,
+     "args": {
+      "genes": "['pgi']"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2419,
+   "llm": {
+    "n_calls": 2,
+    "input_tokens": 4,
+    "output_tokens": 804,
+    "cache_read_tokens": 64939,
+    "cache_creation_tokens": 819,
+    "latency_ms": 11577,
+    "cost_usd": 0.034625,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 2
+    },
+    "by_model": {
+     "claude-sonnet-5": 2
+    }
+   },
+   "elapsed_s": 44.1
+  },
+  {
+   "id": "P-B3",
+   "family": "fba",
+   "expect": "fba_gene_deletion",
+   "question": "If I delete tpiA, pfkA and pgi all together in one strain, does it still grow? I mean all three at once, not three separate single deletions.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 13,
+   "tools_called": [
+    "fba_gene_deletion",
+    "list_results",
+    "list_results",
+    "list_results",
+    "viability",
+    "viability",
+    "viability",
+    "viability",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "fba_synthetic_lethal",
+    "design_space"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "fba_gene_deletion",
+     "errored": false,
+     "error": null,
+     "args": {
+      "genes": "['tpiA', 'pfkA', 'pgi']"
+     }
+    },
+    {
+     "order": 1,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "contains": "tpiA"
+     }
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "contains": "tpiA_pfkA"
+     }
+    },
+    {
+     "order": 3,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "multi_gene_knockout"
+     }
+    },
+    {
+     "order": 4,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 5,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "KO:tpiA"
+     }
+    },
+    {
+     "order": 6,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "KO:pfkA"
+     }
+    },
+    {
+     "order": 7,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "KO:pgi"
+     }
+    },
+    {
+     "order": 8,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "tpiA"
+     }
+    },
+    {
+     "order": 9,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "pfkA"
+     }
+    },
+    {
+     "order": 10,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "pgi"
+     }
+    },
+    {
+     "order": 11,
+     "name": "fba_synthetic_lethal",
+     "errored": false,
+     "error": null,
+     "args": {
+      "genes": "['tpiA', 'pfkA', 'pgi']"
+     }
+    },
+    {
+     "order": 12,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "tpiA"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2859,
+   "llm": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 3525,
+    "cache_read_tokens": 179091,
+    "cache_creation_tokens": 12070,
+    "latency_ms": 42233,
+    "cost_usd": 0.151895,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-sonnet-5": 5
+    }
+   },
+   "elapsed_s": 46.7
+  },
+  {
+   "id": "P-B4",
+   "family": "fba",
+   "expect": "fba_synthetic_lethal",
+   "question": "Among the glycolysis genes pgi, pfkA, tpiA, fbaA and gapA, are there any pairs that are each fine on their own but lethal together? I am looking for backup pathways that only show up when both routes are removed.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 10,
+   "tools_called": [
+    "fba_synthetic_lethal",
+    "viability",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "list_results",
+    "viability",
+    "fba_qc"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "fba_synthetic_lethal",
+     "errored": false,
+     "error": null,
+     "args": {
+      "genes": "['pgi', 'pfkA', 'tpiA', 'fbaA', 'gapA']"
+     }
+    },
+    {
+     "order": 1,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 2,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "pgi"
+     }
+    },
+    {
+     "order": 3,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "pfkA"
+     }
+    },
+    {
+     "order": 4,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "tpiA"
+     }
+    },
+    {
+     "order": 5,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "fbaA"
+     }
+    },
+    {
+     "order": 6,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "gapA"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "multi_gene_knockout"
+     }
+    },
+    {
+     "order": 8,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "multi_gene_knockout",
+      "condition": "KO:pfkA+pfkB"
+     }
+    },
+    {
+     "order": 9,
+     "name": "fba_qc",
+     "errored": false,
+     "error": null,
+     "args": {}
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3206,
+   "llm": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 4424,
+    "cache_read_tokens": 150320,
+    "cache_creation_tokens": 12853,
+    "latency_ms": 49796,
+    "cost_usd": 0.159679,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "elapsed_s": 54.3
+  },
+  {
+   "id": "P-B5",
+   "family": "fba",
+   "expect": "fba_essentiality_panel",
+   "question": "Across the metabolic gene set as a whole, how well do the model's essentiality calls match the Keio benchmark? Give me the overall agreement properly \u2014 most genes are non-essential, so raw accuracy would flatter it.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 2,
+   "tools_called": [
+    "fba_essentiality_panel",
+    "model_validation"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "fba_essentiality_panel",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "model_validation",
+     "errored": false,
+     "error": null,
+     "args": {}
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2609,
+   "llm": {
+    "n_calls": 3,
+    "input_tokens": 6,
+    "output_tokens": 5126,
+    "cache_read_tokens": 100781,
+    "cache_creation_tokens": 4169,
+    "latency_ms": 55249,
+    "cost_usd": 0.122776,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 3
+    },
+    "by_model": {
+     "claude-sonnet-5": 3
+    }
+   },
+   "elapsed_s": 81.7
+  },
+  {
+   "id": "P-B6",
+   "family": "fba",
+   "expect": "fba_sensitivity",
+   "question": "How much does the flux-balance growth prediction actually move if I vary glucose uptake and the maintenance ATP terms by twenty percent either way? I want to know whether a conclusion survives that spread before I rely on it.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 1,
+   "tools_called": [
+    "fba_sensitivity"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "fba_sensitivity",
+     "errored": false,
+     "error": null,
+     "args": {
+      "delta": "0.2"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2166,
+   "llm": {
+    "n_calls": 2,
+    "input_tokens": 4,
+    "output_tokens": 1657,
+    "cache_read_tokens": 64962,
+    "cache_creation_tokens": 926,
+    "latency_ms": 20342,
+    "cost_usd": 0.047828,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 2
+    },
+    "by_model": {
+     "claude-sonnet-5": 2
+    }
+   },
+   "elapsed_s": 24.3
+  },
+  {
+   "id": "P-C1",
+   "family": "proposal",
+   "expect": "propose_experiment",
+   "question": "The corpus has nothing on how this organism handles a sudden shift into nitrate respiration. I want that data. What single experiment should I run to get it?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 8,
+   "tools_called": [
+    "list_results",
+    "design_space",
+    "list_results",
+    "viability",
+    "check_feasibility",
+    "screen_design",
+    "estimate_sim_resources",
+    "propose_experiment"
+   ],
+   "first_call_index": 7,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "contains": "nitrate"
+     }
+    },
+    {
+     "order": 1,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline"
+     }
+    },
+    {
+     "order": 3,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "condition",
+      "condition": "plus_nitrate"
+     }
+    },
+    {
+     "order": 4,
+     "name": "check_feasibility",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline",
+      "timeline": "0 minimal, 1200 minimal_plus_nitrate"
+     }
+    },
+    {
+     "order": 5,
+     "name": "screen_design",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline",
+      "timeline": "0 minimal, 1200 minimal_plus_nitrate"
+     }
+    },
+    {
+     "order": 6,
+     "name": "estimate_sim_resources",
+     "errored": false,
+     "error": null,
+     "args": {
+      "n_runs": "3",
+      "parallel": "3",
+      "generations": "4"
+     }
+    },
+    {
+     "order": 7,
+     "name": "propose_experiment",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline",
+      "timeline": "0 minimal, 1200 minimal_plus_nitrate",
+      "seeds": "3",
+      "generations": "4"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3670,
+   "llm": {
+    "n_calls": 6,
+    "input_tokens": 12,
+    "output_tokens": 5261,
+    "cache_read_tokens": 213543,
+    "cache_creation_tokens": 8827,
+    "latency_ms": 71059,
+    "cost_usd": 0.176115,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 6
+    },
+    "by_model": {
+     "claude-sonnet-5": 6
+    }
+   },
+   "elapsed_s": 108.7
+  },
+  {
+   "id": "P-C2",
+   "family": "proposal",
+   "expect": "propose_experiments",
+   "question": "I want to settle whether ribosomal-protein knockouts share a common collapse signature. Give me a whole panel of experiments to run, in one go, not one at a time.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 18,
+   "tools_called": [
+    "survey_corpus",
+    "lethality_landscape",
+    "list_results",
+    "design_space",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "mechanistic_scope",
+    "system_resources",
+    "estimate_sim_resources",
+    "propose_experiments"
+   ],
+   "first_call_index": 17,
+   "events": [
+    {
+     "order": 0,
+     "name": "survey_corpus",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "lethality_landscape",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 3,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 4,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rplB"
+     }
+    },
+    {
+     "order": 5,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpmE"
+     }
+    },
+    {
+     "order": 6,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpsA"
+     }
+    },
+    {
+     "order": 7,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rplA"
+     }
+    },
+    {
+     "order": 8,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpsL"
+     }
+    },
+    {
+     "order": 9,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpmA"
+     }
+    },
+    {
+     "order": 10,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpsE"
+     }
+    },
+    {
+     "order": 11,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rplY"
+     }
+    },
+    {
+     "order": 12,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpsT"
+     }
+    },
+    {
+     "order": 13,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rplS"
+     }
+    },
+    {
+     "order": 14,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "rpsP"
+     }
+    },
+    {
+     "order": 15,
+     "name": "system_resources",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 16,
+     "name": "estimate_sim_resources",
+     "errored": false,
+     "error": null,
+     "args": {
+      "n_runs": "28",
+      "generations": "4",
+      "parallel": "4"
+     }
+    },
+    {
+     "order": 17,
+     "name": "propose_experiments",
+     "errored": false,
+     "error": null,
+     "args": {
+      "designs": "[{'perturbation': 'gene_knockout', 'gene': 'rpsL', 'seeds': "
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3418,
+   "llm": {
+    "n_calls": 7,
+    "input_tokens": 14,
+    "output_tokens": 9441,
+    "cache_read_tokens": 331270,
+    "cache_creation_tokens": 32351,
+    "latency_ms": 123498,
+    "cost_usd": 0.362354,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 7
+    },
+    "by_model": {
+     "claude-sonnet-5": 7
+    }
+   },
+   "elapsed_s": 170.3
+  },
+  {
+   "id": "P-C3",
+   "family": "proposal",
+   "expect": "design_panel",
+   "question": "I need to falsify a claim properly rather than guess at a run count. How many seeds and how many generations should the panel have, laid out as a real design of experiments?",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 1515,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 676,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 121,
+    "latency_ms": 9437,
+    "cost_usd": 0.020323,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 11.0
+  },
+  {
+   "id": "P-C4",
+   "family": "proposal",
+   "expect": "estimate_sim_resources",
+   "question": "I am considering a sweep of twenty designs at five seeds each. Would that even fit on this machine \u2014 memory and disk \u2014 or am I about to fill the drive?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 2,
+   "tools_called": [
+    "system_resources",
+    "estimate_sim_resources"
+   ],
+   "first_call_index": 1,
+   "events": [
+    {
+     "order": 0,
+     "name": "system_resources",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "estimate_sim_resources",
+     "errored": false,
+     "error": null,
+     "args": {
+      "n_runs": "100"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 1737,
+   "llm": {
+    "n_calls": 2,
+    "input_tokens": 4,
+    "output_tokens": 829,
+    "cache_read_tokens": 64941,
+    "cache_creation_tokens": 1428,
+    "latency_ms": 13156,
+    "cost_usd": 0.037284,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 2
+    },
+    "by_model": {
+     "claude-sonnet-5": 2
+    }
+   },
+   "elapsed_s": 60.7
+  },
+  {
+   "id": "P-C5",
+   "family": "proposal",
+   "expect": "generate_designs",
+   "question": "Generate some candidate reduced-genome strains for me \u2014 multi-gene knockout sets \u2014 and rank them by how likely they are to stay viable.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 3,
+   "tools_called": [
+    "generate_designs",
+    "generate_designs",
+    "fba_gene_deletion"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "generate_designs",
+     "errored": false,
+     "error": null,
+     "args": {
+      "objective": "viability",
+      "k": "3",
+      "max_candidates": "10"
+     }
+    },
+    {
+     "order": 1,
+     "name": "generate_designs",
+     "errored": false,
+     "error": null,
+     "args": {
+      "objective": "viability",
+      "k": "4",
+      "max_candidates": "5"
+     }
+    },
+    {
+     "order": 2,
+     "name": "fba_gene_deletion",
+     "errored": false,
+     "error": null,
+     "args": {
+      "genes": "['flgB', 'pfkA', 'pgi', 'tpiA', 'ymgD']"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3049,
+   "llm": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 3454,
+    "cache_read_tokens": 139441,
+    "cache_creation_tokens": 7516,
+    "latency_ms": 48171,
+    "cost_usd": 0.121851,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "elapsed_s": 56.6
+  },
+  {
+   "id": "P-C6",
+   "family": "proposal",
+   "expect": "prune_candidates",
+   "question": "I am short of disk. Which run directories are genuinely safe to delete \u2014 the redundant extra seeds \u2014 without losing anything the corpus depends on?",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 2,
+   "tools_called": [
+    "corpus_audit",
+    "prune_candidates"
+   ],
+   "first_call_index": 1,
+   "events": [
+    {
+     "order": 0,
+     "name": "corpus_audit",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "prune_candidates",
+     "errored": false,
+     "error": null,
+     "args": {}
+    }
+   ],
+   "crash": null,
+   "answer_chars": 3597,
+   "llm": {
+    "n_calls": 3,
+    "input_tokens": 6,
+    "output_tokens": 1240,
+    "cache_read_tokens": 101063,
+    "cache_creation_tokens": 4759,
+    "latency_ms": 18296,
+    "cost_usd": 0.066783,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 3
+    },
+    "by_model": {
+     "claude-sonnet-5": 3
+    }
+   },
+   "elapsed_s": 21.2
+  },
+  {
+   "id": "P-C7",
+   "family": "proposal",
+   "expect": "propose_rebuild",
+   "question": "The fitted parameters themselves are what I want to change, not the simulation \u2014 I want the knowledge base refitted with different assumptions. How do I propose that?",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 2364,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 1419,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 120,
+    "latency_ms": 17141,
+    "cost_usd": 0.031464,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 18.5
+  },
+  {
+   "id": "P-C8",
+   "family": "proposal",
+   "expect": "run_experiment",
+   "question": "I want to run a knockout of lpxC in minimal glucose. Before anything launches, check it is within what the model can legitimately do and that it is not already in the corpus.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 6,
+   "tools_called": [
+    "list_results",
+    "mechanistic_scope",
+    "design_space",
+    "comparable_designs",
+    "viability",
+    "reroute_diagnosis"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "lpxC"
+     }
+    },
+    {
+     "order": 1,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "lpxC"
+     }
+    },
+    {
+     "order": 2,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "lpxC"
+     }
+    },
+    {
+     "order": 3,
+     "name": "comparable_designs",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "gene_knockout/KO:lpxC"
+     }
+    },
+    {
+     "order": 4,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "KO:lpxC"
+     }
+    },
+    {
+     "order": 5,
+     "name": "reroute_diagnosis",
+     "errored": true,
+     "error": "reader worker produced no JSON",
+     "args": {
+      "gene": "lpxC",
+      "target": "gene_knockout/KO:lpxC"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2723,
+   "llm": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 3608,
+    "cache_read_tokens": 137841,
+    "cache_creation_tokens": 6537,
+    "latency_ms": 45530,
+    "cost_usd": 0.12001,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "elapsed_s": 51.9
+  },
+  {
+   "id": "P-C9",
+   "family": "proposal",
+   "expect": "screen_design",
+   "question": "Here is a proposed design: knock out the efflux repressor and grow under sub-lethal antibiotic. Screen the intent of that design for misuse before I go any further.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 7,
+   "tools_called": [
+    "screen_design",
+    "design_space",
+    "design_space",
+    "screen_design",
+    "mechanistic_scope",
+    "check_feasibility",
+    "screen_design"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "screen_design",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "sub_lethal_antibiotic",
+      "params": "{'gene': 'acrR', 'intent': 'knock out efflux repressor and g"
+     }
+    },
+    {
+     "order": 1,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "acrR"
+     }
+    },
+    {
+     "order": 2,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "marR"
+     }
+    },
+    {
+     "order": 3,
+     "name": "screen_design",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "params": "{'gene': 'acrR'}"
+     }
+    },
+    {
+     "order": 4,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "acrR"
+     }
+    },
+    {
+     "order": 5,
+     "name": "check_feasibility",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "basal"
+     }
+    },
+    {
+     "order": 6,
+     "name": "screen_design",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "plus_quercetin",
+      "params": "{'gene': 'acrR'}"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2524,
+   "llm": {
+    "n_calls": 5,
+    "input_tokens": 10,
+    "output_tokens": 4278,
+    "cache_read_tokens": 169299,
+    "cache_creation_tokens": 6058,
+    "latency_ms": 53464,
+    "cost_usd": 0.137707,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 5
+    },
+    "by_model": {
+     "claude-sonnet-5": 5
+    }
+   },
+   "elapsed_s": 55.4
+  },
+  {
+   "id": "P-C10",
+   "family": "proposal",
+   "expect": "vet_hypothesis",
+   "question": "I have a proposed experiment and I want it vetted in one pass \u2014 safety, whether the model can actually represent it, and whether it is worth the compute.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 1493,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 657,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 118,
+    "latency_ms": 9672,
+    "cost_usd": 0.020026,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 11.7
+  },
+  {
+   "id": "P-C11",
+   "family": "proposal",
+   "expect": "system_resources",
+   "question": "What is actually free on this machine right now \u2014 memory, disk, cores? I want to know before I start anything.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 1,
+   "tools_called": [
+    "system_resources"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "system_resources",
+     "errored": false,
+     "error": null,
+     "args": {}
+    }
+   ],
+   "crash": null,
+   "answer_chars": 1014,
+   "llm": {
+    "n_calls": 2,
+    "input_tokens": 4,
+    "output_tokens": 403,
+    "cache_read_tokens": 64923,
+    "cache_creation_tokens": 444,
+    "latency_ms": 8061,
+    "cost_usd": 0.027199,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 2
+    },
+    "by_model": {
+     "claude-sonnet-5": 2
+    }
+   },
+   "elapsed_s": 38.5
+  },
+  {
+   "id": "P-C12",
+   "family": "proposal",
+   "expect": "corpus_audit",
+   "question": "Give me an inventory of the whole corpus: what is covered, where the redundancy is, and where the gaps are. I am trying to decide what to run next.",
+   "selected": true,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 8,
+   "tools_called": [
+    "corpus_audit",
+    "survey_corpus",
+    "prune_candidates",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results"
+   ],
+   "first_call_index": 0,
+   "events": [
+    {
+     "order": 0,
+     "name": "corpus_audit",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "survey_corpus",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 2,
+     "name": "prune_candidates",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 3,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 4,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline"
+     }
+    },
+    {
+     "order": 5,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "rrna_operon_knockout"
+     }
+    },
+    {
+     "order": 6,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "wildtype"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "multi_gene_knockout"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2251,
+   "llm": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 5989,
+    "cache_read_tokens": 144572,
+    "cache_creation_tokens": 19796,
+    "latency_ms": 70466,
+    "cost_usd": 0.207466,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "elapsed_s": 75.7
+  },
+  {
+   "id": "P-C13",
+   "family": "proposal",
+   "expect": "revise_experiment",
+   "question": "That experiment you just drafted \u2014 change it to use five seeds instead of one, and leave everything else alone.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 527,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 301,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 104,
+    "latency_ms": 6828,
+    "cost_usd": 0.014634,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 7.3
+  }
+ ]
+}

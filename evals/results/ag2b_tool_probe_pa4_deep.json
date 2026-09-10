@@ -1,0 +1,185 @@
+{
+ "hinted": false,
+ "model": "claude-sonnet-5",
+ "max_turns": 20,
+ "registry_size": 72,
+ "n_cases": 1,
+ "selected": 0,
+ "selected_but_errored": 0,
+ "near_miss": 0,
+ "not_selected": 1,
+ "not_selected_tools": [
+  "screen_phenotype"
+ ],
+ "near_miss_tools": {},
+ "tools_called_here": {
+  "list_results": 9,
+  "survey_corpus": 1
+ },
+ "newly_reached": [],
+ "still_never_selected": [
+  "corpus_audit",
+  "design_panel",
+  "estimate_sim_resources",
+  "fba_essentiality_panel",
+  "fba_gene_deletion",
+  "fba_gene_knockout",
+  "fba_qc",
+  "fba_sensitivity",
+  "fba_synthetic_lethal",
+  "generate_designs",
+  "propose_experiment",
+  "propose_experiments",
+  "propose_rebuild",
+  "prune_candidates",
+  "read_species",
+  "revise_experiment",
+  "rnaseq_concordance",
+  "run_experiment",
+  "scan_series",
+  "screen_design",
+  "screen_phenotype",
+  "selective_charging",
+  "serialization_check",
+  "similar_designs",
+  "system_resources",
+  "vet_hypothesis",
+  "viability_surrogate"
+ ],
+ "spend_usd": 0.2709,
+ "rows": [
+  {
+   "id": "P-A4",
+   "family": "reachable",
+   "expect": "screen_phenotype",
+   "hinted": false,
+   "question": "Set aside what the designs were meant to do \u2014 do any of their simulated proteomes actually come out up-regulating antimicrobial-resistance efflux relative to wild type? I want the phenotype screened, not the stated intent.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 10,
+   "tools_called": [
+    "survey_corpus",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "survey_corpus",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "condition"
+     }
+    },
+    {
+     "order": 3,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 4,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "graded_gene_knockout"
+     }
+    },
+    {
+     "order": 5,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline"
+     }
+    },
+    {
+     "order": 6,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "multi_gene_knockout"
+     }
+    },
+    {
+     "order": 8,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "rrna_operon_knockout"
+     }
+    },
+    {
+     "order": 9,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "wildtype"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 0,
+   "llm": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 8123,
+    "cache_read_tokens": 140541,
+    "cache_creation_tokens": 28495,
+    "latency_ms": 94765,
+    "cost_usd": 0.270888,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "elapsed_s": 99.5
+  }
+ ]
+}
