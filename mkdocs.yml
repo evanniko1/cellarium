@@ -58,6 +58,11 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
+  # Without this the `:material-…:` shortcodes on the landing page render as LITERAL TEXT — verified by
+  # looking at the built page rather than assuming, which is how it was caught.
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.snippets:
       check_paths: true          # a snippet include that points nowhere fails the build
   - pymdownx.tabbed:
