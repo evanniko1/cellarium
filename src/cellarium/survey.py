@@ -689,6 +689,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
 
     by_channel: dict[str, dict] = {}
     notable: list[dict] = []
+    loudest: dict[str, tuple] = {}      # design -> (its largest signed z anywhere, the channel it was on)
     for ch in all_channels:
         refs = ref_by_depth.get(ch) or {}
         ref_v = (ref or {}).get(ch)          # the reference's own modal-depth mean, for display
@@ -735,6 +736,12 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
             for e in grp:
                 e["z"] = round((e["mean"] - mu) / sd, 2) if len(grp) > 1 else 0.0
                 e["z_scope"] = f"vs {len(grp)} design(s) at generations={gens}"
+        # WELL-6e: remember every design's LOUDEST channel before the truncation below throws the tail away.
+        # Without this the roster at the end could name the quiet designs but not say how quiet, and "it never
+        # made a top-6" is a fact about the ranking rather than about the design.
+        for e in entries:
+            if abs(e.get("z") or 0.0) > abs(loudest.get(e["design"], (0.0, ""))[0]):
+                loudest[e["design"]] = (e["z"], ch)
         entries.sort(key=lambda e: abs(e["z"]), reverse=True)
         # INFORMATIVE truncation (same convention as top_movers' "k of N significant dropped"). This tool exists
         # to stop the agent anchoring on whatever it happened to look at first — so silently showing 6 of N
@@ -818,13 +825,68 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
                  "reportable seeds and are otherwise invisible. Call `lethality_landscape` for the pre-collapse "
                  "growth/ppGpp signature vs the depth-matched WT — a signal to CHECK against literature, not assert."),
     }
+    notable_top = notable[:12]
+
+    # ------------------------------------------------------------------------------------------------------
+    # WELL-6e — THE QUIET ROSTER. The context cliff, arrived at 369 runs rather than the 10^4 it was expected
+    # at, and found by counting rather than by reasoning.
+    #
+    # This tool's anti-anchoring mechanism IS exhaustiveness: it hands over every design ranked by arithmetic
+    # so that attention is not what decides. But each channel shows its top 6, and MEASURED on the corpus of
+    # 2026-09-10: the 24 channel rankings named 26 of 40 reportable designs, `notable` added none at all
+    # (every |z|>=2 design is already in some channel's top 6, so that block is pure repetition for this
+    # purpose), and the lethality block brought it to 29. ELEVEN designs appeared nowhere in the payload —
+    # while the note below called the result a "full-corpus survey". An agent reading that has been told it
+    # has seen everything, and has not.
+    #
+    # The eleven were not obscure. They included the whole glucose dose ladder (2/5/20 mM), `KO:tpiA` and
+    # `KO:pfkA` with the `KO:pfkA+pfkB` double, the `KO:valS` synthetase, and `rRNA_KO:2op` — the design
+    # WELL-6z showed flips SIGN on growth once depth-matched. Quiet on every channel is exactly what makes a
+    # control useful, so the ranking was hiding the designs whose value is that they do not move.
+    #
+    # The fix is a roster, not a bigger top-N: eleven names with one number each cost ~615 tokens against a
+    # 10.5k payload (+5.8%), where widening every channel would cost thousands. What it restores is the
+    # property the tool claims — every ranked design is nameable from the payload — and
+    # `tests/test_survey_exhaustive.py` now CHECKS it rather than the note asserting it.
+    named = {e["design"] for v in by_channel.values() for e in v.get("ranked", [])}
+    named |= {e["design"] for e in notable_top}
+    named |= {e["design"] for e in leth_summary.get("collapsing_designs", [])}
+    quiet = []
+    for d in sorted(by_design):
+        key = f"{d[0]}/{d[1]}" if isinstance(d, tuple) else str(d)
+        if key in named:
+            continue
+        z, ch = loudest.get(key, (None, None))
+        entry = {"design": key, "largest_z_anywhere": z, "on_channel": ch}
+        # A misnamed design must carry its honest name HERE too, not only in the ranking it never entered —
+        # otherwise the quiet tier becomes the one place a wrong label travels unchallenged.
+        ident = _identity(key)
+        if ident and ident.get("label_integrity") != "ok":
+            entry["true_label"] = ident["true_label"]
+            entry["label_integrity"] = ident["label_integrity"]
+        quiet.append(entry)
+
     return {
         "coverage": coverage,
         **({"arm": arm_note} if arm_note else {}),
         "lethality": leth_summary,
-        "notable": notable[:12],            # biggest effects across ALL channels, ranked by |z|
+        "notable": notable_top,            # biggest effects across ALL channels, ranked by |z|
+        "quiet_designs": {
+            "n": len(quiet),
+            "designs": quiet,
+            "note": ("The COMPLEMENT of `notable`, and the reason this survey can still call itself "
+                     "exhaustive: these designs are ranked and reportable but reached no channel's top "
+                     f"{top}, so they appear nowhere else in this payload. `largest_z_anywhere` is the "
+                     "biggest salience each one managed on any channel — read it as how quiet, not as "
+                     "how absent. A design that is quiet everywhere is a CONTROL, which is often the most "
+                     "useful thing in the corpus and is precisely what a top-N ranking discards. Query any "
+                     "of them directly with differential / trajectory / compare_at_generation."),
+        },
         "by_channel": by_channel,
-        "note": ("Deterministic full-corpus survey ranked by computed salience (|z| across designs). "
+        "note": (f"Deterministic survey over every ranked design, by computed salience (|z| across designs). "
+                 f"Each channel lists its top {top}; `quiet_designs` names every ranked design that reached "
+                 f"no channel's top {top}, so the union of `by_channel` + `notable` + `lethality` + "
+                 f"`quiet_designs` IS the whole ranked corpus — nothing is silently omitted. "
                  "Consume this BEFORE forming a hypothesis; do not anchor on any single run or on prior "
                  "conversation. Then drill in with read_series / read_species and seek disconfirming evidence. "
                  "See `lethality` for designs that collapse at depth — excluded from the ranking but real."),
