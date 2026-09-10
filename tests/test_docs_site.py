@@ -78,3 +78,34 @@ def test_every_tracked_doc_is_reachable_from_the_navigation():
         f"these documents ship but no section lists them, so nobody finds them without knowing the "
         f"filename: {orphans}. That is the problem the site was built to fix — add each to `nav` in "
         "mkdocs.yml under the question a reader would be asking.")
+
+
+def test_no_shipped_doc_links_to_a_file_a_cloner_will_not_have():
+    """The gap the first version of this file left open, and CI found it within one push.
+
+    `test_every_nav_entry_is_a_file_a_cloner_would_receive` checks the NAV. It says nothing about a link in
+    the BODY of a page — and `index.md` linked to `ROADMAP.md`, which is gitignored. Locally the file is
+    present so `mkdocs build --strict` passed; in CI the page does not exist and the build aborted. Same
+    class, one level down, and the lesson is that "tracked" has to be checked wherever a path is written,
+    not only where the nav lists one.
+    """
+    import re
+
+    tracked = _tracked_docs()
+    offenders = []
+    for name in sorted(tracked):
+        text = (ROOT / "docs" / name).read_text(encoding="utf-8")
+        for m in re.finditer(r"\]\(([^)#]+\.md)(?:#[^)]*)?\)", text):
+            target = m.group(1)
+            if target.startswith(("http://", "https://")):
+                continue          # an absolute URL is someone else's problem to resolve
+            resolved = (ROOT / "docs" / name).parent.joinpath(target).resolve()
+            try:
+                rel = resolved.relative_to(ROOT / "docs").as_posix()
+            except ValueError:
+                continue          # points outside docs/ (e.g. a GitHub blob link) — not mkdocs's to resolve
+            if rel not in tracked:
+                offenders.append(f"{name} -> {target}")
+    assert not offenders, (
+        "these links point at documents a fresh clone does not receive, so `mkdocs build --strict` fails in "
+        f"CI while passing locally: {offenders}. Either track the target or drop the link.")

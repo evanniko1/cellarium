@@ -55,7 +55,7 @@ from runs where the cell had already stopped working. **Cellarium exists to tell
 
     Including the decisions that were withdrawn after they turned out to be wrong.
 
-    [Deferred decisions](DECISIONS.md) · [Roadmap](ROADMAP.md)
+    [Deferred decisions](DECISIONS.md)
 
 </div>
 
