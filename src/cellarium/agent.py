@@ -604,8 +604,17 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             if resp.stop_reason != "tool_use" or not tool_uses:
                 # PLAT-1: reconcile the assembled prose against what this turn actually read. ANNOTATES, never
                 # rewrites — and returns the text unchanged if the check itself fails.
-                return reconcile.check_and_annotate(
+                said = reconcile.check_and_annotate(
                     "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip())
+                # AG-5: a turn CAN end with no tool call and no text — the model simply stops. Returning that
+                # empty string hands the caller "" as though it were an answer, and every surface then renders
+                # a blank reply: the app shows nothing, the eval scores a 0-character response, and neither can
+                # tell "it had nothing to say" from "it was never asked". The forced-synthesis path below has
+                # always guarded this; THIS path did not, which is the silent-absence class this repo keeps
+                # finding. Say what happened, and name the stop_reason so the cause is diagnosable.
+                return said or (f"(stopped: the model ended its turn without an answer "
+                                f"[stop_reason={resp.stop_reason!r}, blocks="
+                                f"{[getattr(b, 'type', None) for b in resp.content]}])")
 
             results = []
             round_all_errors = True

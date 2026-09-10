@@ -1,0 +1,517 @@
+{
+ "hinted": false,
+ "model": "claude-sonnet-5",
+ "max_turns": 8,
+ "registry_size": 72,
+ "n_cases": 7,
+ "selected": 0,
+ "selected_but_errored": 0,
+ "near_miss": 2,
+ "not_selected": 5,
+ "not_selected_tools": [
+  "screen_phenotype",
+  "design_panel",
+  "propose_rebuild",
+  "vet_hypothesis",
+  "revise_experiment"
+ ],
+ "near_miss_tools": {
+  "read_species": [
+   "raw_available",
+   "data_availability"
+  ],
+  "run_experiment": [
+   "check_feasibility",
+   "screen_design"
+  ]
+ },
+ "tools_called_here": {
+  "list_results": 8,
+  "list_species": 2,
+  "raw_available": 1,
+  "data_availability": 1,
+  "survey_corpus": 1,
+  "design_space": 1,
+  "mechanistic_scope": 1,
+  "check_feasibility": 1,
+  "screen_design": 1,
+  "viability": 1
+ },
+ "newly_reached": [
+  "screen_design"
+ ],
+ "still_never_selected": [
+  "corpus_audit",
+  "design_panel",
+  "estimate_sim_resources",
+  "fba_essentiality_panel",
+  "fba_gene_deletion",
+  "fba_gene_knockout",
+  "fba_qc",
+  "fba_sensitivity",
+  "fba_synthetic_lethal",
+  "generate_designs",
+  "propose_experiment",
+  "propose_experiments",
+  "propose_rebuild",
+  "prune_candidates",
+  "read_species",
+  "revise_experiment",
+  "rnaseq_concordance",
+  "run_experiment",
+  "scan_series",
+  "screen_phenotype",
+  "selective_charging",
+  "serialization_check",
+  "similar_designs",
+  "system_resources",
+  "vet_hypothesis",
+  "viability_surrogate"
+ ],
+ "spend_usd": 0.5667,
+ "rows": [
+  {
+   "id": "P-A1",
+   "family": "reachable",
+   "expect": "read_species",
+   "hinted": false,
+   "question": "I want the actual time course of a single molecule in one run \u2014 GapA protein copy number, every timestep, for one wild-type seed. Not a summary or a mean: the trajectory itself. Can you get it?",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": true,
+   "near_miss_tools": [
+    "raw_available",
+    "data_availability"
+   ],
+   "n_tool_calls": 4,
+   "tools_called": [
+    "raw_available",
+    "list_species",
+    "data_availability",
+    "list_species"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "raw_available",
+     "errored": false,
+     "error": null,
+     "args": {
+      "design": "wildtype/basal"
+     }
+    },
+    {
+     "order": 1,
+     "name": "list_species",
+     "errored": true,
+     "error": "full simOut not available locally for this trajectory (see DECISIONS D1 \u2014 HF sharing).",
+     "args": {
+      "result_id": "wildtype/basal",
+      "kind": "protein",
+      "search": "GapA"
+     }
+    },
+    {
+     "order": 2,
+     "name": "data_availability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "result_id": "wildtype/basal"
+     }
+    },
+    {
+     "order": 3,
+     "name": "list_species",
+     "errored": true,
+     "error": "reader worker produced no JSON",
+     "args": {
+      "result_id": "wildtype_0_5d782f82",
+      "kind": "protein",
+      "search": "GapA"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2527,
+   "llm": {
+    "n_calls": 4,
+    "input_tokens": 8,
+    "output_tokens": 3403,
+    "cache_read_tokens": 100652,
+    "cache_creation_tokens": 34971,
+    "latency_ms": 43672,
+    "cost_usd": 0.212406,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 4
+    },
+    "by_model": {
+     "claude-sonnet-5": 4
+    }
+   },
+   "elapsed_s": 52.0
+  },
+  {
+   "id": "P-A4",
+   "family": "reachable",
+   "expect": "screen_phenotype",
+   "hinted": false,
+   "question": "Set aside what the designs were meant to do \u2014 do any of their simulated proteomes actually come out up-regulating antimicrobial-resistance efflux relative to wild type? I want the phenotype screened, not the stated intent.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 8,
+   "tools_called": [
+    "survey_corpus",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results",
+    "list_results"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "survey_corpus",
+     "errored": false,
+     "error": null,
+     "args": {}
+    },
+    {
+     "order": 1,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout"
+     }
+    },
+    {
+     "order": 2,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "condition"
+     }
+    },
+    {
+     "order": 3,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "timeline"
+     }
+    },
+    {
+     "order": 4,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "ppgpp_conc"
+     }
+    },
+    {
+     "order": 5,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "rrna_operon_knockout"
+     }
+    },
+    {
+     "order": 6,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "graded_gene_knockout"
+     }
+    },
+    {
+     "order": 7,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "wildtype"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 0,
+   "llm": {
+    "n_calls": 3,
+    "input_tokens": 6,
+    "output_tokens": 5498,
+    "cache_read_tokens": 100785,
+    "cache_creation_tokens": 22699,
+    "latency_ms": 67218,
+    "cost_usd": 0.197845,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 3
+    },
+    "by_model": {
+     "claude-sonnet-5": 3
+    }
+   },
+   "elapsed_s": 71.6
+  },
+  {
+   "id": "P-C3",
+   "family": "proposal",
+   "expect": "design_panel",
+   "hinted": false,
+   "question": "I need to falsify a claim properly rather than guess at a run count. How many seeds and how many generations should the panel have, laid out as a real design of experiments?",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 1707,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 972,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 121,
+    "latency_ms": 13172,
+    "cost_usd": 0.024763,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 14.8
+  },
+  {
+   "id": "P-C7",
+   "family": "proposal",
+   "expect": "propose_rebuild",
+   "hinted": false,
+   "question": "The fitted parameters themselves are what I want to change, not the simulation \u2014 I want the knowledge base refitted with different assumptions. How do I propose that?",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 2778,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 1053,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 120,
+    "latency_ms": 18296,
+    "cost_usd": 0.025974,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 19.8
+  },
+  {
+   "id": "P-C8",
+   "family": "proposal",
+   "expect": "run_experiment",
+   "hinted": false,
+   "question": "I want to run a knockout of lpxC in minimal glucose. Before anything launches, check it is within what the model can legitimately do and that it is not already in the corpus.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": true,
+   "near_miss_tools": [
+    "check_feasibility",
+    "screen_design"
+   ],
+   "n_tool_calls": 6,
+   "tools_called": [
+    "list_results",
+    "design_space",
+    "mechanistic_scope",
+    "check_feasibility",
+    "screen_design",
+    "viability"
+   ],
+   "first_call_index": null,
+   "events": [
+    {
+     "order": 0,
+     "name": "list_results",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "lpxC"
+     }
+    },
+    {
+     "order": 1,
+     "name": "design_space",
+     "errored": false,
+     "error": null,
+     "args": {
+      "gene": "lpxC"
+     }
+    },
+    {
+     "order": 2,
+     "name": "mechanistic_scope",
+     "errored": false,
+     "error": null,
+     "args": {
+      "symbol": "lpxC"
+     }
+    },
+    {
+     "order": 3,
+     "name": "check_feasibility",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "basal"
+     }
+    },
+    {
+     "order": 4,
+     "name": "screen_design",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "basal",
+      "params": "{'gene': 'lpxC'}"
+     }
+    },
+    {
+     "order": 5,
+     "name": "viability",
+     "errored": false,
+     "error": null,
+     "args": {
+      "perturbation": "gene_knockout",
+      "condition": "KO:lpxC"
+     }
+    }
+   ],
+   "crash": null,
+   "answer_chars": 2105,
+   "llm": {
+    "n_calls": 3,
+    "input_tokens": 6,
+    "output_tokens": 1798,
+    "cache_read_tokens": 100185,
+    "cache_creation_tokens": 4415,
+    "latency_ms": 22968,
+    "cost_usd": 0.0736,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 3
+    },
+    "by_model": {
+     "claude-sonnet-5": 3
+    }
+   },
+   "elapsed_s": 25.2
+  },
+  {
+   "id": "P-C10",
+   "family": "proposal",
+   "expect": "vet_hypothesis",
+   "hinted": false,
+   "question": "I have a proposed experiment and I want it vetted in one pass \u2014 safety, whether the model can actually represent it, and whether it is worth the compute.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 1043,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 451,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 118,
+    "latency_ms": 8468,
+    "cost_usd": 0.016937,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 10.6
+  },
+  {
+   "id": "P-C13",
+   "family": "proposal",
+   "expect": "revise_experiment",
+   "hinted": false,
+   "question": "That experiment you just drafted \u2014 change it to use five seeds instead of one, and leave everything else alone.",
+   "selected": false,
+   "selected_but_errored": false,
+   "expect_error": null,
+   "near_miss": false,
+   "near_miss_tools": [],
+   "n_tool_calls": 0,
+   "tools_called": [],
+   "first_call_index": null,
+   "events": [],
+   "crash": null,
+   "answer_chars": 497,
+   "llm": {
+    "n_calls": 1,
+    "input_tokens": 2,
+    "output_tokens": 334,
+    "cache_read_tokens": 32410,
+    "cache_creation_tokens": 104,
+    "latency_ms": 7250,
+    "cost_usd": 0.015129,
+    "cost_partial": false,
+    "by_role": {
+     "agent": 1
+    },
+    "by_model": {
+     "claude-sonnet-5": 1
+    }
+   },
+   "elapsed_s": 9.3
+  }
+ ]
+}
