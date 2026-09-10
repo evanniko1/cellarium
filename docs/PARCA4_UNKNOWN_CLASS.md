@@ -50,38 +50,49 @@ It is **not a field in the knowledge base**. `rna_data` carries `deg_rate`, `deg
 HuggingFace dataset) still sees an undifferentiated float, and the binary flag cannot distinguish *estimated
 with information* from *pinned at the bound*.
 
-## 4. Recommendation: label the values, do not change them
+## 4. CORRECTED 2026-09-10 — nothing needs building; it already ships
 
-**Do not re-fit.** Three reasons, in order of force:
+**An earlier draft of this file recommended adding a stored `deg_rate_class` field to `rna_data`. That
+recommendation was wrong and is withdrawn.** It rested on one concrete claim — that a HuggingFace user
+reading `sim_data` sees an undifferentiated float — and that claim is false. Checked directly against the
+published dataset: **136 files, and not one `simData` or `.cPickle` among them.** The Stanford licence
+forbids redistributing the fitted knowledge base (`KB_DIVERGENCE.md:171-172`), so the reader that
+justification was written for does not exist.
 
-1. **A new value mints a new arm.** Changing any fitted parameter changes `kb_sha256`, and the existing
-   369-row corpus stops being comparable to anything produced afterwards. That is REPRO-1's entire problem;
-   paying it again to relabel a number would be a poor trade.
-2. **There is no better number on offer.** Four candidate estimators, both hyper-parameters tuned by nested
-   cross-validation, all scored on held-out measurements under a rule fixed in advance: **none beat the
-   shipped estimator.** Ridge — the design's own preferred remedy — failed most informatively.
-3. **The harm was never the number.** A floor value is a legitimate statement (*"at least this slow"*). The
-   harm is that it is **indistinguishable from a measurement** when read out of `sim_data`. That is fixed by
-   labelling, at zero simulation cost.
+Removing that limb, nothing was left standing:
 
-**So the concrete change is to promote the existing four-way classification from a tool into a stored field** —
-`deg_rate_class` ∈ {`fit`, `floor`, `ceiling`, `imputed`} on `rna_data`, beside `deg_rate_is_measured` — so it
-travels with the data into the HF dataset and into every downstream reader, instead of being recoverable only
-by calling a tool that a non-Cellarium user does not have.
+| supposed reader | reality |
+|---|---|
+| a HuggingFace user | never receives the knowledge base at all — `runs/` tarballs only |
+| a simulation | needs the number, not its provenance; the class would change no behaviour |
+| an analysis script in this repo | calls `deg_rate_provenance`, which already answers |
+| someone with their own ParCa build | needs the CODE change, not a field in someone else's pickle |
 
-Detection needs no new fitting: `floor` is `deg_rate == min_deg_rate` bit-exactly (equivalently, NNLS offset
-== 0), `ceiling` likewise against the clip, and `imputed` is already known at assignment time.
+**And the classification already travels to HuggingFace by another route.** `parca/deg_rate_baseline.json`
+is published beside the run archives and carries exactly what the proposed field would have:
+`on_floor`, `on_ceiling`, `imputed_average` (602 units, 19.21% of units, **7.482%** of mRNA expression),
+`not_a_fit`, `not_a_fit_across_conditions`, `imputation_constant_min` (5.190693 min), and a ranked
+`most_expressed_not_a_fit` list naming where it actually bites (`rpmJ[c]` at 1.5845% of mRNA expression,
+`rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO[c]` at 1.5816%) — all pinned to the `kb_sha256` it describes.
 
-**Cost note, and the reason this is still not free:** adding a field to `rna_data` changes the pickle, hence
-`kb_sha256`, hence the arm — even though every *value* is unchanged. So it should ride along with the next
-rebuild that happens for another reason, not trigger one. PARCA-4's existing "if it ships, it ships with
-company" note already says exactly this about the declined coverage filter and the `deg_rate_is_bound`
-provenance field: **one arm, everything at once.**
+So the "explicit unknown class" exists in four places already: detected in `_reader_worker.py` (the on-bound
+branch at `:922`), exposed as `tools.deg_rate_provenance`, required by `agent.SYSTEM` before any half-life
+claim, and shipped to HuggingFace as a standalone artefact that needs no licence-encumbered pickle.
 
-## 5. What stays open
+**Adding a field would have cost a new arm** (any change to `rna_data` changes `kb_sha256`, and the 369-row
+corpus stops being comparable) **to duplicate something already published.** That is a bad trade, and the
+right answer to "what value would the unknown cases receive?" is: **the value they already have, correctly
+labelled — which they already are, everywhere a reader can actually reach them.**
 
-- Whether `deg_rate_class` belongs on `rna_data` (per transcription unit) or `cistron_data` too.
-- Whether the HF dataset card should carry the 27% / 12.087% figures prominently — a user computing mRNA
-  stability statistics from the corpus would otherwise average bounds together with fits.
-- The imputation's own measured error, which is what an `unknown` label should quantify: **median 1.41x, and
-  23.4% of values beyond 2-fold.**
+## 5. What is genuinely left
+
+Not code. Two documentation items, both cheap:
+
+- **The paper and the HF dataset card should carry the headline figure** — 27% of mRNA units are not fits,
+  holding 12.087% of basal mRNA expression — so nobody computes an average half-life over the corpus and
+  silently averages bounds together with measurements. The number exists; the warning is not yet where a
+  reader will meet it.
+- **PARCA-4's own backlog framing is stale.** It calls the explicit `unknown` class "the open move". It is
+  not open. What remains open is narrower and worth stating in its place: **the imputation's measured error
+  — median 1.41x, 23.4% of values beyond 2-fold** — which is what any `unknown` label should quantify, and
+  which is a claim about accuracy rather than a missing feature.
