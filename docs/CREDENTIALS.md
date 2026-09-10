@@ -4,9 +4,9 @@ Cellarium needs an Anthropic API key for live reasoning (the read-only tier — 
 investigations, recorded Council runs — needs none). This document is the specification for how that key is
 stored, what guarantees hold, and exactly how the behaviour differs per operating system.
 
-Implementation: [`src/cellarium/credentials.py`](../src/cellarium/credentials.py) (the vault),
-[`src/cellarium/redact.py`](../src/cellarium/redact.py) (the outbound scrub). Invariants are pinned by
-[`tests/test_credentials.py`](../tests/test_credentials.py) and [`tests/test_redact.py`](../tests/test_redact.py).
+Implementation: [`src/cellarium/credentials.py`](https://github.com/evanniko1/cellarium/blob/main/src/cellarium/credentials.py) (the vault),
+[`src/cellarium/redact.py`](https://github.com/evanniko1/cellarium/blob/main/src/cellarium/redact.py) (the outbound scrub). Invariants are pinned by
+[`tests/test_credentials.py`](https://github.com/evanniko1/cellarium/blob/main/tests/test_credentials.py) and [`tests/test_redact.py`](https://github.com/evanniko1/cellarium/blob/main/tests/test_redact.py).
 
 ## Three ways to supply a key, in precedence order
 

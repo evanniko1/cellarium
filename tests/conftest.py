@@ -30,7 +30,6 @@ FOUR PROPERTIES THAT MATTER:
 from __future__ import annotations
 
 import functools
-import os
 from pathlib import Path
 
 import pytest
@@ -50,9 +49,13 @@ def _load_env_before_anything_freezes_it() -> None:
 
 _load_env_before_anything_freezes_it()
 
-# Read AFTER the load, so a reporter or a later fixture sees the same value the modules will freeze.
-CONFIGURED_IMAGE = os.environ.get("WCECOLI_DOCKER", "")
-CONFIGURED_CHECKOUT = os.environ.get("WCECOLI_DIR", "")
+# REMOVED 2026-09-10: `CONFIGURED_IMAGE` / `CONFIGURED_CHECKOUT` read os.environ here and were never used
+# anywhere. That was harmless only while conftest did not reach the modules that FREEZE those variables
+# at import. Adding `docker_available()` below made conftest import `runner` directly, and
+# `check_env_guards` immediately and correctly reclassified these two lines as divergences: a file that
+# reads os.environ["WCECOLI_DOCKER"] AND reaches `runner.WCECOLI_DOCKER` can act on two different
+# values. That is the exact bug documented in test_parca_rebuild._docker_or_skip. Deleted rather than
+# redirected, because nothing consumed them — the guard that needs the value reads the frozen constant.
 
 # ------------------------------------------------------------------------------------------------------------
 # NO TEST MAY EVER TOUCH THE REAL CREDENTIAL SLOT.

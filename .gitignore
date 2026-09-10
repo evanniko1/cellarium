@@ -108,3 +108,5 @@ data/gse2065/figure1_panels_bc.svg
 # stray `git add -A` would publish them.
 Claude outputs/
 data/provider.json
+site/
+.cache/

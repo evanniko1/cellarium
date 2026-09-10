@@ -85,6 +85,25 @@ jobs:
           if-no-files-found: ignore
 
       # Advisory only for now (untyped surfaces remain) — tightening is BACKLOG H-2.
+      # DOC-1: build the documentation site, STRICTLY. --strict turns a broken internal link or an
+      # unlisted page into a build failure, which is the whole reason the docs live in this repo rather
+      # than in a wiki: code/prose drift is the defect this project keeps catching in itself, and a wiki
+      # is in a separate repository where CI cannot see it. On the first strict build this caught 7 real
+      # broken links, two of them pointing at BACKLOG.md — which is gitignored, so those were broken for
+      # every person who clones, not merely on the site.
+      - name: Docs — build (strict)
+        run: |
+          pip install -e ".[docs]"
+          mkdocs build --strict --site-dir /tmp/site
+
+      - name: Upload docs site
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: /tmp/site
+          if-no-files-found: ignore
+
       - name: Type-check — mypy (advisory)
         continue-on-error: true
         run: mypy src/cellarium

@@ -1,0 +1,110 @@
+# DOC-1 — the documentation site.
+#
+# WHY A SITE AT ALL. `docs/` holds 24 files and ~400 KB of prose that answers exactly the questions a
+# sceptical reader asks, and there was no way in: no index, no entry point. Nobody finds
+# KNOCKOUT_SEMANTICS.md or QC_STATUSES.md without already knowing the filename.
+#
+# WHY NOT A GITHUB WIKI. It lives in a SEPARATE git repository, so it drifts from the code and CI cannot
+# check it. Code/prose drift is the defect this project keeps catching in itself, and putting the docs
+# somewhere CI cannot reach would institutionalise it. This builds from the files already in this repo, and
+# CI builds it with --strict so a broken link or an unlisted page fails the build.
+#
+# NAVIGATION IS BY QUESTION, NOT BY FILENAME. A reader arrives asking "can I trust this number?" or "what
+# does a knockout mean here?", not looking for a file they have never heard of.
+
+site_name: Cellarium
+site_description: An agentic workbench over a whole-cell E. coli simulation — grounded, refusal-first.
+repo_url: https://github.com/evanniko1/cellarium
+repo_name: cellarium
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+  palette:
+    # Both themes, because the reader's OS decides — the same rule the app's own UI follows.
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep orange
+      toggle: { icon: material/weather-night, name: Switch to dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep orange
+      toggle: { icon: material/weather-sunny, name: Switch to light mode }
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      check_paths: true          # a snippet include that points nowhere fails the build
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+
+  - Start here:
+      - Running simulations (Docker): DOCKER_SETUP.md
+      - Generating the corpus: GENERATE.md
+      - Credentials and your API key: CREDENTIALS.md
+
+  - Reading the data:
+      - What a 'knockout' means here: KNOCKOUT_SEMANTICS.md
+      - QC statuses and how to read one: QC_STATUSES.md
+      - Dataset datasheet: DATASHEET.md
+      - Corpus arms: CORPUS_ARMS.md
+      - Corpus ledger: CORPUS_LEDGER.md
+      - Observations and ground truth: CORPUS_OBSERVATIONS.md
+      - Case matrix: CASE_MATRIX.md
+
+  - What the model can and cannot do:
+      - Model extension (and what we did not change): MODEL_EXTENSION.md
+      - The model overlay: OVERLAY.md
+      - Knowledge base vs a fresh ParCa: KB_DIVERGENCE.md
+      - Degradation rates — what 'unknown' gets: PARCA4_UNKNOWN_CLASS.md
+      - Context truncation: CONTEXT_TRUNCATION.md
+
+  - The agents:
+      - The Socratic Council: SOCRATIC_COUNCIL.md
+      - The investigation loop (build spec): INVESTIGATION_LOOP.md
+      - Council vs K-Dense: COUNCIL_VS_KDENSE.md
+      - Council evaluation report: SOCRATIC_COUNCIL_EVAL_REPORT.md
+
+  - Validation and evidence:
+      - Three validation plans: SCIENCE_VALIDATION_PLANS.md
+      - ROUTE1 corpus record: ROUTE1_CORPUS_RECORD.md
+      - A/B replication plan: PUB_A1_REPLICATION.md
+
+  # HYPOTHESIS_MODE_PLAN.md and ROADMAP.md are deliberately gitignored (planning docs stay local
+  # so a cloner does not receive a list of unbuilt ideas), so they CANNOT appear here: CI builds
+  # from tracked files only and --strict would fail on a nav entry with no page.
+  - Project record:
+      - Deferred decisions: DECISIONS.md

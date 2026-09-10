@@ -3,7 +3,7 @@
 Every row in the corpus carries a `qc` value. It is the first thing you meet and, until now, the only piece of
 the vocabulary with no reference page. This is that page.
 
-Source of truth: [`src/cellarium/qc.py`](../src/cellarium/qc.py). If this document and that module disagree,
+Source of truth: [`src/cellarium/qc.py`](https://github.com/evanniko1/cellarium/blob/main/src/cellarium/qc.py). If this document and that module disagree,
 the module is right and this page is a bug.
 
 ---
@@ -102,7 +102,7 @@ The channel (`RibosomeData/effectiveElongationRate`, registered as `effective_el
 `_reader_worker` and carried on `GenerationResult.elongation_mean`. **Rows written before 2026-08-29 have no
 such reading**, and a `None` returns `ok` rather than `translation_collapse` — absence of the channel is
 evidence of neither viability nor collapse. Re-classifying those rows is tracked as `QC-VIA-1` in
-[BACKLOG.md](../BACKLOG.md).
+`BACKLOG.md` *(local planning file, not in the repo)*.
 
 ---
 

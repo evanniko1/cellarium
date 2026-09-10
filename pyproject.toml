@@ -32,6 +32,13 @@ surrogate = ["scikit-learn>=1.3"]  # SCI-5: the ML viability-triage surrogate (o
 keyvault = ["keyring>=25"]       # RETAINED AS A NO-OP ALIAS: keyring moved into the core dependencies 2026-08-11 (see the comment there), so `pip install "cellarium[keyvault]"` in existing docs and scripts still resolves and installs nothing extra.
 openai = ["openai>=1.40", "tiktoken>=0.7"]  # LLM-7b: the OpenAI-compatible provider (OpenAI, most hosted endpoints, and local vLLM/Ollama/LM Studio via OPENAI_BASE_URL). tiktoken only sharpens the token count the adapter estimates; without it the estimate is chars//4 and compaction timing is slightly coarser, nothing breaks.
 dev = ["pytest>=8", "ruff>=0.6", "mypy>=1.10"]
+# DOC-1: the documentation site. Separate from `dev` because it is only needed to BUILD the site — CI
+# installs it in its own step so a docs dependency cannot slow or break the test job.
+docs = ["mkdocs-material>=9.5,<10", "mkdocs>=1.6,<2"]
+# The `<2` on mkdocs is deliberate and not defensive habit. MkDocs 2.0 is announced with NO plugin system,
+# rewritten theming, no migration path, and is currently unlicensed — mkdocs-material prints that warning
+# on every build and its own maintainer advises against it. An unpinned install would therefore pull a
+# release that cannot run this config at all. Revisit when Material ships 2.0 support.
 
 [project.scripts]
 cellarium = "cellarium.cli:main"
