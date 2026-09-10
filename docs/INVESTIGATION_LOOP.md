@@ -166,6 +166,79 @@ Council→investigation edge (which also unblocks `SP-1b`, whose own text says i
 link") → `SP-3d` `/api/thread` + thread grouping + the re-convene button → `SP-3e` `run_ab.py` writes the
 round-0 designation.
 
+## 9b. What the re-convened Council actually RECEIVES — the payload
+
+*Added 2026-09-10, answering four questions this spec did not address. §4 specifies the LINEAGE (ids, edges,
+schema) precisely and says "ids only, no node caches its ancestors' contents" — correct for the RECORD. But
+the Council still needs CONTENT to deliberate on, and until now nothing said what that content is.*
+
+### 9b.1 A re-convene is not only Council→Cellwright→Council
+
+`informed_by` is a typed list of three kinds, so there are three shapes and one mechanism:
+
+| Shape | `informed_by` | Who uses it |
+|---|---|---|
+| Council → Council | `[{"kind":"council_run","id":…}]` | M-7 progressive narrowing — sharpening a hypothesis with **no** new data |
+| Council → Cellwright → Council | `[{"kind":"investigation","id":"s_…"}]` | the button in §5; the loop this feature is named for |
+| either, plus reading | `+ [{"kind":"literature","source":…}]` | already admitted by the blindness scope (literature-informed, corpus-blind) |
+
+A round may cite **several** entries: two investigations and the prior round is one `informed_by` list, one
+`round_index + 1`. Nothing in the schema privileges the Cellwright path.
+
+### 9b.2 How many Cellwright interactions, and up to what point
+
+**Unbounded in the schema, and deliberately so** — the loop never blocks. A Cellwright *session* is one node
+(`sid`) however many turns it contains, `informed_by` is a list, and lineage is walked rather than cached, so
+neither turn count nor thread depth has a structural limit.
+
+**But there is a real practical bound, and it must be stated rather than discovered.** `agent.compact_history`
+fires at 24,000 input tokens (`agent.py:312`), keeps the last 3 turns verbatim and LLM-summarises the rest. A
+long investigation is therefore *already lossy* before any re-convene reads it. What survives is not nothing:
+DD-ENG-2b preserves a **provenance ledger of the old tool calls' grounded numbers verbatim** alongside the
+summary (`agent.py:485-486`). So the rule that falls out is:
+
+> **Build the payload from the evidence ledger and the manifest, never from the transcript.** The transcript
+> is lossy after compaction; the numbers and their run ids are not.
+
+### 9b.3 What goes in, and what must not
+
+Four blocks, all derived deterministically from stored edges:
+
+1. **The prior hypothesis, verbatim** — `h1`/`h0`/`predicted_effect`/`falsifier` from round N. It is the thing
+   being refined; paraphrasing it would refine a paraphrase.
+2. **What the investigation established** — from `evidence.jsonl` for that `sid`: the designs read, the channel,
+   the values, **each with its `support.coverage` block** (`support.py`: n_seeds, generations_per_seed,
+   `sufficient`). Without the coverage block a re-convene can sharpen a hypothesis on the strength of n=1,
+   which is the exact failure `validate-across-seeds-and-generations` exists to prevent.
+3. **Runs launched from the prior hypothesis, if any** — already linked, no new edge needed:
+   `launch.stamp_provenance` stores `hyp_id ↔ request_id` (`launch.py:163-178`) and `server.py:304-328`
+   reflects the lifecycle back. Include their manifest rows and QC verdicts.
+4. **An explicit statement of what the round is no longer blind to** — the output of `blindness_of()`, in the
+   prompt itself. The Council should know it is now corpus-informed; that is the method (D10), not a leak, and
+   a deliberating agent that does not know its own epistemic status cannot caveat its output correctly.
+
+**Excluded, deliberately:**
+
+- **The raw Cellwright transcript.** Long, lossy after compaction, and it carries the agent's own reasoning —
+  which would bias the Council toward ratifying Cellwright rather than challenging it. The Council's value is
+  that it argues; feeding it the answer collapses the arm.
+- **A model-written summary of the investigation.** This is the load-bearing exclusion. If an LLM summarises
+  the investigation and the Council deliberates on that summary, the chain becomes *hypothesis ← summary ←
+  model*, and the summary is exactly the un-auditable node this whole feature exists to remove. §1 states the
+  deliverable as auditability; a generated digest would defeat it in the one place it matters. **The payload is
+  assembled by code from typed records, or it is not assembled.**
+
+### 9b.4 Consequence for the button
+
+"Re-convene the Council with what Cellwright found" therefore does not hand over a conversation. It assembles
+blocks 1-4, shows them to the user **before** the round starts (they are the user's evidence, and a payload the
+user cannot inspect is another black box), and lets them edit the question text — not the evidence blocks.
+Editing evidence would break the correspondence between `informed_by` and what was actually read.
+
+**Still open here:** whether the user may DROP a block (e.g. exclude an investigation they consider flawed). It
+is defensible — a researcher may legitimately disown a bad run — but it means `informed_by` records what was
+*offered* rather than what was *used*, so the two would have to be stored separately. Not settled.
+
 ## 10. Open — not settled by this spec
 
 - **The out-of-app path.** The button covers the in-app return leg. A user who copies a Cellwright finding into
