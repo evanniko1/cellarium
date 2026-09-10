@@ -33,7 +33,19 @@ NAV_EXEMPT = {"index.md"}
 
 def _nav_pages() -> list[str]:
     yaml = pytest.importorskip("yaml", reason="pyyaml is needed to read mkdocs.yml")
-    cfg = yaml.safe_load(MKDOCS.read_text(encoding="utf-8"))
+
+    # mkdocs.yml legitimately carries MkDocs-specific tags — `!!python/name:material.extensions.emoji.…`
+    # wires Material's icon index into pymdownx.emoji. `safe_load` refuses them outright (it is refusing to
+    # import arbitrary Python, which is correct of it), so this test crashed on a perfectly valid config the
+    # moment those icons were enabled. Only the `nav` tree is read here, so the tags are irrelevant to the
+    # question being asked: ignore them rather than executing them.
+    class _TagTolerant(yaml.SafeLoader):
+        pass
+
+    _TagTolerant.add_multi_constructor(
+        "tag:yaml.org,2002:python/name:", lambda loader, suffix, node: suffix)
+
+    cfg = yaml.load(MKDOCS.read_text(encoding="utf-8"), Loader=_TagTolerant)
     out: list[str] = []
 
     def walk(node):
