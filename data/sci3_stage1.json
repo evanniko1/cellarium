@@ -29,7 +29,7 @@
     "by_corpus_state": {
       "analysable": 0,
       "collapsed": 2,
-      "unusable_arm": 2,
+      "other_arm": 2,
       "absent": 52
     }
   },
@@ -143,12 +143,35 @@
         "conditional_flip"
       ],
       "corpus": {
-        "state": "unusable_arm",
+        "state": "other_arm",
         "free_verdict": false,
         "n_rows": 8,
         "n_qc_ok": 4,
-        "n_without_kb_sha256": 8,
-        "why": "rows exist (and some are qc=ok) but carry no kb_sha256, so they belong to no arm and no analysis path will pool them. Present is not the same as usable."
+        "n_ids": 8,
+        "analysis_arm": {
+          "kb_sha256": "3b2f8ebd2d6f",
+          "operons": "on",
+          "elongation_model": "steady_state"
+        },
+        "other_arms_in_corpus": [
+          {
+            "kb_sha256": "0d861f80c7a3",
+            "operons": "on",
+            "elongation_model": "steady_state"
+          },
+          {
+            "kb_sha256": "5f19d040944a",
+            "operons": "on",
+            "elongation_model": "steady_state"
+          },
+          {
+            "kb_sha256": "5f19d040944a",
+            "operons": "on",
+            "elongation_model": "kinetic"
+          }
+        ],
+        "why": "rows exist and may be perfectly good, but they were produced under a different fitted knowledge base than the arm `analysis_rows` selected. Pooling them is exactly what ARM-1 exists to prevent, so no analysis path returns them. Not damaged \u2014 a different experiment.",
+        "how_to_use_them": "compare within their own arm, or re-run the design under the analysis arm."
       }
     },
     {
@@ -980,12 +1003,35 @@
         "conditional_flip"
       ],
       "corpus": {
-        "state": "unusable_arm",
+        "state": "other_arm",
         "free_verdict": false,
         "n_rows": 8,
         "n_qc_ok": 8,
-        "n_without_kb_sha256": 8,
-        "why": "rows exist (and some are qc=ok) but carry no kb_sha256, so they belong to no arm and no analysis path will pool them. Present is not the same as usable."
+        "n_ids": 8,
+        "analysis_arm": {
+          "kb_sha256": "3b2f8ebd2d6f",
+          "operons": "on",
+          "elongation_model": "steady_state"
+        },
+        "other_arms_in_corpus": [
+          {
+            "kb_sha256": "0d861f80c7a3",
+            "operons": "on",
+            "elongation_model": "steady_state"
+          },
+          {
+            "kb_sha256": "5f19d040944a",
+            "operons": "on",
+            "elongation_model": "steady_state"
+          },
+          {
+            "kb_sha256": "5f19d040944a",
+            "operons": "on",
+            "elongation_model": "kinetic"
+          }
+        ],
+        "why": "rows exist and may be perfectly good, but they were produced under a different fitted knowledge base than the arm `analysis_rows` selected. Pooling them is exactly what ARM-1 exists to prevent, so no analysis path returns them. Not damaged \u2014 a different experiment.",
+        "how_to_use_them": "compare within their own arm, or re-run the design under the analysis arm."
       }
     },
     {

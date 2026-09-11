@@ -101,24 +101,52 @@ SELECTION_RULE = {
 
 
 # ---------------------------------------------------------------------------------------------------------
-# "Already in the corpus" has THREE states, not two — found by checking, on the first run.
+# "Already in the corpus" has FOUR states — and my first TWO attempts at the reason were both wrong.
 # ---------------------------------------------------------------------------------------------------------
-# The first version of this script asked one question: do rows exist with this gene in the label? For `argG`
-# and `thrC` the answer was yes — 4 and 8 rows, every one `qc == "ok"` — and the honest conclusion "a
-# whole-cell verdict is available for free" was WRONG. Both carry a NULL `kb_sha256`, so they belong to no
-# ARM, and `survey.analysis_rows` correctly refuses to pool them with anything. Rows that are present,
-# readable, and `ok`, and that no analysis path will ever use.
+# ATTEMPT 1 asked only whether rows exist with the gene in the label. For `argG` and `thrC` the answer was
+# yes — 4 and 8 rows, every one `qc == "ok"` — and the conclusion "a whole-cell verdict is free" was wrong,
+# because `survey.analysis_rows` does not return them.
 #
-# That is the project's own silent-absence defect, committed inside a screen whose output is meant to tell
-# someone where to spend days of compute. So the state is named rather than flattened:
+# ATTEMPT 2 said they "carry a NULL kb_sha256, so they belong to no arm". ⚠️ THAT WAS ALSO WRONG, and wrong
+# in this project's most characteristic way: `store.list_results()` DOES NOT PROJECT `kb_sha256` at all
+# (`corpus_schema` exists precisely because of that), so `not r.get("kb_sha256")` is true for all 369 rows
+# and the check could only ever have returned one answer. I read a field's absence from a PROJECTION as a
+# fact about the DATA — inside a diagnostic whose entire purpose is to tell someone where to spend days of
+# compute, and after writing a comment block congratulating myself for avoiding exactly that.
 #
-#   analysable   — reportable rows in the current arm; the verdict really is free
-#   unusable_arm — rows exist and may even be `ok`, but carry no arm key, so nothing can read them
-#   collapsed    — rows exist and the design collapses; the lethality view carries the phenotype
-#   absent       — no rows
+# THE ACTUAL REASON, read from `corpus_schema.arms()` which does project the arm columns: the corpus holds
+# SEVERAL arms, `analysis_rows` selects one (kb 3b2f8ebd / operons on / steady_state, 279 rows), and
+# `KO:argG` and `KO:thrC` were produced under a DIFFERENT fitted knowledge base. They are not damaged and
+# they are not un-keyed. They are another experiment, and ARM-1 excluding them is the safety net working.
+#
+#   analysable    — reportable rows in the arm `analysis_rows` selected; the verdict really is free
+#   collapsed     — the design collapses; the lethality view carries the phenotype
+#   other_arm     — rows exist and may be fine, but under a different kb_sha256, so pooling them is the
+#                   defect ARM-1 exists to prevent
+#   absent        — no rows
+
+def media(model_aas: set[str]) -> dict[str, dict]:
+    """The two whole-grid arms: minimal, and minimal plus every amino acid the model actually carries an
+    exchange reaction for. Asked of the model rather than assumed from the list of twenty."""
+    from cellarium import fba
+    minimal = dict(fba.M9_GLUCOSE)
+    plus_all = dict(minimal)
+    for aa, ex in AA_EXCHANGE.items():
+        if ex in model_aas:
+            plus_all[ex] = AA_UPTAKE
+    return {"minimal": minimal, "minimal_plus_aa": plus_all}
+
+
+def _analysis_arm() -> tuple | None:
+    """The (kb_sha256, operons, elongation_model) that `analysis_rows` actually selected, asked not assumed."""
+    from cellarium import survey
+    rows, _ = survey.analysis_rows()
+    arms = {(r.get("kb_sha256"), r.get("operons"), r.get("elongation_model")) for r in rows}
+    return next(iter(arms)) if len(arms) == 1 else None
+
 
 def corpus_state(gene: str) -> dict:
-    from cellarium import store, survey, tools
+    from cellarium import corpus_schema, store, survey, tools
     rows, _ = survey.analysis_rows()
     analysable = {survey.design_key(r) for r in rows if r.get("reportable")}
     if f"gene_knockout/KO:{gene}" in analysable:
@@ -130,6 +158,8 @@ def corpus_state(gene: str) -> dict:
         leth = {}
     hit = next((d for k, d in leth.items() if f"KO:{gene}" in k), None)
     if hit:
+        label = str(hit.get("true_label") or "")
+        single = not label.startswith(("operon_KO", "TU_KO"))
         return {"state": "collapsed", "free_verdict": True,
                 "collapses_at_generation": hit.get("collapses_at_generation"),
                 "reportable_seeds": hit.get("reportable_seeds"),
@@ -138,35 +168,38 @@ def corpus_state(gene: str) -> dict:
                 "true_label": hit.get("true_label"),
                 # THE CAVEAT THAT HAS TO TRAVEL WITH THE NUMBER. Both free verdicts in the first run turned
                 # out to be OPERON-WIDE knockouts — KO:leuB is really operon_KO:leuLABCD and KO:dapA is
-                # really operon_KO:dapA-nlpB — while the FBA arm knocks out ONE gene. They are different
+                # really operon_KO:dapA-nlpB — while the FBA arm knocks out ONE gene. Different
                 # experiments, so "the whole-cell model agrees with Keio where FBA does not" is suggestive
                 # and not decisive. It also constrains Stage 2: a run meant to be compared against Keio or
                 # FBA has to be a genuine single-gene knockout, or it answers a different question.
-                "single_gene": not str(hit.get("true_label") or "").startswith(("operon_KO", "TU_KO")),
-                "comparability": ("single-gene, directly comparable to the FBA and Keio verdicts"
-                                  if not str(hit.get("true_label") or "").startswith(("operon_KO", "TU_KO"))
+                "single_gene": single,
+                "comparability": ("single-gene, directly comparable to the FBA and Keio verdicts" if single
                                   else "OPERON-WIDE — silences more genes than the FBA knockout, so this is "
                                        "not a like-for-like comparison")}
 
     raw = [r for r in store.list_results() if f"KO:{gene}" in str(r.get("label") or "")]
     if not raw:
         return {"state": "absent", "free_verdict": False}
-    n_ok = sum(1 for r in raw if str(r.get("qc")) == "ok")
-    no_arm = sum(1 for r in raw if not r.get("kb_sha256"))
-    return {"state": "unusable_arm", "free_verdict": False, "n_rows": len(raw), "n_qc_ok": n_ok,
-            "n_without_kb_sha256": no_arm,
-            "why": "rows exist (and some are qc=ok) but carry no kb_sha256, so they belong to no arm and no "
-                   "analysis path will pool them. Present is not the same as usable."}
 
-
-def media(model_aas: set[str]) -> dict[str, dict]:
-    from cellarium import fba
-    minimal = dict(fba.M9_GLUCOSE)
-    plus_all = dict(minimal)
-    for aa, ex in AA_EXCHANGE.items():
-        if ex in model_aas:
-            plus_all[ex] = AA_UPTAKE
-    return {"minimal": minimal, "minimal_plus_aa": plus_all}
+    selected = _analysis_arm()
+    ids = {r["id"] for r in raw}
+    other = []
+    for arm in corpus_schema.arms():
+        key = (arm.get("kb_sha256"), arm.get("operons"), arm.get("elongation_model"))
+        if selected is not None and key == selected:
+            continue
+        other.append({"kb_sha256": str(key[0])[:12], "operons": key[1], "elongation_model": key[2]})
+    return {"state": "other_arm", "free_verdict": False, "n_rows": len(raw),
+            "n_qc_ok": sum(1 for r in raw if str(r.get("qc")) == "ok"),
+            "n_ids": len(ids),
+            "analysis_arm": {"kb_sha256": str(selected[0])[:12], "operons": selected[1],
+                             "elongation_model": selected[2]} if selected else None,
+            "other_arms_in_corpus": other,
+            "why": "rows exist and may be perfectly good, but they were produced under a different fitted "
+                   "knowledge base than the arm `analysis_rows` selected. Pooling them is exactly what "
+                   "ARM-1 exists to prevent, so no analysis path returns them. Not damaged — a different "
+                   "experiment.",
+            "how_to_use_them": "compare within their own arm, or re-run the design under the analysis arm."}
 
 
 def _directions(args) -> int:
@@ -258,7 +291,7 @@ def _annotate_only(args) -> int:
                          "by_reason": {k: sum(1 for c in cells if k in c["selection_reasons"])
                                        for k in SELECTION_RULE},
                          "by_corpus_state": {s: sum(1 for c in cells if c["corpus"]["state"] == s)
-                                             for s in ("analysable", "collapsed", "unusable_arm", "absent")}}
+                                             for s in ("analysable", "collapsed", "other_arm", "absent")}}
     OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"re-annotated {len(cells)} cells (FBA numbers untouched)")
     for s, n in payload["counts"]["by_corpus_state"].items():

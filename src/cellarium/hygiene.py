@@ -147,6 +147,14 @@ READ_SITE_REGISTRY: dict[str, dict] = {
                 "purpose is `inventory` (count, do not read), but the UI does read the fields — it just does "
                 "not compute over them. Left as a display lookup rather than forcing a contract that does not "
                 "fit, and recorded so the next person sees the judgement rather than an omission")},
+    "scripts/conditional_essentiality_screen.py::_analysis_arm": {
+        "kind": "lookup",
+        "why": ("asks ONE question of the read boundary — which (kb_sha256, operons, elongation_model) did "
+                "`analysis_rows` actually select — so that a gene absent from the analysis set can be "
+                "reported as 'in a different arm' rather than as 'missing'. It reads no channel and "
+                "computes over no row; it inspects the ARM of the rows the boundary already returned. It "
+                "exists because the previous version of that explanation was guessed from a projection "
+                "that does not carry kb_sha256 at all, and was wrong")},
     "scripts/conditional_essentiality_screen.py::corpus_state": {
         "kind": "lookup",
         "why": ("SCI-3 Stage 1 asks ONE question per gene — does a whole-cell verdict already exist, and in "

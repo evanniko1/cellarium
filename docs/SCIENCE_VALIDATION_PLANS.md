@@ -118,28 +118,40 @@ of ~4,300 genes; the real contrast has **999** significant genes and the simulat
 survivors are the high-abundance head — ribosomal and translation machinery — the set most dominated by
 growth rate and least informative about carbon source. `scripts/count_floor_sweep.py` measures the ladder:
 
-| floor | genes | significant visible | Pearson r | r/SE | sign concordance | z vs coin-flip |
-|---|---|---|---|---|---|---|
-| 20.0 | 75 | 34 (3.4%) | 0.122 | **1.0** | 0.529 | **0.5** |
-| 10.0 | 115 | 51 (5.1%) | 0.272 | 2.9 | 0.588 | 1.9 |
-| 5.0 | 225 | 93 (9.3%) | 0.083 | 1.2 | 0.570 | 2.1 |
-| 2.0 | 493 | 155 (15.5%) | 0.075 | 1.7 | 0.645 | 6.4 |
-| 1.0 | 843 | 226 (22.6%) | 0.134 | 3.9 | 0.593 | 5.4 |
-| 0.5 | 1379 | 310 (31.0%) | 0.189 | **7.0** | 0.665 | **12.3** |
+| floor | genes | significant visible | Pearson r | r/SE | null (25 shuffles) | sign concordance | z vs coin-flip |
+|---|---|---|---|---|---|---|---|
+| 20.0 | 75 | 34 (3.4%) | 0.122 | **1.03** | 0.017 | 0.529 | **0.50** |
+| 10.0 | 115 | 51 (5.1%) | 0.272 | 2.88 | −0.006 | 0.588 | 1.89 |
+| 5.0 | 225 | 93 (9.3%) | 0.083 | 1.24 | −0.013 | 0.570 | 2.10 |
+| 2.0 | 493 | 155 (15.5%) | 0.075 | 1.66 | 0.001 | 0.645 | 6.44 |
+| 1.0 | 843 | 226 (22.6%) | 0.134 | 3.88 | −0.008 | 0.593 | 5.40 |
+| 0.5 | 1379 | 310 (31.0%) | 0.189 | 7.00 | 0.004 | 0.665 | 12.25 |
+| 0.1 | 2607 | 530 (53.1%) | 0.261 | 13.32 | −0.005 | 0.691 | 19.50 |
+| **0.05** | **3039** | **645 (64.6%)** | **0.286** | **15.80** | −0.001 | **0.698** | **21.83** |
+
+**It does not turn over.** The ladder was extended to 0.05 specifically to find where lowering the floor
+starts admitting noise, and on this contrast it never does: coverage, `r`, `r/SE`, sign concordance and its
+z all improve monotonically from 0.5 down to 0.05. At the bottom the comparison sees **3,039 genes — 70% of
+the reference's 4,344 — and 645 of the 999 genes that actually moved**. So **0.5 was simply where the first
+ladder stopped**, not a floor in the data. The only job the cutoff is strictly required to do is avoid
+log2(0); anything above that is discarding signal.
+
+**The shuffled null is flat at zero across the whole ladder** (+0.017 to −0.013, 25 permutations per row).
+An earlier single-permutation null returned −0.049 at one floor, which looked like a real negative baseline
+and was one draw's worth of noise — a single shuffle carries ≈1/√n of its own. The null is now a mean over
+25 draws for exactly that reason.
 
 **What this says, and it is not what the first run said.** At the default floor neither statistic is
-distinguishable from zero (r/SE = 1.0, sign z = 0.5) — which is the "the pre-registered failure condition
-was met" reading, and it was wrong. At floor 0.5 both are strongly significant (r/SE = 7.0, sign z = 12.3)
-over 1,379 genes covering 31% of the real signal. **The model does carry condition-specific transcriptional
-information; the default floor was excluding the genes that carry it.**
+distinguishable from zero (r/SE = 1.03, sign z = 0.50) — which is the "the pre-registered failure condition
+was met" reading, and it was wrong. At floor 0.05 both are unambiguous: r/SE = 15.8, sign z = 21.8, over
+two-thirds of the real signal. **The model does carry condition-specific transcriptional information; the
+default floor was excluding the genes that carry it.** The correlation is still modest in absolute terms
+(r ≈ 0.29) and should be reported that way.
 
-The shuffled-label null stays at ≈0 across the whole ladder (0.011 → −0.002), so the added genes are not
-noise the statistic is mistaking for agreement — which was the specific worry that justified a floor.
-
-**The peak at floor 10 is not a finding.** r = 0.272 is the largest point estimate and sits at r/SE = 2.9 on
-n = 115, while the bottom of the ladder sits at 7.0 on n = 1,379. Sign concordance does not peak there
-either. The trend is *lower is better, at least down to 0.5*; there is no evidence for an optimum in
-between, and the correlation remains **weak** (r ≈ 0.19) even where it is most significant.
+**The peak at floor 10 is not a finding, and the extended ladder settles it.** r = 0.272 was the largest
+value in the first table and sits at r/SE = 2.88 on n = 115. Floor 0.05 returns a *higher* r (0.286) on
+n = 3,039 at r/SE = 15.8 — better on both axes at once. The apparent mid-ladder optimum was small-sample
+noise, which is why every row now carries r/SE and a sign-z rather than a bare point estimate.
 
 ### How each is computed
 Unchanged from what `sci2.py` already implements, and worth restating because the discipline is the point:
@@ -374,13 +386,23 @@ before running the screen.
 
 **Two corrections the first run forced, both recorded in the script rather than quietly fixed.**
 
-**(a) "Already in the corpus" has four states, not two.** The first version asked only whether rows exist
-with the gene in the label. For `argG` and `thrC` the answer was yes — 4 and 8 rows, **every one
-`qc == "ok"`** — and the conclusion "a whole-cell verdict is free" was wrong: both carry a NULL
-`kb_sha256`, so they belong to no arm and `survey.analysis_rows` correctly refuses to pool them. Rows that
-are present, readable, `ok`, and that no analysis path will use. That is this project's own silent-absence
-defect, committed inside a screen whose output tells someone where to spend days of compute. The states are
-now named: `analysable`, `collapsed`, `unusable_arm`, `absent`.
+**(a) "Already in the corpus" has four states — and my first two attempts at the reason were both wrong.**
+The first version asked only whether rows exist with the gene in the label. For `argG` and `thrC` the answer
+was yes — 4 and 8 rows, every one `qc == "ok"` — and "a whole-cell verdict is free" was wrong, because
+`analysis_rows` does not return them.
+
+The second version said they "carry a NULL `kb_sha256`, so they belong to no arm". ⚠️ **That was also
+wrong, and wrong in this project's most characteristic way.** `store.list_results()` does not project
+`kb_sha256` at all — `corpus_schema` exists precisely because of that — so `not r.get("kb_sha256")` is true
+for **all 369 rows** and the check could only ever return one answer. I read a field's absence from a
+*projection* as a fact about the *data*, inside a diagnostic whose job is to say where to spend days of
+compute, immediately after writing a comment congratulating myself for avoiding exactly that.
+
+**The actual reason,** read from `corpus_schema.arms()` which does project the arm columns: the corpus holds
+several arms; `analysis_rows` selects one (`kb 3b2f8ebd` / operons `on` / `steady_state`, 279 rows); and
+`KO:argG` and `KO:thrC` were produced under a **different fitted knowledge base**. They are not damaged and
+not un-keyed. They are a different experiment, and ARM-1 excluding them is the safety net working correctly.
+States are now `analysable` (0) / `collapsed` (2) / `other_arm` (2) / `absent` (52).
 
 **(b) `rescue_failure` does not detect surprises.** The rule is unchanged and selects the same seven cells;
 the sentence describing it was wrong. Those seven are the five `dap` genes and `ilvC`/`ilvD`, and neither

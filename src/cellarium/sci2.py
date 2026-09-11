@@ -40,6 +40,8 @@ REF_CONDITION = "wt_glc"                               # PRECISE-1K WT M9-glucos
 REF_STRAIN = "MG1655"                                  # strain fidelity: compare only same-strain samples (the brief)
 MIN_COUNT = 10.0                                        # independent-filter floor before correlating (both sides)
 PADJ_SIG = 0.1                                          # DESeq2 padj threshold for "confidently resolved" genes
+NULL_PERMUTATIONS = 25   # the shuffled-label baseline is a MEAN over this many draws, with its spread
+                         # reported — one draw carries ~1/sqrt(n) of its own noise (see `concordance`).
 DEG_SIG = 1.0                                           # |log2FC| a DE call must clear
 
 
@@ -197,9 +199,20 @@ def concordance(sim_lfc: dict, ref_lfc: dict, *, min_count_genes: set | None = N
     sign_ok = sum(1 for g in sig if (sim_lfc[g] > 0) == (ref_lfc[g] > 0))
     sign_rate = round(sign_ok / len(sig), 3) if sig else None
 
-    # null baseline: correlation of the DATA vector against a shuffled sim (a "high r is nearly free" control)
+    # NULL BASELINE: the reference vector against a SHUFFLED sim — the "a high r is nearly free from the
+    # shared housekeeping backbone" control.
+    #
+    # ⚠️ This was ONE permutation, and one permutation is an estimate with its own noise of roughly
+    # 1/sqrt(n). That matters because the null is read as "is it zero?": on the count-floor sweep a single
+    # draw returned -0.049 at n=2607, which looks like a real negative baseline and is about 2.5 standard
+    # errors from zero — i.e. an ordinary draw, not a finding. Averaging over NULL_PERMUTATIONS draws and
+    # reporting the SPREAD makes "consistent with zero" a statement the reader can check instead of a
+    # number they have to trust.
     rng = np.random.default_rng(0)
-    null_r = _pearson(rng.permutation(s), r)
+    null_draws = [_pearson(rng.permutation(s), r) for _ in range(NULL_PERMUTATIONS)]
+    null_draws = [x for x in null_draws if x is not None]
+    null_r = float(np.mean(null_draws)) if null_draws else None
+    null_sd = float(np.std(null_draws, ddof=1)) if len(null_draws) > 1 else None
 
     resid = s - r
     order = np.argsort(-np.abs(resid))
@@ -217,6 +230,8 @@ def concordance(sim_lfc: dict, ref_lfc: dict, *, min_count_genes: set | None = N
         "deming_intercept": (round(dem[1], 3) if dem else None),
         "sign_concordance": sign_rate, "n_ref_significant": len(sig),
         "null_pearson_r": (round(null_r, 3) if null_r is not None else None),
+        "null_pearson_sd": (round(null_sd, 3) if null_sd is not None else None),
+        "null_permutations": NULL_PERMUTATIONS,
         "top_divergent_genes": divergent, "verdict": verdict,
         "note": ("log2FC concordance of the sim vs a DESeq2 reference for a matched contrast. Read pearson_r AGAINST "
                  "null_pearson_r (a high r is nearly free from the shared housekeeping backbone); a Deming slope far "
