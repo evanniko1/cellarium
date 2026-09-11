@@ -123,6 +123,35 @@ def test_a_gated_call_never_reaches_the_dispatcher(monkeypatch):
 # Unattended mode
 # ---------------------------------------------------------------------------------------------------------
 
+def test_the_launch_tool_exists_only_in_unattended_mode(monkeypatch):
+    """The gap unattended mode did not actually close until `run_simulation_now` was written.
+
+    ⚠️ FOUND BY RUNNING IT. `run_experiment` sounds like the launcher and is not: it validates a design,
+    screens it, and reports whether the corpus already answers the question — `scripts/verify_mcp_end_to_end.py`
+    returned `status: in_corpus` in 0.0 minutes for what was supposed to be a launch. Nothing in
+    `tools.TOOLS` starts a simulation. So unattended mode was granting permission for something no tool
+    could do, and the `_NEVER` entry that justified the strictest gate in the module described behaviour
+    `run_experiment` does not have.
+    """
+    assert mcp.call("run_simulation_now", {})["tier"] == "unattended_only"
+    assert "run_simulation_now" not in [s["name"] for s in mcp.tool_specs()]
+
+    monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
+    assert "run_simulation_now" in [s["name"] for s in mcp.tool_specs()]
+
+
+def test_run_experiment_is_a_lookup_and_is_classified_as_one():
+    """It was in `_NEVER` on a false premise. This pins the corrected classification so it is not re-added
+    by someone reading the name rather than the body."""
+    assert mcp.refusal("run_experiment") is None
+    assert "run_experiment" not in mcp._NEVER and "run_experiment" not in mcp._WRITE_GATED
+    import inspect
+    src = inspect.getsource(tools.run_experiment)
+    assert "run_live" not in src and "subprocess" not in src, (
+        "run_experiment now appears to launch something — it was classified as a lookup because it does "
+        "not. Re-examine the MCP tier before shipping this.")
+
+
 def test_unattended_mode_lifts_every_gate_this_module_owns(monkeypatch):
     """The capability the tiers would otherwise remove entirely.
 
@@ -141,7 +170,10 @@ def test_unattended_mode_implies_listing_because_permission_without_discovery_is
     """One switch, not three. A caller that may now launch but cannot see `run_experiment` gains nothing."""
     monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
     assert mcp.expose_all() and mcp.allow_writes()
-    assert len([s["name"] for s in mcp.tool_specs()]) == len(tools.TOOLS) + len(mcp.LISTED)
+    names = [s["name"] for s in mcp.tool_specs()]
+    # +1 for run_simulation_now, which exists ONLY in this mode and is not in tools.TOOLS.
+    assert len(names) == len(tools.TOOLS) + len(mcp.LISTED) + 1
+    assert "run_simulation_now" in names
 
 
 def test_neither_weaker_flag_implies_unattended_mode(monkeypatch):
@@ -149,7 +181,9 @@ def test_neither_weaker_flag_implies_unattended_mode(monkeypatch):
     for env in (mcp.EXPOSE_ALL_ENV, mcp.ALLOW_WRITES_ENV):
         monkeypatch.setenv(env, "1")
         assert not mcp.allow_all(), f"{env} leaked into unattended mode"
-        assert mcp.refusal("run_experiment") is not None
+        assert mcp.refusal("web_get") is not None
+        assert "run_simulation_now" not in [s["name"] for s in mcp.tool_specs()]
+        assert mcp.call("run_simulation_now", {})["tier"] == "unattended_only"
         monkeypatch.delenv(env)
 
 
@@ -208,7 +242,7 @@ def test_a_withheld_tool_is_not_reported_as_a_missing_one():
     built it, the other says the project decided against it — and a caller cannot distinguish them by
     probing. So the refusal check runs BEFORE the unknown-name check, and the message says which.
     """
-    withheld = mcp.call("run_experiment", {})
+    withheld = mcp.call("web_get", {})
     assert "unknown" not in withheld["error"].lower()
     assert withheld["tier"] == "never" and "what_you_can_do" in withheld
 

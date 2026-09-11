@@ -109,7 +109,9 @@ def test_sim_lfc_uses_full_distribution_and_joins_bnumbers(monkeypatch):
         "EG_flat": {"log2fc": 0.02, "symbol": "fbaA"},        # a NON-significant gene — must still be present
         "EG_nosym": {"log2fc": -1.0, "symbol": None}}})       # no symbol -> keyed by its raw id (graceful)
     bmap = sci2._bnumber_map()
-    lfc = sci2.sim_lfc("gene_knockout/KO:acrB")
+    # `normalise="none"` keeps the raw ratios, which is what this test is about — the join and the full
+    # distribution. The median-centring is a separate property, covered below.
+    lfc = sci2.sim_lfc("gene_knockout/KO:acrB", normalise="none")
     assert lfc[bmap["pfkA"]] == 2.1 and lfc[bmap["fbaA"]] == 0.02   # full distribution, joined by b-number
     assert lfc["EG_nosym"] == -1.0 and len(lfc) == 3
 
@@ -126,7 +128,11 @@ def test_rnaseq_concordance_fails_loud_on_namespace_mismatch(monkeypatch):
         "contrast": "x", "provenance": {},
         "reference_lfc": {f"b{i:04d}": {"log2FC": 0.5, "padj": 0.01} for i in range(50)}})
     # sim ids in the WRONG namespace (raw cistron ids, not b-numbers) -> empty join despite 50 genes each side
-    monkeypatch.setattr(sci2, "sim_lfc", lambda design, reference: {f"EG{i:05d}_RNA[c]": 0.5 for i in range(50)})
+    # `rnaseq_concordance` reads `sim_lfc_detail` (the normalisation rides on the same payload), so that is
+    # the seam to stub — patching `sim_lfc` alone stopped reaching the code under test when the
+    # compositional normalisation landed.
+    monkeypatch.setattr(sci2, "sim_lfc_detail", lambda design, reference: {
+        "lfc": {f"EG{i:05d}_RNA[c]": 0.5 for i in range(50)}, "normalise": "median"})
     out = sci2.rnaseq_concordance("d", {"cond_B": "x"})
     assert "error" in out and "namespace" in out["error"].lower()
     assert out["join_qc"]["n_joined"] == 0 and out["join_qc"]["n_sim"] == 50   # the diagnostic carries the counts
@@ -172,3 +178,37 @@ def test_build_reference_on_a_real_contrast():
     # Name the input this result certifies. Without this the assertions above are conditional on whatever bytes
     # happened to be in the gitignored data dir.
     assert ref["provenance"]["counts_sha256"] == sci2.PRECISE1K_SNAPSHOT["counts_sha256"]
+
+
+def test_a_global_shift_is_removed_and_reported_rather_than_hidden(monkeypatch):
+    """The defect the FIRST REAL RUN of this comparison exposed, 2026-09-11.
+
+    Acetate vs glucose returned 75 of 75 genes NEGATIVE, median log2FC −2.16. That is a cell-size change,
+    not differential expression: the simulation counts absolute molecules per cell and a cell on acetate is
+    smaller, while the DESeq2 reference is compositional and cancels a global shift by construction. The
+    two were being compared on different bases, and the mismatch produced a healthy-looking
+    `sign_concordance` of 0.971 — the shift agreeing with itself.
+
+    Median-centring is the first-order equivalent of DESeq2's own median-of-ratios size factor. What this
+    pins is that it happens AND that the removed shift is still reported, because "the whole transcriptome
+    fell 4-fold" is a real model output and erasing it silently would trade one absence for another.
+    """
+    from cellarium import differential
+
+    # Every gene down ~2 log2 units, with real differential structure of ±0.5 riding on top of it.
+    monkeypatch.setattr(differential, "all_gene_lfc", lambda *a, **k: {"kind": "mrna", "count_floor": 20.0,
+        "lfc": {"EG_a": {"log2fc": -2.5, "symbol": "pfkA"},
+                "EG_b": {"log2fc": -2.0, "symbol": "fbaA"},
+                "EG_c": {"log2fc": -1.5, "symbol": "tpiA"}}})
+
+    d = sci2.sim_lfc_detail("condition/acetate")
+    assert d["median_shift_removed"] == -2.0
+    assert d["global_shift"]["fraction_negative_before"] == 1.0
+    assert d["global_shift"]["median_before"] == -2.0
+    assert sorted(d["lfc"].values()) == [-0.5, 0.0, 0.5], "the differential structure must survive centring"
+
+    raw = sci2.sim_lfc_detail("condition/acetate", normalise="none")
+    assert raw["median_shift_removed"] == 0.0
+    assert sorted(raw["lfc"].values()) == [-2.5, -2.0, -1.5]
+
+    assert sci2.sim_lfc_detail("x", normalise="zscore").get("error")

@@ -274,22 +274,73 @@ def pd_isna(x) -> bool:
 
 # --- the sim side + the end-to-end orchestrator (gated) ---------------------------------------------------
 
-def sim_lfc(design: str, reference: str = "wildtype/basal") -> dict:
-    """Sim mRNA log2FC per gene (keyed by b-number, to join PRECISE-1K) for a design vs reference, from the ALL-GENE
-    reader mode (SCI-2c: `differential.all_gene_lfc`, kind='mrna'). Uses the FULL gene distribution — NOT just the
-    significant movers, which range-restricts the concordance's Pearson/Deming. Empty if no local sim data."""
+def sim_lfc(design: str, reference: str = "wildtype/basal", normalise: str = "median") -> dict:
+    """Sim mRNA log2FC per gene (keyed by b-number, to join PRECISE-1K), COMPOSITIONALLY NORMALISED.
+
+    ⚠️ WHY THE NORMALISATION EXISTS — measured on the first real run of this comparison, 2026-09-11.
+    Acetate vs glucose returned **every single gene negative**: 75 of 75, median log2FC −2.16, range −2.55
+    to −0.12. That is not differential expression. The simulation reports ABSOLUTE molecules per cell, and
+    a cell growing on acetate is smaller and slower, so essentially every transcript falls. DESeq2 on the
+    reference side reports a COMPOSITIONAL change — read counts normalised to library size — where a global
+    shift cancels by construction. Comparing the two as they stood measured the units, not the biology, and
+    it did so while producing a respectable-looking `sign_concordance` of 0.971, which was the shift
+    agreeing with itself.
+
+    `median` subtracts the median log2FC across genes. That is the first-order equivalent of DESeq2's own
+    median-of-ratios size factor: robust to a global shift, insensitive to a minority of genes that really
+    did move, and it puts both axes on the same basis — change RELATIVE TO THE TYPICAL GENE. `none` returns
+    the raw absolute-per-cell ratios, which are the right thing when the question is about cell size or
+    total transcript load rather than about composition. The shift that was removed is not discarded: the
+    caller gets it back through `sim_lfc_detail`, because "the whole transcriptome fell 4-fold" is a real
+    model output and hiding it would trade one silent absence for another.
+    """
+    detail = sim_lfc_detail(design, reference, normalise=normalise)
+    return detail.get("lfc", {})
+
+
+def sim_lfc_detail(design: str, reference: str = "wildtype/basal", normalise: str = "median") -> dict:
+    """`sim_lfc` plus what the normalisation did, so the global shift stays visible rather than erased."""
+    import statistics
+
     from . import differential
     out = differential.all_gene_lfc(design, reference, kind="mrna")
     if not isinstance(out, dict) or not isinstance(out.get("lfc"), dict):
-        return {}
+        return {"lfc": {}, "error": out.get("error") if isinstance(out, dict) else None}
     bmap = _bnumber_map()
-    lfc = {}
+    raw = {}
     for gid, v in out["lfc"].items():
         sym = v.get("symbol") or gid
         val = v.get("log2fc")
         if val is not None:
-            lfc[bmap.get(sym, sym)] = val              # map symbol -> b-number so it joins the DESeq2 reference
-    return lfc
+            raw[bmap.get(sym, sym)] = val          # symbol -> b-number, to join the DESeq2 reference
+
+    shift = 0.0
+    if normalise == "median" and raw:
+        shift = statistics.median(raw.values())
+    elif normalise not in ("median", "none"):
+        return {"lfc": {}, "error": f"unknown normalise={normalise!r}; use 'median' or 'none'"}
+
+    lfc = {g: round(v - shift, 4) for g, v in raw.items()}
+    vals = list(raw.values())
+    return {
+        "lfc": lfc,
+        "normalise": normalise,
+        "median_shift_removed": round(shift, 4),
+        "global_shift": {
+            "fraction_negative_before": round(sum(1 for v in vals if v < 0) / len(vals), 3) if vals else None,
+            "median_before": round(statistics.median(vals), 3) if vals else None,
+            "reading": ("A median far from 0 with nearly every gene on one side is a CELL-SIZE / total-load "
+                        "change, not differential expression — the simulation counts molecules per cell "
+                        "while the RNA-seq reference is compositional. It is removed for the concordance "
+                        "and reported here because it is a real model output."),
+        },
+        "n_genes": len(lfc),
+        "count_floor": out.get("count_floor"),
+        "count_floor_note": ("Genes below this mean copy number in either arm are not returned. On the "
+                             "acetate run that left 75 of ~4,300 — so the concordance is over the "
+                             "high-abundance head of the distribution, not the transcriptome. Report n."),
+        "unreachable_runs": out.get("_unreachable_runs"),
+    }
 
 
 def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/basal") -> dict:
@@ -302,7 +353,8 @@ def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/b
     ref = build_reference(contrast)
     if "error" in ref:
         return ref
-    sim = sim_lfc(design, reference)
+    detail = sim_lfc_detail(design, reference)
+    sim = detail.get("lfc") or {}
     if not sim:
         return {"error": (f"no sim mRNA log2FC for '{design}' vs '{reference}' — the all-gene reader (SCI-2c) found "
                           "no local runs for the design/reference. Run or fetch the matched-contrast sims first.")}
@@ -321,4 +373,10 @@ def rnaseq_concordance(design: str, contrast: dict, reference: str = "wildtype/b
                           "image), then the symbol→b-number map completes the join."), "join_qc": qc}
     result["contrast"] = ref["contrast"]
     result["provenance"] = ref["provenance"]
+    # The normalisation and what it removed ride ON the result. A concordance number computed after a
+    # global shift was subtracted is a different claim from one computed before, and the reader must not
+    # have to know which was done.
+    result["sim_normalisation"] = {k: detail.get(k) for k in
+                                   ("normalise", "median_shift_removed", "global_shift", "n_genes",
+                                    "count_floor", "count_floor_note", "unreachable_runs")}
     return result

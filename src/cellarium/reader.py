@@ -43,6 +43,45 @@ def _container_path(host_run_root: Path) -> str:
     return "/wcEcoli/out/" + ("" if str(rel) == "." else str(rel).replace("\\", "/"))
 
 
+def _reachable(roots, role: str) -> tuple[list[str], dict | None]:
+    """Split run roots into the ones the reader mount can see and the ones it cannot, NAMING the misses.
+
+    WHY THIS EXISTS RATHER THAN LETTING `_container_path` RAISE. The raise is correct for a single run — if
+    you asked for THAT run, "cannot see it" is the answer. It is wrong for a SET: `wildtype/basal` has runs
+    spread across four output trees on this machine (32 under `runs/`, 10 under `runs_kinetic_seeds/`,
+    `runs_seed_aars/` and `runs_rebuild_p1/`), and one unreachable root aborted a comparison that 32
+    reachable ones could have answered. Measured while running the acetate-vs-glucose RNA-seq concordance,
+    which died on the first out-of-root reference seed.
+
+    Dropping them silently would be worse than the crash, so this returns the omission alongside the paths:
+    which roots, how many, which output trees they live under, and the setting that would include them. The
+    caller attaches it to the result and REFUSES when too few survive — the PLAT-2 convention, applied to a
+    dimension that had not been considered: not rows dropped for size, but runs dropped for reachability.
+    """
+    ok, missed = [], []
+    for r in roots:
+        try:
+            ok.append(_container_path(Path(r)))
+        except ValueError:
+            missed.append(Path(r).resolve())
+    if not missed:
+        return ok, None
+    trees = sorted({str(m).replace("\\", "/").split("/")[-4] if len(m.parts) >= 4 else str(m)
+                    for m in missed})
+    return ok, {
+        "role": role,
+        "n_reachable": len(ok),
+        "n_unreachable": len(missed),
+        "output_trees_not_mounted": trees,
+        "runs": [str(m) for m in missed[:8]],
+        "why": (f"the reader container mounts only {OUT_ROOT} at /wcEcoli/out, so runs under another "
+                "output tree are invisible to it. They exist and are readable — they are not part of THIS "
+                "comparison."),
+        "how_to_include_them": "point CELLARIUM_OUT at a root that contains all of them, or move them under "
+                               f"{OUT_ROOT}.",
+    }
+
+
 def _worker_cmd(mode: str, args: list[str]) -> list[str]:
     # mount the worker's dir (single-file binds are unreliable on Docker Desktop Windows) read-only
     return ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
@@ -363,9 +402,21 @@ def gene_lfc(target_roots: list[Path], ref_roots: list[Path], kind: str = "mrna"
     """All-gene seed-mean log2fc (SCI-2c): the FULL-distribution reader (every gene, not just the significant
     movers) for the sim-vs-RNA-seq concordance, computed in the container. Mirrors differential()."""
     if WCECOLI_DOCKER:
-        t = ",".join(_container_path(Path(r)) for r in target_roots)
-        r = ",".join(_container_path(Path(r)) for r in ref_roots)
-        return _run_cmd(_worker_cmd("gene_lfc", [t, r, kind, str(floor)]), None)
+        from . import support
+        t_ok, t_miss = _reachable(target_roots, "target")
+        r_ok, r_miss = _reachable(ref_roots, "reference")
+        omitted = [x for x in (t_miss, r_miss) if x]
+        floor_n = getattr(support, "MIN_SEEDS", 2)
+        for side, paths in (("target", t_ok), ("reference", r_ok)):
+            if len(paths) < floor_n:
+                return {"error": f"only {len(paths)} {side} run(s) are reachable by the reader container, "
+                                 f"below the evidential floor of {floor_n} seeds — refusing at this scope "
+                                 "rather than answering from one run.",
+                        "unreachable": omitted}
+        out = _run_cmd(_worker_cmd("gene_lfc", [",".join(t_ok), ",".join(r_ok), kind, str(floor)]), None)
+        if omitted and isinstance(out, dict):
+            out["_unreachable_runs"] = omitted   # the omission rides ON the payload, never as a side note
+        return out
     t = ",".join(str(Path(r).resolve()) for r in target_roots)
     r = ",".join(str(Path(r).resolve()) for r in ref_roots)
     return _run_cmd([PY, str(_WORKER), "gene_lfc", t, r, kind, str(floor)], WCECOLI_DIR or None)

@@ -22,19 +22,25 @@ a **shipped default protecting the user from their own agent**:
     launch queue, fetch from the network, or reach the credential vault, without that human approving it.
 
 Two tiers implement it, and the difference between them is whether a HUMAN GATE exists downstream:
-  * `_NEVER` — no CONVENIENCE flag lifts these; only the explicit opt-in below does. `run_experiment`
-    starts a simulation with no approval step after it; `download_raw` writes gigabytes; `web_get` makes
-    outbound requests; `use_skill` loads instructions into the loop, which is an injection surface. The
-    user's own CLI and web app still have every one of them.
+  * `_NEVER` — no CONVENIENCE flag lifts these; only the explicit opt-in below does. `download_raw`
+    writes gigabytes; `web_get` makes outbound requests; `use_skill` loads instructions into the loop,
+    which is an injection surface. The user's own CLI and web app still have every one of them.
   * `_WRITE_GATED` — the `propose_*` / `revise_*` family writes drafts into `data/launch_queue.json`. That
     queue IS the human airlock, so these are defensible over MCP — but not by default, and specifically not
     as a silent side effect of "expose everything". They need their own key. The reason is measured, not
     hypothetical: a probe run in this repo once wrote 8 phantom drafts into that queue in a single sweep.
 
-UNATTENDED MODE. Both tiers assume a human is somewhere behind the call, which stops being true the moment
-Cellarium is driven BY another agent — a subagent cannot consent on a person's behalf. So
-`CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL=1` lifts everything this module gates, and the biosecurity screen and
-envelope check still hold because they live inside `run_experiment` rather than here. See ALLOW_ALL_ENV.
+UNATTENDED MODE, and the launch capability. Both tiers assume a human is somewhere behind the call, which
+stops being true the moment Cellarium is driven BY another agent — a subagent cannot consent on a person's
+behalf. `CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL=1` lifts everything this module gates AND adds the one tool
+that actually starts a simulation, `run_simulation_now`.
+
+That tool had to be written. Nothing in `tools.TOOLS` launches anything: `run_experiment` SOUNDS like the
+launcher and is a lookup, generation normally happens through a campaign or through the airlock where a
+person approves each request. So until `run_simulation_now` landed, unattended mode granted permission to
+do something no tool could do. `run_simulation_now` applies the biosecurity screen and the envelope check
+ITSELF, before starting anything, because `model.run_live` does neither — screening has always been the
+caller's job. See ALLOW_ALL_ENV.
 
 The credential vault is absent by construction rather than by exclusion — no tool in `tools.TOOLS` touches
 `credentials` at all — and `tests/test_mcp_surface.py` fails if one is ever added, because "we checked once"
@@ -58,7 +64,13 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from . import tools
+# ⚠️ `tools` IS DELIBERATELY NOT IMPORTED HERE, and the laziness is load-bearing rather than stylistic.
+# `cellarium.tools` -> `cellarium.model` -> `cellarium.runner`, and `runner` binds WCECOLI_DOCKER and
+# WCECOLI_DIR as MODULE-LEVEL CONSTANTS at import time (runner.py:27-28). Import it at the top of this file
+# and `python -m cellarium.mcp` reads those constants BEFORE `main()` has had a chance to load `.env`, so
+# the server comes up with an empty model environment and every launch fails with "Set WCECOLI_DOCKER" —
+# inside a subprocess whose stderr nobody is reading. Measured exactly that way. `cli.py` has the same
+# pattern for the same reason ("imported after load_dotenv so ANTHROPIC_API_KEY is present").
 
 # ---------------------------------------------------------------------------------------------------------
 # The listed surface.
@@ -68,9 +80,17 @@ LISTED = ("ask_cellwright", "convene_council", "describe_cellarium")
 
 # Refused whatever the environment says. Each entry carries WHY, because a refusal that does not say what it
 # is protecting reads as an immature surface rather than a deliberate one.
+#
+# ⚠️ `run_experiment` WAS IN THIS TIER AND HAS BEEN REMOVED, 2026-09-11. The reason written here said it
+# "starts a simulation immediately — there is no human approval step behind it". That was FALSE, and it was
+# never checked: read `tools.run_experiment` and it validates the envelope, screens biosecurity, looks for
+# matching rows, and returns `in_corpus` or `in_envelope_uncached` with the note "Generation happens offline
+# via a campaign, not per query". It launches nothing. It is a lookup, and it now sits in the read tier
+# where a lookup belongs. Found by running an end-to-end verification that was supposed to prove a
+# simulation had started and instead returned `status: in_corpus` in 0.0 minutes — a green check for a
+# claim that was not true. The actual launch capability is `run_simulation_now`, added below, which is the
+# only tool on this surface that starts anything.
 _NEVER: dict[str, str] = {
-    "run_experiment": "starts a simulation immediately — there is no human approval step behind it, unlike "
-                      "the propose_* family, which queues for one",
     "download_raw":   "fetches from HuggingFace and writes archives (often gigabytes) into the user's runs "
                       "directory",
     "web_get":        "makes outbound HTTP requests; a third-party agent must not be able to originate "
@@ -96,7 +116,7 @@ ALLOW_WRITES_ENV = "CELLARIUM_MCP_ALLOW_WRITES"
 # THE PROBLEM IT SOLVES, and it is a real one rather than a convenience. The tiers above assume a human is
 # somewhere behind the call, either approving at the airlock or deciding to set a flag. That assumption
 # breaks the moment Cellarium is driven BY ANOTHER AGENT: a subagent cannot grant consent on a person's
-# behalf, so `run_experiment` is not merely inconvenient there, it is unreachable, and an autonomous
+# behalf, so a launch is not merely inconvenient there, it is impossible, and an autonomous
 # investigate-simulate-reread loop cannot be built at all. Refusing to offer a way out would not be safety;
 # it would be a capability hole dressed as one.
 #
@@ -104,8 +124,8 @@ ALLOW_WRITES_ENV = "CELLARIUM_MCP_ALLOW_WRITES"
 # BOTH tiers and lists everything, because a switch that permits without advertising leaves the caller's
 # model unable to discover what it may now do.
 #
-# WHAT IT DOES NOT LIFT, which is the whole reason it can be offered at all. Two checks live INSIDE
-# `run_experiment` rather than in this policy, and nothing here can reach them:
+# WHAT IT DOES NOT LIFT, which is the whole reason it can be offered at all. Two checks are applied by the
+# launcher itself, not by this policy, and no flag here reaches them:
 #   * the BIOSECURITY screen (`biosecurity.screen`) — it protects the operator, not the operator's consent,
 #     and D6 is explicit that it stays server-side;
 #   * the validated-ENVELOPE check (`envelope.check`) — a design outside the envelope is refused with a
@@ -209,7 +229,18 @@ def tool_specs() -> list[dict]:
     This is the POLICY answer and it is what `main()` iterates over to decide what to register — so the
     two cannot drift. Pure: no SDK, no I/O, testable on a machine that has never installed either.
     """
+    from . import tools
     specs = [dict(s) for s in _LISTED_SPECS]
+    if allow_all():
+        # The only tool on this surface that STARTS anything, and the only one that exists solely for this
+        # mode. Listed before the read tools so a caller meets it first.
+        specs.append({"name": "run_simulation_now", "description": (
+            "START A REAL whole-cell simulation on this machine RIGHT NOW — minutes to hours of compute, "
+            "with no human approving it. Available because this server was started in unattended mode. "
+            "Check estimate_sim_resources and system_resources first, and say what you are about to start. "
+            "Two checks still refuse: a biosecurity-flagged design, and a design outside the validated "
+            "envelope. Call run_experiment first to find out whether the corpus already answers the "
+            "question — that one is a lookup and costs nothing.")})
     if expose_all():
         specs += [{"name": t["name"], "description": t.get("description", "")}
                   for t in tools.TOOLS if refusal(t["name"]) is None]
@@ -232,6 +263,8 @@ def describe_cellarium() -> dict:
     # function called a `survey.coverage()` that does not exist, swallowed the AttributeError, and reported
     # `n_runs: null` — the silent-absence defect, committed inside the tool whose whole job is to make
     # absences legible. So the failure branch now SAYS what broke.
+    from . import tools
+
     corpus: dict[str, Any]
     try:
         cov = tools.survey_corpus().get("coverage") or {}
@@ -335,8 +368,68 @@ def convene_council(question: str) -> dict:
                          "hypothesis is not anchored on what the corpus happens to contain."}
 
 
+def run_simulation_now(perturbation: str = "wildtype", condition: str | None = "basal",
+                       timeline: str | None = None, seeds: int = 1, generations: int = 1,
+                       params: dict | None = None, elongation_model: str | None = None,
+                       append_manifest: bool = True) -> dict:
+    """START A REAL SIMULATION on this machine, now, with nobody approving it. Unattended mode only.
+
+    WHY THIS EXISTS AS A SEPARATE TOOL. `run_experiment` sounds like the launcher and is not: it validates a
+    design, screens it, and tells you whether the corpus already answers it. Nothing in `tools.TOOLS`
+    launches — generation normally happens through a campaign, or through the airlock where a person
+    approves each request. So an agent driving Cellarium had no way to run anything at all, which is the
+    gap `CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL` was asked for and did not actually close until this landed.
+
+    THE TWO GATES THIS STILL APPLIES, and it applies them ITSELF rather than inheriting them. `model.run_live`
+    does no screening — `tools.run_experiment` screens before returning, so screening has always been the
+    caller's job. A launcher that skipped it would make "biosecurity survives unattended mode" false, so
+    both checks run here, in this order, before anything starts. This is the one place in the module where
+    getting it wrong would matter, so `tests/test_mcp_surface.py` asserts a flagged design is held and
+    `scripts/verify_mcp_end_to_end.py` demonstrates it live against a real signature.
+
+    `append_manifest=False` runs for real without adding rows to the corpus — for verification, where the
+    point is that a simulation happened, not that the corpus grew.
+    """
+    from . import biosecurity, capability, envelope, model
+    if not allow_all():
+        return {"error": "run_simulation_now is available only in unattended mode.",
+                "refused_by": "cellarium-mcp-policy", "tier": "unattended_only",
+                "what_you_can_do": f"set {ALLOW_ALL_ENV}=1 — and read what it does first. Without it, a "
+                                   "simulation is started by a human: through the launch queue's approval "
+                                   "airlock, or through a campaign."}
+
+    design = model.Design(perturbation=perturbation, condition=condition, timeline=timeline,
+                          seeds=seeds, generations=generations, params=params or {},
+                          elongation_model=elongation_model or capability.DEFAULT_MODE)
+
+    v = envelope.check(design)
+    if not v.in_envelope:
+        return {"status": "refused", "reason": v.reason, "suggestion": v.suggestion,
+                "note": "Outside the validated envelope — not run. Unattended mode does not lift this."}
+
+    b = biosecurity.screen(design)
+    if b.flagged:
+        return {"status": "biosecurity_hold", "signature": b.signature, "matched": b.matched,
+                "severity": b.severity, "reason": b.reason,
+                "note": "Flagged by the biosecurity screen — not run. Unattended mode does not lift this: "
+                        "it pre-grants the HUMAN'S CONSENT, and this check is not about consent."}
+
+    import time
+    t0 = time.time()
+    runs = model.run_live(design, generations=generations, append_manifest=append_manifest)
+    return {"status": "ran",
+            "n_runs": len(runs),
+            "minutes": round((time.time() - t0) / 60, 2),
+            "result_ids": [getattr(r, "id", None) for r in runs],
+            "appended_to_manifest": append_manifest,
+            "design": {"perturbation": perturbation, "condition": condition, "seeds": seeds,
+                       "generations": generations, "elongation_model": design.elongation_model},
+            "note": "A real simulation ran on this machine with no human approving it, because "
+                    f"{ALLOW_ALL_ENV} was set. Values are simulated, not measurements."}
+
+
 _LOCAL = {"ask_cellwright": ask_cellwright, "convene_council": convene_council,
-          "describe_cellarium": describe_cellarium}
+          "describe_cellarium": describe_cellarium, "run_simulation_now": run_simulation_now}
 
 
 def call(name: str, args: dict | None = None) -> dict:
@@ -346,6 +439,8 @@ def call(name: str, args: dict | None = None) -> dict:
     tool gets its real reason rather than being reported as if it did not exist. Telling a caller a tool is
     missing when it is actually withheld is the silent-absence defect this project keeps finding in itself.
     """
+    from . import tools
+
     args = dict(args or {})
     ref = refusal(name)
     if ref is not None:
@@ -386,6 +481,8 @@ def _handler(name: str):
     bare function instead and the surface has two entry points, only one of which is guarded.
     """
     import functools
+
+    from . import tools
     real = _LOCAL.get(name) or tools._DISPATCH[name]
 
     @functools.wraps(real)
@@ -439,9 +536,35 @@ def build_server(server_cls=None):
     return server
 
 
+def load_env() -> None:
+    """Bootstrap the environment from `.env`, exactly as the CLI and the web app already do.
+
+    ⚠️ THIS WAS MISSING AND IT MATTERED. `cli.py:19` and `apps/server.py:53` both call `load_dotenv`; this
+    module did not, so the third entrypoint onto the same seam started with a different environment from
+    the other two. The symptom is not a crash at startup — it is `ask_cellwright` failing for want of
+    `ANTHROPIC_API_KEY`, and anything touching the model raising `Set WCECOLI_DOCKER`, in a server a client
+    spawned and whose stderr nobody is reading. Found by running a simulation over the wire and watching it
+    fail inside the container layer.
+
+    Never overrides an already-exported value: a client that sets the environment for its subprocess means
+    it, and a `.env` on disk must not silently win over it.
+    """
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv()                                    # the usual search: CWD and upward
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]       # src/cellarium/mcp.py -> repo root, in a checkout
+    env_file = root / ".env"
+    if env_file.is_file():
+        load_dotenv(env_file)
+
+
 def main() -> int:
     """Serve over stdio. The SDK is imported lazily so this module stays importable, and its policy stays
     testable, on a machine that has never installed it."""
+    load_env()
     try:
         import mcp.server  # noqa: F401
     except ImportError:

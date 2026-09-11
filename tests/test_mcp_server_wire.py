@@ -107,4 +107,4 @@ def test_the_instructions_track_the_environment(monkeypatch):
     monkeypatch.setenv(mcp.ALLOW_WRITES_ENV, "1")
     text = mcp.build_server().instructions or ""
     assert "propose_experiment" not in text, "a permitted tool is still described as withheld"
-    assert "run_experiment" in text
+    assert "web_get" in text and "download_raw" in text
