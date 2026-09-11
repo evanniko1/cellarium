@@ -131,44 +131,88 @@ pattern in downstream metabolites, and you can infer the actual internal flux ma
 through glycolysis versus the pentose-phosphate pathway, how much through the TCA cycle, how much was
 excreted as acetate. Compare that to what the simulation does internally.
 
+### A correction first: this model does not maximise growth
+An earlier draft of this section argued that "the metabolism is a constraint-based model" is the criticism a
+referee would make. **That was wrong, and the objection to it was right.** Being constraint-based is not a
+flaw, and more importantly it misdescribes what wcEcoli actually does.
+
+Read `models/ecoli/processes/metabolism.py`: the objective is `homeostatic` when the kinetic weight is zero
+and `homeostatic_kinetics_mixed` otherwise. There is **no biomass-maximisation term anywhere**. What the
+solver minimises is deviation from *metabolite concentration targets* — plus, when λ > 0, deviation from
+*reaction-rate targets* derived from the enzyme amounts the rest of the simulation produced — under a
+secretion penalty and a maintenance cost. The targets come from what transcription, translation,
+replication and division are actually consuming this timestep.
+
+So the flux map is **demand-driven, not growth-optimised**. That is a materially different object from
+textbook FBA, and it changes what the ¹³C test is *for*.
+
 ### Why it is necessary — the argument, not the appeal
-You said the experiment is interesting and asked why it is *necessary*. Three reasons, in descending order
-of how much they would survive a referee, plus the honest limit on all three.
-
-**1. It is the only one of the three that tests the model's interior.** RNA-seq tests what the cell
+**1. It is the only one of the three plans that tests the model's interior.** RNA-seq tests what the cell
 *intends* — transcript levels, the input side. Essentiality tests what happens to the cell *in the end* —
-live or die, the output side. Neither constrains the metabolic flux map in between, and that gap is not
-small: growth rate is a single number, and a very large family of internal flux distributions produces the
-same one. A model can get transcription approximately right and growth approximately right while routing
-carbon through the wrong pathways, and **nothing in the other two plans would notice**. ¹³C is the
-measurement that pins the interior, and there is no substitute for it.
+live or die, the output side. Neither constrains the flux map in between, and that gap is not small: a very
+large family of internal flux distributions produces the same growth rate. A model can get transcription
+approximately right and growth approximately right while routing carbon through the wrong pathways, and
+**nothing in the other two plans would notice**.
 
-**2. It answers the specific objection the whole-cell framing invites.** The claim this project makes is
-"mechanism, not fitted curves". For metabolism specifically, that claim is at its weakest: wcEcoli's
-metabolism *is* an FBA problem with an objective, so the sharpest available criticism is "your metabolism
-is a constraint-based model like everyone else's, and the whole-cell part is decoration". The ¹³C test
-speaks to that directly, because the fluxes are constrained by simulated enzyme amounts and simulated
-demand rather than chosen by the objective alone. Passing it substantiates the framing; failing it locates
-exactly where the objective is doing the work that mechanism is being credited for.
+**2. The question it answers has not been asked of an object like this.** Constraint-based models have been
+¹³C-validated for twenty years (Schuetz 2007), but those tests largely ask *was the objective well chosen*.
+Here there is no growth objective to validate. The question becomes **does demand-driven flux allocation
+reproduce the measured routing?** — and that is a genuinely open question, not a re-run of a settled one.
 
-**3. It is the only measurement that can adjudicate a parameter this corpus already sweeps and has never
-validated.** The corpus contains **eight levels** of the metabolic kinetic-objective weight —
-`kin_w` ∈ {0, 1e-8, 1e-7 (the model's own default), 1e-6, 1e-5, 1e-4, 0.1, 1} — which is precisely the knob
-controlling how much the metabolic answer is *optimised* versus *kinetically determined*. That default was
-inherited from upstream, not chosen on evidence produced here, and no measurement in this project currently
-discriminates among the eight. ¹³C-resolved fluxes are the natural discriminator: they are internal, they
-are per-reaction, and they respond to exactly the trade-off `kin_w` controls. This turns an inherited
-parameter into a validated one, which is a stronger contribution than the concordance number itself.
+**3. There is a sharper objection than the one the earlier draft invented, and ¹³C is what answers it.**
+The homeostatic targets are themselves **fitted** — ParCa sets those concentrations. So a sceptic can say
+"demand-driven" really means "driven by fitted targets", and agreement is circular. What defeats that is
+specific: **the targets constrain concentrations, not which route delivers them.** Nothing in the fit
+specifies how much carbon goes through glycolysis versus the pentose-phosphate pathway; that split is a
+consequence of stoichiometry, enzyme amounts and the secretion penalty. So the split ratio is a real
+out-of-sample prediction *even though the targets are fitted*, and it is the quantity ¹³C-MFA resolves best.
 
-**The honest limit: necessary for the scientific claim, not for the submission.** This is the most
-expensive of the three plans — the reaction-identity mapping alone is real work — and a workshop paper does
-not need it. Treat it as necessary for the *claim that the metabolism is mechanistic*, and optional for the
-*deadline*. If it is cut, the correct move is to state plainly that the interior is unvalidated rather than
-to let the other two checks imply it is.
+**4. There is already a measured failure pointing at exactly this.** `KO:pgi` knocks out phosphoglucose
+isomerase, forcing carbon through the PP pathway. The literature says such a mutant is viable at roughly
+**half** wild-type growth, through NADPH/redox imbalance (Canonaco 2001; Charusanti 2010). This model
+reproduces the viability but **not the severity: −6.4% growth**, and a deeper run showed the gap plateaus
+rather than widening — it reroutes almost for free. That was diagnosed as inheriting the FBA redox blind
+spot. **A ¹³C comparison says directly whether the PP flux is also wrong in the wild type**, or only under
+the knockout. That is a specific hypothesis with a specific measurement, not a fishing expedition.
 
-**One thing that is not a reason:** novelty of the method. Constraint-based models have been ¹³C-validated
-for roughly twenty years (Schuetz et al. 2007). What is new is the object, not the technique, and the
-write-up should say so first.
+**The honest limit: necessary for the claim, not for a deadline.** This is the most expensive of the three
+plans — the reaction-identity mapping alone is real work — and a workshop paper does not need it. It is
+necessary for *the claim that the flux map means something*, and optional for a submission. If it is cut,
+say plainly that the interior is unvalidated rather than letting the other two checks imply otherwise.
+
+### The experiments, named
+Gerosa et al. 2015 measured ¹³C-resolved fluxes on eight carbon sources: acetate, fructose, galactose,
+glucose, gluconate, glycerol, pyruvate and succinate. The model has 23 media conditions. **The intersection
+is three**, and all three are already simulated:
+
+| Condition | Gerosa | Corpus | Direction |
+|---|---|---|---|
+| Glucose | ✓ | `wildtype/basal`, 26 reportable runs | Glycolytic — the reference case |
+| Acetate | ✓ | `condition/acetate`, 13 runs | Gluconeogenic — runs the network backwards |
+| Succinate | ✓ | `condition/succinate`, 3 runs | Gluconeogenic, via a different entry point |
+
+Fructose, galactose, gluconate, glycerol and pyruvate have no counterpart among the model's conditions, so
+they are out of scope unless a condition is added.
+
+**Experiment A — the glucose split ratios.** The core test. Extract the simulation's own fluxes for the
+~20-30 reactions ¹³C-MFA actually resolves, normalise to glucose uptake, and compare *ratios* on the three
+branch points that carry the information: **glycolysis versus pentose-phosphate at G6P**, **TCA versus
+anaplerotic entry**, and the **acetate overflow fraction**. Not a correlation across all reactions — that
+is dominated by a few large fluxes and says little.
+
+**Experiment B — the two gluconeogenic conditions.** Acetate and succinate run the network in the other
+direction, through the glyoxylate shunt and PEP carboxykinase. A model that matches on glucose and fails
+here has learned one flux map rather than a mechanism, so this is what makes Experiment A more than a
+single-point fit. Note that succinate has only **3 runs** — report the n, and treat it as a directional
+check rather than a precise estimate.
+
+**Experiment C — the λ sweep. NOT AVAILABLE, and this is worth knowing before anyone plans around it.**
+The natural third experiment is to score each level of the kinetic-objective weight against the measured
+flux map, turning an inherited default (λ = 1e-7) into a measured one. The corpus appears to support it:
+eight λ levels and five secretion-penalty levels are indexed. **Measured 2026-09-11: all 41 runs across
+both sweeps crashed — 23 of 23 for `kin_w`, 18 of 18 for `sec_pen`, zero usable rows.** The sweeps exist as
+rows and not as data, which is the datasheet's limitation 2 arriving in practice. Diagnosing that crash is a
+prerequisite, not a footnote, and it should be scoped as its own item before Experiment C is planned again.
 
 ### Reference data
 **Gerosa et al. 2015** (*Cell Systems* 1:270, PMID 27136056) — ¹³C-resolved fluxes for *E. coli* across
@@ -256,6 +300,15 @@ that is exactly what `metabolic_essentiality` versus `viability` measures — so
 boring" is not evidence the whole-cell model would agree. Stage 1 **selects**; it does not substitute. Say
 so in the write-up, and report the FBA verdict for the unsimulated cells as an FBA verdict, never as a
 result of the model this paper is about.
+
+### Stage 1 is built: `scripts/conditional_essentiality_screen.py`
+The grid and the selection rule are declared **at the top of that file, above the code that reads the results**, which is the whole point of writing it as a script rather than running it by hand. The grid is 17 amino-acid families crossed with three media — minimal, minimal plus all twenty amino acids, and minimal plus *only the amino acid that gene's pathway makes*, which is the sharp form of the test because a generic rescue could come from any of the twenty.
+
+Four selection reasons are fixed in advance: a **disagreement with Keio**, a **conditional flip** (lethal on minimal, viable when supplemented), a **rescue failure** (lethal on minimal and *still* lethal with its own amino acid supplied — the firm expectation broken, so the gene does something else), and **already in the corpus**, which is a reason to look rather than a reason to simulate. The output records the **rejected** cells beside the selected ones, so the rejection set is visible rather than implied.
+
+```bash
+python scripts/conditional_essentiality_screen.py --top 14
+```
 
 ### The plan, in order
 1. **Fix the grid and the selection rule in writing, before Stage 1 runs.** Which genes, which media, and
