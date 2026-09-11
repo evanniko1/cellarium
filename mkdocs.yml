@@ -14,6 +14,14 @@
 
 site_name: Cellarium
 site_description: An agentic workbench over a whole-cell E. coli simulation — grounded, refusal-first.
+# The published address. Worth a note because it is NOT the usual `<user>.github.io/<repo>`: a custom
+# domain is already set on the account's user site, and GitHub serves project pages underneath it, so
+# this repo lands at emnikolados.dev/cellarium with nothing to configure per-repo.
+#
+# Material needs this set rather than inferring it — without `site_url` there are no canonical link
+# tags and sitemap.xml ships with empty <loc> entries, which is the kind of defect that only shows up
+# as "why is none of this indexed" months later.
+site_url: https://emnikolados.dev/cellarium/
 repo_url: https://github.com/evanniko1/cellarium
 repo_name: cellarium
 edit_uri: edit/main/docs/

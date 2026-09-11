@@ -22,14 +22,19 @@ a **shipped default protecting the user from their own agent**:
     launch queue, fetch from the network, or reach the credential vault, without that human approving it.
 
 Two tiers implement it, and the difference between them is whether a HUMAN GATE exists downstream:
-  * `_NEVER` — no environment variable lifts these. `run_experiment` starts a simulation with no approval
-    step after it; `download_raw` writes gigabytes; `web_get` makes outbound requests; `use_skill` loads
-    instructions into the loop, which is an injection surface.  The user's own CLI and web app still have
-    every one of them.
+  * `_NEVER` — no CONVENIENCE flag lifts these; only the explicit opt-in below does. `run_experiment`
+    starts a simulation with no approval step after it; `download_raw` writes gigabytes; `web_get` makes
+    outbound requests; `use_skill` loads instructions into the loop, which is an injection surface. The
+    user's own CLI and web app still have every one of them.
   * `_WRITE_GATED` — the `propose_*` / `revise_*` family writes drafts into `data/launch_queue.json`. That
     queue IS the human airlock, so these are defensible over MCP — but not by default, and specifically not
     as a silent side effect of "expose everything". They need their own key. The reason is measured, not
     hypothetical: a probe run in this repo once wrote 8 phantom drafts into that queue in a single sweep.
+
+UNATTENDED MODE. Both tiers assume a human is somewhere behind the call, which stops being true the moment
+Cellarium is driven BY another agent — a subagent cannot consent on a person's behalf. So
+`CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL=1` lifts everything this module gates, and the biosecurity screen and
+envelope check still hold because they live inside `run_experiment` rather than here. See ALLOW_ALL_ENV.
 
 The credential vault is absent by construction rather than by exclusion — no tool in `tools.TOOLS` touches
 `credentials` at all — and `tests/test_mcp_surface.py` fails if one is ever added, because "we checked once"
@@ -86,23 +91,54 @@ _WRITE_GATED: dict[str, str] = {
 EXPOSE_ALL_ENV = "CELLARIUM_MCP_EXPOSE_ALL"
 ALLOW_WRITES_ENV = "CELLARIUM_MCP_ALLOW_WRITES"
 
+# UNATTENDED MODE — the Claude Code `--dangerously-skip-permissions` of this surface.
+#
+# THE PROBLEM IT SOLVES, and it is a real one rather than a convenience. The tiers above assume a human is
+# somewhere behind the call, either approving at the airlock or deciding to set a flag. That assumption
+# breaks the moment Cellarium is driven BY ANOTHER AGENT: a subagent cannot grant consent on a person's
+# behalf, so `run_experiment` is not merely inconvenient there, it is unreachable, and an autonomous
+# investigate-simulate-reread loop cannot be built at all. Refusing to offer a way out would not be safety;
+# it would be a capability hole dressed as one.
+#
+# So this exists, and the name is the warning label — long, explicit, and hard to set by accident. It lifts
+# BOTH tiers and lists everything, because a switch that permits without advertising leaves the caller's
+# model unable to discover what it may now do.
+#
+# WHAT IT DOES NOT LIFT, which is the whole reason it can be offered at all. Two checks live INSIDE
+# `run_experiment` rather than in this policy, and nothing here can reach them:
+#   * the BIOSECURITY screen (`biosecurity.screen`) — it protects the operator, not the operator's consent,
+#     and D6 is explicit that it stays server-side;
+#   * the validated-ENVELOPE check (`envelope.check`) — a design outside the envelope is refused with a
+#     reason, because a number from there is not a measurement.
+# `tests/test_mcp_surface.py` pins both: the envelope refusal is observed live with a harmless design, and
+# the biosecurity verdict is STUBBED rather than triggered — what needs testing is that a flagged verdict
+# is honoured through this path, and that does not require writing a virulence design into the suite.
+ALLOW_ALL_ENV = "CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL"
+
 
 def _flag(name: str) -> bool:
     return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def allow_all() -> bool:
+    """Unattended mode: every gate this module owns is lifted. See the block above for what remains."""
+    return _flag(ALLOW_ALL_ENV)
+
+
 def expose_all() -> bool:
     """Are the unlisted read/analysis tools advertised to the caller's model?"""
-    return _flag(EXPOSE_ALL_ENV)
+    return _flag(EXPOSE_ALL_ENV) or allow_all()
 
 
 def allow_writes() -> bool:
     """Is the propose_*/revise_* family permitted? Separate key on purpose — see the module docstring."""
-    return _flag(ALLOW_WRITES_ENV)
+    return _flag(ALLOW_WRITES_ENV) or allow_all()
 
 
 def gated_tools() -> dict[str, str]:
     """Every tool this surface refuses right now, mapped to the reason. Environment-dependent by design."""
+    if allow_all():
+        return {}
     out = dict(_NEVER)
     if not allow_writes():
         out.update(_WRITE_GATED)
@@ -111,6 +147,8 @@ def gated_tools() -> dict[str, str]:
 
 def refusal(name: str) -> dict | None:
     """The refusal for `name`, or None if the call is permitted. Pure; no I/O; the whole policy in one place."""
+    if allow_all():
+        return None
     why = _NEVER.get(name)
     if why:
         return {"error": f"'{name}' is not available over MCP: {why}.",
@@ -240,6 +278,20 @@ def describe_cellarium() -> dict:
         ],
         "gated": [{"tool": k, "reason": v, "tier": ("never" if k in _NEVER else "write_gated")}
                   for k, v in sorted(gated_tools().items())],
+        "unattended_mode": ({
+            "on": True,
+            "meaning": "Every gate this surface owns is lifted. Calling run_experiment STARTS A REAL "
+                       "SIMULATION on this machine — minutes to hours of compute, writing into the runs "
+                       "directory — with no human approving it. download_raw will fetch gigabytes; web_get "
+                       "will make outbound requests; the propose_* family writes to the launch queue.",
+            "still_enforced": ["the biosecurity screen — a flagged design returns biosecurity_hold and does "
+                               "not run", "the validated-envelope check — an out-of-envelope design is "
+                               "refused with a reason rather than answered"],
+            "how_it_was_enabled": f"{ALLOW_ALL_ENV}=1 in this server's environment",
+        } if allow_all() else {"on": False,
+                               "what_it_would_do": "lift every gate below, for an agent-driven loop with no "
+                                                   "human at the airlock",
+                               "how": f"set {ALLOW_ALL_ENV}=1 — and read what it does first"}),
         "before_you_pool_two_rows": "Rows are comparable only within one ARM — the same fitted knowledge "
                                     "base (kb_sha256), operon setting and elongation model. Averaging across "
                                     "arms produces a number that describes neither.",
@@ -356,18 +408,28 @@ def build_server(server_cls=None):
     # silent-absence failure in its protocol-level form, and the protocol gives no way to fix it properly
     # — so the next best thing is to say it once, up front, where every client sees it.
     gated = ", ".join(sorted(gated_tools()))
+    if gated:
+        policy = (
+            f"WITHHELD BY POLICY, not missing: {gated}. These exist in the package and are reachable from "
+            "the user's own CLI and web app; this surface refuses them so a third-party agent cannot launch "
+            "a simulation, write to the launch queue, or originate network traffic without the human "
+            "agreeing. Calling one returns an unknown-tool error because the protocol has no way to say "
+            "'withheld' — describe_cellarium gives the reason for each.")
+    else:
+        policy = (
+            "UNATTENDED MODE IS ON. Every gate this surface owns has been lifted deliberately by whoever "
+            "started this server. run_experiment STARTS A REAL SIMULATION — minutes to hours of compute on "
+            "this machine, with nobody approving it — and download_raw will fetch gigabytes. Two checks are "
+            "still enforced and are not yours to skip: a biosecurity-flagged design returns biosecurity_hold "
+            "and does not run, and a design outside the validated envelope is refused with a reason. "
+            "Before launching anything, use estimate_sim_resources and say what you are about to start.")
     server = server_cls("cellarium", version="0.1.0", instructions=(
         "Cellarium answers questions about a MECHANISTIC whole-cell simulation of E. coli. Values are "
         "simulated, never laboratory measurements, and two rows are comparable only within one arm "
         "(same fitted knowledge base, operon setting and elongation model).\n\n"
         "Call describe_cellarium first if you are deciding whether a question is answerable here: it "
         "reports what this surface deliberately does not expose, so an absence is read as a decision "
-        "rather than an omission.\n\n"
-        f"WITHHELD BY POLICY, not missing: {gated}. These exist in the package and are reachable from the "
-        "user's own CLI and web app; this surface refuses them so a third-party agent cannot launch a "
-        "simulation, write to the launch queue, or originate network traffic without the human agreeing. "
-        "Calling one returns an unknown-tool error because the protocol has no way to say 'withheld' — "
-        "describe_cellarium gives the reason for each."))
+        "rather than an omission.\n\n" + policy))
 
     for spec in tool_specs():
         server.add_tool(_handler(spec["name"]), name=spec["name"], description=spec["description"],

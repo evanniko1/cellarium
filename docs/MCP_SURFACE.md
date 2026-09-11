@@ -93,6 +93,43 @@ touches it, and a test fails if one is ever added.
 
 ---
 
+## Unattended mode — when Cellarium *is* the subagent
+
+Everything above assumes a person is somewhere behind the call. That assumption breaks the moment you put
+Cellarium behind your own agent: **a subagent cannot grant consent on your behalf.** So under the defaults,
+`run_experiment` is not merely gated for an agent-driven loop — it is unreachable, and an autonomous
+*investigate → simulate → re-read* cycle cannot be built at all.
+
+That would be a capability hole dressed up as safety, so there is a way out:
+
+```bash
+CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL=1
+```
+
+The name is the warning label. It lifts **both** tiers and lists everything — one switch rather than three,
+because permitting a launch while hiding the tool that performs it helps nobody. It is the same bargain as
+`--dangerously-skip-permissions` in Claude Code: you are pre-granting the consent that would otherwise be
+asked for each time, and you are doing it knowingly.
+
+With it on, a connected agent can start real simulations on your machine. Expect minutes to hours of
+compute per run and archives written into your runs directory. `estimate_sim_resources` and
+`system_resources` exist for exactly this, and the server's instructions tell the caller to use them before
+launching.
+
+**Two things it does not lift, and cannot.** They live inside `run_experiment` itself, not in the MCP
+policy, so no flag here reaches them:
+
+- **The biosecurity screen.** A flagged design returns `biosecurity_hold` and does not run. This protects
+  the *operator*, which is a different thing from protecting the operator's *consent* — and consent is the
+  only thing unattended mode pre-grants.
+- **The validated-envelope check.** A design outside the envelope is refused with a reason, because a
+  number from outside it is not a measurement.
+
+That separation is the reason this mode can be offered at all, so it is pinned by a test rather than left
+as a claim about where some code happens to sit today.
+
+---
+
 ## One protocol limitation, stated plainly
 
 MCP's `tools/list` has no way to say *withheld*. An unadvertised tool is indistinguishable, over the wire,

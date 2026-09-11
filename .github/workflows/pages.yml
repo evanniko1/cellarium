@@ -1,13 +1,10 @@
 # DOC-1 (publication half) — deploy the MkDocs site to GitHub Pages.
 #
-# WHY THIS IS MANUAL-ONLY, deliberately. Publishing is a DECISION, not a build step: the site carries the
-# repository owner's username in its URL and in every "edit this page" link, which matters while the paper
-# is under review. So this workflow fires only when a human clicks "Run workflow". Two consequences worth
-# stating rather than discovering:
-#   * Adding this file publishes NOTHING. Until Settings -> Pages -> Source is set to "GitHub Actions",
-#     `deploy-pages` has no target and the run would fail, so nothing is scheduled to run.
-#   * To make publication automatic later, add the three commented lines under `on:` below. Do that only
-#     after Pages is enabled, otherwise every push to main goes red on a deploy with nowhere to deploy to.
+# HISTORY, kept because it explains the shape. This was manual-only while the NeurIPS submission was under
+# anonymous review — publishing is a decision, not a build step, and a project page normally carries the
+# owner's username in its URL. Both reasons have since lapsed: the submission is in, and the account has a
+# custom domain on its user site, so this repo publishes to emnikolados.dev/cellarium with no username in
+# the address. The push trigger below is therefore live; workflow_dispatch stays for manual re-publishes.
 #
 # The build here is deliberately IDENTICAL to the `Docs — build (strict)` step in ci.yml: same --strict,
 # same install. If the two ever diverge, the site that ships stops being the site CI checked.
@@ -15,11 +12,12 @@
 name: Docs — publish to GitHub Pages
 
 on:
+  # Pages was enabled with Source == "GitHub Actions" on 2026-09-11, so automatic publication is live.
+  # Scoped to the paths that can change the site: a push touching only src/ or tests/ rebuilds nothing.
+  push:
+    branches: [main]
+    paths: ["docs/**", "mkdocs.yml", ".github/workflows/pages.yml"]
   workflow_dispatch:
-  # Uncomment once Settings -> Pages -> Source == "GitHub Actions":
-  # push:
-  #   branches: [main]
-  #   paths: ["docs/**", "mkdocs.yml", ".github/workflows/pages.yml"]
 
 permissions:
   contents: read

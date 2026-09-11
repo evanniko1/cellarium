@@ -24,7 +24,7 @@ import pytest
 
 from cellarium import mcp, tools
 
-ENVS = (mcp.EXPOSE_ALL_ENV, mcp.ALLOW_WRITES_ENV)
+ENVS = (mcp.EXPOSE_ALL_ENV, mcp.ALLOW_WRITES_ENV, mcp.ALLOW_ALL_ENV)
 
 
 @pytest.fixture(autouse=True)
@@ -72,9 +72,18 @@ def test_the_unlisted_tier_appears_only_when_asked_for(monkeypatch):
 # ---------------------------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize("name", sorted(mcp._NEVER))
-def test_no_environment_variable_lifts_the_never_tier(name, monkeypatch):
-    """The point of the two tiers: `expose all` must not be a synonym for `permit everything`."""
-    for e in ENVS:
+def test_no_CONVENIENCE_flag_lifts_the_never_tier(name, monkeypatch):
+    """`expose all` must not be a synonym for `permit everything`.
+
+    ⚠️ THIS INVARIANT WAS NARROWED, 2026-09-11, and the narrowing is the point rather than a concession.
+    It used to read "no environment variable lifts this tier". That was too strong and it removed a real
+    capability: an agent driving Cellarium cannot grant consent on a person's behalf, so under that rule an
+    autonomous simulate-and-reread loop was impossible rather than merely gated. The guarantee is now that
+    only an EXPLICIT, self-describing opt-in lifts it — `CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL`, whose name is
+    the warning — and never a flag someone set for a different reason. Which is the property that was
+    actually worth defending: nobody should reach a launch by asking for visibility.
+    """
+    for e in (mcp.EXPOSE_ALL_ENV, mcp.ALLOW_WRITES_ENV):
         monkeypatch.setenv(e, "1")
     ref = mcp.refusal(name)
     assert ref is not None and ref["tier"] == "never", f"{name} became callable with both flags set"
@@ -108,6 +117,88 @@ def test_a_gated_call_never_reaches_the_dispatcher(monkeypatch):
         out = mcp.call(name, {})
         assert out.get("refused_by") == "cellarium-mcp-policy", f"{name} was not refused"
     assert ran == [], f"a gated tool executed anyway: {ran}"
+
+
+# ---------------------------------------------------------------------------------------------------------
+# Unattended mode
+# ---------------------------------------------------------------------------------------------------------
+
+def test_unattended_mode_lifts_every_gate_this_module_owns(monkeypatch):
+    """The capability the tiers would otherwise remove entirely.
+
+    A subagent cannot grant consent on a person's behalf, so under the default policy an agent-driven
+    investigate-simulate-reread loop is not merely inconvenient — it is impossible. Refusing to offer a way
+    out would be a capability hole dressed as safety.
+    """
+    monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
+    assert mcp.gated_tools() == {}
+    for name in set(mcp._NEVER) | set(mcp._WRITE_GATED):
+        assert mcp.refusal(name) is None, f"{name} still refused in unattended mode"
+    assert "run_experiment" in [s["name"] for s in mcp.tool_specs()]
+
+
+def test_unattended_mode_implies_listing_because_permission_without_discovery_is_useless(monkeypatch):
+    """One switch, not three. A caller that may now launch but cannot see `run_experiment` gains nothing."""
+    monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
+    assert mcp.expose_all() and mcp.allow_writes()
+    assert len([s["name"] for s in mcp.tool_specs()]) == len(tools.TOOLS) + len(mcp.LISTED)
+
+
+def test_neither_weaker_flag_implies_unattended_mode(monkeypatch):
+    """The dangerous switch must never be reachable by setting a convenience one."""
+    for env in (mcp.EXPOSE_ALL_ENV, mcp.ALLOW_WRITES_ENV):
+        monkeypatch.setenv(env, "1")
+        assert not mcp.allow_all(), f"{env} leaked into unattended mode"
+        assert mcp.refusal("run_experiment") is not None
+        monkeypatch.delenv(env)
+
+
+def test_the_biosecurity_screen_is_not_ours_to_lift(monkeypatch):
+    """The line that makes unattended mode offerable at all.
+
+    The gates in this module are about a HUMAN'S CONSENT, and consent is exactly what an unattended operator
+    has chosen to give in advance. The biosecurity screen is about something else — it protects the operator
+    rather than their agreement — and D6 is explicit that it stays server-side. It lives inside
+    `run_experiment`, so no flag here can reach it; this asserts that rather than trusting where the code
+    happens to sit today.
+
+    The screen's verdict is stubbed rather than triggered with a real signature: what needs testing is that
+    a flagged verdict is HONOURED through the MCP path, and that does not require writing a virulence design
+    into the test suite.
+    """
+    from cellarium import biosecurity
+
+    monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
+    monkeypatch.setattr(biosecurity, "screen", lambda design: biosecurity.BiosecurityVerdict(
+        True, "stubbed_signature", ["stub"], "block", "stubbed for the test"))
+
+    out = mcp.call("run_experiment", {"perturbation": "wildtype", "condition": "basal",
+                                      "seeds": 1, "generations": 1})
+    assert out.get("status") == "biosecurity_hold", f"a flagged design was not held: {out}"
+
+
+def test_the_validated_envelope_is_not_ours_to_lift_either(monkeypatch):
+    """Same separation, second check — and this one needs no stub, because an unrecognised perturbation is
+    refused by the envelope with a reason. Observed live rather than asserted: the call reaches
+    `run_experiment`, which declines before launching anything."""
+    monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
+    out = mcp.call("run_experiment", {"perturbation": "not_a_real_variant", "condition": "basal",
+                                      "seeds": 1, "generations": 1})
+    assert out.get("status") == "refused"
+    assert "envelope" in (out.get("note") or "").lower()
+
+
+def test_describe_announces_unattended_mode_loudly_and_says_what_survives(monkeypatch):
+    """An agent connected to a permission-less server must be able to find that out from the server."""
+    off = mcp.describe_cellarium()["unattended_mode"]
+    assert off["on"] is False and mcp.ALLOW_ALL_ENV in off["how"]
+
+    monkeypatch.setenv(mcp.ALLOW_ALL_ENV, "1")
+    on = mcp.describe_cellarium()["unattended_mode"]
+    assert on["on"] is True
+    assert "STARTS A REAL SIMULATION" in on["meaning"]
+    assert any("biosecurity" in s for s in on["still_enforced"])
+    assert any("envelope" in s for s in on["still_enforced"])
 
 
 def test_a_withheld_tool_is_not_reported_as_a_missing_one():
