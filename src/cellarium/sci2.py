@@ -298,12 +298,13 @@ def sim_lfc(design: str, reference: str = "wildtype/basal", normalise: str = "me
     return detail.get("lfc", {})
 
 
-def sim_lfc_detail(design: str, reference: str = "wildtype/basal", normalise: str = "median") -> dict:
+def sim_lfc_detail(design: str, reference: str = "wildtype/basal", normalise: str = "median",
+                   count_floor: float = 20.0) -> dict:
     """`sim_lfc` plus what the normalisation did, so the global shift stays visible rather than erased."""
     import statistics
 
     from . import differential
-    out = differential.all_gene_lfc(design, reference, kind="mrna")
+    out = differential.all_gene_lfc(design, reference, kind="mrna", count_floor=count_floor)
     if not isinstance(out, dict) or not isinstance(out.get("lfc"), dict):
         return {"lfc": {}, "error": out.get("error") if isinstance(out, dict) else None}
     bmap = _bnumber_map()

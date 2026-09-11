@@ -1282,5 +1282,29 @@
         "free_verdict": false
       }
     }
-  ]
+  ],
+  "disagreement_directions": {
+    "fba_false_viable": {
+      "genes": [
+        "glyA",
+        "ilvA",
+        "leuB",
+        "metC",
+        "metL",
+        "serA",
+        "serB",
+        "serC",
+        "thrA"
+      ],
+      "meaning": "FBA finds a bypass the real cell cannot use. Keio calls the gene essential ON RICH MEDIUM, so the cell needs it even when fed every amino acid \u2014 while FBA calls it dispensable on minimal. A genuine conflict, and the medium mismatch makes it stronger rather than weaker. THESE ARE THE STAGE-2 CELLS."
+    },
+    "fba_false_lethal": {
+      "genes": [
+        "argB",
+        "argC",
+        "dapF"
+      ],
+      "meaning": "FBA is lethal on MINIMAL and Keio is viable on LB \u2014 which is what an amino-acid auxotroph looks like when the two arms are grown on different media. Mostly an artefact of the comparison, not a finding. Do not spend compute here without first scoring Keio's own minimal-medium data."
+    }
+  }
 }

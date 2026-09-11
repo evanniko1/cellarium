@@ -101,6 +101,46 @@ media genuinely agree — **amino-acid biosynthesis operon repression** — and 
 check on a named pathway, never as a whole-transcriptome concordance. If that reads as too weak to be worth
 running, that is a fair reading; it is listed third for exactly that reason.
 
+### RESULT — Experiment 1 ran, 2026-09-11, and the abundance floor was manufacturing the answer
+`condition/acetate` (13 runs) vs `wildtype/basal` (17 reachable), against DESeq2 on `wt_ac` (n=3) vs
+`wt_glc` (n=19). Two methodological defects surfaced, both fixed, and the second **reverses the first
+reading of the result**.
+
+**(a) A global shift was being read as concordance.** Every simulated gene came back negative — 75 of 75,
+median log2FC −2.17. That is cell size, not expression: the simulation counts absolute molecules per cell
+and an acetate cell is smaller, while DESeq2 is compositional and cancels a global shift by construction.
+The two were being compared on different bases, and it produced a `sign_concordance` of **0.971** — the
+shift agreeing with itself. Median-centring (the first-order equivalent of DESeq2's own median-of-ratios
+size factor) now runs by default and the removed shift is reported rather than erased. 0.971 → **0.529**.
+
+**(b) The count floor was hiding the informative genes.** A hard-coded floor of 20 molecules/cell left 75
+of ~4,300 genes; the real contrast has **999** significant genes and the simulation could see **34**. The
+survivors are the high-abundance head — ribosomal and translation machinery — the set most dominated by
+growth rate and least informative about carbon source. `scripts/count_floor_sweep.py` measures the ladder:
+
+| floor | genes | significant visible | Pearson r | r/SE | sign concordance | z vs coin-flip |
+|---|---|---|---|---|---|---|
+| 20.0 | 75 | 34 (3.4%) | 0.122 | **1.0** | 0.529 | **0.5** |
+| 10.0 | 115 | 51 (5.1%) | 0.272 | 2.9 | 0.588 | 1.9 |
+| 5.0 | 225 | 93 (9.3%) | 0.083 | 1.2 | 0.570 | 2.1 |
+| 2.0 | 493 | 155 (15.5%) | 0.075 | 1.7 | 0.645 | 6.4 |
+| 1.0 | 843 | 226 (22.6%) | 0.134 | 3.9 | 0.593 | 5.4 |
+| 0.5 | 1379 | 310 (31.0%) | 0.189 | **7.0** | 0.665 | **12.3** |
+
+**What this says, and it is not what the first run said.** At the default floor neither statistic is
+distinguishable from zero (r/SE = 1.0, sign z = 0.5) — which is the "the pre-registered failure condition
+was met" reading, and it was wrong. At floor 0.5 both are strongly significant (r/SE = 7.0, sign z = 12.3)
+over 1,379 genes covering 31% of the real signal. **The model does carry condition-specific transcriptional
+information; the default floor was excluding the genes that carry it.**
+
+The shuffled-label null stays at ≈0 across the whole ladder (0.011 → −0.002), so the added genes are not
+noise the statistic is mistaking for agreement — which was the specific worry that justified a floor.
+
+**The peak at floor 10 is not a finding.** r = 0.272 is the largest point estimate and sits at r/SE = 2.9 on
+n = 115, while the bottom of the ladder sits at 7.0 on n = 1,379. Sign concordance does not peak there
+either. The trend is *lower is better, at least down to 0.5*; there is no evidence for an optimum in
+between, and the correlation remains **weak** (r ≈ 0.19) even where it is most significant.
+
 ### How each is computed
 Unchanged from what `sci2.py` already implements, and worth restating because the discipline is the point:
 per-gene log2 fold change, sim versus measured, reported as Pearson **and** Spearman **and** a Deming slope
@@ -349,6 +389,37 @@ lysine precursor, so no amino acid rescues it — and DAP is not among the twent
 all-amino-acid arm stays lethal. `ilvC`/`ilvD` serve the valine branch too, which is why isoleucine alone
 fails and the full mix succeeds. What the reason actually detects is a **shared-pathway enzyme or a
 non-proteinogenic product**. Still worth simulating; not evidence the model did anything unexpected.
+
+### The cheap analysis before any Stage 2 compute — done 2026-09-11
+Sorting the 12 Keio disagreements by WHICH WAY they point costs nothing and changes what is worth
+simulating. `python scripts/conditional_essentiality_screen.py --directions`.
+
+**⚠️ First, a mismatch that had to be found before the split could be read.** Keio essentiality is defined
+by failure to obtain a deletion mutant in **complex (LB) medium** — Baba 2006 reports "328 essential gene
+candidates for growth in complex (LB) medium". The FBA arm here is scored on **minimal**. So the two are
+not the same experiment, and the mismatch is one-directional: an amino-acid auxotroph is viable on LB and
+lethal on minimal, which manufactures disagreements in exactly one of the two directions.
+
+**`fba_false_lethal` — 3 cells: `argB`, `argC`, `dapF`.** FBA lethal on minimal, Keio viable on LB. That is
+what the medium mismatch looks like, not a finding. **Do not spend compute here** without first scoring
+Keio's own minimal-medium data.
+
+**`fba_false_viable` — 9 cells: `glyA`, `ilvA`, `leuB`, `metC`, `metL`, `serA`, `serB`, `serC`, `thrA`.**
+FBA calls them dispensable on minimal; Keio calls them essential **even on rich medium**. The mismatch
+makes this direction *stronger*: the real cell cannot do without these genes even when fed every amino
+acid, while the stoichiometric model says it does not need them even when fed none.
+
+**And they cluster.** Three serine genes (`serA`/`serB`/`serC`), `glyA`, and two methionine genes — which
+is **one-carbon metabolism**, not amino-acid supply. LB supplies amino acids; it does not supply the
+one-carbon units these genes feed into purine and thymidine synthesis. That is a concrete mechanistic
+hypothesis for why FBA's network permits a bypass the cell does not have, and it is what Stage 2 should
+test. `leuB` already gives a partial answer at zero cost: the whole-cell model **collapses**, agreeing with
+the experiment rather than with FBA.
+
+**So the Stage 2 shortlist writes itself:** the one-carbon cluster (`serA`, `serB`, `serC`, `glyA`) plus
+`metC`, `thrA` — six genes × two media. At this host's calibration (8 min/generation, 0.65 GB/generation,
+parallel 3) that is **36 runs at 3 seeds ≈ 6.4 h and ~94 GB**, or 48 runs at 4 seeds ≈ 8.5 h and ~125 GB
+against 171 GB free. And per the constraint above, they must be genuine **single-gene** knockouts.
 
 ### The plan, in order
 1. **Fix the grid and the selection rule in writing, before Stage 1 runs.** Which genes, which media, and

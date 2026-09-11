@@ -261,10 +261,24 @@ def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", t
     return out
 
 
-def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna") -> dict:
+def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna",
+                 count_floor: float = 20.0) -> dict:
     """EVERY gene's seed-averaged log2fc of target vs reference — the unbiased FULL distribution (SCI-2c), not just
     the FDR-significant movers `top_movers` returns (which range-restricts the sim-vs-RNA-seq concordance). Each
-    entry is symbol-annotated via the gene map so the caller can join it to a b-number reference."""
+    entry is symbol-annotated via the gene map so the caller can join it to a b-number reference.
+
+    `count_floor` is the minimum mean copy number a gene must reach in BOTH arms to be returned, and it was
+    hard-coded at 20.0 until 2026-09-11. It is not a detail: on acetate-vs-glucose it left **75 of ~4,300
+    genes**, and the real contrast has 999 significantly DE genes of which the simulation could see 34 —
+    3.4% of the signal. What survives a floor of 20 is the high-abundance head, ribosomal and translation
+    machinery, which is the set most dominated by growth rate and least informative about condition-specific
+    regulation. A concordance computed there is a concordance over the wrong genes, so the floor is now a
+    parameter that a caller can sweep and must report.
+
+    The floor is not merely an obstacle, which is why lowering it is a trade rather than a fix: mRNA copy
+    numbers per cell are small, so at a low floor the per-gene ratio is dominated by counting noise across
+    seeds. `scripts/count_floor_sweep.py` measures where that trade turns over instead of guessing.
+    """
     from . import reader
 
     t_roots, r_roots = _design_run_roots(target), _design_run_roots(reference)
@@ -272,7 +286,7 @@ def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna") ->
         return {"error": f"no local runs for design '{target}'."}
     if not r_roots:
         return {"error": f"no local runs for reference '{reference}'."}
-    out = reader.gene_lfc(t_roots, r_roots, kind)
+    out = reader.gene_lfc(t_roots, r_roots, kind, floor=count_floor)
     if isinstance(out, dict) and isinstance(out.get("lfc"), dict):
         # annotate per-kind by the id space the worker returns: mRNA ids are cistron_ids (cistron->symbol map),
         # protein ids are monomer_ids (the monomer reverse map). Using the wrong one annotates every gene as None.

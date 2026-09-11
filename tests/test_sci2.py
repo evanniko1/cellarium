@@ -86,14 +86,14 @@ def test_all_gene_lfc_annotates_by_the_right_id_space_per_kind(monkeypatch):
     # a MONOMER map that must NOT be used for mRNA (it can't cover cistron ids) — the bug used exactly this
     monkeypatch.setattr(differential, "_reverse_gene_map", lambda: {"6PFK-1-MONOMER[c]": "wrong"})
 
-    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind: {"kind": kind,
+    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind, floor=20.0: {"kind": kind,
         "lfc": {"EG10016_RNA[c]": {"log2fc": 1.2}, "G6543_RNA[c]": {"log2fc": -0.4}}})
     monkeypatch.setattr(differential, "_cistron_symbol_map", lambda: {"EG10016_RNA[c]": "aceB"})
     out = differential.all_gene_lfc("d", "ref", kind="mrna")
     assert out["lfc"]["EG10016_RNA[c]"]["symbol"] == "aceB"   # mRNA annotated from the CISTRON map
     assert out["lfc"]["G6543_RNA[c]"]["symbol"] is None       # gracefully None when the cistron map misses it
 
-    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind: {"kind": kind,
+    monkeypatch.setattr(reader, "gene_lfc", lambda t, r, kind, floor=20.0: {"kind": kind,
         "lfc": {"6PFK-1-MONOMER[c]": {"log2fc": 0.5}}})
     out = differential.all_gene_lfc("d", "ref", kind="protein")
     assert out["lfc"]["6PFK-1-MONOMER[c]"]["symbol"] == "wrong"   # protein uses the monomer reverse map
@@ -104,7 +104,8 @@ def test_sim_lfc_uses_full_distribution_and_joins_bnumbers(monkeypatch):
     range-restricted concordance) and keys every gene by b-number for the DESeq2 join; unmapped ids pass through."""
     from cellarium import differential
 
-    monkeypatch.setattr(differential, "all_gene_lfc", lambda design, reference, kind="mrna": {"kind": "mrna", "lfc": {
+    monkeypatch.setattr(differential, "all_gene_lfc",
+                        lambda design, reference, kind="mrna", count_floor=20.0: {"kind": "mrna", "lfc": {
         "EG_pfkA": {"log2fc": 2.1, "symbol": "pfkA"},
         "EG_flat": {"log2fc": 0.02, "symbol": "fbaA"},        # a NON-significant gene — must still be present
         "EG_nosym": {"log2fc": -1.0, "symbol": None}}})       # no symbol -> keyed by its raw id (graceful)

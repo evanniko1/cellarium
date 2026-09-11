@@ -169,6 +169,72 @@ def media(model_aas: set[str]) -> dict[str, dict]:
     return {"minimal": minimal, "minimal_plus_aa": plus_all}
 
 
+def _directions(args) -> int:
+    """THE CHEAP ANALYSIS, done before spending a day of compute: which WAY does each disagreement point?
+
+    A disagreement between FBA and Keio is not one thing. `fba_false_viable` says the stoichiometric network
+    has a bypass the real cell cannot use; `fba_false_lethal` says FBA is missing a route the real cell has.
+    They license different Stage-2 questions, and one of the two directions turns out to be mostly an
+    artefact — see below — so sorting them costs nothing and changes what is worth simulating.
+
+    ⚠️ THE MEDIUM MISMATCH, which this analysis exists to surface. Keio essentiality is defined by failure to
+    obtain a deletion mutant in COMPLEX (LB) MEDIUM (Baba 2006: "328 essential gene candidates for growth in
+    complex (LB) medium"). The FBA arm here is scored on MINIMAL. So for amino-acid biosynthesis genes the
+    two are not the same experiment, and the mismatch is one-directional: an auxotroph is viable on LB and
+    lethal on minimal, which manufactures `fba_false_lethal` disagreements that say nothing about either
+    model. The other direction is unaffected, and is in fact SHARPENED by the mismatch: a gene Keio calls
+    essential even when every amino acid is supplied, which FBA calls dispensable even when none is, is a
+    genuine conflict.
+    """
+    if not OUT.is_file():
+        print(f"no {OUT} — run the screen first", file=sys.stderr)
+        return 2
+    payload = json.loads(OUT.read_text(encoding="utf-8"))
+    cells = payload["selected"] + payload["rejected"]
+    groups: dict[str, list] = {"fba_false_viable": [], "fba_false_lethal": [], "other": []}
+    for c in cells:
+        if "disagrees_with_keio" not in c["selection_reasons"]:
+            continue
+        if not c["fba_essential_minimal"] and c["keio_essential"]:
+            groups["fba_false_viable"].append(c)
+        elif c["fba_essential_minimal"] and not c["keio_essential"]:
+            groups["fba_false_lethal"].append(c)
+        else:
+            groups["other"].append(c)
+
+    meaning = {
+        "fba_false_viable": ("FBA finds a bypass the real cell cannot use. Keio calls the gene essential ON "
+                             "RICH MEDIUM, so the cell needs it even when fed every amino acid — while FBA "
+                             "calls it dispensable on minimal. A genuine conflict, and the medium mismatch "
+                             "makes it stronger rather than weaker. THESE ARE THE STAGE-2 CELLS."),
+        "fba_false_lethal": ("FBA is lethal on MINIMAL and Keio is viable on LB — which is what an "
+                             "amino-acid auxotroph looks like when the two arms are grown on different "
+                             "media. Mostly an artefact of the comparison, not a finding. Do not spend "
+                             "compute here without first scoring Keio's own minimal-medium data."),
+        "other": "Neither clean direction — inspect individually.",
+    }
+    for name, members in groups.items():
+        if not members:
+            continue
+        print("")
+        print(f"=== {name}: {len(members)} ===")
+        print(f"    {meaning[name]}")
+        fams: dict[str, list[str]] = {}
+        for c in sorted(members, key=lambda x: x["gene"]):
+            fams.setdefault(c["amino_acid"], []).append(c["gene"])
+            print(f"      {c['gene']:7s} ({c['amino_acid']})  fba_min="
+                  f"{'LETHAL' if c['fba_essential_minimal'] else 'viable':6s}  keio={c['keio_essential']}"
+                  f"  corpus={c['corpus']['state']}")
+        print(f"    families: {', '.join(f'{k}({len(v)})' for k, v in sorted(fams.items()))}")
+
+    payload["disagreement_directions"] = {
+        k: {"genes": [c["gene"] for c in v], "meaning": meaning[k]} for k, v in groups.items() if v}
+    OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print("")
+    print(f"written back into {OUT.relative_to(ROOT)}")
+    return 0
+
+
 def _annotate_only(args) -> int:
     """Refresh the corpus classification in place, leaving every FBA number exactly as it was."""
     if not OUT.is_file():
@@ -215,6 +281,10 @@ def _annotate_only(args) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=0, help="also print the N highest-priority selected cells")
+    ap.add_argument("--directions", action="store_true",
+                    help="sort the Keio disagreements by WHICH WAY they point, and flag the ones that are "
+                         "an artefact of Keio being scored on rich medium. Costs nothing; changes what is "
+                         "worth simulating.")
     ap.add_argument("--annotate-only", action="store_true",
                     help="re-run ONLY the corpus classification over an existing result file. The corpus "
                          "grows; the FBA verdicts over a pinned iML1515 do not, and re-solving 168 MOMA "
@@ -223,6 +293,8 @@ def main() -> int:
 
     if args.annotate_only:
         return _annotate_only(args)
+    if args.directions:
+        return _directions(args)
 
     from cellarium import fba
     ok, why = fba.available()

@@ -744,6 +744,52 @@ excluding 0. The phenotype vector already recovers the clusters a graph would cl
 **Action items** → build `species_similarity()` with double-centering + the two guards + the WELL-6z4 acceptance
 test WHEN the similarity feature is scheduled; re-run the bake-off once pgi lands.
 
+## D11 — The retrieval boundary: an exhaustive summary IN CONTEXT, everything after it BY HANDLE — ACCEPTED 2026-09-11
+**Status:** Accepted (architecture settled; the compression work is not built) · **Deciders:** Evangelos ·
+**Refines:** D8 (which questions retrieval answers) and **WELL-6d/6e** (the three-layer stack and the
+context cliff).
+
+**The question, put sharply by the owner.** `survey_corpus` serialises ~11k tokens of ranked rows straight
+into the investigator's context on every investigation. Why depend on that at all — why not hand the agent
+the database as an object and let it query?
+
+**What the arithmetic says, and it is not what the earlier framing implied.** 11,134 tokens is roughly five
+or six cents per investigation at Opus input rates, read once and then at cache-read rates, and about 5% of
+a 200k window. **Neither is binding, and cost was the wrong reason to give.** If cost were the argument the
+handle would simply win.
+
+**The actual argument is about WHO CHOOSES.** `survey_corpus` is not a data-delivery mechanism; it is an
+anti-anchoring device *whose mechanism is exhaustiveness*. It hands over every design ranked by arithmetic
+so that what the agent finds interesting is not what decides what it sees. A query handle makes retrieval
+**agent-directed**, and a selection made by a language model is precisely the attention-driven filter the
+tool exists to replace. That is the methodological invariant D8 and WELL-6d2 recorded, and WELL-6e's fix
+exists because eleven designs had quietly slipped outside it.
+
+The second argument is narrower and equally load-bearing: **a raw handle re-opens every invariant the read
+boundary closes.** `SELECT AVG(growth_rate) … WHERE design='X'` pools across arms, admits non-reportable
+rows, and skips the de-duplication rule — and skipping that rule once inflated the wildtype reference, the
+baseline for every comparison, from 26 seeds to 34. The survey's payload carries `z_scope`, `depth_note`,
+`true_label` and `label_integrity` *per row*; those guardrails travel only if the rows do.
+
+**And the handle already exists.** D6b-1's refusal of `query(sql)` was never "no queries" — it was *every
+invariant raw SQL would let a caller skip comes back as a tool that supplies it*. The ~70 read tools are
+that handle. What cannot be delegated is the **first** look.
+
+**DECIDED — the boundary sits at the first look, not at all of it:**
+1. **The mandatory first read stays exhaustive and stays in context.** Every ranked design is named, by
+   arithmetic, before the agent forms a view. This is an invariant, not a default.
+2. **It gets compressed hard.** Most of today's 11k is per-row scaffolding repeated across 24 channels;
+   the exhaustiveness claim costs far less than the current encoding of it.
+3. **Everything after the first look is by handle** — the existing tool surface, each call carrying the
+   invariants a raw query would let a caller skip.
+
+**Consequences.** (a) The compression is a build item, and it must not be allowed to reintroduce the
+WELL-6e cliff — any sampled survey reports its sampling fraction, and `tests/test_survey_exhaustive.py`
+is phrased over the payload rather than over today's roster so it survives a re-encoding. (b) WELL-6e's own
+prediction is recorded as wrong about timing: it expected the cliff at ~10⁴ runs and it arrived at 369,
+because the mechanism is **channel count**, not payload size. (c) No new query primitive is added; the
+handle is the tool surface that already exists.
+
 ## D10 — The investigation LOOP as a first-class feature (supersedes D6a's blindness *stamp*)
 
 **Status:** DESIGNED 2026-08-03, **not built.** · **Supersedes:** D6a's blindness stamp (see the banner and the
