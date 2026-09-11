@@ -310,6 +310,46 @@ Four selection reasons are fixed in advance: a **disagreement with Keio**, a **c
 python scripts/conditional_essentiality_screen.py --top 14
 ```
 
+### Stage 1 has been run — 2026-09-11
+56 amino-acid biosynthesis genes across 17 families, three media, 168 FBA + linear-MOMA solves.
+**48 selected, 8 rejected.** By reason: 34 conditional flips, 12 disagreements with Keio, 7 rescue
+failures, 2 with a free whole-cell verdict. Full output in `data/sci3_stage1.json`, rejected cells included.
+
+**The one result available at no compute cost, and the caveat that has to travel with it.**
+
+| Gene | FBA on minimal | Keio | Whole-cell corpus |
+|---|---|---|---|
+| `dapA` | lethal | essential | collapses at generation 2 — growth −80% vs depth-matched WT, ppGpp +929%, stringent signature |
+| `leuB` | **viable** | essential | collapses at generation 3 — growth −62%, ppGpp +406%, stringent signature |
+
+`leuB` is the interesting row: **FBA is the outlier**, and the mechanistic model agrees with the experiment
+where the stoichiometric one does not. That is exactly claim (b) — except that it is *suggestive rather than
+decisive*, because both existing runs are **operon-wide**: `KO:leuB` is really `operon_KO:leuLABCD` and
+`KO:dapA` is really `operon_KO:dapA-nlpB`, while the FBA arm knocks out a single gene. Different
+experiments. The script now prints that caveat next to the verdict rather than leaving it to be noticed.
+
+**It constrains Stage 2, which is the more valuable finding:** a run meant to be compared against Keio or
+FBA has to be a genuine single-gene knockout, or it answers a different question. That was not obvious
+before running the screen.
+
+**Two corrections the first run forced, both recorded in the script rather than quietly fixed.**
+
+**(a) "Already in the corpus" has four states, not two.** The first version asked only whether rows exist
+with the gene in the label. For `argG` and `thrC` the answer was yes — 4 and 8 rows, **every one
+`qc == "ok"`** — and the conclusion "a whole-cell verdict is free" was wrong: both carry a NULL
+`kb_sha256`, so they belong to no arm and `survey.analysis_rows` correctly refuses to pool them. Rows that
+are present, readable, `ok`, and that no analysis path will use. That is this project's own silent-absence
+defect, committed inside a screen whose output tells someone where to spend days of compute. The states are
+now named: `analysable`, `collapsed`, `unusable_arm`, `absent`.
+
+**(b) `rescue_failure` does not detect surprises.** The rule is unchanged and selects the same seven cells;
+the sentence describing it was wrong. Those seven are the five `dap` genes and `ilvC`/`ilvD`, and neither
+group is unexpected: the `dap` pathway makes **diaminopimelate**, a peptidoglycan precursor as well as a
+lysine precursor, so no amino acid rescues it — and DAP is not among the twenty, which is why even the
+all-amino-acid arm stays lethal. `ilvC`/`ilvD` serve the valine branch too, which is why isoleucine alone
+fails and the full mix succeeds. What the reason actually detects is a **shared-pathway enzyme or a
+non-proteinogenic product**. Still worth simulating; not evidence the model did anything unexpected.
+
 ### The plan, in order
 1. **Fix the grid and the selection rule in writing, before Stage 1 runs.** Which genes, which media, and
    what makes a cell "interesting". Pre-registered, in the repository, like the A/B reps count.

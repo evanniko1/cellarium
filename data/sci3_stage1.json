@@ -1,0 +1,1286 @@
+{
+  "stage": "1 \u2014 FBA screen over iML1515; NOT a whole-cell result",
+  "selection_rule": {
+    "disagrees_with_keio": "FBA and the Keio experimental collection disagree about essentiality on minimal medium. These are where a mechanistic model can say something a stoichiometric one cannot, so they are the highest-value simulations.",
+    "conditional_flip": "The gene is essential on minimal and viable when its amino acid is supplied. This is the phenomenon the whole plan is about; simulating it shows HOW the cell reroutes, which a growth screen cannot report.",
+    "rescue_failure": "The gene is essential on minimal AND still essential with its own amino acid supplied. The expectation was firm and it did not hold, so the gene does something beyond making that amino acid. [AMENDED 2026-09-11 \u2014 the RULE is unchanged and still selects exactly the same cells; what was wrong was the sentence that followed it, which called this 'the most informative kind of surprise'. The first run returned 7: the five dap genes and ilvC/ilvD. Neither group is a surprise. The dap pathway makes diaminopimelate, which is a peptidoglycan precursor as well as a lysine precursor, so no amino acid rescues it \u2014 and DAP is not in the twenty, which is why even the all-amino-acid arm stays lethal. ilvC/ilvD serve the valine branch as well as the isoleucine one, which is why isoleucine alone fails and the full mix succeeds. So what this reason actually detects is a SHARED-PATHWAY enzyme or a non-proteinogenic product. That is still a useful signal and still worth simulating \u2014 it is simply not evidence that the model did anything unexpected, and reporting seven of these as seven surprises would have been wrong.]",
+    "already_in_corpus": "A whole-cell run already exists, so the FBA verdict can be checked against it immediately at no compute cost. Not a reason to simulate; a reason to look."
+  },
+  "grid": {
+    "genes": 56,
+    "amino_acids": 17,
+    "media": [
+      "minimal (M9 glucose)",
+      "minimal + all 20 amino acids",
+      "minimal + the gene's own amino acid"
+    ],
+    "aa_uptake_mmol_gdw_h": 10.0
+  },
+  "counts": {
+    "scored": 56,
+    "selected": 48,
+    "rejected": 8,
+    "by_reason": {
+      "disagrees_with_keio": 12,
+      "conditional_flip": 34,
+      "rescue_failure": 7,
+      "already_in_corpus": 2
+    },
+    "by_corpus_state": {
+      "analysable": 0,
+      "collapsed": 2,
+      "unusable_arm": 2,
+      "absent": 52
+    }
+  },
+  "limit": "FBA and the whole-cell model disagree by construction in places. A cell rejected here is rejected as an FBA judgement, not as a whole-cell one. Report unsimulated cells as FBA-screened, never as model results.",
+  "selected": [
+    {
+      "gene": "argA",
+      "amino_acid": "arg",
+      "b_number": "b2818",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "argB",
+      "amino_acid": "arg",
+      "b_number": "b3959",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_essential",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio",
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "argC",
+      "amino_acid": "arg",
+      "b_number": "b3958",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_essential",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio",
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "argE",
+      "amino_acid": "arg",
+      "b_number": "b3957",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": -0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "argG",
+      "amino_acid": "arg",
+      "b_number": "b3172",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": true,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "unusable_arm",
+        "free_verdict": false,
+        "n_rows": 8,
+        "n_qc_ok": 4,
+        "n_without_kb_sha256": 8,
+        "why": "rows exist (and some are qc=ok) but carry no kb_sha256, so they belong to no arm and no analysis path will pool them. Present is not the same as usable."
+      }
+    },
+    {
+      "gene": "argH",
+      "amino_acid": "arg",
+      "b_number": "b3960",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "cysE",
+      "amino_acid": "cys",
+      "b_number": "b3607",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "dapA",
+      "amino_acid": "lys",
+      "b_number": "b2478",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": true,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 0.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": true,
+      "selected": true,
+      "selection_reasons": [
+        "rescue_failure",
+        "already_in_corpus"
+      ],
+      "corpus": {
+        "state": "collapsed",
+        "free_verdict": true,
+        "collapses_at_generation": 2,
+        "reportable_seeds": 0,
+        "pre_collapse_growth_pct_vs_wt": -80.0,
+        "stringent_signature": true,
+        "true_label": "operon_KO:dapA-nlpB",
+        "single_gene": false,
+        "comparability": "OPERON-WIDE \u2014 silences more genes than the FBA knockout, so this is not a like-for-like comparison"
+      }
+    },
+    {
+      "gene": "dapB",
+      "amino_acid": "lys",
+      "b_number": "b0031",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": true,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": -0.0,
+      "growth_frac_plus_all_aa": 0.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "rescue_failure"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "dapD",
+      "amino_acid": "lys",
+      "b_number": "b0166",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": true,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 0.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "rescue_failure"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "dapE",
+      "amino_acid": "lys",
+      "b_number": "b2472",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": true,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 0.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "rescue_failure"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "dapF",
+      "amino_acid": "lys",
+      "b_number": "b3809",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": true,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 0.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_essential",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio",
+        "rescue_failure"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "glnA",
+      "amino_acid": "gln",
+      "b_number": "b3870",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "glyA",
+      "amino_acid": "gly",
+      "b_number": "b2551",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.973,
+      "growth_frac_plus_all_aa": 0.9565,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "hisA",
+      "amino_acid": "his",
+      "b_number": "b2024",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": -0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "hisB",
+      "amino_acid": "his",
+      "b_number": "b2022",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "hisC",
+      "amino_acid": "his",
+      "b_number": "b2021",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "hisD",
+      "amino_acid": "his",
+      "b_number": "b2020",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "hisG",
+      "amino_acid": "his",
+      "b_number": "b2019",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "ilvA",
+      "amino_acid": "ile",
+      "b_number": "b3772",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "ilvC",
+      "amino_acid": "ile",
+      "b_number": "b3774",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip",
+        "rescue_failure"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "ilvD",
+      "amino_acid": "ile",
+      "b_number": "b3771",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": true,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip",
+        "rescue_failure"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "ilvE",
+      "amino_acid": "ile",
+      "b_number": "b3770",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "leuA",
+      "amino_acid": "leu",
+      "b_number": "b0074",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "leuB",
+      "amino_acid": "leu",
+      "b_number": "b0073",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": true,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio",
+        "already_in_corpus"
+      ],
+      "corpus": {
+        "state": "collapsed",
+        "free_verdict": true,
+        "collapses_at_generation": 3,
+        "reportable_seeds": 0,
+        "pre_collapse_growth_pct_vs_wt": -61.9,
+        "stringent_signature": true,
+        "true_label": "operon_KO:leuLABCD",
+        "single_gene": false,
+        "comparability": "OPERON-WIDE \u2014 silences more genes than the FBA knockout, so this is not a like-for-like comparison"
+      }
+    },
+    {
+      "gene": "leuC",
+      "amino_acid": "leu",
+      "b_number": "b0072",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "leuD",
+      "amino_acid": "leu",
+      "b_number": "b0071",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "lysA",
+      "amino_acid": "lys",
+      "b_number": "b2838",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "metA",
+      "amino_acid": "met",
+      "b_number": "b4013",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "metB",
+      "amino_acid": "met",
+      "b_number": "b3939",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "metC",
+      "amino_acid": "met",
+      "b_number": "b3008",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "metL",
+      "amino_acid": "met",
+      "b_number": "b3940",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "pheA",
+      "amino_acid": "phe",
+      "b_number": "b2599",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "proA",
+      "amino_acid": "pro",
+      "b_number": "b0243",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "proB",
+      "amino_acid": "pro",
+      "b_number": "b0242",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "proC",
+      "amino_acid": "pro",
+      "b_number": "b0386",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "serA",
+      "amino_acid": "ser",
+      "b_number": "b2913",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.9584,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "serB",
+      "amino_acid": "ser",
+      "b_number": "b4388",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.9584,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "serC",
+      "amino_acid": "ser",
+      "b_number": "b0907",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.9584,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "thrA",
+      "amino_acid": "thr",
+      "b_number": "b0002",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "fba_false_viable",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "disagrees_with_keio"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "thrB",
+      "amino_acid": "thr",
+      "b_number": "b0003",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "thrC",
+      "amino_acid": "thr",
+      "b_number": "b0004",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": true,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "unusable_arm",
+        "free_verdict": false,
+        "n_rows": 8,
+        "n_qc_ok": 8,
+        "n_without_kb_sha256": 8,
+        "why": "rows exist (and some are qc=ok) but carry no kb_sha256, so they belong to no arm and no analysis path will pool them. Present is not the same as usable."
+      }
+    },
+    {
+      "gene": "trpA",
+      "amino_acid": "trp",
+      "b_number": "b1260",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "trpB",
+      "amino_acid": "trp",
+      "b_number": "b1261",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "trpC",
+      "amino_acid": "trp",
+      "b_number": "b1262",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "trpD",
+      "amino_acid": "trp",
+      "b_number": "b1263",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "trpE",
+      "amino_acid": "trp",
+      "b_number": "b1264",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": -0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "tyrA",
+      "amino_acid": "tyr",
+      "b_number": "b2600",
+      "fba_essential_minimal": true,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 0.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": true,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_lethal",
+      "in_corpus": false,
+      "selected": true,
+      "selection_reasons": [
+        "conditional_flip"
+      ],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "gene": "argD",
+      "amino_acid": "arg",
+      "b_number": "b3359",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "asnA",
+      "amino_acid": "asn",
+      "b_number": "b3744",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "asnB",
+      "amino_acid": "asn",
+      "b_number": "b0674",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "cysK",
+      "amino_acid": "cys",
+      "b_number": "b2414",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "cysM",
+      "amino_acid": "cys",
+      "b_number": "b2421",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "gltB",
+      "amino_acid": "glu",
+      "b_number": "b3212",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "gltD",
+      "amino_acid": "glu",
+      "b_number": "b3213",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    },
+    {
+      "gene": "metE",
+      "amino_acid": "met",
+      "b_number": "b3829",
+      "fba_essential_minimal": false,
+      "fba_essential_plus_all_aa": false,
+      "fba_essential_plus_own_aa": false,
+      "growth_frac_minimal": 1.0,
+      "growth_frac_plus_all_aa": 1.0,
+      "keio_essential": false,
+      "wcecoli_prior_essential": false,
+      "diagnosis_minimal": "consistent_viable",
+      "in_corpus": false,
+      "selected": false,
+      "selection_reasons": [],
+      "corpus": {
+        "state": "absent",
+        "free_verdict": false
+      }
+    }
+  ]
+}

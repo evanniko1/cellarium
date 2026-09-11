@@ -147,6 +147,16 @@ READ_SITE_REGISTRY: dict[str, dict] = {
                 "purpose is `inventory` (count, do not read), but the UI does read the fields — it just does "
                 "not compute over them. Left as a display lookup rather than forcing a contract that does not "
                 "fit, and recorded so the next person sees the judgement rather than an omission")},
+    "scripts/conditional_essentiality_screen.py::corpus_state": {
+        "kind": "lookup",
+        "why": ("SCI-3 Stage 1 asks ONE question per gene — does a whole-cell verdict already exist, and in "
+                "what state — so that an FBA screen can say which cells are free to check and which would "
+                "cost days of compute. It is a presence check across three mutually exclusive views "
+                "(`analysis` for reportable rows, the lethality view for designs that collapse, and the raw "
+                "row list for rows that exist but carry no arm key), and that spread is the point rather "
+                "than an accident: a single purpose would answer 'absent' for two of the three, which is "
+                "exactly the silent absence this screen exists to avoid. It computes over no row and quotes "
+                "no mean — the numbers it reports come from the lethality view's own summary")},
     "scripts/ab_score.py::main": {
         "kind": "lookup",
         "why": ("asks whether a gene has any runs at all before scoring a question, via the tool form; a "

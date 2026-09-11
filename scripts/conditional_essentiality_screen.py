@@ -82,10 +82,81 @@ SELECTION_RULE = {
                         "reroutes, which a growth screen cannot report.",
     "rescue_failure": "The gene is essential on minimal AND still essential with its own amino acid "
                       "supplied. The expectation was firm and it did not hold, so the gene does something "
-                      "beyond making that amino acid — the most informative kind of surprise.",
+                      "beyond making that amino acid. "
+                      "[AMENDED 2026-09-11 — the RULE is unchanged and still selects exactly the same "
+                      "cells; what was wrong was the sentence that followed it, which called this 'the "
+                      "most informative kind of surprise'. The first run returned 7: the five dap genes "
+                      "and ilvC/ilvD. Neither group is a surprise. The dap pathway makes "
+                      "diaminopimelate, which is a peptidoglycan precursor as well as a lysine precursor, "
+                      "so no amino acid rescues it — and DAP is not in the twenty, which is why even the "
+                      "all-amino-acid arm stays lethal. ilvC/ilvD serve the valine branch as well as the "
+                      "isoleucine one, which is why isoleucine alone fails and the full mix succeeds. So "
+                      "what this reason actually detects is a SHARED-PATHWAY enzyme or a non-proteinogenic "
+                      "product. That is still a useful signal and still worth simulating — it is simply "
+                      "not evidence that the model did anything unexpected, and reporting seven of these "
+                      "as seven surprises would have been wrong.]",
     "already_in_corpus": "A whole-cell run already exists, so the FBA verdict can be checked against it "
                          "immediately at no compute cost. Not a reason to simulate; a reason to look.",
 }
+
+
+# ---------------------------------------------------------------------------------------------------------
+# "Already in the corpus" has THREE states, not two — found by checking, on the first run.
+# ---------------------------------------------------------------------------------------------------------
+# The first version of this script asked one question: do rows exist with this gene in the label? For `argG`
+# and `thrC` the answer was yes — 4 and 8 rows, every one `qc == "ok"` — and the honest conclusion "a
+# whole-cell verdict is available for free" was WRONG. Both carry a NULL `kb_sha256`, so they belong to no
+# ARM, and `survey.analysis_rows` correctly refuses to pool them with anything. Rows that are present,
+# readable, and `ok`, and that no analysis path will ever use.
+#
+# That is the project's own silent-absence defect, committed inside a screen whose output is meant to tell
+# someone where to spend days of compute. So the state is named rather than flattened:
+#
+#   analysable   — reportable rows in the current arm; the verdict really is free
+#   unusable_arm — rows exist and may even be `ok`, but carry no arm key, so nothing can read them
+#   collapsed    — rows exist and the design collapses; the lethality view carries the phenotype
+#   absent       — no rows
+
+def corpus_state(gene: str) -> dict:
+    from cellarium import store, survey, tools
+    rows, _ = survey.analysis_rows()
+    analysable = {survey.design_key(r) for r in rows if r.get("reportable")}
+    if f"gene_knockout/KO:{gene}" in analysable:
+        return {"state": "analysable", "free_verdict": True}
+
+    try:
+        leth = {d["design"]: d for d in (tools.lethality_landscape().get("designs") or [])}
+    except Exception:
+        leth = {}
+    hit = next((d for k, d in leth.items() if f"KO:{gene}" in k), None)
+    if hit:
+        return {"state": "collapsed", "free_verdict": True,
+                "collapses_at_generation": hit.get("collapses_at_generation"),
+                "reportable_seeds": hit.get("reportable_seeds"),
+                "pre_collapse_growth_pct_vs_wt": (hit.get("pre_collapse") or {}).get("growth_pct_vs_wt"),
+                "stringent_signature": hit.get("stringent_signature"),
+                "true_label": hit.get("true_label"),
+                # THE CAVEAT THAT HAS TO TRAVEL WITH THE NUMBER. Both free verdicts in the first run turned
+                # out to be OPERON-WIDE knockouts — KO:leuB is really operon_KO:leuLABCD and KO:dapA is
+                # really operon_KO:dapA-nlpB — while the FBA arm knocks out ONE gene. They are different
+                # experiments, so "the whole-cell model agrees with Keio where FBA does not" is suggestive
+                # and not decisive. It also constrains Stage 2: a run meant to be compared against Keio or
+                # FBA has to be a genuine single-gene knockout, or it answers a different question.
+                "single_gene": not str(hit.get("true_label") or "").startswith(("operon_KO", "TU_KO")),
+                "comparability": ("single-gene, directly comparable to the FBA and Keio verdicts"
+                                  if not str(hit.get("true_label") or "").startswith(("operon_KO", "TU_KO"))
+                                  else "OPERON-WIDE — silences more genes than the FBA knockout, so this is "
+                                       "not a like-for-like comparison")}
+
+    raw = [r for r in store.list_results() if f"KO:{gene}" in str(r.get("label") or "")]
+    if not raw:
+        return {"state": "absent", "free_verdict": False}
+    n_ok = sum(1 for r in raw if str(r.get("qc")) == "ok")
+    no_arm = sum(1 for r in raw if not r.get("kb_sha256"))
+    return {"state": "unusable_arm", "free_verdict": False, "n_rows": len(raw), "n_qc_ok": n_ok,
+            "n_without_kb_sha256": no_arm,
+            "why": "rows exist (and some are qc=ok) but carry no kb_sha256, so they belong to no arm and no "
+                   "analysis path will pool them. Present is not the same as usable."}
 
 
 def media(model_aas: set[str]) -> dict[str, dict]:
@@ -98,12 +169,62 @@ def media(model_aas: set[str]) -> dict[str, dict]:
     return {"minimal": minimal, "minimal_plus_aa": plus_all}
 
 
+def _annotate_only(args) -> int:
+    """Refresh the corpus classification in place, leaving every FBA number exactly as it was."""
+    if not OUT.is_file():
+        print(f"no {OUT} to annotate — run the screen first", file=sys.stderr)
+        return 2
+    payload = json.loads(OUT.read_text(encoding="utf-8"))
+    cells = payload["selected"] + payload["rejected"]
+    for c in cells:
+        cs = corpus_state(c["gene"])
+        c["corpus"] = cs
+        reasons = [r for r in c["selection_reasons"] if r != "already_in_corpus"]
+        if cs["free_verdict"]:
+            reasons.append("already_in_corpus")
+        c["selection_reasons"] = reasons
+        c["selected"] = [r for r in reasons if r != "already_in_corpus"] != []
+    payload["selected"] = [c for c in cells if c["selected"]]
+    payload["rejected"] = [c for c in cells if not c["selected"]]
+    payload["selection_rule"] = SELECTION_RULE
+    payload["counts"] = {"scored": len(cells), "selected": len(payload["selected"]),
+                         "rejected": len(payload["rejected"]),
+                         "by_reason": {k: sum(1 for c in cells if k in c["selection_reasons"])
+                                       for k in SELECTION_RULE},
+                         "by_corpus_state": {s: sum(1 for c in cells if c["corpus"]["state"] == s)
+                                             for s in ("analysable", "collapsed", "unusable_arm", "absent")}}
+    OUT.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"re-annotated {len(cells)} cells (FBA numbers untouched)")
+    for s, n in payload["counts"]["by_corpus_state"].items():
+        print(f"    {s:14s} {n}")
+    free = [c for c in cells if c["corpus"]["free_verdict"]]
+    print("")
+    print(f"whole-cell verdict available at NO compute cost: {len(free)}")
+    for c in free:
+        cs = c["corpus"]
+        wc = ("collapses at gen %s (growth %s%% vs WT pre-collapse)"
+              % (cs.get("collapses_at_generation"), cs.get("pre_collapse_growth_pct_vs_wt"))
+              if cs["state"] == "collapsed" else "reportable in the current arm")
+        print(f"  {c['gene']:7s} FBA={'LETHAL' if c['fba_essential_minimal'] else 'viable':6s} "
+              f"Keio={str(c['keio_essential']):5s}  whole-cell: {wc}")
+        if cs.get("single_gene") is False:
+            print(f"          ! {cs['true_label']} — {cs['comparability']}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=0, help="also print the N highest-priority selected cells")
+    ap.add_argument("--annotate-only", action="store_true",
+                    help="re-run ONLY the corpus classification over an existing result file. The corpus "
+                         "grows; the FBA verdicts over a pinned iML1515 do not, and re-solving 168 MOMA "
+                         "problems to refresh a lookup would be twenty minutes to learn nothing new.")
     args = ap.parse_args()
 
-    from cellarium import fba, store, survey
+    if args.annotate_only:
+        return _annotate_only(args)
+
+    from cellarium import fba
     ok, why = fba.available()
     if not ok:
         print(f"FBA is unavailable: {why}\n  pip install \"cellarium[fba]\"", file=sys.stderr)
@@ -151,10 +272,7 @@ def main() -> int:
             own[r["gene"]] = r
     print(f"  own-amino-acid arms: {len(own)} genes scored")
 
-    # Which genes already have a whole-cell run — checked, not guessed.
-    rows, _ = survey.analysis_rows()
-    in_corpus = {survey.design_key(r).split(":")[-1] for r in rows if "KO:" in survey.design_key(r)}
-    all_labels = {str(r.get("label") or "") for r in store.list_results()}
+    # Which genes already have a whole-cell verdict — classified into the four states above, not guessed.
 
     cells = []
     for g in sorted(verdicts):
@@ -171,8 +289,8 @@ def main() -> int:
             reasons.append("conditional_flip")
         if ess_min and ess_own is True:
             reasons.append("rescue_failure")
-        corpus_hit = g in in_corpus or any(f"KO:{g}" in lb for lb in all_labels)
-        if corpus_hit:
+        cs = corpus_state(g)
+        if cs["free_verdict"]:
             reasons.append("already_in_corpus")
         cells.append({
             "gene": g, "amino_acid": aa_of[g], "b_number": mini.get("b_number"),
@@ -183,7 +301,7 @@ def main() -> int:
             "keio_essential": mini.get("keio_essential"),
             "wcecoli_prior_essential": mini.get("wcecoli_essential"),
             "diagnosis_minimal": mini.get("diagnosis"),
-            "in_corpus": corpus_hit,
+            "corpus": cs,
             "selected": [r for r in reasons if r != "already_in_corpus"] != [],
             "selection_reasons": reasons,
         })
