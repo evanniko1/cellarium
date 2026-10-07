@@ -32,11 +32,19 @@ class Investigation:
     answer: str
     hypothesis: Any | None = None       # a hypothesis.Hypothesis when used_council, else None
     brief: str | None = None            # hypothesis.brief() convenience, for interface display
+    # The pre-dispatch capability decision (NMI-2). Always present when the gate ran, whatever it decided —
+    # an `answer` verdict is as much a result as a refusal, and a caller that only sees refusals cannot tell
+    # "the gate passed it" from "the gate never ran".
+    decision: Any | None = None         # a gate.Decision
+    gated: bool = False                 # True when the gate STOPPED the investigation before any tool call
 
 
 def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quota: int = 3,
                 ask_user: Callable[[str], str] | None = None, on_hypothesis: Callable[[Any], None] | None = None,
-                on_tool: Callable | None = None, max_turns: int = 8, verbose: bool = True) -> Investigation:
+                on_tool: Callable | None = None, max_turns: int = 8, verbose: bool = True,
+                use_gate: bool = True, elongation_model: str | None = None,
+                gate_parser: Callable[[str], Any] | None = None,
+                on_decision: Callable[[Any], None] | None = None) -> Investigation:
     """Run one question end-to-end and return a structured result.
 
     use_council=True routes through the Socratic Council first (open questions that benefit from being
@@ -46,6 +54,13 @@ def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quo
 
     on_hypothesis, if given, is called with the converged Hypothesis after the Council runs but BEFORE the
     agent starts — so a CLI can stream the brief, or the interface can render it in its own panel.
+
+    use_gate=False disables the pre-dispatch capability check. It exists for the ablation that measures what
+    the gate buys and for offline tests, NOT as a way to get an answer the registry would refuse: the same
+    refusal remains reachable through `model_capabilities` downstream. `elongation_model` conditions the
+    decision on the mode the run would use (default: the mode every corpus row was produced in).
+    `gate_parser` substitutes the question→requirement step, which is how a test runs the gate with no
+    network and how the eval scores a parser against frozen labels.
     """
     hyp = None
     if use_council:
@@ -54,9 +69,32 @@ def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quo
         if on_hypothesis is not None:
             on_hypothesis(hyp)
 
+    # ---- the pre-dispatch capability gate (NMI-2) --------------------------------------------------------
+    # PLACEMENT IS THE POINT. This sits between the question and `agent.run`, which is the only thing that
+    # dispatches tools, so there is no path through this seam that reaches a tool without having been
+    # decided. Previously the registry was reachable only through `model_capabilities` — a tool the model
+    # elects to call — so "the language model cannot override a refusal" was not true as written.
+    #
+    # The Council runs BEFORE the gate deliberately. It reads no results and touches no corpus, so it cannot
+    # smuggle an answer past anything; and letting it sharpen a vague question first means the gate decides
+    # on an operationalised requirement rather than on a paraphrase, which is the harder and fairer test.
+    decision = None
+    if use_gate:
+        from . import gate as _gate
+        decision = _gate.gate(question, mode=elongation_model, parser=gate_parser)
+        if on_decision is not None:
+            on_decision(decision)
+        if decision.verdict != "answer":
+            # Stop here. Not a failure and not an error: a refusal naming the missing mechanism, or a
+            # proposal naming the run that would settle it, is the result.
+            return Investigation(question=question, used_council=use_council,
+                                 answer=_gate.render(decision), hypothesis=hyp,
+                                 brief=hyp.brief() if (hyp is not None and hasattr(hyp, "brief")) else None,
+                                 decision=decision, gated=True)
+
     from .agent import run  # imported late so the API key is present in env
     answer = run(question, hypothesis=hyp, max_turns=max_turns, verbose=verbose, on_tool=on_tool)
 
     brief = hyp.brief() if (hyp is not None and hasattr(hyp, "brief")) else None
     return Investigation(question=question, used_council=use_council, answer=answer,
-                         hypothesis=hyp, brief=brief)
+                         hypothesis=hyp, brief=brief, decision=decision, gated=False)
