@@ -76,7 +76,6 @@ Two tiers, and the difference between them is whether a human gate exists furthe
 
 | Tool | Why |
 |---|---|
-| `run_experiment` | Starts a simulation immediately. Unlike the `propose_*` family, there is no approval step behind it. |
 | `download_raw` | Fetches from HuggingFace and writes archives — often gigabytes — into your runs directory. |
 | `web_get` | Makes outbound HTTP requests. A third-party agent should not originate network traffic from your machine. |
 | `use_skill` | Loads external instruction text into the agent loop. That is an instruction-injection surface, not a data read. |
@@ -97,8 +96,8 @@ touches it, and a test fails if one is ever added.
 
 Everything above assumes a person is somewhere behind the call. That assumption breaks the moment you put
 Cellarium behind your own agent: **a subagent cannot grant consent on your behalf.** So under the defaults,
-`run_experiment` is not merely gated for an agent-driven loop — it is unreachable, and an autonomous
-*investigate → simulate → re-read* cycle cannot be built at all.
+there is, under the defaults, **no tool on this surface that starts a simulation at all** — so an
+autonomous *investigate → simulate → re-read* cycle cannot be built.
 
 That would be a capability hole dressed up as safety, so there is a way out:
 
@@ -107,7 +106,16 @@ CELLARIUM_MCP_DANGEROUSLY_ALLOW_ALL=1
 ```
 
 The name is the warning label. It lifts **both** tiers and lists everything — one switch rather than three,
-because permitting a launch while hiding the tool that performs it helps nobody. It is the same bargain as
+because permitting a launch while hiding the tool that performs it helps nobody. It also **adds a tool that
+does not otherwise exist on this surface**, `run_simulation_now`, which is the only thing in the package that
+starts a simulation.
+
+> **`run_experiment` is not that tool, despite the name.** It validates a design against the envelope, screens
+> it for biosecurity, and reports whether the corpus already answers the question. It is a lookup and costs
+> nothing. It was listed in the never-lifted tier here until 2026-09-11 on the strength of its name; that was
+> wrong, and removing it is what made `run_simulation_now` necessary — before it landed, unattended mode was
+> granting permission to do something no tool could do. Call `run_experiment` first anyway: if the answer is
+> already in the corpus, there is nothing to run. It is the same bargain as
 `--dangerously-skip-permissions` in Claude Code: you are pre-granting the consent that would otherwise be
 asked for each time, and you are doing it knowingly.
 
@@ -116,7 +124,7 @@ compute per run and archives written into your runs directory. `estimate_sim_res
 `system_resources` exist for exactly this, and the server's instructions tell the caller to use them before
 launching.
 
-**Two things it does not lift, and cannot.** They live inside `run_experiment` itself, not in the MCP
+**Two things it does not lift, and cannot.** They live inside `run_simulation_now` itself, not in the MCP
 policy, so no flag here reaches them:
 
 - **The biosecurity screen.** A flagged design returns `biosecurity_hold` and does not run. This protects
@@ -129,6 +137,15 @@ That separation is the reason this mode can be offered at all, so it is pinned b
 as a claim about where some code happens to sit today.
 
 ---
+
+### A correction to this document, recorded rather than quietly fixed
+
+Until 2026-10-07 the table above listed `run_experiment` as refused with no way to lift it, on the grounds that it
+"starts a simulation immediately". It does not, and has not since the surface was built. The entry was written from
+the tool's **name** rather than from its body — which is the exact failure this project exists to detect, committed
+in this project's own documentation about its own refusals. It is recorded here instead of being silently corrected,
+because a description that drifted from an implementation is the subject matter, and `tests/` now pins the refusal
+tiers against `mcp._NEVER` and `mcp._WRITE_GATED` so the table cannot drift again without a test failing.
 
 ## One protocol limitation, stated plainly
 

@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import inspect
 import re
+import pathlib
+import re
 
 import pytest
 
@@ -391,3 +393,63 @@ def test_a_missing_sdk_is_an_instruction_not_a_traceback(monkeypatch, capsys):
     assert mcp.main() == 2
     err = capsys.readouterr().err
     assert "cellarium[mcp]" in err and "works without it" in err
+
+
+# ---------------------------------------------------------------------------------------------------------
+# DOC-DRIFT: the published refusal table must agree with the code that enforces it.
+#
+# WHY THIS EXISTS, and it is not hypothetical. `docs/MCP_SURFACE.md` listed `run_experiment` in the
+# never-lifted tier from the day the surface shipped until 2026-10-07, on the strength of the tool's NAME.
+# `run_experiment` is a lookup: it validates an envelope, screens biosecurity, and reports whether the corpus
+# already holds the answer. It was removed from `_NEVER` on 2026-09-11; the document was not updated, so for
+# four weeks the published description of this project's own refusals described a refusal that had stopped
+# existing, and did not name `run_simulation_now`, the tool that actually launches.
+#
+# That is the failure this project is ABOUT, committed in this project's documentation about its own gates.
+# The tests above pin the CODE. Nothing pinned the DOCUMENT against the code, which is why the drift could
+# sit there. This closes that gap: the table is parsed and compared, so the next divergence fails CI instead
+# of being found by reading.
+# ---------------------------------------------------------------------------------------------------------
+
+_DOC = pathlib.Path(__file__).resolve().parent.parent / "docs" / "MCP_SURFACE.md"
+
+
+def _never_tier_rows_in_doc() -> set[str]:
+    """The tool names in the 'Refused, with no environment variable that lifts it' table."""
+    text = _DOC.read_text(encoding="utf-8")
+    start = text.index("**Refused, with no environment variable that lifts it.**")
+    end = text.index("**Refused by default, liftable", start)
+    return set(re.findall(r"^\| `([a-z_]+)` \|", text[start:end], flags=re.M))
+
+
+@pytest.mark.skipif(not _DOC.exists(), reason="docs/ not present in this checkout")
+def test_published_never_tier_matches_the_code():
+    """The document and `_NEVER` name the same tools — neither more nor fewer."""
+    documented = _never_tier_rows_in_doc()
+    assert documented, "the never-tier table parsed empty; the heading or table shape changed"
+    assert documented == set(mcp._NEVER), (
+        "docs/MCP_SURFACE.md disagrees with mcp._NEVER.\n"
+        f"  documented only: {sorted(documented - set(mcp._NEVER))}\n"
+        f"  code only:       {sorted(set(mcp._NEVER) - documented)}\n"
+        "Update whichever is wrong. A refusal nobody enforces and an enforcement nobody documents are the "
+        "same defect in opposite directions.")
+
+
+@pytest.mark.skipif(not _DOC.exists(), reason="docs/ not present in this checkout")
+def test_published_write_gated_tier_matches_the_code():
+    """Every write-gated tool is named in the paragraph that describes the write gate."""
+    text = _DOC.read_text(encoding="utf-8")
+    start = text.index("**Refused by default, liftable")
+    para = text[start:start + 1200]
+    missing = [n for n in sorted(mcp._WRITE_GATED) if n not in para]
+    assert not missing, f"write-gated tools absent from their own documentation: {missing}"
+
+
+@pytest.mark.skipif(not _DOC.exists(), reason="docs/ not present in this checkout")
+def test_the_real_launcher_is_named_and_the_lookup_is_not_called_one():
+    """`run_simulation_now` is the launch capability; the document must say so and must not say it of
+    `run_experiment`, which is the specific sentence that was wrong for four weeks."""
+    text = _DOC.read_text(encoding="utf-8")
+    assert "run_simulation_now" in text, "the document never names the tool that actually starts a simulation"
+    assert "run_experiment" not in _never_tier_rows_in_doc(), \
+        "run_experiment is back in the documented never-tier; it is a lookup, not a launcher"
