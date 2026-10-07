@@ -110,3 +110,4 @@ Claude outputs/
 data/provider.json
 site/
 .cache/
+audit/

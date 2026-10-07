@@ -8,6 +8,7 @@
  "files_gated_on_the_model_environment": [
   "tests/test_arm2_columns.py",
   "tests/test_capability.py",
+  "tests/test_capability_verdict.py",
   "tests/test_deg_rate_cv.py",
   "tests/test_deg_rate_provenance.py",
   "tests/test_deg_rate_resolve.py",
@@ -15,5 +16,6 @@
   "tests/test_operon_mode.py",
   "tests/test_parca_rebuild.py",
   "tests/test_provenance_baseline.py"
- ]
+ ],
+ "note": "tests/test_capability_verdict.py added 2026-10-07: FOUR of its five tests run everywhere and need no checkout \u2014 they pin that an unverified audit reports `unverified` rather than a pass. Only test_a_real_checkout_produces_a_verified_verdict is gated, and it is the mirror that stops the fix being satisfiable by always abstaining. The gated half is the one CI cannot see; the half that defends the defect is not gated."
 }

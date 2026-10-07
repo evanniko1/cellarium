@@ -623,6 +623,11 @@ class ProbeResult:
     markers_found: dict = field(default_factory=dict)
     agrees: bool = True
     note: str = ""
+    # `agrees` answers "did anything DISAGREE?" and its honest value with nothing to compare against is True.
+    # That made a no-checkout run indistinguishable from a clean one everywhere the boolean was read alone.
+    # `verified` answers the other question — "was a comparison actually performed?" — so the two states
+    # stop sharing a representation. See the block above `audit()` for why this mattered in practice.
+    verified: bool = True
 
 
 def probe(wcecoli: str | None = None) -> list[ProbeResult]:
@@ -633,7 +638,7 @@ def probe(wcecoli: str | None = None) -> list[ProbeResult]:
     root = wcecoli or os.environ.get("WCECOLI_DIR") or ""
     out: list[ProbeResult] = []
     if not root or not os.path.isdir(root):
-        return [ProbeResult(key=c.key, declared=c.present, agrees=True,
+        return [ProbeResult(key=c.key, declared=c.present, agrees=True, verified=False,
                             note="no checkout to probe — declaration UNVERIFIED, not confirmed")
                 for c in CAPABILITIES]
     haystack = []
@@ -786,9 +791,26 @@ def probe_launch_surface(wcecoli: str | None = None) -> dict:
 
 
 def audit(wcecoli: str | None = None) -> dict:
-    """Every declaration checked against the checkout AND the corpus. `ok` false means the registry is lying."""
+    """Every declaration checked against the checkout AND the corpus.
+
+    READ `verdict`, NOT `ok`. ⚠️ `ok` answers only "did anything disagree?", and with no checkout to probe
+    nothing can disagree, so `ok` was True on a machine that had verified NOTHING — 9 capabilities, 0
+    disagreements, 0 comparisons. That is this module's own subject matter turned on itself: a summary
+    advertising more verification than was performed, which is precisely the label-vs-mechanism gap the
+    registry exists to catch in wcEcoli.
+
+    It mattered in practice rather than in principle. `tools.model_capabilities` put `audit: <ok>` into the
+    payload the AGENT reads, so on any machine without a Stanford-licensed wcEcoli checkout — which is most
+    machines, and every machine a reviewer downloading the package would use — the model was told the
+    registry had been checked against the model source when it had not been.
+
+    `verdict` is three-valued and cannot collapse: `verified_consistent` (a comparison ran and agreed),
+    `unverified` (no checkout — nothing was compared), `disagreement` (a comparison ran and the registry is
+    lying). `ok` is retained for existing callers and still means "nothing disagreed".
+    """
     res = probe(wcecoli)
     bad = [r for r in res if not r.agrees]
+    n_verified = sum(1 for r in res if r.verified)
     modes = probe_corpus_modes()
     launch = probe_launch_surface(wcecoli)
     bad_modes = [c.key for c in CAPABILITIES if any(m not in ELONGATION_MODES for m in c.holds_in)]
@@ -797,7 +819,20 @@ def audit(wcecoli: str | None = None) -> dict:
     # with nothing raising. Same failure shape as a stale `present=True`, so it is probed the same way.
     bad_prose = [f"{c.key}.{name}[{m!r}]" for c in CAPABILITIES for name in ("instead", "consequence")
                  for m in _prose_keys(getattr(c, name)) if m not in ELONGATION_MODES]
-    return {"ok": (not bad) and modes["ok"] and launch["ok"] and not bad_modes and not bad_prose,
+    ok = (not bad) and modes["ok"] and launch["ok"] and not bad_modes and not bad_prose
+    verdict = ("disagreement" if not ok else
+               "verified_consistent" if n_verified == len(res) and res else
+               "unverified")
+    return {"ok": ok,
+            # The field to read. `ok` cannot distinguish "checked and clean" from "did not check".
+            "verdict": verdict,
+            "verified": n_verified == len(res) and bool(res),
+            "n_verified": n_verified, "n_unverified": len(res) - n_verified,
+            # Only ever the checkout that was ACTUALLY read. Reporting the path that was *passed* would
+            # name a directory the probe never opened — the same "advertised more than was done" shape this
+            # verdict exists to remove, in miniature. Caught by its own test on the first run.
+            "verified_against": ((wcecoli or os.environ.get("WCECOLI_DIR") or None)
+                                 if n_verified == len(res) and res else None),
             "n_capabilities": len(CAPABILITIES), "n_missing": len(missing()),
             "disagreements": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "note": r.note}
                               for r in bad],
@@ -810,5 +845,7 @@ def audit(wcecoli: str | None = None) -> dict:
             "launch_surface": launch,
             "probed": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "note": r.note}
                        for r in res],
-            "note": "Capabilities are DECLARED and PROBED. A disagreement means the registry no longer matches "
-                    "the model, which is worse than no registry — it is confidently wrong metadata."}
+            "note": ("Capabilities are DECLARED and PROBED. A disagreement means the registry no longer "
+                     "matches the model, which is worse than no registry — it is confidently wrong metadata. "
+                     "READ `verdict`, not `ok`: `ok` only means nothing disagreed, and with no checkout "
+                     "present nothing CAN disagree. `unverified` is not a pass.")}

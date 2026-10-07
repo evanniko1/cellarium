@@ -257,7 +257,10 @@ def model_capabilities(capability: str | None = None, mode: str | None = None) -
         "ported_but_off_by_default": [{"capability": c["capability"], "question": c["question"],
                                        "why_not": c.get("why_not"), "switch": c.get("switch")}
                                       for c in cannot if c.get("why_not") != "no_elongation_model_represents_it"],
-        "audit": cap.audit().get("ok"),
+        # ⚠️ WAS `cap.audit().get("ok")`, which told the model `audit: true` on any machine with no wcEcoli
+        # checkout — i.e. "the registry was checked against the model source" when nothing had been compared.
+        # `verdict` is three-valued and cannot collapse `unverified` into a pass. See capability.audit().
+        "audit": cap.audit().get("verdict"),
         "note": ("`cannot_represent` entries are structural: the model returns a plausible number for each of "
                  "them anyway. If a question needs one, say the model cannot answer it and why — do NOT report "
                  "the number. When `why_not` is 'another_mode_represents_it', the correct answer is a refusal "
