@@ -321,8 +321,12 @@ reader backend behind gene-level tools. Deep-dive read path (pull raw + wire the
 
 ## The corpus
 
-The raw whole-cell simOut is published as an open Hugging Face dataset, about 198 GB across 96 run
-archives. `CELLARIUM_HF_REPO` selects it; anonymised copies of this repository have the owner redacted
+The raw whole-cell simOut is published as an open Hugging Face dataset: **270.0 GB across 131 run
+archives**, spanning 35 designs. That figure is measured, not asserted — `scripts/verify_dataset_size.py`
+lists the public repo anonymously, exactly as a downloader sees it, and writes
+[`data/hf/DATASET_SIZE.json`](data/hf/DATASET_SIZE.json); every document that states a size cites that one
+file, and a test fails if any of them drifts from it.
+`CELLARIUM_HF_REPO` selects it; anonymised copies of this repository have the owner redacted
 out of the default, and `download_raw` reports that rather than failing as though you were offline.
 The distilled Parquet manifest ships in-repo (about 5 MB) for fast, download-free reasoning; `download_raw`
 pulls full-resolution trajectories on demand — the shard for breadth, the corpus for depth.

@@ -1,0 +1,37 @@
+# NMI-4 — is the committed dataset measurement still true of the live deposit?
+#
+# WHY THIS IS SEPARATE FROM CI. `tests/test_dataset_size.py` runs on every push and compares the committed
+# artifact against the committed prose. That is a property of the repository: no network, no flake, and a
+# contributor can fix any failure it reports. THIS job asks a different question — whether the artifact still
+# matches the public Hugging Face repo — and that one needs the network, can fail for reasons nobody can fix
+# in a pull request, and would eventually be switched off if it blocked merges. So it runs on a schedule and
+# on demand, and it opens nothing and blocks nothing; it fails loudly and visibly instead.
+#
+# A failure here means the deposit changed and the repository has not caught up: re-run
+# `python scripts/verify_dataset_size.py`, commit the new artifact, and update the prose the test pins.
+name: Dataset size — is the measurement still true?
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"        # Mondays, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the hub client only
+        run: python -m pip install --upgrade pip "huggingface_hub>=0.23"
+
+      - name: Re-measure the public deposit and compare
+        run: python scripts/verify_dataset_size.py --check

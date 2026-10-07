@@ -18,7 +18,6 @@ guarantee is a shipped default protecting the user from their own agent, not a w
 from __future__ import annotations
 
 import inspect
-import re
 import pathlib
 import re
 

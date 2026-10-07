@@ -1,0 +1,17 @@
+{
+  "repo": "evanniko1/cellarium-corpus",
+  "measured_utc": "2026-10-07T22:44:54Z",
+  "method": "huggingface_hub list_repo_tree(recursive=True, token=False) -- anonymous, as a downloader sees it",
+  "n_runs": 131,
+  "n_archives": 131,
+  "n_designs": 35,
+  "sim_paths": [
+    "aadrop",
+    "cellarium"
+  ],
+  "total_bytes": 289896485637,
+  "total_gb": 270.0,
+  "archives_without_reported_size": 0,
+  "n_parquet_files": 1,
+  "n_entries_total": 177
+}
