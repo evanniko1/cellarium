@@ -1,0 +1,27 @@
+# excerpt of runs/stress_run.log (condition/minus_phosphate seed0): header line 2005, rows 2241-2243, traceback line 2244. The [cellarium] lines are synthesised for the test.
+Time (s)  Dry mass     Dry mass      Protein          RNA    Small mol     Expected
+              (fg)  fold change  fold change  fold change  fold change  fold change
+  289.00    405.00        1.065        1.074        1.112        1.035        1.079
+  291.00    404.19        1.064        1.074        1.112        1.034        1.079
+  291.00    400.85        1.066        1.074        1.119        1.037        1.079
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 182, in <module>
+    script.cli()
+  File "/wcEcoli/wholecell/utils/scriptBase.py", line 674, in cli
+    self.run(args)
+  File "/wcEcoli/runscripts/manual/runSim.py", line 177, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulation.py", line 90, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 257, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 289, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 369, in _evolveState
+    state.merge(processes)
+  File "/wcEcoli/wholecell/states/bulk_molecules.py", line 196, in merge
+    raise NegativeCountsError(
+wholecell.states.bulk_molecules.NegativeCountsError: Negative value(s) in self._countsAllocatedFinal:
+ATP[c] in PolypeptideElongation (-13690)
+
+[cellarium] model process exited with status 1

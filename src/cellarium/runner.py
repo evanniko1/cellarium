@@ -537,7 +537,7 @@ def _exec(script_args: list[str]) -> None:
         cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
                *file_mounts, *extra_env,
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
-        _run_checked(cmd, None)   # the docker CLI has no use for a credential
+        _run_checked(cmd, None, getattr(_EXEC_LOCAL, "log_path", None))   # the docker CLI has no use for a credential
         return
     if not WCECOLI_DIR:
         raise RuntimeError("Set WCECOLI_DOCKER (local model image) or WCECOLI_DIR (native checkout). "
@@ -546,7 +546,7 @@ def _exec(script_args: list[str]) -> None:
     # strictly MORE exposure than four bind mounts. Recording an empty mount list here would read as "nothing
     # was shadowed" and be the wrong claim, so the mode is named instead.
     _EXEC_LOCAL.mount_record = "native"
-    _run_checked([PY, *script_args], WCECOLI_DIR)
+    _run_checked([PY, *script_args], WCECOLI_DIR, getattr(_EXEC_LOCAL, "log_path", None))
 
 
 # A crashed wcEcoli sim EXITS ZERO. FireWorks catches the process exception, marks the task FIZZLED, and the
@@ -558,20 +558,40 @@ _FAILURE_MARKERS = ("Traceback (most recent call last)", "FIZZLED", "KeyError", 
                     "ValueError:", "RuntimeError:", "AssertionError")
 
 
-def _run_checked(cmd: list[str], cwd: str | None) -> None:
-    """Run a model script, streaming its output, and FAIL on a traceback even when the exit code says 0."""
-    proc = subprocess.Popen(cmd, cwd=cwd or None, env=redact.child_env(),
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-    tail: list[str] = []
-    assert proc.stdout is not None
-    for line in proc.stdout:
-        print(line, end="")                      # keep the model's own progress visible
-        tail.append(line)
-        if len(tail) > 400:
-            del tail[:200]
-    rc = proc.wait()
-    blob = "".join(tail)
-    hit = next((m for m in _FAILURE_MARKERS if m in blob), None)
+def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None) -> None:
+    """Run a model script, streaming its output, and FAIL on a traceback even when the exit code says 0.
+
+    FAIL-1: with `log_path`, the WHOLE output is also written there, for every run. The in-memory tail below
+    was the only copy, and the crash row kept 150-200 characters of it — so the traceback was captured and
+    then thrown away. The exit status and any failure marker are appended because neither is in the model's
+    own output, and without them a container killed by the host reads like a run that printed nothing.
+    The file is development material and is excluded from every upload path (`failures.is_dev_only`)."""
+    from . import failures
+    log = open(log_path, "w", encoding="utf-8", errors="replace") if log_path else None
+    try:
+        if log:
+            log.write(f"[cellarium] started {time.strftime('%Y-%m-%dT%H:%M:%S')} :: {last_argv() or ''}\n")
+        proc = subprocess.Popen(cmd, cwd=cwd or None, env=redact.child_env(),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        tail: list[str] = []
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(line, end="")                      # keep the model's own progress visible
+            if log:
+                log.write(line)
+            tail.append(line)
+            if len(tail) > 400:
+                del tail[:200]
+        rc = proc.wait()
+        blob = "".join(tail)
+        hit = next((m for m in _FAILURE_MARKERS if m in blob), None)
+        if log:
+            log.write(f"\n{failures.EXIT_MARK} {rc}\n")
+            if hit:
+                log.write(f"{failures.MARKER_MARK} {hit}\n")
+    finally:
+        if log:
+            log.close()
     if rc != 0:
         raise subprocess.CalledProcessError(rc, cmd, output=blob)
     if hit:
@@ -747,6 +767,10 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
     run_root = _run_subpath(design, seed, sim_path)
     run_root.mkdir(parents=True, exist_ok=True)  # write provenance BEFORE the sim so a CRASH still leaves labels (G3)
     _write_provenance(run_root, design)
+    # FAIL-1: rotate any earlier attempt's log NOW, before anything can refuse. A refusal below leaves no new
+    # log, and a stale one left in place would be read as THIS attempt's failure.
+    from . import failures
+    log_path = failures.prepare_log(run_root)
     model_dir = _model_output_dir(design, seed, sim_path)
     _t0 = time.time()
     # Hold the transit dir for the whole run+move. The model always writes to <variant>_<idx>/<seed>, so two
@@ -759,11 +783,13 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
             raise RuntimeError(
                 f"Refusing to run: {evac['why']}. Running would overwrite it. Move or delete it deliberately.")
         _set_exec_env(_graded_ko_env(design))   # raises if a graded design cannot be fully specified
+        _EXEC_LOCAL.log_path = log_path
         try:
             _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
                    "--generations", str(generations), *_variant_args(design)])
         finally:
             _set_exec_env(None)
+            _EXEC_LOCAL.log_path = None
         # IMMEDIATELY after the run and INSIDE the lock, because the model keeps ONE metadata.json per sim_path
         # and overwrites it on the next run. Outside the lock a concurrent worker's run would already have
         # replaced it, and this would record that run's configuration against this run's output.

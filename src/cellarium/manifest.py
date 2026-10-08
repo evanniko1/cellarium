@@ -1191,7 +1191,7 @@ def _crash_row(design: Design, seed: int, generations: int, exc: Exception,
 
 
 def campaign(designs: list[Design], seeds: list[int], generations: int = 1, parallel: int = 1,
-             sim_path: str = "cellarium") -> Path:
+             sim_path: str = "cellarium", triage_repeat: bool = False) -> Path:
     """Run an in-envelope design x seed matrix on the public model and append a manifest shard.
 
     Crash-isolated: a failed sim is logged and skipped (never kills the batch), and the shard is written for
@@ -1203,6 +1203,12 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
     auxotroph arms need the rebuilt one that knows the dropout media — would have silently run against the
     corpus KB: either dying on an unknown medium, or producing rows whose `kb_sha256` does not match the
     experiment they claim to be. Threaded through to every job, serial and parallel.
+
+    FAIL-1d: after the shard is written, every failure is identified from its run log and each identity
+    nobody has named gets the first-sighting loop (`failures.after_campaign`). `triage_repeat` lets that loop
+    spend ONE extra simulation per new identity, run serially once every job is done. It is OFF by default
+    because some callers run exactly what a person approved — `launch` among them — and an extra simulation
+    is not the loop's to spend on their behalf. Operator campaigns (`generate`) turn it on.
     """
     # SEED-MAJOR, so consecutive jobs are DIFFERENT designs. Design-major filled a pool of N workers with N
     # seeds of one design, and since `runner._variant_dir_lock` serialises seeds within a design (the variant
@@ -1211,6 +1217,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
     jobs = [(d, s) for s in seeds for d in designs]
     n = len(jobs)
     rows: list[dict] = []
+    crashes: list[tuple] = []          # (design, seed, row) — the loop needs the Design, which a row does not carry
 
     if parallel <= 1:
         for i, (d, s) in enumerate(jobs, 1):
@@ -1222,6 +1229,7 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
                 print(f"[{i}/{n}] {_label(d, s)} FAILED: {_exc_text(exc)}", flush=True)
                 try:
                     rows.append(_crash_row(d, s, generations, exc, sim_path))
+                    crashes.append((d, s, rows[-1]))
                 except Exception:
                     pass
     else:
@@ -1238,12 +1246,24 @@ def campaign(designs: list[Design], seeds: list[int], generations: int = 1, para
                     print(f"[{k}/{n}] {_label(d, s)} FAILED: {_exc_text(exc)}", flush=True)
                     try:
                         rows.append(_crash_row(d, s, generations, exc, sim_path))
+                        crashes.append((d, s, rows[-1]))
                     except Exception:
                         pass
 
     if not rows:
         raise RuntimeError("campaign produced no completed runs")
-    return append_shard(rows)
+    shard = append_shard(rows)
+    if crashes:
+        # AFTER the shard: nothing in the loop can lose a completed run. Never allowed to fail the campaign,
+        # but a loop that broke must say so — a silent skip would read as "no unnamed failures".
+        from . import failures
+        try:
+            print(failures.render_summary(
+                failures.after_campaign(crashes, generations, sim_path, repeat=triage_repeat)), flush=True)
+        except Exception as exc:
+            print(f"FAILURE TRIAGE DID NOT RUN: {_exc_text(exc)} — failures in this campaign are unidentified, "
+                  f"not absent.", flush=True)
+    return shard
 
 
 def _discover_runs(sim_path: str = "cellarium") -> list[Path]:

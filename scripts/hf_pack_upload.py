@@ -37,6 +37,29 @@ def _run_roots(out: str, sim_path: str = "cellarium") -> list[Path]:
     return sorted({so.parents[2] for so in base.glob("**/simOut")}) if base.exists() else []
 
 
+def _tar_filter(ti: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    """FAIL-1b: the run log (`sim.log` and its rotations) is development material — it carries host paths and
+    container settings — and does not ship as is. This archive packs the WHOLE run root, so without this
+    filter the log would travel with the next upload."""
+    from cellarium.failures import is_dev_only
+    return None if is_dev_only(ti.name) else ti
+
+
+def pack_run(rr: Path, rel: str, tarp: Path) -> None:
+    """One run root -> one .tar.gz, with development-only files left out."""
+    with tarfile.open(tarp, "w:gz") as tf:
+        tf.add(str(rr), arcname=rel, filter=_tar_filter)
+
+
+def unnamed_failures(sim_path: str) -> list[dict]:
+    """FAIL-1d: crashed rows of this campaign whose failure identity nobody has named. A corpus carrying one
+    cannot be published — the gap between "it failed" and "we know how" is exactly what the loop closes."""
+    from cellarium import failures, hygiene
+    rows = [r for r in hygiene.rows("audit")[0]
+            if str(r.get("simout_path") or "").replace("\\", "/").startswith(f"runs/{sim_path}/")]
+    return failures.unnamed(rows)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Package raw runs into per-run .tar.gz and upload to a HF dataset.")
     ap.add_argument("--repo", default=os.environ.get("CELLARIUM_HF_REPO"), required=not os.environ.get("CELLARIUM_HF_REPO"),
@@ -78,6 +101,15 @@ def main() -> int:
     if not roots and not args.card_only:
         print(f"no run roots found under {Path(args.out) / args.sim_path}", file=sys.stderr)
         return 1
+    if roots:
+        bad = unnamed_failures(args.sim_path)
+        if bad:
+            print(f"REFUSING: {len(bad)} crashed run(s) in '{args.sim_path}' have a failure identity nobody has "
+                  f"named (see the campaign's triage records). Name each in cellarium.failures.KNOWN first:",
+                  file=sys.stderr)
+            for b in sorted({b["key"] for b in bad}):
+                print(f"  {b}", file=sys.stderr)
+            return 1
     print(f"Logged in as {me.get('name')!r}; {len(roots)} run(s) -> dataset {args.repo}")
     api = HfApi()
 
@@ -110,8 +142,7 @@ def main() -> int:
             continue
         with tempfile.TemporaryDirectory() as td:        # stream: one tar at a time, then discard
             tarp = Path(td) / (rr.name + ".tar.gz")
-            with tarfile.open(tarp, "w:gz") as tf:
-                tf.add(str(rr), arcname=rel)
+            pack_run(rr, rel, tarp)
             api.upload_file(path_or_fileobj=str(tarp), path_in_repo=dest,
                             repo_id=args.repo, repo_type="dataset")
     print("dry-run complete (nothing uploaded)." if args.dry_run else "done.")

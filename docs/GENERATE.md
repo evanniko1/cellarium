@@ -42,6 +42,24 @@ non-`ok` and never turned into a doubling time. The batch is crash-isolated — 
 skipped, and the shard is written for whatever completed. Run continuously (and on Filippo's machine too) to
 build a few-thousand-trajectory corpus over the week.
 
+### When a run fails
+
+Every run writes the model's full output to `sim.log` in its run folder — successful runs too, because their
+solver-retry warnings are evidence as well. An earlier attempt's log is rotated to `sim.<timestamp>.log`,
+never overwritten. **These logs are development material:** they carry host paths and container settings,
+and both upload scripts leave them out.
+
+After the shard is written, each failure is identified by *where* it broke — exception type plus the deepest
+frame in model code (`cellarium/failures.py`) — and the campaign prints a count per identity. An identity
+that `failures.KNOWN` does not name yet is triaged on the spot: the cell's state just before the failure,
+whether the unmodified control under the same condition failed, and how the design's other seeds ended. Then
+**one repeat** of the same design and seed runs, after all other jobs, to check whether the failure
+reproduces. The original run is preserved, and the repeat is kept under `runs_triage/` (`CELLARIUM_TRIAGE`),
+outside the run tree. Pass `--no-triage-repeat` to skip the repeat. Records land in `runs_triage/<identity>/`.
+To name an identity, add it to `failures.KNOWN` with the log that defined it, and add that traceback as a
+fixture under `tests/fixtures/failures/`. `scripts/hf_pack_upload.py` refuses to upload a campaign that has
+any unnamed identity.
+
 ## Performance
 A single-generation sim is ~10–20 min wall-clock on a laptop. The reliable throughput lever is
 **`--parallel N`**: sims are independent and each design now writes a distinct output dir, so N run

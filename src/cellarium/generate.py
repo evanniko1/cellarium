@@ -349,6 +349,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Seed the Cellarium corpus with an in-envelope campaign.")
     ap.add_argument("--seeds", type=int, default=4, help="number of stochastic replicate seeds")
     ap.add_argument("--generations", type=int, default=1)
+    ap.add_argument("--no-triage-repeat", dest="no_triage_repeat", action="store_true",
+                    help="FAIL-1d: do not spend the one repeat simulation per NEW failure identity (the "
+                         "no-simulation triage checks still run). On by default for operator campaigns.")
     ap.add_argument("--parallel", type=int, default=1,
                     help="run this many sims concurrently (each loads ~1GB sim_data — size to host RAM)")
     ap.add_argument("--knockout", default=None,
@@ -442,7 +445,8 @@ def main() -> None:
         designs = [d.model_copy(update={"elongation_model": args.elongation}) for d in designs]
         print(f"Elongation model: {args.elongation} ({MODE_FLAGS[args.elongation]}) — these runs are NOT "
               f"poolable with the steady-state corpus.", flush=True)
-    shard = manifest.campaign(designs, list(range(args.seeds)), args.generations, args.parallel)
+    shard = manifest.campaign(designs, list(range(args.seeds)), args.generations, args.parallel,
+                              triage_repeat=not args.no_triage_repeat)
     print(f"Wrote manifest shard: {shard}")
 
 

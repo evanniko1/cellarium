@@ -1,0 +1,39 @@
+# excerpt of runs/leu_arm.log: header line 256224, rows 256310-256312, traceback line 256318. That log interleaves concurrent sims, so the rows may not be this cell's. The [cellarium] lines are synthesised for the test.
+Time (s)  Dry mass     Dry mass      Protein          RNA    Small mol     Expected
+              (fg)  fold change  fold change  fold change  fold change  fold change
+ 3797.00    541.39        1.174        0.985        1.062        1.291        1.455
+19131.00    239.19        1.369        0.958        1.116        1.582       10.684
+19568.00    244.08        1.400        0.951        1.110        1.639       11.433
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 217, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulationDaughter.py", line 100, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 257, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 289, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 345, in _evolveState
+    process.calculateRequest()
+  File "/wcEcoli/models/ecoli/processes/polypeptide_elongation.py", line 160, in calculateRequest
+    fraction_charged, aa_counts_for_translation = self.elongation_model.request(aasInSequences)
+  File "/wcEcoli/models/ecoli/processes/polypeptide_elongation.py", line 505, in request
+    fraction_charged, v_rib, synthesis_in_charging, import_in_charging, export_in_charging = calculate_trna_charging(
+  File "/wcEcoli/models/ecoli/processes/polypeptide_elongation.py", line 1081, in calculate_trna_charging
+    sol = solve_ivp(dcdt, [0, time_limit], c_init, method='BDF')
+  File "/usr/local/lib/python3.10/site-packages/scipy/integrate/_ivp/ivp.py", line 602, in solve_ivp
+    message = solver.step()
+  File "/usr/local/lib/python3.10/site-packages/scipy/integrate/_ivp/base.py", line 197, in step
+    success, message = self._step_impl()
+  File "/usr/local/lib/python3.10/site-packages/scipy/integrate/_ivp/bdf.py", line 364, in _step_impl
+    LU = self.lu(self.I - c * J)
+  File "/usr/local/lib/python3.10/site-packages/scipy/integrate/_ivp/bdf.py", line 231, in lu
+    return lu_factor(A, overwrite_a=True)
+  File "/usr/local/lib/python3.10/site-packages/scipy/linalg/_decomp_lu.py", line 79, in lu_factor
+    a1 = asarray_chkfinite(a)
+  File "/usr/local/lib/python3.10/site-packages/numpy/lib/function_base.py", line 630, in asarray_chkfinite
+    raise ValueError(
+ValueError: array must not contain infs or NaNs
+
+[cellarium] model process exited with status 0
+[cellarium] failure marker in output: Traceback (most recent call last)

@@ -1,0 +1,31 @@
+# excerpt of runs/gltx_run.log: traceback line 53608. The [cellarium] lines are synthesised for the test.
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 182, in <module>
+    script.cli()
+  File "/wcEcoli/wholecell/utils/scriptBase.py", line 674, in cli
+    self.run(args)
+  File "/wcEcoli/runscripts/manual/runSim.py", line 177, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulationDaughter.py", line 93, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 257, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 289, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 358, in _evolveState
+    process.evolveState()
+  File "/wcEcoli/models/ecoli/processes/metabolism.py", line 195, in evolveState
+    fba.solve(n_retries)
+  File "/wcEcoli/wholecell/utils/modular_fba.py", line 1539, in solve
+    self.solve(iterations - 1)
+  File "/wcEcoli/wholecell/utils/modular_fba.py", line 1539, in solve
+    self.solve(iterations - 1)
+  File "/wcEcoli/wholecell/utils/modular_fba.py", line 1539, in solve
+    self.solve(iterations - 1)
+  File "/wcEcoli/wholecell/utils/modular_fba.py", line 1532, in solve
+    self._solver._solve()
+  File "/wcEcoli/wholecell/utils/_netflow/nf_glpk.py", line 482, in _solve
+    raise RuntimeError(SIMPLEX_RETURN_CODE_TO_STRING.get(
+RuntimeError: GLP_EFAIL: Solver failure
+
+[cellarium] model process exited with status 1

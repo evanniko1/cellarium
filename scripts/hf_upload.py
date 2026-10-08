@@ -19,6 +19,8 @@ import os
 import sys
 from pathlib import Path
 
+from cellarium.failures import DEV_ONLY_GLOBS
+
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Upload the Cellarium corpus to a HF dataset repo (under your login).")
@@ -56,7 +58,9 @@ def main() -> int:
         verb = "[dry-run] would upload" if args.dry_run else "uploading"
         print(f"  {verb} {desc}: {local} -> {args.repo}:{dest}")
         if not args.dry_run:
-            api.upload_folder(folder_path=local, path_in_repo=dest, repo_id=args.repo, repo_type="dataset")
+            # FAIL-1b: run logs are development material and never ship as is (cellarium.failures).
+            api.upload_folder(folder_path=local, path_in_repo=dest, repo_id=args.repo, repo_type="dataset",
+                              ignore_patterns=list(DEV_ONLY_GLOBS))
     print("dry-run complete (nothing uploaded)." if args.dry_run else "done.")
     return 0
 
