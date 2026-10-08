@@ -42,8 +42,15 @@ def _rows() -> list[dict]:
         # re-indexed duplicates differ only by an absolute-vs-relative path prefix, so the old
         # `COALESCE(simout_path, id)` kept them as distinct runs and reported wildtype/basal at 34, not 26.
         # `_rows()` stays UN-deduped (supersession needs the duplicate rows); `_latest_per_run` collapses them.
-        q = (f"SELECT {manifest.DEDUP_KEY} AS run_key, id, perturbation, condition, timeline, seed, "
+        q = (f"SELECT {manifest.DEDUP_KEY} AS run_key, id, label, perturbation, condition, timeline, seed, "
              "simout_path, "   # the REAL path. run_key is `id @@ normalised-path` and is NOT a path.
+             # `label` is REQUIRED, and omitting it was the whole of the design-count discrepancy:
+             # `survey.design_tag` derives a design's identity from the label and falls back to the raw
+             # `condition` column only for genuinely pre-label rows. Without the column every row
+             # LOOKED pre-label, so the fallback fired for all 369 and silently merged designs that are
+             # different experiments -- the four graded knockdowns of one gene into one design, two
+             # transcript-level variants into one, the up- and down-shift timelines into one. The audit
+             # reported 68 designs against the survey's 77 for four months on the strength of it.
              f"{manifest.elongation_sql()}, "   # safe before any shard carries the column (see the helper)
              "qc, reportable, crashed, ts, generations, requested_generations, gens_reached "
              f"FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true)")
@@ -55,14 +62,24 @@ def _rows() -> list[dict]:
 
 
 def _design(r: dict) -> str:
-    """This file's own design key. It deliberately does NOT go through `survey.design_key` (it works on the
-    raw columns selected in `_rows`), which is why the elongation model has to be appended here explicitly:
-    `corpus_audit` and `prune_candidates` are both agent-reachable and would otherwise pool the two elongation
-    models into one design even after `_design_tag` was fixed, because they never consult the tag. Same shape
-    as the `COALESCE(simout_path, id)` bug this file's comment above records."""
-    from .capability import DEFAULT_MODE, mode_tag_suffix
-    base = f"{r['perturbation']}/{r.get('condition') or r.get('timeline') or 'basal'}"
-    return base + mode_tag_suffix(r.get("elongation_model") or DEFAULT_MODE)
+    """THE design key, shared with every other tool. Thin by design: `survey.design_key` is the one function.
+
+    It used to be this file's own implementation over the raw columns, which is how two agent-reachable tools
+    came to report different numbers of designs -- 68 here against 77 from the ranked survey -- with nothing
+    recording which question either was answering.
+
+    The local version was not a different definition. It was the SAME definition reading a projection that
+    omitted `label`, so `design_tag`'s pre-label fallback fired on every row and merged designs that are
+    different experiments. Its docstring explained at length why it had to append the elongation model by
+    hand; that was a symptom of the missing column rather than a reason, because the label already carries
+    the mode suffix. With `label` selected the two agree exactly: same 77 keys, no difference in either
+    direction. `tests/test_design_identity.py` pins that.
+
+    The counts the two tools report still differ, and that difference is real and is now named rather than
+    silent -- see `coverage()`. An inventory and a ranking count different things; they must not disagree
+    about what one design IS."""
+    from .survey import design_key
+    return design_key(r)
 
 
 def _latest_per_run(rows: list[dict]) -> list[dict]:
@@ -94,7 +111,20 @@ def coverage() -> dict:
         max_gen = max((r.get("generations") or 0) for r in rs)
         designs[d] = {"n_seeds": len(rs), "max_generations": max_gen,
                       "qc": dict(Counter(r.get("qc") for r in rs)), "est_gb": _gb(max_gen, len(rs))}
+    n_with_pass = sum(1 for v in designs.values() if v["qc"].get("ok", 0) > 0)
     return {"n_designs": len(designs), "n_runs": len(live),
+            # Both counts, named. The two tools agree on what a design IS (one key function) and differ in
+            # what they are counting, which is the legitimate part: this is an INVENTORY, so it counts every
+            # design that exists including ones whose every run crashed; `survey_corpus` counts the designs it
+            # can RANK and reports the excluded remainder separately. Naming them is what stops a document
+            # quoting "designs" from inheriting whichever tool it happened to call.
+            "n_designs_present": len(designs),
+            "n_designs_with_a_passing_run": n_with_pass,
+            "counts_note": ("this is an INVENTORY: n_designs_present counts every design on disk, crashed ones "
+                            "included; "
+                            "survey_corpus reports n_designs_ranked out of n_designs_in_corpus with the "
+                            "remainder as n_designs_excluded. Both use survey.design_key, so they cannot "
+                            "disagree about what one design is -- only about which designs they are for."),
             "n_perturbation_types": len({r["perturbation"] for r in live}), "designs": designs}
 
 
