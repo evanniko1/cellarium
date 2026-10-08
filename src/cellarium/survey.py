@@ -776,11 +776,29 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
             depths_by_design[design_key(r)].add(depth(r))
     mixed = {k: sorted(v, key=lambda x: (x is None, x)) for k, v in depths_by_design.items() if len(v) > 1}
     strata = Counter(d for v in depths_by_design.values() for d in v)
+    # SURVEY-3b. The three counts below did not close: ranked (40) + excluded (23) against in-corpus (77)
+    # left 14 designs in no bucket at all, and nothing said why. They are not lost -- the ranking is scoped to
+    # ONE comparability arm, because a fitted parameter set, operon build mode and elongation model each
+    # change what a channel means, while the corpus count spans every row. So a design that exists, has
+    # reportable seeds, and belongs to another arm is neither ranked nor excluded.
+    #
+    # A reader could not have worked that out: the counts were reported without the NAMES behind them, so the
+    # 68-vs-77 disagreement with `corpus_audit` had to be traced by reading both implementations rather than
+    # by diffing two outputs. A count a consumer cannot audit is this project's own subject matter, sitting in
+    # its mandatory first call. Every bucket now names its designs and the three are made to sum.
+    ranked_names = sorted(f"{p}/{t}" for p, t in by_design)
+    other_arm = sorted(set(seeds_by_design) - set(ranked_names) - set(excluded))
     coverage = {
         "n_designs_ranked": len(by_design),          # what the ranking is actually computed over
         "n_designs_in_corpus": len(seeds_by_design),  # ...out of this many
         "n_designs_excluded": len(excluded),          # every seed non-reportable -> absent from every ranking
+        "n_designs_other_arm": len(other_arm),        # reportable, but in a different comparability arm
         "n_designs": len(by_design),                  # kept: existing callers read this (== n_designs_ranked)
+        # THE NAMES, so any count here can be checked rather than taken. `designs_other_arm` is the bucket
+        # that did not exist, and it is the one that made the three fail to sum.
+        "ranked_designs": ranked_names,
+        "designs_other_arm": other_arm,
+        "counts_close": len(by_design) + len(excluded) + len(other_arm) == len(seeds_by_design),
         "n_runs": len(rows),
         "reference_present": ref is not None,
         "qc": dict(Counter(r["qc"] for r in rows)),
@@ -796,7 +814,12 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
         "generation_strata": {f"generations={d}": n for d, n in sorted(strata.items(),
                                                                        key=lambda kv: (kv[0] is None, kv[0]))},
         "note": (f"{len(by_design)} of {len(seeds_by_design)} designs are ranked; {len(excluded)} are excluded "
-                 f"(every seed non-reportable) and {len(partial)} rest on a reduced seed count. Per channel, "
+                 f"(every seed non-reportable); {len(other_arm)} are reportable but sit in a DIFFERENT "
+                 f"comparability arm, so they are neither ranked here nor excluded -- query them with "
+                 f"survey_corpus(arm=...). Those three sum to the corpus count, and every one of them names "
+                 f"its designs ("
+                 f"`ranked_designs` / `non_reportable_designs` / `designs_other_arm`) so the numbers can be "
+                 f"checked rather than taken. {len(partial)} rest on a reduced seed count. Per channel, "
                  f"`n_dropped` says how many ranked designs are not shown. "
                  f"EVERY figure is STRATIFIED BY GENERATION DEPTH: a channel is the LAST generation's time-mean, "
                  f"so a run to 1 generation reports generation 0 and a run to 7 reports generation 6. Each design "

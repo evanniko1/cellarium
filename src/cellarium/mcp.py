@@ -437,6 +437,166 @@ _LOCAL = {"ask_cellwright": ask_cellwright, "convene_council": convene_council,
           "describe_cellarium": describe_cellarium, "run_simulation_now": run_simulation_now}
 
 
+# ---------------------------------------------------------------------------------------------------------
+# THE CAPABILITY GATE ON THE RAW-TOOL PATH (GATE-2b).
+#
+# TWO GATES, AND ONLY ONE OF THEM SHOULD EVER BE LIFTABLE. This module has always had a consent gate: may a
+# connected agent spend the operator's compute and write to their launch queue? That one is liftable on
+# purpose, because a subagent cannot consent on a person's behalf and without a way to pre-grant it an
+# autonomous loop cannot be built at all.
+#
+# The capability gate answers a different question -- can this model represent what is being asked at all? --
+# and it serves the truth of the answer rather than the operator's control of their machine. Lifting it does
+# not grant autonomy; it grants the ability to be confidently wrong.
+#
+# `EXPOSE_ALL` was lifting BOTH, and said so about neither. In the default three-tool mode a connected
+# agent's questions arrive through `ask_cellwright`, which calls `orchestrate.gate_question` first. With the
+# flag set, `call()` dispatched straight into `tools.dispatch` and the registry was never consulted -- while
+# that agent, unlike a Python caller who has already chosen the quantity, is usually answering a natural-
+# language question from its own user. The flag's own description said it "does not grant permission to
+# anything that was refused", which is true and is the wrong axis.
+#
+# WHAT THIS DOES, and what it deliberately does not. It does not refuse every capability-scoped read: the
+# measured 0.0 within-family spread that this whole project rests on was obtained by READING a value whose
+# capability does not hold and reporting it with its scope attached, and a surface that refused it outright
+# would have made that finding unobtainable. So:
+#
+#   * where the required capability holds in NO elongation model, the call is REFUSED -- there is no reading
+#     of that output which means what its name says, in any configuration;
+#   * where it holds in some mode but not the one being read, the result is RETURNED WITH THE REGISTRY'S
+#     VERDICT ATTACHED, so the number cannot travel without the sentence that scopes it.
+#
+# THE TABLE IS INCOMPLETE BY CONSTRUCTION, and that is stated rather than hidden -- the same limit the
+# registry itself carries. It covers the tools whose output IS a capability-scoped quantity. A tool absent
+# from it is not thereby declared safe; it is undeclared, which is the honest word.
+# ---------------------------------------------------------------------------------------------------------
+
+# tool -> the capabilities its output depends on
+_TOOL_CAPABILITY: dict[str, tuple[str, ...]] = {
+    "trna_families":       ("per_amino_acid_trna_charging",),
+    "selective_charging":  ("per_amino_acid_trna_charging", "per_isoacceptor_trna_charging"),
+    "shift_response":      ("nutrient_shift_timelines",),
+    "segment_means":       ("nutrient_shift_timelines",),
+    "dilution_clock":      ("knockout_of_a_multi_transcription_unit_gene",),
+}
+
+# a channel argument can carry the dependency on its own, whatever tool is reading it
+_CHANNEL_CAPABILITY: dict[str, tuple[str, ...]] = {
+    "fraction_trna_charged": ("per_amino_acid_trna_charging",),
+    "ppgpp_conc":            ("ppgpp_stringent_response",),
+}
+
+# ...and so can the DESIGN being read, whatever tool is reading it and whatever channel. The two capabilities
+# that hold in no mode at all are of this kind: they are about how a design must be INTERPRETED rather than
+# about any one tool's output, which is why no entry in `_TOOL_CAPABILITY` reaches them.
+_PERTURBATION_CAPABILITY: dict[str, tuple[str, ...]] = {
+    "rrna_operon_knockout": ("operon_specific_rrna_knockout",),
+}
+
+
+def _perturbation_of(args: dict) -> str:
+    for key in ("design", "design_a", "design_or_id", "target"):
+        v = args.get(key)
+        if v and "/" in str(v):
+            return str(v).split("/", 1)[0]
+    return ""
+
+
+def _mode_of(args: dict) -> str:
+    """The elongation model this call will read, from the design label rather than from the corpus.
+
+    `factors.parse` lifts the mode out of a design key's tag, so this needs no row read and works before any
+    dispatch -- which is what makes it usable as a PRE-check rather than a post-hoc annotation.
+    """
+    from . import capability as _cap
+
+    explicit = args.get("elongation_model")
+    if explicit:
+        return str(explicit)
+    for key in ("design", "design_a", "design_or_id", "target", "result_id"):
+        val = args.get(key)
+        if not val:
+            continue
+        try:
+            from . import factors
+            mode = (factors.parse(str(val)) or {}).get("elongation_model")
+            if mode:
+                return str(mode)
+        except Exception:                                        # noqa: BLE001 -- a label we cannot parse
+            pass
+    return _cap.DEFAULT_MODE
+
+
+def _required(name: str, args: dict) -> list[str]:
+    """Every capability this call's result depends on: from the tool, from the channel, from the design."""
+    keys: list[str] = list(_TOOL_CAPABILITY.get(name, ()))
+    for k in _CHANNEL_CAPABILITY.get(str(args.get("channel") or ""), ()):
+        if k not in keys:
+            keys.append(k)
+    for k in _PERTURBATION_CAPABILITY.get(_perturbation_of(args), ()):
+        if k not in keys:
+            keys.append(k)
+    return keys
+
+
+def capability_precheck(name: str, args: dict) -> dict | None:
+    """The capability gate for a raw tool call. Returns a refusal to send INSTEAD of dispatching, or None.
+
+    When it returns None it may still have something to say; `capability_note` carries that, and `call()`
+    attaches it to the result.
+    """
+    from . import capability as _cap
+
+    keys = _required(name, args)
+    if not keys:
+        return None
+
+    mode = _mode_of(args)
+    # `holds_in == ()` IS the condition: the allowlist of modes that represent this mechanism is empty, so no
+    # configuration reads its output meaningfully. An earlier version also required `present`, which excluded
+    # the strongest case -- a capability declared absent from the checkout entirely has `present=False`, and
+    # that is more absent rather than less.
+    dead = [k for k in keys
+            if (c := _cap._BY_KEY.get(k)) is not None and not c.holds_in]
+    if dead:
+        rows = [_cap.check(k, mode) for k in dead]
+        return {
+            "refused_by": "cellarium-capability-gate",
+            "tier": "not_representable_in_any_mode",
+            "tool": name, "elongation_model": mode, "capabilities": dead,
+            "error": (f"'{name}' reports a quantity this simulator does not represent under ANY elongation "
+                      f"model, so no reading of it means what its name says."),
+            "why": [str(r.get("refusal") or "") for r in rows],
+            "what_you_can_do": ("ask the same question through ask_cellwright, which will say what the model "
+                                "does instead; or call model_capabilities for the full record."),
+        }
+    return None
+
+
+def capability_note(name: str, args: dict) -> dict | None:
+    """The registry's verdict for a call that is being allowed through, so the number cannot travel without
+    the sentence that scopes it. None when every required capability holds in the mode being read."""
+    from . import capability as _cap
+
+    keys = _required(name, args)
+    if not keys:
+        return None
+    mode = _mode_of(args)
+    rows = [_cap.check(k, mode) for k in keys]
+    bad = [r for r in rows if r.get("can_answer") is False]
+    if not bad:
+        return None
+    return {
+        "elongation_model": mode,
+        "does_not_hold": [r["capability"] for r in bad],
+        "what_the_model_does_instead": [str(r.get("refusal") or "") for r in bad],
+        "read_this_before_the_numbers": ("the values below are real output, but at least one capability this "
+                                         "tool's result depends on is not represented in the elongation model "
+                                         "they were produced under. The registry's sentence says what the "
+                                         "model did instead."),
+    }
+
+
 def call(name: str, args: dict | None = None) -> dict:
     """Dispatch with the policy applied. The ONLY entry point the transport layer uses.
 
@@ -463,7 +623,15 @@ def call(name: str, args: dict | None = None) -> dict:
                     "what_you_can_do": f"set {EXPOSE_ALL_ENV}=1 to advertise and enable the read/analysis "
                                        f"tools, or ask the same question through ask_cellwright, which "
                                        f"applies the scope discipline for you."}
-        return tools.dispatch(name, args)
+        # THE CAPABILITY GATE (GATE-2b). `EXPOSE_ALL` lifts the CONSENT gate; it must not lift this one.
+        blocked = capability_precheck(name, args)
+        if blocked is not None:
+            return blocked
+        out = tools.dispatch(name, args)
+        note = capability_note(name, args)
+        if note is not None and isinstance(out, dict):
+            out = {**out, "capability": note}
+        return out
     return {"error": f"unknown tool '{name}'"}
 
 

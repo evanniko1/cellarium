@@ -59,6 +59,9 @@ CELLARIUM_MCP_EXPOSE_ALL=1
 That advertises the read and analysis tools alongside the three. It does not grant permission to anything
 that was refused; visibility and permission are separate keys, deliberately.
 
+It does **not** take you outside the capability gate — that was true until 2026-10-08 and was a defect, not
+part of the bargain. See *Two gates* above.
+
 ---
 
 ## What it will not do, and why
@@ -69,6 +72,39 @@ that was refused; visibility and permission are separate keys, deliberately.
 That is a **shipped default protecting you from your own agent** — not a wall between you and your data.
 This is open source; you can fork the file and delete the checks, and on your machine that is a legitimate
 thing to do. What the default guarantees is that it does not happen by accident.
+
+## Two gates, and only one of them is yours to lift
+
+This surface carries two checks. They answer different questions, they serve different interests, and they
+get opposite defaults. Conflating them is how `EXPOSE_ALL` came to remove the wrong one.
+
+| | The question it answers | Whose interest | Liftable? |
+|---|---|---|---|
+| **The capability gate** | *Can this model represent what is being asked at all?* An epistemic check against records derived from the simulator's source. | the truth of the answer | **No.** Lifting it does not grant autonomy — it grants the ability to be confidently wrong. No autonomous workflow is improved by removing it, and no environment variable reaches it. |
+| **The consent gate** (everything below) | *May I spend your compute and write to your launch queue?* | your control of your machine | **Yes, deliberately.** A subagent cannot consent on your behalf, so without a way to pre-grant it an autonomous loop cannot be built at all. |
+
+So a connected agent **should be inside the capability gate and may be outside the approval airlock**. That
+combination is what makes autonomous work defensible rather than merely unattended.
+
+In the default three-tool mode your agent's questions arrive through `ask_cellwright`, which runs the
+capability gate before anything dispatches. Setting `CELLARIUM_MCP_EXPOSE_ALL=1` used to remove that
+silently — the raw tools dispatched directly and the registry was never consulted. It no longer does:
+
+- a capability that holds in **no** elongation model **refuses the call**, naming the mechanism — there is no
+  reading of that output which means what its name says, in any configuration;
+- a capability that holds in some mode but not the one being read **returns the value with the registry's
+  verdict attached**, so the number cannot travel without the sentence that scopes it.
+
+That second rule is deliberate rather than lenient. The 0.0 within-family tRNA spread this project rests on
+was obtained by reading a value whose capability does not hold and reporting it with its scope attached; a
+surface that refused it outright would have made the finding unobtainable.
+
+**The mapping is incomplete by construction**, and that is said rather than hidden — the same limit the
+capability registry itself carries. It covers the tools whose output *is* a capability-scoped quantity, the
+channels that carry a dependency of their own, and the designs that do. A tool absent from it is not thereby
+declared safe; it is undeclared.
+
+---
 
 Two tiers, and the difference between them is whether a human gate exists further down:
 

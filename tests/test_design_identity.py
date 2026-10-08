@@ -196,3 +196,29 @@ def test_a_graded_knockdown_series_is_not_collapsed_to_one_design(coverage):
     assert with_level, (
         "no graded knockdown carries its expression level in its design key; the dose levels have been "
         f"merged again. Keys seen: {sorted(graded)[:6]}")
+
+
+def test_the_survey_counts_close_and_every_bucket_names_its_designs(survey_coverage):
+    """SURVEY-3b. The three counts used to leave 14 designs in no bucket, and the output gave numbers without
+    the names behind them -- so the 68-vs-77 disagreement with `corpus_audit` had to be traced by reading both
+    implementations instead of by diffing two outputs.
+
+    The missing bucket is designs that are reportable but sit in a DIFFERENT comparability arm: the ranking is
+    arm-scoped because a fitted parameter set, operon build mode and elongation model each change what a
+    channel means, while the corpus count spans every row.
+    """
+    r = survey_coverage["n_designs_ranked"]
+    e = survey_coverage["n_designs_excluded"]
+    o = survey_coverage["n_designs_other_arm"]
+    n = survey_coverage["n_designs_in_corpus"]
+    assert r + e + o == n, f"the buckets do not close: {r} + {e} + {o} != {n}"
+    assert survey_coverage["counts_close"] is True
+
+    # the half that matters more: a consumer can check any count without reading the source
+    assert len(survey_coverage["ranked_designs"]) == r
+    assert len(survey_coverage["non_reportable_designs"]) == e
+    assert len(survey_coverage["designs_other_arm"]) == o
+    named = (set(survey_coverage["ranked_designs"]) | set(survey_coverage["non_reportable_designs"])
+             | set(survey_coverage["designs_other_arm"]))
+    assert len(named) == n, "the three name sets overlap or miss designs"
+    assert "comparability arm" in survey_coverage["note"],         "the note does not say why the third bucket exists"
