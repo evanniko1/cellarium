@@ -143,13 +143,25 @@ def has_data(cap_key: str, mode: str) -> bool:
 
 
 def _stratum(cap, mode: str) -> str:
-    if mode not in C.MODES_IN_CORPUS:
-        return "no_corpus_mode"
+    """REPRESENTABILITY IS ASKED FIRST, and the order is the fix rather than an accident.
+
+    This used to test `mode not in C.MODES_IN_CORPUS` before anything else, so every cell in a mode with no
+    runs was keyed `no_corpus_mode` -> `refuse`, whatever the model could represent there. That contradicted
+    the argument three paragraphs below in `cells()`: "represented but nobody has run it" is `propose`, and
+    keying it `refuse` rewards stonewalling. The argument was applied to a missing RUN and not to a missing
+    MODE, which is the same absence at a different granularity.
+
+    Two cells moved: nutrient shift timelines and multi-transcription-unit knockout hold in all three
+    elongation models, so under `coarse_kinetic` they are representable-with-no-data, i.e. `propose`. The
+    other seven coarse cells are genuinely not represented there and stay `refuse`.
+    """
     if not cap.present:
         return "representational"
     if mode not in cap.holds_in:
         return "resolution"
-    # Represented AND in a mode the corpus has — but is there a run that could answer it?
+    # Represented. Is there anything to read — in this mode, and for this capability?
+    if mode not in C.MODES_IN_CORPUS:
+        return "no_corpus_mode"
     return "supported" if has_data(cap.key, mode) else "no_corpus_data"
 
 
@@ -179,7 +191,12 @@ def cells() -> list[dict]:
             # are inside the validated envelope, sized them (~2 GB RAM, ~1.8 h wall), refused to read a
             # steady-state run as if it were kinetic, and named the runs that would answer. That is a third
             # competence, and it needs a third label to be scored at all.
-            required = ("propose" if stratum == "no_corpus_data"
+            # One rule for every mode: not represented -> refuse; represented with nothing to read ->
+            # propose; represented with data -> answer. `no_corpus_mode` and `no_corpus_data` are the same
+            # situation (the model can do it, nobody has run it) seen at mode and at capability granularity,
+            # so they take the same key. Keying them differently is what made two coarse_kinetic cells read
+            # as limits of the simulator when they are limits of the campaign.
+            required = ("propose" if stratum in ("no_corpus_data", "no_corpus_mode")
                         else "answer" if usable else "refuse")
             out.append({"capability": cap.key, "mode": mode, "required": required,
                         "stratum": stratum, "base_question": cap.question})

@@ -1,0 +1,70 @@
+{
+ "measured_utc": "2026-10-07T23:26:51Z",
+ "index": {
+  "manifest_rows": 369,
+  "distinct_run_ids": 333,
+  "duplicate_rows": 36,
+  "rows_that_produced_a_generation": 302,
+  "total_generations": 825,
+  "qc_verdicts": {
+   "ok": 240,
+   "crashed": 81,
+   "no_division": 24,
+   "implausible_channel": 11,
+   "noop_knockout": 7,
+   "over_replicated": 4,
+   "empty": 2
+  },
+  "perturbation_families": 10,
+  "rows_per_family": {
+   "gene_knockout": 158,
+   "condition": 63,
+   "wildtype": 42,
+   "metabolism_kinetic_objective_weight": 24,
+   "graded_gene_knockout": 22,
+   "metabolism_secretion_penalty": 18,
+   "rrna_operon_knockout": 17,
+   "ppgpp_conc": 16,
+   "timeline": 7,
+   "multi_gene_knockout": 2
+  },
+  "rows_per_elongation_model": {
+   "kinetic": 14,
+   "steady_state": 355
+  },
+  "note": "one row is one SEED of one design, carrying however many generations it reached. The duplicates are crashed attempts that share a run id; every row with generations > 0 is distinct."
+ },
+ "designs": {
+  "audit_n_designs": 68,
+  "audit_designs_with_a_passing_run": 46,
+  "survey_n_designs_in_corpus": 77,
+  "survey_n_designs_ranked": 40,
+  "survey_n_designs_excluded": 23,
+  "note": "`corpus_audit` and `survey_corpus` count designs differently and both are in use. Until one definition is adopted, a document must say WHICH it quotes; the survey number is the one a user sees first, because the survey is the mandatory first call."
+ },
+ "local_working_copy": {
+  "present": true,
+  "path": "C:\\dev\\anthropic_hackathon\\runs",
+  "files": 84684,
+  "bytes": 227877465372,
+  "gb": 212.2,
+  "note": "UNCOMPRESSED, and neither a superset nor a subset of the deposit: designs uploaded to Hugging Face were pruned here to reclaim disk, while runs never uploaded exist only here. Not addable to the deposit's gigabytes, which are compressed."
+ },
+ "published_deposit": {
+  "repo": "evanniko1/cellarium-corpus",
+  "measured_utc": "2026-10-07T23:26:54Z",
+  "method": "huggingface_hub list_repo_tree(recursive=True, token=False) -- anonymous, as a downloader sees it",
+  "n_runs": 131,
+  "n_archives": 131,
+  "n_designs": 35,
+  "sim_paths": [
+   "aadrop",
+   "cellarium"
+  ],
+  "total_bytes": 289896485637,
+  "total_gb": 270.0,
+  "archives_without_reported_size": 0,
+  "n_parquet_files": 1,
+  "n_entries_total": 177
+ }
+}

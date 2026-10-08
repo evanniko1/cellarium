@@ -42,16 +42,29 @@ def test_every_non_default_mode_is_named_in_the_text():
 def test_the_key_matches_the_registry_EXCEPT_where_coverage_overrides_it():
     """Generator and scorer must not drift silently — but they DO differ in one defined place, and the test
     pins exactly where. The registry says "representable"; the benchmark asks what the agent should DO. A
-    quantity that is represented, in a mode the corpus has, but with no run carrying the needed perturbation
-    is neither answerable nor a refusal: it is a PROPOSE."""
+    quantity that is represented but has no run to read is neither answerable nor a refusal: it is a PROPOSE.
+
+    UPDATED 2026-10-08. "No run to read" has TWO forms and this test only admitted one of them. A missing run
+    for a capability in a mode the corpus has (`no_corpus_data`) and a mode with no runs at all
+    (`no_corpus_mode`) are the same situation at different granularity, and the generator keyed the second
+    `refuse` purely because `usable` goes False for want of data. That contradicted this module's own
+    argument, which is quoted in the next test: keying a coverage gap `refuse` rewards stonewalling, and the
+    argument does not care whether what is missing is a run or a whole mode. Both strata are now coverage
+    overrides, and the assertion below admits both."""
     overrides = []
     for q in G.generate(1):
         cap = next(c for c in C.CAPABILITIES if c.key == q["capability"])
-        usable = cap.present and q["mode"] in cap.holds_in and q["mode"] in C.MODES_IN_CORPUS
-        registry_says = "answer" if usable else "refuse"
+        # REPRESENTABILITY, not `answerable_in`. This line used to carry the third conjunct
+        # (`mode in MODES_IN_CORPUS`), which made the test's own notion of "what the registry says" fold in
+        # data coverage — so a representable capability in a run-less mode read as a refusal here, and the
+        # coverage override below looked like the forbidden direction rather than the permitted one. The
+        # same conflation sat in `capability.answerable_in` and in the generator; `gate.representable` is
+        # the separated predicate.
+        representable = cap.present and q["mode"] in cap.holds_in
+        registry_says = "answer" if representable else "refuse"
         if q["required"] != registry_says:
             overrides.append((q["capability"], q["mode"], q["kind"]))
-            assert q["kind"] == "no_corpus_data", (
+            assert q["kind"] in ("no_corpus_data", "no_corpus_mode"), (
                 f"{q['id']} diverges from the registry for a reason other than coverage")
             assert registry_says == "answer" and q["required"] == "propose", (
                 "coverage may only turn an answer into a PROPOSE — never into a refusal, which would "
@@ -107,20 +120,28 @@ def test_coverage_is_read_from_the_corpus_not_hardcoded():
 
 
 def test_the_cell_census_is_what_the_plan_assumed():
-    """Pins the numbers the budget was built on. 27 cells, and a HEADLINE of 18 once the coarse_kinetic
-    column — refusals for lack of runs, not for lack of representation — is set aside."""
+    """Pins the numbers the budget was built on.
+
+    UPDATED 2026-10-08, and the shape of the change is the point. The census used to read refuse 17 /
+    answer 9 / propose 1, with all nine `coarse_kinetic` cells in one `no_corpus_mode` bucket keyed `refuse`.
+    Applying the coverage rule to that stratum splits them by what the model can actually represent: seven
+    are genuinely not represented under that elongation model and stay `refuse`, while nutrient-shift
+    timelines and multi-transcription-unit knockout hold in all three modes and are therefore
+    representable-with-no-data, i.e. `propose`. The seven move into `resolution` and `representational`,
+    which is where they always belonged — the old bucket was hiding real limits behind a coverage label."""
     items = G.generate(1)
     st = G.census(items)
     assert st["n_cells"] == 27
-    assert st["by_required"] == {"refuse": 17, "answer": 9, "propose": 1}
-    assert st["headline_items"] == 17
-    assert st["headline_by_required"] == {"refuse": 8, "answer": 9}
+    assert st["by_required"] == {"refuse": 15, "answer": 9, "propose": 3}
     assert st["by_stratum"]["no_corpus_data"] == 1
+    assert st["by_stratum"]["no_corpus_mode"] == 2
 
 
 def test_the_easy_stratum_is_labelled_and_reported_separately():
     st = G.census(G.generate(1))
-    assert st["by_stratum"]["no_corpus_mode"] == 9
+    # 2, not 9: seven of the nine coarse_kinetic cells are not represented in that mode at all and now
+    # classify as `resolution` / `representational`, leaving only the two that are genuinely coverage gaps.
+    assert st["by_stratum"]["no_corpus_mode"] == 2
     assert "coverage, not limits" in st["note"]
     assert "stonewalling" in st["note"], "the note does not say why a coverage gap is not a refusal"
 
