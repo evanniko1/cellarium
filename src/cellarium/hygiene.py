@@ -196,6 +196,14 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
     "src/cellarium/audit.py::_rows": {"kind": "primitive", "why": "the UN-deduped row source the `audit` purpose composes; supersession needs the duplicate rows visible"},
     "src/cellarium/corpus_schema.py::_rows": {"kind": "primitive", "why": "reads the three ARM_KEYS columns store.list_results does not project, for arm accounting"},
 
+    "scripts/reconcile_corpus_counts.py::index_counts": {
+        "kind": "aggregate",
+        "why": ("NMI-4b counts what the index HOLDS, which is a different question from what may be compared, "
+                "so it must see every row INCLUDING crashed and superseded ones. The headline finding is that "
+                "369 rows carry 333 DISTINCT run ids and the 36 duplicates are repeated crashes; a deduped or "
+                "reportable-only view returns the number the committed documents already had wrong. It quotes "
+                "no channel mean, compares nothing, and emits only counts")},
+
     # --- MAINTENANCE: the write and repair layer. It operates ON the manifest, so it must see it unfiltered.
     "src/cellarium/manifest.py::compact": {"kind": "maintenance", "why": "rewrites shards; must read every row including the ones a purpose would filter out"},
     "src/cellarium/manifest.py::prune": {"kind": "maintenance", "why": "removes shards; operates on the files themselves, not on a row view"},

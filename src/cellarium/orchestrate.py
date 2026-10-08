@@ -39,6 +39,28 @@ class Investigation:
     gated: bool = False                 # True when the gate STOPPED the investigation before any tool call
 
 
+def gate_question(question: str, *, elongation_model: str | None = None, model: str | None = None,
+                  parser: Callable[[str], Any] | None = None) -> Any:
+    """Decide a question before anything dispatches a tool. THE one entry to the capability gate.
+
+    WHY THIS IS A FUNCTION AND NOT A LINE INSIDE `investigate`. The property the paper claims is that no
+    natural-language question reaches the tool surface undecided. `investigate` cannot carry that property on
+    its own, because a caller that needs streaming, multi-turn memory or per-turn model selection -- which is
+    every real interface -- builds its own loop over `agent.converse` and never calls `investigate` at all.
+    That is exactly how the web application came to bypass the gate for the gate's entire first day.
+
+    So the invariant is attached to the thing every such caller CAN use. `investigate` calls this; the web
+    application calls this; a future surface calls this. `tests/test_gate_coverage.py` enumerates every
+    module that drives the agent and fails if one of them does not, which turns "all our entry points are
+    gated" from a claim into a check.
+
+    Returns a `gate.Decision`. A verdict of "answer" means dispatch; anything else means the caller must
+    return `gate.render(decision)` and run nothing.
+    """
+    from . import gate as _gate
+    return _gate.gate(question, mode=elongation_model, model=model, parser=parser)
+
+
 def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quota: int = 3,
                 ask_user: Callable[[str], str] | None = None, on_hypothesis: Callable[[Any], None] | None = None,
                 on_tool: Callable | None = None, max_turns: int = 8, verbose: bool = True,
@@ -81,7 +103,7 @@ def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quo
     decision = None
     if use_gate:
         from . import gate as _gate
-        decision = _gate.gate(question, mode=elongation_model, parser=gate_parser)
+        decision = gate_question(question, elongation_model=elongation_model, parser=gate_parser)
         if on_decision is not None:
             on_decision(decision)
         if decision.verdict != "answer":

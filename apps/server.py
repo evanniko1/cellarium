@@ -190,7 +190,9 @@ def _safe_err(exc: Exception) -> str:
 # ---------------------------------------------------------------- the investigation stream
 async def investigate(request):
     """One turn of the conversation. First turn (new session_id) optionally runs the Council; follow-up turns
-    continue the SAME agent message history (memory). Streams: council_round* -> hypothesis? -> tool* -> answer."""
+    continue the SAME agent message history (memory). EVERY turn passes the pre-dispatch capability gate
+    before any tool is dispatched; a refused turn streams the refusal and runs nothing.
+    Streams: council_round* -> hypothesis? -> decision -> tool* -> answer."""
     body = await request.json()
     question = (body.get("question") or "").strip()
     sid = body.get("session_id") or ("s_" + uuid.uuid4().hex[:8])
@@ -254,11 +256,41 @@ async def investigate(request):
                 sess["messages"].append({"role": "user", "content": question})   # continue the conversation
                 sess["model"] = chosen
                 sess["temperature"] = agent.temperature_for(chosen, thinking=(reasoning != "none"))
+            # ---- the pre-dispatch capability gate (NMI-2) ------------------------------------------
+            # EVERY turn, not only the first. A follow-up is still a natural-language question, and a
+            # conversation that passed the gate on turn one can ask something unrepresentable on turn three.
+            # This runs after the Council (which reads nothing and cannot smuggle an answer past anything)
+            # and before `agent.converse`, which is the only thing here that dispatches a tool.
+            #
+            # It goes through `orchestrate.gate_question` rather than calling `gate` directly, so that the
+            # invariant "every surface that drives the agent gates first" has one function to enumerate
+            # callers of. This interface bypassed the seam entirely until 2026-10-08, which is what that
+            # enumeration now prevents.
+            from cellarium import orchestrate
+            decision = orchestrate.gate_question(question)
+            ev.put(("decision", {"verdict": decision.verdict,
+                                 "requirement": decision.requirement.to_dict(),
+                                 "required_capabilities": list(decision.required_capabilities),
+                                 "blocking": list(decision.blocking), "route": decision.route,
+                                 "mode": decision.mode}))
+            if decision.verdict != "answer":
+                from cellarium import gate as _gate
+                answer = _gate.render(decision)
+                ev.put(("note", {"message": ("The capability registry declined this question before any tool "
+                                             "ran." if decision.verdict == "refuse" else
+                                             "The model can represent this, but no run exists to read.")}))
+                sess["messages"].append({"role": "assistant", "content": answer})
+                SESSIONS.put(sid, sess)   # the refusal is part of the conversation, not a dropped turn
+                ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace), "session_id": sid,
+                                  "model": chosen, "routed": routed, "first_turn": first_turn,
+                                  "gated": True, "verdict": decision.verdict}))
+                return
+
             answer = agent.converse(sess["messages"], model=chosen, on_tool=on_tool, on_text=on_text,
                                      on_note=on_note, on_usage=on_usage, verbose=False, reasoning=reasoning)
             SESSIONS.put(sid, sess)   # write-through so the conversation survives a restart
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace), "session_id": sid,
-                              "model": chosen, "routed": routed, "first_turn": first_turn}))
+                              "model": chosen, "routed": routed, "first_turn": first_turn, "gated": False}))
         except Exception as exc:                       # missing key / Docker / etc. — surface, don't 500
             ev.put(("error", {"message": _safe_err(exc),
                               "hint": "Live runs need ANTHROPIC_API_KEY set (and Docker up for deep reads)."}))
