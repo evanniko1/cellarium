@@ -1,6 +1,8 @@
 """CLI: run a question through Cellarium end-to-end.
 
-A thin wrapper over orchestrate.investigate() — the same seam the interface calls. The Socratic Council
+A thin wrapper over orchestrate.investigate() — the seam that MCP's `ask_cellwright` also calls.
+(The web interface does not: it drives `council` and `agent` directly, so it bypasses the seam and the
+pre-dispatch gate with it. Corrected here 2026-10-08; routing it through is tracked work.) The Socratic Council
 (upstream, docs/SOCRATIC_COUNCIL.md) first turns the raw question into a falsifiable, operationalized
 hypothesis; the grounded agent then tests it. `--rounds` / `--quota` tune the Council's debate; `--no-council`
 skips it and hands the raw question straight to the agent (the direct, tool-refinement entrypoint).

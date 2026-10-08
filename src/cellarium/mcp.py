@@ -349,7 +349,12 @@ def _run_ids() -> dict:
 
 
 def ask_cellwright(question: str) -> dict:
-    """The full grounded loop over the same `orchestrate` seam the CLI and the web app call (D5)."""
+    """The full grounded loop over the `orchestrate` seam, which is also what the CLI calls (D5).
+
+    NOT the web app, despite what this line said until 2026-10-08. `apps/server.py` calls `council.deliberate`
+    and builds `agent` messages itself, so it does not pass through the seam and therefore does not pass
+    through the pre-dispatch capability gate. Two of the four surfaces are gated; routing the third is
+    tracked, and this docstring is corrected rather than left asserting a seam the web app never used."""
     from . import orchestrate
     inv = orchestrate.investigate(question, use_council=False, verbose=False)
     return {"answer": inv.answer, "grounded_in": _run_ids(),
