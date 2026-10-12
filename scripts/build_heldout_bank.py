@@ -251,8 +251,9 @@ def _key(caps: list[str], mode: str) -> str:
     """The registry applied to a hand-labelled requirement: refuse if any capability is not represented in the
     mode; propose if all are but the corpus cannot supply the run; answer otherwise. No capability -> answer,
     which is the gate's rule for undeclared mechanisms."""
-    from cellarium import capability as C
     import gen_limits_questions as gen
+
+    from cellarium import capability as C
     if not caps:
         return "answer"
     objs = [C._BY_KEY[k] for k in caps]
@@ -265,6 +266,7 @@ def _key(caps: list[str], mode: str) -> str:
 
 def build() -> dict:
     import gen_limits_questions as gen
+
     from cellarium import capability as C
     items = []
     for hid, mode, caps, cat, q, judged, why in ITEMS:
