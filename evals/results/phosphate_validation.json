@@ -1,0 +1,385 @@
+{
+  "note": "K arm of the first standard batch excluded: wrong knowledge base for kinetic mode (setup error, see module docstring).",
+  "runs": {
+    "A_absent_from_start/s0": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -13690
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 280.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 280.0,
+        "dry": 0.629,
+        "protein": 0.941,
+        "rna": 1.436,
+        "small": -0.102
+      }
+    },
+    "A_absent_from_start/s1": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -20223
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 285.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 285.0,
+        "dry": 0.609,
+        "protein": 0.883,
+        "rna": 1.343,
+        "small": -0.043
+      }
+    },
+    "A_absent_from_start/s2": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -10487
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 286.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 286.0,
+        "dry": 0.619,
+        "protein": 0.906,
+        "rna": 1.39,
+        "small": -0.071
+      }
+    },
+    "A_absent_from_start/s3": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -5840
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 320.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 320.0,
+        "dry": 0.549,
+        "protein": 0.811,
+        "rna": 1.16,
+        "small": -0.05
+      }
+    },
+    "B_removed_at_2400s/s0": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -11906
+        }
+      ],
+      "n_cells": 2,
+      "last_time_s": 2697.0,
+      "before_removal": {
+        "from_s": 1800.0,
+        "to_s": 2400.0,
+        "dry": 1.024,
+        "protein": 0.893,
+        "rna": 1.114,
+        "small": 1.138
+      },
+      "after_removal_same_cell": {
+        "from_s": 2400.0,
+        "to_s": 2529.0,
+        "dry": 0.628,
+        "protein": 0.903,
+        "rna": 1.104,
+        "small": 0.113
+      },
+      "divided_after_removal_at_s": 2529.0,
+      "daughter": {
+        "from_s": 2530.0,
+        "to_s": 2697.0,
+        "dry": 0.585,
+        "protein": 0.825,
+        "rna": 1.011,
+        "small": 0.129
+      },
+      "survived_after_removal_s": 297.0
+    },
+    "B_removed_at_2400s/s1": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -13917
+        }
+      ],
+      "n_cells": 2,
+      "last_time_s": 2697.0,
+      "before_removal": {
+        "from_s": 1800.0,
+        "to_s": 2400.0,
+        "dry": 0.93,
+        "protein": 0.806,
+        "rna": 0.948,
+        "small": 1.058
+      },
+      "after_removal_same_cell": {
+        "from_s": 2400.0,
+        "to_s": 2573.0,
+        "dry": 0.587,
+        "protein": 0.85,
+        "rna": 1.003,
+        "small": 0.098
+      },
+      "divided_after_removal_at_s": 2573.0,
+      "daughter": {
+        "from_s": 2574.0,
+        "to_s": 2697.0,
+        "dry": 0.646,
+        "protein": 0.808,
+        "rna": 0.837,
+        "small": 0.349
+      },
+      "survived_after_removal_s": 297.0
+    },
+    "B_removed_at_2400s/s2": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -810
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 2676.0,
+      "before_removal": {
+        "from_s": 1800.0,
+        "to_s": 2400.0,
+        "dry": 0.801,
+        "protein": 0.717,
+        "rna": 0.797,
+        "small": 0.929
+      },
+      "after_removal_same_cell": {
+        "from_s": 2400.0,
+        "to_s": 2676.0,
+        "dry": 0.667,
+        "protein": 0.778,
+        "rna": 0.846,
+        "small": 0.495
+      },
+      "divided_after_removal_at_s": null,
+      "survived_after_removal_s": 276.0
+    },
+    "B_removed_at_2400s/s3": {
+      "config": "standard",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -14082
+        }
+      ],
+      "n_cells": 2,
+      "last_time_s": 2738.0,
+      "before_removal": {
+        "from_s": 1800.0,
+        "to_s": 2400.0,
+        "dry": 0.875,
+        "protein": 0.757,
+        "rna": 0.873,
+        "small": 1.001
+      },
+      "after_removal_same_cell": {
+        "from_s": 2400.0,
+        "to_s": 2521.0,
+        "dry": 0.54,
+        "protein": 0.781,
+        "rna": 0.897,
+        "small": 0.08
+      },
+      "divided_after_removal_at_s": 2521.0,
+      "daughter": {
+        "from_s": 2522.0,
+        "to_s": 2738.0,
+        "dry": 0.564,
+        "protein": 0.797,
+        "rna": 0.892,
+        "small": 0.116
+      },
+      "survived_after_removal_s": 338.0
+    },
+    "C_null_wildtype_minimal/s0": {
+      "config": "standard",
+      "identity_key": "no_traceback",
+      "named": true,
+      "ran_out": null,
+      "n_cells": 1,
+      "last_time_s": 2529.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 2529.0,
+        "dry": 0.973,
+        "protein": 0.878,
+        "rna": 1.115,
+        "small": 1.043
+      }
+    },
+    "C_null_wildtype_minimal/s1": {
+      "config": "standard",
+      "identity_key": "no_traceback",
+      "named": true,
+      "ran_out": null,
+      "n_cells": 1,
+      "last_time_s": 2573.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 2573.0,
+        "dry": 0.912,
+        "protein": 0.821,
+        "rna": 1.022,
+        "small": 0.989
+      }
+    },
+    "K_absent_kinetic/s0": {
+      "config": "kinetic",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -44
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 525.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 525.0,
+        "dry": 0.317,
+        "protein": 0.278,
+        "rna": 0.61,
+        "small": 0.34
+      }
+    },
+    "K_absent_kinetic/s1": {
+      "config": "kinetic",
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -45
+        }
+      ],
+      "n_cells": 1,
+      "last_time_s": 531.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 531.0,
+        "dry": 0.312,
+        "protein": 0.267,
+        "rna": 0.595,
+        "small": 0.336
+      }
+    },
+    "KC_null_wildtype_kinetic/s0": {
+      "config": "kinetic",
+      "identity_key": "no_traceback",
+      "named": true,
+      "ran_out": null,
+      "n_cells": 1,
+      "last_time_s": 2528.0,
+      "whole_run": {
+        "from_s": 30.0,
+        "to_s": 2528.0,
+        "dry": 0.939,
+        "protein": 0.813,
+        "rna": 1.097,
+        "small": 1.039
+      }
+    }
+  },
+  "molecular_readout_seed0": {
+    "source": "reader.read_species on runs_validation (arm B seed 0 vs arm C seed 0; ~16-point downsample per generation)",
+    "identical_before_removal": "B and C share seed 0 and are identical at every sampled point up to 2360 s",
+    "gen0_at_2529s": {
+      "B_removed": {
+        "ATP[c]": 7300683,
+        "Pi[c]": 673058,
+        "Pi[p]": 134612,
+        "PHOSPHO-PHOB[c]": 0,
+        "PSTS-MONOMER[p]": 387
+      },
+      "C_control": {
+        "ATP[c]": 13142452,
+        "Pi[c]": 682370,
+        "Pi[p]": 136474,
+        "PHOSPHO-PHOB[c]": 0,
+        "PSTS-MONOMER[p]": 387
+      }
+    },
+    "B_daughter_2530_to_2697s": {
+      "ATP[c]": [
+        3650034,
+        269361
+      ],
+      "Pi[c]": [
+        337115,
+        345479
+      ],
+      "Pi[p]": [
+        67579,
+        69095
+      ],
+      "ADP[c]": [
+        333610,
+        342484
+      ],
+      "PHOSPHO-PHOB[c]_max": 5,
+      "ALKAPHOSPHA-MONOMER[p]": [
+        14,
+        14
+      ],
+      "PSTS-MONOMER[p]": [
+        187,
+        220
+      ]
+    },
+    "reading": "Removing phosphate from the medium leaves the cytoplasmic and periplasmic phosphate pools at their pre-removal levels, PhoB is never phosphorylated, the Pho-regulon products (PstS, PhoA) follow the control, and ATP falls by ~20,000 molecules/s until translation drives it negative. Why ATP is not regenerated while ~340,000 free phosphate ions remain in the cytoplasm is not diagnosed."
+  }
+}
