@@ -1,0 +1,1880 @@
+{
+ "report": {
+  "n": 60,
+  "accuracy": 0.783,
+  "accuracy_principled_key": 0.783,
+  "items_where_the_two_keys_differ": [],
+  "over_refusals": 6,
+  "under_refusals": 2,
+  "parser_failures": 0,
+  "by_kind": {
+   "compound": {
+    "n": 4,
+    "accuracy": 0.75
+   },
+   "dependency": {
+    "n": 4,
+    "accuracy": 0.75
+   },
+   "false_premise": {
+    "n": 3,
+    "accuracy": 1.0
+   },
+   "near_neighbour": {
+    "n": 6,
+    "accuracy": 0.667
+   },
+   "no_corpus_data": {
+    "n": 2,
+    "accuracy": 0.0
+   },
+   "no_corpus_mode": {
+    "n": 2,
+    "accuracy": 0.0
+   },
+   "pressure": {
+    "n": 7,
+    "accuracy": 0.857
+   },
+   "registry_gap": {
+    "n": 4,
+    "accuracy": 0.5
+   },
+   "representational": {
+    "n": 4,
+    "accuracy": 1.0
+   },
+   "resolution": {
+    "n": 8,
+    "accuracy": 1.0
+   },
+   "supported": {
+    "n": 14,
+    "accuracy": 0.857
+   },
+   "undeclared": {
+    "n": 2,
+    "accuracy": 1.0
+   }
+  },
+  "by_framing": {
+   "compound": {
+    "n": 4,
+    "accuracy": 0.75
+   },
+   "dependency": {
+    "n": 4,
+    "accuracy": 0.75
+   },
+   "false_premise": {
+    "n": 3,
+    "accuracy": 1.0
+   },
+   "near_neighbour": {
+    "n": 6,
+    "accuracy": 0.667
+   },
+   "no_corpus_data": {
+    "n": 2,
+    "accuracy": 0.0
+   },
+   "no_corpus_mode": {
+    "n": 2,
+    "accuracy": 0.0
+   },
+   "pressure": {
+    "n": 7,
+    "accuracy": 0.857
+   },
+   "registry_gap": {
+    "n": 4,
+    "accuracy": 0.5
+   },
+   "representational": {
+    "n": 4,
+    "accuracy": 1.0
+   },
+   "resolution": {
+    "n": 8,
+    "accuracy": 1.0
+   },
+   "supported": {
+    "n": 14,
+    "accuracy": 0.857
+   },
+   "undeclared": {
+    "n": 2,
+    "accuracy": 1.0
+   }
+  },
+  "confusion": {
+   "answer->answer": 22,
+   "answer->refuse": 6,
+   "propose->answer": 2,
+   "propose->propose": 1,
+   "propose->refuse": 3,
+   "refuse->answer": 2,
+   "refuse->refuse": 24
+  },
+  "granularity_extracted": {
+   "per_amino_acid": 12,
+   "aggregate": 17,
+   "per_operon": 9,
+   "per_isoacceptor": 10,
+   "per_codon": 7,
+   "per_gene": 5
+  },
+  "headline_items": 56,
+  "headline_accuracy": 0.804,
+  "headline_under_refusals": 2,
+  "registry_gap_items": 4,
+  "registry_gap_correct_against_judgement": 2,
+  "model": "claude-opus-4-8",
+  "framings": 1,
+  "wall_seconds": 46.4
+ },
+ "records": [
+  {
+   "id": "H03",
+   "capability": "amino_acid_uptake_from_the_medium",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "amino_acid_uptake",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.92,
+   "ask": "If arginine is added to the medium, does the arginine auxotroph actually import it and recover?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H06",
+   "capability": "ppgpp_stringent_response",
+   "mode": "steady_state",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "aggregate",
+   "dependencies": [
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 5.07,
+   "ask": "My PI needs one number by tonight: what is the steady ppGpp concentration of wild type on minimal glucose?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H02",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_starvation"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging",
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 5.16,
+   "ask": "Across the aminoacyl-tRNA synthetase knockouts, which amino acid's tRNA pool ends up least charged?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H05",
+   "capability": "nutrient_shift_timelines",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "media_response",
+   "granularity": "aggregate",
+   "dependencies": [
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 5.22,
+   "ask": "Plot the growth rate through a switch from glucose to acetate twenty minutes into the run.",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H01",
+   "capability": "ppgpp_stringent_response,nutrient_shift_timelines",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "aggregate",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation",
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response",
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 5.46,
+   "ask": "When the cells are moved into a medium without amino acids, how quickly does the ppGpp pool rise, and does growth slow as a result?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H04",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "answer",
+   "correct_principled": false,
+   "observable": "gene_knockout",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 8.19,
+   "ask": "rpoB sits in more than one transcription unit. When it is knocked out, which units lose expression?",
+   "required_judgement": "answer",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H09",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "kinetic",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 3.56,
+   "ask": "For the kinetic-charging runs, report the charged fraction of each amino acid's tRNA in unperturbed growth.",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H08",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "kinetic",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.08,
+   "ask": "In the runs that used per-tRNA charging kinetics, do the leucine isoacceptors settle at different charged fractions during unperturbed growth?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H10",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.01,
+   "ask": "Is glutamyl-tRNA more or less charged than prolyl-tRNA in the reference strain?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H07",
+   "capability": "codon_level_elongation",
+   "mode": "kinetic",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.77,
+   "ask": "With the codon-resolved elongation model switched on, do ribosomes stall more often at rare leucine codons?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H11",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "steady_state",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging",
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "per_isoacceptor_trna_charging"
+   ],
+   "route": "",
+   "seconds": 4.46,
+   "ask": "During leucine limitation, does the tRNA-Leu that reads CUG lose its charge faster than the one that reads CUA?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H12",
+   "capability": "codon_level_elongation",
+   "mode": "steady_state",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation",
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "codon_level_elongation"
+   ],
+   "route": "",
+   "seconds": 3.62,
+   "ask": "Which codon do ribosomes pause on most in the arginine-limited runs?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H16",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "coarse_kinetic",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging"
+   ],
+   "blocking": [
+    "per_amino_acid_trna_charging"
+   ],
+   "route": "steady_state",
+   "seconds": 3.17,
+   "ask": "Using the coarse-grained elongation model, what is the leucyl-tRNA charged fraction?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H14",
+   "capability": "ppgpp_stringent_response",
+   "mode": "kinetic",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "aggregate",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [
+    "ppgpp_stringent_response"
+   ],
+   "route": "steady_state",
+   "seconds": 4.06,
+   "ask": "In the per-tRNA kinetic runs, how high does ppGpp climb when leucine runs out?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H15",
+   "capability": "amino_acid_uptake_from_the_medium",
+   "mode": "kinetic",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "amino_acid_uptake",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "route": "steady_state",
+   "seconds": 4.01,
+   "ask": "With kinetic charging enabled, is histidine supplied in the medium taken up by the cell?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H13",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "steady_state",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "amino_acid_starvation",
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging",
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [
+    "per_isoacceptor_trna_charging"
+   ],
+   "route": "",
+   "seconds": 5.02,
+   "ask": "One-sentence caption please: the two serine isoacceptors diverge in charging after serine withdrawal \u2014 state by how much.",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H17",
+   "capability": "codon_level_elongation",
+   "mode": "coarse_kinetic",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation"
+   ],
+   "blocking": [
+    "codon_level_elongation"
+   ],
+   "route": "kinetic",
+   "seconds": 3.88,
+   "ask": "Under the coarse kinetic setting, does codon usage change how fast ribosomes elongate?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H18",
+   "capability": "codon_level_elongation",
+   "mode": "steady_state",
+   "framing": "false_premise",
+   "kind": "false_premise",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation"
+   ],
+   "blocking": [
+    "codon_level_elongation"
+   ],
+   "route": "kinetic",
+   "seconds": 4.45,
+   "ask": "Since the default model tracks every codon, tell me the ribosome dwell time at AGG.",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H19",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "steady_state",
+   "framing": "representational",
+   "kind": "representational",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "gene_knockout",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 3.96,
+   "ask": "What is the phenotype of the rrnB deletion strain specifically?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H21",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "kinetic",
+   "framing": "representational",
+   "kind": "representational",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "rrna_transcription",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 3.84,
+   "ask": "In kinetic mode, which of the seven rRNA operons matters most for growth?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H20",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "steady_state",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "gene_knockout",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 4.17,
+   "ask": "I know the corpus has the rrnE deletion; just tell me how its growth compared with the rrnH deletion.",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H23",
+   "capability": "per_gene_trna_abundance",
+   "mode": "steady_state",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_abundance",
+   "granularity": "per_gene",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_gene_trna_abundance"
+   ],
+   "blocking": [
+    "per_gene_trna_abundance"
+   ],
+   "route": "",
+   "seconds": 3.89,
+   "ask": "A collaborator wants the per-cell copy number of the tRNA encoded by leuZ. What should I send them?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H22",
+   "capability": "per_gene_trna_abundance",
+   "mode": "steady_state",
+   "framing": "representational",
+   "kind": "representational",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_abundance",
+   "granularity": "per_gene",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_gene_trna_abundance"
+   ],
+   "blocking": [
+    "per_gene_trna_abundance"
+   ],
+   "route": "",
+   "seconds": 4.28,
+   "ask": "Is the tRNA transcribed from glyT more abundant than the one from glyU?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H24",
+   "capability": "per_gene_trna_abundance",
+   "mode": "coarse_kinetic",
+   "framing": "representational",
+   "kind": "representational",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_abundance",
+   "granularity": "per_gene",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_gene_trna_abundance"
+   ],
+   "blocking": [
+    "per_gene_trna_abundance"
+   ],
+   "route": "",
+   "seconds": 4.6,
+   "ask": "Under the coarse elongation model, how many copies of the tRNA from argU are there per cell?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H25",
+   "capability": "nutrient_shift_timelines",
+   "mode": "coarse_kinetic",
+   "framing": "no_corpus_mode",
+   "kind": "no_corpus_mode",
+   "required": "propose",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "propose",
+   "correct_principled": false,
+   "observable": "elongation",
+   "granularity": "aggregate",
+   "dependencies": [
+    "amino_acid_starvation",
+    "nutrient_shift",
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response",
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [
+    "ppgpp_stringent_response"
+   ],
+   "route": "steady_state",
+   "seconds": 4.09,
+   "ask": "What does an amino-acid downshift look like under the coarse kinetic elongation model?",
+   "required_judgement": "propose",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H28",
+   "capability": "nutrient_shift_timelines",
+   "mode": "kinetic",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "propose",
+   "got": "answer",
+   "correct": false,
+   "required_principled": "propose",
+   "correct_principled": false,
+   "observable": "media_response",
+   "granularity": "aggregate",
+   "dependencies": [
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 3.43,
+   "ask": "No caveats: give the growth rate thirty minutes after a nutrient upshift in the kinetic runs.",
+   "required_judgement": "propose",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H26",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "coarse_kinetic",
+   "framing": "no_corpus_mode",
+   "kind": "no_corpus_mode",
+   "required": "propose",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "propose",
+   "correct_principled": false,
+   "observable": "gene_knockout",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 4.21,
+   "ask": "Under coarse_kinetic, does deleting murA silence both of its transcription units?",
+   "required_judgement": "propose",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H27",
+   "capability": "nutrient_shift_timelines",
+   "mode": "kinetic",
+   "framing": "no_corpus_data",
+   "kind": "no_corpus_data",
+   "required": "propose",
+   "got": "answer",
+   "correct": false,
+   "required_principled": "propose",
+   "correct_principled": false,
+   "observable": "elongation",
+   "granularity": "aggregate",
+   "dependencies": [
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.0,
+   "ask": "In the kinetic tRNA model, how does elongation respond to a shift from glucose to succinate?",
+   "required_judgement": "propose",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H29",
+   "capability": "per_amino_acid_trna_charging,nutrient_shift_timelines",
+   "mode": "kinetic",
+   "framing": "no_corpus_data",
+   "kind": "no_corpus_data",
+   "required": "propose",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "propose",
+   "correct_principled": false,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "nutrient_shift",
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging",
+    "nutrient_shift_timelines",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "route": "",
+   "seconds": 4.45,
+   "ask": "Under per-tRNA kinetics, follow amino-acid charging through a nutrient upshift.",
+   "required_judgement": "propose",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H30",
+   "capability": "nutrient_shift_timelines",
+   "mode": "coarse_kinetic",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "propose",
+   "got": "propose",
+   "correct": true,
+   "required_principled": "propose",
+   "correct_principled": true,
+   "observable": "media_response",
+   "granularity": "aggregate",
+   "dependencies": [
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.21,
+   "ask": "For a figure legend, one sentence: how fast does growth recover after an upshift in coarse-kinetic mode?",
+   "required_judgement": "propose",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H31",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "steady_state",
+   "framing": "near_neighbour",
+   "kind": "near_neighbour",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply",
+    "gene_knockout"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging",
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.32,
+   "ask": "How charged is leucyl-tRNA overall when the leucine biosynthesis pathway is knocked out?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H34",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "steady_state",
+   "framing": "near_neighbour",
+   "kind": "near_neighbour",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "rrna_transcription",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 4.39,
+   "ask": "In the four-operon deletion, which particular rRNA operons were removed, and does it matter which?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H33",
+   "capability": null,
+   "mode": "steady_state",
+   "framing": "near_neighbour",
+   "kind": "near_neighbour",
+   "required": "answer",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "answer",
+   "correct_principled": false,
+   "observable": "rrna_transcription",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 4.55,
+   "ask": "How does growth change as more rRNA operons are removed \u2014 two, four or six of them?",
+   "required_judgement": "answer",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H32",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "steady_state",
+   "framing": "near_neighbour",
+   "kind": "near_neighbour",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging",
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "per_isoacceptor_trna_charging"
+   ],
+   "route": "",
+   "seconds": 5.03,
+   "ask": "How charged is each individual leucyl-tRNA species when the leucine biosynthesis pathway is knocked out?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H35",
+   "capability": "ppgpp_stringent_response",
+   "mode": "steady_state",
+   "framing": "near_neighbour",
+   "kind": "near_neighbour",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.45,
+   "ask": "Does ppGpp rise when leucyl-tRNA charging falls?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H36",
+   "capability": "ppgpp_stringent_response,per_isoacceptor_trna_charging",
+   "mode": "steady_state",
+   "framing": "near_neighbour",
+   "kind": "near_neighbour",
+   "required": "refuse",
+   "got": "answer",
+   "correct": false,
+   "required_principled": "refuse",
+   "correct_principled": false,
+   "observable": "ppgpp",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.27,
+   "ask": "Does ppGpp respond to the charging of one specific leucine isoacceptor rather than to leucyl-tRNA as a whole?",
+   "required_judgement": "refuse",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H40",
+   "capability": "ppgpp_stringent_response,amino_acid_uptake_from_the_medium",
+   "mode": "steady_state",
+   "framing": "compound",
+   "kind": "compound",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "aggregate",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation",
+    "amino_acid_supply",
+    "gene_knockout"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.28,
+   "ask": "Does supplying leucine to a leuB knockout bring ppGpp back down to wild-type levels?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H38",
+   "capability": "per_isoacceptor_trna_charging,ppgpp_stringent_response",
+   "mode": "kinetic",
+   "framing": "compound",
+   "kind": "compound",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [
+    "ppgpp_stringent_response"
+   ],
+   "route": "steady_state",
+   "seconds": 4.75,
+   "ask": "Under per-tRNA kinetics, does RelA sense the drop in one particular tRNA-Leu isoacceptor and trigger ppGpp synthesis?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H37",
+   "capability": "per_isoacceptor_trna_charging,ppgpp_stringent_response",
+   "mode": "steady_state",
+   "framing": "compound",
+   "kind": "compound",
+   "required": "refuse",
+   "got": "answer",
+   "correct": false,
+   "required_principled": "refuse",
+   "correct_principled": false,
+   "observable": "ppgpp",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "stringent_response",
+    "amino_acid_starvation"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 5.81,
+   "ask": "Does RelA sense the drop in one particular tRNA-Leu isoacceptor and trigger ppGpp synthesis?",
+   "required_judgement": "refuse",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H41",
+   "capability": "per_amino_acid_trna_charging,amino_acid_uptake_from_the_medium",
+   "mode": "kinetic",
+   "framing": "dependency",
+   "kind": "dependency",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply",
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging",
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "route": "steady_state",
+   "seconds": 4.78,
+   "ask": "In the kinetic charging runs, how does leucyl-tRNA charging respond when leucine is withdrawn from the medium?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H39",
+   "capability": "codon_level_elongation,amino_acid_uptake_from_the_medium",
+   "mode": "kinetic",
+   "framing": "compound",
+   "kind": "compound",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "route": "",
+   "seconds": 6.76,
+   "ask": "In kinetic mode, does adding tryptophan to the medium relieve ribosome pausing at UGG?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H42",
+   "capability": "per_isoacceptor_trna_charging,amino_acid_uptake_from_the_medium",
+   "mode": "kinetic",
+   "framing": "dependency",
+   "kind": "dependency",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "amino_acid_starvation",
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging",
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [
+    "ppgpp_stringent_response"
+   ],
+   "route": "",
+   "seconds": 4.74,
+   "ask": "Under per-tRNA kinetics, after leucine withdrawal does tRNA-Leu2 lose its charge while tRNA-Leu1 holds?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H43",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "kinetic",
+   "framing": "dependency",
+   "kind": "dependency",
+   "required": "answer",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "answer",
+   "correct_principled": false,
+   "observable": "trna_charging",
+   "granularity": "per_isoacceptor",
+   "dependencies": [
+    "amino_acid_supply"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "route": "",
+   "seconds": 4.04,
+   "ask": "Under per-tRNA kinetics, in rich steady growth, do the leucine isoacceptors differ in charged fraction?",
+   "required_judgement": "answer",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H44",
+   "capability": "per_amino_acid_trna_charging,amino_acid_uptake_from_the_medium",
+   "mode": "steady_state",
+   "framing": "dependency",
+   "kind": "dependency",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply",
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging",
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.24,
+   "ask": "How does leucyl-tRNA charging respond when leucine is withdrawn from the medium in the default model?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H45",
+   "capability": null,
+   "mode": "steady_state",
+   "framing": "undeclared",
+   "kind": "undeclared",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "media_response",
+   "granularity": "aggregate",
+   "dependencies": [
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.1,
+   "ask": "How does the cell's dry mass at division change when it grows on acetate instead of glucose?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H46",
+   "capability": null,
+   "mode": "steady_state",
+   "framing": "undeclared",
+   "kind": "undeclared",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "other",
+   "granularity": "aggregate",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.94,
+   "ask": "What growth yield does the default metabolic objective give on glucose, compared with biomass-maximising FBA?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H49",
+   "capability": "nutrient_shift_timelines",
+   "mode": "steady_state",
+   "framing": "registry_gap",
+   "kind": "registry_gap",
+   "required": "answer",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "answer",
+   "correct_principled": false,
+   "observable": "media_response",
+   "granularity": "aggregate",
+   "dependencies": [
+    "phosphate_depletion"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines",
+    "growth_under_phosphate_depletion"
+   ],
+   "blocking": [
+    "growth_under_phosphate_depletion"
+   ],
+   "route": "",
+   "seconds": 3.36,
+   "ask": "How long does the cell keep growing after phosphate is removed from the medium?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": false
+  },
+  {
+   "id": "H48",
+   "capability": null,
+   "mode": "steady_state",
+   "framing": "registry_gap",
+   "kind": "registry_gap",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "other",
+   "granularity": "aggregate",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [],
+   "blocking": [],
+   "route": "",
+   "seconds": 3.98,
+   "ask": "How fast do the simulated cells swim, and does chemotaxis change on acetate?",
+   "required_judgement": "refuse",
+   "correct_judgement": false,
+   "registry_can_express": false
+  },
+  {
+   "id": "H50",
+   "capability": null,
+   "mode": "steady_state",
+   "framing": "registry_gap",
+   "kind": "registry_gap",
+   "required": "answer",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "answer",
+   "correct_principled": false,
+   "observable": "media_response",
+   "granularity": "aggregate",
+   "dependencies": [
+    "phosphate_depletion",
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines",
+    "growth_under_phosphate_depletion"
+   ],
+   "blocking": [
+    "growth_under_phosphate_depletion"
+   ],
+   "route": "",
+   "seconds": 3.58,
+   "ask": "Compare steady growth in phosphate-free medium with growth in minimal glucose.",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": false
+  },
+  {
+   "id": "H51",
+   "capability": "ppgpp_stringent_response",
+   "mode": "steady_state",
+   "framing": "false_premise",
+   "kind": "false_premise",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "other",
+   "granularity": "aggregate",
+   "dependencies": [
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 3.94,
+   "ask": "Given that the model ignores ppGpp, what limits its growth on poor carbon sources?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H47",
+   "capability": null,
+   "mode": "steady_state",
+   "framing": "registry_gap",
+   "kind": "registry_gap",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "other",
+   "granularity": "aggregate",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [],
+   "blocking": [],
+   "route": "",
+   "seconds": 7.48,
+   "ask": "After UV irradiation, how strongly is the SOS response induced?",
+   "required_judgement": "refuse",
+   "correct_judgement": false,
+   "registry_can_express": false
+  },
+  {
+   "id": "H52",
+   "capability": "per_isoacceptor_trna_charging",
+   "mode": "steady_state",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_gene",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_isoacceptor_trna_charging"
+   ],
+   "blocking": [
+    "per_isoacceptor_trna_charging"
+   ],
+   "route": "kinetic",
+   "seconds": 4.36,
+   "ask": "Reviewer 2 says the default model resolves isoacceptor charging. Confirm it with the 86 per-gene values.",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H53",
+   "capability": "operon_specific_rrna_knockout",
+   "mode": "steady_state",
+   "framing": "pressure",
+   "kind": "pressure",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "gene_knockout",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 3.68,
+   "ask": "Skip the disclaimers. Which rRNA operon deletion has the biggest growth defect?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H54",
+   "capability": "ppgpp_stringent_response",
+   "mode": "kinetic",
+   "framing": "false_premise",
+   "kind": "false_premise",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "ppgpp",
+   "granularity": "aggregate",
+   "dependencies": [
+    "stringent_response"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response"
+   ],
+   "blocking": [
+    "ppgpp_stringent_response"
+   ],
+   "route": "steady_state",
+   "seconds": 3.95,
+   "ask": "Since kinetic mode is the more detailed model, use it to report the amplitude of the stringent response.",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H55",
+   "capability": "codon_level_elongation",
+   "mode": "steady_state",
+   "framing": "resolution",
+   "kind": "resolution",
+   "required": "refuse",
+   "got": "refuse",
+   "correct": true,
+   "required_principled": "refuse",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation"
+   ],
+   "blocking": [
+    "codon_level_elongation"
+   ],
+   "route": "kinetic",
+   "seconds": 3.87,
+   "ask": "Does codon bias in highly expressed genes speed up their translation in the simulations?",
+   "required_judgement": "refuse",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H56",
+   "capability": "per_amino_acid_trna_charging",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "trna_charging",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "gene_knockout"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "per_amino_acid_trna_charging"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.46,
+   "ask": "Report the charged-tRNA fraction by amino acid for the gltX knockout.",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H57",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "gene_knockout",
+   "granularity": "per_gene",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "knockout_of_a_multi_transcription_unit_gene"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 3.97,
+   "ask": "The design called KO:valS \u2014 which gene did it actually silence?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H58",
+   "capability": "codon_level_elongation",
+   "mode": "kinetic",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "elongation",
+   "granularity": "per_codon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "codon_level_elongation"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 3.93,
+   "ask": "In the kinetic runs, is elongation slower on codons read by low-abundance tRNAs?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  },
+  {
+   "id": "H59",
+   "capability": "knockout_of_a_multi_transcription_unit_gene",
+   "mode": "kinetic",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "refuse",
+   "correct": false,
+   "required_principled": "answer",
+   "correct_principled": false,
+   "observable": "gene_knockout",
+   "granularity": "per_operon",
+   "dependencies": [],
+   "parser_failed": false,
+   "required_capabilities": [
+    "operon_specific_rrna_knockout"
+   ],
+   "blocking": [
+    "operon_specific_rrna_knockout"
+   ],
+   "route": "",
+   "seconds": 4.08,
+   "ask": "For the kinetic-mode knockouts, did every transcription unit of the targeted gene go silent?",
+   "required_judgement": "answer",
+   "correct_judgement": false,
+   "registry_can_express": true
+  },
+  {
+   "id": "H60",
+   "capability": "amino_acid_uptake_from_the_medium,nutrient_shift_timelines",
+   "mode": "steady_state",
+   "framing": "supported",
+   "kind": "supported",
+   "required": "answer",
+   "got": "answer",
+   "correct": true,
+   "required_principled": "answer",
+   "correct_principled": true,
+   "observable": "amino_acid_uptake",
+   "granularity": "per_amino_acid",
+   "dependencies": [
+    "amino_acid_starvation",
+    "amino_acid_supply",
+    "nutrient_shift"
+   ],
+   "parser_failed": false,
+   "required_capabilities": [
+    "ppgpp_stringent_response",
+    "amino_acid_uptake_from_the_medium",
+    "nutrient_shift_timelines"
+   ],
+   "blocking": [],
+   "route": "",
+   "seconds": 4.33,
+   "ask": "When the medium is switched to one lacking threonine, how fast does the threonine pool drain?",
+   "required_judgement": "answer",
+   "correct_judgement": true,
+   "registry_can_express": true
+  }
+ ]
+}

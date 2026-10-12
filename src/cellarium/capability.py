@@ -426,6 +426,33 @@ CAPABILITIES: tuple[Capability, ...] = (
                      "(docs/MODEL_EXTENSION.md EXT-3)"},
         detail="tRNA abundance resolved to the individual gene",
     ),
+    # Work-plan item 4d, validated 2026-10-12 by 14 simulations (scripts/validate_phosphate.py,
+    # evals/results/phosphate_validation.json): phosphate absent from the start (4/4 seeds) and removed from a
+    # growing cell at 2,400 s (4/4) both end with ATP exhausted in PolypeptideElongation, in steady state and
+    # in kinetic mode (2/2); the wild-type controls in the same trees complete. ALL_MODES is a claim for
+    # coarse_kinetic too, which was not run: what is missing — the phosphate pools responding to the medium,
+    # PhoB acting as a transcription factor — sits in metabolism and transcription regulation, upstream of
+    # any elongation model. Declaration-only, like the two entries above: absence has no symbol to probe.
+    Capability(
+        key="growth_under_phosphate_depletion",
+        question="Does the cell sense phosphate running out and adapt — induce the Pho regulon, slow its "
+                 "growth, survive — when phosphate is removed from the medium?",
+        present=False,
+        holds_in=(),
+        markers=(),
+        instead={ALL_MODES: "removing phosphate from the medium removes phosphate uptake from the metabolic "
+                 "network and nothing else: the cytoplasmic (~340,000) and periplasmic (~68,000) phosphate "
+                 "pools stay at their pre-removal levels, so PhoR-PhoB is never activated (PHOSPHO-PHOB stays at "
+                 "0), and PhoB is not among the fitted transcription factors (tf_condition.tsv), so the Pho "
+                 "regulon (pstSCAB, phoA, ugp, phn) is not regulated; protein and RNA synthesis continue at "
+                 "their normal rates while ATP is not regenerated"},
+        consequence={ALL_MODES: "ATP is exhausted in PolypeptideElongation about 5 min (steady_state) or 9 min "
+                     "(kinetic) after phosphate becomes unavailable, and the simulation stops with "
+                     "NegativeCountsError. The stop is NOT a prediction that the cell dies — a real cell survives "
+                     "phosphate starvation — and no value read after the removal is a measurement "
+                     "(evals/results/phosphate_validation.json)"},
+        detail="growth, adaptation or survival after phosphate is removed from the medium",
+    ),
     # Present capabilities are declared too, so the registry is a complete picture rather than a defect list.
     Capability(
         key="knockout_of_a_multi_transcription_unit_gene",

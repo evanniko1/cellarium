@@ -30,7 +30,8 @@ So there is a third label, `propose`: decline to fabricate AND name the run that
 apart from the headline and the registry arm is NOT scored on it at all, because the registry has no notion
 of proposing anything.
 
-THE CELL CENSUS. Nine capabilities x three elongation models = 27 cells. Two strata are about DATA rather
+THE CELL CENSUS. Nine capabilities x three elongation models = 27 cells (ten and 30 since item 4d added
+growth_under_phosphate_depletion on 2026-10-12; the published 216-item bank predates it). Two strata are about DATA rather
 than representation and are reported APART from the headline, because folding them in measures coverage
 while claiming to measure limits:
 
@@ -115,6 +116,7 @@ _NEEDS: dict[str, set[str] | None] = {
     "ppgpp_stringent_response": {"ppgpp_conc", "condition", "gene_knockout"},
     "amino_acid_uptake_from_the_medium": {"condition", "timeline"},
     "nutrient_shift_timelines": {"timeline"},
+    "growth_under_phosphate_depletion": {"condition", "timeline"},   # item 4d; refused in every mode anyway
 }
 
 _coverage_cache: dict[str, set[str]] | None = None

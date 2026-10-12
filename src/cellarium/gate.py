@@ -101,6 +101,11 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     "amino_acid_starvation": ("ppgpp_stringent_response",),
     "amino_acid_supply": ("amino_acid_uptake_from_the_medium",),
     "nutrient_shift": ("nutrient_shift_timelines",),
+    # Item 4d. Phosphate removal is a CONDITION of the question rather than the quantity it reads — "growth
+    # after phosphate is removed", "does pstS rise without phosphate", "a phoB mutant under phosphate
+    # limitation" name three different observables — so it enters as a dependency, which every observable can
+    # carry, rather than as a row of REQUIRES.
+    "phosphate_depletion": ("growth_under_phosphate_depletion",),
 }
 
 
@@ -295,7 +300,10 @@ _PARSE_TOOL = {
             "regulatory_dependencies": {"type": "array", "items": {"type": "string",
                                         "enum": list(DEPENDENCY_REQUIRES)},
                                         "description": "mechanisms the answer rides on even if unnamed, e.g. a "
-                                                       "starvation question depends on stringent_response"},
+                                                       "starvation question depends on stringent_response; any "
+                                                       "question in which phosphate is absent from, removed "
+                                                       "from or limiting in the medium, or about the PhoB / Pho "
+                                                       "regulon response to it, depends on phosphate_depletion"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -312,7 +320,10 @@ _PARSE_SYSTEM = (
     "resolution the question genuinely needs and no finer. A question about a whole amino-acid family is "
     "per_amino_acid; a question that compares two tRNAs carrying the SAME amino acid is per_isoacceptor; a "
     "question about one named gene's own transcript is per_gene. If the question names no resolution, it is "
-    "aggregate."
+    "aggregate.\n\n"
+    "List every regulatory dependency the answer rides on, including ones the question does not name. In "
+    "particular, a question set in a medium lacking phosphate, or after phosphate is removed or becomes "
+    "limiting, or about the Pho regulon, depends on phosphate_depletion, whatever quantity it asks about."
 )
 
 

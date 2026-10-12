@@ -131,8 +131,10 @@ def test_the_cell_census_is_what_the_plan_assumed():
     which is where they always belonged — the old bucket was hiding real limits behind a coverage label."""
     items = G.generate(1)
     st = G.census(items)
-    assert st["n_cells"] == 27
-    assert st["by_required"] == {"refuse": 15, "answer": 9, "propose": 3}
+    # 30 since 2026-10-12: item 4d added growth_under_phosphate_depletion, absent in all three modes, so
+    # three more `refuse` cells and nothing else moves.
+    assert st["n_cells"] == 30
+    assert st["by_required"] == {"refuse": 18, "answer": 9, "propose": 3}
     assert st["by_stratum"]["no_corpus_data"] == 1
     assert st["by_stratum"]["no_corpus_mode"] == 2
 

@@ -493,6 +493,21 @@ _PERTURBATION_CAPABILITY: dict[str, tuple[str, ...]] = {
     "rrna_operon_knockout": ("operon_specific_rrna_knockout",),
 }
 
+# Media named inside a design's tag that no elongation model can be read under (item 4d). A medium name is a
+# fixed identifier from the condition tables, so matching it in the tag is a lookup, not a keyword guess:
+# `condition/minus_phosphate`, and any timeline that shifts into `minimal_minus_phosphate`.
+_MEDIUM_CAPABILITY: dict[str, tuple[str, ...]] = {
+    "minus_phosphate": ("growth_under_phosphate_depletion",),
+}
+
+
+def _design_tag_of(args: dict) -> str:
+    for key in ("design", "design_a", "design_or_id", "target"):
+        v = args.get(key)
+        if v and "/" in str(v):
+            return str(v).split("/", 1)[1]
+    return ""
+
 
 def _perturbation_of(args: dict) -> str:
     for key in ("design", "design_a", "design_or_id", "target"):
@@ -536,6 +551,10 @@ def _required(name: str, args: dict) -> list[str]:
     for k in _PERTURBATION_CAPABILITY.get(_perturbation_of(args), ()):
         if k not in keys:
             keys.append(k)
+    tag = _design_tag_of(args)
+    for medium, caps in _MEDIUM_CAPABILITY.items():
+        if medium in tag:
+            keys += [k for k in caps if k not in keys]
     return keys
 
 

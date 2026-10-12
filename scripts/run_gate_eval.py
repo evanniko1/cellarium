@@ -25,7 +25,7 @@ push a system into answering -- and (b) whether errors are symmetric. Over-refus
 equally bad here: refusing an answerable question is a usability cost, while admitting an unanswerable one is
 the failure the whole architecture exists to prevent, so they are reported separately rather than summed.
 
-    python scripts/run_gate_eval.py --framings 1            # 27 cells, one framing each -- the pilot
+    python scripts/run_gate_eval.py --framings 1            # one framing per capability-mode cell -- the pilot
     python scripts/run_gate_eval.py --framings 8            # the full paraphrase sweep
     python scripts/run_gate_eval.py --framings 2 --dry-run  # price it, call nothing
     python scripts/run_gate_eval.py --heldout               # the frozen held-out set (refuses if edited)
@@ -189,7 +189,7 @@ def main(argv: list[str]) -> int:
         print(f"{len(items)} held-out items, parser model {a.model}")
     else:
         items = _items(a.framings)
-        print(f"{len(items)} items ({a.framings} framing(s) x 27 capability-mode cells), parser model {a.model}")
+        print(f"{len(items)} items ({a.framings} framing(s) x capability-mode cells), parser model {a.model}")
     print("required:", dict(collections.Counter(i["required"] for i in items)))
     print("strata:  ", dict(collections.Counter(i["kind"] for i in items)))
     if a.dry_run:
