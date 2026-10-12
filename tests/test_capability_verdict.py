@@ -87,7 +87,8 @@ def test_the_agent_is_not_told_the_registry_was_verified_when_it_was_not(monkeyp
 def test_a_real_checkout_produces_a_verified_verdict():
     """The other direction. Without this the fix could be satisfied by always reporting `unverified`."""
     a = capability.audit()
-    assert a["n_verified"] == a["n_capabilities"]
+    # Declaration-only records (no markers) can never be verified by a checkout — work-plan item 4e.
+    assert a["n_verified"] == a["n_probeable"] == a["n_capabilities"] - len(a["declaration_only"])
     assert a["verified"] is True
     assert a["verified_against"]
     assert a["verdict"] in ("verified_consistent", "disagreement"), \

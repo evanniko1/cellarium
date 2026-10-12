@@ -507,12 +507,18 @@ def read_at_generation(design: str, channel: str, generation: int) -> dict:
     rows = _leth_rows()
     if not rows or "__error__" in rows[0]:
         return {"error": rows[0].get("__error__") if rows else "no rows"}
-    vals, excluded = [], 0
+    from . import lineage
+    vals, excluded, undivided_parent = [], 0, 0
     for r in rows:
         if design_key(r) != design:
             continue
         gq = _as_list(r.get("generation_qc"))
         pg = _as_list(r.get("per_generation"))
+        # Item 4c: a generation descended from one that may have been split at the time cap is not a measurement
+        # of a dividing lineage, whatever its own QC says (cellarium.lineage).
+        if generation < len(gq) and lineage.is_descendant_of_undivided(pg, generation):
+            undivided_parent += 1
+            continue
         if generation < len(gq) and gq[generation] == "ok":
             p = next((x for x in pg if isinstance(x, dict) and x.get("i") == generation), None)
             if p and p.get(key) is not None:
@@ -521,11 +527,13 @@ def read_at_generation(design: str, channel: str, generation: int) -> dict:
             excluded += 1                       # this seed reached the generation but it failed QC there
     if not vals:
         return {"design": design, "channel": channel, "generation": generation, "n": 0,
+                "n_seeds_excluded_undivided_ancestor": undivided_parent,
                 "note": f"no seed has a QC-ok generation {generation} for '{channel}'"}
     return {"design": design, "channel": channel, "generation": generation,
             "mean": round(statistics.fmean(vals), 6), "n": len(vals),
             "ci95": (round(stats.t95_halfwidth(vals), 6) if len(vals) > 1 else None),
             "n_seeds_failed_qc_here": excluded,
+            "n_seeds_excluded_undivided_ancestor": undivided_parent,
             "note": ("mean over seeds whose generation " f"{generation} passed QC — a collapsing run's valid "
                      "early generations ARE included, its collapsed generation is not.")}
 
@@ -560,6 +568,7 @@ def trajectory(design: str, channel: str = "growth_rate") -> dict:
     rows = _leth_rows()
     if not rows or "__error__" in rows[0]:
         return {"error": rows[0].get("__error__") if rows else "no rows"}
+    from . import lineage
     by_gen_val: dict = defaultdict(list)
     by_gen_qc: dict = defaultdict(Counter)
     n_seeds = 0
@@ -570,6 +579,9 @@ def trajectory(design: str, channel: str = "growth_rate") -> dict:
         gq = _as_list(r.get("generation_qc"))
         pg = _as_list(r.get("per_generation"))
         for i, s in enumerate(gq):
+            if lineage.is_descendant_of_undivided(pg, i):     # item 4c: shown, but never averaged
+                by_gen_qc[i]["descendant_of_undivided"] += 1
+                continue
             by_gen_qc[i][s] += 1
             if s == "ok":
                 p = next((x for x in pg if isinstance(x, dict) and x.get("i") == i), None)
@@ -581,12 +593,15 @@ def trajectory(design: str, channel: str = "growth_rate") -> dict:
     arc = [{"generation": i,
             "mean": (round(statistics.fmean(by_gen_val[i]), 6) if by_gen_val.get(i) else None),
             "n_ok": len(by_gen_val.get(i, [])), "qc": dict(by_gen_qc[i])} for i in gens]
-    collapse = next((i for i in gens if any(s != "ok" for s in by_gen_qc[i])), None)
+    collapse = next((i for i in gens if any(s not in ("ok", "descendant_of_undivided") for s in by_gen_qc[i])),
+                    None)
     return {"design": design, "channel": channel, "n_seeds": n_seeds,
             "collapses_at_generation": collapse, "arc": arc,
             "note": ("Per-generation mean (QC-ok seeds only) + the QC verdict spread at each generation. A "
                      "collapse shows as the generation where `qc` stops being all-ok; earlier generations remain "
-                     "usable. Only growth/ppGpp are stored per generation.")}
+                     "usable. Only growth/ppGpp are stored per generation. `descendant_of_undivided` counts "
+                     "generations excluded because an ancestor may have been split at the time cap rather than "
+                     "dividing (cellarium.lineage).")}
 
 
 def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple | str | None" = None) -> dict:

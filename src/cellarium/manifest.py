@@ -787,8 +787,11 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
            "provenance": _prov_tag(rec.design),
            "qc": overall.value, "generation_qc": json.dumps([s.value for s in per]),
            "reportable": qc.is_reportable(rec), "note": rec.note,
+           # t_start/t_end/fc_end (item 4c): `divided` is a chromosome-count proxy, and only the generation's
+           # duration separates "divided before the time cap" from "split at the cap" (cellarium.lineage).
            "per_generation": json.dumps([{"i": g.index, "growth": g.growth_mean, "ppgpp": g.ppgpp_mean,
-                                           "divided": g.divided} for g in rec.generations]),
+                                           "divided": g.divided, "t_start": g.t_start, "t_end": g.t_end,
+                                           "fc_end": g.full_chromosome_end} for g in rec.generations]),
            "pathways": json.dumps(rec.pathways),   # {pathway: proteome_fraction} — surveyed as channels
            "species_panel": json.dumps(rec.species_panel),  # {monomer_id: {mean,last,series}} — per-species depth (scope A)
            "simout_path": _portable_runpath(run_root),  # repo-RELATIVE, forward-slash: a stable dedup key that

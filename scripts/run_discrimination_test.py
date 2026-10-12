@@ -69,7 +69,7 @@ def registry_arm() -> list[dict]:
             verdict, why = "answer", "no registry entry blocks this question"
         else:
             cap = next(c for c in C.CAPABILITIES if c.key == q["capability"])
-            usable = cap.present and q["mode"] in cap.holds_in and q["mode"] in C.MODES_IN_CORPUS
+            usable = C.answerable_in(cap, q["mode"])
             verdict = "answer" if usable else "refuse"
             why = cap.refusal(q["mode"]) if verdict == "refuse" else "represented, and the corpus is in this mode"
         # A `propose` item is NOT SCORABLE by this arm, and marking it wrong would be a false negative about

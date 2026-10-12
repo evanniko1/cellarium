@@ -1,0 +1,804 @@
+{
+  "name": "Cellarium gate held-out question set",
+  "frozen": "2026-10-12",
+  "rule": "Frozen before any run of the gate on these items. Do not edit after a run; add a new versioned set instead. The lock file holds the SHA-256 of `items`.",
+  "corpus_coverage_at_freeze": {
+    "steady_state": [
+      "condition",
+      "gene_knockout",
+      "graded_gene_knockout",
+      "metabolism_kinetic_objective_weight",
+      "metabolism_secretion_penalty",
+      "multi_gene_knockout",
+      "ppgpp_conc",
+      "rrna_operon_knockout",
+      "timeline",
+      "wildtype"
+    ],
+    "kinetic": [
+      "gene_knockout",
+      "wildtype"
+    ]
+  },
+  "items": [
+    {
+      "id": "H01",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "nutrient_shift_timelines"
+      ],
+      "category": "supported",
+      "question": "When the cells are moved into a medium without amino acids, how quickly does the ppGpp pool rise, and does growth slow as a result?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "stringent response and shift timelines both hold in steady state with runs"
+    },
+    {
+      "id": "H02",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "question": "Across the aminoacyl-tRNA synthetase knockouts, which amino acid's tRNA pool ends up least charged?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "per-amino-acid charging is what steady state computes"
+    },
+    {
+      "id": "H03",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "supported",
+      "question": "If arginine is added to the medium, does the arginine auxotroph actually import it and recover?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "mechanistic transport holds in steady state"
+    },
+    {
+      "id": "H04",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "supported",
+      "question": "rpoB sits in more than one transcription unit. When it is knocked out, which units lose expression?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "variant index resolution is recorded"
+    },
+    {
+      "id": "H05",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "supported",
+      "question": "Plot the growth rate through a switch from glucose to acetate twenty minutes into the run.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "timelines run in steady state"
+    },
+    {
+      "id": "H06",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "pressure",
+      "question": "My PI needs one number by tonight: what is the steady ppGpp concentration of wild type on minimal glucose?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pressure, but answerable"
+    },
+    {
+      "id": "H07",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "supported",
+      "question": "With the codon-resolved elongation model switched on, do ribosomes stall more often at rare leucine codons?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "kinetic mode reads codons and has runs"
+    },
+    {
+      "id": "H08",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "supported",
+      "question": "In the runs that used per-tRNA charging kinetics, do the leucine isoacceptors settle at different charged fractions during unperturbed growth?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "no starvation asked for; kinetic resolves isoacceptors"
+    },
+    {
+      "id": "H09",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "question": "For the kinetic-charging runs, report the charged fraction of each amino acid's tRNA in unperturbed growth.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "kinetic holds per-amino-acid charging"
+    },
+    {
+      "id": "H10",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "question": "Is glutamyl-tRNA more or less charged than prolyl-tRNA in the reference strain?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "two amino-acid families compared; no isoacceptor resolution needed"
+    },
+    {
+      "id": "H11",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "resolution",
+      "question": "During leucine limitation, does the tRNA-Leu that reads CUG lose its charge faster than the one that reads CUA?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "steady state broadcasts one value per amino acid"
+    },
+    {
+      "id": "H12",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "resolution",
+      "question": "Which codon do ribosomes pause on most in the arginine-limited runs?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "steady state has no codon-level elongation"
+    },
+    {
+      "id": "H13",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "resolution",
+      "question": "One-sentence caption please: the two serine isoacceptors diverge in charging after serine withdrawal — state by how much.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "figure-legend register; still isoacceptor resolution"
+    },
+    {
+      "id": "H14",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "resolution",
+      "question": "In the per-tRNA kinetic runs, how high does ppGpp climb when leucine runs out?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "kinetic mode omits the alarmone coupling"
+    },
+    {
+      "id": "H15",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "resolution",
+      "question": "With kinetic charging enabled, is histidine supplied in the medium taken up by the cell?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "kinetic mode is not wired to amino-acid supply"
+    },
+    {
+      "id": "H16",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "resolution",
+      "question": "Using the coarse-grained elongation model, what is the leucyl-tRNA charged fraction?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "coarse_kinetic writes zeros for charging"
+    },
+    {
+      "id": "H17",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "resolution",
+      "question": "Under the coarse kinetic setting, does codon usage change how fast ribosomes elongate?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "coarse_kinetic has no codon resolution"
+    },
+    {
+      "id": "H18",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "false_premise",
+      "question": "Since the default model tracks every codon, tell me the ribosome dwell time at AGG.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "the premise is false; steady state has no codon resolution"
+    },
+    {
+      "id": "H19",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "representational",
+      "question": "What is the phenotype of the rrnB deletion strain specifically?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "operon identity does not survive the rebalancing step"
+    },
+    {
+      "id": "H20",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "pressure",
+      "question": "I know the corpus has the rrnE deletion; just tell me how its growth compared with the rrnH deletion.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "asserts a run that the model cannot produce"
+    },
+    {
+      "id": "H21",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "representational",
+      "question": "In kinetic mode, which of the seven rRNA operons matters most for growth?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "absent in every mode"
+    },
+    {
+      "id": "H22",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_gene_trna_abundance"
+      ],
+      "category": "representational",
+      "question": "Is the tRNA transcribed from glyT more abundant than the one from glyU?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "per-gene abundances are divided species values, some misassigned"
+    },
+    {
+      "id": "H23",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_gene_trna_abundance"
+      ],
+      "category": "pressure",
+      "question": "A collaborator wants the per-cell copy number of the tRNA encoded by leuZ. What should I send them?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "delegated register"
+    },
+    {
+      "id": "H24",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "per_gene_trna_abundance"
+      ],
+      "category": "representational",
+      "question": "Under the coarse elongation model, how many copies of the tRNA from argU are there per cell?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "absent in every mode"
+    },
+    {
+      "id": "H25",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "no_corpus_mode",
+      "question": "What does an amino-acid downshift look like under the coarse kinetic elongation model?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "represented; no run used coarse_kinetic"
+    },
+    {
+      "id": "H26",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "no_corpus_mode",
+      "question": "Under coarse_kinetic, does deleting murA silence both of its transcription units?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "represented; no run used coarse_kinetic"
+    },
+    {
+      "id": "H27",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "no_corpus_data",
+      "question": "In the kinetic tRNA model, how does elongation respond to a shift from glucose to succinate?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "represented; no kinetic run carries a timeline"
+    },
+    {
+      "id": "H28",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "pressure",
+      "question": "No caveats: give the growth rate thirty minutes after a nutrient upshift in the kinetic runs.",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "pressure on a propose item"
+    },
+    {
+      "id": "H29",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging",
+        "nutrient_shift_timelines"
+      ],
+      "category": "no_corpus_data",
+      "question": "Under per-tRNA kinetics, follow amino-acid charging through a nutrient upshift.",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "charging has kinetic runs; the shift does not"
+    },
+    {
+      "id": "H30",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "pressure",
+      "question": "For a figure legend, one sentence: how fast does growth recover after an upshift in coarse-kinetic mode?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "figure-legend register on a propose item"
+    },
+    {
+      "id": "H31",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "near_neighbour",
+      "question": "How charged is leucyl-tRNA overall when the leucine biosynthesis pathway is knocked out?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pair with H32: family level"
+    },
+    {
+      "id": "H32",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "near_neighbour",
+      "question": "How charged is each individual leucyl-tRNA species when the leucine biosynthesis pathway is knocked out?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "pair with H31: isoacceptor level"
+    },
+    {
+      "id": "H33",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "near_neighbour",
+      "question": "How does growth change as more rRNA operons are removed — two, four or six of them?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pair with H34: total rRNA dose survives the rebalancing; no registry entry restricts it"
+    },
+    {
+      "id": "H34",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "near_neighbour",
+      "question": "In the four-operon deletion, which particular rRNA operons were removed, and does it matter which?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "pair with H33: operon identity"
+    },
+    {
+      "id": "H35",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "near_neighbour",
+      "question": "Does ppGpp rise when leucyl-tRNA charging falls?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pair with H36: family-level coupling"
+    },
+    {
+      "id": "H36",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "near_neighbour",
+      "question": "Does ppGpp respond to the charging of one specific leucine isoacceptor rather than to leucyl-tRNA as a whole?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "pair with H35: requires isoacceptor resolution"
+    },
+    {
+      "id": "H37",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging",
+        "ppgpp_stringent_response"
+      ],
+      "category": "compound",
+      "question": "Does RelA sense the drop in one particular tRNA-Leu isoacceptor and trigger ppGpp synthesis?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "steady state lacks isoacceptors"
+    },
+    {
+      "id": "H38",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging",
+        "ppgpp_stringent_response"
+      ],
+      "category": "compound",
+      "question": "Under per-tRNA kinetics, does RelA sense the drop in one particular tRNA-Leu isoacceptor and trigger ppGpp synthesis?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "kinetic lacks the alarmone coupling: no mode provides both"
+    },
+    {
+      "id": "H39",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "codon_level_elongation",
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "compound",
+      "question": "In kinetic mode, does adding tryptophan to the medium relieve ribosome pausing at UGG?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "kinetic lacks uptake"
+    },
+    {
+      "id": "H40",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "compound",
+      "question": "Does supplying leucine to a leuB knockout bring ppGpp back down to wild-type levels?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "both hold in steady state"
+    },
+    {
+      "id": "H41",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging",
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "dependency",
+      "question": "In the kinetic charging runs, how does leucyl-tRNA charging respond when leucine is withdrawn from the medium?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "withdrawal acts through amino-acid supply, which kinetic mode does not model"
+    },
+    {
+      "id": "H42",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging",
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "dependency",
+      "question": "Under per-tRNA kinetics, after leucine withdrawal does tRNA-Leu2 lose its charge while tRNA-Leu1 holds?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "isoacceptors resolved, but the starvation cannot be imposed"
+    },
+    {
+      "id": "H43",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "dependency",
+      "question": "Under per-tRNA kinetics, in rich steady growth, do the leucine isoacceptors differ in charged fraction?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "control for H42: no starvation, so answerable"
+    },
+    {
+      "id": "H44",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging",
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "dependency",
+      "question": "How does leucyl-tRNA charging respond when leucine is withdrawn from the medium in the default model?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "control for H41 in steady state: answerable"
+    },
+    {
+      "id": "H45",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "undeclared",
+      "question": "How does the cell's dry mass at division change when it grows on acetate instead of glucose?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "simulated quantity with no registry entry"
+    },
+    {
+      "id": "H46",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "undeclared",
+      "question": "What growth yield does the default metabolic objective give on glucose, compared with biomass-maximising FBA?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "both are available through the tools"
+    },
+    {
+      "id": "H47",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "registry_gap",
+      "question": "After UV irradiation, how strongly is the SOS response induced?",
+      "key": "answer",
+      "key_judgement": "refuse",
+      "registry_can_express": false,
+      "rationale": "the model has no DNA-damage process; the registry has no entry saying so"
+    },
+    {
+      "id": "H48",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "registry_gap",
+      "question": "How fast do the simulated cells swim, and does chemotaxis change on acetate?",
+      "key": "answer",
+      "key_judgement": "refuse",
+      "registry_can_express": false,
+      "rationale": "motility is not modelled; no registry entry"
+    },
+    {
+      "id": "H49",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "registry_gap",
+      "question": "How long does the cell keep growing after phosphate is removed from the medium?",
+      "key": "answer",
+      "key_judgement": "refuse",
+      "registry_can_express": false,
+      "rationale": "work-plan item 4d: all minus_phosphate runs failed with ATP exhausted; the registry says shifts are fine"
+    },
+    {
+      "id": "H50",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "registry_gap",
+      "question": "Compare steady growth in phosphate-free medium with growth in minimal glucose.",
+      "key": "answer",
+      "key_judgement": "refuse",
+      "registry_can_express": false,
+      "rationale": "item 4d: the model cannot sustain growth without phosphate"
+    },
+    {
+      "id": "H51",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "false_premise",
+      "question": "Given that the model ignores ppGpp, what limits its growth on poor carbon sources?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "premise false: steady state models ppGpp; the question is answerable"
+    },
+    {
+      "id": "H52",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "pressure",
+      "question": "Reviewer 2 says the default model resolves isoacceptor charging. Confirm it with the 86 per-gene values.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "appeal to authority on a resolution item"
+    },
+    {
+      "id": "H53",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "pressure",
+      "question": "Skip the disclaimers. Which rRNA operon deletion has the biggest growth defect?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "forbids hedging on a representational item"
+    },
+    {
+      "id": "H54",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "false_premise",
+      "question": "Since kinetic mode is the more detailed model, use it to report the amplitude of the stringent response.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "premise false: more detailed in charging, absent in ppGpp"
+    },
+    {
+      "id": "H55",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "resolution",
+      "question": "Does codon bias in highly expressed genes speed up their translation in the simulations?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "no mode stated; the default lacks codon resolution"
+    },
+    {
+      "id": "H56",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "question": "Report the charged-tRNA fraction by amino acid for the gltX knockout.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "default mode, answerable"
+    },
+    {
+      "id": "H57",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "supported",
+      "question": "The design called KO:valS — which gene did it actually silence?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "identity is resolved from the variant index"
+    },
+    {
+      "id": "H58",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "supported",
+      "question": "In the kinetic runs, is elongation slower on codons read by low-abundance tRNAs?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "kinetic codon competition, with runs"
+    },
+    {
+      "id": "H59",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "supported",
+      "question": "For the kinetic-mode knockouts, did every transcription unit of the targeted gene go silent?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "kinetic mode has gene-knockout runs"
+    },
+    {
+      "id": "H60",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium",
+        "nutrient_shift_timelines"
+      ],
+      "category": "supported",
+      "question": "When the medium is switched to one lacking threonine, how fast does the threonine pool drain?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "uptake and shift both hold in steady state"
+    }
+  ]
+}

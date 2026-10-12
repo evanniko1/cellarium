@@ -181,7 +181,7 @@ def required_capabilities(req: Requirement) -> tuple[str, ...]:
 def modes_with_runs() -> tuple[str, ...]:
     """Elongation models the corpus actually holds runs in. Corpus-dependent, and deliberately separate from
     representability: `capability.check` must stay corpus-independent or a fresh clone would be walled."""
-    return tuple(getattr(C, "MODES_IN_CORPUS", ("steady_state",)))
+    return tuple(m for m in C.ELONGATION_MODES if C.has_runs_in(m))
 
 
 def representable(key: str, mode: str) -> bool | None:
@@ -200,7 +200,7 @@ def representable(key: str, mode: str) -> bool | None:
     cap = C._BY_KEY.get(key)
     if cap is None or mode not in C.ELONGATION_MODES:
         return None
-    return bool(cap.present and mode in cap.holds_in)
+    return C.represents(cap, mode)
 
 
 def _modes_representing_all(keys: tuple[str, ...]) -> tuple[str, ...]:

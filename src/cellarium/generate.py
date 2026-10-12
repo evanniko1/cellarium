@@ -240,8 +240,12 @@ def auxotroph_starvation_designs() -> list[Design]:
         # The un-starved KO control: same genotype, HELD in the amino-acid-rich medium. The explicit
         # `0 minimal_plus_amino_acids` timeline is required, not cosmetic — a `gene_knockout` design with no
         # timeline runs in basal MINIMAL medium, so the first version of this control was a leucine auxotroph
-        # in leucine-free minimal medium: lethal by construction, and a control for nothing. Three of its four
-        # seeds died with `array must not contain infs or NaNs`.
+        # in leucine-free minimal medium: lethal by design intent, and a control for nothing. FAIL-6: an earlier
+        # version said three of its four seeds "died with `array must not contain infs or NaNs`". The corpus
+        # does not support that attribution. The current rows for those seeds record container failures with
+        # no data; tracebacks with that message survive only in runs/leu_arm.log and runs/arg_arm.log, which
+        # interleave concurrent sims, and the KO:leuB designs shared one variant directory, so the tracebacks
+        # cannot be tied to these seeds. The cause is unknown until the FAIL-2 pilot re-runs them with logs.
         designs.append(Design(perturbation="gene_knockout", condition=f"KO:{sym}",
                               params={"variant_index": idx},
                               timeline="0 minimal_plus_amino_acids"))
@@ -315,15 +319,20 @@ def machinery_calibration_designs() -> list[Design]:
 
 def objective_weight_designs() -> list[Design]:
     """Objective levers (§K), NEAR-DEFAULT range. The FITTED values are kinetic_objective_weight=1e-7 (KW index 2)
-    and secretion_penalty=1e-3 (SP index 4). The first sweep used extremes {0,1e-4,0.1,1} — 1e3-1e7x the fitted
-    weight — and ALL crashed with NegativeCountsError (ATP[c] in PolypeptideElongation): over-weighting the kinetic
-    targets starves ATP and crashes translation. FOLLOW-UP FINDING (2026-07-11): this near-default bracket ALSO
-    crashed 12/12 — INCLUDING at the fitted default itself (index 2 = 1e-7, a no-op). So it is NOT a value-choice
-    issue: these variants destabilize the CURRENT model regardless of the weight (they may need a makeVariants
-    pre-step our inline --variant path skips, or be incompatible with this model version). The graded-objective-
-    lever arm is a DEAD END here; kept for the record. Bounded runs only (<=3h).
+    and secretion_penalty=1e-3 (SP index 4).
+
+    FAIL-6 — WHAT THE CORPUS ACTUALLY SUPPORTS (checked 2026-10-12). Earlier versions of this docstring stated
+    that the extreme sweep {0,1e-4,0.1,1} "ALL crashed with NegativeCountsError (ATP[c] in PolypeptideElongation)"
+    and that this near-default bracket "crashed 12/12, including at the fitted default", and concluded the arm
+    was a dead end. None of that is backed by surviving evidence:
+      * all 41 objective-weight rows in the corpus (23 kin_w, 18 sec_pen) read "Refusing out-of-envelope
+        design" — the envelope refused them and NO simulation ran, so they say nothing about the model;
+      * no run log mentions either perturbation, so whatever crashed before the envelope existed was
+        overwritten without its cause.
+    The arm is therefore UNTESTED, not a dead end. Deciding whether it belongs in the envelope, and running
+    it with logs retained, is open work (FAIL-2 / FAIL-3). Bounded runs only (<=3h).
     KINETIC_OBJECTIVE_WEIGHT=[0,1e-8,1e-7,1e-6,1e-5,1e-4,1e-3,0.01,0.1,1]; SECRETION_PENALTY=[0,1e-5,1e-4,5e-4,1e-3,...]."""
-    kw = {1: "1e-8", 2: "1e-7_default", 3: "1e-6", 4: "1e-5"}   # bracket fitted 1e-7; index 5 (1e-4)+ crashes
+    kw = {1: "1e-8", 2: "1e-7_default", 3: "1e-6", 4: "1e-5"}   # bracket fitted 1e-7
     sp = {3: "5e-4", 4: "1e-3_default"}                          # bracket fitted 1e-3
     designs = [Design(perturbation="metabolism_kinetic_objective_weight", condition=f"minimal|kin_w:{lbl}",
                       params={"variant_index": i}) for i, lbl in kw.items()]

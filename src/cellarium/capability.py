@@ -226,7 +226,7 @@ class Capability:
         that used it" — which was harmless while there was one elongation model and is not now. Deriving it
         makes that contradiction unrepresentable; a safety registry whose fields can contradict each other is
         worse than one field."""
-        return self.present and DEFAULT_MODE in self.holds_in and DEFAULT_MODE in MODES_IN_CORPUS
+        return answerable_in(self, DEFAULT_MODE)
 
     def other_modes(self) -> tuple[str, ...]:
         """The declared modes that DO represent this, corpus modes first — the route case (b) offers."""
@@ -550,12 +550,28 @@ def get(key: str) -> Capability | None:
     return _BY_KEY.get(key)
 
 
-def answerable_in(c: Capability, mode: str = DEFAULT_MODE) -> bool:
-    """THE answerability predicate — every other view here is a projection of it.
+def represents(c: Capability, mode: str) -> bool:
+    """Does the MODEL compute this under `mode`? A property of the simulator, independent of the corpus.
 
-    Three conjuncts, and dropping any one of them is a distinct historical bug: the mechanism must be in the
-    checkout, the elongation model must actually implement it, and some run must have used that model."""
-    return c.present and mode in c.holds_in and mode in MODES_IN_CORPUS
+    Work-plan item 2. `answerable_in` used to be the only predicate, and it folded "a run exists in this mode"
+    into "the model computes this". Three places needed the two apart — the gate, the benchmark generator and
+    the generator's test — and each re-derived the first half by hand (`present and mode in holds_in`). One
+    predicate per question now, and the composite is derived from them below rather than restated."""
+    return c.present and mode in c.holds_in
+
+
+def has_runs_in(mode: str) -> bool:
+    """Does the CORPUS hold runs produced under `mode`? A property of the data, not of the simulator."""
+    return mode in MODES_IN_CORPUS
+
+
+def answerable_in(c: Capability, mode: str = DEFAULT_MODE) -> bool:
+    """Can the corpus answer a question needing `c`, in `mode`, right now? The composite of the two above.
+
+    Dropping either conjunct is a distinct historical bug: representability alone tells a user to read runs
+    that do not exist; coverage alone reads runs whose model never computed the quantity. Derived, never
+    restated — `tests/test_capability_predicates.py` fails if a hand-written conjunction reappears."""
+    return represents(c, mode) and has_runs_in(mode)
 
 
 def missing(mode: str = DEFAULT_MODE) -> tuple[Capability, ...]:
@@ -628,6 +644,9 @@ class ProbeResult:
     # `verified` answers the other question — "was a comparison actually performed?" — so the two states
     # stop sharing a representation. See the block above `audit()` for why this mattered in practice.
     verified: bool = True
+    # How the declaration was checked: "markers" (symbols compared against the checkout), "declaration_only"
+    # (the record carries no markers, so nothing could be compared), or "no_checkout".
+    basis: str = "markers"
 
 
 def probe(wcecoli: str | None = None) -> list[ProbeResult]:
@@ -638,7 +657,7 @@ def probe(wcecoli: str | None = None) -> list[ProbeResult]:
     root = wcecoli or os.environ.get("WCECOLI_DIR") or ""
     out: list[ProbeResult] = []
     if not root or not os.path.isdir(root):
-        return [ProbeResult(key=c.key, declared=c.present, agrees=True, verified=False,
+        return [ProbeResult(key=c.key, declared=c.present, agrees=True, verified=False, basis="no_checkout",
                             note="no checkout to probe — declaration UNVERIFIED, not confirmed")
                 for c in CAPABILITIES]
     haystack = []
@@ -657,9 +676,15 @@ def probe(wcecoli: str | None = None) -> list[ProbeResult]:
             continue
     for c in CAPABILITIES:
         if not c.markers:
-            out.append(ProbeResult(key=c.key, declared=c.present, agrees=True,
+            # Work-plan item 4e. This branch used to leave `verified` at its default True, so the two
+            # declaration-only records counted as checked against the source when no comparison ran — the
+            # audit's own "advertised more than was done" defect, on two of nine records. Absence is evidenced
+            # by the ABSENCE of an implementing symbol, which a grep for present symbols cannot confirm.
+            out.append(ProbeResult(key=c.key, declared=c.present, agrees=True, verified=False,
+                                   basis="declaration_only",
                                    note="no probeable markers — this capability is about DATA semantics or "
-                                        "model behaviour, not the presence of a symbol"))
+                                        "model behaviour, not the presence of a symbol. The declaration rests "
+                                        "on a reading of source recorded in prose; nothing was compared."))
             continue
         found = {m: (m in blob) for m in c.markers}
         # present iff EVERY marker is there: a partial port is not the capability
@@ -811,6 +836,11 @@ def audit(wcecoli: str | None = None) -> dict:
     res = probe(wcecoli)
     bad = [r for r in res if not r.agrees]
     n_verified = sum(1 for r in res if r.verified)
+    # Declaration-only records cannot be verified by any checkout, so "everything was verified" means every
+    # PROBEABLE record was — and the ones that are not probeable are named rather than counted as checked.
+    declaration_only = [r.key for r in res if r.basis == "declaration_only"]
+    n_probeable = len(res) - len(declaration_only)
+    all_probeable_verified = bool(res) and n_probeable > 0 and n_verified == n_probeable
     modes = probe_corpus_modes()
     launch = probe_launch_surface(wcecoli)
     bad_modes = [c.key for c in CAPABILITIES if any(m not in ELONGATION_MODES for m in c.holds_in)]
@@ -821,18 +851,22 @@ def audit(wcecoli: str | None = None) -> dict:
                  for m in _prose_keys(getattr(c, name)) if m not in ELONGATION_MODES]
     ok = (not bad) and modes["ok"] and launch["ok"] and not bad_modes and not bad_prose
     verdict = ("disagreement" if not ok else
-               "verified_consistent" if n_verified == len(res) and res else
+               "verified_consistent" if all_probeable_verified else
                "unverified")
     return {"ok": ok,
             # The field to read. `ok` cannot distinguish "checked and clean" from "did not check".
             "verdict": verdict,
-            "verified": n_verified == len(res) and bool(res),
+            "verified": all_probeable_verified,
             "n_verified": n_verified, "n_unverified": len(res) - n_verified,
+            "n_probeable": n_probeable,
+            # Never counted as verified, under any checkout. A reader of `verdict` alone would otherwise take
+            # these declarations as checked against the source.
+            "declaration_only": declaration_only,
             # Only ever the checkout that was ACTUALLY read. Reporting the path that was *passed* would
             # name a directory the probe never opened — the same "advertised more than was done" shape this
             # verdict exists to remove, in miniature. Caught by its own test on the first run.
             "verified_against": ((wcecoli or os.environ.get("WCECOLI_DIR") or None)
-                                 if n_verified == len(res) and res else None),
+                                 if all_probeable_verified else None),
             "n_capabilities": len(CAPABILITIES), "n_missing": len(missing()),
             "disagreements": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "note": r.note}
                               for r in bad],
@@ -843,9 +877,11 @@ def audit(wcecoli: str | None = None) -> dict:
             # without WCECOLI_DIR stays green rather than reporting a failure it did not measure — read
             # `launch_surface.verified` before treating this as evidence.
             "launch_surface": launch,
-            "probed": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "note": r.note}
-                       for r in res],
+            "probed": [{"key": r.key, "declared": r.declared, "markers": r.markers_found, "basis": r.basis,
+                        "verified": r.verified, "note": r.note} for r in res],
             "note": ("Capabilities are DECLARED and PROBED. A disagreement means the registry no longer "
                      "matches the model, which is worse than no registry — it is confidently wrong metadata. "
                      "READ `verdict`, not `ok`: `ok` only means nothing disagreed, and with no checkout "
-                     "present nothing CAN disagree. `unverified` is not a pass.")}
+                     "present nothing CAN disagree. `unverified` is not a pass. `verified_consistent` covers "
+                     "the PROBEABLE records only; those in `declaration_only` rest on a reading of source and "
+                     "are never verified by a checkout.")}

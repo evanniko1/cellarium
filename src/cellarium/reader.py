@@ -110,6 +110,11 @@ def read_run(host_run_root: Path) -> dict:
     return _invoke("run", host_run_root)
 
 
+def gen_times(host_run_root: Path) -> dict:
+    """Per-generation start/end time and chromosome count, read from raw simOut (item 4c)."""
+    return _invoke("gen_times", host_run_root)
+
+
 def viability(host_run_root: Path) -> dict:
     """Re-score a run by VIABILITY (does the lineage divide?) — the KO readout that doesn't reroute away like a
     graded growth channel. Aggregates the per-cell division signal (full_chromosome==2 + FBA-solver health) over

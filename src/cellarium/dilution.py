@@ -28,7 +28,7 @@ import json
 import math
 import statistics
 
-from . import survey
+from . import lineage, survey
 
 PREDICTED_SLOPE = -1.0          # log2(n) per generation under pure halving
 
@@ -86,12 +86,15 @@ def dilution_clock(design: str, channel: str = "growth_rate") -> dict:
             continue
         n_seeds += 1
         gq = _as_list(r.get("generation_qc"))
-        for p in _as_list(r.get("per_generation")):
+        pg_all = _as_list(r.get("per_generation"))
+        for p in pg_all:
             if not isinstance(p, dict) or p.get("i") is None or p.get(key) is None:
                 continue
             i = int(p["i"])
             if i < len(gq) and gq[i] != "ok":
                 continue                       # a collapsed generation's value is garbage, not a data point
+            if lineage.is_descendant_of_undivided(pg_all, i):
+                continue                       # item 4c: n0*2^-g assumes every step was a division
             v = float(p[key])
             if v <= 0:
                 continue                       # log2 undefined; a zero is a collapse, handled as a gap not a fit

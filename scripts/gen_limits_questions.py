@@ -5,7 +5,7 @@ WHY GENERATE RATHER THAN WRITE. The nine hand-built questions in `run_discrimina
 existing ablation (registry 9/9, grounded 8/9, ungrounded 6/9) from reporting per-item variance. What makes
 scaling possible here is that the required verdict is not a judgement at all — `registry_arm` computes it:
 
-    usable  = cap.present and mode in cap.holds_in and mode in MODES_IN_CORPUS
+    usable  = capability.answerable_in(cap, mode)     # = represents(cap, mode) and has_runs_in(mode)
     required = "answer" if usable else "refuse"
 
 So a (capability, mode) pair DETERMINES the answer key. The benchmark's real axis is therefore paraphrase —
@@ -160,7 +160,7 @@ def _stratum(cap, mode: str) -> str:
     if mode not in cap.holds_in:
         return "resolution"
     # Represented. Is there anything to read — in this mode, and for this capability?
-    if mode not in C.MODES_IN_CORPUS:
+    if not C.has_runs_in(mode):
         return "no_corpus_mode"
     return "supported" if has_data(cap.key, mode) else "no_corpus_data"
 
@@ -171,7 +171,7 @@ def cells() -> list[dict]:
     out = []
     for cap in C.CAPABILITIES:
         for mode in C.ALL_MODES:
-            usable = cap.present and mode in cap.holds_in and mode in C.MODES_IN_CORPUS
+            usable = C.answerable_in(cap, mode)
             stratum = _stratum(cap, mode)
             # THREE outcomes, not two, and the first version of this got it wrong in a way worth spelling out.
             #

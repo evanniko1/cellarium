@@ -220,6 +220,22 @@ def _lineage_viability(gens):
             "median_division_time_sec": (round(float(np.median(dts)), 1) if dts else None)}
 
 
+def mode_gen_times(run_root):
+    """Each generation's first/last timestep and chromosome count — what `cellarium.lineage` needs to tell a
+    generation that divided from one split at the time cap, without reading the whole record (item 4c)."""
+    out = []
+    for i, so in enumerate(_gens(run_root)):
+        try:
+            t = _col(so, "Main", "time").ravel()
+        except Exception as e:
+            out.append({"i": i, "error": str(e)[:200]})
+            continue
+        n = int(t.size)
+        out.append({"i": i, "n_steps": n, "t_start": (float(t[0]) if n else None),
+                    "t_end": (float(t[-1]) if n else None), "fc_end": _full_chrom(so)})
+    return {"generations": out}
+
+
 def mode_run(run_root):
     gs = _gens(run_root)
     if not gs:
@@ -1681,6 +1697,8 @@ if __name__ == "__main__":
         out = mode_run(run_root)
     elif mode == "schema":
         out = mode_schema(run_root)
+    elif mode == "gen_times":
+        out = mode_gen_times(run_root)
     elif mode == "species":
         out = mode_species(run_root, sys.argv[3], sys.argv[4])
     elif mode == "list_species":

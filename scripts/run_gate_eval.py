@@ -28,6 +28,7 @@ the failure the whole architecture exists to prevent, so they are reported separ
     python scripts/run_gate_eval.py --framings 1            # 27 cells, one framing each -- the pilot
     python scripts/run_gate_eval.py --framings 8            # the full paraphrase sweep
     python scripts/run_gate_eval.py --framings 2 --dry-run  # price it, call nothing
+    python scripts/run_gate_eval.py --heldout               # the frozen held-out set (refuses if edited)
 """
 from __future__ import annotations
 
@@ -54,6 +55,24 @@ def _items(framings: int) -> list[dict]:
     return gen.generate(framings)
 
 
+HELDOUT = REPO / "evals" / "HELDOUT_GATE_QUESTIONS.json"
+
+
+def _heldout_items() -> list[dict]:
+    """The frozen held-out set, mapped to the record shape `_one` scores. Refuses to run if the items no longer
+    match the hash committed when the set was frozen: a held-out set edited after a run is not held out."""
+    import hashlib
+    bank = json.loads(HELDOUT.read_text(encoding="utf-8"))
+    lock = HELDOUT.with_suffix(".sha256").read_text(encoding="utf-8").split()[0]
+    got = hashlib.sha256(json.dumps(bank["items"], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+    if got != lock:
+        raise SystemExit("held-out items no longer match their lock; refusing to score an edited held-out set")
+    return [{"id": i["id"], "capability": ",".join(i["required_capabilities"]) or None, "mode": i["mode"],
+             "framing": i["category"], "kind": i["category"], "required": i["key"], "ask": i["question"],
+             "required_judgement": i["key_judgement"], "registry_can_express": i["registry_can_express"]}
+            for i in bank["items"]]
+
+
 def principled_label(item: dict) -> str:
     """The generator's own stated principle, applied to the one stratum it does not apply it to.
 
@@ -78,7 +97,7 @@ def principled_label(item: dict) -> str:
     cap = C._BY_KEY.get(item["capability"])
     if cap is None:
         return item["required"]
-    return "propose" if (cap.present and item["mode"] in cap.holds_in) else "refuse"
+    return "propose" if C.represents(cap, item["mode"]) else "refuse"
 
 
 def _one(item: dict, model: str) -> dict:
@@ -99,6 +118,9 @@ def _one(item: dict, model: str) -> dict:
         "blocking": list(d.blocking), "route": d.route,
         "seconds": round(time.time() - t0, 2),
         "ask": item["ask"],
+        **({"required_judgement": item["required_judgement"],
+            "correct_judgement": d.verdict == item["required_judgement"],
+            "registry_can_express": item["registry_can_express"]} if "required_judgement" in item else {}),
     }
 
 
@@ -132,7 +154,20 @@ def _report(recs: list[dict]) -> dict:
                        for k, v in sorted(by_framing.items())},
         "confusion": {f"{a}->{b}": c for (a, b), c in sorted(confusion.items())},
         "granularity_extracted": dict(collections.Counter(r["granularity"] for r in recs)),
+        **(_heldout_report(recs) if any("required_judgement" in r for r in recs) else {}),
     }
+
+
+def _heldout_report(recs: list[dict]) -> dict:
+    """Held-out only. Items whose registry key differs from the judgement key test the REGISTRY, not the parser,
+    so they are scored separately and never folded into the headline."""
+    expr = [r for r in recs if r.get("registry_can_express")]
+    gap = [r for r in recs if not r.get("registry_can_express")]
+    return {"headline_items": len(expr),
+            "headline_accuracy": round(sum(r["correct"] for r in expr) / len(expr), 3) if expr else None,
+            "headline_under_refusals": sum(1 for r in expr if r["required"] == "refuse" and r["got"] == "answer"),
+            "registry_gap_items": len(gap),
+            "registry_gap_correct_against_judgement": sum(r["correct_judgement"] for r in gap)}
 
 
 def main(argv: list[str]) -> int:
@@ -143,10 +178,18 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--out", default=str(OUT_DIR / "gate_eval.json"))
     ap.add_argument("--dry-run", action="store_true", help="list the items and exit; no model calls")
+    ap.add_argument("--heldout", action="store_true",
+                    help="score the frozen held-out set (evals/HELDOUT_GATE_QUESTIONS.json) instead")
     a = ap.parse_args(argv)
 
-    items = _items(a.framings)
-    print(f"{len(items)} items ({a.framings} framing(s) x 27 capability-mode cells), parser model {a.model}")
+    if a.heldout:
+        items = _heldout_items()
+        if a.out == str(OUT_DIR / "gate_eval.json"):
+            a.out = str(OUT_DIR / "gate_eval_heldout.json")
+        print(f"{len(items)} held-out items, parser model {a.model}")
+    else:
+        items = _items(a.framings)
+        print(f"{len(items)} items ({a.framings} framing(s) x 27 capability-mode cells), parser model {a.model}")
     print("required:", dict(collections.Counter(i["required"] for i in items)))
     print("strata:  ", dict(collections.Counter(i["kind"] for i in items)))
     if a.dry_run:
