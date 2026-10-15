@@ -2123,5 +2123,103 @@
   "ts": 1791808242.161599,
   "host": "vmsi|Windows",
   "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 8.90402911901474,
+  "ts": 1792077843.436246,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.616544316,
+  "ts": 1792077843.7690585,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 17.964861114819843,
+  "ts": 1792078930.7360854,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.603130139,
+  "ts": 1792078930.8254085,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 9.617069264252981,
+  "ts": 1792079520.101944,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.634106232,
+  "ts": 1792079520.1826892,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 9.030913019180298,
+  "ts": 1792079718.3900967,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.5927843115,
+  "ts": 1792079718.4782672,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.080932998657227,
+  "ts": 1792080365.0695682,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.000962218,
+  "ts": 1792080365.1255624,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 25.10072096188863,
+  "ts": 1792081224.5491652,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.010080821,
+  "ts": 1792081224.6085198,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 64.7007640471061,
+  "ts": 1792092303.136123,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.71944317175,
+  "ts": 1792092303.327938,
+  "host": "vmsi|Windows",
+  "arrested": false
  }
 ]

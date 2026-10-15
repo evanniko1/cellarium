@@ -1,0 +1,378 @@
+{
+  "status": {
+    "E2_glucose_removed_1200s/s0": "completed",
+    "E2_glucose_removed_1200s/s2": "failed: RuntimeError",
+    "E2_glucose_removed_1200s/s1": "completed",
+    "E1_tf_cytR_inactive/s0": "failed: RuntimeError",
+    "E1_tf_cytR_active/s0": "completed",
+    "E2_glucose_removed_1200s/s3": "completed",
+    "E3_leucine_auxotroph_minimal/s2": "failed: RuntimeError",
+    "E2_glucose_absent/s0": "completed",
+    "E2_glucose_absent/s1": "completed",
+    "E3_leucine_auxotroph_minimal/s1": "failed: RuntimeError",
+    "E3_leucine_auxotroph_minimal/s0": "failed: RuntimeError",
+    "E3_leucine_auxotroph_minimal/s3": "completed"
+  },
+  "runs": {
+    "E1_tf_cytR_inactive/s0": {
+      "identity_key": "KeyError@models/ecoli/processes/chromosome_replication.py:calculateRequest",
+      "named": false,
+      "message": "'minimal_plus_cytidine'",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 0.0,
+          "duration_s": 0.0,
+          "final_fold": 1.0,
+          "final_expected": 1.0
+        }
+      ]
+    },
+    "E1_tf_cytR_active/s0": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2528.0,
+          "duration_s": 2528.0,
+          "final_fold": 1.895,
+          "final_expected": 1.942
+        }
+      ]
+    },
+    "E2_glucose_removed_1200s/s0": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 2,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2529.0,
+          "duration_s": 2529.0,
+          "final_fold": 1.988,
+          "final_expected": 1.943
+        },
+        {
+          "start_s": 2530.0,
+          "end_s": 4806.0,
+          "duration_s": 2276.0,
+          "final_fold": 1.941,
+          "final_expected": 1.818
+        }
+      ]
+    },
+    "E2_glucose_removed_1200s/s1": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 2,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2573.0,
+          "duration_s": 2573.0,
+          "final_fold": 1.877,
+          "final_expected": 1.965
+        },
+        {
+          "start_s": 2574.0,
+          "end_s": 4806.0,
+          "duration_s": 2232.0,
+          "final_fold": 1.779,
+          "final_expected": 1.797
+        }
+      ]
+    },
+    "E2_glucose_removed_1200s/s2": {
+      "identity_key": "NegativeCountsError@wholecell/states/bulk_molecules.py:merge",
+      "named": true,
+      "message": "Negative value(s) in self._countsAllocatedFinal:",
+      "ran_out": [
+        {
+          "molecule": "ATP[c]",
+          "process": "PolypeptideElongation",
+          "count": -6592
+        }
+      ],
+      "n_cells": 2,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 3311.0,
+          "duration_s": 3311.0,
+          "final_fold": 2.112,
+          "final_expected": 2.385
+        },
+        {
+          "start_s": 3312.0,
+          "end_s": 3722.0,
+          "duration_s": 410.0,
+          "final_fold": 0.996,
+          "final_expected": 1.114
+        }
+      ]
+    },
+    "E2_glucose_removed_1200s/s3": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 2,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2521.0,
+          "duration_s": 2521.0,
+          "final_fold": 1.815,
+          "final_expected": 1.938
+        },
+        {
+          "start_s": 2522.0,
+          "end_s": 4806.0,
+          "duration_s": 2284.0,
+          "final_fold": 1.759,
+          "final_expected": 1.822
+        }
+      ]
+    },
+    "E2_glucose_absent/s0": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 4471.0,
+          "duration_s": 4471.0,
+          "final_fold": 3.725,
+          "final_expected": 1.676
+        }
+      ]
+    },
+    "E2_glucose_absent/s1": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 4435.0,
+          "duration_s": 4435.0,
+          "final_fold": 3.549,
+          "final_expected": 1.669
+        }
+      ]
+    },
+    "E3_leucine_auxotroph_minimal/s0": {
+      "identity_key": "ValueError@models/ecoli/processes/polypeptide_elongation.py:calculate_trna_charging",
+      "named": true,
+      "message": "array must not contain infs or NaNs",
+      "ran_out": null,
+      "n_cells": 4,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2529.0,
+          "duration_s": 2529.0,
+          "final_fold": 1.225,
+          "final_expected": 1.943
+        },
+        {
+          "start_s": 2530.0,
+          "end_s": 10287.0,
+          "duration_s": 7757.0,
+          "final_fold": 1.493,
+          "final_expected": 7.665
+        },
+        {
+          "start_s": 10288.0,
+          "end_s": 21088.0,
+          "duration_s": 10800.0,
+          "final_fold": 1.482,
+          "final_expected": 17.041
+        },
+        {
+          "start_s": 21089.0,
+          "end_s": 21132.0,
+          "duration_s": 43.0,
+          "final_fold": 1.001,
+          "final_expected": 1.011
+        }
+      ]
+    },
+    "E3_leucine_auxotroph_minimal/s1": {
+      "identity_key": "ValueError@models/ecoli/processes/polypeptide_elongation.py:calculate_trna_charging",
+      "named": true,
+      "message": "array must not contain infs or NaNs",
+      "ran_out": null,
+      "n_cells": 4,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2573.0,
+          "duration_s": 2573.0,
+          "final_fold": 1.237,
+          "final_expected": 1.965
+        },
+        {
+          "start_s": 2574.0,
+          "end_s": 10108.0,
+          "duration_s": 7534.0,
+          "final_fold": 1.5,
+          "final_expected": 7.229
+        },
+        {
+          "start_s": 10109.0,
+          "end_s": 20909.0,
+          "duration_s": 10800.0,
+          "final_fold": 1.452,
+          "final_expected": 17.041
+        },
+        {
+          "start_s": 20910.0,
+          "end_s": 27935.0,
+          "duration_s": 7025.0,
+          "final_fold": 1.035,
+          "final_expected": 6.325
+        }
+      ]
+    },
+    "E3_leucine_auxotroph_minimal/s2": {
+      "identity_key": "ValueError@models/ecoli/processes/polypeptide_elongation.py:calculate_trna_charging",
+      "named": true,
+      "message": "array must not contain infs or NaNs",
+      "ran_out": null,
+      "n_cells": 3,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 3311.0,
+          "duration_s": 3311.0,
+          "final_fold": 1.302,
+          "final_expected": 2.385
+        },
+        {
+          "start_s": 3312.0,
+          "end_s": 14112.0,
+          "duration_s": 10800.0,
+          "final_fold": 1.661,
+          "final_expected": 17.041
+        },
+        {
+          "start_s": 14113.0,
+          "end_s": 18823.0,
+          "duration_s": 4710.0,
+          "final_fold": 1.152,
+          "final_expected": 3.444
+        }
+      ]
+    },
+    "E3_leucine_auxotroph_minimal/s3": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 4,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2521.0,
+          "duration_s": 2521.0,
+          "final_fold": 1.233,
+          "final_expected": 1.938
+        },
+        {
+          "start_s": 2522.0,
+          "end_s": 9787.0,
+          "duration_s": 7265.0,
+          "final_fold": 1.491,
+          "final_expected": 6.736
+        },
+        {
+          "start_s": 9788.0,
+          "end_s": 20588.0,
+          "duration_s": 10800.0,
+          "final_fold": 1.43,
+          "final_expected": 17.041
+        },
+        {
+          "start_s": 20589.0,
+          "end_s": 31389.0,
+          "duration_s": 10800.0,
+          "final_fold": 5.736,
+          "final_expected": 17.041
+        }
+      ]
+    },
+    "C_null_wildtype_minimal/s0": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2529.0,
+          "duration_s": 2529.0,
+          "final_fold": 1.971,
+          "final_expected": 1.943
+        }
+      ]
+    },
+    "C_null_wildtype_minimal/s1": {
+      "identity_key": "no_traceback",
+      "named": true,
+      "message": "",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2573.0,
+          "duration_s": 2573.0,
+          "final_fold": 1.912,
+          "final_expected": 1.965
+        }
+      ]
+    }
+  },
+  "readouts": {
+    "E1": "cytR inactive (variant 14) raised KeyError 'minimal_plus_cytidine' in chromosome_replication.calculateRequest at t=0; cytR active (variant 13) completed a normal generation (2,528 s).",
+    "E2_glucose_absent_s0_exchange_mmol_per_gDW_h": {
+      "uptake": {
+        "AMMONIUM[c]": -9.31,
+        "FE+2[p]": -0.0128,
+        "CA+2[p]": -0.0094,
+        "CL-[p]": -0.0092
+      },
+      "secretion": {
+        "CARBON-DIOXIDE[p]": 15.62,
+        "FORMATE[p]": 2.3
+      },
+      "no_carbon_uptake": true,
+      "control_C_s0": {
+        "GLC[p]": -6.39,
+        "CARBON-DIOXIDE[p]": 1.67,
+        "FORMATE[p]": 0.03
+      }
+    },
+    "E2_glucose_absent_s0_growth": "dry mass 145.8 -> 529.2 fg over 4,351 s (about 1.06 per hour, the glucose rate) with no carbon uptake; protein x2.7, RNA x4.8, small molecules x5.3",
+    "E2_glucose_removed_s0_vs_control_s0": "identical to 1,180 s; at 1,780 s dry mass 605.81 vs 605.17 fg; both seeds divide on the control schedule; 3 of 4 seeds complete two generations, seed 2 ends with ATP exhausted in translation 410 s into generation 1",
+    "E3_leucine_pool": "LEU[c] falls from ~1e5 to exactly 1 molecule within ~3 min of generation 0 in every seed and stays at 1 (median); minimum 0 recorded in later generations; seeds 0-2 end with the NaN in calculate_trna_charging after a generation capped at 10,800 s (seed 0 gen 2, seed 1 gen 2, seed 2 gen 1)",
+    "E3_seed3_last_generation": "descends from a capped generation; over a further capped 10,800 s, protein x0.95, RNA x1.46, small molecules x7.4, dry mass x5.7 -- runaway small-molecule accumulation in a non-dividing cell, not growth"
+  }
+}
