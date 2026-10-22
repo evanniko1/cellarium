@@ -132,6 +132,8 @@ def _generation(so, i):
     fc = _full_chrom(so)
     try:
         fo = _col(so, "FBAResults", "objectiveValue").ravel()
+        # Only the LAST step's objective. Solver retries within a generation leave no record in the tables,
+        # so `n_fba_failures` (the count of generations with fba_ok False) does not count them.
         fba_ok = bool(np.isfinite(fo[-1]) and fo[-1] > 0)
     except Exception:
         fba_ok = True
@@ -266,7 +268,7 @@ def _cell_viability(so):
     fc = _full_chrom(so)
     try:
         fo = _col(so, "FBAResults", "objectiveValue").ravel()
-        fba_ok = bool(np.isfinite(fo[-1]) and fo[-1] > 0)
+        fba_ok = bool(np.isfinite(fo[-1]) and fo[-1] > 0)   # last step only; see _generation
     except Exception:
         fba_ok = True
     t = _col(so, "Main", "time").ravel()

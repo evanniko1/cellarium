@@ -117,6 +117,7 @@ _NEEDS: dict[str, set[str] | None] = {
     "amino_acid_uptake_from_the_medium": {"condition", "timeline"},
     "nutrient_shift_timelines": {"timeline"},
     "growth_under_phosphate_depletion": {"condition", "timeline"},   # item 4d; refused in every mode anyway
+    "growth_without_a_carbon_source": {"condition", "timeline"},     # AUDIT-KF-N1; likewise
 }
 
 _coverage_cache: dict[str, set[str]] | None = None

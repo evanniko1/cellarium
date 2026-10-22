@@ -28,6 +28,11 @@ VALIDATED_PERTURBATIONS = {
 # Alternative carbon sources the model validates ONLY as static conditions.
 STATIC_ONLY_CARBON = {"acetate", "succinate", "fumarate", "malate"}
 
+# tf_activity variants that move the cell into a medium the condition table has no doubling time for.
+# Replication looks the medium up at the first step, so the run dies with a KeyError before simulating
+# anything (known-fault audit E1, runs_validation/cellarium/tf_activity_000014).
+TF_ACTIVITY_NO_DOUBLING_TIME = {14: ("cytR inactive", "minimal_plus_cytidine", 13)}  # 13 = cytR active, runs
+
 
 @dataclass
 class EnvelopeVerdict:
@@ -82,6 +87,18 @@ def check(design: Design) -> EnvelopeVerdict:
             f"Perturbation '{design.perturbation}' is not a validated model variant.",
             "Use one of: " + ", ".join(sorted(VALIDATED_PERTURBATIONS)) + ".",
         )
+
+    if design.perturbation == "tf_activity":
+        idx = design.params.get("variant_index")
+        if idx is not None and int(idx) in TF_ACTIVITY_NO_DOUBLING_TIME:
+            tf_state, medium, alternative = TF_ACTIVITY_NO_DOUBLING_TIME[int(idx)]
+            return EnvelopeVerdict(
+                False,
+                f"tf_activity variant {idx} ({tf_state}) puts the cell in {medium}, which has no doubling time "
+                f"in the model's condition table. The run fails at its first step without simulating.",
+                f"Use variant {alternative} (the same TF in its other state). Running this one needs a doubling "
+                f"time for {medium} and a ParCa rebuild, which is a new comparability arm.",
+            )
 
     # The load-bearing check: a timeline that switches carbon source.
     if design.timeline:

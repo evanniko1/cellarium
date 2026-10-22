@@ -106,6 +106,8 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     # limitation" name three different observables — so it enters as a dependency, which every observable can
     # carry, rather than as a row of REQUIRES.
     "phosphate_depletion": ("growth_under_phosphate_depletion",),
+    # AUDIT-KF-N1: the same reasoning for the carbon source.
+    "carbon_source_removal": ("growth_without_a_carbon_source",),
 }
 
 
@@ -303,7 +305,10 @@ _PARSE_TOOL = {
                                                        "starvation question depends on stringent_response; any "
                                                        "question in which phosphate is absent from, removed "
                                                        "from or limiting in the medium, or about the PhoB / Pho "
-                                                       "regulon response to it, depends on phosphate_depletion"},
+                                                       "regulon response to it, depends on phosphate_depletion; "
+                                                       "any question in which glucose or every carbon source "
+                                                       "is absent from or removed from the medium depends on "
+                                                       "carbon_source_removal"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -323,7 +328,9 @@ _PARSE_SYSTEM = (
     "aggregate.\n\n"
     "List every regulatory dependency the answer rides on, including ones the question does not name. In "
     "particular, a question set in a medium lacking phosphate, or after phosphate is removed or becomes "
-    "limiting, or about the Pho regulon, depends on phosphate_depletion, whatever quantity it asks about."
+    "limiting, or about the Pho regulon, depends on phosphate_depletion, whatever quantity it asks about. "
+    "Likewise a question set after glucose is removed, or in a medium with no carbon source, depends on "
+    "carbon_source_removal. Lowering glucose to a smaller but non-zero concentration is not removal."
 )
 
 

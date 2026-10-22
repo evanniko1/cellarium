@@ -498,6 +498,9 @@ _PERTURBATION_CAPABILITY: dict[str, tuple[str, ...]] = {
 # `condition/minus_phosphate`, and any timeline that shifts into `minimal_minus_phosphate`.
 _MEDIUM_CAPABILITY: dict[str, tuple[str, ...]] = {
     "minus_phosphate": ("growth_under_phosphate_depletion",),
+    # AUDIT-KF-N1: `condition/no_glucose` and timelines into `minimal_no_glucose`. The GLC_2mM/5mM/20mM media
+    # keep glucose and do not match.
+    "no_glucose": ("growth_without_a_carbon_source",),
 }
 
 

@@ -24,6 +24,14 @@ def test_glucose_ramp_is_in_envelope():
     assert v.in_envelope
 
 
+def test_tf_activity_into_a_medium_without_a_doubling_time_is_refused():
+    """Known-fault audit E1: variant 14 (cytR inactive) dies at t=0 on minimal_plus_cytidine; 13 runs."""
+    v = envelope.check(Design(perturbation="tf_activity", params={"variant_index": 14}))
+    assert not v.in_envelope
+    assert "minimal_plus_cytidine" in v.reason and "variant 13" in v.suggestion
+    assert envelope.check(Design(perturbation="tf_activity", params={"variant_index": 13})).in_envelope
+
+
 def test_wildtype_condition_is_in_envelope():
     assert envelope.check(Design(perturbation="wildtype", condition="basal")).in_envelope
 

@@ -29,6 +29,19 @@ WCECOLI_DOCKER = os.environ.get("WCECOLI_DOCKER", "")    # optional LOCAL model 
 PY = os.environ.get("WCECOLI_PY", "python")               # native interpreter when not using Docker
 OUT_ROOT = Path(os.environ.get("CELLARIUM_OUT", "runs")).resolve()
 
+# Wall-clock limit per simulation, in minutes per requested generation, plus a fixed allowance for start-up.
+# Measured on this host: median 13.2, max 64.7 min per generation over 104 completed runs at 6 in parallel
+# (data/calibration/resource_observations.json). 180 is ~3x the slowest run seen. 0 turns the limit off.
+WALL_MIN_PER_GEN = float(os.environ.get("CELLARIUM_WALL_MIN_PER_GEN", "180"))
+WALL_STARTUP_MIN = 30.0
+
+
+def wall_limit_s(generations: int) -> float | None:
+    """Seconds a run of `generations` may take before it is killed, or None when the limit is off."""
+    if WALL_MIN_PER_GEN <= 0:
+        return None
+    return 60.0 * (WALL_STARTUP_MIN + WALL_MIN_PER_GEN * max(1, int(generations)))
+
 
 def _variant_type(design: Design) -> str:
     """The model variant to run. A PURE media-shift design has no genotype of its own, so it executes on the
@@ -534,10 +547,14 @@ def _exec(script_args: list[str]) -> None:
         # container runs, so hashing it afterwards would record a state the model may never have seen.
         file_mounts = [*_flat_file_mounts(), *(getattr(_EXEC_LOCAL, "mounts", None) or [])]
         _EXEC_LOCAL.mount_record = _mount_fingerprint(file_mounts)
-        cmd = ["docker", "run", "--rm", "-v", f"{OUT_ROOT}:/wcEcoli/out",
+        # Named, so the wall-clock limit can stop the container itself: killing the docker CLI alone can leave
+        # the container running.
+        name = f"cellarium-{os.getpid()}-{threading.get_ident()}-{int(time.time() * 1000)}"
+        cmd = ["docker", "run", "--rm", "--name", name, "-v", f"{OUT_ROOT}:/wcEcoli/out",
                *file_mounts, *extra_env,
                "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", WCECOLI_DOCKER, "python", *script_args]
-        _run_checked(cmd, None, getattr(_EXEC_LOCAL, "log_path", None))   # the docker CLI has no use for a credential
+        _run_checked(cmd, None, getattr(_EXEC_LOCAL, "log_path", None),   # the docker CLI has no use for a credential
+                     wall_limit_s=getattr(_EXEC_LOCAL, "wall_limit_s", None), container=name)
         return
     if not WCECOLI_DIR:
         raise RuntimeError("Set WCECOLI_DOCKER (local model image) or WCECOLI_DIR (native checkout). "
@@ -546,7 +563,8 @@ def _exec(script_args: list[str]) -> None:
     # strictly MORE exposure than four bind mounts. Recording an empty mount list here would read as "nothing
     # was shadowed" and be the wrong claim, so the mode is named instead.
     _EXEC_LOCAL.mount_record = "native"
-    _run_checked([PY, *script_args], WCECOLI_DIR, getattr(_EXEC_LOCAL, "log_path", None))
+    _run_checked([PY, *script_args], WCECOLI_DIR, getattr(_EXEC_LOCAL, "log_path", None),
+                 wall_limit_s=getattr(_EXEC_LOCAL, "wall_limit_s", None))
 
 
 # A crashed wcEcoli sim EXITS ZERO. FireWorks catches the process exception, marks the task FIZZLED, and the
@@ -558,21 +576,36 @@ _FAILURE_MARKERS = ("Traceback (most recent call last)", "FIZZLED", "KeyError", 
                     "ValueError:", "RuntimeError:", "AssertionError")
 
 
-def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None) -> None:
+def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None,
+                 wall_limit_s: float | None = None, container: str | None = None) -> None:
     """Run a model script, streaming its output, and FAIL on a traceback even when the exit code says 0.
 
     FAIL-1: with `log_path`, the WHOLE output is also written there, for every run. The in-memory tail below
     was the only copy, and the crash row kept 150-200 characters of it — so the traceback was captured and
     then thrown away. The exit status and any failure marker are appended because neither is in the model's
     own output, and without them a container killed by the host reads like a run that printed nothing.
-    The file is development material and is excluded from every upload path (`failures.is_dev_only`)."""
+    The file is development material and is excluded from every upload path (`failures.is_dev_only`).
+
+    `wall_limit_s` (AUDIT-KF-N7): a run still going after that many seconds is killed, its container first,
+    and recorded with `failures.WALL_MARK`. Without it a hung simulation held its worker forever."""
     from . import failures
     log = open(log_path, "w", encoding="utf-8", errors="replace") if log_path else None
+    timer = None
+    timed_out = threading.Event()
     try:
         if log:
             log.write(f"[cellarium] started {time.strftime('%Y-%m-%dT%H:%M:%S')} :: {last_argv() or ''}\n")
         proc = subprocess.Popen(cmd, cwd=cwd or None, env=redact.child_env(),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        if wall_limit_s:
+            def _kill():
+                timed_out.set()
+                if container:
+                    subprocess.run(["docker", "kill", container], capture_output=True, env=redact.child_env())
+                proc.kill()
+            timer = threading.Timer(wall_limit_s, _kill)
+            timer.daemon = True
+            timer.start()
         tail: list[str] = []
         assert proc.stdout is not None
         for line in proc.stdout:
@@ -583,15 +616,24 @@ def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None) 
             if len(tail) > 400:
                 del tail[:200]
         rc = proc.wait()
+        if timer:
+            timer.cancel()
         blob = "".join(tail)
         hit = next((m for m in _FAILURE_MARKERS if m in blob), None)
         if log:
+            if timed_out.is_set():
+                log.write(f"\n{failures.WALL_MARK} {wall_limit_s:.0f} s\n")
             log.write(f"\n{failures.EXIT_MARK} {rc}\n")
             if hit:
                 log.write(f"{failures.MARKER_MARK} {hit}\n")
     finally:
+        if timer:
+            timer.cancel()
         if log:
             log.close()
+    if timed_out.is_set():
+        raise TimeoutError(f"The simulation exceeded its wall-clock limit of {wall_limit_s:.0f} s and was killed "
+                           f"(CELLARIUM_WALL_MIN_PER_GEN sets the limit; 0 turns it off).")
     if rc != 0:
         raise subprocess.CalledProcessError(rc, cmd, output=blob)
     if hit:
@@ -784,12 +826,14 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
                 f"Refusing to run: {evac['why']}. Running would overwrite it. Move or delete it deliberately.")
         _set_exec_env(_graded_ko_env(design))   # raises if a graded design cannot be fully specified
         _EXEC_LOCAL.log_path = log_path
+        _EXEC_LOCAL.wall_limit_s = wall_limit_s(generations)
         try:
             _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
                    "--generations", str(generations), *_variant_args(design)])
         finally:
             _set_exec_env(None)
             _EXEC_LOCAL.log_path = None
+            _EXEC_LOCAL.wall_limit_s = None
         # IMMEDIATELY after the run and INSIDE the lock, because the model keeps ONE metadata.json per sim_path
         # and overwrites it on the next run. Outside the lock a concurrent worker's run would already have
         # replaced it, and this would record that run's configuration against this run's output.

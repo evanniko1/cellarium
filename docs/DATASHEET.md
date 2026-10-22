@@ -123,6 +123,11 @@ Channel aggregation per generation, QC scoring, and the provenance join. The ind
 corrections **supersede** rather than mutate, and filtering must happen *after* de-duplication or a stale row
 can outlive the correction that replaced it.
 
+`n_fba_failures` counts generations whose **last** recorded FBA objective is non-finite or ≤ 0. It does not
+count solver retries within a generation, which leave no record in the output tables. It is 0 in all 333
+corpus rows that record it, including the 73 crashed ones; a run that crashed on a solver error is marked by
+`crashed` and `crash_type`, not by this column.
+
 ---
 
 ## Uses

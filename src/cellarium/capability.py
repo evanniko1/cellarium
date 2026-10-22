@@ -453,6 +453,30 @@ CAPABILITIES: tuple[Capability, ...] = (
                      "(evals/results/phosphate_validation.json)"},
         detail="growth, adaptation or survival after phosphate is removed from the medium",
     ),
+    # AUDIT-KF-N1, same pattern as the entry above. Evidence: known-fault audit E2
+    # (scripts/validate_known_faults.py, evals/results/known_faults_validation.json), steady_state only. The
+    # kinetic models share the metabolism that produces this and were not run on it.
+    Capability(
+        key="growth_without_a_carbon_source",
+        question="Does the cell stop growing, adapt or starve when glucose, its only carbon source, is removed "
+                 "or absent?",
+        present=False,
+        holds_in=(),
+        markers=(),
+        instead={ALL_MODES: "with no glucose (minimal_no_glucose, whose carbon is CO2 and a trace of "
+                 "L-selenocysteine) the metabolic network takes up no carbon beyond about 0.00015 mmol/gDW/h of "
+                 "selenocysteine, yet the cell keeps making biomass at least as fast as with "
+                 "glucose: dry mass rose 3.6- and 3.7-fold before division at about 4,450 s (1.11-1.16 per h, "
+                 "against 0.92-1.00 per h with glucose) while the cell secreted CO2 at 14.5-15.6 mmol/gDW/h "
+                 "(1.5-1.7 with glucose) and formate at 2.0-2.3. Removing glucose at 1,200 s from a growing "
+                 "cell left growth and division timing unchanged (dry mass 605.8 vs 605.2 fg at 1,780 s; "
+                 "division at 2,529 s in both). Carbon is not conserved"},
+        consequence={ALL_MODES: "growth, division and every value read after glucose is removed are not a "
+                     "response to carbon starvation. Of 4 seeds with glucose removed, 3 completed both "
+                     "generations and 1 stopped with ATP exhausted; neither outcome is a prediction. Measured "
+                     "under steady_state; the kinetic models use the same metabolism and were not run on it"},
+        detail="growth, adaptation or survival after glucose is removed, or with no carbon source",
+    ),
     # Present capabilities are declared too, so the registry is a complete picture rather than a defect list.
     Capability(
         key="knockout_of_a_multi_transcription_unit_gene",

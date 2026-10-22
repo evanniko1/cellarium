@@ -1,0 +1,23 @@
+# excerpt of runs/gltx_run.log: traceback lines 61898-61917. That log interleaves concurrent sims. The [cellarium] line is synthesised for the test.
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 182, in <module>
+    script.cli()
+  File "/wcEcoli/wholecell/utils/scriptBase.py", line 674, in cli
+    self.run(args)
+  File "/wcEcoli/runscripts/manual/runSim.py", line 177, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulationDaughter.py", line 93, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 257, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 289, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 345, in _evolveState
+    process.calculateRequest()
+  File "/wcEcoli/models/ecoli/processes/equilibrium.py", line 54, in calculateRequest
+    self.rxnFluxes, self.req = self.fluxesAndMoleculesToSS(
+  File "/wcEcoli/reconstruction/ecoli/dataclasses/process/equilibrium.py", line 386, in fluxes_and_molecules_to_SS
+    y = sol.y.T
+AttributeError: 'list' object has no attribute 'T'
+
+[cellarium] model process exited with status 1

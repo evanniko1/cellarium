@@ -54,6 +54,7 @@ DEV_ONLY_GLOBS = ("sim.log", "sim.*.log", "**/sim.log", "**/sim.*.log")
 # and without it a container killed by the host is indistinguishable from a run that printed nothing.
 EXIT_MARK = "[cellarium] model process exited with status"
 MARKER_MARK = "[cellarium] failure marker in output:"
+WALL_MARK = "[cellarium] wall-clock limit reached, run killed after"
 
 
 def is_dev_only(name: str) -> bool:
@@ -92,7 +93,7 @@ def read_log(run_root) -> str | None:
 @dataclass(frozen=True)
 class Signature:
     name: str
-    category: str          # ran_out | numerical | solver | writer | infrastructure | refused | no_evidence
+    category: str          # ran_out | numerical | solver | writer | configuration | infrastructure | refused | no_evidence
     result: bool           # True: a statement about the CELL. False: about the software, the host, or nothing.
     meaning: str           # what is established — and what is not
     evidence: str          # the log that defined it, or an explicit statement that none in this corpus has
@@ -131,16 +132,32 @@ KNOWN: dict[str, Signature] = {
         "runs/stress_run.log — condition/minus_phosphate seed0: ATP[c] in PolypeptideElongation (-13690)"),
     "ValueError@models/ecoli/processes/polypeptide_elongation.py:calculate_trna_charging": Signature(
         "tRNA-charging solve received non-finite values", "numerical", False,
-        "The stiff solver inside tRNA charging was handed infs or NaNs. This is WHERE it failed, not why: the "
-        "non-finite value may originate upstream (an amino-acid pool reaching zero is the leading suspect) "
-        "and that is not diagnosed in this corpus.",
-        "runs/leu_arm.log + runs/arg_arm.log — 10 tracebacks, KO:leuB and KO:argG auxotroph arms"),
+        "The stiff solver inside tRNA charging was handed infs or NaNs. This is WHERE it failed, not why. The "
+        "likely origin is upstream: the amino-acid synthesis rate law in metabolism divides by the pool "
+        "concentration and gives 0/0 when a pool is empty. In the leucine auxotroph of the known-fault audit "
+        "(E3) LEU[c] fell to 1 within about 3 min and later reached 0, and 3 of 4 seeds died here. The 0/0 "
+        "itself was not traced in a Cellarium run.",
+        "runs/leu_arm.log + runs/arg_arm.log — 10 tracebacks, KO:leuB and KO:argG auxotroph arms; "
+        "runs_validation/cellarium/gene_knockout_001818 (E3, 3 of 4 seeds)"),
     "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve": Signature(
         "FBA solver failed (GLPK)", "solver", False,
         "The metabolism LP failed after the retry ladder ran out; `detail.glpk` carries the solver status. "
         "A cell that had already stopped growing can reach this on the way down, so the pre-failure state "
         "decides whether it is a software failure on a healthy cell or one recorded during a death.",
         "runs/gltx_run.log — GLP_EFAIL via metabolism.py:evolveState"),
+    "AttributeError@reconstruction/ecoli/dataclasses/process/equilibrium.py:fluxes_and_molecules_to_SS": Signature(
+        "equilibrium solver failed", "numerical", False,
+        "The equilibrium ODE solve failed without raising: the method loop catches only ValueError, and when "
+        "a solve with `t_eval` fails before its first successful step scipy leaves `sol.y` as an empty list, so "
+        "`sol.y.T` raises. The AttributeError is the symptom; why the solve failed is not diagnosed here.",
+        "runs/gltx_run.log — 1 traceback, KO:gltX arm"),
+    "KeyError@models/ecoli/processes/chromosome_replication.py:calculateRequest": Signature(
+        "medium has no doubling time", "configuration", False,
+        "The cell was put into a medium that the condition table gives no doubling time for, and replication "
+        "looked it up at the first step. Nothing about the cell is learned: the run never simulated. "
+        "Reachable through `tf_activity` variant 14 (cytR inactive -> minimal_plus_cytidine), which the "
+        "envelope now refuses.",
+        "runs_validation/cellarium/tf_activity_000014 — known-fault audit E1"),
     "refused:envelope": Signature(
         "refused by Cellarium's envelope", "refused", False,
         "Cellarium refused the design before anything ran. NOTHING WAS SIMULATED — this is not a crash and "
@@ -150,6 +167,11 @@ KNOWN: dict[str, Signature] = {
         "refused to overwrite existing output", "refused", False,
         "The run would have overwritten output with no provenance, so it did not start. Nothing simulated.",
         "2 KO:argG rows in the corpus index"),
+    "killed:wall_limit": Signature(
+        "killed at the wall-clock limit", "infrastructure", False,
+        "The run was still going at Cellarium's wall-clock limit and was killed. It may have hung or only "
+        "been slow; either way it says nothing about the cell. Tables written before the kill are truncated.",
+        "not yet observed; the limit is runner.wall_limit_s (AUDIT-KF-N7)"),
     "no_log": Signature(
         "no evidence retained", "no_evidence", False,
         "The run left no log (it predates log retention, or never started). Its cause is UNKNOWN, and is "
@@ -252,6 +274,8 @@ def identify(*, log_text: str | None = None, note: str | None = None, run_root=N
     text = log_text if log_text is not None else read_log(run_root)
     if text is None:
         return Identity("no_log", "none")
+    if WALL_MARK in text:
+        return Identity("killed:wall_limit", "log")
     blk = _root_block(text)
     if blk is None:
         m = re.search(re.escape(EXIT_MARK) + r" (-?\d+)", text)

@@ -51,6 +51,20 @@ def test_glpk_failure_is_solver_and_carries_the_status():
     assert i.signature.category == "solver" and i.detail["glpk"] == "GLP_EFAIL"
 
 
+def test_a_medium_without_a_doubling_time_is_configuration_not_a_result():
+    i = F.identify(log_text=_fx("cytidine_no_doubling_time.log"))
+    assert i.key == "KeyError@models/ecoli/processes/chromosome_replication.py:calculateRequest"
+    assert i.named and i.signature.category == "configuration" and i.signature.result is False
+    assert i.message == "'minimal_plus_cytidine'"
+
+
+def test_the_equilibrium_attributeerror_is_named_as_a_failed_solve():
+    i = F.identify(log_text=_fx("equilibrium_lsoda_failure.log"))
+    assert i.key == ("AttributeError@reconstruction/ecoli/dataclasses/process/equilibrium.py:"
+                     "fluxes_and_molecules_to_SS")
+    assert i.named and i.signature.category == "numerical" and i.signature.result is False
+
+
 def test_every_known_traceback_identity_has_a_fixture():
     """A name must cite the evidence that defined it. Refusals and absences are read from notes, not logs."""
     seen = {F.identify(log_text=p.read_text(encoding="utf-8")).key for p in FIX.glob("*.log")}
@@ -127,6 +141,27 @@ def test_prepare_log_rotates_and_never_overwrites(tmp_path):
     texts = sorted(q.read_text(encoding="utf-8") for q in tmp_path.iterdir())
     assert texts == ["attempt 0", "attempt 1", "attempt 2"]
     assert all(F.is_dev_only(q.name) for q in tmp_path.iterdir())
+
+
+def test_a_run_past_its_wall_clock_limit_is_killed_and_named(tmp_path):
+    """AUDIT-KF-N7: a hung simulation used to hold its worker forever."""
+    script = "import time\nprint('started', flush=True)\ntime.sleep(60)\n"
+    log = tmp_path / F.SIM_LOG
+    t0 = __import__("time").time()
+    with pytest.raises(TimeoutError):
+        runner._run_checked([sys.executable, "-c", script], None, log, wall_limit_s=1.5)
+    assert __import__("time").time() - t0 < 30
+    text = log.read_text(encoding="utf-8")
+    assert "started" in text and F.WALL_MARK in text
+    i = F.identify(log_text=text)
+    assert i.key == "killed:wall_limit" and i.named and i.signature.result is False
+
+
+def test_the_wall_limit_scales_with_generations_and_can_be_turned_off(monkeypatch):
+    assert runner.wall_limit_s(4) == 60 * (runner.WALL_STARTUP_MIN + 4 * runner.WALL_MIN_PER_GEN)
+    assert runner.wall_limit_s(4) > runner.wall_limit_s(1)
+    monkeypatch.setattr(runner, "WALL_MIN_PER_GEN", 0.0)
+    assert runner.wall_limit_s(4) is None
 
 
 def test_run_checked_keeps_the_whole_output_not_the_tail(tmp_path):

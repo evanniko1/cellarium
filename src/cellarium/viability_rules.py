@@ -23,7 +23,7 @@ def verdict(min_division_rate, all_terminal_divided, any_terminal_divided, n_fba
     if min_division_rate is None:
         return "unknown"                       # shards predate the viability channel
     if n_fba_failures and n_fba_failures > 0:
-        return "inviable"                      # a solver crash is inviable regardless of division rate
+        return "inviable"                      # a generation ended with no feasible FBA solution
     if min_division_rate >= VIABLE_MIN_RATE and all_terminal_divided:
         return "viable"
     if min_division_rate < INVIABLE_MAX_RATE or not any_terminal_divided:

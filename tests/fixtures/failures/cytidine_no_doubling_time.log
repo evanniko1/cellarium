@@ -1,0 +1,29 @@
+# excerpt of runs_validation/cellarium/tf_activity_000014/000000/sim.log (audit E1, tf_activity variant 14, seed 0): lines 1, 23-47, 103-104. All lines are from the run's own log; none are synthesised.
+[cellarium] started 2026-10-15T16:42:10 :: runscripts/manual/runSim.py cellarium --seed 0 --generations 1 --variant tf_activity 14 14
+
+============================================================
+VARIANT 14 (tf_activity_000014) FAILED â€” skipping to next variant
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 243, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulation.py", line 104, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 365, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 397, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 453, in _evolveState
+    process.calculateRequest()
+  File "/wcEcoli/models/ecoli/processes/chromosome_replication.py", line 92, in calculateRequest
+    self.nutrientToDoublingTime[current_media_id])
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'minimal_plus_cytidine'
+============================================================
+
+
+============================================================
+SUMMARY: 1 variant(s) failed:
+  Variant 14: tf_activity_000014
+============================================================
+[cellarium] model process exited with status 0
+[cellarium] failure marker in output: Traceback (most recent call last)
