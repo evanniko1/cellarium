@@ -135,7 +135,7 @@ def test_append_shard_keeps_a_column_that_is_absent_from_the_first_row():
         # scipy-free and they arrive only through the opt-in `fba`/`rnaseq` extras. It passed locally because
         # this developer's venv has cobra installed, and failed in CI on every commit for days with
         # "'pandas' is required for this operation but it was not installed". Arrow needs no extra.
-        tbl = duckdb.connect().execute("SELECT * FROM read_parquet('%s')" % p.as_posix()).fetch_arrow_table()
+        tbl = duckdb.connect().execute("SELECT * FROM read_parquet('%s')" % p.as_posix()).to_arrow_table()
         cols, got = tbl.column_names, tbl.to_pylist()
         assert sorted(cols) == ["a", "b", "c"], (
             "append_shard dropped %s — a key present on a later row did not survive the write"

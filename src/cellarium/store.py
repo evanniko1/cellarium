@@ -29,7 +29,7 @@ def _duck(sql: str, params: list | None = None) -> list[dict]:
 
     con = duckdb.connect()
     try:
-        return con.execute(sql, params or []).fetch_arrow_table().to_pylist()
+        return con.execute(sql, params or []).to_arrow_table().to_pylist()
     finally:
         con.close()
 

@@ -131,7 +131,7 @@ def drop_run(run_id: str, reason: str, ts: float | None = None) -> dict:
         rows = con.execute(
             f"SELECT id, simout_path, perturbation, condition, timeline, label, generations, reportable "
             f"FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) WHERE id = ?", [run_id]
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
     if not rows:
@@ -269,7 +269,7 @@ def corpus_elongation_modes() -> dict:
         rows = con.execute(
             f"SELECT DISTINCT COALESCE(elongation_model, '{DEFAULT_MODE}') AS m FROM "
             f"(SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) {DEDUP_QUALIFY})"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
         return {"verified": True, "modes": sorted(r["m"] for r in rows if r.get("m"))}
     except Exception as exc:
         return {"verified": False, "modes": [], "why": f"manifest unreadable: {type(exc).__name__}: {exc}"}
@@ -825,7 +825,7 @@ def dropped_rows() -> list[dict]:
     con = duckdb.connect()
     try:
         return con.execute(f"SELECT * FROM read_parquet('{QUARANTINE_DIR.as_posix()}/*.parquet', "
-                           f"union_by_name=true)").fetch_arrow_table().to_pylist()
+                           f"union_by_name=true)").to_arrow_table().to_pylist()
     finally:
         con.close()
 
@@ -855,7 +855,7 @@ def quarantine_tombstones(dry_run: bool = True) -> dict:
     con = duckdb.connect()
     try:
         rows = con.execute(f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', "
-                           f"union_by_name=true)").fetch_arrow_table().to_pylist()
+                           f"union_by_name=true)").to_arrow_table().to_pylist()
     finally:
         con.close()
     move = [r for r in rows if dedup_key_py(r) in tomb]
@@ -1004,7 +1004,7 @@ def compact(dry_run: bool = False) -> dict:
     try:
         latest = con.execute(
             f"SELECT * FROM read_parquet('{glob_pat}', union_by_name=true) {DEDUP_QUALIFY}"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
         total = con.execute(f"SELECT count(*) FROM read_parquet('{glob_pat}', union_by_name=true)").fetchone()[0]
     finally:
         con.close()
@@ -1038,9 +1038,9 @@ def prune(where_sql: str, dry_run: bool = True) -> dict:
     try:
         drop = con.execute(f"SELECT id, perturbation, condition, seed, generations, crashed, simout_path "
                            f"FROM read_parquet('{glob_pat}', union_by_name=true) WHERE {where_sql}"
-                           ).fetch_arrow_table().to_pylist()
+                           ).to_arrow_table().to_pylist()
         allrows = con.execute(f"SELECT * FROM read_parquet('{glob_pat}', union_by_name=true)"
-                              ).fetch_arrow_table().to_pylist()
+                              ).to_arrow_table().to_pylist()
     finally:
         con.close()
     drop_ids = {r["id"] for r in drop}
@@ -1323,7 +1323,7 @@ def backfill_kb_provenance(sim_path: str = "cellarium", dry_run: bool = True) ->
     try:
         rows = con.execute(
             f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) {DEDUP_QUALIFY}"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
     # Stamp only rows from THIS campaign. `sim_path` was accepted and documented but never used: the kb was
@@ -1384,7 +1384,7 @@ def backfill_elongation_model(dry_run: bool = True) -> dict:
     try:
         rows = con.execute(
             f"SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) {DEDUP_QUALIFY}"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
     n_before = sum(1 for r in rows if r.get("elongation_model"))
@@ -1436,7 +1436,7 @@ def backfill_parca_ts(dry_run: bool = True) -> dict:
     try:
         rows = con.execute(
             f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
 
@@ -1512,7 +1512,7 @@ def backfill_graded_dose(dry_run: bool = True) -> dict:
     try:
         rows = con.execute(
             f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
 
@@ -1582,7 +1582,7 @@ def backfill_timeline_identity(dry_run: bool = True) -> dict:
     try:
         rows = con.execute(
             f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
 
@@ -1645,7 +1645,7 @@ def backfill_condition(dry_run: bool = True) -> dict:
     try:
         rows = con.execute(
             f"SELECT * FROM read_parquet('{MANIFEST_DIR.as_posix()}/*.parquet', union_by_name=true)"
-        ).fetch_arrow_table().to_pylist()
+        ).to_arrow_table().to_pylist()
     finally:
         con.close()
 
@@ -1778,7 +1778,7 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
         no_prov = [r["id"] for r in con.execute(
             f"SELECT id FROM (SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
             f"{DEDUP_QUALIFY}) WHERE kb_sha256 IS NULL"
-        ).fetch_arrow_table().to_pylist()]
+        ).to_arrow_table().to_pylist()]
         con.close()
     except Exception:
         no_prov = []
@@ -1795,7 +1795,7 @@ def integrity_check(sim_path: str = "cellarium", check_disk: bool = True) -> dic
             con = duckdb.connect()
             null_elong = [r["id"] for r in con.execute(
                 f"SELECT id FROM (SELECT * FROM read_parquet('{MANIFEST_DIR}/*.parquet', union_by_name=true) "
-                f"{DEDUP_QUALIFY}) WHERE elongation_model IS NULL").fetch_arrow_table().to_pylist()]
+                f"{DEDUP_QUALIFY}) WHERE elongation_model IS NULL").to_arrow_table().to_pylist()]
             con.close()
         except Exception:
             null_elong = []

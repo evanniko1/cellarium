@@ -275,7 +275,7 @@ def _measure_corpus() -> dict:
                 f"SELECT operons, COUNT(*) AS n FROM (SELECT * FROM "
                 f"read_parquet('{manifest.MANIFEST_DIR}/*.parquet', union_by_name=true) "
                 f"{manifest.DEDUP_QUALIFY}) GROUP BY 1 ORDER BY 2 DESC"
-            ).fetch_arrow_table().to_pylist()
+            ).to_arrow_table().to_pylist()
         finally:
             con.close()
         counts = {(r.get("operons") or "unrecorded"): int(r["n"]) for r in rows}

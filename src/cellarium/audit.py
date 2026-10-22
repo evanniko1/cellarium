@@ -54,7 +54,7 @@ def _rows() -> list[dict]:
              f"{manifest.elongation_sql()}, "   # safe before any shard carries the column (see the helper)
              "qc, reportable, crashed, ts, generations, requested_generations, gens_reached "
              f"FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true)")
-        return con.execute(q).fetch_arrow_table().to_pylist()
+        return con.execute(q).to_arrow_table().to_pylist()
     except Exception as exc:
         return [{"__error__": str(exc)}]
     finally:

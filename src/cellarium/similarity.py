@@ -45,7 +45,7 @@ def _sim_rows() -> list[dict]:
     q = (f"WITH d AS (SELECT * FROM read_parquet('{survey.MANIFEST_GLOB}', union_by_name=true) "
          f"{manifest.DEDUP_QUALIFY}) SELECT {cols} FROM d")
     try:
-        return survey._mark_dropped(con.execute(q).fetch_arrow_table().to_pylist())
+        return survey._mark_dropped(con.execute(q).to_arrow_table().to_pylist())
     except Exception as exc:
         return [{"__error__": str(exc)}]
     finally:

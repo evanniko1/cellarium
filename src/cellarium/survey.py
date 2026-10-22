@@ -166,7 +166,7 @@ def _deduped_rows(channels: list[str]) -> list[dict]:
              f"{manifest.DEDUP_QUALIFY}) "
              f"SELECT {sel} FROM d")
         try:
-            rows = con.execute(q).fetch_arrow_table().to_pylist()
+            rows = con.execute(q).to_arrow_table().to_pylist()
             return _mark_dropped(rows)
         except Exception as exc:
             last = str(exc)
@@ -356,7 +356,7 @@ def _leth_rows() -> list[dict]:
     q = (f"WITH d AS (SELECT * FROM read_parquet('{MANIFEST_GLOB}', union_by_name=true) {manifest.DEDUP_QUALIFY}) "
          f"SELECT id, simout_path, {cols} FROM d")
     try:
-        return _mark_dropped(con.execute(q).fetch_arrow_table().to_pylist())
+        return _mark_dropped(con.execute(q).to_arrow_table().to_pylist())
     except Exception as exc:
         return [{"__error__": str(exc)}]
     finally:

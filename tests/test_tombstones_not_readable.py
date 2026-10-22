@@ -74,7 +74,7 @@ def test_no_tombstoned_row_is_in_the_glob_every_reader_uses():
     con = duckdb.connect()
     try:
         rows = con.execute("SELECT id FROM read_parquet('data/manifest/*.parquet', union_by_name=true)"
-                           ).fetch_arrow_table().to_pylist()
+                           ).to_arrow_table().to_pylist()
     finally:
         con.close()
     leaked = sorted({r["id"] for r in rows} & ids)
@@ -95,7 +95,7 @@ def test_a_glob_does_not_descend_into_the_quarantine():
     try:
         seen = {r["id"] for r in con.execute(
             "SELECT id FROM read_parquet('data/manifest/*.parquet', union_by_name=true)"
-        ).fetch_arrow_table().to_pylist()}
+        ).to_arrow_table().to_pylist()}
     finally:
         con.close()
     quarantined = {r.get("id") for r in manifest.dropped_rows()}
@@ -116,7 +116,7 @@ def test_quarantining_loses_nothing():
     try:
         live = {r["id"] for r in con.execute(
             "SELECT id FROM read_parquet('data/manifest/*.parquet', union_by_name=true)"
-        ).fetch_arrow_table().to_pylist()}
+        ).to_arrow_table().to_pylist()}
     finally:
         con.close()
     quarantined = manifest.dropped_rows()

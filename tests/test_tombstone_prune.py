@@ -32,7 +32,7 @@ def test_the_python_and_sql_dedup_keys_agree_on_the_corpus():
         rows = con.execute(
             f"SELECT id, simout_path, {manifest.DEDUP_KEY} AS sql_key "
             "FROM read_parquet('data/manifest/*.parquet', union_by_name=true) "
-            f"{manifest.DEDUP_QUALIFY}").fetch_arrow_table().to_pylist()
+            f"{manifest.DEDUP_QUALIFY}").to_arrow_table().to_pylist()
     finally:
         con.close()
     bad = [r for r in rows if manifest.dedup_key_py(r) != r["sql_key"]]
