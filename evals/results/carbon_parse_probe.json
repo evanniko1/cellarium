@@ -1,0 +1,805 @@
+{
+ "summary": {
+  "model": "claude-opus-4-8",
+  "repeats": 3,
+  "questions": 17,
+  "calls": 51,
+  "recall_calls": 1.0,
+  "false_positive_calls": 0.037037037037037035,
+  "questions_stable_and_correct": 16,
+  "verdicts_on_positives": {
+   "refuse": 24
+  },
+  "parse_failures": 0
+ },
+ "rows": [
+  {
+   "question": "What happens to the growth rate when glucose is removed from minimal medium 20 minutes into the simulation?",
+   "expected": true,
+   "note": "removal mid-run",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "In a medium with no carbon source at all, how fast does the cell grow?",
+   "expected": true,
+   "note": "absent from the start",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "How long after glucose runs out does the cell stop dividing?",
+   "expected": true,
+   "note": "exhaustion",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "Simulate carbon starvation: how does ribosome content change over the next generation?",
+   "expected": true,
+   "note": "named starvation",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response"
+     ],
+     "observable": "rrna_transcription",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response"
+     ],
+     "observable": "rrna_transcription",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response"
+     ],
+     "observable": "rrna_transcription",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "Does the cstA transcript rise when the cell is starved of carbon?",
+   "expected": true,
+   "note": "starvation gene",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "other",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "Does a ptsG knockout survive once glucose is withdrawn from the medium?",
+   "expected": true,
+   "note": "knockout + removal",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "gene_knockout",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "gene_knockout",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "gene_knockout",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "After a downshift from glucose to a medium without any sugar, what happens to ppGpp?",
+   "expected": true,
+   "note": "downshift to none",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response",
+      "nutrient_shift"
+     ],
+     "observable": "ppgpp",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response",
+      "nutrient_shift"
+     ],
+     "observable": "ppgpp",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response",
+      "nutrient_shift"
+     ],
+     "observable": "ppgpp",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "How do protein synthesis rates respond to sudden glucose deprivation?",
+   "expected": true,
+   "note": "deprivation",
+   "flagged": [
+    true,
+    true,
+    true
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response"
+     ],
+     "observable": "elongation",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response"
+     ],
+     "observable": "elongation",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "carbon_source_removal",
+      "stringent_response"
+     ],
+     "observable": "elongation",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "How does the growth rate change when glucose is lowered from 20 mM to 2 mM?",
+   "expected": false,
+   "note": "lowered, not removed",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "Compare the growth rate in acetate minimal medium with glucose minimal medium.",
+   "expected": false,
+   "note": "static alternative carbon",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "What is the growth rate of the wild type in glucose minimal medium?",
+   "expected": false,
+   "note": "plain glucose",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [],
+     "observable": "other",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "How does ppGpp respond when amino acids are removed from a rich medium?",
+   "expected": false,
+   "note": "amino-acid removal",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "stringent_response",
+      "amino_acid_starvation",
+      "nutrient_shift"
+     ],
+     "observable": "ppgpp",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "stringent_response",
+      "amino_acid_starvation"
+     ],
+     "observable": "ppgpp",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "stringent_response",
+      "amino_acid_starvation"
+     ],
+     "observable": "ppgpp",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "Does growth slow when phosphate is removed from the medium?",
+   "expected": false,
+   "note": "phosphate, not carbon",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "phosphate_depletion"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_under_phosphate_depletion"
+     ]
+    },
+    {
+     "deps": [
+      "phosphate_depletion"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_under_phosphate_depletion"
+     ]
+    },
+    {
+     "deps": [
+      "phosphate_depletion"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_under_phosphate_depletion"
+     ]
+    }
+   ]
+  },
+  {
+   "question": "Does an argS knockout grow in glucose minimal medium?",
+   "expected": false,
+   "note": "knockout only",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [],
+     "observable": "gene_knockout",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [],
+     "observable": "gene_knockout",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [],
+     "observable": "gene_knockout",
+     "granularity": "per_gene",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "What happens after a shift from glucose minimal medium to glucose plus amino acids?",
+   "expected": false,
+   "note": "upshift",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [
+      "nutrient_shift",
+      "amino_acid_supply",
+      "stringent_response"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift",
+      "amino_acid_supply"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift",
+      "amino_acid_supply",
+      "stringent_response"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "How does the cell respond to the removal of oxygen?",
+   "expected": false,
+   "note": "oxygen removal",
+   "flagged": [
+    false,
+    false,
+    false
+   ],
+   "all_correct": true,
+   "reps": [
+    {
+     "deps": [],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  },
+  {
+   "question": "How does the cell respond to glucose limitation in a chemostat at a low dilution rate?",
+   "expected": false,
+   "note": "limiting, non-zero",
+   "flagged": [
+    true,
+    false,
+    false
+   ],
+   "all_correct": false,
+   "reps": [
+    {
+     "deps": [
+      "carbon_source_removal"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "refuse",
+     "blocking": [
+      "growth_without_a_carbon_source"
+     ]
+    },
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    },
+    {
+     "deps": [
+      "nutrient_shift"
+     ],
+     "observable": "media_response",
+     "granularity": "aggregate",
+     "parser": "claude-opus-4-8",
+     "verdict": "answer",
+     "blocking": []
+    }
+   ]
+  }
+ ]
+}

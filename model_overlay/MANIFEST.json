@@ -8,7 +8,7 @@
   "counts": {
     "ship": 45,
     "blocked": 0,
-    "ship_bytes": 6102001
+    "ship_bytes": 6102468
   },
   "files": [
     {
@@ -184,8 +184,8 @@
       "source": "model_overlay/cleaned",
       "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
       "status": "ship",
-      "overlay_sha256": "9c44acdb034c5b9985d64c979a429da6ce66619bac82073e91e8ae09229142ac",
-      "overlay_bytes": 127441
+      "overlay_sha256": "fb3f9cb81c0b0441eed2edea46674a819607328bd7cd6dae8c51db781964fc77",
+      "overlay_bytes": 127908
     },
     {
       "path": "models/ecoli/processes/metabolism.py",

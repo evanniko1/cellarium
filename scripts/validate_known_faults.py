@@ -10,8 +10,10 @@ the corpus manifest.
   E2  glucose removed at 1,200 s from an established minimal-medium cell                  seeds 0-3, 2 gens
       glucose absent from the start (condition variant 13, no_glucose)                     seeds 0-1, 1 gen
   E3  leucine auxotroph (variant 1818 = TU leuLABCD) in minimal medium, no leucine source   seeds 0-3, 4 gens
+  E4  cysE (2087) and metA (2021) knockouts in minimal medium, single-TU genes, the genotypes
+      the external campaign's FBA-solver and equilibrium failures concentrated in            seeds 0-1, 4 gens
 
-    python scripts/validate_known_faults.py run
+    python scripts/validate_known_faults.py run [ARM_PREFIX ...]
     python scripts/validate_known_faults.py analyse
 """
 
@@ -48,15 +50,22 @@ ARMS = {
                           [0, 1], 1),
     "E3_leucine_auxotroph_minimal": (Design(perturbation="gene_knockout", condition="KO:leuB",
                                             params={"variant_index": 1818}), [0, 1, 2, 3], 4),
+    "E4_cysE_minimal": (Design(perturbation="gene_knockout", condition="KO:cysE",
+                               params={"variant_index": 2087}), [0, 1], 4),
+    "E4_metA_minimal": (Design(perturbation="gene_knockout", condition="KO:metA",
+                               params={"variant_index": 2021}), [0, 1], 4),
 }
 NULL = ("C_null_wildtype_minimal", Design(perturbation="wildtype", condition="basal"), [0, 1])
 
 
-def run() -> int:
-    jobs = [(arm, d, s, g) for arm, (d, seeds, g) in ARMS.items() for s in seeds]
+def run(prefixes: list[str] | None = None) -> int:
+    jobs = [(arm, d, s, g) for arm, (d, seeds, g) in ARMS.items() for s in seeds
+            if not prefixes or arm.startswith(tuple(prefixes))]
     # Longest first, so the 4-generation auxotroph does not start last.
     jobs.sort(key=lambda j: -j[3])
-    status = {}
+    status_path = OUT / "status_known_faults.json"
+    # Merged, not replaced: a run of one arm must not erase the recorded status of the others.
+    status = json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else {}
     print(f"{len(jobs)} simulations, 6 at a time, into {OUT}", flush=True)
     with ThreadPoolExecutor(max_workers=6) as ex:
         futs = {ex.submit(runner.run_one, d, s, g, "cellarium"): (arm, s) for arm, d, s, g in jobs}
@@ -106,7 +115,9 @@ def analyse() -> int:
     p = OUT / "status_known_faults.json"
     if p.exists():
         status = json.loads(p.read_text(encoding="utf-8"))
-    res = {"status": status, "runs": {}}
+    # Keys this function does not produce (the hand-written `readouts`) are carried over, not dropped.
+    res = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+    res.update(status=status, runs={})
     for arm, (d, seeds, g) in list(ARMS.items()) + [(NULL[0], (NULL[1], NULL[2], 1))]:
         for s in seeds:
             res["runs"][f"{arm}/s{s}"] = _summary(arm, d, s)
@@ -118,4 +129,6 @@ def analyse() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit({"run": run, "analyse": analyse}[sys.argv[1]]())
+    if sys.argv[1] == "run":
+        sys.exit(run(sys.argv[2:] or None))
+    sys.exit(analyse())

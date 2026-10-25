@@ -675,9 +675,14 @@ class PolypeptideElongation(wholecell.processes.process.Process):
 		# Calculate elongation resource capacity
 		# monomer_count_in_sequence is in the model's monomer space (63 codons or 21 amino acids);
 		# monomer_to_aa projects it back to the 21-wide space RibosomeData.aaCountInSequence is
-		# allocated at (ribosome_data.py:43). The steady-state evolveState calls np.bincount with
-		# no minlength at all here, which is safe only because its sequences are already amino
-		# acids.
+		# allocated at (ribosome_data.py:43). The steady-state evolveState above computes
+		# aaCountInSequence with np.bincount WITHOUT minlength, and that is NOT safe: np.bincount
+		# returns one entry per index up to the highest index present, so on a step where the
+		# highest-index amino acids are in none of the sequences being elongated it returns fewer
+		# than 21 entries (16 and 12 have been seen), and writing them into the 21-wide
+		# aaCountInSequence column fails. Using amino acids rather than codons does not prevent
+		# this. It is left unchanged in this overlay because it is the default model's code; the
+		# fix is minlength=len(self.aaNames).
 		monomer_count_in_sequence = np.bincount(
 			sequences[(sequences != polymerize.PAD_VALUE)],
 			minlength=self.elongation_model.n_monomers)

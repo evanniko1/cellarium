@@ -324,3 +324,45 @@ def test_campaign_runs_the_loop_after_the_shard_and_survives_it_breaking(tmp_pat
     assert manifest.campaign([d], [0], 1) == tmp_path / "s.parquet"
     assert order == ["shard", "loop"]
     assert "FAILURE TRIAGE DID NOT RUN" in capsys.readouterr().out
+
+
+def _docker_image(name: str) -> bool:
+    import shutil
+    import subprocess
+    if not shutil.which("docker"):
+        return False
+    return subprocess.run(["docker", "image", "inspect", name], capture_output=True).returncode == 0
+
+
+@pytest.mark.skipif(not _docker_image("python:3.12-slim"), reason="needs Docker and the python:3.12-slim image")
+def test_the_wall_clock_limit_kills_a_real_container(tmp_path, monkeypatch):
+    """AUDIT-KF-N7 through the real Docker path of `runner._exec`: the named container must be gone afterwards,
+    not just the docker CLI process."""
+    import subprocess
+    import time
+    monkeypatch.setattr(runner, "WCECOLI_DOCKER", "python:3.12-slim")
+    monkeypatch.setattr(runner, "WCECOLI_DIR", "")
+    monkeypatch.delenv("WCECOLI_DIR", raising=False)
+    monkeypatch.setattr(runner, "OUT_ROOT", tmp_path / "out")
+    log = tmp_path / F.SIM_LOG
+    runner._EXEC_LOCAL.log_path = log
+    runner._EXEC_LOCAL.wall_limit_s = 8
+    # Only containers of THIS image count: real simulations started meanwhile are also named cellarium-*.
+    ps = ["docker", "ps", "-a", "--filter", "ancestor=python:3.12-slim", "--filter", "name=cellarium-",
+          "--format", "{{.ID}} {{.Status}}"]
+    before = {ln.split()[0] for ln in subprocess.run(ps, capture_output=True, text=True).stdout.splitlines() if ln}
+    t0 = time.time()
+    try:
+        with pytest.raises(TimeoutError):
+            runner._exec(["-c", "import time\nprint('alive', flush=True)\ntime.sleep(600)"])
+    finally:
+        runner._EXEC_LOCAL.log_path = None
+        runner._EXEC_LOCAL.wall_limit_s = None
+    assert time.time() - t0 < 60
+    time.sleep(2)
+    after = subprocess.run(ps, capture_output=True, text=True).stdout.splitlines()
+    leftover = [ln for ln in after if ln.strip() and ln.split()[0] not in before]
+    assert not leftover, f"container still present after the kill: {leftover}"
+    text = log.read_text(encoding="utf-8")
+    assert "alive" in text and F.WALL_MARK in text
+    assert F.identify(log_text=text).key == "killed:wall_limit"

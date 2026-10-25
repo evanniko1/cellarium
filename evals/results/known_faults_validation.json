@@ -11,12 +11,16 @@
     "E2_glucose_absent/s1": "completed",
     "E3_leucine_auxotroph_minimal/s1": "failed: RuntimeError",
     "E3_leucine_auxotroph_minimal/s0": "failed: RuntimeError",
-    "E3_leucine_auxotroph_minimal/s3": "completed"
+    "E3_leucine_auxotroph_minimal/s3": "completed",
+    "E4_metA_minimal/s1": "failed: RuntimeError",
+    "E4_cysE_minimal/s0": "failed: RuntimeError",
+    "E4_metA_minimal/s0": "failed: RuntimeError",
+    "E4_cysE_minimal/s1": "failed: RuntimeError"
   },
   "runs": {
     "E1_tf_cytR_inactive/s0": {
       "identity_key": "KeyError@models/ecoli/processes/chromosome_replication.py:calculateRequest",
-      "named": false,
+      "named": true,
       "message": "'minimal_plus_cytidine'",
       "ran_out": null,
       "n_cells": 1,
@@ -317,6 +321,70 @@
         }
       ]
     },
+    "E4_cysE_minimal/s0": {
+      "identity_key": "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve",
+      "named": true,
+      "message": "GLP_ESING: Basis matrix is singular",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 1907.0,
+          "duration_s": 1907.0,
+          "final_fold": 1.194,
+          "final_expected": 1.65
+        }
+      ]
+    },
+    "E4_cysE_minimal/s1": {
+      "identity_key": "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve",
+      "named": true,
+      "message": "GLP_ESING: Basis matrix is singular",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2448.0,
+          "duration_s": 2448.0,
+          "final_fold": 1.225,
+          "final_expected": 1.902
+        }
+      ]
+    },
+    "E4_metA_minimal/s0": {
+      "identity_key": "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve",
+      "named": true,
+      "message": "GLP_ESING: Basis matrix is singular",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 2445.0,
+          "duration_s": 2445.0,
+          "final_fold": 1.202,
+          "final_expected": 1.9
+        }
+      ]
+    },
+    "E4_metA_minimal/s1": {
+      "identity_key": "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve",
+      "named": true,
+      "message": "GLP_ESING: Basis matrix is singular",
+      "ran_out": null,
+      "n_cells": 1,
+      "cells": [
+        {
+          "start_s": 0.0,
+          "end_s": 1433.0,
+          "duration_s": 1433.0,
+          "final_fold": 1.135,
+          "final_expected": 1.457
+        }
+      ]
+    },
     "C_null_wildtype_minimal/s0": {
       "identity_key": "no_traceback",
       "named": true,
@@ -373,6 +441,7 @@
     "E2_glucose_absent_s0_growth": "dry mass 145.8 -> 529.2 fg over 4,351 s (about 1.06 per hour, the glucose rate) with no carbon uptake; protein x2.7, RNA x4.8, small molecules x5.3",
     "E2_glucose_removed_s0_vs_control_s0": "identical to 1,180 s; at 1,780 s dry mass 605.81 vs 605.17 fg; both seeds divide on the control schedule; 3 of 4 seeds complete two generations, seed 2 ends with ATP exhausted in translation 410 s into generation 1",
     "E3_leucine_pool": "LEU[c] falls from ~1e5 to exactly 1 molecule within ~3 min of generation 0 in every seed and stays at 1 (median); minimum 0 recorded in later generations; seeds 0-2 end with the NaN in calculate_trna_charging after a generation capped at 10,800 s (seed 0 gen 2, seed 1 gen 2, seed 2 gen 1)",
-    "E3_seed3_last_generation": "descends from a capped generation; over a further capped 10,800 s, protein x0.95, RNA x1.46, small molecules x7.4, dry mass x5.7 -- runaway small-molecule accumulation in a non-dividing cell, not growth"
+    "E3_seed3_last_generation": "descends from a capped generation; over a further capped 10,800 s, protein x0.95, RNA x1.46, small molecules x7.4, dry mass x5.7 -- runaway small-molecule accumulation in a non-dividing cell, not growth",
+    "E4": "cysE (2087) and metA (2021) knockouts, minimal medium, seeds 0-1, 4 generations requested: all four runs failed in generation 0 (1,410-2,448 s) with RuntimeError GLP_ESING (singular basis) in the FBA solver, after GLP_EFAIL/GLP_NOFEAS retries; growth was 63-78% of expected, not stalled. No equilibrium failure occurred. In the large campaign's release (branch with an FBA retry wrapper) the same knockouts mostly survive generation 0 and end at the 10,800 s time limit (one fba_infeasible)."
   }
 }
