@@ -425,3 +425,25 @@ def test_proposer_prompt_uses_registry_guidance_no_stale_threshold():
     assert test_registry.proposer_guidance() in council._PROPOSER_SYS   # the prompt uses the generated block
     assert "|t|>=2" not in council._PROPOSER_SYS and "|t| >= 2" not in council._PROPOSER_SYS   # stale threshold gone
     assert ", ".join(test_registry.supported_ids()) in council._PROPOSER_SYS   # the enforced enum is still the registry
+
+
+def test_a_model_named_inside_params_is_lifted_to_the_field_that_selects_it():
+    """Measured 2026-10-25: four live deliberations put the model in params ('model': 'kinetic') with the design's
+    own elongation_model left at steady_state, so every proposed kinetic run would have run steady_state."""
+    d = council._to_design({"perturbation": "gene_knockout", "condition": "basal",
+                            "params": {"model": "kinetic", "target_genes": ["leuS"]}})
+    assert d.elongation_model == "kinetic" and "model" not in d.params
+    d = council._to_design({"perturbation": "wildtype", "params": {"elongation_model": "coarse_kinetic"}})
+    assert d.elongation_model == "coarse_kinetic"
+
+
+def test_a_design_naming_two_models_is_dropped_not_guessed():
+    assert council._to_design({"perturbation": "wildtype", "elongation_model": "steady_state",
+                               "params": {"model": "kinetic"}}) is None
+    assert council._to_design({"perturbation": "wildtype",
+                               "params": {"model": "kinetic", "elongation_model": "steady_state"}}) is None
+
+
+def test_the_proposer_schema_offers_the_elongation_model_field():
+    props = council._DESIGN["properties"]
+    assert set(props["elongation_model"]["enum"]) == set(council.ELONGATION_MODES)

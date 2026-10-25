@@ -26,6 +26,7 @@ import re
 from typing import Callable
 
 from . import instrument, observability, test_registry
+from .capability import ELONGATION_MODES
 from .hypothesis import Falsifier, Hypothesis, NamedTest, OperationalDef, Rival
 from .model import Design
 
@@ -60,8 +61,8 @@ _PROPOSER_SYS = (
     "in candidate_designs — NOT prose. falsifier.channel MUST be one of the instrument's summary channels. "
     "decision_rule names the statistic + threshold; refuting_result is the concrete outcome that would refute "
     "H1.\n"
-    "- candidate_designs MUST be STRUCTURED objects (perturbation/condition/timeline/seeds/generations/params) "
-    "expressible in the validated envelope (only listed perturbations; a mid-run carbon-source switch is NOT "
+    "- candidate_designs MUST be STRUCTURED objects (perturbation/condition/timeline/seeds/generations/params, "
+    "and elongation_model when a run needs a model other than steady_state) expressible in the validated envelope (only listed perturbations; a mid-run carbon-source switch is NOT "
     "allowed). Put the experiment HERE, not in prose inside the falsifier.\n"
     "- Propose a MODEST, runnable scale: seeds 4-8 (replicate power) and generations 1-4 (a KO that crashes does so "
     "by ~gen 3-4). Each sim is minutes of compute; a human scales up on approval. Do NOT propose 20x20-style runs.\n"
@@ -195,7 +196,11 @@ _FALSIFIER = {"type": "object", "properties": {
     "required": ["target", "reference", "channel", "decision_rule", "refuting_result", "test"]}
 _DESIGN = {"type": "object", "properties": {
     "perturbation": {"type": "string"}, "condition": {"type": "string"}, "timeline": {"type": "string"},
-    "seeds": {"type": "integer"}, "generations": {"type": "integer"}, "params": {"type": "object"}},
+    "seeds": {"type": "integer"}, "generations": {"type": "integer"}, "params": {"type": "object"},
+    # Offered in the schema, not only accepted by _DESIGN_KEYS: without it the proposer had nowhere to put the
+    # model and wrote it into `params`, where nothing reads it, so every "kinetic" design ran steady_state.
+    "elongation_model": {"type": "string", "enum": list(ELONGATION_MODES),
+                         "description": "which elongation model the run uses; omit for steady_state"}},
     "required": ["perturbation"]}
 
 _PROPOSE_TOOL = {
@@ -397,6 +402,14 @@ def _to_design(d: dict) -> Design | None:
     clean = {k: v for k, v in d.items() if k in _DESIGN_KEYS and v is not None}
     if "params" in clean and not isinstance(clean["params"], dict):
         clean.pop("params")
+    # A model named inside `params` is lifted to the field that selects it; nothing reads it in `params`. Two
+    # different models in one design is ambiguous, so the design is dropped rather than resolved by a guess.
+    in_params = {clean["params"].pop(k) for k in ("elongation_model", "model")
+                 if isinstance(clean.get("params"), dict) and clean["params"].get(k) in ELONGATION_MODES}
+    if len(in_params) > 1 or (in_params and clean.get("elongation_model") not in (None, *in_params)):
+        return None
+    if in_params:
+        clean["elongation_model"] = in_params.pop()
     # calibrate scale: the proposer sometimes asks for 20x20 (~400 sims/design). Clamp to a runnable proposal — a
     # few seeds for replicate power, a few generations (a KO that crashes does so by gen ~3-4). The human scales up.
     if isinstance(clean.get("seeds"), int):

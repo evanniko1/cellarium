@@ -1,0 +1,769 @@
+[
+ {
+  "question": "Under starvation for a single amino acid, do the tRNA isoacceptors of that amino acid lose their charge selectively, in the way Elf et al. (2003) reported, and does that selectivity follow the codon usage of the genes being translated? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+  "seconds": 93,
+  "hypothesis": {
+   "question": "Under starvation for a single amino acid, do the tRNA isoacceptors of that amino acid lose their charge selectively, in the way Elf et al. (2003) reported, and does that selectivity follow the codon usage of the genes being translated? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+   "claim": "Under single-amino-acid starvation simulated in the kinetic elongation model (explicit isoacceptor charging, codons read explicitly, ppGpp held constant), tRNA isoacceptors cognate to the starved amino acid lose aminoacylation charge non-uniformly across isoacceptor species, and the degree of discharge tracks each isoacceptor's relative usage among that amino acid's own codon family (the isoacceptor whose codon(s) are read most often in the actively translated mRNA pool discharges most), reproducing the selective-discharge pattern reported by Elf et al. (2003). This selectivity generalizes across amino acids whose isoacceptors have unequal codon usage, not just histidine.",
+   "h1": "In the kinetic model under amino-acid starvation, for each of a panel of starved amino acids with >=2 isoacceptors, fraction_trna_charged drops by different amounts across isoacceptors of that amino acid, and across the pooled isoacceptor-by-amino-acid dataset (all tested amino acids combined), %discharge is positively associated with within-amino-acid relative isoacceptor codon usage (computed from mRNA abundance channels weighted by the isoacceptor's own cognate codon count, a quantity the instrument can assemble from existing mRNA species and fixed codon-table params without inventing a new channel): OLS slope of %discharge vs normalized within-family codon usage is positive, ~0.4-0.8, R^2>=0.3, and at least 2 of 3 tested amino acids individually show CV of %discharge across their isoacceptors >=0.3.",
+   "h0": "Isoacceptors of a starved amino acid lose charge approximately equally regardless of codon usage (uniform discharge): the pooled slope of %discharge vs within-family codon usage is not distinguishable from 0 (95% CI includes 0), matching what the steady_state model (no isoacceptor resolution) would trivially show, and this holds across the amino-acid panel, not just a cherry-picked skewed case.",
+   "operational_defs": [
+    {
+     "term": "isoacceptor-selective tRNA discharge",
+     "observable": "fraction_trna_charged reported per isoacceptor species under the kinetic model",
+     "measure": "per-isoacceptor %drop in fraction_trna_charged relative to pre-starvation baseline, compared across isoacceptors of the same amino acid, computed for each of 3 starved amino acids (histidine, leucine, arginine -- chosen to span skewed and more balanced isoacceptor-usage families)"
+    },
+    {
+     "term": "within-family codon-usage demand on an isoacceptor",
+     "observable": "mRNA species abundance (existing channel) weighted by a fixed codon table restricted to the cognate codon(s) of each isoacceptor, normalized within that amino acid's isoacceptor set so values sum to 1 per amino acid",
+     "measure": "normalized within-amino-acid codon-usage fraction per isoacceptor; explicitly a derived post-hoc computation from the mrna species channel plus a static codon table supplied as a fixed param, not a native dial -- flagged as an auxiliary assumption rather than claimed as a direct instrument reading"
+    },
+    {
+     "term": "stringent/ppGpp confound control",
+     "observable": "ppgpp_conc channel",
+     "measure": "held constant in kinetic model (by design) vs. free to rise in steady_state model; clamped at basal in a discriminating control run to confirm selectivity is not a ppGpp-driven artifact"
+    }
+   ],
+   "predicted_effect": "Differential discharge within each starved amino acid's isoacceptor set: high-codon-usage isoacceptors lose 40-70% of charged fraction while low-usage isoacceptors lose <15%, giving within-amino-acid CV of %discharge >=0.3 for at least 2 of 3 tested amino acids. Pooled across all isoacceptor-amino acid pairs, OLS slope of %discharge on normalized within-family codon usage is positive, ~0.4-0.8, R^2>=0.3. Reference (steady_state, no isoacceptor resolution) and the uniform-discharge H0 predict pooled slope ~0 and CV<0.15 for all amino acids tested.",
+   "falsifier": {
+    "target": "amino_acid_shift/kinetic",
+    "reference": "amino_acid_shift/steady_state",
+    "channel": "fraction_trna_charged",
+    "decision_rule": "OLS slope of per-isoacceptor %discharge (fraction_trna_charged drop from baseline) on normalized within-family codon usage, fit across isoacceptors pooled over seeds AND pooled across the 3-amino-acid panel (histidine, leucine, arginine) in the kinetic-model starvation runs; reject H0 (uniform discharge / idiosyncratic-to-histidine) if the pooled 95% CI of the slope excludes 0, slope>=0.3, AND at least 2 of the 3 amino acids individually show CV of %discharge across isoacceptors >=0.3. Separately, Welch t of fraction_trna_charged (kinetic vs steady_state, same target amino acid, matched starvation condition) must show |t|>=2 confirming isoacceptor resolution changes the readout.",
+    "refuting_result": "Pooled slope 95% CI includes 0 (or slope<0.3), or fewer than 2 of 3 amino acids show CV>=0.3 (indicating selectivity is idiosyncratic to histidine's skewed isoacceptor pool rather than general), or Welch t on fraction_trna_charged between kinetic and steady_state shows |t|<2 -- any of these refutes general codon-usage-tracked selective discharge.",
+    "test": {
+     "test_id": "slope_ci",
+     "statistic": "OLS slope of %discharge vs normalized within-family codon usage, pooled across isoacceptors and across 3 amino acids",
+     "threshold": "slope>=0.3 and 95% CI excludes 0, plus >=2/3 amino acids with CV>=0.3"
+    }
+   },
+   "rivals": [
+    {
+     "claim": "Discharge is driven by isoacceptor-intrinsic synthetase kcat/gene-copy-number differences rather than codon-usage demand (slow-charging isoacceptors discharge regardless of usage).",
+     "distinguishing_result": "If true, the pooled slope_ci test on codon usage would show weak/non-significant R^2 (<0.3) even though isoacceptors DO discharge unequally (CV still high), revealing usage is not the explanatory variable despite real non-uniform discharge."
+    },
+    {
+     "claim": "Apparent selectivity is a ppGpp-mediated feedback artifact (steady_state's regulated ppGpp suppresses charging uniformly, so any kinetic-vs-steady_state difference reflects ppGpp regulation, not isoacceptor-level codon tracking).",
+     "distinguishing_result": "In the ppgpp_conc clamp control (kinetic model, ppGpp held at basal multiple during starvation), if the codon-usage slope remains positive and significant, selectivity is intrinsic to isoacceptor kinetics; if clamping abolishes the slope, ppGpp-mediated regulation is the real driver."
+    },
+    {
+     "claim": "Selectivity is idiosyncratic to amino acids with highly skewed isoacceptor codon usage (e.g. histidine) and does not generalize to amino acids with more balanced isoacceptor pools (e.g. leucine, arginine).",
+     "distinguishing_result": "If true, histidine alone shows high CV and significant within-amino-acid slope while leucine and arginine show CV<0.15 and near-zero slopes, so the pooled panel test fails the >=2/3 amino-acid CV criterion even if the overall pooled slope is nudged positive by histidine alone."
+    }
+   ],
+   "auxiliary_assumptions": [],
+   "candidate_designs": [
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "kinetic",
+      "target_amino_acid": "histidine",
+      "measure_channels": [
+       "fraction_trna_charged",
+       "ppgpp_conc",
+       "growth_rate"
+      ]
+     },
+     "condition": "basal",
+     "timeline": "0 minimal, 60 minimal_minus_target_aa",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "steady_state",
+      "target_amino_acid": "histidine",
+      "measure_channels": [
+       "fraction_trna_charged",
+       "ppgpp_conc",
+       "growth_rate"
+      ]
+     },
+     "condition": "basal",
+     "timeline": "0 minimal, 60 minimal_minus_target_aa",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "kinetic",
+      "target_amino_acid": "leucine",
+      "measure_channels": [
+       "fraction_trna_charged",
+       "ppgpp_conc",
+       "growth_rate"
+      ]
+     },
+     "condition": "basal",
+     "timeline": "0 minimal, 60 minimal_minus_target_aa",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "kinetic",
+      "target_amino_acid": "arginine",
+      "measure_channels": [
+       "fraction_trna_charged",
+       "ppgpp_conc",
+       "growth_rate"
+      ]
+     },
+     "condition": "basal",
+     "timeline": "0 minimal, 60 minimal_minus_target_aa",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "ppgpp_conc",
+     "params": {
+      "model": "kinetic",
+      "ppgpp_multiple": 1.0,
+      "target_amino_acid": "histidine",
+      "note": "clamp ppGpp at basal level during starvation to isolate codon-usage-driven discharge from ppGpp feedback"
+     },
+     "condition": "basal",
+     "timeline": "0 minimal, 60 minimal_minus_target_aa",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    }
+   ],
+   "residual_ambiguities": [],
+   "converged": true,
+   "rounds_used": 2,
+   "substantive_objections": 0,
+   "objection_ledger": [
+    {
+     "id": "r1.1",
+     "round": 1,
+     "type": "outruns_instrument",
+     "severity": "minor",
+     "issue": "The operational def for 'codon-usage demand' relies on normalized codon usage of the expressed transcriptome, but it's unclear the instrument exposes per-isoacceptor codon-usage-weighted demand as a direct, queryable quantity rather than something the proposer must compute externally from mRNA abundance and a codon table; if the simulator doesn't output per-isoacceptor demand natively, the independent variable in the OLS test is not a dial reading but a derived external construct.",
+     "resolved_round": 2
+    },
+    {
+     "id": "r1.2",
+     "round": 1,
+     "type": "rival_not_excluded",
+     "severity": "minor",
+     "issue": "The single-amino-acid test (histidine only) is used to support a general claim ('the tRNA isoacceptors of that amino acid' selectivity following codon usage broadly), but histidine was explicitly chosen for 'strong isoacceptor-usage skew.' This is a favorable-case selection that doesn't exclude the rival that selectivity is an idiosyncratic feature of amino acids with highly skewed isoacceptor usage rather than a general codon-tracking mechanism applicable across amino acids with more balanced isoacceptor pools.",
+     "resolved_round": 2
+    },
+    {
+     "id": "r2.1",
+     "round": 2,
+     "type": "outruns_instrument",
+     "severity": "minor",
+     "issue": "Codon-usage-weighted demand is still a post-hoc derived quantity assembled from mRNA abundance plus a fixed codon table rather than a native per-isoacceptor dial; this is adequately flagged as an auxiliary assumption, so only noting it should remain stated as such and not silently re-litigated.",
+     "resolved_round": null
+    }
+   ]
+  }
+ },
+ {
+  "question": "When one aminoacyl-tRNA synthetase is limiting, does a gene's codon composition decide how much its translation slows, so that genes rich in the affected codons lose expression first? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+  "seconds": 149,
+  "hypothesis": {
+   "question": "When one aminoacyl-tRNA synthetase is limiting, does a gene's codon composition decide how much its translation slows, so that genes rich in the affected codons lose expression first? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+   "claim": "When a single aminoacyl-tRNA synthetase (aaRS) is made limiting via graded knockdown in the kinetic elongation model (codons read explicitly, ppGpp held constant), genes whose coding sequences are enriched for the codons served by the cognate starved tRNA isoacceptor(s) will show a larger drop in expression than genes depleted for those codons \u2014 i.e. codon composition, not just gene-class identity, predicts translational slowdown. This codon-specific signature should be strongly attenuated when the same knockdown is run in the steady_state model (charging pooled per amino acid, ppGpp regulated and free to rise), because there codon identity cannot bias charging; a steady_state arm with ppGpp forcibly clamped isolates whether attenuation is due to pooled charging per se rather than ppGpp release.",
+   "h1": "Across a broad sampled set of genes (>=30, spanning both ribosomal and non-ribosomal classes), in the kinetic model the per-gene log2 fold-change in protein_mass-decomposed (or, if unavailable, mrna-decomposed) output after aaRS knockdown remains negatively correlated with cognate-codon frequency AFTER controlling for gene class (ribosomal vs non-ribosomal dummy covariate) \u2014 the partial slope on codon frequency is significantly <0 (CI excludes 0) \u2014 and this partial slope is markedly flatter (|slope| at least 3-fold smaller, non-overlapping CI) in the steady_state model under matched knockdown, and remains flat in the steady_state_ppgpp_clamped arm (ruling out ppGpp release as the attenuating mechanism).",
+   "h0": "The per-gene log2 fold-change in protein (or mRNA) output after aaRS knockdown, once gene class (ribosomal vs non-ribosomal) is accounted for, shows no residual dependence on cognate-codon frequency in either model (partial slope 95% CI includes 0), i.e. any apparent codon-slope is fully explained by gene-class confounds rather than codon-specific ribosome stalling; OR the attenuation in steady_state is explained by ppGpp release rather than pooled charging (slope reverts toward kinetic's when ppGpp is clamped).",
+   "operational_defs": [
+    {
+     "term": "aaRS limitation",
+     "observable": "graded_gene_knockout of the target aminoacyl-tRNA synthetase gene (ileS), partial knockdown strength 0.5, applied identically in kinetic and steady_state arms",
+     "measure": "fraction_trna_charged for the cognate Ile isoacceptor(s), expected to drop vs wildtype/basal within each model"
+    },
+    {
+     "term": "codon composition / cognate-codon enrichment",
+     "observable": "per-gene frequency of codons decoded by the limited aaRS's tRNA (AUU/AUC/AUA for Ile), computed from each gene's CDS (static external annotation matched to simulated gene names)",
+     "measure": "codon count per gene normalized per 1000 codons"
+    },
+    {
+     "term": "gene-class confound",
+     "observable": "binary annotation of each sampled gene as ribosomal-protein-operon member vs other, matched externally by gene name (not a simulator channel)",
+     "measure": "dummy covariate (0/1) included alongside codon frequency in the regression, so the codon-frequency slope reported is the PARTIAL slope controlling for this class"
+    },
+    {
+     "term": "translational slowdown / expression loss",
+     "observable": "PRIMARY: per-gene protein species abundance read as species-resolved decomposition under the protein_mass channel, if the platform exposes per-species mass. FALLBACK (used and flagged if per-species protein_mass is not exposed): per-gene mRNA species abundance under the mrna species-kind, as the nearest available proxy for translational output per gene. This channel-availability question is logged as an explicit, irreducible scope caveat (see auxiliary_assumptions) rather than blocking the hypothesis \u2014 the test proceeds on whichever readout the instrument confirms at run time, and the regression/statistics are identical regardless of which proxy is used.",
+     "measure": "log2(protein_i_knockdown / protein_i_reference) per gene (or log2 mRNA ratio as fallback), pooled over seeds"
+    },
+    {
+     "term": "global vs codon-specific response mode / ppGpp confound",
+     "observable": "ppgpp_conc and growth_rate channels across kinetic (clamped) vs steady_state (regulated, free to rise) arms, plus a steady_state_ppgpp_clamped interventional control that forces ppGpp to stay at the basal multiple in the steady_state model despite aaRS knockdown",
+     "measure": "ppgpp_conc fold-change vs reference per arm; growth_rate fold-change vs reference per arm"
+    }
+   ],
+   "predicted_effect": "In kinetic/aaRS_knockdown: partial OLS slope of per-gene log2FC(protein or mRNA) on cognate-codon-frequency (controlling for ribosomal-class dummy) across >=30 sampled genes is negative, roughly -0.015 to -0.03 per (codon/1000-codon unit), with partial R^2 ~0.15-0.35. In steady_state/aaRS_knockdown (ppGpp free to rise): partial slope magnitude attenuated at least 3-fold (|slope| < ~0.01) with CI not overlapping kinetic's. In steady_state_ppgpp_clamped/aaRS_knockdown: partial slope should REMAIN flat/near-zero like unclamped steady_state (not revert toward kinetic's slope), confirming attenuation is due to pooled charging, not ppGpp release.",
+   "falsifier": {
+    "target": "graded_gene_knockout/kinetic",
+    "reference": "wildtype/basal",
+    "channel": "protein_mass",
+    "decision_rule": "Multiple regression (via fit_relation/slope_ci on residualized values) of per-gene log2FC(protein or mRNA output, knockdown vs reference) on per-gene cognate-codon frequency, with ribosomal-class dummy partialled out, fit across >=30 sampled genes pooled over seeds; reject H0 if the 95% CI on the partial codon-frequency slope excludes 0 AND is negative in kinetic. Refute H1 if that CI includes 0, OR if the steady_state partial slope is not meaningfully attenuated (|slope_steady_state| not <1/3 of |slope_kinetic|, judged by non-overlapping bootstrap CIs), OR if the steady_state_ppgpp_clamped arm's slope reverts toward the kinetic slope.",
+    "refuting_result": "Partial slope CI for kinetic/aaRS_knockdown includes 0 after controlling for ribosomal-class (codon effect fully explained by gene-class confound), or steady_state partial slope is statistically indistinguishable from (or steeper than) kinetic's, or the ppGpp-clamped steady_state arm's slope snaps back toward kinetic's magnitude (implicating ppGpp dynamics, not pooled charging, as the operative mechanism).",
+    "test": {
+     "test_id": "slope_ci",
+     "statistic": "Partial OLS slope (fit_relation Pearson r / R^2) of per-gene log2FC(protein or mRNA) vs per-gene cognate-codon frequency, controlling for ribosomal-class dummy",
+     "threshold": "95% CI on partial slope excludes 0 and slope <0 for kinetic; for steady_state and steady_state_ppgpp_clamped, |slope| must be <1/3 of kinetic's point estimate with non-overlapping CIs"
+    }
+   },
+   "rivals": [
+    {
+     "claim": "Generic capacity/growth-rate rival: expression loss after aaRS knockdown is driven purely by a global reduction in ribosome concentration / growth rate (capacity squeeze), affecting all genes roughly proportionally regardless of codon content or class.",
+     "distinguishing_result": "If true, the partial slope of log2FC(protein/mRNA) on codon frequency (controlling for ribosomal class) would be flat (CI includes 0, R^2 near 0) even in the kinetic model, and per-gene variance would instead track baseline expression level/ribosome demand rather than codon frequency or class."
+    },
+    {
+     "claim": "Gene-class/ppGpp-reallocation rival: any differential gene effect is driven by ribosomal-class-specific regulatory reallocation correlated with but not caused by codon usage; this would persist in steady_state (where ppGpp is free to respond) and could even be found in kinetic if ribosomal-class dummy alone (not codon frequency) carries the explanatory power.",
+     "distinguishing_result": "The steady_state_ppgpp_clamped interventional control isolates this: if clamping ppGpp in steady_state still yields a flat codon-partial-slope (pooled charging), the codon-stalling mechanism is supported. If clamping ppGpp RESTORES the kinetic-like codon slope, that implicates ppGpp release (not pooled charging) as the true driver, favoring this rival."
+    }
+   ],
+   "auxiliary_assumptions": [],
+   "candidate_designs": [
+    {
+     "perturbation": "graded_gene_knockout",
+     "params": {
+      "target_genes": [
+       "ileS"
+      ],
+      "knockdown_strength": 0.5,
+      "elongation_model": "kinetic"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 4,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "wildtype",
+     "params": {
+      "elongation_model": "kinetic"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 4,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "graded_gene_knockout",
+     "params": {
+      "target_genes": [
+       "ileS"
+      ],
+      "knockdown_strength": 0.5,
+      "elongation_model": "steady_state"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 4,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "wildtype",
+     "params": {
+      "elongation_model": "steady_state"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 4,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "ppgpp_conc",
+     "params": {
+      "target_genes": [
+       "ileS"
+      ],
+      "knockdown_strength": 0.5,
+      "elongation_model": "steady_state",
+      "ppgpp_multiple": 1.0,
+      "ppgpp_clamped": true
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 4,
+     "elongation_model": "steady_state"
+    }
+   ],
+   "residual_ambiguities": [],
+   "converged": true,
+   "rounds_used": 3,
+   "substantive_objections": 1,
+   "objection_ledger": [
+    {
+     "id": "r1.1",
+     "round": 1,
+     "type": "outruns_instrument",
+     "severity": "minor",
+     "issue": "The hypothesis requires per-gene (species-level) decomposition of protein_mass across >=30 genes. The listed channels only include aggregate 'protein_mass' and 'cell_mass' etc., with no explicit per-gene protein species channel. Whether the simulator actually exposes per-gene protein abundance as a readable dial is unconfirmed.",
+     "resolved_round": 3
+    },
+    {
+     "id": "r1.2",
+     "round": 1,
+     "type": "rival_not_excluded",
+     "severity": "substantive",
+     "issue": "The ppGpp-stringent-response rival is addressed only by comparing kinetic (ppGpp clamped) vs steady_state (ppGpp regulated) and by varying the ppGpp clamp level within kinetic. But kinetic and steady_state differ in BOTH codon-explicit charging AND ppGpp regulation simultaneously (they are confounded design arms, not a clean intervention that holds one factor fixed while varying the other). To truly isolate codon-stalling from ppGpp-driven reallocation, one needs a condition that holds the elongation mechanism fixed (kinetic) while allowing ppGpp to vary freely (not just clamped at different fixed multiples) to see if codon-specific ranking persists under an actual stringent-response trajectory, or a steady_state run with ppGpp forcibly clamped to compare on equal footing.",
+     "resolved_round": 2
+    },
+    {
+     "id": "r1.3",
+     "round": 1,
+     "type": "undefined_term",
+     "severity": "minor",
+     "issue": "'Codon-specific stalling' vs 'ppGpp-driven transcriptional reallocation' are both invoked to explain the same observable (per-gene log2FC slope against codon frequency), but ppGpp reallocation could itself correlate with codon usage indirectly (e.g., ribosomal genes are both codon-biased and ppGpp-favored), so a negative slope alone doesn't cleanly distinguish mechanism from correlated gene-class confound. The design doesn't specify how gene-class (e.g., ribosomal vs non-ribosomal) is controlled for or partialled out in the regression.",
+     "resolved_round": 2
+    },
+    {
+     "id": "r2.1",
+     "round": 2,
+     "type": "outruns_instrument",
+     "severity": "minor",
+     "issue": "Per-gene protein species decomposition from protein_mass remains unconfirmed as an actual readable channel; the candidate now states an mRNA-based fallback but it is still unconfirmed whether either per-gene readout exists on the instrument.",
+     "resolved_round": 3
+    }
+   ]
+  }
+ },
+ {
+  "question": "How far do the steady-state and kinetic tRNA-charging models disagree about the growth defect of a knockout, and for which classes of gene (synthetases, amino-acid biosynthesis, ribosomal proteins, tRNA modification) is the disagreement largest? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+  "seconds": 180,
+  "hypothesis": {
+   "question": "How far do the steady-state and kinetic tRNA-charging models disagree about the growth defect of a knockout, and for which classes of gene (synthetases, amino-acid biosynthesis, ribosomal proteins, tRNA modification) is the disagreement largest? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+   "claim": "The steady_state and kinetic tRNA-charging elongation models disagree substantially on predicted growth defect for gene knockouts, and this disagreement is systematically largest for aminoacyl-tRNA synthetase (aaRS) knockouts and smallest for ribosomal-protein knockouts, with amino-acid biosynthesis and tRNA-modification knockouts falling in between \u2014 because the kinetic model's explicit per-isoacceptor charging and fixed ppGpp let synthetase loss produce acute isoacceptor-specific stalling that steady_state's aggregated per-amino-acid charging (with ppGpp feedback) buffers away.",
+   "h1": "Across a panel of knockouts spanning the four gene classes, the magnitude of the growth_rate effect-size difference between kinetic and steady_state models (|\u0394growth_rate%|) is on average >=2-fold larger for synthetase KOs than for ribosomal-protein KOs, with aa-biosynthesis and tRNA-modification KOs intermediate; i.e. model disagreement is class-dependent, not uniform.",
+   "h0": "The growth_rate effect-size difference between kinetic and steady_state models is statistically indistinguishable across the four gene classes (no class shows a mean |\u0394growth_rate%| reliably greater than another after accounting for replicate noise), i.e. model disagreement is uniform/noise-level regardless of gene class.",
+   "operational_defs": [
+    {
+     "term": "growth defect under a given elongation model",
+     "observable": "growth_rate channel trajectory over the simulated generations",
+     "measure": "percent change in mean growth_rate (target KO vs wildtype/basal) within that model, i.e. effect_pct from disconfirm()"
+    },
+    {
+     "term": "inter-model disagreement for one gene",
+     "observable": "the two model-specific effect_pct values (kinetic KO-vs-WT, steady_state KO-vs-WT)",
+     "measure": "|effect_pct_kinetic - effect_pct_steady_state|, averaged across seeds"
+    },
+    {
+     "term": "gene class",
+     "observable": "params.target_genes membership in a curated list (synthetase, aa-biosynthesis, ribosomal-protein, tRNA-modification)",
+     "measure": "categorical label attached to each knockout design"
+    },
+    {
+     "term": "acute isoacceptor stalling (mechanism)",
+     "observable": "fraction_trna_charged under kinetic model for synthetase KOs vs steady_state",
+     "measure": "drop in fraction_trna_charged (kinetic) relative to steady_state for the same KO"
+    }
+   ],
+   "predicted_effect": "Direction: kinetic model shows larger-magnitude growth_rate deficits than steady_state for synthetase KOs. Magnitude: mean |\u0394growth_rate%| ~ 25-40% for synthetase KOs vs ~5-10% for ribosomal-protein KOs (>=2-fold ratio), with aa-biosynthesis and tRNA-modification KOs at ~12-20%. Fraction of synthetase-class genes showing a 'large disagreement' (|\u0394growth_rate%|>15%) predicted to be >=0.6 of the sampled synthetase panel, vs <0.2 for the ribosomal-protein panel.",
+   "falsifier": {
+    "target": "gene_knockout/synthetase_panel_kinetic",
+    "reference": "gene_knockout/synthetase_panel_steady_state",
+    "channel": "growth_rate",
+    "decision_rule": "For each sampled gene, compute effect_pct(KO vs matched wildtype/basal) separately under kinetic and steady_state models via disconfirm(); take |\u0394effect_pct| per gene; Welch t comparing the per-gene |\u0394effect_pct| distribution of the synthetase class vs the ribosomal-protein class across seeds; reject H0 (class-dependence confirmed) if |welch_t|>=2 and synthetase mean |\u0394effect_pct| is numerically >= 2x the ribosomal-protein mean. If |welch_t|<2 or the ratio is <1.5x, H1 is refuted.",
+    "refuting_result": "Welch t between synthetase-class and ribosomal-protein-class |\u0394effect_pct| distributions has |t|<2, or the mean ratio is <1.5x, indicating uniform cross-model disagreement regardless of gene class.",
+    "test": {
+     "test_id": "welch_disconfirm",
+     "statistic": "welch_t on per-gene |\u0394effect_pct| (growth_rate), synthetase class vs ribosomal-protein class",
+     "threshold": "|welch_t|>=2 AND mean ratio (synthetase/ribosomal) >= 2"
+    }
+   },
+   "rivals": [
+    {
+     "claim": "Disagreement is driven mainly by overall KO severity (how essential the gene is), not gene class per se \u2014 severely growth-limiting KOs of ANY class show larger model divergence simply because they push the system further from the regime both models were fit to.",
+     "distinguishing_result": "If severity (measured as |effect_pct| magnitude pooled across both models) rather than class predicts |\u0394effect_pct| (e.g. a slope_ci regression of |\u0394effect_pct| on pooled severity shows a strong positive CI excluding 0 that explains the class pattern), while within-class residual variance after controlling for severity is small, this would support severity-driven disagreement over class-driven disagreement."
+    },
+    {
+     "claim": "ppGpp regulation (present in steady_state, fixed in kinetic) is the dominant driver of disagreement for ALL stringent-response-triggering KOs (synthetases, aa-biosynthesis) equally, rather than being specific to synthetases via isoacceptor-level stalling; tRNA-modification and ribosomal-protein KOs would show low disagreement because they do not strongly trigger the stringent response.",
+     "distinguishing_result": "If synthetase and aa-biosynthesis classes show statistically indistinguishable |\u0394effect_pct| (Welch t <2 between them) while both differ from ribosomal-protein/tRNA-modification classes, this favors the ppGpp-regulation rival over the isoacceptor-stalling-specific-to-synthetases rival."
+    }
+   ],
+   "auxiliary_assumptions": [
+    "Both elongation models are mechanistically implemented for all 16 sampled genes (not silently no-op'd) \u2014 confirmed only downstream during testing, per the instrument note.",
+    "The curated 4-gene panels per class are representative enough of their class that class-level means are not driven by one idiosyncratic gene; a larger follow-up panel would be needed to generalize further.",
+    "disconfirm() effect_pct and welch_t are computed per-gene against that gene's own model-matched wildtype/basal reference, then |\u0394effect_pct| is aggregated per class across the 4 genes x 6 seeds.",
+    "Phosphate/glucose removal is out of scope per the question constraints; basal condition is used throughout to isolate the elongation-model axis.",
+    "ppGpp clamp at 1.0x under kinetic is treated as a mechanistic control for ppGpp-regulation-dependence, not as a third full elongation-model arm needing its own class panel."
+   ],
+   "candidate_designs": [
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "alaS",
+       "leuS",
+       "thrS",
+       "valS"
+      ],
+      "elongation_model": "kinetic",
+      "class_label": "synthetase"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "alaS",
+       "leuS",
+       "thrS",
+       "valS"
+      ],
+      "elongation_model": "steady_state",
+      "class_label": "synthetase"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "rpsA",
+       "rplA",
+       "rpsB",
+       "rplB"
+      ],
+      "elongation_model": "kinetic",
+      "class_label": "ribosomal_protein"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "rpsA",
+       "rplA",
+       "rpsB",
+       "rplB"
+      ],
+      "elongation_model": "steady_state",
+      "class_label": "ribosomal_protein"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "ilvA",
+       "thrA",
+       "leuA",
+       "hisG"
+      ],
+      "elongation_model": "kinetic",
+      "class_label": "aa_biosynthesis"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "ilvA",
+       "thrA",
+       "leuA",
+       "hisG"
+      ],
+      "elongation_model": "steady_state",
+      "class_label": "aa_biosynthesis"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "truB",
+       "miaA",
+       "tgt",
+       "mnmE"
+      ],
+      "elongation_model": "kinetic",
+      "class_label": "trna_modification"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "gene_knockout",
+     "params": {
+      "target_genes": [
+       "truB",
+       "miaA",
+       "tgt",
+       "mnmE"
+      ],
+      "elongation_model": "steady_state",
+      "class_label": "trna_modification"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "ppgpp_conc",
+     "params": {
+      "clamp_multiple": 1.0,
+      "elongation_model": "kinetic",
+      "note": "discriminating control: clamping ppGpp to basal under kinetic removes the steady_state-exclusive ppGpp-regulation feedback from the comparison, isolating isoacceptor-level stalling as the mechanism for synthetase-class disagreement vs the ppGpp-regulation rival"
+     },
+     "condition": "basal",
+     "timeline": "",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    }
+   ],
+   "residual_ambiguities": [
+    "reached round cap without full convergence"
+   ],
+   "converged": false,
+   "rounds_used": 4,
+   "substantive_objections": 1,
+   "objection_ledger": [
+    {
+     "id": "r1.1",
+     "round": 1,
+     "type": "rival_not_excluded",
+     "severity": "substantive",
+     "issue": "The ppGpp-clamp control design (perturbation ppgpp_conc, elongation_model kinetic, clamp_multiple 1.0) only runs under the kinetic model and has no class panel attached (no target_genes, no synthetase/aa-biosynthesis/ribosomal/modification breakdown). As specified it cannot actually distinguish the isoacceptor-stalling-specific-to-synthetases mechanism from the ppGpp-regulation-dominant rival, because that rival's distinguishing result requires comparing |\u0394effect_pct| between synthetase and aa-biosynthesis classes under matched ppGpp handling across all four classes, not a single unstructured clamp run.",
+     "resolved_round": 2
+    },
+    {
+     "id": "r1.2",
+     "round": 1,
+     "type": "hidden_auxiliary",
+     "severity": "minor",
+     "issue": "The decision rule for H1 confirmation requires BOTH |welch_t|>=2 AND ratio>=2, but the stated predicted_effect and rival-2 test only discuss pairwise class comparisons (synthetase vs ribosomal). There is no pre-registered rule for how to adjudicate the full four-class ordering (synthetase > aa-biosynthesis/modification > ribosomal) implied by the main claim, e.g. what happens if aa-biosynthesis ties with synthetase (consistent with rival 2) but modification is low \u2014 is H1 confirmed, refuted, or ambiguous? This gap could let an inconclusive four-class pattern be silently filed as confirming H1.",
+     "resolved_round": 2
+    }
+   ]
+  }
+ },
+ {
+  "question": "After a shift from a medium with amino acids to one without, how do per-isoacceptor charging and ribosome elongation recover, and does the recovery differ between amino acids whose synthesis pathways differ in length? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+  "seconds": 182,
+  "hypothesis": {
+   "question": "After a shift from a medium with amino acids to one without, how do per-isoacceptor charging and ribosome elongation recover, and does the recovery differ between amino acids whose synthesis pathways differ in length? Two elongation models are available: steady_state (charging solved per amino acid; ppGpp is regulated) and kinetic (each tRNA isoacceptor charged separately, codons read explicitly; ppGpp is held constant). Phosphate or glucose removal cannot be represented in either.",
+   "claim": "After an amino-acid-withdrawal shift (rich -> minimal/basal, removing amino acids), the kinetic elongation model shows isoacceptor-specific recovery kinetics in fraction_trna_charged and ribosome_conc/growth_rate that scale with the length of the amino acid's biosynthetic pathway: amino acids with longer synthesis pathways (more biosynthetic steps, e.g. branched-chain/aromatic amino acids) recover charging and elongation capacity more slowly than amino acids with short pathways (e.g. glutamate/alanine family), because the kinetic model resolves per-isoacceptor charging and explicit codon reading while ppGpp is held fixed (no stringent feedback to buffer the delay). In contrast, the steady_state model (ppGpp regulated, charging solved in aggregate per amino acid, no isoacceptor resolution) shows a much more uniform, fast recovery across amino acid classes because ppGpp-mediated ribosome down-regulation equalizes the recovery trajectory.",
+   "h1": "In the kinetic model, post-shift recovery half-time of fraction_trna_charged (and the coupled growth_rate/ribosome_conc rebound) differs by amino acid pathway-length class: long-pathway amino acids show >=1.5-2x longer recovery half-time than short-pathway amino acids; this pathway-length-dependent spread is largely absent (<1.3x) in the steady_state model because ppGpp regulation there buffers/equalizes recovery.",
+   "h0": "Recovery half-time of fraction_trna_charged after amino-acid withdrawal does not differ systematically by amino-acid pathway length in either model (ratio of long- to short-pathway recovery half-times is within 1.2x, i.e. statistically indistinguishable from the wildtype/basal reference spread), and growth_rate/ribosome_conc rebound kinetics track together regardless of model.",
+   "operational_defs": [
+    {
+     "term": "amino acid pathway length",
+     "observable": "categorical label assigned per amino acid shift target based on number of enzymatic steps in its biosynthetic pathway (short: e.g. serine/alanine/aspartate family ~1-3 steps; long: e.g. isoleucine/leucine/valine/aromatic family ~6-10 steps) \u2014 used to select amino_acid_shift params, not a simulator channel",
+     "measure": "fixed classification label attached to each candidate_design"
+    },
+    {
+     "term": "charging recovery kinetics",
+     "observable": "fraction_trna_charged channel timecourse after the shift-back event",
+     "measure": "time from shift-back to fraction_trna_charged reaching 90% of its pre-shift (basal) steady-state value = recovery half-time proxy, computed per seed"
+    },
+    {
+     "term": "elongation/growth recovery",
+     "observable": "growth_rate and ribosome_conc channel timecourses",
+     "measure": "time to reach 90% of pre-shift baseline, compared across amino acid classes and models"
+    },
+    {
+     "term": "ppGpp buffering of recovery",
+     "observable": "ppgpp_conc channel in steady_state model vs its clamped constant value in kinetic model",
+     "measure": "presence/absence of a transient ppgpp_conc spike correlating with charging deficit"
+    }
+   ],
+   "predicted_effect": "Kinetic model: long-pathway amino acid (e.g. isoleucine) recovery half-time for fraction_trna_charged is >=1.5-2x that of short-pathway amino acid (e.g. serine), a difference of several simulated minutes to ~1 generation-fraction; coupled growth_rate rebound lags by a similar ratio. Steady_state model: the same long/short ratio is <1.3x (effectively uniform recovery, ppGpp-buffered). Direction: kinetic model shows pathway-length-dependent spread; steady_state model does not.",
+   "falsifier": {
+    "target": "amino_acid_shift/long_pathway_kinetic",
+    "reference": "amino_acid_shift/short_pathway_kinetic",
+    "channel": "fraction_trna_charged",
+    "decision_rule": "Welch t-test on per-seed recovery half-time (time to reach 90% of pre-shift baseline) for long- vs short-pathway amino acid shifts within the kinetic model; reject H0 if |welch_t|>=2 AND effect_pct indicates >=50% longer half-time for long-pathway; refuting result if |welch_t|<2 or effect_pct<20%",
+    "refuting_result": "Welch t between long- and short-pathway kinetic-model recovery half-times gives |t|<2 or effect_pct<20%, i.e. no meaningful pathway-length-dependent slowdown is detected, consistent with H0",
+    "test": {
+     "test_id": "welch_disconfirm",
+     "statistic": "welch_t on per-seed recovery half-time (fraction_trna_charged to 90% baseline)",
+     "threshold": "|welch_t|>=2 and effect_pct>=50%"
+    }
+   },
+   "rivals": [
+    {
+     "claim": "Recovery differences are driven by amino acid pool size / dilution kinetics (how much free amino acid must be resynthesized to saturate charging), not by number of biosynthetic steps per se \u2014 a long pathway with a large pool could recover as fast as a short one with a small pool.",
+     "distinguishing_result": "If recovery half-time correlates better with precursor pool size (not measured directly here but implied by divergent behavior within same pathway-length class) than with step count, we would see high within-class variance in recovery half-time that swamps the between-class (long vs short) difference, i.e. Welch t on long vs short would be non-significant even though individual amino acids show big differences."
+    },
+    {
+     "claim": "ppGpp regulation (present in steady_state, absent/clamped in kinetic) is NOT the reason for equalized recovery in steady_state; instead steady_state's aggregate (non-isoacceptor) charging formulation mechanically averages away any per-amino-acid kinetic differences regardless of ppGpp.",
+     "distinguishing_result": "The ppgpp_conc clamp control (clamping ppGpp in the steady_state model near its own basal value, i.e. ppgpp_conc=1x condition) would still show equalized recovery across amino acid classes if the averaging is purely structural/mathematical rather than due to active ppGpp feedback -- i.e., clamping ppGpp in steady_state does not restore a long/short difference."
+    }
+   ],
+   "auxiliary_assumptions": [
+    "The simulator's amino_acid_shift perturbation supports specifying a single amino acid to withdraw and re-add (isoleucine, serine) within the allowed timeline grammar (no mid-run carbon-source switch involved here, only aa shift).",
+    "Pathway-length classification (short vs long) is an a priori biochemical annotation external to the simulator, not something the model outputs; we treat it as a fixed design label.",
+    "fraction_trna_charged channel is resolved per-isoacceptor in kinetic model but aggregate in steady_state; we use whichever resolution the channel reports natively for each model and compare recovery half-times on that basis (not directly cross-model isoacceptor-to-aggregate comparisons).",
+    "Pre-shift baseline for '90% recovery' is defined by each amino acid's own pre-withdrawal steady-state charging level in that model/condition, controlling for any baseline differences between amino acids or models.",
+    "We assume deterministic-vs-stochastic differences between seeds reflect intrinsic noise rather than chaotic sensitivity; we do not attempt to adjudicate that boundary here (recorded as a scope caveat).",
+    "Phosphate/glucose removal is out of scope per the instrument description; only amino-acid shifts are used."
+   ],
+   "candidate_designs": [
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "kinetic",
+      "amino_acid": "isoleucine",
+      "pathway_class": "long"
+     },
+     "condition": "kinetic_long_pathway",
+     "timeline": "0 rich_withAA, 60 minimal_noAA, 180 minimal_withAA_isoleucine",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "kinetic",
+      "amino_acid": "serine",
+      "pathway_class": "short"
+     },
+     "condition": "kinetic_short_pathway",
+     "timeline": "0 rich_withAA, 60 minimal_noAA, 180 minimal_withAA_serine",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "steady_state",
+      "amino_acid": "isoleucine",
+      "pathway_class": "long"
+     },
+     "condition": "steady_state_long_pathway",
+     "timeline": "0 rich_withAA, 60 minimal_noAA, 180 minimal_withAA_isoleucine",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "amino_acid_shift",
+     "params": {
+      "model": "steady_state",
+      "amino_acid": "serine",
+      "pathway_class": "short"
+     },
+     "condition": "steady_state_short_pathway",
+     "timeline": "0 rich_withAA, 60 minimal_noAA, 180 minimal_withAA_serine",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "ppgpp_conc",
+     "params": {
+      "model": "steady_state",
+      "ppgpp_clamp_multiple": 1.0,
+      "amino_acid": "isoleucine",
+      "pathway_class": "long",
+      "note": "interventional control: clamp ppGpp at 1x basal in steady_state model to test whether equalized recovery persists absent active ppGpp regulation change"
+     },
+     "condition": "steady_state_clamped_basal",
+     "timeline": "0 rich_withAA, 60 minimal_noAA, 180 minimal_withAA_isoleucine",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    },
+    {
+     "perturbation": "wildtype",
+     "params": {
+      "note": "reference baseline for both models' pre-shift steady-state charging/growth levels"
+     },
+     "condition": "basal",
+     "timeline": "0 basal",
+     "seeds": 6,
+     "generations": 3,
+     "elongation_model": "steady_state"
+    }
+   ],
+   "residual_ambiguities": [
+    "[construct_ambiguity] For amino acids with multiple isoacceptors in the kinetic model, should the recovery half-time be the mean, the max (slowest), or the codon-usage-weighted isoacceptor value?"
+   ],
+   "converged": false,
+   "rounds_used": 4,
+   "substantive_objections": 2,
+   "objection_ledger": [
+    {
+     "id": "r1.1",
+     "round": 1,
+     "type": "rival_not_excluded",
+     "severity": "substantive",
+     "issue": "Only one amino acid represents each pathway-length class (isoleucine=long, serine=short). Any observed difference could be driven by idiosyncratic features of these two specific amino acids (e.g. codon usage, isoacceptor number, pool size as the candidate's own rival #1 notes) rather than pathway length per se. The design doesn't exclude the rival that it's an amino-acid-identity effect, not a class effect, since n=1 per class (only seeds vary, not amino acid identity within class).",
+     "resolved_round": 3
+    },
+    {
+     "id": "r1.2",
+     "round": 1,
+     "type": "construct_ambiguity",
+     "severity": "minor",
+     "issue": "fraction_trna_charged is isoacceptor-resolved in kinetic but aggregate per-amino-acid in steady_state. The main kinetic-vs-steady_state spread comparison (the h1 claim that steady_state shows <1.3x uniform recovery) compares a within-isoacceptor-resolved metric against an aggregated one, but it's unclear which isoacceptor (if a given amino acid has multiple tRNA species) is used for the kinetic model's half-time per amino acid, or whether they're averaged/maxed across isoacceptors.",
+     "resolved_round": 3
+    },
+    {
+     "id": "r2.1",
+     "round": 2,
+     "type": "rival_not_excluded",
+     "severity": "substantive",
+     "issue": "Still only n=1 amino acid per pathway-length class (isoleucine vs serine). The auxiliary_assumptions and candidate_designs were not expanded to include a second long- and short-pathway amino acid, so the amino-acid-identity rival (codon usage, isoacceptor count, pool size idiosyncratic to isoleucine/serine specifically) remains unexcluded -- a class-level claim about 'pathway length' cannot be supported by a single exemplar per class with only seed-level replication.",
+     "resolved_round": 3
+    },
+    {
+     "id": "r2.2",
+     "round": 2,
+     "type": "construct_ambiguity",
+     "severity": "minor",
+     "issue": "The operational_defs still do not specify how a kinetic-model amino acid with multiple tRNA isoacceptors (e.g. isoleucine has 2-3 isoacceptors in E. coli) collapses to a single 'recovery half-time' value for the headline Welch-t test -- averaged across isoacceptors, worst-case (slowest) isoacceptor, or the isoacceptor carrying the plurality of codons? Different choices could change whether the long-pathway amino acid appears slower.",
+     "resolved_round": 3
+    }
+   ]
+  }
+ }
+]
