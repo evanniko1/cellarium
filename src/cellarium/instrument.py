@@ -46,7 +46,7 @@ _PERTURBATION_NOTES = {
     "condition": "a static fitted media condition (e.g. basal, acetate)",
     "tf_activity": "clamp a transcription factor's activity",
     "ppgpp_conc": "clamp ppGpp concentration to a multiple of basal",
-    "timeline": "media-shift events over time (glucose cut/ramp, aa/ion/oxygen shift — NOT a carbon-source switch)",
+    "timeline": "media-shift events over time (aa/ion/oxygen shift — NOT a carbon-source switch, and NOT a glucose dose: uptake is a binary switch, so every glucose concentration gives the same cell)",
     "amino_acid_shift": "add/remove an amino acid mid-run",
     "rrna_operon_knockout": "delete rRNA operons (ribosome capacity)",
     "new_gene": "introduce a heterologous gene",
@@ -70,7 +70,7 @@ def dial_labels() -> dict:
         "design_schema": {
             "perturbation": "one of the perturbations above",
             "condition": "static media condition, e.g. basal, acetate",
-            "timeline": "media-shift events, e.g. '0 minimal, 1200 minimal_GLC_5mM'",
+            "timeline": "media-shift events, e.g. '0 minimal, 1200 minimal_plus_amino_acids'",
             "seeds": "int — independent stochastic replicates (isogenic; vary intrinsic noise)",
             "generations": "int — cell-cycle generations to simulate",
             "params": "dict — e.g. {'target_genes': ['acrB']}",

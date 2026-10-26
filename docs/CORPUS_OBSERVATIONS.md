@@ -78,8 +78,9 @@ Verdicts: **✓ confirmed · ✗ discrepant · ~ confounded (needs multi-gen)**.
   downturn at 1 gen. The ppGpp→`ribosome_conc`→growth chain is now **verified, not inferred**. Hypothesis: the
   low-side downturn is a steady-state effect → testing at `--generations 4`.
 - **Carbon/O₂ sweep (B.3) — ✓ with a key refinement.** Poor carbon (acetate 0.000177, succinate 0.000193) +
-  anaerobic (0.000151) → slow + small cells ✓. Glucose 2/5/20 mM identical (~0.000255) — **uptake-saturated**
-  (K_m ≪ mM); this arm doesn't probe glucose *limitation* (needs µM). **Refinement: ppGpp does NOT
+  anaerobic (0.000151) → slow + small cells ✓. Glucose 2/5/20 mM identical (~0.000255). **Corrected 2026-10-26:** not saturation —
+  uptake is a binary switch above 1e-5 mM (`external_state.py`, `IMPORT_CONSTRAINT_THRESHOLD`), with no K_m, so
+  no concentration above the threshold, µM included, can show glucose *limitation*. The runs are bit-identical. **Refinement: ppGpp does NOT
   anti-correlate with growth on the carbon/energy axis** (anaerobic is slow but low ppGpp 27.9) — ppGpp tracks
   **AA/translation limitation specifically**. Signature #2 holds on the AA axis only. Supports "ppGpp is
   emergent, not a fitted growth-lookup."

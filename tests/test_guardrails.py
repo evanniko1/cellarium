@@ -24,6 +24,19 @@ def test_glucose_ramp_is_in_envelope():
     assert v.in_envelope
 
 
+def test_a_t0_switch_into_an_alternative_carbon_source_is_refused():
+    """The large campaign ran 'static' acetate as wildtype + '0 minimal_acetate': a glucose-fitted cell that
+    shrank every generation. The fitted condition is the in-envelope way."""
+    v = envelope.check(Design(perturbation="wildtype", timeline="0 minimal_acetate"))
+    assert not v.in_envelope and "at t=0" in v.reason
+    assert "perturbation='condition'" in v.suggestion
+    assert not envelope.check(Design(perturbation="gene_knockout", condition="KO:argG",
+                                     timeline="0 minimal_succinate")).in_envelope
+    assert envelope.check(Design(perturbation="condition", condition="acetate")).in_envelope
+    assert envelope.check(Design(perturbation="condition", condition="acetate",
+                                 timeline="0 minimal_acetate")).in_envelope
+
+
 def test_tf_activity_into_a_medium_without_a_doubling_time_is_refused():
     """Known-fault audit E1: variant 14 (cytR inactive) dies at t=0 on minimal_plus_cytidine; 13 runs."""
     v = envelope.check(Design(perturbation="tf_activity", params={"variant_index": 14}))

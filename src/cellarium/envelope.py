@@ -1,10 +1,15 @@
 """Feasibility guardrail — is a proposed experiment inside the model's *validated* envelope?
 
-The whole-cell E. coli model validates a specific set of perturbations. The sharpest failure it does NOT
-support is a mid-simulation **carbon-source switch** (glucose -> acetate/succinate/fumarate/malate): those
-alternative carbon sources exist only as *static* fitted conditions upstream, never as a dynamic shift
-target. Forcing one desynchronises the replication-division cycle and returns mechanistically invalid
-generations. We catch that here, before running, and point to the in-envelope alternative.
+"Validated" here means the model RUNS the design as intended; it does not mean every parameter of it has an
+effect. A glucose dose is the standing example: uptake is a binary switch above 1e-5 mM
+(external_state.py, IMPORT_CONSTRAINT_THRESHOLD), so 2, 5, 11.1 and 20 mM glucose give bit-identical
+simulations. A dose design runs, and answers nothing about dose.
+
+The sharpest failure it does NOT support is a **carbon-source switch** (glucose -> acetate/succinate/fumarate/
+malate), mid-simulation or at t=0: those alternative carbon sources exist only as *static* fitted conditions
+upstream, never as a dynamic shift target. Forcing one desynchronises the replication-division cycle and
+returns mechanistically invalid generations. We catch that here, before running, and point to the
+in-envelope alternative.
 """
 
 from __future__ import annotations
@@ -103,21 +108,27 @@ def check(design: Design) -> EnvelopeVerdict:
     # The load-bearing check: a timeline that switches carbon source.
     if design.timeline:
         steps = _parse_timeline(design.timeline)
-        sources = [carbon_source(m) for _, m in steps]
-        switched_to_alt = any(
-            sources[i] != sources[i - 1] and sources[i] in STATIC_ONLY_CARBON
-            for i in range(1, len(sources))
-        )
-        if switched_to_alt:
-            alt = next(s for s in sources if s in STATIC_ONLY_CARBON)
+        # The cell's physiology is the one it was fitted for, which is glucose unless the `condition` variant
+        # selected an alternative carbon source. It goes at the head of the sequence, so that a timeline whose
+        # FIRST event (at t=0) moves a glucose-fitted cell into acetate is a switch too. Measured in the large
+        # campaign's release: `wildtype` + "0 minimal_acetate" divides at 2,805 s, then 800 s, and birth mass
+        # falls 354 -> 202 -> 146 fg, while the fitted acetate condition divides at 4,776-6,662 s.
+        start = (design.condition if design.perturbation == "condition" and design.condition in STATIC_ONLY_CARBON
+                 else "glucose")
+        sources = [start] + [carbon_source(m) for _, m in steps]
+        switch = next((i for i in range(1, len(sources))
+                       if sources[i] != sources[i - 1] and sources[i] in STATIC_ONLY_CARBON), None)
+        if switch is not None:
+            alt = sources[switch]
+            at = steps[switch - 1][0]
+            when = "at t=0, from a cell fitted to glucose" if at == 0 else "mid-simulation"
             return EnvelopeVerdict(
                 False,
-                f"This timeline switches the carbon source to {alt} mid-simulation. The model validates "
-                f"glucose cut/ramp and amino-acid/ion/oxygen shifts, but {alt} exists only as a *static* "
-                f"condition — a dynamic carbon-source switch desynchronises the replication-division cycle "
-                f"and yields degenerate generations.",
-                f"Run the static '{alt}' condition (fitted growth) with replicate seeds instead of a "
-                f"glucose->{alt} shift.",
+                f"This timeline switches the carbon source to {alt} {when}. {alt} exists only as a *static* "
+                f"fitted condition; a switch into it leaves the glucose-fitted expression and division cycle in "
+                f"place, so the cells do not reach a steady state (they shrink generation after generation).",
+                f"Run the static '{alt}' condition (perturbation='condition', condition='{alt}') with replicate "
+                f"seeds instead of a glucose->{alt} shift.",
             )
 
     return EnvelopeVerdict(True, "Inside the model's validated perturbation envelope.")
