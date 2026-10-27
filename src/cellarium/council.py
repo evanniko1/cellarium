@@ -303,12 +303,57 @@ def _council_temperature(model: str | None, *, thinking: bool = False) -> float 
     return COUNCIL_TEMPERATURE
 
 
+def _decode_nested(tool: dict, data: dict) -> dict:
+    """Undo a degenerate emit seen 2026-10-27 (claude-sonnet-5, a long question): a field the schema types as an
+    array or object arrives as a JSON-encoded STRING — for the skeptic, `objections` held the whole tool input
+    ({"assessment": …, "objections": [...]}) serialized. Decode such fields; when the decoded object carries the
+    tool's own top-level keys, the whole input was nested in that one field, so lift it back up."""
+    props = tool.get("input_schema", {}).get("properties", {})
+    out = dict(data)
+    for k, v in data.items():
+        kind = (props.get(k) or {}).get("type")
+        if kind not in ("array", "object") or not isinstance(v, str):
+            continue
+        try:
+            dec = json.loads(v)
+        except ValueError:
+            continue
+        if isinstance(dec, dict) and k in dec and set(dec) <= set(props):
+            out.update(dec)
+        elif isinstance(dec, list if kind == "array" else dict):
+            out[k] = dec
+    return out
+
+
+def _garbled(tool: dict, data: dict) -> bool:
+    """True when an emit is unusable even after _decode_nested: a field typed array/object is still a string, or a
+    string field carries another field's markup (2026-10-27: the proposer wrote the entire hypothesis as
+    <h1>…</h1><falsifier>…</falsifier> inside `claim`, leaving h1, h0 and the rest empty)."""
+    props = tool.get("input_schema", {}).get("properties", {})
+    for k, v in data.items():
+        kind = (props.get(k) or {}).get("type")
+        if kind in ("array", "object") and isinstance(v, str):
+            return True
+        if isinstance(v, str) and any(f"<{p}>" in v or f"</{p}>" in v for p in props):
+            return True
+    return False
+
+
+def _skeptic_readable(objs: dict) -> bool:
+    """The skeptic's output can be read as a list of objections (an empty list is a real 'no objections')."""
+    o = objs.get("objections")
+    return isinstance(o, list) and all(isinstance(x, dict) for x in o)
+
+
 def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tokens: int = 3072,
-          temperature: float | None = None, role: str = "council") -> dict:
-    """One forced-tool call -> the validated structured input dict. Retries once if the tool input comes back
-    empty (a rare truncation/degenerate emit). `temperature` is passed only when set (None => API default),
-    so a run can pin it for reproducibility / name the sampling variance source. Every real API call publishes a
-    per-call observability record (LLM-2 seam) tagged with `role` — proposer/skeptic/judge/gate/librarian."""
+          temperature: float | None = None, role: str = "council",
+          valid: Callable[[dict], bool] | None = None) -> dict:
+    """One forced-tool call -> the validated structured input dict. Array/object fields that come back as JSON
+    strings are decoded (_decode_nested). Up to three attempts while the input is empty or fails `valid`; the
+    last attempt is returned either way, so a caller that needs a usable result must check it rather than assume
+    it. `temperature` is passed only when set (None => API default), so a run can pin it for reproducibility /
+    name the sampling variance source. Every real API call publishes a per-call observability record (LLM-2
+    seam) tagged with `role` — proposer/skeptic/judge/gate/librarian."""
     kw = {} if temperature is None else {"temperature": temperature}
     # Prompt caching: a role's system prompt + tool schema are IDENTICAL across its ~4 calls in one deliberation, so
     # cache that (large, static) prefix; the per-round payload is the uncached suffix. Cache read = 0.1x input price,
@@ -317,7 +362,8 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
     # never invalidates the cached prefix.
     system_blocks = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
     tools = [{**tool, "cache_control": {"type": "ephemeral"}}]
-    for _ in range(2):
+    last: dict = {}
+    for _ in range(3):
         t0 = observability.now()
         resp = client.messages.create(
             model=model, max_tokens=max_tokens, system=system_blocks, tools=tools,
@@ -326,10 +372,13 @@ def _emit(client, model: str, system: str, tool: dict, payload: dict, *, max_tok
         )
         observability.emit(observability.usage_record(
             role, model, resp, (observability.now() - t0) * 1000, temperature=temperature))
-        for block in resp.content:
-            if getattr(block, "type", None) == "tool_use" and block.input:
-                return dict(block.input)
-    return {}
+        block = next((b for b in resp.content if getattr(b, "type", None) == "tool_use" and b.input), None)
+        if block is None:
+            continue
+        last = _decode_nested(tool, dict(block.input))
+        if valid is None or valid(last):
+            return last
+    return last
 
 
 # --- role calls (compact payloads — no growing transcript) --------------------------------------------------
@@ -352,7 +401,7 @@ def _propose(client, models, question, labels, previous_candidate, open_objectio
         payload["instruction"] += (" A reference answer for this question is provided in "
                                     "'leaked_reference_answer'; use it to inform your hypothesis.")
     return _emit(client, models["proposer"], _PROPOSER_SYS, _PROPOSE_TOOL, payload, max_tokens=4096,
-                 temperature=temperature, role="proposer")
+                 temperature=temperature, role="proposer", valid=lambda c: not _garbled(_PROPOSE_TOOL, c))
 
 
 def _skeptic(client, models, question, labels, candidate, answered, open_objections=None, *,
@@ -367,7 +416,7 @@ def _skeptic(client, models, question, labels, candidate, answered, open_objecti
         payload["library_brief"] = library_brief
     system = _SKEPTIC_SYS + (_ADVERSARIAL_SUFFIX if adversarial else "")
     return _emit(client, models["skeptic"], system, _SKEPTIC_TOOL, payload, max_tokens=2048,
-                 temperature=temperature, role="skeptic")
+                 temperature=temperature, role="skeptic", valid=_skeptic_readable)
 
 
 def _judge(client, models, question, candidate, objections, feasible_code, *, temperature=None,
@@ -794,11 +843,17 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     converged_cand: dict = {}   # first/best candidate that passed the full quality gate (judge + skeptic + structural)
     converged_score = -1
     consecutive_clean = 0
+    unreadable: list[str] = []   # rounds whose proposer or skeptic emit could not be read (see _garbled)
 
     for rnd in range(max_rounds):
         digest = _debate_digest(debate_log, ledger)   # rounds 1..rnd — a blind, bounded memory for every role
         cand = _propose(client, models, question, labels, previous_candidate, open_objections, answered,
                         temperature=temperature, leak=leak, debate_so_far=digest, library_brief=library_brief)
+        # An unreadable emit is reported as unreadable, never as an empty answer: such a round cannot count as clean,
+        # and if the debate ends unconverged it is named in the residuals.
+        round_unreadable = []
+        if _garbled(_PROPOSE_TOOL, cand):
+            round_unreadable.append(f"[proposer_unreadable] round {rnd + 1}")
         if not _complete(cand) and _complete(previous_candidate or {}):
             cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
         previous_candidate = cand
@@ -816,6 +871,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
             objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
                             temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest,
                             library_brief=library_brief)
+            if not _skeptic_readable(objs):   # an unreadable critique is not "no objections"
+                round_unreadable.append(f"[skeptic_unreadable] round {rnd + 1}")
             resolved_ids = {r for r in (objs.get("resolved") or []) if isinstance(r, str)}
             for o in ledger:   # the skeptic (who raised them) certifies which prior objections the revision addressed
                 if o["resolved_round"] is None and o["id"] in resolved_ids:
@@ -878,7 +935,9 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                 "judge": {"falsifiable": verdict.get("falsifiable"), "specified": verdict.get("specified"),
                           "operationalized": verdict.get("operationalized"), "discriminating": verdict.get("discriminating"),
                           "adequate": adequate, "converged": converged_signal},
+                "unreadable": round_unreadable,
             })
+        unreadable += round_unreadable
 
         open_objections = objections
         debate_log.append({"round": rnd + 1, "claim": cand.get("claim", ""),   # feeds next round's blind digest
@@ -892,7 +951,7 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         # nothing parked, is a CLEAN hypothesis. Lock in the best such candidate so later proposer drift or
         # manufactured late-round objections can't lose it (an airtight hypothesis often goes quiet in round 1,
         # before the quota of doubt has been reached — the quota must not discard it).
-        clean = adequate and converged_signal and structural and not parked
+        clean = adequate and converged_signal and structural and not parked and not round_unreadable
         if clean and score > converged_score:
             converged_cand, converged_score = cand, score
         consecutive_clean = consecutive_clean + 1 if clean else 0
@@ -909,6 +968,6 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         return _assemble(question, converged_cand, residual=[], converged=True, rounds_used=max_rounds,
                          substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, max_rounds))
     final = best if best else (previous_candidate or {})
-    residual = _residual(open_objections, parked) or ["reached round cap without full convergence"]
+    residual = (_residual(open_objections, parked) + unreadable) or ["reached round cap without full convergence"]
     return _assemble(question, final, residual=residual, converged=False, rounds_used=max_rounds,
                      substantive_objections=total_substantive, ledger=ledger)

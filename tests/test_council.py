@@ -447,3 +447,55 @@ def test_a_design_naming_two_models_is_dropped_not_guessed():
 def test_the_proposer_schema_offers_the_elongation_model_field():
     props = council._DESIGN["properties"]
     assert set(props["elongation_model"]["enum"]) == set(council.ELONGATION_MODES)
+
+
+# --- unreadable emits (measured 2026-10-27, claude-sonnet-5 on a long design question) ------------------------
+
+_M = {"proposer": "m", "skeptic": "m", "judge": "m"}
+
+
+def test_objections_sent_as_a_json_string_are_decoded_not_dropped():
+    """The skeptic returned `objections` as one JSON-encoded string holding its whole input. The old guard kept
+    only dict items, iterated over the string's characters, and recorded 'no objections' in all four rounds."""
+    import json
+    nested = json.dumps({"assessment": "two gaps", "objections": [_obj("rival_not_excluded")]})
+    scripts = {"propose_hypothesis": [_candidate()], "raise_objections": [{"objections": nested}],
+               "rule": [_verdict(new_substantive_objection_this_round=True, open_objections_resolved=False)]}
+    h = council.deliberate("q", max_rounds=1, quota=0, client=FakeClient(scripts), models=_M, verbose=False)
+    assert [o["type"] for o in h.objection_ledger] == ["rival_not_excluded"]
+    assert h.substantive_objections == 1
+
+
+def test_an_unreadable_skeptic_is_retried_then_named_never_read_as_no_objections():
+    scripts = {"propose_hypothesis": [_candidate()],
+               "raise_objections": [{"objections": "not json"}, {"objections": "still not"}, {}],
+               "rule": [_verdict()]}
+    client = FakeClient(scripts)
+    h = council.deliberate("q", max_rounds=1, quota=0, client=client, models=_M, verbose=False)
+    assert client.messages.calls.count("raise_objections") == 3       # two retries before giving up
+    assert h.converged is False                                       # the judge's clean verdict cannot carry it
+    assert "[skeptic_unreadable] round 1" in h.residual_ambiguities
+
+
+def test_a_hypothesis_written_as_markup_inside_claim_is_retried():
+    """The proposer wrote <h1>…</h1><falsifier>…</falsifier> inside `claim` and left every other field empty."""
+    garbled = {"claim": "x</claim>\n<h1>y</h1>\n<falsifier><target>a/b</target></falsifier>", "h1": "", "h0": ""}
+    rounds = []
+    scripts = {"propose_hypothesis": [garbled, _candidate()], "raise_objections": [{"objections": []}],
+               "rule": [_verdict()]}
+    client = FakeClient(scripts)
+    h = council.deliberate("q", max_rounds=1, quota=0, client=client, models=_M, verbose=False,
+                           on_round=rounds.append)
+    assert client.messages.calls.count("propose_hypothesis") == 2
+    assert h.converged is True and h.h1 == _candidate()["h1"]
+    assert rounds[0]["unreadable"] == []
+
+
+def test_decode_nested_restores_an_array_sent_as_a_string_and_leaves_good_fields_alone():
+    import json
+    tool = council._PROPOSE_TOOL
+    c = _candidate()
+    sent = {**c, "rivals": json.dumps(c["rivals"])}
+    assert council._garbled(tool, sent)
+    out = council._decode_nested(tool, sent)
+    assert out == c and not council._garbled(tool, out)
