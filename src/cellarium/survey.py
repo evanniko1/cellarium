@@ -485,7 +485,7 @@ def lethality(reference: str = "wildtype/basal") -> dict:
                              "ppgpp_pct_vs_wt": (round(100 * (p - wp) / wp, 1) if (p is not None and wp) else None)},
             "stringent_signature": stringent,
         })
-    out.sort(key=lambda e: (not e["fully_hidden"], -e["collapse_seeds"]))
+    out.sort(key=lambda e: (not e["fully_hidden"], -e["collapse_seeds"], e["design"]))
     return {
         "reference": reference,
         "n_designs_collapsing": len(out),
@@ -780,7 +780,10 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
         for e in entries:
             if abs(e.get("z") or 0.0) > abs(loudest.get(e["design"], (0.0, ""))[0]):
                 loudest[e["design"]] = (e["z"], ch)
-        entries.sort(key=lambda e: abs(e["z"]), reverse=True)
+        # Ties broken by design key, never by row order: the order a parallel scan returns rows in changed which
+        # of several equally-salient designs made the top 6, so two identical calls disagreed (conformance sweep,
+        # 2026-10-27).
+        entries.sort(key=lambda e: (-abs(e["z"]), e["design"]))
         # INFORMATIVE truncation (same convention as top_movers' "k of N significant dropped"). This tool exists
         # to stop the agent anchoring on whatever it happened to look at first — so silently showing 6 of N
         # designs and saying nothing would reintroduce the exact bias it was built to remove.
@@ -791,7 +794,7 @@ def survey_corpus(channels: list[str] | None = None, top: int = 6, arm: "tuple |
         if ch not in DIAGNOSTIC:  # keep solver diagnostics out of the biological notable ranking
             notable += [{"channel": ch, **e} for e in entries if abs(e["z"]) >= 2.0]
 
-    notable.sort(key=lambda e: abs(e.get("z", 0)), reverse=True)
+    notable.sort(key=lambda e: (-abs(e.get("z", 0)), e["design"], e["channel"]))   # same tie rule as above
     # What `coverage` must NOT do is let an agent read `n_designs` and believe it has seen the corpus. Three
     # things were invisible before: designs excluded from ranking entirely (n_designs counted only the survivors),
     # designs whose mean rests on FEWER seeds than were run because some crashed, and — per channel, above — how

@@ -80,12 +80,33 @@ def _finite(x):
     return x if math.isfinite(x) else None
 
 
+def _unwritten(simout, table):
+    """The columns a table DECLARES it never wrote (the kinetic port lists them in `unwritten_columns`)."""
+    try:
+        with open(os.path.join(simout, table, "attributes.json"), encoding="utf-8") as f:
+            return set(json.load(f).get("unwritten_columns") or [])
+    except Exception:
+        return set()
+
+
 def _col(simout, table, column):
     r = TableReader(os.path.join(simout, table))
     try:
-        return np.asarray(r.readColumn(column))
+        a = np.asarray(r.readColumn(column))
     finally:
         r.close()
+    # NOT RECORDED: the listener DECLARES it never wrote this column, AND the column is exactly zero at every
+    # timestep. Such a column holds the listener's initial zeros, and a mean over them is 0.0 +/- 0.0 — a
+    # well-formed number for something never measured (2026-10-27: ppGpp, RelA, SpoT and ribosome concentration
+    # under the kinetic model). It reads as NaN, which every channel summary turns into "no value".
+    #
+    # BOTH conditions, because the declaration alone is wrong: the steady-state runs list `ppgpp_conc` in
+    # `unwritten_columns` while that column carries a real 49.15 µM at every step. Dropping on the declaration
+    # alone deleted a measured channel from all 24 runs of a store — the same class of error as reporting the
+    # zeros, in the other direction. The data decides; the declaration only says where to look.
+    if column in _unwritten(simout, table) and a.size and not np.any(a):
+        return np.full(a.shape, np.nan)
+    return a
 
 
 def _attr(simout, table, name):

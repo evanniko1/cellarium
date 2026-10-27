@@ -169,6 +169,12 @@ READ_SITE_REGISTRY: dict[str, dict] = {
                 "than an accident: a single purpose would answer 'absent' for two of the three, which is "
                 "exactly the silent absence this screen exists to avoid. It computes over no row and quotes "
                 "no mean — the numbers it reports come from the lethality view's own summary")},
+    "scripts/tool_conformance.py::main": {
+        "kind": "lookup",
+        "why": ("picks one design and one reference to call every tool with, so the conformance sweeps have a "
+                "plausible argument for each. It reads no channel and reports no number about the biology; the "
+                "rows only supply names. A filtered set is the right one here precisely because the sweep "
+                "should exercise the tools on the designs an analysis would actually reach")},
     "scripts/ab_score.py::main": {
         "kind": "lookup",
         "why": ("asks whether a gene has any runs at all before scoring a question, via the tool form; a "

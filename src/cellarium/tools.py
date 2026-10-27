@@ -40,6 +40,11 @@ def list_results(gene: str | None = None, perturbation: str | None = None, conta
     that KO's runs, perturbation='gene_knockout' narrows to KOs, contains='<label substring>' is a free search.
     The full unfiltered list is long and may be truncated in context — so to ask 'are there results for X?', pass
     gene=X and read `n` (0 = genuinely absent). Reads the same manifest as the Corpus Browser."""
+    if not store.has_manifest():
+        # Without this, an unreadable store returned n=0, which this docstring tells the agent means "genuinely
+        # absent" (2026-10-27, found by running the tools from a directory with no manifest).
+        return {"error": f"no manifest is readable from {store.MANIFEST_DIR.resolve()}, so nothing can be listed; "
+                         "a count here would not mean the runs do not exist.", "reason": "store_unreadable"}
     rows = store.list_results(include_dropped=include_dropped)
     # Dropped runs are EXCLUDED by default and COUNTED in the reply. Returning them was how a tombstoned,
     # mislabelled knockout could be read back as a result; silently dropping them without saying so would be
@@ -385,6 +390,10 @@ def segment_means(design_or_id: str) -> dict:
         cand = [r for r in store.list_results() if survey.design_key(r) == design_or_id]
         if not cand:
             return {"error": f"'{design_or_id}' is neither a result_id nor a design in the corpus"}
+        # the representative run by a fixed rule (QC-ok first, lowest seed, then id), not by row order: two
+        # identical calls returned different seeds' runs (conformance sweep, 2026-10-27)
+        cand.sort(key=lambda r: (r.get("qc") != "ok", r.get("seed") if r.get("seed") is not None else 99,
+                                 str(r.get("id"))))
         rid = cand[0]["id"]
     return segments.diff(rid)
 
@@ -615,14 +624,20 @@ def _resolve_result(x: str) -> str | None:
     rows = store.list_results()
     if any(r.get("id") == x for r in rows):
         return x
+    # The exact design key first. Matching on perturbation + a substring of condition resolved
+    # 'gene_knockout_shift/basal' to the knockout's runs as well (both carry condition 'basal'), and the chart drew
+    # the wrong seeds (discovery leg v4, 2026-10-27). The loose match stays only as the fallback.
+    cands = [r for r in rows if survey.design_key(r) == x]
     pert, _, cond = str(x).partition("/")
-    cands = [r for r in rows if r.get("perturbation") == pert
-             and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
+    if not cands:
+        cands = [r for r in rows if r.get("perturbation") == pert
+                 and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
     if not cands:   # fall back to a gene/substring match on the label, so 'pfkA' or 'KO:pfkA' also resolves
         key = str(x).split("/")[-1].replace("KO:", "").strip().lower()
         if key:
             cands = [r for r in rows if key in (r.get("label") or "").lower()]
-    cands.sort(key=lambda r: (r.get("qc") != "ok", r.get("seed") if r.get("seed") is not None else 99))
+    cands.sort(key=lambda r: (r.get("qc") != "ok", r.get("seed") if r.get("seed") is not None else 99,
+                              str(r.get("id"))))
     return cands[0]["id"] if cands else None
 
 

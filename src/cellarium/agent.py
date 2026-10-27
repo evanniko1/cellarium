@@ -271,7 +271,10 @@ _REASON = {"none": 0, "low": 2048, "high": 8000}
 _TOOL_CAP = 6000   # trim a bulky tool_result before it re-enters the growing context (e.g. species panels)
 # The mandatory first read gets more room: at 6,000 the survey lost 22 of its 24 channels to the cap's last-resort
 # string cut (2026-10-27). 20,000 characters is ~5k tokens, a fifth of the 25k-token default Claude Code allows.
-_TOOL_CAPS = {"survey_corpus": 20000}
+_TOOL_CAPS = {"survey_corpus": 20000,
+              # The capability registry is ~16k characters (each entry carries its refusal verbatim, by design);
+              # at 6,000 the agent saw 1 of the 6 things the kinetic model cannot represent (v5, 2026-10-27).
+              "model_capabilities": 20000}
 _REPEAT_CAP = 3    # DD-ENG-3: identical (tool, args) calls this many times in a turn -> the agent is stuck (no progress)
 _ERR_CAP = 3       # DD-ENG-3: this many consecutive rounds where EVERY tool call errored -> stuck
 

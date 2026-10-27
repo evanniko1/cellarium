@@ -139,6 +139,9 @@ def scan_corpus(limit_runs: int = 40) -> dict:
     Deliberately bounded: this is a guard meant to run often, not an exhaustive audit."""
     from . import raw, store, survey
     rows = survey._deduped_rows(survey.CHANNELS + ["simout_path"]) if True else []
+    # A fixed order before the `limit_runs` cut: in row order, two identical calls scanned different subsets of the
+    # corpus and reported 18 or 20 designs (conformance sweep, 2026-10-27).
+    rows = sorted(rows, key=lambda r: (survey.design_key(r), str(r.get("seed")), str(r.get("simout_path"))))
     roots, seen_roots = [], set()
     for r in rows:
         p = store._resolve_run(r.get("simout_path"))

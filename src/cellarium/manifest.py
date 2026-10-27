@@ -469,6 +469,14 @@ def _design_tag(design: Design) -> str:
 def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
     data = reader.read_run(run_root)
     note = "" if "error" not in data else f"reader error: {data['error']}"
+    # A channel the run did not record (its listener column is declared unwritten, so the reader returns None)
+    # is LEFT OUT of `channels` and named in the note, so it lands as NULL rather than as a 0.0 that reads as a
+    # measurement. Under the kinetic model this is ppGpp, RelA and ribosome concentration (2026-10-27).
+    raw_channels = data.get("channels", {}) or {}
+    not_recorded = sorted(k for k, v in raw_channels.items() if v is None)
+    data["channels"] = {k: v for k, v in raw_channels.items() if v is not None}
+    if not_recorded:
+        note = (note + "; " if note else "") + "not recorded by this run: " + ", ".join(not_recorded)
     gens = [GenerationResult(**g) for g in data.get("generations", [])]
     label = f"{design.perturbation}·{_design_tag(design)}·s{seed}"
     return SimResult(id=f"{design.perturbation}_{seed}_{uuid.uuid4().hex[:8]}", label=label,

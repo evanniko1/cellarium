@@ -61,6 +61,8 @@ RESULT_SCHEMA: dict[str, dict] = {
     "trajectory":         {"rows": "points", "identity": ("generation", "seed"), "stratum": "generation"},
     "list_species":       {"rows": "species", "identity": ("id", "name"), "stratum": None},
     "lethality_landscape": {"rows": "designs", "identity": ("design", "label"), "stratum": None},
+    # The registry: if it is ever trimmed, the dropped capabilities must be NAMED, not only counted.
+    "model_capabilities": {"rows": "cannot_represent", "identity": ("capability",), "stratum": None},
 }
 
 # Fields that identify one row when no schema is declared. Order matters: a run id is more useful to a reviewer

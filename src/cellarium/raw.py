@@ -71,10 +71,34 @@ def read_column(path: str) -> np.ndarray:
     return arr.squeeze()
 
 
+def unwritten(simout: str, table: str) -> set:
+    """The columns a listener table DECLARES it never wrote (`unwritten_columns` in its attributes). Mirrors
+    _reader_worker._unwritten; read here so the host-side drill-down agrees with the manifest."""
+    try:
+        with open(os.path.join(simout, table, "attributes.json"), encoding="utf-8") as f:
+            return set(json.load(f).get("unwritten_columns") or [])
+    except Exception:
+        return set()
+
+
+def not_recorded(simout: str, table: str, column: str, values=None) -> bool:
+    """Was this column never actually recorded? DECLARED unwritten AND exactly zero at every timestep.
+
+    Both, because the declaration alone is wrong in this corpus: a steady-state run lists `ppgpp_conc` as
+    unwritten while that column carries a real 49.15 µM throughout. Mirrors _reader_worker._col."""
+    if column not in unwritten(simout, table):
+        return False
+    a = read_column(os.path.join(simout, table, column)) if values is None else values
+    a = np.asarray(a)
+    return bool(a.size) and not np.any(a)
+
+
 def _col_1d(simout: str, table: str, column: str) -> np.ndarray:
     """One scalar per timestep. Some listener columns are 2-D (per-species, e.g. fraction_trna_charged is
     per-tRNA) — collapse the non-time axes to a per-timestep mean, matching _reader_worker._chan_1d."""
     a = read_column(os.path.join(simout, table, column))
+    if not_recorded(simout, table, column, a):   # not a measurement: NaN, never the listener's initial zeros
+        return np.full(a.shape[0] if a.ndim else 1, np.nan)
     if a.ndim > 1:
         a = np.nanmean(a.reshape(a.shape[0], -1), axis=1)
     return np.asarray(a, dtype=float).ravel()

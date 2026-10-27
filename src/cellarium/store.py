@@ -170,7 +170,7 @@ def _viability_verdict(rows: list[dict]) -> dict:
                           "median_division_time_sec": r.get("median_division_time_sec")} for r in rows]}
 
 
-def viability(perturbation: str, condition: str | None = None) -> dict:
+def viability(perturbation: str, condition: str | None = None, arm: tuple | None = None) -> dict:
     """Cross-seed VIABILITY (does the lineage divide?) per design, from the manifest viability columns — instant,
     no container. If `condition` is omitted, returns a verdict for every condition under `perturbation` (e.g. all
     gene_knockout variants). The KO readout that does NOT reroute away like a graded growth channel (§J)."""
@@ -208,13 +208,17 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     for r in rows:
         key = survey.design_key(r) if r.get("label") else r.get("condition")
         by_design.setdefault((key, corpus_schema.arm_of(r)), []).append(r)
-    n_arms = {}
-    for key, arm in by_design:
-        n_arms[key] = n_arms.get(key, 0) + 1
-    designs = [{"design": key, "condition": rs[0].get("condition"),
-                **({"arm": dict(zip(corpus_schema.ARM_KEYS, arm))} if n_arms[key] > 1 else {}),
+    n_arms: dict = {}
+    for key, _a in by_design:          # NOT `arm`: that is the parameter, and rebinding it here turned the
+        n_arms[key] = n_arms.get(key, 0) + 1   # "all arms" default into "whichever arm was iterated last"
+    # `arm` keeps one comparability arm (a caller that pools designs, like the viability surrogate, must not mix
+    # instruments). The condition shown is the first in sorted order, not the first row's: rows of one design can
+    # carry different condition strings, and taking rs[0] made the surrogate's gene list depend on row order.
+    designs = [{"design": key, "condition": sorted(str(r.get("condition")) for r in rs)[0],
+                **({"arm": dict(zip(corpus_schema.ARM_KEYS, a))} if n_arms[key] > 1 else {}),
                 **_viability_verdict(rs)}
-               for (key, arm), rs in sorted(by_design.items(), key=lambda x: (str(x[0][0]), str(x[0][1])))]
+               for (key, a), rs in sorted(by_design.items(), key=lambda x: (str(x[0][0]), str(x[0][1])))
+               if arm is None or a == tuple(arm)]
     return {"perturbation": perturbation, "designs": designs}
 
 

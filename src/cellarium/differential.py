@@ -181,21 +181,21 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
     return {"target": target, "reference": reference, "ranked": ranked,
             # the arm the two designs share, when it pinned the read; absent means the default arm
             **({"arm": dict(zip(corpus_schema.ARM_KEYS, arm))} if arm else {}),
-            "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
+            "viability": _viability_for(target, arm),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
             "note": "Channels + pathways ranked by |log2 fold-change| (else |%|), each shown mover carrying a Welch "
                     "t-test on the seed replicates (`welch_t`/`p_value`/`significant_p05`) — a large fold-change with "
                     "p>0.05 is within seed noise, not a real move. Check `viability`: flat channels on a VIABLE KO = "
                     "reroute (no phenotype); on an INVIABLE one the fold-changes are pre-crash garbage."}
 
 
-def _viability_for(label: str) -> dict:
+def _viability_for(label: str, arm: tuple | None = None) -> dict:
     """The target design's cross-seed viability verdict (perturbation/condition label) — so a differential is read
     with 'did the cell even divide?' in view. Absent viability columns / unknown design -> a soft note, not an error."""
     from . import store
 
     pert, _, cond = label.partition("/")
     try:
-        out = store.viability(pert, cond or None)
+        out = store.viability(pert, cond or None, arm=arm)   # the arm this comparison reads, not an arbitrary one
     except Exception:
         return {"verdict": "unknown"}
     if "error" in out or not out.get("designs"):

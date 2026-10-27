@@ -221,7 +221,9 @@ def check_corpus() -> dict:
     by_design: dict = defaultdict(lambda: {"violation": 0, "ok": 0, "undetermined": 0,
                                            "recorder_truncation": 0, "repaired_ok": 0, "examples": []})
     n_checked = 0
-    for r in rows:
+    # in id order, so the three examples kept per design are the same on every call (they were the first three in
+    # whatever order the rows arrived; conformance sweep, 2026-10-27)
+    for r in sorted(rows, key=lambda r: str(r.get("id"))):
         if r.get("_dropped"):
             continue
         res = check_run(r)

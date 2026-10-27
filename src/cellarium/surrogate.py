@@ -61,8 +61,13 @@ def gene_features(symbol: str) -> dict | None:
 def build_dataset(perturbation: str = "gene_knockout") -> dict:
     """Join every single-gene-KO design's viability verdict (label) to its a-priori gene features. Returns
     {X, y, genes, verdicts, n, class_balance, majority_baseline, note}. y is binary viable(1)/non-viable(0)."""
-    from . import store
-    out = store.viability(perturbation, None)
+    from . import corpus_schema, factors, hygiene, store
+    # One comparability arm: the corpus default, as every analysis reads. Across arms one gene can carry two
+    # labels (KO:alaS is viable under one knowledge base and inviable under the other), and pooling them trains
+    # on two instruments at once. Asked by PURPOSE so the arm is the one the analysis boundary itself selected.
+    rows, _ctx = hygiene.rows("analysis")
+    arm = corpus_schema.arm_of(rows[0]) if rows else None
+    out = store.viability(perturbation, None, arm=arm)
     if out.get("error"):
         return {"error": out["error"], "n": 0}
     X, y, genes, verdicts = [], [], [], []
@@ -70,7 +75,10 @@ def build_dataset(perturbation: str = "gene_knockout") -> dict:
         verdict = d.get("verdict")
         if verdict not in ("viable", "impaired", "inviable"):   # drop 'unknown'/crashed-only rows — no clean label
             continue
-        gene = str(d.get("condition", "")).replace("KO:", "")
+        named = factors.parse(d.get("design") or "").get("genes") or []
+        if len(named) != 1:                                     # the gene from the design key, not the condition
+            continue
+        gene = named[0]
         feats = gene_features(gene)
         if feats is None:
             continue
