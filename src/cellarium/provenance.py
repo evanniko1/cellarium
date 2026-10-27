@@ -9,7 +9,7 @@ agreement. Coarse per-design classification by perturbation type; see docs/CORPU
 
 from __future__ import annotations
 
-from . import redact
+from . import paths, redact
 
 # IN-SAMPLE = a condition the model was actually fit to. wcEcoli's fit uses measured RNA-seq for a small set of
 # media (M9 Glucose +/-AAs, N-/P-limited, glycerol) plus the modeled-TF regulons (e.g. FNR/ArcA -> anaerobic).
@@ -68,12 +68,12 @@ def _git_commit() -> str | None:
         return None
 
 
-CONTENT_HASH_CACHE = "data/cache/kb_content_hash.json"
+CONTENT_HASH_CACHE = str(paths.cache("kb_content_hash.json"))
 
 
 MODEL_SHA_CACHE: dict = {}
 IMAGE_DIGEST_CACHE: dict = {}
-RECON_SHA_CACHE = "data/cache/reconstruction_sha.json"
+RECON_SHA_CACHE = str(paths.cache("reconstruction_sha.json"))
 
 
 def model_provenance() -> dict:
@@ -280,13 +280,13 @@ def kb_provenance(sim_path: str = "cellarium") -> dict:
     if out["kb_sha256"]:                   # content hash: DISK-cached, keyed by the file hash
         out["kb_content_sha256"] = _cached_content_hash(sim_path, out["kb_sha256"])
     try:                                   # the variant map was dumped FROM this kb, so its ids settle the mode
-        vm = json.loads(Path("data/cache/variant_map.json").read_text(encoding="utf-8"))
+        vm = json.loads(paths.cache("variant_map.json").read_text(encoding="utf-8"))
         genes = vm.get("genes") or []
         tu_like = sum(1 for e in genes if str(e.get("rna_id", "")).startswith("TU"))
         n = len(genes)
         if n:
             try:
-                n_genes = len(json.loads(Path("data/cache/gene_scope.json").read_text(encoding="utf-8")))
+                n_genes = len(json.loads(paths.cache("gene_scope.json").read_text(encoding="utf-8")))
             except Exception:
                 n_genes = None
             out["operons"] = "on" if tu_like else "off"

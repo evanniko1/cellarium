@@ -34,7 +34,9 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-SCOPE_CACHE = Path("data/cache/gene_scope.json")
+from . import paths
+
+SCOPE_CACHE = paths.cache("gene_scope.json")
 
 
 @lru_cache(maxsize=1)
@@ -103,8 +105,7 @@ def ko_footprint(symbol: str) -> dict | None:
     if _FOOTPRINT_CACHE is None:
         try:
             import json
-            from pathlib import Path
-            p = Path("data/cache/ko_footprint.json")
+            p = paths.cache("ko_footprint.json")
             _FOOTPRINT_CACHE = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
         except Exception:
             _FOOTPRINT_CACHE = {}
@@ -118,8 +119,7 @@ def _gene_scope() -> dict:
     if _GENE_SCOPE_CACHE is None:
         try:
             import json
-            from pathlib import Path
-            p = Path("data/cache/gene_scope.json")
+            p = paths.cache("gene_scope.json")
             _GENE_SCOPE_CACHE = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
         except Exception:
             _GENE_SCOPE_CACHE = {}
@@ -423,8 +423,7 @@ def cistron_for(symbol: str) -> str | None:
     if _CISTRON_BY_SYMBOL is None:
         try:
             import json
-            from pathlib import Path
-            p = Path("data/cache/cistron_map.json")
+            p = paths.cache("cistron_map.json")
             raw_map = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
             _CISTRON_BY_SYMBOL = {v: k for k, v in raw_map.items()}
         except Exception:

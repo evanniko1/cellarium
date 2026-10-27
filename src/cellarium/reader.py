@@ -12,7 +12,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from . import deg_estimator, redact
+from . import deg_estimator, paths, redact
 
 WCECOLI_DIR = os.environ.get("WCECOLI_DIR", "")
 WCECOLI_DOCKER = os.environ.get("WCECOLI_DOCKER", "")
@@ -134,7 +134,7 @@ def list_species(host_run_root: Path, kind: str, search: str = "") -> dict:
     return _invoke("list_species", host_run_root, [kind, search])
 
 
-VARIANT_MAP_CACHE = Path("data/cache/variant_map.json")
+VARIANT_MAP_CACHE = paths.cache("variant_map.json")
 
 
 def variant_map(sim_path: str = "cellarium") -> dict:

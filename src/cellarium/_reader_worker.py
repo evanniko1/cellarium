@@ -899,9 +899,22 @@ def mode_differential(target_csv, ref_csv, kind, top, floor):
         picks = sorted({round(i * (len(dropped) - 1) / 2) for i in range(3)})   # ~first / middle / last dropped
         mid = [dropped[i] for i in picks]
 
+    # POWER, stated with every result. With 3 seeds a side, a Welch p rarely falls below ~1e-3, and Benjamini-
+    # Hochberg over ~3,000 species needs ~3e-5 for its first discovery, so 0 significant is the expected result
+    # whether or not anything moved. An agent read that 0 as "no network response" and missed a 3-4x knockout
+    # (2026-10-27). The largest raw changes are therefore always shown beside the significant ones, with p and q.
+    # Ranked by p, not by fold change: the largest fold changes at n=3 are low-count noise (p ~0.4), while a
+    # knocked-out enzyme falls 3x in every seed and so has among the smallest p in the proteome.
+    by_p = sorted(recs, key=lambda r: r["p"])[:8]
+    power = {"n_target": len(t_runs), "n_reference": len(r_runs), "n_tests": len(recs),
+             "smallest_p": min((r["p"] for r in recs), default=None),
+             "smallest_q": min((r.get("q", 1.0) for r in recs), default=None),
+             "bh_p_needed_for_first_discovery": (0.10 / len(recs)) if recs else None}
     return {"kind": kind, "n_compared": len(recs), "n_significant_fdr10": len(sig), "count_floor": floor,
             "n_target_runs": len(t_runs), "up": up, "down": down,
-            "mid_rank_sample": [clean(r) for r in mid]}
+            "mid_rank_sample": [clean(r) for r in mid],
+            "power": power,
+            "strongest_unadjusted": [{**clean(r), "p": round(r["p"], 6)} for r in by_p]}
 
 
 def mode_gene_lfc(target_csv, ref_csv, kind, floor):

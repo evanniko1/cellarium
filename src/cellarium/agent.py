@@ -130,6 +130,11 @@ SYSTEM = (
     "falsify it and read exactly those "
     "channels/designs before concluding (e.g. to test 'ppGpp causes the slowdown', check ribosome_conc AND a "
     "design where ppGpp is decoupled).\n"
+    "- CHECK THE MANIPULATION FIRST. Before reading what a perturbation did, confirm it reached its target: for a "
+    "knockout, call manipulation_check (the named genes' proteins, target vs control). A label flag "
+    "(`unverified`, `misnamed`) or zero FDR-significant movers is NOT evidence that a knockout failed; with few "
+    "seeds, zero is usually a power limit. Before the final answer, state for each main claim the strongest "
+    "evidence you read AGAINST it, and why it does not overturn the claim.\n"
     "- Ground every quantitative claim in a tool result. Never state a number you did not read from a tool.\n"
     "- When a FIGURE would sharpen the answer — a channel's trajectory over the cell cycle, or a comparison of a "
     "channel across designs — call the `chart` tool to draw it inline (kind='line' for a trajectory, 'bar' for a "
@@ -264,6 +269,9 @@ def _prefix_cached(messages: list) -> list:
 # extended-thinking budgets (reasoning strength). budget_tokens must be >=1024 and < max_tokens.
 _REASON = {"none": 0, "low": 2048, "high": 8000}
 _TOOL_CAP = 6000   # trim a bulky tool_result before it re-enters the growing context (e.g. species panels)
+# The mandatory first read gets more room: at 6,000 the survey lost 22 of its 24 channels to the cap's last-resort
+# string cut (2026-10-27). 20,000 characters is ~5k tokens, a fifth of the 25k-token default Claude Code allows.
+_TOOL_CAPS = {"survey_corpus": 20000}
 _REPEAT_CAP = 3    # DD-ENG-3: identical (tool, args) calls this many times in a turn -> the agent is stuck (no progress)
 _ERR_CAP = 3       # DD-ENG-3: this many consecutive rounds where EVERY tool call errored -> stuck
 
@@ -296,6 +304,13 @@ def _truncate_tool_result(out: dict, cap: int, tool: str | None = None) -> str:
         evidence.note_omission(tool, omissions)              # the reviewer sees the same hole the agent saw
         reconcile.forget(sum((o.dropped for o in omissions), []))   # what was dropped was never read
     s = json.dumps(out)
+    if len(s) > cap:   # bulk in a nested map (e.g. survey_corpus.by_channel): drop whole named entries, not bytes
+        nested, dropped = truncation.trim_nested(out, cap, tool=tool)
+        if dropped:
+            from . import evidence
+            evidence.note_omission(tool, [truncation.Omission(key=k, n_total=len(out[k]), n_kept=len(out[k]) - len(v),
+                                                              dropped=v) for k, v in dropped.items()])
+            s = json.dumps(nested)
     return s if len(s) <= cap else s[:cap] + " …[truncated]"  # last resort: scalars alone exceed cap
 
 
@@ -655,7 +670,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                 if on_tool is not None:
                     on_tool(tu.name, tu.input, out)   # glass-box hook: stream the grounded tool trace to the interface
                 results.append({"type": "tool_result", "tool_use_id": tu.id,
-                                "content": _truncate_tool_result(out, _TOOL_CAP, tu.name)})  # DD-ENG-2 + PLAT-2
+                                "content": _truncate_tool_result(out, _TOOL_CAPS.get(tu.name, _TOOL_CAP), tu.name)})  # DD-ENG-2 + PLAT-2
             messages.append({"role": "user", "content": results})
             # DD-ENG-3 circuit breaker: an identical call repeated, or several all-error rounds, means the agent is
             # stuck — stop looping and fall through to the forced synthesis rather than burn the whole budget spinning.

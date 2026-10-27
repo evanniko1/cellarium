@@ -13,7 +13,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-GENE_MAP_CACHE = Path("data/cache/gene_map.json")            # {symbol: monomer_id}, model-derived (gitignored)
+from . import paths
+
+GENE_MAP_CACHE = paths.cache("gene_map.json")            # {symbol: monomer_id}, model-derived (gitignored)
 RESOLVED = Path(__file__).with_name("_pathway_resolved.json")  # {pathway: [monomer_id]} (gitignored)
 
 PATHWAY_PANEL: dict[str, list[str]] = {

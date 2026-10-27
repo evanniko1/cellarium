@@ -7,10 +7,11 @@ trajectory's full simOut is local (else deferred to HF sharing, DECISIONS D1). N
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
-from . import biosecurity, envelope, manifest, rigor, store, survey
+from . import biosecurity, envelope, manifest, paths, rigor, store, survey
 from . import capability as _cap
 from . import differential as _diff
 from . import provenance as _prov
@@ -85,12 +86,11 @@ def design_space(gene: str | None = None) -> dict:
     perturbation/variant types, and gene-KO resolution. Pass `gene` to resolve its symbol -> ko_index PLUS its
     calibrated KO prior (so you propose the right index AND know what to expect). Call before proposing to run."""
     import json
-    from pathlib import Path
 
     from . import scope
 
     out: dict = {"variant_types": _VARIANT_TYPES}
-    vm = Path("data/cache/variant_map.json")
+    vm = paths.cache("variant_map.json")
     if vm.exists():
         m = json.loads(vm.read_text(encoding="utf-8"))
         out["conditions"] = m.get("conditions", {})
@@ -106,15 +106,90 @@ def design_space(gene: str | None = None) -> dict:
     return out
 
 
-def survey_corpus(arm: str | None = None) -> dict:
+def survey_corpus(arm: str | None = None, channels: list[str] | None = None) -> dict:
     """Deterministic, ranked, whole-corpus survey — call FIRST, before forming any hypothesis. `arm` names the
-    comparability arm to rank (e.g. 'kinetic'); the default is the largest, and the result says which."""
-    if arm is None:
-        return survey.survey_corpus()
+    comparability arm to rank (e.g. 'kinetic'); the default is the largest, and the result says which.
+
+    Returns a DIGEST of every channel by default, and full entries only for the `channels` asked for. The full
+    survey is ~10k characters on the corpus and ~43k on a 24-channel two-arm store, against a 6,000-character
+    context cap; its per-channel table came last, so the cap's string cut dropped whole channels in dict order and
+    the agent never learned they existed (2026-10-27: 22 of 24 channels, tRNA charging among them, unseen)."""
     try:
-        return survey.survey_corpus(arm=arm)
+        s = survey.survey_corpus(arm=arm) if arm is not None else survey.survey_corpus()
     except ValueError as exc:   # a selector that matches no arm, or several, is reported, not guessed
         return {"error": str(exc), "reason": "arm_selector"}
+    if s.get("error"):
+        return s
+    for rows in (6, 5, 4, 3):    # fewest rows that still fit; each channel states how many it holds back
+        d = _survey_digest(s, channels, rows=rows)
+        if len(json.dumps(d, default=str)) <= SURVEY_DIGEST_CHARS:
+            break
+    return d
+
+
+# The digest's own budget, below the survey's context cap in agent._TOOL_CAPS (20,000) so it is never cut there.
+SURVEY_DIGEST_CHARS = 19000
+
+
+def _survey_digest(s: dict, channels: list[str] | None = None, rows: int = 6) -> dict:
+    """Every channel in one compact table, with each design named once in a legend.
+
+    The per-entry bulk of the full survey is repetition: a design's name, its label-integrity verdict and the same
+    `pct_vs_ref_note` sentence recur on every channel it ranks in. The digest names each design once (D1, D2, ...)
+    with its integrity verdict, keeps one row per (channel, design) as [design, mean, ci95, n, generations, z,
+    pct_vs_ref], and lists each distinct note once. `channels` adds those channels' full entries."""
+    legend: dict[str, str] = {}
+    flags: dict[str, dict] = {}
+
+    def ref(e: dict) -> str:
+        d = e["design"]
+        if d not in legend:
+            legend[d] = f"D{len(legend) + 1}"
+        if e.get("label_integrity") not in (None, "ok"):
+            flags[d] = {"label_integrity": e["label_integrity"], "true_label": e.get("true_label")}
+        return legend[d]
+
+    notes: list[str] = []
+    table = {}
+    for ch, block in (s.get("by_channel") or {}).items():
+        ranked = block.get("ranked", [])
+        for e in ranked:     # every ranked design gets a legend id, shown or not, so all stay nameable
+            ref(e)
+        shown = []
+        for e in ranked[:rows]:
+            shown.append([ref(e), e.get("mean"), e.get("ci95"), e.get("n"), e.get("generations"), e.get("z"),
+                          e.get("pct_vs_ref")])
+            n = e.get("pct_vs_ref_note")
+            if n and n not in notes:
+                notes.append(n)
+        held = (block.get("n_dropped") or 0) + max(0, len(ranked) - rows)
+        table[ch] = {"rows": shown, **({"reference": block["reference"]} if block.get("reference") else {}),
+                     **({"n_not_shown": held} if held else {})}
+    quiet = (s.get("quiet_designs") or {}).get("designs", [])
+    for e in (s.get("notable") or []) + quiet:
+        ref(e)
+    out = {
+        "format": ("digest: by_channel[ch].rows = [design id, mean, ci95, n, generations, z, pct_vs_ref]; "
+                   "`designs` maps each id to its design and, where the label is not what the run did, its "
+                   "label-integrity verdict. Pass channels=[...] for those channels' full entries."),
+        "coverage": s.get("coverage"),      # whole: every bucket names its designs (Platform Map item 3b)
+        **({"arm": s["arm"]} if s.get("arm") else {}),
+        "designs": {v: {"design": d, **flags.get(d, {})} for d, v in legend.items()},
+        "by_channel": table,
+        "notable": [[legend.get(e["design"]), e.get("channel"), e.get("z")] for e in (s.get("notable") or [])],
+        "quiet_designs": [[legend.get(e["design"]), e.get("largest_z_anywhere"), e.get("on_channel")]
+                          for e in quiet],
+        "lethality": {k: v for k, v in (s.get("lethality") or {}).items() if k != "note"},
+        "notes": notes,
+        "note": s.get("note"),
+    }
+    if channels:
+        have = s.get("by_channel") or {}
+        out["full"] = {c: have[c] for c in channels if c in have}
+        unknown = [c for c in channels if c not in have]
+        if unknown:
+            out["unknown_channels"] = {"asked": unknown, "available": sorted(have)}
+    return out
 
 
 def lethality_landscape() -> dict:
@@ -373,7 +448,26 @@ def top_movers(target: str, reference: str = "wildtype/basal", kind: str = "prot
         out.pop("mid_rank_sample", None)   # now surfaced inside truncation.mid_rank_examples
         if trunc:
             out["truncation"] = trunc
+        if not out.get("n_significant_fdr10"):
+            pw = out.get("power") or {}
+            out["power_note"] = (
+                f"0 species cleared FDR q<=0.10 with {pw.get('n_target')} vs {pw.get('n_reference')} seeds over "
+                f"{pw.get('n_tests')} tests (smallest q {pw.get('smallest_q')}; the first discovery needs p below "
+                f"~{pw.get('bh_p_needed_for_first_discovery'):.1e}). At this replicate count that is a POWER limit, "
+                "not evidence that nothing changed: read `strongest_unadjusted`, and check the perturbed species "
+                "directly (`manipulation_check`)." if pw.get("bh_p_needed_for_first_discovery") else
+                "0 species cleared FDR; this is not evidence that nothing changed.")
+        from . import factors
+        if kind == "protein" and factors.parse(target).get("genes"):
+            out["manipulation_check"] = _diff.manipulation_check(target, reference)
     return out
+
+
+def manipulation_check(design: str, reference: str = "wildtype/basal") -> dict:
+    """Did a knockout reach its targets? Each named gene's protein, target vs reference, last generation."""
+    rigor.note_design(design)
+    rigor.note_design(reference)
+    return _diff.manipulation_check(design, reference)
 
 
 def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
@@ -1315,7 +1409,7 @@ _DESIGN_PROPS = {
 
 TOOLS = [
     {"name": "survey_corpus", "description": "FIRST STEP for any results question. Deterministic, ranked, whole-corpus survey: every design vs a reference per channel, ranked by effect size (|z|), a cross-channel notable set, and coverage. Ground your reasoning in this WHOLE view before drilling in — do not anchor on individual runs or prior conversation. Its `lethality` block flags designs that collapse at depth (excluded from the ranking but real).",
-     "input_schema": {"type": "object", "properties": {"arm": {"type": "string", "description": "Optional. Which comparability arm to rank, matched against its elongation model or knowledge-base hash, e.g. 'kinetic' or 'steady_state'. Default: the largest arm; the result names the arm it ranked and the arms it left out. Rows from different arms are never ranked together."}}}},
+     "input_schema": {"type": "object", "properties": {"arm": {"type": "string", "description": "Optional. Which comparability arm to rank, matched against its elongation model or knowledge-base hash, e.g. 'kinetic' or 'steady_state'. Default: the largest arm; the result names the arm it ranked and the arms it left out. Rows from different arms are never ranked together."}, "channels": {"type": "array", "items": {"type": "string"}, "description": "Optional. Channels whose FULL entries (CIs, notes, label verdicts per design) to add to the digest, e.g. ['fraction_trna_charged']. The digest already lists every channel; use this to drill into a few."}}}},
     {"name": "lethality_landscape", "description": "The LETHALITY view: designs that DIVIDE then COLLAPSE at depth — the phenotype the ranked survey excludes (a collapsed generation's channel mean is numerical garbage, so the whole run is non-reportable). Reports, per collapsing design, the generation it collapses at, the QC signature, whether it is FULLY HIDDEN (zero reportable seeds — invisible to survey_corpus, e.g. dapA/rpmE), and the PRE-collapse growth/ppGpp read at its own generation vs the depth-matched WT. A depressed-growth + elevated-ppGpp `stringent_signature` on an essential-gene KO is the textbook uncharged-tRNA→RelA→ppGpp response — a signal to CHECK against literature/lab, never asserted. Use when a design looks absent from the survey, or to study essential-gene lethality.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "trajectory", "description": "The per-GENERATION arc of ONE design: the mean of a channel (growth_rate or ppgpp_conc — the two stored per generation) at each generation index, plus the QC verdict spread there, so a COLLAPSE is visible as the generation where QC stops being all-ok. This is how you INSPECT a lethality case gen-by-gen (e.g. dapA: ppGpp 488→636 over gens 0-1, then division arrest at gen 2). The valid early generations of a collapsing run are shown; the collapsed generation reads as its QC verdict, never a garbage number.",
@@ -1345,10 +1439,12 @@ TOOLS = [
     {"name": "differential", "description": "Rank channels + pathways by fold-change of a design (e.g. 'gene_knockout/KO:acrB') vs a reference (default 'wildtype/basal') — what moved most. Use to interpret a KO/perturbation without pre-declaring which molecules to look at.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string", "description": "design label 'perturbation/condition' (from survey_corpus/list_results)"},
                       "reference": {"type": "string"}}, "required": ["target"]}},
-    {"name": "top_movers", "description": "Individual species (proteins by default) that changed between two DESIGNS ('perturbation/condition' labels), tested with a Welch t across replicates + Benjamini-Hochberg FDR; returns only FDR-significant movers (q<=0.10) with their q-value, plus n_significant_fdr10. Gene-symbol-annotated. Needs >=2 replicates per design. If n_significant is ~0, there is no real network response — do not read the fold-changes as signal.",
+    {"name": "top_movers", "description": "Individual species (proteins by default) that changed between two DESIGNS ('perturbation/condition' labels), tested with a Welch t across replicates + Benjamini-Hochberg FDR; returns only FDR-significant movers (q<=0.10) with their q-value, plus n_significant_fdr10. Gene-symbol-annotated. Needs >=2 replicates per design. n_significant ~0 means nothing cleared FDR at this replicate count; with few seeds that is usually a power limit, not absence (read `power_note` and `strongest_unadjusted`). For a knockout target the result carries `manipulation_check`: whether the named genes' proteins actually fell.",
      "input_schema": {"type": "object", "properties": {"target": {"type": "string"}, "reference": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "top": {"type": "integer"}},
                       "required": ["target"]}},
+    {"name": "manipulation_check", "description": "Did a perturbation reach its target? For a knockout design, each named gene's protein in the target's last generation vs the reference's, per seed, from local raw, with a verdict per gene (reduced / partly_reduced / not_reduced). CALL THIS BEFORE concluding that a knockout did, or did not, take effect; a label flag or an empty `top_movers` is not evidence either way.",
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "the knockout design, e.g. 'gene_knockout_shift/KO:leuA+leuB+leuC+leuD'"}, "reference": {"type": "string", "description": "its control design, in the same arm"}}, "required": ["design"]}},
     {"name": "fit_relation", "description": "Fit a growth LAW across DESIGNS: OLS of y_channel on x_channel, each design one cross-seed mean point. Returns slope/intercept/R² SPLIT into fit_all vs fit_out_of_sample_only, with every point tagged in_sample/out_of_sample. Use for laws (ribosome_conc vs growth_rate = Scott/Hui; RNA/protein vs growth = Bremer-Dennis) or a dose-response across a series — instead of eyeballing means. CRITICAL: a high fit_all R² driven by in_sample points is CONSISTENCY, not prediction; read fit_out_of_sample_only + n_out_of_sample to judge predictive validity.",
      "input_schema": {"type": "object", "properties": {"designs": {"type": "array", "items": {"type": "string"}, "description": "'perturbation/condition' labels, e.g. ['wildtype/basal','condition/with_aa','condition/acetate']"},
                       "x_channel": {"type": "string"}, "y_channel": {"type": "string"}},
@@ -1487,7 +1583,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "experiment_integrity": experiment_integrity, "dilution_clock": dilution_clock,
              "shift_response": shift_response, "segment_means": segment_means,
              "serialization_check": serialization_check,
-             "differential": differential, "top_movers": top_movers,
+             "differential": differential, "top_movers": top_movers, "manipulation_check": manipulation_check,
              "fit_relation": fit_relation, "regulon_response": regulon_response, "exchange_flux": exchange_flux,
              "disconfirm": disconfirm, "robustness_check": robustness_check, "bimodality": bimodality,
              "coverage_check": coverage_check, "corpus_audit": corpus_audit,

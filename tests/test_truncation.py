@@ -184,7 +184,7 @@ def test_what_was_dropped_stops_counting_as_read(monkeypatch):
 def test_the_agent_passes_the_tool_name_so_the_schema_can_be_used():
     import inspect
     src = inspect.getsource(agent.converse)
-    assert "_truncate_tool_result(out, _TOOL_CAP, tu.name)" in src, (
+    assert "_truncate_tool_result(out, _TOOL_CAPS.get(tu.name, _TOOL_CAP), tu.name)" in src, (
         "without the tool name the funnel cannot look up the declared result schema and falls back to guessing")
 
 

@@ -28,10 +28,12 @@ from pathlib import Path
 
 import numpy as np
 
+from . import paths
+
 DATA_DIR = Path(os.environ.get("CELLARIUM_PRECISE1K_DIR") or "data/precise1k")
 COUNTS = DATA_DIR / "counts.csv"                       # raw read counts (genes x samples), b-number index
 METADATA = DATA_DIR / "metadata.csv"                   # sample -> condition/project columns
-BMAP_PATH = Path("data/cache/bnumber_map.json")        # gene symbol -> b-number (EcoCyc-derived; committed)
+BMAP_PATH = paths.cache("bnumber_map.json")        # gene symbol -> b-number (EcoCyc-derived; committed)
 PRECISE1K_URLS = {
     "counts.csv": "https://raw.githubusercontent.com/SBRG/precise1k/main/data/precise1k/counts.csv",
     "metadata.csv": "https://raw.githubusercontent.com/SBRG/precise1k/main/data/precise1k/metadata.csv"}

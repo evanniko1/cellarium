@@ -116,7 +116,8 @@ MEASUREMENT_TOOLS: frozenset[str] = frozenset({
     # Reads of the corpus itself: rows, series, species, comparisons, verdicts derived from real runs.
     "survey_corpus", "list_results", "design_space", "comparable_designs", "similar_designs",
     "read_series", "read_raw_series", "scan_series", "scan_overview", "variance_band", "trajectory",
-    "compare_at_generation", "differential", "top_movers", "list_species", "read_species", "species",
+    "compare_at_generation", "differential", "top_movers", "manipulation_check", "list_species", "read_species",
+    "species",
     "exchange_flux", "regulon_response", "lethality_landscape", "viability", "metabolic_essentiality",
     "mechanistic_scope", "trna_families", "selective_charging", "dilution_clock", "shift_response",
     "segment_means", "serialization_check", "experiment_integrity", "reroute_diagnosis", "model_validation",

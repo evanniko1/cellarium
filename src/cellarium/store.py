@@ -176,7 +176,9 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     gene_knockout variants). The KO readout that does NOT reroute away like a graded growth channel (§J)."""
     if not has_manifest():
         return {"error": "viability needs the Parquet manifest (record a campaign first)."}
-    base = "perturbation, condition, seed, division_rate, gens_reached, terminal_divided, n_fba_failures, median_division_time_sec"
+    base = ("perturbation, condition, label, seed, division_rate, gens_reached, terminal_divided, n_fba_failures, "
+            "median_division_time_sec, " + manifest.elongation_sql()
+            + ", COALESCE(\"kb_sha256\", '?') AS kb_sha256, COALESCE(\"operons\", '?') AS operons")
     where, params = "WHERE perturbation = ?", [perturbation]
     if condition is not None:
         where += " AND condition = ?"
@@ -196,10 +198,23 @@ def viability(perturbation: str, condition: str | None = None) -> dict:
     if not rows:
         return {"error": f"no runs for perturbation='{perturbation}'" +
                 (f", condition='{condition}'" if condition is not None else "") + "."}
-    by_cond: dict = {}
+    # Grouped by DESIGN, not by condition. Grouping on condition alone pooled every design that shares a medium:
+    # a knockout with its own control, and the kinetic arm with the steady-state one, reported as one 12-seed
+    # "basal" design (2026-10-27, gene_knockout_shift). `condition` is kept on each entry for existing callers.
+    # And by ARM: one design name run under two fitted knowledge bases is two instruments (KO:alaS pooled 8 seeds,
+    # with seeds 0-3 each counted twice). An entry names its arm only when the design spans more than one.
+    from . import corpus_schema, survey
+    by_design: dict = {}
     for r in rows:
-        by_cond.setdefault(r.get("condition"), []).append(r)
-    designs = [{"condition": c, **_viability_verdict(rs)} for c, rs in sorted(by_cond.items(), key=lambda x: str(x[0]))]
+        key = survey.design_key(r) if r.get("label") else r.get("condition")
+        by_design.setdefault((key, corpus_schema.arm_of(r)), []).append(r)
+    n_arms = {}
+    for key, arm in by_design:
+        n_arms[key] = n_arms.get(key, 0) + 1
+    designs = [{"design": key, "condition": rs[0].get("condition"),
+                **({"arm": dict(zip(corpus_schema.ARM_KEYS, arm))} if n_arms[key] > 1 else {}),
+                **_viability_verdict(rs)}
+               for (key, arm), rs in sorted(by_design.items(), key=lambda x: (str(x[0][0]), str(x[0][1])))]
     return {"perturbation": perturbation, "designs": designs}
 
 

@@ -27,14 +27,18 @@ from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
 
 # capability is itself dependency-free (os + dataclasses), so importing the elongation vocabulary here keeps
 # this module's "works with no checkout and no Docker" property intact while making the tag spelling shared
 # rather than re-implemented — a second copy of `#elong:` is exactly how a parser and a writer drift apart.
+from . import paths
 from .capability import DEFAULT_MODE, mode_from_tag
 
-_CACHE = Path("data/cache")
+# Anchored to the checkout, not the working directory: see paths.py for what the relative path did.
+_CACHE = paths.CACHE_DIR
+# The variant families whose knockout index is the `gene_knockout` index this scope map describes. Any other
+# family (e.g. the campaign's `gene_knockout_shift`, which keeps its own gene table) cannot be checked here.
+_MAPPED_FAMILIES = {"gene_knockout", "graded_gene_knockout", "multi_gene_knockout"}
 _NUM = re.compile(r"^\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)")
 _SCOPE: dict | None = None
 _FP: dict | None = None
@@ -209,10 +213,28 @@ def identity(design_key: str) -> dict:
     out = dict(f, aliases=[], perturbs=[], label_integrity="ok", true_label=None,
                canonical_id=None, notes=[])
 
+    if f["factor"] in ("gene_KO", "graded_gene_KO") and f["genes"] and (
+            f["family"] not in _MAPPED_FAMILIES or not scope):
+        # COULD NOT CHECK is not the same finding as CANNOT BE DONE. Both cases used to fall into the loop below,
+        # where a gene with no entry reads exactly like a gene with no RNA row, and the design was labelled
+        # INVALID. An agent took that at its word and concluded a working leucine knockout never happened.
+        out["label_integrity"] = "unverified"
+        out["notes"].append(
+            f"{f['family']} does not use the gene_knockout index this check reads" if scope else
+            "the gene scope map could not be read, so what this design silences was not checked")
+        out["canonical_id"] = f"{f['family']}#{f['factor']}:{f['level_raw']}"
+        if f["elongation_model"] != DEFAULT_MODE:
+            out["canonical_id"] += f"#elong:{f['elongation_model']}"
+        out["true_label"] = true_label(design_key, out)
+        return out
     if f["factor"] in ("gene_KO", "graded_gene_KO") and f["genes"]:
         idx, perturbed, integ = [], set(), "ok"
         for g in f["genes"]:
-            e = scope.get(g) or {}
+            if g not in scope:
+                integ = "unverified" if integ == "ok" else integ
+                out["notes"].append(f"{g} is not in the gene scope map, so its knockout was not checked")
+                continue
+            e = scope[g]
             ki = e.get("ko_index")
             if ki is None:
                 integ = "no_design_possible"
@@ -299,6 +321,8 @@ def true_label(design_key: str, ident: dict | None = None) -> str:
             return f"TU_KO:{tu}(" + (f"→{'+'.join(hit)}" if hit else "silences nothing measured") + ")"
         if integ == "no_design_possible":
             return f"INVALID:{'+'.join(genes)}"
+        if integ == "unverified":
+            return f"gene_KO:{'+'.join(genes)} (not checked)"
         return f"gene_KO:{'+'.join(genes)}"
     if f_factor == "rRNA_KO":
         return f"rRNA_operons_removed:{int(i.get('level_num') or 0)}of{N_RRN_OPERONS}"

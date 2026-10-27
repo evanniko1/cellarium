@@ -15,7 +15,7 @@ import math
 from collections import defaultdict
 from pathlib import Path
 
-from . import stats, survey
+from . import paths, stats, survey
 
 REFERENCE = "wildtype/basal"
 
@@ -207,13 +207,13 @@ def _viability_for(label: str) -> dict:
 
 
 def _reverse_gene_map() -> dict[str, str]:
-    p = Path("data/cache/gene_map.json")
+    p = paths.cache("gene_map.json")
     if not p.exists():
         return {}
     return {v: k for k, v in json.loads(p.read_text(encoding="utf-8")).items()}
 
 
-_CISTRON_MAP_CACHE = Path("data/cache/cistron_map.json")
+_CISTRON_MAP_CACHE = paths.cache("cistron_map.json")
 
 
 def _cistron_symbol_map() -> dict[str, str]:
@@ -263,7 +263,8 @@ def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", t
     out = reader.differential(t_roots, r_roots, kind, top)
     if kind == "protein" and "up" in out:  # annotate monomer IDs with gene symbols (incl. the mid-rank sample)
         rev = _reverse_gene_map()
-        for m in out.get("up", []) + out.get("down", []) + out.get("mid_rank_sample", []):
+        for m in (out.get("up", []) + out.get("down", []) + out.get("mid_rank_sample", [])
+                  + out.get("strongest_unadjusted", [])):
             m["symbol"] = rev.get(m["id"])
     return out
 
@@ -300,3 +301,66 @@ def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna",
         annot = _cistron_symbol_map() if kind == "mrna" else _reverse_gene_map()
         out["lfc"] = {gid: {**v, "symbol": annot.get(gid)} for gid, v in out["lfc"].items()}
     return out
+
+
+def manipulation_check(target: str, reference: str = REFERENCE) -> dict:
+    """Did the perturbation reach its target? For a knockout design, each named gene's protein in the target's
+    last generation against the reference's, per seed, from local raw `MonomerCounts`.
+
+    The check every experiment runs before reading its outcome, and the one the agent skipped on 2026-10-27: told
+    by a label-integrity flag that a leucine knockout was "INVALID" and by an underpowered `top_movers` that nothing
+    moved, it concluded the knockout had not happened, without reading the four leucine enzymes, which were 3-4x
+    below the control in both models. Returns a verdict per gene: `reduced` (ratio <= 0.5), `partly_reduced`
+    (0.5-0.8) or `not_reduced` (>= 0.8). A design that names no gene, or a gene with no local raw, says so."""
+    import numpy as np
+
+    from . import factors
+    genes = factors.parse(target).get("genes") or []
+    if not genes:
+        return {"error": f"'{target}' names no gene; this check reads the targets of a knockout design"}
+    scope = factors._scope()
+
+    monomers = {g: (scope.get(g) or {}).get("monomer_id") for g in genes}
+    unmapped = sorted(g for g, m in monomers.items() if not m)
+    monomers = {g: m for g, m in monomers.items() if m}
+    t, r = _last_gen_counts(target, monomers), _last_gen_counts(reference, monomers)
+    rows = []
+    for g, m in monomers.items():
+        if not t[g] or not r[g]:
+            rows.append({"gene": g, "monomer": m, "verdict": "no_local_raw", "n": [len(t[g]), len(r[g])]})
+            continue
+        tm, rm = float(np.mean(t[g])), float(np.mean(r[g]))
+        ratio = tm / rm if rm > 0 else None
+        verdict = ("unreadable" if ratio is None else "reduced" if ratio <= 0.5
+                   else "partly_reduced" if ratio < 0.8 else "not_reduced")
+        rows.append({"gene": g, "monomer": m, "target_mean": round(tm, 1), "reference_mean": round(rm, 1),
+                     "ratio": None if ratio is None else round(ratio, 3), "n": [len(t[g]), len(r[g])],
+                     "verdict": verdict})
+    return {"target": target, "reference": reference, "genes": rows,
+            **({"unmapped_genes": unmapped} if unmapped else {}),
+            "note": ("Each gene's protein (MonomerCounts) in the LAST generation, seed-mean, target over reference. "
+                     "A knockout switched off from generation 1 dilutes by about half per division, so by "
+                     "generation 2 a working knockout reads roughly 0.25-0.5. Read this before concluding that a "
+                     "perturbation did or did not take effect.")}
+
+
+def _last_gen_counts(design: str, monomers: dict) -> dict:
+    """{gene: [last-generation mean count, one per seed]} for the given gene -> monomer map, from local raw."""
+    import numpy as np
+
+    from . import raw
+    vals = {g: [] for g in monomers}
+    for r in raw.seed_runs(design):
+        sos = raw.simout_dirs(r["root"])
+        if not sos:
+            continue
+        so = sos[-1]                                   # the last generation: the knockout's furthest point
+        try:
+            counts = np.asarray(raw.read_column(f"{so}/MonomerCounts/monomerCounts"), dtype=float)
+            ids = json.load(open(f"{so}/MonomerCounts/attributes.json", encoding="utf-8"))["monomerIds"]
+        except Exception:
+            continue
+        for g, m in monomers.items():
+            if m in ids:
+                vals[g].append(float(counts[:, ids.index(m)].mean()))
+    return vals

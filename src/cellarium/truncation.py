@@ -268,3 +268,39 @@ def trim(out: dict, cap: int, *, tool: str | None = None) -> tuple[dict, list[Om
             break
         best = (c, o)
     return best
+
+
+# ------------------------------------------------------------------------------------------------------------
+# Nested maps: the case `trim` cannot reach.
+# ------------------------------------------------------------------------------------------------------------
+# `trim` shrinks top-level LISTS. A payload whose bulk sits in a nested MAP (survey_corpus's `by_channel`, one
+# entry per channel) has no such list, so it fell through to the caller's last-resort string cut, which dropped
+# whole channels in dict order and said only "…[truncated]" (2026-10-27: 22 of 24 survey channels, tRNA charging
+# among them, never seen). This drops whole entries from the largest map instead, last first, and names them.
+_RETRIEVE = {"survey_corpus": "call survey_corpus(channels=[...]) with the omitted channels to read them"}
+
+
+def trim_nested(out: dict, cap: int, *, tool: str | None = None) -> tuple[dict, dict]:
+    """Drop whole entries from the largest nested dict until the JSON fits `cap`. Returns (payload, omitted),
+    where omitted maps each trimmed field to the keys removed. Does not mutate `out`; returns it unchanged, with an
+    empty map, when nothing nested can be dropped."""
+    cur = {k: (dict(v) if isinstance(v, dict) else v) for k, v in out.items()}
+    omitted: dict[str, list] = {}
+
+    def size(d):
+        return len(json.dumps(d, default=str))
+
+    for _ in range(1000):
+        if size({**cur, "_omitted": omitted}) <= cap:
+            break
+        maps = [k for k, v in cur.items() if isinstance(v, dict) and v]
+        if not maps:
+            break
+        big = max(maps, key=lambda k: size(cur[k]))
+        last = list(cur[big])[-1]
+        omitted.setdefault(big, []).insert(0, last)
+        del cur[big][last]
+    if not omitted:
+        return out, {}
+    cur["_omitted"] = {**omitted, "how_to_read": _RETRIEVE.get(tool or "", "re-issue the call more narrowly")}
+    return cur, omitted

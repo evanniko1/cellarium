@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
-from . import manifest
+from . import manifest, paths
 from .capability import DEFAULT_MODE, ELONGATION_MODES, MODE_FLAGS
 from .model import Design
 
-VARIANT_MAP_CACHE = Path("data/cache/variant_map.json")
+VARIANT_MAP_CACHE = paths.cache("variant_map.json")
 
 
 def kinetic_charging_designs() -> list[Design]:

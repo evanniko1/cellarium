@@ -32,6 +32,13 @@ from cellarium import survey, tools
 
 @pytest.fixture(scope="module")
 def payload() -> dict:
+    """The full survey. The agent's tool returns a digest of it (see the digest tests at the end), so the
+    exhaustiveness invariants are pinned on both forms."""
+    return survey.survey_corpus()
+
+
+@pytest.fixture(scope="module")
+def digest() -> dict:
     return tools.survey_corpus()
 
 
@@ -115,3 +122,27 @@ def test_the_note_no_longer_claims_something_the_payload_does_not_do(payload):
     assert "full-corpus survey" not in note, "the note reasserts exhaustiveness instead of describing it"
     assert "quiet_designs" in note, "the note must point at where the rest of the corpus is named"
     assert "nothing is silently omitted" in note
+
+
+# ---- the digest the agent actually receives (2026-10-27) ---------------------------------------------------
+# The tool now returns a digest: the full survey was cut by the context cap after 2 of 24 channels. The digest
+# must keep every guarantee above, or it has moved the omission rather than removed it.
+
+def test_the_digest_names_every_ranked_design(digest, reportable):
+    named = {v["design"] for v in digest["designs"].values()}
+    named |= {e["design"] for e in (digest.get("lethality") or {}).get("collapsing_designs", [])}
+    missing = sorted(reportable - named)
+    assert not missing, f"{len(missing)} reportable designs cannot be named from the digest: {missing}"
+
+
+def test_the_digest_keeps_quiet_salience_and_true_labels(digest, payload):
+    for d_id, z, channel in digest["quiet_designs"]:
+        assert z is not None and channel, f"{d_id} lost its salience in the digest"
+    flagged = {e["design"]: e["true_label"] for e in payload["quiet_designs"]["designs"] if e.get("true_label")}
+    legend = {v["design"]: v for v in digest["designs"].values()}
+    for d, true in flagged.items():
+        assert legend[d].get("true_label") == true, f"{d} lost its true label in the digest"
+
+
+def test_the_digest_keeps_the_guidance_note(digest):
+    assert "quiet_designs" in digest["note"] and "nothing is silently omitted" in digest["note"]
