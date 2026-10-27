@@ -220,3 +220,25 @@ def test_an_empty_synthesis_names_why_the_loop_ended_and_the_stop_reason(agent_m
                          _Resp([_Block("thinking")], stop_reason="max_tokens"))
     assert "repeated" in out and "max turns" not in out, out
     assert "max_tokens" in out, out
+
+
+def test_a_final_turn_that_spent_its_cap_thinking_is_retried_with_room(agent_mod):
+    """The NORMAL exit, same failure (discovery leg v2, 2026-10-27): 21 good tool calls, then a final turn that
+    was thinking-only at max_tokens, so the whole investigation ended without an answer."""
+    answer = "Both configurations hold leucine at the medium level in the kinetic auxotroph."
+    client = _Client(None)
+    client.messages = _SeqMessages([_Resp([_Block("thinking")], stop_reason="max_tokens"),
+                                    _Resp([_Block("text", answer)], stop_reason="end_turn")])
+    _CURRENT["client"] = client
+    out = agent_mod.converse([{"role": "user", "content": "anything"}], max_turns=4)
+    assert out == answer
+    assert client.messages.max_tokens[1] > client.messages.max_tokens[0]
+
+
+def test_a_reply_cut_at_the_cap_with_text_is_not_retried(agent_mod):
+    """Only a reply with NOTHING usable is retried; a truncated answer is still an answer, returned as is."""
+    client = _Client(None)
+    client.messages = _SeqMessages([_Resp([_Block("text", "partial answer")], stop_reason="max_tokens")])
+    _CURRENT["client"] = client
+    assert agent_mod.converse([{"role": "user", "content": "anything"}], max_turns=4) == "partial answer"
+    assert client.messages.calls == 1

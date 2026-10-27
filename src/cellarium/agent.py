@@ -521,6 +521,19 @@ def _run_turn(client, kw: dict, on_text, *, role: str = "agent"):
     return final
 
 
+def _thought_out(resp) -> bool:
+    """A reply cut at max_tokens with nothing usable in it: no text and no tool call. A model that thinks by
+    default can spend the whole cap reasoning (2026-10-27, Sonnet 5: a 4,096 cap, a thinking-only reply, on the
+    normal exit and the forced synthesis alike)."""
+    usable = any(getattr(b, "type", None) == "tool_use"
+                 or (getattr(b, "type", None) == "text" and (getattr(b, "text", "") or "").strip())
+                 for b in resp.content)
+    return resp.stop_reason == "max_tokens" and not usable
+
+
+_THOUGHT_OUT_EXTRA = 12000   # added to the cap for the one retry of a thought-out reply
+
+
 def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, on_note=None,
              on_usage=None, max_turns: int = 12, verbose: bool = False, reasoning: str = "none") -> str:
     """Run the grounded tool loop over an EXISTING message history (ending in a user turn), mutating `messages`
@@ -599,6 +612,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                     resp = _run_turn(client, kw, on_text)
                 else:
                     raise
+            if _thought_out(resp):   # the cap was spent thinking: one retry with room, then the guards below
+                resp = _run_turn(client, {**kw, "max_tokens": kw["max_tokens"] + _THOUGHT_OUT_EXTRA}, on_text)
             messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
 
@@ -658,10 +673,9 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                         messages=_prefix_cached(messages), max_tokens=(budget + 4000 if budget else 4096))
             resp = _run_turn(client, wrap, on_text, role="summary")
             text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
-            if not text and resp.stop_reason == "max_tokens":
-                # A model that thinks by default can spend the whole cap reasoning and write nothing (seen
-                # 2026-10-27: a thinking-only synthesis, reported as 'reached max turns'). One retry with room.
-                resp = _run_turn(client, {**wrap, "max_tokens": wrap["max_tokens"] + 12000}, on_text, role="summary")
+            if _thought_out(resp):   # see _thought_out: one retry with room
+                resp = _run_turn(client, {**wrap, "max_tokens": wrap["max_tokens"] + _THOUGHT_OUT_EXTRA}, on_text,
+                                 role="summary")
                 text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
             messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             # Same check on the forced-synthesis path, and it matters MORE here: this is the branch where the
