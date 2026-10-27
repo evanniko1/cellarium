@@ -20,7 +20,7 @@ from . import stats, survey
 REFERENCE = "wildtype/basal"
 
 
-def _design_seed_values() -> tuple[dict, list[str]]:
+def _design_seed_values(arm=None) -> tuple[dict, list[str]]:
     """{ 'perturbation/condition': {channel: [per-seed values]} } + the channel list (incl. pathways). Keeps the
     UN-aggregated replicates behind each design/channel, so a per-channel two-sample test (DS-3) can run on the real
     seed spread rather than a single mean. The means view (`_design_means`) is derived from this."""
@@ -30,7 +30,7 @@ def _design_seed_values() -> tuple[dict, list[str]]:
     # that impossible to reintroduce: the purpose names the filters, and `ctx["NOT_for"]` says out loud that
     # this set cannot be used to count lethality.
     from . import hygiene
-    rows, _ctx = hygiene.rows("analysis")
+    rows, _ctx = hygiene.rows("analysis", arm=arm)
     channels = _ctx["channels"]
     if not rows:
         return {}, []
@@ -50,9 +50,9 @@ def _design_seed_values() -> tuple[dict, list[str]]:
     return {d: dict(chv) for d, chv in out.items()}, channels
 
 
-def _depths_of(design: str) -> list:
+def _depths_of(design: str, arm=None) -> list:
     """The distinct generation depths a design's seeds ran to."""
-    vals, _ = _design_seed_values()
+    vals, _ = _design_seed_values(arm)
     return sorted({d for d in ((vals.get(design) or {}).get("_depths") or []) if d is not None})
 
 
@@ -132,8 +132,12 @@ def _design_means() -> tuple[dict, list[str]]:
 def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
     """Channels + pathways ranked by |log2 fold-change| of `target` vs `reference` — what moved most, each shown
     mover carrying a per-channel Welch t-test on the seed replicates (DS-3) so a fold-change isn't read as real
-    without checking it clears the seed noise."""
-    vals, channels = _design_seed_values()
+    without checking it clears the seed noise.
+
+    Read in the arm both designs share (`survey.arm_for`), so two designs that live outside the default arm are
+    still comparable with each other; a pair split across arms stays refused."""
+    arm = survey.arm_for(target, reference)
+    vals, channels = _design_seed_values(arm)
     if not vals:
         return {"error": "corpus empty or unreadable."}
     t, r = vals.get(target), vals.get(reference)
@@ -156,7 +160,7 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
                        "pct": round(100 * (tv - rv) / rv, 1), "log2fc": log2fc, "_ta": ta, "_ra": ra})
     movers.sort(key=lambda m: abs(m["log2fc"]) if m["log2fc"] is not None else abs(m["pct"]) / 100, reverse=True)
     ranked = movers[:top]
-    _dt, _dr = _depths_of(target), _depths_of(reference)
+    _dt, _dr = _depths_of(target, arm), _depths_of(reference, arm)
     _shared = sorted(set(_dt) & set(_dr))
     for m in ranked:   # DS-3: a two-sample Welch t-test on the seed replicates behind each shown mover (or a note)
         w = stats.welch_t(m.pop("_ta"), m.pop("_ra"))
@@ -173,7 +177,10 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
             # confound), and suggest deepening the shallower case. Soft in tone, specific in magnitude.
             if _dt != _dr:
                 m["depth_note"] = _depth_note(target, reference, _dt, _dr, _shared)
+    from . import corpus_schema
     return {"target": target, "reference": reference, "ranked": ranked,
+            # the arm the two designs share, when it pinned the read; absent means the default arm
+            **({"arm": dict(zip(corpus_schema.ARM_KEYS, arm))} if arm else {}),
             "viability": _viability_for(target),  # is the target even a dividing cell? (a KO reroutes -> flat channels + viable)
             "note": "Channels + pathways ranked by |log2 fold-change| (else |%|), each shown mover carrying a Welch "
                     "t-test on the seed replicates (`welch_t`/`p_value`/`significant_p05`) — a large fold-change with "

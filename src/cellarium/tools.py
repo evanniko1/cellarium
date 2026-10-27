@@ -106,9 +106,15 @@ def design_space(gene: str | None = None) -> dict:
     return out
 
 
-def survey_corpus() -> dict:
-    """Deterministic, ranked, whole-corpus survey — call FIRST, before forming any hypothesis."""
-    return survey.survey_corpus()
+def survey_corpus(arm: str | None = None) -> dict:
+    """Deterministic, ranked, whole-corpus survey — call FIRST, before forming any hypothesis. `arm` names the
+    comparability arm to rank (e.g. 'kinetic'); the default is the largest, and the result says which."""
+    if arm is None:
+        return survey.survey_corpus()
+    try:
+        return survey.survey_corpus(arm=arm)
+    except ValueError as exc:   # a selector that matches no arm, or several, is reported, not guessed
+        return {"error": str(exc), "reason": "arm_selector"}
 
 
 def lethality_landscape() -> dict:
@@ -1309,7 +1315,7 @@ _DESIGN_PROPS = {
 
 TOOLS = [
     {"name": "survey_corpus", "description": "FIRST STEP for any results question. Deterministic, ranked, whole-corpus survey: every design vs a reference per channel, ranked by effect size (|z|), a cross-channel notable set, and coverage. Ground your reasoning in this WHOLE view before drilling in — do not anchor on individual runs or prior conversation. Its `lethality` block flags designs that collapse at depth (excluded from the ranking but real).",
-     "input_schema": {"type": "object", "properties": {}}},
+     "input_schema": {"type": "object", "properties": {"arm": {"type": "string", "description": "Optional. Which comparability arm to rank, matched against its elongation model or knowledge-base hash, e.g. 'kinetic' or 'steady_state'. Default: the largest arm; the result names the arm it ranked and the arms it left out. Rows from different arms are never ranked together."}}}},
     {"name": "lethality_landscape", "description": "The LETHALITY view: designs that DIVIDE then COLLAPSE at depth — the phenotype the ranked survey excludes (a collapsed generation's channel mean is numerical garbage, so the whole run is non-reportable). Reports, per collapsing design, the generation it collapses at, the QC signature, whether it is FULLY HIDDEN (zero reportable seeds — invisible to survey_corpus, e.g. dapA/rpmE), and the PRE-collapse growth/ppGpp read at its own generation vs the depth-matched WT. A depressed-growth + elevated-ppGpp `stringent_signature` on an essential-gene KO is the textbook uncharged-tRNA→RelA→ppGpp response — a signal to CHECK against literature/lab, never asserted. Use when a design looks absent from the survey, or to study essential-gene lethality.",
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "trajectory", "description": "The per-GENERATION arc of ONE design: the mean of a channel (growth_rate or ppgpp_conc — the two stored per generation) at each generation index, plus the QC verdict spread there, so a COLLAPSE is visible as the generation where QC stops being all-ok. This is how you INSPECT a lethality case gen-by-gen (e.g. dapA: ppGpp 488→636 over gens 0-1, then division arrest at gen 2). The valid early generations of a collapsing run are shown; the collapsed generation reads as its QC verdict, never a garbage number.",

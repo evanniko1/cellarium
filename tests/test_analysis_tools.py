@@ -145,7 +145,7 @@ def test_summary_attaches_per_channel_welch_significance(monkeypatch):
         "gene_knockout/KO:x": {"growth_rate": [0.30, 0.31, 0.29, 0.30], "noise_ch": [1.0, 1.4, 0.6, 1.1], "solo": [2.0]},
         "wildtype/basal":     {"growth_rate": [0.60, 0.61, 0.59, 0.60], "noise_ch": [1.05, 0.9, 1.2, 0.85], "solo": [1.0, 1.0]},
     }
-    monkeypatch.setattr(differential, "_design_seed_values", lambda: (seed, ["growth_rate", "noise_ch", "solo"]))
+    monkeypatch.setattr(differential, "_design_seed_values", lambda arm=None: (seed, ["growth_rate", "noise_ch", "solo"]))
     out = differential.summary("gene_knockout/KO:x", "wildtype/basal", top=10)
     ranked = {m["quantity"]: m for m in out["ranked"]}
     assert ranked["growth_rate"]["significant_p05"] is True and ranked["growth_rate"]["p_value"] < 0.05

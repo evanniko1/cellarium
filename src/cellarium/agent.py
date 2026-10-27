@@ -565,6 +565,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
     unsubscribe = observability.subscribe(meter)
     _call_counts: dict = {}        # DD-ENG-3: (tool, args) -> count across the turn, for the no-progress breaker
     consec_error_rounds = 0
+    stopped_by = f"reached max turns ({max_turns})"   # why the tool loop ended, named if the synthesis is empty
     try:
         for _ in range(max_turns):
             kw = dict(model=mdl, system=system, tools=tool_defs, messages=_prefix_cached(messages))
@@ -634,7 +635,11 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             # DD-ENG-3 circuit breaker: an identical call repeated, or several all-error rounds, means the agent is
             # stuck — stop looping and fall through to the forced synthesis rather than burn the whole budget spinning.
             consec_error_rounds = consec_error_rounds + 1 if round_all_errors else 0
-            if max(_call_counts.values(), default=0) >= _REPEAT_CAP or consec_error_rounds >= _ERR_CAP:
+            if max(_call_counts.values(), default=0) >= _REPEAT_CAP:
+                stopped_by = f"the same tool call was repeated {_REPEAT_CAP} times"
+                break
+            if consec_error_rounds >= _ERR_CAP:
+                stopped_by = f"every tool call failed in {_ERR_CAP} rounds in a row"
                 break
 
         # Tool budget exhausted while the agent was still calling tools: force ONE final synthesis with tools
@@ -649,16 +654,22 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             # tool_choice=none forbids further tool calls WITHOUT dropping the tool definitions — dropping them 400s
             # because the history contains tool_use blocks (tools must stay defined once used). Keeping tool_defs
             # also preserves the cached prefix. This is the path that produces the final answer when budget is spent.
-            resp = _run_turn(client, dict(model=mdl, system=wrap_system, tools=tool_defs,
-                                          tool_choice={"type": "none"}, messages=_prefix_cached(messages),
-                                          max_tokens=(budget + 4000 if budget else 4096)), on_text, role="summary")
-            messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
+            wrap = dict(model=mdl, system=wrap_system, tools=tool_defs, tool_choice={"type": "none"},
+                        messages=_prefix_cached(messages), max_tokens=(budget + 4000 if budget else 4096))
+            resp = _run_turn(client, wrap, on_text, role="summary")
             text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+            if not text and resp.stop_reason == "max_tokens":
+                # A model that thinks by default can spend the whole cap reasoning and write nothing (seen
+                # 2026-10-27: a thinking-only synthesis, reported as 'reached max turns'). One retry with room.
+                resp = _run_turn(client, {**wrap, "max_tokens": wrap["max_tokens"] + 12000}, on_text, role="summary")
+                text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+            messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             # Same check on the forced-synthesis path, and it matters MORE here: this is the branch where the
             # model writes a conclusion with tools disabled and the budget spent.
-            return reconcile.check_and_annotate(text) or "(stopped: reached max turns without a synthesis)"
-        except Exception:
-            return "(stopped: reached max turns)"
+            return reconcile.check_and_annotate(text) or (f"(stopped: {stopped_by}; the final synthesis returned no "
+                                                           f"text [stop_reason={resp.stop_reason!r}])")
+        except Exception as exc:
+            return f"(stopped: {stopped_by}; the final synthesis raised {type(exc).__name__})"
     finally:
         unsubscribe()
         if on_usage is not None:

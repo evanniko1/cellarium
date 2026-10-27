@@ -7,7 +7,7 @@ eval scores a 0-character response, and neither can tell *"it had nothing to say
 asked"*. That is the silent-absence class this repository keeps finding — an absence reported as a fact.
 
 WHERE IT LIVED. `converse` has two exits. The forced-synthesis path (budget exhausted, tools disabled) has
-always ended with `... or "(stopped: reached max turns without a synthesis)"`. The NORMAL path — the model
+always ended with a non-empty `(stopped: ...)` fallback. The NORMAL path — the model
 stops requesting tools, so the turn is over — returned `reconcile.check_and_annotate(...)` directly, with no
 guard. A turn that ends with `stop_reason="end_turn"` and no text blocks therefore returned `""`.
 
@@ -165,8 +165,58 @@ def test_both_exit_paths_guard_against_an_empty_answer():
     conversation to reach. If a future refactor removes either guard, this fails and names which one.
     """
     src = (ROOT / "src" / "cellarium" / "agent.py").read_text(encoding="utf-8")
-    assert 'or "(stopped: reached max turns without a synthesis)"' in src, (
+    assert 'or (f"(stopped: {stopped_by}; the final synthesis returned no "' in src, (
         "the forced-synthesis exit lost its empty-answer guard")
     assert "return said or (" in src, (
         "the NORMAL exit lost its empty-answer guard — this is the AG-5 regression: a turn that ends with no "
         "text and no tool call would again return '' to the caller")
+
+
+class _ToolUse:
+    def __init__(self, id_, name="survey_corpus", input_=None):
+        self.type, self.id, self.name, self.input = "tool_use", id_, name, input_ or {}
+
+    def model_dump(self):
+        return {"type": "tool_use", "id": self.id, "name": self.name, "input": self.input}
+
+
+class _SeqMessages(_Messages):
+    """Hands out a scripted sequence of responses, one per model call."""
+
+    def __init__(self, resps):
+        self._resps, self.calls, self.max_tokens = list(resps), 0, []
+
+    def stream(self, **kw):
+        self.calls += 1
+        self.max_tokens.append(kw.get("max_tokens"))
+        return _Stream(self._resps.pop(0))
+
+
+def _stuck_then(agent, monkeypatch, *synthesis):
+    """Three identical tool calls trip the repeat breaker; then the scripted synthesis response(s)."""
+    from cellarium import tools
+    monkeypatch.setattr(tools, "dispatch", lambda name, args: {"ok": True})
+    loop = [_Resp([_Block("thinking"), _ToolUse(f"t{i}")], stop_reason="tool_use") for i in range(3)]
+    client = _Client(None)
+    client.messages = _SeqMessages(loop + list(synthesis))
+    _CURRENT["client"] = client
+    out = agent.converse([{"role": "user", "content": "anything"}], max_turns=24)
+    return out, client.messages
+
+
+def test_a_synthesis_that_spent_its_cap_thinking_is_retried_with_room(agent_mod, monkeypatch):
+    """2026-10-27: every turn of a Sonnet 5 conversation carried a thinking block, and the forced synthesis
+    came back thinking-only — the cap spent before any text. One retry with a larger cap recovers the answer."""
+    answer = "The kinetic auxotroph never runs short of leucine."
+    out, msgs = _stuck_then(agent_mod, monkeypatch, _Resp([_Block("thinking")], stop_reason="max_tokens"),
+                            _Resp([_Block("text", answer)], stop_reason="end_turn"))
+    assert out == answer
+    assert msgs.max_tokens[-1] > msgs.max_tokens[-2], "the retry must have more room than the first attempt"
+
+
+def test_an_empty_synthesis_names_why_the_loop_ended_and_the_stop_reason(agent_mod, monkeypatch):
+    """It said 'reached max turns' after 7 of 24 turns. The breaker had fired; the message must say so."""
+    out, _ = _stuck_then(agent_mod, monkeypatch, _Resp([_Block("thinking")], stop_reason="max_tokens"),
+                         _Resp([_Block("thinking")], stop_reason="max_tokens"))
+    assert "repeated" in out and "max turns" not in out, out
+    assert "max_tokens" in out, out

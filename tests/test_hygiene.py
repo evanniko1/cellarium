@@ -203,8 +203,9 @@ def test_the_disconfirmation_tool_asks_by_purpose():
     import inspect
 
     from src.cellarium import differential, rigor
-    assert 'hygiene.rows("analysis")' in inspect.getsource(rigor.disconfirm)
-    assert 'hygiene.rows("analysis")' in inspect.getsource(differential)
+    # the purpose is the first argument; an `arm=` after it narrows within that purpose, it does not replace it
+    assert 'hygiene.rows("analysis"' in inspect.getsource(rigor.disconfirm)
+    assert 'hygiene.rows("analysis"' in inspect.getsource(differential)
 
 
 # ---------------------------------------------------------------------------------------------------------

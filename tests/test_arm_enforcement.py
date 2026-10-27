@@ -118,28 +118,64 @@ def test_the_reference_cell_is_not_pooled_across_arms():
     assert any(e["design"] == ref for b in s["by_channel"].values() for e in b.get("ranked", [])) or True
 
 
-def test_a_design_in_another_arm_is_reported_as_a_mismatch_not_as_absent():
-    """The arm filter narrows to one comparability arm and records what it dropped in `_ARM_NOTE`. Nothing
-    surfaced that, so `differential.summary` answered "no design 'x'" for a design that exists — and an agent
-    reading the tool concluded the run had never happened. That is could-not-reach reported as does-not-exist,
-    the failure this codebase names everywhere else, arriving at the tool boundary."""
-    from src.cellarium import differential
+def _elsewhere():
+    """Designs that exist only outside the default arm, with the arms each lives in."""
     every, _ = survey.analysis_rows(arm="all")
     one, _ = survey.analysis_rows()
     if not one or not every:
         pytest.skip("corpus unreadable in this environment")
     here = {survey.design_key(r) for r in one}
-    elsewhere = {survey.design_key(r) for r in every} - here
-    if not elsewhere:
+    arms: dict = {}
+    for r in every:
+        if survey.design_key(r) not in here:
+            arms.setdefault(survey.design_key(r), set()).add(corpus_schema.arm_of(r))
+    if not arms:
         pytest.skip("corpus has only one arm in this environment")
-    target = sorted(elsewhere)[0]
+    return every, arms
 
-    out = differential.summary(target, "%s/%s" % survey.REFERENCE)
+
+def test_a_design_in_another_arm_is_reported_as_a_mismatch_not_as_absent():
+    """The arm filter narrows to one comparability arm and records what it dropped in `_ARM_NOTE`. Nothing
+    surfaced that, so `differential.summary` answered "no design 'x'" for a design that exists — and an agent
+    reading the tool concluded the run had never happened. That is could-not-reach reported as does-not-exist,
+    the failure this codebase names everywhere else, arriving at the tool boundary.
+
+    Since 2026-10-27 a comparison reads the arm its two designs share, so the refusal applies when they share
+    none: here, a design from another arm against a reference made up for the test, which lives only in the
+    default arm."""
+    from src.cellarium import differential
+    every, arms = _elsewhere()
+    ref = "%s/%s" % survey.REFERENCE
+    ref_arms = {corpus_schema.arm_of(r) for r in every if survey.design_key(r) == ref}
+    split = sorted(d for d, a in arms.items() if not (a & ref_arms))
+    if not split:
+        pytest.skip("every other-arm design has the reference in its own arm")
+    target = split[0]
+
+    out = differential.summary(target, ref)
     assert out.get("reason") == "arm_mismatch", (
         "a design that exists in another arm was reported as %r" % out.get("error"))
     assert out.get("design_is_in"), "the mismatch must name the arm the design IS in"
     assert out.get("current_arm"), "the mismatch must name the arm currently selected"
     assert target in out["error"] and "exists" in out["error"]
+
+
+def test_a_design_in_another_arm_is_compared_within_that_arm_and_says_so():
+    """The refusal's own advice: compare it with a reference from the SAME arm. When the reference exists in
+    the target's arm, the comparison runs there and names the arm, rather than refusing a valid comparison."""
+    from src.cellarium import differential
+    every, arms = _elsewhere()
+    ref = "%s/%s" % survey.REFERENCE
+    ref_arms = {corpus_schema.arm_of(r) for r in every if survey.design_key(r) == ref}
+    shared = sorted(d for d, a in arms.items() if len(a) == 1 and a & ref_arms)
+    if not shared:
+        pytest.skip("no other-arm design shares an arm with the reference")
+    target = shared[0]
+    (arm,) = arms[target]
+
+    out = differential.summary(target, ref)
+    assert "error" not in out, out.get("error")
+    assert out.get("arm") == dict(zip(corpus_schema.ARM_KEYS, arm)), "the read must name the arm it used"
 
 
 def test_a_design_that_truly_does_not_exist_still_says_so():
@@ -152,3 +188,55 @@ def test_a_design_that_truly_does_not_exist_still_says_so():
     assert out.get("reason") != "arm_mismatch"
     assert "no design" in out.get("error", "")
     assert out.get("available"), "a genuine absence still lists what IS available"
+
+
+def test_a_tie_for_largest_arm_is_broken_by_key_not_by_row_order():
+    """12 kinetic and 12 steady-state rows (2026-10-27): `max` kept whichever arm the parallel scan met first,
+    so the default arm flipped between two calls and one design was reachable, then "in another arm"."""
+    a, b = ("?", "?", "kinetic"), ("?", "?", "steady_state")
+    assert survey._resolve_arm(None, {a: 12, b: 12}) == survey._resolve_arm(None, {b: 12, a: 12}) == a
+    assert survey._resolve_arm(None, {a: 3, b: 12}) == b, "a clear largest arm still wins"
+
+
+def _two_arm_rows(monkeypatch):
+    rows = [{"d": "ko/leu#elong:kinetic", "elongation_model": "kinetic"},
+            {"d": "ko/ctl#elong:kinetic", "elongation_model": "kinetic"},
+            {"d": "ko/leu", "elongation_model": "steady_state"},
+            {"d": "ko/ctl", "elongation_model": "steady_state"},
+            {"d": "ko/both", "elongation_model": "steady_state"},
+            {"d": "ko/both", "elongation_model": "kinetic"}]
+    monkeypatch.setattr(survey, "analysis_rows", lambda arm=None: (rows, []))
+    monkeypatch.setattr(survey, "design_key", lambda r: r["d"])
+
+
+def test_the_designs_named_pin_the_arm(monkeypatch):
+    _two_arm_rows(monkeypatch)
+    kin = ("?", "?", "kinetic")
+    assert survey.arm_for("ko/leu#elong:kinetic", "ko/ctl#elong:kinetic") == kin
+    assert survey.arm_for("ko/leu", "ko/ctl") == ("?", "?", "steady_state")
+    assert survey.arm_for("ko/leu#elong:kinetic", "ko/ctl") is None, "a pair split across arms has no arm"
+    assert survey.arm_for("ko/both") is None, "a design in two arms does not pick one"
+    assert survey.arm_for("ko/absent") is None
+
+
+def test_differential_and_disconfirm_read_the_arm_their_designs_share(monkeypatch):
+    """The refusal told the agent to "re-issue against that arm" through tools that take no arm. A comparison
+    now reads the arm its two designs share; `arm_for` decides it, and these must pass it through."""
+    from src.cellarium import differential, hygiene, rigor
+    seen = []
+    monkeypatch.setattr(survey, "arm_for", lambda *d: ("kb", "op", "kinetic"))
+    monkeypatch.setattr(differential, "_design_seed_values", lambda arm=None: (seen.append(arm), ({}, []))[1])
+    differential.summary("a", "b")
+    monkeypatch.setattr(hygiene, "rows", lambda purpose, arm=None: (seen.append(arm), ([], {}))[1])
+    rigor.disconfirm("a", "b", "growth_rate")
+    assert seen == [("kb", "op", "kinetic")] * 2, seen
+
+
+def test_survey_corpus_tool_reports_a_bad_arm_selector_instead_of_raising(monkeypatch):
+    from src.cellarium import tools
+
+    def boom(**kw):
+        raise ValueError("arm selector 'x' matches 0 arms")
+    monkeypatch.setattr(tools.survey, "survey_corpus", boom)
+    out = tools.survey_corpus(arm="x")
+    assert out.get("reason") == "arm_selector" and "matches 0 arms" in out["error"]

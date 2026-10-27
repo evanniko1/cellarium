@@ -82,7 +82,8 @@ def disconfirm(target: str, reference: str, channel: str) -> dict:
     # H-17b: asked for by PURPOSE. This is the call site whose drift was measured — `disconfirm` once keyed
     # on `perturbation/condition` and reported an interval 5.5x NARROWER than `survey_corpus` over crashed
     # runs. It is the last place that should be choosing its own filters.
-    rows, _ = hygiene.rows("analysis")
+    # Read in the arm both designs share, as `differential.summary` does: the designs pin the arm.
+    rows, _ = hygiene.rows("analysis", arm=survey.arm_for(target, reference))
     if not rows:
         return {"error": "corpus unreadable or empty"}
 

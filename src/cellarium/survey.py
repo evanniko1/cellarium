@@ -213,8 +213,24 @@ def arm_miss(design: str) -> dict | None:
             "design_is_in": [dict(zip(corpus_schema.ARM_KEYS, a)) for a in arms],
             "rows_in_other_arms": len(hits),
             "why": note.get("why"),
-            "fix": "re-issue against that arm, or compare it with a reference from the SAME arm. "
-                   "Never carry a number across arms."}
+            "fix": "compare it with a reference from the SAME arm: a comparison of two designs reads the arm they "
+                   "both live in. Never carry a number across arms."}
+
+
+def arm_for(*designs: str) -> tuple | None:
+    """The one comparability arm that holds EVERY named design, or None when there is no such single arm.
+
+    A comparison names its designs, and the designs pin the arm. Without this, every comparison read the default
+    (largest) arm, so a pair of designs that both live in a smaller arm was unreachable: the refusal told the
+    caller to "re-issue against that arm" through tools that take no arm. None leaves the caller on the default
+    arm, where `arm_miss` still reports a design that is elsewhere."""
+    from . import corpus_schema
+    rows, _ = analysis_rows(arm="all")
+    shared = None
+    for d in designs:
+        here = {corpus_schema.arm_of(r) for r in rows if design_key(r) == d}
+        shared = here if shared is None else shared & here
+    return next(iter(shared)) if shared and len(shared) == 1 else None
 
 
 def analysis_rows(arm: "tuple | str | None" = None) -> tuple[list[dict], list[str]]:
@@ -273,6 +289,9 @@ def analysis_rows(arm: "tuple | str | None" = None) -> tuple[list[dict], list[st
                                          if k != chosen],
                           "why": "a fitted parameter set, operon build mode and elongation model each change "
                                  "what a channel means; averaging across them describes no instrument."})
+        if arm is None and sum(1 for n in counts.values() if n == counts[chosen]) > 1:
+            _ARM_NOTE["tie"] = ("no arm is the largest: the default was chosen by arm key. Name the arm "
+                                "(e.g. 'kinetic') to read another one.")
 
     # ARM-2. Having filtered to one arm, ask whether that arm is actually homogeneous. The three ARM_KEYS are
     # the splits we KNOW about; `arm_conflicts` finds a split they miss — rows agreeing on all three while
@@ -309,7 +328,11 @@ def _resolve_arm(arm, counts: dict[tuple, int]) -> tuple:
     if not counts:
         return ()
     if arm is None:
-        return max(counts, key=lambda k: counts[k])
+        # Ties are broken by the arm key, never by row order. `max` keeps the FIRST largest it meets, and row order
+        # comes from a parallel parquet scan, so a 12/12 corpus (kinetic vs steady-state, 2026-10-27) flipped arm
+        # between two calls in one conversation: the same design was reachable, then "in another arm".
+        top = max(counts.values())
+        return min((k for k, n in counts.items() if n == top), key=lambda k: tuple(str(v) for v in k))
     if isinstance(arm, (tuple, list)):
         key = tuple(arm)
         if key not in counts:
