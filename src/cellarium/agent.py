@@ -522,16 +522,27 @@ def _run_turn(client, kw: dict, on_text, *, role: str = "agent"):
 
 
 def _thought_out(resp) -> bool:
-    """A reply cut at max_tokens with nothing usable in it: no text and no tool call. A model that thinks by
-    default can spend the whole cap reasoning (2026-10-27, Sonnet 5: a 4,096 cap, a thinking-only reply, on the
-    normal exit and the forced synthesis alike)."""
-    usable = any(getattr(b, "type", None) == "tool_use"
-                 or (getattr(b, "type", None) == "text" and (getattr(b, "text", "") or "").strip())
-                 for b in resp.content)
-    return resp.stop_reason == "max_tokens" and not usable
+    """A reply cut at max_tokens before it wrote any text. A model that thinks by default can spend the whole cap
+    reasoning, or reasoning plus a batch of tool calls whose last one is cut off mid-input (2026-10-27, Sonnet 5 at a
+    4,096 cap: thinking-only on the normal exit and the forced synthesis, then thinking + 5 tool calls). Neither is
+    usable as it stands. A reply that has text is kept: retrying it would stream the text a second time."""
+    has_text = any(getattr(b, "type", None) == "text" and (getattr(b, "text", "") or "").strip()
+                   for b in resp.content)
+    return resp.stop_reason == "max_tokens" and not has_text
 
 
 _THOUGHT_OUT_EXTRA = 12000   # added to the cap for the one retry of a thought-out reply
+
+
+def _with_room(client, kw: dict, resp, on_text, *, role: str = "agent"):
+    """Retry a thought-out reply once with a larger cap. If the retry itself fails (a model whose output limit is
+    below the larger cap, say), keep the original reply: the exit guards then name its stop_reason."""
+    if not _thought_out(resp):
+        return resp
+    try:
+        return _run_turn(client, {**kw, "max_tokens": kw["max_tokens"] + _THOUGHT_OUT_EXTRA}, on_text, role=role)
+    except Exception:
+        return resp
 
 
 def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=None, on_note=None,
@@ -612,8 +623,7 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                     resp = _run_turn(client, kw, on_text)
                 else:
                     raise
-            if _thought_out(resp):   # the cap was spent thinking: one retry with room, then the guards below
-                resp = _run_turn(client, {**kw, "max_tokens": kw["max_tokens"] + _THOUGHT_OUT_EXTRA}, on_text)
+            resp = _with_room(client, kw, resp, on_text)   # cap spent before any text: one retry with room
             messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             tool_uses = [b for b in resp.content if getattr(b, "type", None) == "tool_use"]
 
@@ -672,11 +682,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             wrap = dict(model=mdl, system=wrap_system, tools=tool_defs, tool_choice={"type": "none"},
                         messages=_prefix_cached(messages), max_tokens=(budget + 4000 if budget else 4096))
             resp = _run_turn(client, wrap, on_text, role="summary")
+            resp = _with_room(client, wrap, resp, on_text, role="summary")   # see _thought_out
             text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
-            if _thought_out(resp):   # see _thought_out: one retry with room
-                resp = _run_turn(client, {**wrap, "max_tokens": wrap["max_tokens"] + _THOUGHT_OUT_EXTRA}, on_text,
-                                 role="summary")
-                text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
             messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             # Same check on the forced-synthesis path, and it matters MORE here: this is the branch where the
             # model writes a conclusion with tools disabled and the budget spent.

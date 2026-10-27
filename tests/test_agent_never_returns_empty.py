@@ -242,3 +242,34 @@ def test_a_reply_cut_at_the_cap_with_text_is_not_retried(agent_mod):
     _CURRENT["client"] = client
     assert agent_mod.converse([{"role": "user", "content": "anything"}], max_turns=4) == "partial answer"
     assert client.messages.calls == 1
+
+
+def test_a_turn_cut_off_while_writing_tool_calls_is_retried_with_room(agent_mod, monkeypatch):
+    """Discovery leg v3: thinking + 5 tool calls at max_tokens, the last call cut off mid-input. It has tool calls
+    but stop_reason is not 'tool_use', so it was taken as a final turn with no answer."""
+    from cellarium import tools
+    monkeypatch.setattr(tools, "dispatch", lambda name, args: {"ok": True})
+    answer = "Leucine is held at the medium level in the kinetic auxotroph."
+    client = _Client(None)
+    client.messages = _SeqMessages([
+        _Resp([_Block("thinking"), _ToolUse("a"), _ToolUse("b")], stop_reason="max_tokens"),
+        _Resp([_Block("thinking"), _ToolUse("a"), _ToolUse("b")], stop_reason="tool_use"),
+        _Resp([_Block("text", answer)], stop_reason="end_turn")])
+    _CURRENT["client"] = client
+    out = agent_mod.converse([{"role": "user", "content": "anything"}], max_turns=4)
+    assert out == answer
+    assert client.messages.max_tokens[1] > client.messages.max_tokens[0]
+
+
+def test_a_failed_retry_keeps_the_original_reply_and_its_honest_message(agent_mod):
+    """A model whose output limit is below the larger cap rejects the retry; that must not crash the turn."""
+    class _Refuses(_SeqMessages):
+        def stream(self, **kw):
+            if self.calls:
+                raise RuntimeError("max_tokens above this model's limit")
+            return super().stream(**kw)
+    client = _Client(None)
+    client.messages = _Refuses([_Resp([_Block("thinking")], stop_reason="max_tokens")])
+    _CURRENT["client"] = client
+    out = agent_mod.converse([{"role": "user", "content": "anything"}], max_turns=4)
+    assert "max_tokens" in out, out
