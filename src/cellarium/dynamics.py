@@ -231,9 +231,17 @@ def shift_response(design: str, channel: str = "ppgpp_conc", at_seconds: float |
             looked_in=["timeline", "condition", "label"],
             pass_instead="at_seconds=<seconds since the start of the generation the shift happens in>")
     t_shift, t_source = sources[0]
+    # RESOLVING THE SHIFT TIME SUCCEEDED; only the trajectory may be missing. The two refusals below therefore
+    # carry the resolved time, because without it the caller cannot tell "this design declares no shift" (a
+    # fact about the design) from "this machine does not hold its trajectory" (a fact about this machine) --
+    # the same conflation `shift_time_not_declared` was added to end. CI caught this: the suite asserts the
+    # resolution, and on a runner with no raw simOut the answer silently stopped reporting it.
+    declared = {"declared_shift_s": t_shift, "shift_time_from": t_source,
+                "shift_times_found": [{"seconds": t, "source": w} for t, w in sources]}
     runs = raw.seed_runs(design)
     if not runs:
-        return {"error": f"no local raw simOut for '{design}' — the transient needs full-resolution series"}
+        return {"error": f"no local raw simOut for '{design}' — the transient needs full-resolution series",
+                **declared}
     per_seed, used = [], []
     for r in runs:
         try:
@@ -245,7 +253,8 @@ def shift_response(design: str, channel: str = "ppgpp_conc", at_seconds: float |
             used.append(r.get("seed"))
     if not per_seed:
         return {"error": f"could not characterise the response for '{design}' "
-                         f"(channel={channel!r}, shift at t={t_shift}s) — too few timesteps around the shift"}
+                         f"(channel={channel!r}, shift at t={t_shift}s) — too few timesteps around the shift",
+                **declared}
 
     def med(key):
         vals = [p[key] for p in per_seed if p.get(key) is not None]

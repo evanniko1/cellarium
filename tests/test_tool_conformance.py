@@ -504,3 +504,18 @@ def test_a_timeline_design_still_resolves_exactly_as_before():
                          {"design": "timeline/0 minimal, 1200 minimal_plus_amino_acids"})
     assert out.get("declared_shift_s") == 1200.0
     assert out.get("shift_time_from") == "the design's declared timeline"
+
+
+def test_an_absent_trajectory_still_reports_the_shift_time_it_resolved(monkeypatch):
+    """The machine not holding the trajectory must not erase a fact the tool already established.
+
+    This is the failure CI found and the local suite could not: on a runner with no raw simOut, the answer
+    above came back with no `declared_shift_s` at all, so "this design declares no shift" and "this machine
+    has no data for it" were again indistinguishable to the reader. The refusal now carries the resolution."""
+    from cellarium import dynamics
+    monkeypatch.setattr(dynamics.raw, "seed_runs", lambda design: [])
+    out = tools.dispatch("shift_response",
+                         {"design": "timeline/0 minimal, 1200 minimal_plus_amino_acids"})
+    assert out["about"] == "environment", out            # not corpus: nothing here is evidence about the model
+    assert out["declared_shift_s"] == 1200.0
+    assert out["shift_time_from"] == "the design's declared timeline"
