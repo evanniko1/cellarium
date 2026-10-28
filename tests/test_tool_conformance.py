@@ -9,6 +9,9 @@ acquire one of these faults fails here instead of inside an investigation:
   2. SHAPE     — whatever the size, the agent receives valid JSON, and anything dropped is named.
   3. DETERMINISM — two identical calls agree, and reordering the rows changes nothing.
   4. CONTEXT   — the answer does not depend on the process's working directory.
+  5. CONTRACT  — a refusal names its KIND: a reason from a closed registry, and an `about` that separates
+                 "the corpus does not contain this" from "this machine could not look".
+  6. SELECTION — no two tool names are confusable without each saying when to use the other.
 
 The sweeps run against whatever store the checkout has; with no corpus they skip rather than pass vacuously.
 """
@@ -24,7 +27,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from cellarium import agent, conformance, raw, reconcile, survey, tools  # noqa: E402
+from cellarium import agent, conformance, errors, raw, reconcile, survey, tools  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -197,3 +200,113 @@ def test_the_tools_excluded_from_the_sweeps_are_named_and_justified():
     assert conformance.ENVIRONMENT_PROBES <= set(tools._DISPATCH)
     overlap = conformance.HEAVY & conformance.SIDE_EFFECT_OR_EXTERNAL
     assert not overlap, f"a tool is in two exclusion lists: {overlap}"
+
+
+# ---- 5. CONTRACT -----------------------------------------------------------------------------------------
+
+def test_every_registered_reason_declares_whose_fault_it_is():
+    """`about` is the field the discovery leg needed and did not have. A reason without it is useless, and a
+    value outside the four kinds cannot be branched on."""
+    assert set(errors.REASONS) >= {"store_unreadable", "no_local_raw", "unknown_design", "insufficient_data"}
+    for reason, (about, nxt) in errors.REASONS.items():
+        assert about in ("request", "corpus", "environment", "policy"), (reason, about)
+        assert nxt and isinstance(nxt, str), reason
+
+
+def test_an_unreadable_store_and_a_missing_design_do_not_share_a_cause():
+    """The whole point: one is evidence about the corpus, the other is a fault in this machine. If these two
+    ever collapse to the same `about`, the agent is back to reading prose."""
+    assert errors.REASONS["unknown_design"][0] == "request"
+    assert errors.REASONS["insufficient_data"][0] == "corpus"
+    assert errors.REASONS["store_unreadable"][0] == "environment"
+    assert errors.REASONS["no_local_raw"][0] == "environment"
+
+
+def test_a_raised_exception_classifies_as_a_runtime_fault_not_as_corpus_evidence():
+    """The four `f"{type(exc).__name__}: {exc}"` sites carry no words to classify statically, so their
+    classification is pinned here instead of assumed by the static audit."""
+    for msg in ("ValueError: boom", "KeyError: 'x'", "OSError: disk gone", "RuntimeError: nope"):
+        assert errors.classify(msg) == "runtime_fault", msg
+        assert errors.REASONS[errors.classify(msg)][0] == "environment"
+
+
+def test_fail_refuses_an_unregistered_reason():
+    """A free-text reason would reopen the prose problem one tool at a time."""
+    with pytest.raises(KeyError):
+        errors.fail("something_new", "a message")
+
+
+def test_annotate_keeps_a_reason_a_tool_set_itself_and_does_not_touch_a_success():
+    assert errors.annotate({"n": 3}) == {"n": 3}
+    assert errors.annotate("not a dict") == "not a dict"
+    kept = errors.annotate({"error": "corpus unreadable", "reason": "store_unreadable"})
+    assert kept["reason"] == "store_unreadable" and kept["about"] == "environment"
+    # prose in `reason` is preserved rather than dropped, and the code is classified from the message
+    moved = errors.annotate({"error": "'x' is not a design in the corpus", "reason": "because I said so"})
+    assert moved["reason"] == "unknown_design" and moved["reason_note"] == "because I said so"
+
+
+def test_every_error_message_in_the_package_is_classifiable():
+    """The ratchet. The taxonomy is applied at one boundary rather than written into 223 call sites, so it can
+    only stay complete if an unregistered message fails here."""
+    unreg = [r for r in conformance.unregistered_messages() if not r["dynamic"]]
+    assert not unreg, "error messages that errors.PATTERNS cannot name: " + json.dumps(unreg, indent=1)
+
+
+def test_no_tool_refuses_without_a_reason_or_answers_an_unresolvable_argument_silently(calls):
+    """Family 5 over every read-only tool: an unresolvable value for every argument it accepts. Either it
+    refuses with a registered reason, or it answers and says the input was not recognised."""
+    rows = conformance.contract_sweep()
+    assert rows, "no tool was swept"
+    failures = [r for r in rows if r["verdict"] == "fail"
+                or (r["verdict"] == "answered" and not r["marks_unknown_input"])]
+    assert not failures, json.dumps(failures, indent=1, default=str)
+
+
+def test_the_dispatch_boundary_is_where_the_contract_is_applied():
+    """If the annotate call leaves dispatch, every error loses its reason at once and nothing else fails."""
+    out = tools.dispatch("__no_such_tool__", {})
+    assert out["reason"] == "unknown_tool" and out["about"] == "request"
+    out = tools.dispatch("list_results", {"__no_such_arg__": 1})
+    assert out["reason"] == "bad_argument" and out["about"] == "request"
+
+
+def test_an_exact_match_filter_with_an_unknown_value_is_an_argument_error_not_a_count_of_zero():
+    """`list_results(perturbation=...)` is an exact match on a closed set, and its own docstring tells the agent
+    that n=0 means genuinely absent. An unknown value can only ever give 0, so it has to be an error."""
+    out = tools.dispatch("list_results", {"perturbation": "__no_such_perturbation__"})
+    assert "error" in out and out["reason"] == "bad_argument"
+    assert out.get("did_you_mean"), "an argument error should carry the values that would work"
+    assert out.get("n") is None, "it must not also report a count that reads as absence"
+
+
+# ---- 6. SELECTION ----------------------------------------------------------------------------------------
+
+def test_every_confusable_pair_of_tool_names_says_when_to_use_the_other():
+    """TRAJECT-Bench's "similar tool confusion": with 73 tools the model reads names before descriptions, so two
+    tools sharing half their name tokens must each say what the other is for. Found `fba_gene_knockout` against
+    `fba_gene_deletion` — per-gene against all-at-once, nothing in either description to tell them apart."""
+    pairs = conformance.confusable_pairs()
+    assert pairs, "the measurement returned nothing; the name-overlap threshold or the tool list changed"
+    silent = [p for p in pairs if not p["cross_referenced"]]
+    assert not silent, "confusable tool names with no cross-reference: " + json.dumps(silent, indent=1)
+
+
+def test_a_numeric_error_field_is_a_statistic_and_is_left_alone():
+    """Several payloads carry `error` as a number — a standard error, a residual. Classifying one would attach a
+    cause to a measurement, which is the inverse of what this module is for."""
+    assert errors.annotate({"error": 0.023, "fit": "ok"}) == {"error": 0.023, "fit": "ok"}
+
+
+def test_no_registered_reason_is_dead():
+    """A reason nothing can produce is a taxonomy that looks more complete than it is. Each one has to be
+    reachable: named by a pattern, or passed to `errors.fail` somewhere in the package. (It caught
+    `unknown_channel`, which read well and no message ever produced — the channel cases are either a bad
+    argument or a column the corpus does not carry.)"""
+    src = Path(ROOT / "src" / "cellarium")
+    used = {r for _, r in errors.PATTERNS}
+    calls = "".join(f.read_text(encoding="utf-8") for f in sorted(src.glob("*.py")))
+    for reason in errors.REASONS:
+        if reason == "unclassified":            # the fallback; produced by classify(), not by a pattern
+            continue
+        assert reason in used or f'fail("{reason}"' in calls, f"{reason} is registered and unreachable"

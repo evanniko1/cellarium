@@ -266,3 +266,129 @@ def description_claims() -> list[dict]:
                 found.append({"tool": t["name"], "where": where, "claim": m.group(0)[:120],
                               "earned": EARNED_ABSENCE_CLAIMS.get(t["name"])})
     return found
+
+
+# ---- 5. CONTRACT: a refusal says what KIND of refusal it is --------------------------------------------------
+#
+# The four families above catch a tool that reports absence AS a measurement. This one catches the other half:
+# when a tool correctly refuses, the refusal must carry `errors.REASONS` — a reason, and an `about` that
+# separates "the corpus does not contain this" from "this machine could not look". Four of the discovery leg's
+# eleven faults were the model reading the second as the first.
+#
+# Practice: MCP carries a tool-level failure as a flagged, structured result the model can act on, distinct from
+# a protocol error; Anthropic's "Writing effective tools for agents" asks that an error steer the agent to the
+# right call; "Demystifying evals for AI agents" asks that an environment fault never be scored as an answer;
+# TRAJECT-Bench (He et al., ICLR 2026) makes argument correctness its own axis and names "parameter-blind
+# selection" as a failure mode, so an unresolvable argument has to come back as an argument error.
+
+_UNRESOLVABLE = "__nope__"
+
+
+def _bad_value(spec: dict):
+    """A value of the right JSON type that cannot resolve to anything in any store."""
+    t = (spec or {}).get("type")
+    return {"array": [_UNRESOLVABLE], "integer": 999999, "number": 999999.0,
+            "object": {_UNRESOLVABLE: _UNRESOLVABLE}}.get(t, _UNRESOLVABLE)
+
+
+def contract_sweep(heavy: bool = False) -> list[dict]:
+    """Call every read-only tool with an unresolvable value for every argument it accepts, and report what comes
+    back. A FAILURE is: an exception instead of a result; an error whose reason the registry cannot name; or an
+    answer that neither errors nor marks the unresolvable input as unknown. Booleans are left out: `True` is a
+    legitimate value, not an unresolvable one."""
+    from . import errors, tools
+    rows = []
+    for t in tools.TOOLS:
+        name = t["name"]
+        if _skip(name, heavy):
+            continue
+        props = {k: v for k, v in ((t.get("input_schema") or {}).get("properties") or {}).items()
+                 if (v or {}).get("type") != "boolean"}
+        if not props:
+            rows.append({"tool": name, "verdict": "no_resolvable_arguments"})
+            continue
+        if all((v or {}).get("type") in ("integer", "number") for v in props.values()):
+            # Nothing here CAN be unresolvable: an out-of-range number is a legitimate input, and the tool is
+            # right to answer it. `estimate_sim_resources(parallel=999999)` returning a warning is correct.
+            rows.append({"tool": name, "verdict": "numeric_arguments_only"})
+            continue
+        out = call(name, {k: _bad_value(v) for k, v in props.items()})
+        row = {"tool": name, "n_args": len(props)}
+        if "_exception" in out:
+            rows.append({**row, "verdict": "fail", "why": "raised instead of returning", "detail": out["_exception"]})
+            continue
+        if "error" in out:
+            reason = out.get("reason")
+            ok = reason in errors.REASONS and reason != "unclassified"
+            rows.append({**row, "verdict": "ok" if ok else "fail", "reason": reason,
+                         "about": out.get("about"), "next_step": out.get("next_step"),
+                         "why": None if ok else "error carries no registered reason",
+                         "message": str(out.get("error"))[:160]})
+            continue
+        # It answered. That is allowed only if the answer SAYS the input was not recognised: `known: false`,
+        # `n...: 0` with a note, an `unmapped_*` list. A catalogue tool that ignores its filters answers too.
+        js = json.dumps(out, default=str).lower()
+        marks = [m for m in ("\"known\": false", "unmapped", "not in the scope", "no raw simout",
+                             "is not a declared capability", "out_of_sample", "no biosecurity signature",
+                             _UNRESOLVABLE) if m in js]
+        rows.append({**row, "verdict": "answered", "marks_unknown_input": bool(marks), "marks": marks[:3]})
+    return rows
+
+
+def unregistered_messages() -> list[dict]:
+    """Every literal `{"error": "..."}` string in the package that `errors.classify` cannot name. This is the
+    ratchet: the pattern table is applied at one boundary rather than written into 223 call sites, so it can only
+    stay complete if an unregistered message fails a check. Static — it calls no tool and reads no store."""
+    from . import errors
+    src = Path(__file__).resolve().parent
+    pat = re.compile(r'"error":\s*f?"([^"]{3,200})')
+    found = []
+    for f in sorted(src.glob("*.py")):
+        if f.name in ("errors.py", "conformance.py"):
+            continue
+        for m in pat.finditer(f.read_text(encoding="utf-8")):
+            # A placeholder stands in for a value: "9X" so that a pattern anchored on a digit and one anchored on
+            # a word both still match ("HTTP {status}" -> "HTTP 9X" matches `^HTTP \d`).
+            msg = re.sub(r"\{[^}]*\}|%[drs]", "9X", m.group(1))
+            if re.search(r"[A-Za-z]{3,}", re.sub(r"9X", "", msg)) is None:
+                # Nothing to classify on: the literal is only interpolation, as in f"{type(exc).__name__}: {exc}".
+                # Those classify at RUNTIME, from the exception name — pinned by a test, not assumed here.
+                found.append({"module": f.name, "message": msg[:160], "dynamic": True})
+                continue
+            if errors.classify(msg) == "unclassified":
+                found.append({"module": f.name, "message": msg[:160], "dynamic": False})
+    return found
+
+
+# ---- 6. SELECTION: no two tools are confusable without saying so --------------------------------------------
+#
+# TRAJECT-Bench (He et al., ICLR 2026) names "similar tool confusion" — the model picks a near-duplicate tool —
+# as one of two failure modes that final-answer scoring cannot see, and makes tool selection its own metric.
+# OpenAI's function-calling guidance asks for a small, clearly separated tool set for the same reason.
+# Cellarium has 73 tools, so the mitigation cannot be "have fewer"; it is that any two tools a reader could
+# confuse must each say when to use the other. This sweep measures the confusable pairs and checks they do.
+#
+# Measured on NAME TOKENS, not on descriptions. The descriptions here are already well separated (the highest
+# first-sentence overlap over all 2,628 pairs is 0.25), while the names are what the model reads first in a list
+# of 73 — and the one pair this found was identical in four of five name tokens with distinct descriptions.
+
+NAME_OVERLAP_FLAG = 0.5   # Jaccard over `_`-separated name tokens
+
+
+def confusable_pairs() -> list[dict]:
+    """Tool pairs whose NAMES overlap at or above NAME_OVERLAP_FLAG, and whether each description names the
+    other tool. A flagged pair that does not cross-reference is the finding."""
+    from . import tools
+    specs = {t["name"]: (t.get("description") or "") for t in tools.TOOLS}
+    names = sorted(specs)
+    out = []
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            ta, tb = set(a.split("_")), set(b.split("_"))
+            j = len(ta & tb) / max(len(ta | tb), 1)
+            if j < NAME_OVERLAP_FLAG:
+                continue
+            out.append({"a": a, "b": b, "name_overlap": round(j, 3),
+                        "a_names_b": b in specs[a], "b_names_a": a in specs[b],
+                        "cross_referenced": (b in specs[a]) or (a in specs[b])})
+    return out

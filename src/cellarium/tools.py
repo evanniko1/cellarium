@@ -21,7 +21,7 @@ _log = logging.getLogger("cellarium.tools")
 # An internal-defect log below uses exc_info=True, and a CHAINED traceback is the one place a malformed API key
 # (a paste with a trailing newline -> httpx's "Illegal header value b'…'") survives in plaintext. A logging.Filter
 # is the only hook that reaches rendered traceback text, so install it where the logger is defined.
-from . import deg_claims, evidence, reconcile, redact  # noqa: E402
+from . import deg_claims, errors, evidence, reconcile, redact  # noqa: E402
 
 redact.install_log_filter("cellarium.tools")
 
@@ -45,7 +45,19 @@ def list_results(gene: str | None = None, perturbation: str | None = None, conta
         # absent" (2026-10-27, found by running the tools from a directory with no manifest).
         return {"error": f"no manifest is readable from {store.MANIFEST_DIR.resolve()}, so nothing can be listed; "
                          "a count here would not mean the runs do not exist.", "reason": "store_unreadable"}
-    rows = store.list_results(include_dropped=include_dropped)
+    all_rows = store.list_results(include_dropped=include_dropped)
+    rows = all_rows
+    # ERR-1: `perturbation` is an EXACT match on a closed set, so an unknown value can only ever return n=0 —
+    # and this docstring tells the agent n=0 means "genuinely absent". That is the same shape as the faults the
+    # conformance sweep exists to catch, so an unknown value is an argument error with the valid values, not a
+    # count. `gene` and `contains` are substring searches, where n=0 is a real answer about the corpus.
+    if perturbation:
+        known = sorted({str(r.get("perturbation")) for r in all_rows if r.get("perturbation")})
+        if perturbation not in known:
+            return errors.fail("bad_argument",
+                               f"no perturbation '{perturbation}' in the corpus; a count here would read as "
+                               f"'genuinely absent' when it only means the filter matched nothing.",
+                               did_you_mean=known)
     # Dropped runs are EXCLUDED by default and COUNTED in the reply. Returning them was how a tombstoned,
     # mislabelled knockout could be read back as a result; silently dropping them without saying so would be
     # the opposite failure, an absence reported as a fact. `n_dropped_hidden` keeps the omission visible.
@@ -65,6 +77,10 @@ def list_results(gene: str | None = None, perturbation: str | None = None, conta
         c = contains.strip().lower()
         rows = [r for r in rows if c in (r.get("label") or "").lower()]
     out = {"n": len(rows), "results": rows}
+    if not rows and (gene or contains):
+        # Say which filter emptied the list, so "0" cannot be read as a statement about the whole corpus.
+        out["filtered_to_zero"] = {"n_before_filters": len(all_rows),
+                                   **({"gene": gene} if gene else {}), **({"contains": contains} if contains else {})}
     if hidden:
         out["n_dropped_hidden"] = hidden
         out["note"] = (f"{hidden} tombstoned run(s) excluded; pass include_dropped=True to see them "
@@ -1540,7 +1556,7 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "fba_growth", "description": "INDEPENDENT genome-scale FBA growth-rate prediction over the standard E. coli model iML1515 (cobrapy) — a second opinion distinct from the whole-cell sim. Default medium is aerobic M9 glucose (the Keio condition). Returns growth h⁻¹ + a sanity flag + full provenance (model hash, solver, medium, objective). FBA is a cross-check, NOT ground truth. Optional: needs the `fba` extra + the iML1515 file (the tool says how if absent).",
      "input_schema": {"type": "object", "properties": {"medium": {"type": "object", "description": "optional {exchange_id: uptake} override, e.g. {\"EX_glc__D_e\": 10, \"EX_o2_e\": 20}; omit for aerobic M9 glucose"}}}},
-    {"name": "fba_gene_knockout", "description": "INDEPENDENT FBA single-gene knockout over iML1515 via the gene's GPR (cobrapy), JOINED to the Baba/Joyce Keio benchmark. Per gene: KO growth fraction, FBA essential call, Keio verdict, and a NAMED diagnosis of any disagreement (consistent / fba_false_essential = cofactor cross-feeding or medium mismatch / fba_false_viable = permissive OR-isozyme reroute). Use to triangulate the wcEcoli KO verdict against a genome-scale model + experiment. MOMA is reported where a QP solver is present.",
+    {"name": "fba_gene_knockout", "description": "INDEPENDENT FBA single-gene knockout over iML1515 via the gene's GPR (cobrapy), JOINED to the Baba/Joyce Keio benchmark. Per gene: KO growth fraction, FBA essential call, Keio verdict, and a NAMED diagnosis of any disagreement (consistent / fba_false_essential = cofactor cross-feeding or medium mismatch / fba_false_viable = permissive OR-isozyme reroute). Use to triangulate the wcEcoli KO verdict against a genome-scale model + experiment. MOMA is reported where a QP solver is present. NOT fba_gene_deletion: that one removes every gene you pass AT ONCE and scores the set; this one scores each gene SEPARATELY against Keio.",
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "gene SYMBOLS, e.g. ['pfkA','fbaA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
     {"name": "fba_flux", "description": "pFBA point flux PLUS an FVA [min,max] range for each named iML1515 reaction (cobrapy) — because a single internal flux is an arbitrary optimum vertex. FVA is loopless where feasible. Reads `variable_across_optima` to know if a flux is identified. Use for a grounded metabolic-flux claim; never report a single internal flux without its FVA range.",
      "input_schema": {"type": "object", "properties": {"reactions": {"type": "array", "items": {"type": "string"}, "description": "iML1515 reaction IDs, e.g. ['EX_ac_e','PFK']; omit for a default biomass+exchange set"}, "fraction_of_optimum": {"type": "number", "description": "FVA constraint on the objective (default 1.0 = at the optimum)"}}}},
@@ -1548,7 +1564,7 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "optional gene-symbol subset; omit for the full iML1515∩Keio metabolic set"}, "max_genes": {"type": "integer", "description": "optional cap on the number of genes scored (runtime is one LP per gene)"}}}},
     {"name": "fba_synthetic_lethal", "description": "Pairwise gene deletion over iML1515 (cobrapy): find SYNTHETIC-LETHAL pairs — both genes viable singly but the double abolishes growth — which single-deletion FBA and the essentiality panel miss by construction (~2/3 of epistasis is pairwise). Tests all pairs of the given genes. Use to probe redundancy / backup pathways (e.g. isozyme pairs). SCI-1b.",
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "gene symbols to test pairwise, e.g. ['pfkA','pfkB','tpiA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
-    {"name": "fba_gene_deletion", "description": "FULL k-way gene deletion over iML1515 (cobrapy): knock out ALL the given genes AT ONCE and report the whole set's growth fraction + a 'lethal' flag — the DIRECT 'does this reduced-genome set survive?' test. This is what the pairwise synthetic-lethal scan misses at k>=3: a set can be lethal even though no single PAIR is (higher-order epistasis). For 2 genes it equals the double deletion; use it for triples+ / reduced-genome candidates. The whole-cell sim is the decisive arbiter.",
+    {"name": "fba_gene_deletion", "description": "FULL k-way gene deletion over iML1515 (cobrapy): knock out ALL the given genes AT ONCE and report the whole set's growth fraction + a 'lethal' flag — the DIRECT 'does this reduced-genome set survive?' test. This is what the pairwise synthetic-lethal scan misses at k>=3: a set can be lethal even though no single PAIR is (higher-order epistasis). For 2 genes it equals the double deletion; use it for triples+ / reduced-genome candidates. The whole-cell sim is the decisive arbiter. NOT fba_gene_knockout: that one scores each gene SEPARATELY and joins the Keio benchmark; pass a gene list here only when you mean them removed TOGETHER.",
      "input_schema": {"type": "object", "properties": {"genes": {"type": "array", "items": {"type": "string"}, "description": "the full gene SET to delete together, e.g. ['pfkA','tpiA','gapA']"}, "medium": {"type": "object", "description": "optional medium override; omit for aerobic M9 glucose"}}, "required": ["genes"]}},
     {"name": "fba_sensitivity", "description": "ROBUSTNESS check: how much does the iML1515 FBA growth prediction (and, for a given gene, its essentiality call) move under ±delta on the levers that dominate it — medium uptake (glucose, O2), NGAM (maintenance ATP), and GAM (biomass ATP)? A conclusion is only safe if it survives the spread (the growth number is set by BOF/GAM/NGAM/medium far more than by the network). SCI-1b.",
      "input_schema": {"type": "object", "properties": {"gene": {"type": "string", "description": "optional gene whose essentiality-call robustness to check across the perturbations"}, "delta": {"type": "number", "description": "fractional perturbation (default 0.2 = ±20%)"}}}},
@@ -1673,10 +1689,11 @@ def dispatch(name: str, args: dict) -> dict:
     fn = _DISPATCH.get(name)
     if not fn:                                        # explicit unknown-tool guard, with a nearest-name suggestion
         suggestion = _closest_tool(name)
-        return {"error": f"unknown tool '{name}'" + (f" — did you mean '{suggestion}'?" if suggestion else "")}
+        return errors.annotate(
+            {"error": f"unknown tool '{name}'" + (f" — did you mean '{suggestion}'?" if suggestion else "")})
     err = _validate_args(name, args or {})            # semantic pre-check (missing required / unknown arg)
     if err:
-        return {"error": err}
+        return errors.annotate({"error": err})
     try:
         out = fn(**(args or {}))
         # PLAT-1 (a): a result that did not read the corpus says so, ON the payload, so the marker reaches the
@@ -1687,6 +1704,9 @@ def dispatch(name: str, args: dict) -> dict:
         # because the probe's one genuine failure was a protein copy number whose sentence used no
         # degradation vocabulary at all — nothing downstream could have caught it.
         out = deg_claims.mark_payload(name, out)
+        # ERR-1: a refusal says what KIND of refusal it is. `about` separates "the corpus does not contain this"
+        # from "this machine could not look", which is the distinction four discovery-leg failures turned on.
+        out = errors.annotate(out)
         reconcile.record_call(name, out)         # PLAT-1 (b): what this turn actually read, for the post-hoc check
         evidence.record(name, args or {}, out)   # append-only provenance; no-op unless CELLARIUM_EVIDENCE=1
         return out
@@ -1704,5 +1724,5 @@ def dispatch(name: str, args: dict) -> dict:
         else:
             _log.info("tool %r %s failure: %s", name, kind, exc)
         if kind == "arguments":                       # preserve the existing, arg-focused message for a call mismatch
-            return {"error": f"bad arguments for {name}: {exc}"}
-        return {"error": f"{name} failed: {type(exc).__name__}: {exc}", "error_kind": kind}
+            return errors.annotate({"error": f"bad arguments for {name}: {exc}"})
+        return errors.annotate({"error": f"{name} failed: {type(exc).__name__}: {exc}", "error_kind": kind})

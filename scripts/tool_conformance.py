@@ -6,7 +6,8 @@
 --heavy   also call the tools that need the simulation image or a solver.
 
 Prints one line per finding and writes the full report as JSON. Exit status 1 if any tool string-cuts its output,
-returns an empty success from an unreadable source, or changes its answer when rows are reordered.
+returns an empty success from an unreadable source, changes its answer when rows are reordered, refuses without a
+reason the registry can name, or answers an unresolvable argument without marking it unknown.
 """
 from __future__ import annotations
 
@@ -46,7 +47,10 @@ def main() -> int:
     report = {"store": a.store, "design": ko, "reference": ref,
               "budget": conformance.budget_sweep(calls, a.heavy),
               "determinism": conformance.determinism_sweep(calls, a.heavy),
-              "descriptions": conformance.description_claims()}
+              "descriptions": conformance.description_claims(),
+              "contract": conformance.contract_sweep(a.heavy),
+              "unregistered_messages": conformance.unregistered_messages(),
+              "confusable": conformance.confusable_pairs()}
     with tempfile.TemporaryDirectory() as tmp:
         report["absence"] = conformance.absence_sweep(calls, Path(tmp), a.heavy)
 
@@ -73,6 +77,24 @@ def main() -> int:
             bad += 1
             print(f"CLAIM   {r['tool']} ({r['where']}): \"{r['claim']}\" tells the agent to read nothing as "
                   f"absence, and is not in EARNED_ABSENCE_CLAIMS")
+    for r in report["contract"]:
+        if r["verdict"] == "fail":
+            bad += 1
+            print(f"CONTRACT {r['tool']}: {r['why']} - {str(r.get('detail') or r.get('message'))[:120]}")
+        elif r["verdict"] == "answered" and not r["marks_unknown_input"]:
+            bad += 1
+            print(f"CONTRACT {r['tool']}: answered an unresolvable argument without marking it unknown")
+    for r in report["unregistered_messages"]:
+        if r["dynamic"]:
+            print(f"dynamic  {r['module']}: \"{r['message']}\" - classified at runtime from the exception name")
+        else:
+            bad += 1
+            print(f"REASON   {r['module']}: \"{r['message']}\" matches no pattern in errors.PATTERNS")
+    for r in report["confusable"]:
+        if not r["cross_referenced"]:
+            bad += 1
+            print(f"SELECT   {r['a']} / {r['b']}: names overlap {r['name_overlap']} and neither description "
+                  f"says when to use the other")
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     print(f"{bad} failure(s); report: {a.out}")
