@@ -74,7 +74,16 @@ def sample_args(design: str, reference: str, result_id: str | None, gene: str = 
         name = t["name"]
         if name in SIDE_EFFECT_OR_EXTERNAL:
             continue
-        req = (t.get("input_schema") or {}).get("required", [])
+        schema = t.get("input_schema") or {}
+        req = list(schema.get("required") or [])
+        # A one-of-N requirement is expressed as `anyOf: [{required: [...]}, ...]`, not as `required`. Taking
+        # the first satisfiable branch is what lets a tool like `chart` be exercised at all: built from
+        # `required` alone its sample call named no run, so every one of its enum values came back refused.
+        for branch in (schema.get("anyOf") or []):
+            need = list((branch or {}).get("required") or [])
+            if need and all(r in fill for r in need):
+                req += need
+                break
         if all(r in fill for r in req):
             out[name] = {r: fill[r] for r in req}
     return out
@@ -392,3 +401,94 @@ def confusable_pairs() -> list[dict]:
                         "a_names_b": b in specs[a], "b_names_a": a in specs[b],
                         "cross_referenced": (b in specs[a]) or (a in specs[b])})
     return out
+
+
+# ---- 7. AGREEMENT: two enumerations of one capability must not disagree -------------------------------------
+#
+# Found 2026-10-28, and NOT by families 1-6: every one of them passed. `design_space` answered a question about
+# what can be run; `dial_labels` answered the same question for the Council; `envelope.VALIDATED_PERTURBATIONS`
+# decided what `check_feasibility` would accept. All three were complete, deterministic, correctly shaped and
+# correctly reasoned IN ISOLATION, and all three disagreed. The agent sees one of them per call and has no way
+# to notice.
+#
+# The cost was measurable: `design_space` omitted `graded_gene_knockout` — 22 corpus rows, its own variant
+# module, its own capability record — so an agent asking what it could run was told a launchable perturbation
+# did not exist. It also OFFERED two metabolism objective levers that `check_feasibility` refuses, which is the
+# tool surface proposing a design the gate rejects in the same turn.
+#
+# The rule is not "make every list identical" — the levers are deliberately outside the envelope (untested arm,
+# FAIL-2/FAIL-3). It is that a disagreement must be DECLARED. A list that differs from the source of truth has
+# to say which set it is and why, as `design_space.not_in_envelope` now does.
+#
+# MAST (Cemri et al. 2025) calls this family "inter-agent misalignment" / "information withholding": the system
+# holds the right answer somewhere and the component that needed it was given another one.
+
+def enumeration_agreement() -> list[dict]:
+    """Every pair of views that claim to enumerate the same capability, and whether they agree. A disagreement
+    is a finding unless the view declares it (an explicitly out-of-envelope list is a declaration)."""
+    from . import envelope, instrument, tools
+    space = tools.dispatch("design_space", {})
+    declared = set(space.get("not_in_envelope") or {})
+    views = {
+        "envelope.VALIDATED_PERTURBATIONS": set(envelope.VALIDATED_PERTURBATIONS),
+        "tools.design_space.variant_types": set(space.get("variant_types") or {}),
+        "instrument.dial_labels.perturbations": set(instrument.dial_labels().get("perturbations") or {}),
+    }
+    truth = views["envelope.VALIDATED_PERTURBATIONS"]
+    out = []
+    for name, got in views.items():
+        missing, extra = sorted(truth - got), sorted(got - truth - declared)
+        out.append({"view": name, "n": len(got), "missing_from_view": missing, "not_in_envelope": extra,
+                    "agrees": not missing and not extra})
+    return out
+
+
+def channels_declare_when_they_are_recorded() -> list[dict]:
+    """A channel the agent can name but the chosen configuration never writes is the 2026-10-27 fault in its
+    capability form. Every channel whose recording is conditional must say so where it is advertised."""
+    from . import instrument
+    conditional = {"ppgpp_conc", "ribosome_conc", "rela_conc"}
+    return [{"channel": c, "conditional": c in conditional,
+             "declares_recorded_when": bool((meta or {}).get("recorded_when")),
+             "ok": (c not in conditional) or bool((meta or {}).get("recorded_when"))}
+            for c, meta in instrument.CHANNELS.items()]
+
+
+# ---- 8. DECLARED SETS: an enum must not lie ------------------------------------------------------------------
+#
+# Adding enums (ENUM-3 in tools.py) only helps if every declared value is one the tool actually accepts. An enum
+# narrower than reality silently forbids valid calls, and the agent has no way to tell that from a real refusal —
+# it is the absence family again, moved into the schema. So each declared value is CALLED.
+#
+# This check earned its place immediately: its first run flagged all eleven of `chart`'s channels, which turned
+# out to be the probe failing to pass `result_id` rather than the enum lying. A check that cannot distinguish
+# those two would be useless, so tools whose other required arguments cannot be filled are reported as
+# `not_exercised` rather than counted as passes.
+
+def enum_honesty(calls: dict[str, dict], heavy: bool = False) -> list[dict]:
+    """Every enum value of every read-only tool, called. A failure is a declared value the tool rejects as a bad
+    argument; `calls` supplies the plausible values for that tool's other arguments."""
+    from . import tools
+    rows = []
+    for t in tools.TOOLS:
+        name = t["name"]
+        if _skip(name, heavy):
+            continue
+        props = ((t.get("input_schema") or {}).get("properties") or {})
+        for param, meta in props.items():
+            if not (isinstance(meta, dict) and meta.get("enum")):
+                continue
+            base = dict(calls.get(name) or {})
+            required = set((t.get("input_schema") or {}).get("required") or [])
+            if name not in calls or (required - set(base) - {param}):
+                rows.append({"tool": name, "param": param, "verdict": "not_exercised",
+                             "n_values": len(meta["enum"])})
+                continue
+            rejected = []
+            for value in meta["enum"]:
+                out = call(name, {**base, param: value})
+                if out.get("reason") in ("bad_argument", "unknown_entity") or "_exception" in out:
+                    rejected.append({"value": value, "error": str(out.get("error") or out.get("_exception"))[:120]})
+            rows.append({"tool": name, "param": param, "n_values": len(meta["enum"]),
+                         "verdict": "fail" if rejected else "ok", "rejected": rejected})
+    return rows

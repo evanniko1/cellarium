@@ -310,3 +310,80 @@ def test_no_registered_reason_is_dead():
         if reason == "unclassified":            # the fallback; produced by classify(), not by a pattern
             continue
         assert reason in used or f'fail("{reason}"' in calls, f"{reason} is registered and unreachable"
+
+
+# ---- 7. AGREEMENT ----------------------------------------------------------------------------------------
+
+def test_every_view_of_what_can_be_run_agrees_with_the_envelope():
+    """Three views answered "what can be run" and all three disagreed, while families 1-6 passed on each: every
+    answer was complete, deterministic, correctly shaped and correct in isolation. `design_space` omitted
+    `graded_gene_knockout` (22 corpus rows, its own variant module and capability record) and offered two levers
+    `check_feasibility` refuses."""
+    rows = conformance.enumeration_agreement()
+    assert rows, "no capability views were compared"
+    bad = [r for r in rows if not r["agrees"]]
+    assert not bad, json.dumps(bad, indent=1)
+
+
+def test_a_view_may_differ_from_the_envelope_only_by_declaring_it():
+    """The two metabolism objective levers are deliberately outside the envelope — `generate.py` records that arm
+    as untested and the question as open work. The rule is not that the lists are identical, it is that a
+    difference is declared; so `design_space` must still name them, under a key that says they are out."""
+    from cellarium import envelope
+    space = tools.dispatch("design_space", {})
+    declared = space.get("not_in_envelope") or {}
+    assert "metabolism_kinetic_objective_weight" in declared and "metabolism_secretion_penalty" in declared
+    assert not (set(declared) & set(envelope.VALIDATED_PERTURBATIONS)), "a lever cannot be both in and out"
+
+
+def test_a_conditionally_recorded_channel_says_so_where_it_is_advertised():
+    """The capability view listed ppGpp, RelA and ribosome concentration unconditionally, and under kinetic
+    charging none of them is written — which is how a run came to call a never-recorded column non-physical."""
+    bad = [r for r in conformance.channels_declare_when_they_are_recorded() if not r["ok"]]
+    assert not bad, json.dumps(bad, indent=1)
+
+
+# ---- 8. DECLARED SETS ------------------------------------------------------------------------------------
+
+def test_a_closed_value_set_is_declared_as_an_enum_not_as_a_free_string():
+    """OpenAI's function-calling rule: if the values are enumerable, do not use a free-form string. Measured
+    before this change, 15 of 123 string parameters carried an enum and six `channel` parameters had no
+    description at all, so the model was asked to guess a member of an 11-value namespace from nothing."""
+    from cellarium import instrument
+    declared = set(instrument.channel_names())
+    checked = 0
+    for spec in tools.TOOLS:
+        for param, meta in ((spec.get("input_schema") or {}).get("properties") or {}).items():
+            if (spec["name"], param) not in tools._CHANNEL_PARAMS:
+                continue
+            checked += 1
+            assert set(meta.get("enum") or []) == declared, f"{spec['name']}.{param} does not declare the namespace"
+            assert meta.get("description"), f"{spec['name']}.{param} has no description"
+    assert checked == len(tools._CHANNEL_PARAMS)
+
+
+def test_a_narrower_enum_a_tool_set_itself_is_not_overwritten():
+    """`trajectory` and `compare_at_generation` take only the two per-generation channels. Broadening them to the
+    whole namespace would be an enum that lies in the other direction."""
+    from cellarium import instrument
+    for name in ("trajectory", "compare_at_generation"):
+        spec = next(t for t in tools.TOOLS if t["name"] == name)
+        enum = set((spec["input_schema"]["properties"]["channel"].get("enum")) or [])
+        assert enum and enum < set(instrument.channel_names()), f"{name} lost its narrower channel set"
+
+
+def test_no_declared_enum_value_is_rejected_by_its_own_tool(calls):
+    """An enum narrower than reality silently forbids valid calls, and the agent cannot tell that from a real
+    refusal. So every declared value is called. This caught `chart`, whose schema had no `required` list at all
+    while the tool refuses any call naming no run."""
+    rows = conformance.enum_honesty(calls)
+    assert rows, "no enum was exercised"
+    failures = [r for r in rows if r["verdict"] == "fail"]
+    assert not failures, json.dumps(failures, indent=1)
+
+
+def test_a_one_of_requirement_is_expressed_in_the_schema():
+    """`chart` needs a result_id, a results list or a design label, and `required` cannot say "one of these"."""
+    spec = next(t for t in tools.TOOLS if t["name"] == "chart")
+    branches = [set(b.get("required") or []) for b in (spec["input_schema"].get("anyOf") or [])]
+    assert {"result_id"} in branches and {"results"} in branches and {"design"} in branches

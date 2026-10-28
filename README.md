@@ -44,9 +44,12 @@ design + evaluation: [docs/SOCRATIC_COUNCIL.md](docs/SOCRATIC_COUNCIL.md),
 - **The Elenctic Skeptic** ("I know that I know nothing"; Plato, *Apology*; Vlastos 1983) assumes nothing and emits
   typed objections (*aporiai*): undefined terms, hidden auxiliaries, unfalsifiable formulations, un-excluded
   rivals, claims that outrun what the instrument can measure. It moves the debate *toward doubt*.
-- **The Judge** is a **gate, not a "who won" scorer** — it converges only when an adequacy rubric *and* a
-  code-level **quota of doubt** both hold (N genuinely distinct objections raised and resolved), defeating both
-  premature agreement and *aporia* forever.
+- **The Judge** is a **gate, not a "who won" scorer** — convergence needs an adequacy rubric to hold *and* the
+  candidate to have survived scrutiny: either the code-level **quota of doubt** (N genuinely distinct objections
+  raised and resolved) or two consecutive clean rounds, because an airtight hypothesis yields few substantive
+  objections and forcing N would discard it (`docs/SOCRATIC_COUNCIL.md` D5). It defeats both premature agreement
+  and *aporia* forever. The run that converges on the stability branch rather than the quota says so in its
+  trace: `substantive_objections` against `quota`.
 
 A load-bearing control is the **information quarantine**: the Council sees the instrument's *dial labels* (which
 channels and perturbations exist) but **never its readings**, enforced at the import level in `instrument.py`, so it

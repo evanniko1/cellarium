@@ -88,6 +88,25 @@ def list_results(gene: str | None = None, perturbation: str | None = None, conta
     return out
 
 
+# ENUM-1. This map is DESCRIPTIONS ONLY; which perturbations exist is `envelope.VALIDATED_PERTURBATIONS`, and
+# `design_space` below derives its answer from that set. It used to be an independent hand-written list and had
+# drifted from the envelope in BOTH directions: it omitted `graded_gene_knockout` (22 corpus rows, its own
+# variant module, its own capability record), `amino_acid_shift` and `new_gene`, so an agent asking what it
+# could run was told three launchable variants did not exist; and it offered the two metabolism objective
+# levers, which `check_feasibility` then REFUSES as out-of-envelope — the tool surface proposing a design the
+# gate in the same turn rejects. Found 2026-10-28 when the Council proposed a graded knockdown that
+# `design_space` says is impossible (it reads `dial_labels`, which derives from the envelope correctly).
+#
+# The levers are NOT an envelope omission to be fixed by adding them: `generate.py` records that arm as
+# UNTESTED and whether it belongs in the envelope as open work (FAIL-2/FAIL-3). So they stay outside, and
+# `design_space` now says so explicitly instead of advertising them as runnable.
+_OUT_OF_ENVELOPE_NOTES = {
+    "metabolism_kinetic_objective_weight": "graded objective lever (kinetic vs homeostatic weight; §K/D4) — "
+                                           "NOT in the validated envelope: the arm is untested and "
+                                           "check_feasibility will refuse it (FAIL-2/FAIL-3)",
+    "metabolism_secretion_penalty": "graded objective lever (secretion penalty) — NOT in the validated "
+                                    "envelope, same reason",
+}
 _VARIANT_TYPES = {
     "wildtype": "baseline / a named condition (--condition)",
     "condition": "static media steady state; variant_index -> ordered_conditions (see `conditions`)",
@@ -96,9 +115,13 @@ _VARIANT_TYPES = {
     "ppgpp_conc": "clamp [ppGpp] — graded stringent-response lever (a CLEAN phenotype path, unlike a single KO)",
     "rrna_operon_knockout": "KO n of 7 rRNA operons — graded ribosome-capacity lever (clean phenotype path)",
     "timeline": "media-shift events over time (in-envelope shifts only — check_feasibility first)",
-    "metabolism_kinetic_objective_weight": "graded objective lever (kinetic vs homeostatic weight; §K/D4)",
-    "metabolism_secretion_penalty": "graded objective lever (secretion penalty)",
     "tf_activity": "set a modeled TF active/inactive — ONLY the 23 mechanistically-modeled TFs (not marA/soxS)",
+    "graded_gene_knockout": "suppress ONE gene across ALL its transcription units at a chosen strength — the "
+                            "dose-response lever `gene_knockout` cannot give (it zeroes one unit, so a "
+                            "multi-TU gene keeps expressing). variant_index = ko_index*10 + level; expression "
+                            "levels 0/0.05/0.10/0.25/0.50/0.75/0.90/0.95/0.99",
+    "amino_acid_shift": "add or remove ONE amino acid from the medium, at a set time",
+    "new_gene": "express a heterologous gene (burden / expression load)",
 }
 
 
@@ -110,7 +133,12 @@ def design_space(gene: str | None = None) -> dict:
 
     from . import scope
 
-    out: dict = {"variant_types": _VARIANT_TYPES}
+    # ENUM-1: derived from the envelope, so this answer cannot drift from what check_feasibility will accept.
+    # Anything the envelope validates but this map has no description for still appears, named, rather than
+    # silently vanishing — an undescribed variant is a documentation gap, not a capability the agent lacks.
+    out: dict = {"variant_types": {p: _VARIANT_TYPES.get(p, "(no description recorded — it is runnable)")
+                                   for p in sorted(envelope.VALIDATED_PERTURBATIONS)},
+                 "not_in_envelope": _OUT_OF_ENVELOPE_NOTES}
     vm = paths.cache("variant_map.json")
     if vm.exists():
         m = json.loads(vm.read_text(encoding="utf-8"))
@@ -1506,7 +1534,12 @@ TOOLS = [
     {"name": "download_raw", "description": "Fetch a design's MISSING raw simOut archives from HF into the local runs dir, so read_raw_series/variance_band can then read them. GATED BY SIZE (a bandwidth action, not a read): call it FIRST with confirm=false — it downloads NOTHING and returns est_gb + needs_confirmation. Tell the user 'this pulls ~N GB from HF, proceed?' and only call again with confirm=true AFTER they say yes. NEVER pass confirm=true without the user's explicit approval. Use only when raw_available shows the design isn't fully local but it's on HF.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design label like 'condition/no_oxygen'"}, "confirm": {"type": "boolean", "description": "leave false/absent to get the size estimate; set true ONLY after the user approves the ~N GB pull"}}, "required": ["design"]}},
     {"name": "chart", "description": "Draw a GROUNDED figure from real run data — it renders inline as an interactive chart AND is indexed in the investigation's Figures panel. Every value comes from a tool read; never chart a number you did not read. Use it when a figure SHARPENS the answer, not decoratively. kind='line' plots the channel's trajectory over the cell cycle (x is time-since-start, so runs on different clocks overlay comparably); kind='bar' compares the channel's value across runs; kind='band' draws a cross-seed mean±CI95 ribbon over time from local raw simOut (the true per-timepoint variance — use for 'plot the variance'). Accepts result_ids OR design labels like 'wildtype/basal'.",
-     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar", "band"], "description": "line = trajectory over time; bar = compare across runs; band = cross-seed variance ribbon over time (needs local raw)"}, "result_id": {"type": "string", "description": "the run to plot (line), or the DESIGN label for band — a result_id or a design label like 'wildtype/basal'"}, "design": {"type": "string", "description": "for kind='band': the design label whose seeds to band, e.g. 'condition/no_oxygen' (alias of result_id, matches variance_band/raw_available)"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}}}},
+     "input_schema": {"type": "object", "properties": {"kind": {"type": "string", "enum": ["line", "bar", "band"], "description": "line = trajectory over time; bar = compare across runs; band = cross-seed variance ribbon over time (needs local raw)"}, "result_id": {"type": "string", "description": "the run to plot (line), or the DESIGN label for band — a result_id or a design label like 'wildtype/basal'"}, "design": {"type": "string", "description": "for kind='band': the design label whose seeds to band, e.g. 'condition/no_oxygen' (alias of result_id, matches variance_band/raw_available)"}, "results": {"type": "array", "items": {"type": "string"}, "description": "runs to overlay (line) or compare (bar) — result_ids or design labels"}, "channel": {"type": "string", "description": "channel to plot, e.g. growth_rate, cell_mass, division_rate, ppgpp_conc"}, "title": {"type": "string"}, "rationale": {"type": "string", "description": "ONE grounded sentence — why this figure matters to the answer / what the reader should take away. Becomes the figure's card in the Figures panel, so it must read on its own."}},
+      # ENUM-4: the tool refuses every call that names no run, but it had NO `required` list, so the schema told
+      # the model an empty call was valid. A one-of-three requirement cannot be written as `required`; `anyOf` is
+      # the standard form. Found 2026-10-28 by the enum-honesty sweep, which could not exercise chart's enums at
+      # all because the sample call it built from `required` contained no design.
+      "anyOf": [{"required": ["result_id"]}, {"required": ["results"]}, {"required": ["design"]}]}},
     {"name": "list_species", "description": "Resolve real model IDs for a molecule kind (protein/mrna/metabolite/reaction_flux/exchange_flux) matching a search — grounding before read_species.",
      "input_schema": {"type": "object", "properties": {"result_id": {"type": "string"},
                       "kind": {"type": "string", "enum": _SPECIES_KINDS}, "search": {"type": "string"}},
@@ -1605,6 +1638,43 @@ TOOLS = [
     {"name": "revise_experiment", "description": "REVISE a PENDING experiment draft when the user asks to CHANGE an argument (more/fewer seeds, a different condition, a different gene set). This SUPERSEDES the old draft (no duplicate is left in the queue) and returns a re-vetted new draft pending human approval. Pass request_id plus ONLY the fields you're changing. Use THIS to change a draft — never propose_experiment again for the same intent.",
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string", "description": "the pending draft's req_ id"}, **_DESIGN_PROPS, "gene": {"type": "string"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "new gene set for a multi_gene_knockout"}}, "required": ["request_id"]}},
 ]
+
+# ENUM-3. A parameter whose value set is CLOSED and known in code is declared as an enum, not as a free string.
+# Measured 2026-10-28: 15 of 123 string parameters carried an enum, while 33 whose names denote a closed set did
+# not, and six `channel` parameters had no description at all — the model was being asked to guess a member of an
+# 11-value namespace from nothing. That is TRAJECT-Bench's "parameter-blind selection", and it is the shape of
+# three of the day's refusals (a channel that is not a manifest column, one not stored per generation, one with
+# too few seeds). OpenAI's function-calling guidance is the direct rule: if the values are enumerable, do not use
+# a free-form string.
+#
+# The set comes from `instrument.CHANNELS`, the one declared namespace — the same list `dial_labels` hands the
+# Council and the falsification contract names. It is NOT guessed per tool: an enum that is narrower than what a
+# tool accepts silently forbids valid calls, which is worse than no enum at all. Tools that take something
+# outside this namespace route elsewhere by their own refusal text (`read_series` -> `read_species` for
+# arbitrary molecules), so the namespace is the honest boundary. Pinned by a test.
+_CHANNEL_PARAMS = {
+    ("shift_response", "channel"), ("fit_relation", "x_channel"), ("fit_relation", "y_channel"),
+    ("read_series", "channel"), ("read_raw_series", "channel"), ("scan_series", "channel"),
+    ("variance_band", "channel"), ("chart", "channel"), ("disconfirm", "channel"),
+    ("robustness_check", "channel"), ("bimodality", "channel"), ("power_check", "channel"),
+    ("design_panel", "channel"),
+}
+
+
+def _declare_closed_sets() -> None:
+    """Attach the enums and the missing descriptions, in one place, from the declared namespaces."""
+    from . import instrument
+    channels = list(instrument.channel_names())
+    for spec in TOOLS:
+        props = (spec.get("input_schema") or {}).get("properties") or {}
+        for param, meta in props.items():
+            if (spec["name"], param) in _CHANNEL_PARAMS and isinstance(meta, dict):
+                meta["enum"] = channels
+                if not meta.get("description"):
+                    meta["description"] = "one of the declared summary channels"
+
+
+_declare_closed_sets()
 
 _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_landscape,
              "trajectory": trajectory, "compare_at_generation": compare_at_generation,

@@ -50,7 +50,10 @@ def main() -> int:
               "descriptions": conformance.description_claims(),
               "contract": conformance.contract_sweep(a.heavy),
               "unregistered_messages": conformance.unregistered_messages(),
-              "confusable": conformance.confusable_pairs()}
+              "confusable": conformance.confusable_pairs(),
+              "enumeration_agreement": conformance.enumeration_agreement(),
+              "channel_recording": conformance.channels_declare_when_they_are_recorded(),
+              "enum_honesty": conformance.enum_honesty(calls, a.heavy)}
     with tempfile.TemporaryDirectory() as tmp:
         report["absence"] = conformance.absence_sweep(calls, Path(tmp), a.heavy)
 
@@ -95,6 +98,21 @@ def main() -> int:
             bad += 1
             print(f"SELECT   {r['a']} / {r['b']}: names overlap {r['name_overlap']} and neither description "
                   f"says when to use the other")
+    for r in report["enumeration_agreement"]:
+        if not r["agrees"]:
+            bad += 1
+            print(f"AGREE    {r['view']}: missing {r['missing_from_view']}, undeclared extras {r['not_in_envelope']}")
+    for r in report["channel_recording"]:
+        if not r["ok"]:
+            bad += 1
+            print(f"CHANNEL  {r['channel']}: recorded only in some configurations and does not say so")
+    for r in report["enum_honesty"]:
+        if r["verdict"] == "fail":
+            bad += 1
+            print(f"ENUM     {r['tool']}.{r['param']}: declares values its own tool refuses "
+                  f"({[x['value'] for x in r['rejected']][:4]})")
+        elif r["verdict"] == "not_exercised":
+            print(f"skip     {r['tool']}.{r['param']}: {r['n_values']} values, no sample call to exercise them")
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     print(f"{bad} failure(s); report: {a.out}")

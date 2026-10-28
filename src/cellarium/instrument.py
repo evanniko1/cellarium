@@ -21,10 +21,24 @@ from .model import Design
 # survey.CHANNELS; a test asserts the two stay in sync without importing survey at runtime.
 CHANNELS: dict[str, dict] = {
     "growth_rate":          {"unit": "1/h",   "note": "instantaneous specific growth rate"},
-    "ppgpp_conc":           {"unit": "uM",    "note": "guanosine tetraphosphate — stringent-response alarmone"},
-    "ribosome_conc":        {"unit": "uM",    "note": "active ribosome concentration"},
-    "fraction_trna_charged": {"unit": "frac", "note": "fraction of tRNA aminoacylated"},
-    "rela_conc":            {"unit": "uM",    "note": "RelA (ppGpp synthetase) concentration"},
+    # ENUM-2. Three channels are NOT written in every configuration, and a capability view that lists them
+    # unconditionally invites a hypothesis whose readout does not exist. That is what happened on 2026-10-27:
+    # under kinetic charging these columns hold the listener's initial zeros, the corpus reported 0.0 ± 0.0,
+    # and a run called the value non-physical when the truth was "never recorded". `recorded_when` is the
+    # capability form of that fact, so it reaches the Council with the channel rather than after it.
+    "ppgpp_conc":           {"unit": "uM",    "note": "guanosine tetraphosphate — stringent-response alarmone",
+                             "recorded_when": "steady-state charging always; kinetic charging ONLY with the "
+                                              "RelA/SpoT ppGpp module on"},
+    "ribosome_conc":        {"unit": "uM",    "note": "active ribosome concentration",
+                             "recorded_when": "steady-state charging only — NEVER written under kinetic "
+                                              "charging; use ribosomal-protein counts there"},
+    "fraction_trna_charged": {"unit": "frac", "note": "fraction of tRNA aminoacylated",
+                              "recorded_when": "always, but it means 20 per-amino-acid values broadcast over "
+                                               "86 columns under steady state, and 86 independent species "
+                                               "under kinetic charging"},
+    "rela_conc":            {"unit": "uM",    "note": "RelA (ppGpp synthetase) concentration",
+                             "recorded_when": "steady-state charging always; kinetic charging ONLY with the "
+                                              "RelA/SpoT ppGpp module on"},
     "dry_mass":             {"unit": "fg",    "note": "cell dry mass"},
     "protein_mass":         {"unit": "fg",    "note": "total protein mass"},
     "rna_mass":             {"unit": "fg",    "note": "total RNA mass"},
