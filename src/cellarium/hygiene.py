@@ -116,6 +116,13 @@ READ_SITE_REGISTRY: dict[str, dict] = {
     # would HIDE the row being looked up — `data_availability` for a crashed run's id must still find it.
     "src/cellarium/differential.py::_design_run_roots": {
         "kind": "lookup", "why": "resolves a design to its run directories; must see every row, crashed included"},
+    "src/cellarium/differential.py::_qc_excluded": {
+        "kind": "lookup", "why": ("asks whether a design absent from the comparable set is absent from the CORPUS "
+                                  "or merely has no reportable run, so a refusal can name the quality-control "
+                                  "verdict instead of claiming the design does not exist. It must see the "
+                                  "non-reportable rows by construction — a purpose filter would hide exactly "
+                                  "the rows it exists to find — and it returns verdict strings, never a channel "
+                                  "value")},
     "src/cellarium/hf.py::_design_seeds": {
         "kind": "lookup", "why": "resolves a design label or a result_id to its rows"},
     "src/cellarium/hf.py::data_availability": {

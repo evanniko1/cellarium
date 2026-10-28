@@ -8,8 +8,8 @@
 Prints one line per finding and writes the full report as JSON. Exit status 1 if any tool string-cuts its output,
 returns an empty success from an unreadable source, changes its answer when rows are reordered, refuses without a
 reason the registry can name, answers an unresolvable argument without marking it unknown, declares an enum value
-its own tool refuses, leaves a string parameter with no description, or reaches two disagreeing sites with one
-glossary sentence.
+its own tool refuses, leaves a string parameter with no description, reaches two disagreeing sites with one
+glossary sentence, or re-reads a fact that has a declared resolver.
 """
 from __future__ import annotations
 
@@ -57,7 +57,9 @@ def main() -> int:
               "channel_recording": conformance.channels_declare_when_they_are_recorded(),
               "enum_honesty": conformance.enum_honesty(calls, a.heavy),
               "param_descriptions": conformance.every_string_parameter_says_what_it_means(),
-              "glossary_sites": conformance.glossary_sites_agree()}
+              "glossary_sites": conformance.glossary_sites_agree(),
+              "one_fact_one_resolver": conformance.one_fact_one_resolver(),
+              "resolver_places": conformance.a_resolver_reads_every_place_a_fact_can_live()}
     with tempfile.TemporaryDirectory() as tmp:
         report["absence"] = conformance.absence_sweep(calls, Path(tmp), a.heavy)
 
@@ -122,6 +124,15 @@ def main() -> int:
             bad += 1
             print(f"PARAM    {r['tool']}.{r['param']}: a string parameter with no description — the model is "
                   f"asked to pick a value out of nothing")
+    for r in report["one_fact_one_resolver"]:
+        for o in r["reimplementations"]:
+            bad += 1
+            print(f"FACT     {r['fact']}: {o['module']}:{o['line']} re-reads it instead of calling "
+                  f"{r['resolver']} -- {o['code']}")
+    for r in report["resolver_places"]:
+        if not r["ok"]:
+            bad += 1
+            print(f"RESOLVER {r['fact']}: does not answer from {r['place']}")
     for r in report["glossary_sites"]:
         if not r["ok"]:
             bad += 1

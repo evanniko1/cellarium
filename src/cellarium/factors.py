@@ -31,7 +31,7 @@ import re
 # capability is itself dependency-free (os + dataclasses), so importing the elongation vocabulary here keeps
 # this module's "works with no checkout and no Docker" property intact while making the tag spelling shared
 # rather than re-implemented — a second copy of `#elong:` is exactly how a parser and a writer drift apart.
-from . import paths
+from . import model, paths
 from .capability import DEFAULT_MODE, mode_from_tag
 
 # Anchored to the checkout, not the working directory: see paths.py for what the relative path did.
@@ -187,7 +187,7 @@ def parse(design_key: str) -> dict:
         tag, expr = expr_from_tag(tag)
         out["base"] = "basal"
         out["factor"] = "graded_gene_KO" if expr is not None else "gene_KO"
-        out["genes"] = sorted(g for g in tag[3:].split("+") if g)
+        out["genes"] = sorted(model.knockout_genes(tag))   # one resolver, not a local split
         out["level_raw"] = str(expr) if expr is not None else tag[3:]
         out["level_num"] = expr
         return out

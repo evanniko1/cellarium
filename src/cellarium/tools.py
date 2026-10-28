@@ -420,10 +420,12 @@ def dilution_clock(design: str, gene: str | None = None) -> dict:
     return dilution.protein_clock(design, gene)
 
 
-def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
-    """The ADAPTATION to a declared nutrient shift — the transient a pre/post segment mean throws away."""
+def shift_response(design: str, channel: str = "ppgpp_conc", at_seconds: float | None = None) -> dict:
+    """The ADAPTATION to a nutrient shift — the transient a pre/post segment mean throws away. The shift time
+    comes from the declared timeline, from a time encoded in the design's own label, or from `at_seconds` for a
+    variant that performs the shift in its own code and records it in neither. The answer names which."""
     from . import dynamics
-    return dynamics.shift_response(design, channel)
+    return dynamics.shift_response(design, channel, at_seconds)
 
 
 def segment_means(design_or_id: str) -> dict:
@@ -898,7 +900,12 @@ def chart(kind: str = "line", result_id: str | None = None, results: list | None
     Returns {spec, caption, rationale, provenance}."""
     if kind == "band":
         return _band_chart(design or result_id or (results[0] if results else None), channel, title, rationale)
-    raw = [i for i in (results or ([result_id] if result_id else [])) if i]
+    # `design` was read only by kind='band'. The schema's anyOf declares result_id OR results OR design, so a
+    # line chart given `design='wildtype/basal'` was refused with "give result_id/results (ids) or design
+    # labels like 'wildtype/basal'" — a message telling the caller to pass what they had just passed. Found by
+    # the family-9 sweep: one fact (which run to plot) with three declared homes, and the reader consulted a
+    # different subset depending on another argument.
+    raw = [i for i in (results or ([result_id] if result_id else []) or ([design] if design else [])) if i]
     if not raw:
         return {"error": "give result_id/results (ids) or design labels like 'wildtype/basal'."}
     ids = [rid for rid in (_resolve_result(x) for x in raw) if rid]
@@ -1486,7 +1493,7 @@ TOOLS = [
     {"name": "dilution_clock", "description": "Does a knockout's TARGET PROTEIN follow the inherited-pool dilution law n(g)=n0*2^-g? A KO stops synthesis but not possession, so the existing pool halves per division and the phenotype arrives generations after the genotype (published + named: Carballo-Pacheco 2020, PMID 32469859 — the tool CITES the law, it does not claim it). Fits log2(protein count) against generation from local raw and reports the RESIDUAL vs the predicted -1 slope: `dilution_limited` (CI contains -1; timing follows from the initial pool alone), `faster_than_dilution` (something removes the pool beyond division, so dilution UNDER-predicts failure), `slower_than_dilution` (residual synthesis or an incomplete knockout — a QC signal). Verified on KO:dapA: slope -1.047, CI [-1.231,-0.863], r2 0.914. Needs local raw with >=3 generations.",
      "input_schema": {"type": "object", "properties": {"design": {"type": "string"}, "gene": {"type": "string", "description": "target gene; inferred from a KO: label when omitted"}}, "required": ["design"]}},
     {"name": "shift_response", "description": "The ADAPTATION to a nutrient shift, measured from full-resolution raw — the transient a pre/post segment mean discards. A `timeline` design is summarised in the corpus as a mean before and a mean after, but the biology of a shift IS the transient: baseline, peak (or nadir), time-to-peak, settled level, and OVERSHOOT past the eventual steady state. Two runs with identical segment means can have completely different transients. Takes the shift time from the design's DECLARED timeline, never the recorded media labels, because those truncate on the amino-acid upshift (see experiment_integrity) — so it is correct for BOTH directions. Verified on the corpus: downshift ppGpp +184% and still climbing at 900 s; upshift ppGpp -59% with a nadir at 435 s; growth rate responds within ONE timestep in both. Reports `peak_at_window_edge` (response had not turned over — overshoot withheld, never guessed) and `peak_at_first_sample` (faster than the sampling rate, so the latency is a bound). Cross-checked against the blind detector (scan_series), which is not told where the shift is. Needs local raw simOut.",
-     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a timeline design label, e.g. 'timeline/0 minimal, 1200 minimal_plus_amino_acids'"}, "channel": {"type": "string", "description": "ppgpp_conc (default), growth_rate, fraction_trna_charged, ribosome_conc, rela_conc, …"}}, "required": ["design"]}},
+     "input_schema": {"type": "object", "properties": {"design": {"type": "string", "description": "a design that undergoes a nutrient shift, e.g. 'timeline/0 minimal, 1200 minimal_plus_amino_acids'. A design whose VARIANT performs the shift in its own code also works — pass `at_seconds`."}, "channel": {"type": "string", "description": "ppgpp_conc (default), growth_rate, fraction_trna_charged, ribosome_conc, rela_conc, …"}, "at_seconds": {"type": "number", "description": "the time of the shift, in seconds from the start of the generation it happens in. Needed ONLY when the design records it neither in a declared timeline nor in its label; the result says which source answered."}}, "required": ["design"]}},
     {"name": "segment_means", "description": "Per-segment channel means for a nutrient-shift run, RECOMPUTED from the untruncated `Environment/media_id` column, next to what the manifest actually stores. Use whenever a question involves a pre-vs-post nutrient-shift comparison. The stored `media_segments` for the amino-acid UPSHIFT is corrupt: its media labels truncated to a single `minimal`, so the recorder emitted ONE segment whose mean averages pre- AND post-shift timesteps together. Measured damage on upshift seed 1: stored fba_objective 7.88 for a quantity that is 0.81 before the shift and 14.05 after (a 17x step flattened into one number describing neither side); seed 2 is 26.9x. Returns `stored` vs `recomputed_last_generation` vs `recomputed_whole_lineage` per channel, plus `fold_across_segments`. The whole-lineage reading also fixes a separate coverage hole: the stored value comes from the LAST generation only, which on a 4-generation run is ~20% of the lineage. Needs local raw simOut.",
      "input_schema": {"type": "object", "properties": {"design_or_id": {"type": "string", "description": "a result_id, or a timeline design label"}}, "required": ["design_or_id"]}},
     {"name": "serialization_check", "description": "Deterministic guard against SILENT DATA LOSS in simOut. wcEcoli writes fixed-width string columns whose width is set per-run by the FIRST value, so a later longer value is truncated with no error — confirmed for FBAResults/media_id, where an upshift's 'minimal_plus_amino_acids' became exactly 'minimal' and a nutrient shift vanished from the record while the simulation performed it. Flags COLUMNS written at differing widths across runs whose narrow runs saturate (fragile by construction), NOT individual runs — a run whose value is genuinely short is correctly narrow. Confirm a specific loss with experiment_integrity. Run after any new campaign, especially with a new variant type.",

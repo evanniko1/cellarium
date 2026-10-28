@@ -523,3 +523,104 @@ def enum_honesty(calls: dict[str, dict], heavy: bool = False) -> list[dict]:
             rows.append({"tool": name, "param": param, "n_values": len(meta["enum"]),
                          "verdict": "fail" if rejected else "ok", "rejected": rejected})
     return rows
+
+
+# ---- 9. ONE FACT, ONE RESOLVER -------------------------------------------------------------------------------
+#
+# The last open item of the discovery-leg audit was `shift_response` refusing a design whose shift is built into
+# its variant rather than declared in a timeline. The tool read ONE of the places the fact can live, and stated
+# that as a fact about the design: "declares no nutrient shift".
+#
+# Families 1-8 cannot see this. The answer is complete, deterministic, correctly shaped, carries a registered
+# reason and comes from an honest value set — and it is still wrong, because the question was asked of the wrong
+# field. So the family is about FACTS rather than about calls: a fact that can be recorded in several places must
+# have exactly one function that reads all of them, and nothing else may re-implement the read.
+#
+# Measured on 2026-10-28, which is why this exists. `multi_gene_knockout/KO:gltX+relA+spoT` is a real corpus
+# design, and four parsers gave four answers: 'gltX' (dilution, first gene only), 'gltX+relA+spoT'
+# (design_generator, as one gene name), 'gltx+rela+spot' (a lowercased substring key), and the design dropped
+# entirely (ko_verify, which skips any key containing '+'). Only the first was a defect in itself; four parsers
+# is four chances for the next one to be.
+
+# fact -> what reads it, the marker a re-implementation would have to use, and who may still use that marker.
+FACTS = {
+    "knockout_genes": {
+        "resolver": "model.knockout_genes",
+        "places": ["the design label", "a design key with a suffix", "a corpus row's condition", "its label"],
+        "marker": r"""(?:\.split\(\s*["']KO:["']|\.replace\(\s*["']KO:["']|\.startswith\(\s*["']KO:["']"""
+                  r"""|["']/?KO:["']\s+in\b)""",
+        # Allowed to use the marker, each for a reason that is not "reads the gene list".
+        "exempt": {
+            "model.py": "defines the resolver",
+            "tools.py": "a lowercased SUBSTRING key for a fallback label match, and a display label — neither "
+                        "is a gene list",
+            "conformance.py": "declares the marker",
+            "factors.py": "a segment test (`tag.startswith`), and it must stay one: the resolver answers "
+                          "`['4op']`-shaped questions with [] now, but `rRNA_KO:` and `KO:` have to be "
+                          "told apart BEFORE the gene list is read, which is what startswith does",
+        },
+    },
+    "shift_time": {
+        "resolver": "dynamics.shift_sources",
+        "places": ["a declared timeline", "a time encoded in the condition", "in the label", "the caller"],
+        "marker": r"""declared_events\(""",
+        "exempt": {
+            "dynamics.py": "defines the resolver",
+            "miase.py": "defines declared_events itself",
+            "conformance.py": "declares the marker",
+        },
+    },
+}
+
+
+def one_fact_one_resolver() -> list[dict]:
+    """Every module that re-implements a fact's read instead of calling its resolver."""
+    import re as _re
+    from pathlib import Path as _Path
+
+    out = []
+    pkg = _Path(__file__).resolve().parent
+    for fact, spec in FACTS.items():
+        pat = _re.compile(spec["marker"])
+        offenders = []
+        for p in sorted(pkg.glob("*.py")):
+            if p.name in spec["exempt"]:
+                continue
+            try:
+                lines = p.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for i, line in enumerate(lines, 1):
+                stripped = line.strip()
+                if stripped.startswith("#"):          # a comment ABOUT the old parse is not the old parse
+                    continue
+                if pat.search(line):
+                    offenders.append({"module": p.name, "line": i, "code": stripped[:110]})
+        out.append({"fact": fact, "resolver": spec["resolver"], "n_places": len(spec["places"]),
+                    "exempt": sorted(spec["exempt"]), "reimplementations": offenders,
+                    "ok": not offenders})
+    return out
+
+
+def a_resolver_reads_every_place_a_fact_can_live() -> list[dict]:
+    """The other half: the resolver must actually answer from each declared place, not just exist."""
+    from . import dynamics, model
+    rows = [
+        {"fact": "knockout_genes", "place": "a design label",
+         "ok": model.knockout_genes("multi_gene_knockout/KO:gltX+relA+spoT") == ["gltX", "relA", "spoT"]},
+        {"fact": "knockout_genes", "place": "a design key with a suffix",
+         "ok": model.knockout_genes("gene_knockout/KO:thrC#tl:b0ae2f") == ["thrC"]},
+        {"fact": "knockout_genes", "place": "a corpus row's condition",
+         "ok": model.knockout_genes({"condition": "KO:pfkA+pfkB"}) == ["pfkA", "pfkB"]},
+        {"fact": "knockout_genes", "place": "no knockout at all",
+         "ok": model.knockout_genes("wildtype/basal") == []},
+        {"fact": "shift_time", "place": "a declared timeline",
+         "ok": dynamics.shift_sources("d", {"timeline": "0 minimal, 1200 minimal_plus_amino_acids"})[0][0] == 1200},
+        {"fact": "shift_time", "place": "a time encoded in the condition",
+         "ok": dynamics.shift_sources("d", {"condition": "with_aa_then_minus_LEU_at_600s"})[0][0] == 600},
+        {"fact": "shift_time", "place": "the caller",
+         "ok": dynamics.shift_sources("d", {}, at_seconds=900)[0][0] == 900},
+        {"fact": "shift_time", "place": "nowhere",
+         "ok": dynamics.shift_sources("d", {"condition": "basal"}) == []},
+    ]
+    return rows

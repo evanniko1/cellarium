@@ -26,6 +26,7 @@ this layer knows WHEN the shift was declared and characterises the response arou
 from __future__ import annotations
 
 import os
+import re
 import statistics
 
 from . import miase, raw, scan, support, survey
@@ -180,21 +181,56 @@ def mass_decomposition(seed_root: str, t_shift: float, window_s: float = 200.0) 
     }
 
 
-def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
-    """The ADAPTATION to a declared nutrient shift: baseline, peak, time-to-peak, settled level, overshoot.
+# WHERE THE TIME OF A SHIFT CAN BE RECORDED. A `timeline` column is one place, not the only one: a variant can
+# build the shift into its own code and leave the column null, which is what the option-A arm's
+# `remove_one_aa_shift/with_aa_then_minus_LEU_at_600s` designs do. This tool read the column alone and refused
+# those designs with <q>declares no nutrient shift</q> — a limit of the tool stated as a fact about the design.
+# That was the last open item of the discovery-leg audit.
+#
+# Each source returns (seconds, where_it_came_from), and the answer always says which one answered, because a
+# shift time read out of a label is weaker evidence than one declared in a timeline and the reader must be able
+# to tell.
+_LABEL_TIME = re.compile(r"(?:^|[^a-z0-9])at[_\- ]?(\d+)\s*s(?:ec|econds)?(?:$|[^a-z0-9])", re.I)
+
+
+def shift_sources(design: str, row: dict, at_seconds: float | None = None) -> list[tuple[float, str]]:
+    """Every shift time this design records, with its source. Ordered strongest evidence first."""
+    out: list[tuple[float, str]] = []
+    if at_seconds is not None:
+        out.append((float(at_seconds), "the caller's at_seconds"))
+    for t, _m in miase.declared_events(row.get("timeline")):
+        if t > 0:
+            out.append((float(t), "the design's declared timeline"))
+    for field in ("condition", "label"):
+        m = _LABEL_TIME.search(str(row.get(field) or ""))
+        if m:
+            out.append((float(m.group(1)), f"a time encoded in the design's {field}"))
+    return out
+
+
+def shift_response(design: str, channel: str = "ppgpp_conc", at_seconds: float | None = None) -> dict:
+    """The ADAPTATION to a nutrient shift: baseline, peak, time-to-peak, settled level, overshoot.
 
     Returns per-seed detail plus the cross-seed medians. `overshoot_pct_of_pre` is the headline: how far the
     transient went BEYOND the eventual new steady state — exactly the quantity a pre/post segment mean cannot
-    express, and the reason this module exists."""
+    express, and the reason this module exists.
+
+    The shift time comes from the declared timeline, or from a time encoded in the design's own label, or from
+    `at_seconds` when the design records it in neither. The answer names which."""
+    from . import errors
     rows = [r for r in survey._deduped_rows(survey.CHANNELS) if survey.design_key(r) == design]
     if not rows:
-        return {"error": f"'{design}' is not a design in the corpus"}
-    declared = miase.declared_events(rows[0].get("timeline"))
-    shifts = [t for t, _m in declared if t > 0]
-    if not shifts:
-        return {"error": f"'{design}' declares no nutrient shift (timeline={rows[0].get('timeline')!r}) — "
-                         f"shift_response is for timeline designs"}
-    t_shift = shifts[0]
+        return errors.fail("unknown_design", f"'{design}' is not a design in the corpus")
+    sources = shift_sources(design, rows[0], at_seconds)
+    if not sources:
+        return errors.fail(
+            "shift_time_not_declared",
+            f"could not find the time of a shift for '{design}'. Looked in: the declared timeline "
+            f"(timeline={rows[0].get('timeline')!r}), and a time encoded in the design's condition or label. "
+            f"A variant that performs the shift in its own code records it in none of those.",
+            looked_in=["timeline", "condition", "label"],
+            pass_instead="at_seconds=<seconds since the start of the generation the shift happens in>")
+    t_shift, t_source = sources[0]
     runs = raw.seed_runs(design)
     if not runs:
         return {"error": f"no local raw simOut for '{design}' — the transient needs full-resolution series"}
@@ -249,7 +285,9 @@ def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
                                                                                               ).get("fold")}
                                    for s, d in per]}
     return support.attach({
-        "design": design, "channel": channel, "declared_shift_s": t_shift, "seeds": used,
+        "design": design, "channel": channel, "declared_shift_s": t_shift,
+        "shift_time_from": t_source, "shift_times_found": [{"seconds": t, "source": w} for t, w in sources],
+        "seeds": used,
         **({"mass_decomposition": decomp} if decomp else {}),
         "median": {k: med(k) for k in ("time_to_peak_s", "peak_pct_vs_pre", "settled_pct_vs_pre",
                                        "overshoot_pct_of_pre")},
@@ -258,8 +296,8 @@ def shift_response(design: str, channel: str = "ppgpp_conc") -> dict:
         "independently_detected_by_scan": corroborated,
         "note": ("The adaptation to a declared shift, measured from the FULL-RESOLUTION trajectory. "
                  "`overshoot_pct_of_pre` is how far the transient went beyond the eventual steady state — the "
-                 "quantity a pre/post segment mean discards. The shift time comes from the design's DECLARED "
-                 "timeline, never from the recorded media labels, because those truncate on the upshift "
+                 "quantity a pre/post segment mean discards. The shift time came from "
+                 f"{t_source}, never from the recorded media labels, because those truncate on the upshift "
                  "(SCI-QC-1). `independently_detected_by_scan` is a blind cross-check: SP-2's detector is not "
                  "told where the shift is."),
     }, design)

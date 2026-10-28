@@ -78,7 +78,15 @@ def test_shift_response_refuses_designs_with_no_declared_shift():
     if not steady:
         pytest.skip("no non-timeline design")
     out = dynamics.shift_response(steady, "ppgpp_conc")
-    assert "error" in out and "no nutrient shift" in out["error"]
+    # The message changed when the tool learned to read a shift time from three places instead of one (family
+    # 9). The INTENT is unchanged and is what this asserts: no transient is invented. What is new is that the
+    # refusal is a `request` fault with the argument that fixes it, rather than a claim that the design has no
+    # shift — which was false for a variant that performs its shift in code.
+    assert out.get("reason") == "shift_time_not_declared"
+    assert out.get("about") == "request"
+    assert "could not find the time of a shift" in out["error"]
+    assert "at_seconds" in out["pass_instead"]
+    assert "declared_shift_s" not in out and "per_seed" not in out
 
 
 def test_shift_response_flags_boundary_extrema_and_withholds_overshoot():

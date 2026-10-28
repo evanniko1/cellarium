@@ -8,6 +8,7 @@ left as an explicit extension point (`run_live`) rather than faked.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
@@ -162,3 +163,46 @@ def run_live(design: Design, *, seeds: list[int] | None = None, generations: int
     if append_manifest and rows:
         manifest.append_shard(rows)  # fresh runs become visible to survey / disconfirm (the falsifier)
     return results
+
+
+# ---- one fact, one resolver -----------------------------------------------------------------------------------
+#
+# WHICH GENES A DESIGN KNOCKS OUT was parsed in seven places, each with its own string surgery, and on the real
+# corpus design `multi_gene_knockout/KO:gltX+relA+spoT` they disagreed four ways (measured 2026-10-28):
+#
+#   dilution.py          `design.split("KO:")[-1].split("+")[0]`            -> 'gltX'            (first only)
+#   design_generator.py  `condition.replace("KO:", "")`                     -> 'gltX+relA+spoT'  (as one name)
+#   tools._resolve_result lowercased, joined                                -> 'gltx+rela+spot'
+#   ko_verify.py         skips any key containing '+'                       -> the design vanishes
+#
+# Only the first of those is a defect in its own right: `dilution_clock` fitted the halving law for one of three
+# knocked-out genes and said nothing about the other two. The rest are correct for what they do with the value —
+# a substring key, a label, a deliberately single-gene list — but four parsers is four chances for the next one
+# to be wrong, so the parse lives here now and `conformance.one_fact_one_resolver` measures who still re-does it.
+KO_PREFIX = "KO:"
+
+
+def knockout_genes(design_or_row) -> list[str]:
+    """Every gene a design knocks out, from a design label, a design key, or a corpus row.
+
+    `'multi_gene_knockout/KO:gltX+relA+spoT'` -> `['gltX', 'relA', 'spoT']`; a design with no knockout -> `[]`.
+    Case is preserved, because a gene symbol's case is part of its identity and the monomer lookup in
+    `dilution` falls back to a case-insensitive match only when the exact one fails.
+    """
+    if isinstance(design_or_row, dict):
+        text = str(design_or_row.get("condition") or "") or str(design_or_row.get("label") or "")
+    else:
+        text = str(design_or_row or "")
+    # The marker has to BEGIN a segment. `KO:` appearing anywhere was the first version, and it read the real
+    # corpus design `rrna_operon_knockout/minimal|rRNA_KO:4op` as a knockout of a gene called `4op` — three
+    # designs, and exactly the fault the conformance family around this function exists to catch. An rRNA
+    # operon dose is not a gene, and `rRNA_KO:` is preceded by an underscore, so a segment-anchored match
+    # excludes it while `KO:`, `/KO:` and `|KO:` all still resolve.
+    m = re.search(r"(?:^|[/|·])" + re.escape(KO_PREFIX), text)
+    if m is None:
+        return []
+    tail = text[m.end():]
+    # a design key can carry a suffix after the gene list: '#elong:kinetic', '#tl:b0ae2f', '·s0'
+    for cut in ("#", "·", "|", " "):
+        tail = tail.split(cut, 1)[0]
+    return [g for g in (p.strip() for p in tail.split("+")) if g]

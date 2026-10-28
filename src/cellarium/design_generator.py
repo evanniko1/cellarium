@@ -36,7 +36,7 @@ def dispensable_pool(max_genes: int = 12) -> dict:
     therefore deletes k TUs, not k genes — a "12-gene reduction" built from operon-wide entries could remove forty.
     Every candidate now carries `ko_footprint`, and `n_genes_deleted` is the honest size of the proposed
     reduction; read that, not `len(pool)`. See docs/KNOCKOUT_SEMANTICS.md."""
-    from . import scope, store
+    from . import model, scope, store
     out = store.viability("gene_knockout", None)
     if out.get("error"):
         return {"error": out["error"], "pool": []}
@@ -44,7 +44,16 @@ def dispensable_pool(max_genes: int = 12) -> dict:
     for d in out.get("designs", []):
         if d.get("verdict") != "viable":            # only genes we've SEEN survive a single KO
             continue
-        gene = str(d.get("condition", "")).replace("KO:", "")
+        # One gene, through the one resolver. `.replace("KO:", "")` returned "gltX+relA+spoT" as a single
+        # name for a multi-gene design, which `classify_gene` then reported as unknown and dropped
+        # silently; a pool that quietly excludes the multi-gene designs should say so, not guess.
+        genes = model.knockout_genes(d)
+        if len(genes) != 1:
+            dropped.append({"gene": "+".join(genes) or "(none)",
+                            "reason": "a reduction target is one gene; this design knocks out "
+                                      f"{len(genes)}"})
+            continue
+        gene = genes[0]
         c = scope.classify_gene(gene)
         if not c.get("known"):
             continue

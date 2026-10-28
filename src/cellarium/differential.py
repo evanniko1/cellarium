@@ -15,10 +15,20 @@ import math
 from collections import defaultdict
 from pathlib import Path
 
-from . import paths, stats, survey
+from . import errors, paths, stats, survey
 
 REFERENCE = "wildtype/basal"
 
+
+
+def _qc_excluded(label: str) -> list[str]:
+    """The QC verdicts of every run of a design, when none of them is reportable. Empty when the design is not
+    in the corpus at all — the two cases a single "no design" message used to merge."""
+    from . import store
+    rows = [row for row in store.list_results() if survey.design_key(row) == label]
+    if not rows or any(row.get("reportable") for row in rows):
+        return []
+    return [str(row.get("qc") or "unknown") for row in rows]
 
 def _design_seed_values(arm=None) -> tuple[dict, list[str]]:
     """{ 'perturbation/condition': {channel: [per-seed values]} } + the channel list (incl. pathways). Keeps the
@@ -141,12 +151,23 @@ def summary(target: str, reference: str = REFERENCE, top: int = 15) -> dict:
     if not vals:
         return {"error": "corpus empty or unreadable."}
     t, r = vals.get(target), vals.get(reference)
-    if t is None:
-        miss = survey.arm_miss(target)
-        return miss if miss else {"error": f"no design '{target}'.", "available": sorted(vals)}
-    if r is None:
-        miss = survey.arm_miss(reference)
-        return miss if miss else {"error": f"no reference '{reference}'.", "available": sorted(vals)}
+    for label, got, what in ((target, t, "design"), (reference, r, "reference")):
+        if got is not None:
+            continue
+        miss = survey.arm_miss(label)
+        if miss:
+            return miss
+        # "no design 'x'" was false for 23 of the corpus's 77 designs: they are IN the corpus and every run of
+        # them was excluded by QC. `condition/minus_phosphate` has four rows, all `crashed`. Reporting a QC
+        # exclusion as non-existence is the silent-absence class, found by the family-9 sweep.
+        excluded = _qc_excluded(label)
+        if excluded:
+            return errors.fail(
+                "insufficient_data",
+                f"'{label}' IS in the corpus, and none of its {len(excluded)} run(s) is reportable: "
+                f"{', '.join(sorted(set(excluded)))}. A comparison needs at least one reportable run.",
+                design=label, qc_of_every_run=sorted(set(excluded)), n_runs=len(excluded))
+        return errors.fail("unknown_design", f"no {what} '{label}'.", available=sorted(vals))
     movers = []
     for ch in channels:
         ta, ra = t.get(ch), r.get(ch)

@@ -303,13 +303,27 @@ def test_no_registered_reason_is_dead():
     reachable: named by a pattern, or passed to `errors.fail` somewhere in the package. (It caught
     `unknown_channel`, which read well and no message ever produced — the channel cases are either a bad
     argument or a column the corpus does not carry.)"""
+    import ast
+
     src = Path(ROOT / "src" / "cellarium")
     used = {r for _, r in errors.PATTERNS}
-    calls = "".join(f.read_text(encoding="utf-8") for f in sorted(src.glob("*.py")))
+    # Read the FIRST ARGUMENT of every errors.fail call from the syntax tree. The literal search this used to
+    # do -- `f'fail("{reason}"' in calls` -- only matched a call written on one line, so the newly added
+    # `shift_time_not_declared` read as unreachable while being raised four lines further down. One fact
+    # ("which reasons can be produced"), several textual forms, and the check read one of them: family 9, in
+    # the test suite.
+    for f in sorted(src.glob("*.py")):
+        for node in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            if (getattr(node.func, "attr", None) or getattr(node.func, "id", None)) != "fail":
+                continue
+            if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                used.add(node.args[0].value)
     for reason in errors.REASONS:
         if reason == "unclassified":            # the fallback; produced by classify(), not by a pattern
             continue
-        assert reason in used or f'fail("{reason}"' in calls, f"{reason} is registered and unreachable"
+        assert reason in used, f"{reason} is registered and unreachable"
 
 
 # ---- 7. AGREEMENT ----------------------------------------------------------------------------------------
@@ -426,3 +440,67 @@ def test_a_description_a_tool_wrote_itself_is_never_overwritten():
     spec = next(t for t in tools.TOOLS if t["name"] == "chart")
     assert "line = trajectory over time" in spec["input_schema"]["properties"]["kind"]["description"]
     assert "chart" not in [t for t, _ in tools.glossary_sites().get("kind", [])]
+
+
+# ---- 9. ONE FACT, ONE RESOLVER --------------------------------------------------------------------------------
+
+def test_a_fact_with_several_homes_has_exactly_one_reader():
+    """The last open item of the discovery-leg audit was `shift_response` reading ONE of the places a shift time
+    can live and reporting that as a fact about the design. Families 1-8 cannot see it: the answer was complete,
+    deterministic, correctly shaped, carried a registered reason and came from an honest value set, and the
+    question had been asked of the wrong field."""
+    rows = conformance.one_fact_one_resolver()
+    assert rows, "no fact is registered"
+    bad = [r for r in rows if not r["ok"]]
+    assert not bad, json.dumps(bad, indent=1)
+
+
+def test_each_resolver_answers_from_every_place_its_fact_can_live():
+    """A resolver that exists but reads one place is the original defect with an extra function in front of it."""
+    rows = conformance.a_resolver_reads_every_place_a_fact_can_live()
+    assert len(rows) >= 8
+    assert all(r["ok"] for r in rows), json.dumps([r for r in rows if not r["ok"]], indent=1)
+
+
+def test_the_knockout_resolver_does_not_read_an_rrna_dose_as_a_gene():
+    """`rrna_operon_knockout/minimal|rRNA_KO:4op` is a real corpus design, and the first version of the resolver
+    returned `['4op']` for it — the fault this family exists to catch, in the family's own resolver. The marker
+    must begin a segment."""
+    from cellarium import model
+    assert model.knockout_genes("rrna_operon_knockout/minimal|rRNA_KO:4op") == []
+    assert model.knockout_genes("multi_gene_knockout/KO:gltX+relA+spoT") == ["gltX", "relA", "spoT"]
+
+
+def test_no_corpus_design_changes_its_knockout_reading():
+    """Measured: 40 of the corpus's designs resolve to a non-empty gene list, and none of them is an rRNA dose."""
+    from cellarium import model, store, survey
+    keys = sorted({survey.design_key(r) for r in store.list_results()})
+    ko = [k for k in keys if model.knockout_genes(k)]
+    assert len(ko) == 40, f"the knockout reading moved: {len(ko)} designs"
+    assert not [k for k in ko if "rRNA" in k]
+
+
+def test_shift_response_names_where_the_shift_time_came_from():
+    """A time read out of a label is weaker evidence than one declared in a timeline, so the answer says which."""
+    from cellarium import dynamics
+    assert dynamics.shift_sources("d", {"timeline": "0 minimal, 1200 minimal_plus_amino_acids"})[0] == \
+        (1200.0, "the design's declared timeline")
+    assert dynamics.shift_sources("d", {"condition": "with_aa_then_minus_LEU_at_600s"})[0][1].startswith("a time")
+    assert dynamics.shift_sources("d", {}, at_seconds=900)[0] == (900.0, "the caller's at_seconds")
+
+
+def test_shift_response_refuses_with_a_caller_side_remedy_not_a_claim_about_the_design():
+    """It used to say "'X' declares no nutrient shift", which is a limit of the tool stated as a fact about the
+    design. It is a `request` fault now, with the argument that fixes it."""
+    out = tools.dispatch("shift_response", {"design": "wildtype/basal"})
+    assert out["reason"] == "shift_time_not_declared"
+    assert out["about"] == "request"
+    assert "at_seconds" in out["pass_instead"]
+    assert out["looked_in"] == ["timeline", "condition", "label"]
+
+
+def test_a_timeline_design_still_resolves_exactly_as_before():
+    out = tools.dispatch("shift_response",
+                         {"design": "timeline/0 minimal, 1200 minimal_plus_amino_acids"})
+    assert out.get("declared_shift_s") == 1200.0
+    assert out.get("shift_time_from") == "the design's declared timeline"

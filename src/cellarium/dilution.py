@@ -153,8 +153,13 @@ def protein_clock(design: str, gene: str | None = None) -> dict:
     published halving, or departs from it (degradation, consumption, or residual synthesis)."""
     import numpy as np
 
-    from . import raw, scope
-    gene = gene or (design.split("KO:")[-1].split("+")[0] if "KO:" in design else None)
+    from . import model, raw, scope
+    # Was `design.split("KO:")[-1].split("+")[0]` — the FIRST gene of a multi-gene knockout, silently. On
+    # `multi_gene_knockout/KO:gltX+relA+spoT` that fitted the halving law for gltX and said nothing about relA
+    # or spoT, while the answer carried no sign that two genes had been dropped.
+    targets = model.knockout_genes(design)
+    others = [g for g in targets if g != (gene or (targets[0] if targets else None))]
+    gene = gene or (targets[0] if targets else None)
     if not gene:
         return {"error": f"could not infer the target gene from '{design}' — pass `gene=` explicitly"}
     runs = raw.seed_runs(design)
@@ -200,6 +205,11 @@ def protein_clock(design: str, gene: str | None = None) -> dict:
     consistent = bool(ci and ci[0] <= PREDICTED_SLOPE <= ci[1])
     return {
         "design": design, "gene": gene, "monomer": monomer, "seeds": used, "n_points": fit["n"],
+        # A multi-gene knockout has more than one target, and this fit is about ONE of them. Naming the others
+        # is the difference between a scoped answer and a silent one.
+        **({"knocks_out": targets, "not_measured_here": others,
+            "scope": f"this fit is for {gene} alone; {len(others)} other knocked-out gene(s) are not measured. "
+                     f"Call again with gene= for each."} if others else {"knocks_out": targets}),
         "observed_slope_log2_per_generation": round(slope, 3),
         "slope_ci95": ([round(c, 3) for c in ci] if ci else None),
         "predicted_slope": PREDICTED_SLOPE, "residual_vs_dilution": round(slope - PREDICTED_SLOPE, 3),

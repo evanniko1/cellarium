@@ -131,13 +131,18 @@ def verify(gene: str, reference: str = "wildtype/basal", kinds: tuple = ("mrna",
 
 def verify_corpus(reference: str = "wildtype/basal") -> dict:
     """Run `verify` over every single-gene KO design that has local raw. The standardized sweep."""
-    from . import differential, survey
+    from . import differential, model, survey
 
     rows = survey._deduped_rows(survey.CHANNELS)
     if not rows or "__error__" in rows[0]:
         return {"error": "no manifest"}
     keys = {survey.design_key(r) for r in rows}
-    genes = sorted({k.split("KO:")[1] for k in keys if "/KO:" in k and "+" not in k})
+    # Single-gene designs only, and deliberately: this check compares one knocked-out monomer against its
+    # own expectation. Expressed through the resolver so the exclusion is a stated length test rather
+    # than a `"+" not in k` that reads like a parsing shortcut.
+    per_key = {k: model.knockout_genes(k) for k in keys}
+    genes = sorted({g[0] for g in per_key.values() if len(g) == 1})
+    excluded_multi = sorted("+".join(g) for g in per_key.values() if len(g) > 1)   # reported, not dropped
     results, skipped = {}, []
     for g in genes:
         if not differential._design_run_roots(f"gene_knockout/KO:{g}"):
@@ -148,6 +153,10 @@ def verify_corpus(reference: str = "wildtype/basal") -> dict:
     for g, r in results.items():
         summary.setdefault(r.get("verdict", "error"), []).append(g)
     return {"reference": reference, "n_verified": len(results), "skipped_no_local_raw": skipped,
+            # Named rather than silently absent: this check compares ONE knocked-out monomer against its
+            # own expectation, so a multi-gene design is out of scope — and a reader is entitled to know
+            # which designs were left out and why.
+            "excluded_multi_gene_designs": excluded_multi,
             "summary": {k: sorted(v) for k, v in summary.items()}, "results": results,
             "note": ("Verdicts are anchored to a NULL DISTRIBUTION over untargeted genes, because a knockout "
                      "shifts the whole proteome — a raw ratio cannot distinguish silencing from that shift.")}

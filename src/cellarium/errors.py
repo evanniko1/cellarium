@@ -51,6 +51,10 @@ REASONS: dict[str, tuple[str, str]] = {
     "unknown_entity": ("request", "fix_argument"),   # a named reaction, metabolite, regulon, skill, capability
     "unknown_tool": ("request", "fix_argument"),
     "bad_argument": ("request", "fix_argument"),
+    # A fact the tool needs IS recorded somewhere, but not in the one place the tool reads. The caller can fix
+    # it by supplying the value, so it is a `request` fault with a caller-side remedy -- and emphatically NOT
+    # `corpus`, because "the design has no shift" was the wrong half of what the old message said.
+    "shift_time_not_declared": ("request", "fix_argument"),
     # the corpus is readable and genuinely does not carry what was asked for. THIS is the only kind that is
     # evidence about the model, and even then only about coverage.
     "channel_not_recorded": ("corpus", "use_another_channel"),
