@@ -44,14 +44,49 @@ import json
 from pathlib import Path
 from typing import Any
 
-# The parameters whose values are HANDLES INTO THE CORPUS — the ones an agent cannot legitimately invent. Named
-# here rather than inferred, because the distinction is semantic: `title` and `claim` are the agent's own prose
-# and are SUPPOSED to be new, while `design` and `result_id` must have been read somewhere.
+# The parameters whose values are HANDLES INTO THE CORPUS OR INTO THE MODEL — the ones an agent cannot
+# legitimately invent. Named here rather than inferred, because the distinction is semantic: `title`, `claim` and
+# `rationale` are the agent's own prose and are SUPPOSED to be new, while `design` and `result_id` must have been
+# read somewhere.
+#
+# THE SET WAS TOO NARROW ON ITS FIRST WRITING (corrected 2026-10-28 after auditing the model's own taxonomy).
+# wcEcoli does not only represent genes. Its knowledge base declares 21 molecule groups (amino acids, codons,
+# elongator and initiator tRNAs, ribosomal proteins, rRNA operons, the two ribosomal subunits' proteins,
+# replisome subunits, lipids, polyamines, NTPs/dNTPs/NMPs and their polymerized forms) and 11 classes of
+# individually tracked object (`gene`, `RNA`, `promoter`, `DnaA_box`, `chromosomal_segment`, `chromosome_domain`,
+# `full_chromosome`, `oriC`, `active_RNAP`, `active_ribosome`, and the replisome), over 16 processes and
+# 19 listeners. Reaction fluxes alone span 9,612 reactions.
+#
+# So a handle is any name that points INTO that world, and the first version missed five classes of them. The one
+# that matters most is `condition`: the Council has already invented media names (`minimal_minus_one_aa`,
+# `rich_EZ_aa`) that passed the envelope check, which is W4C-10 in BACKLOG — exactly the failure grounding exists
+# to catch, and the check was blind to it.
 HANDLE_PARAMS = {
-    "design", "design_a", "design_b", "design_or_id", "target", "reference", "result_id", "gene", "symbol",
-    "species_id", "regulon", "metabolite", "unit", "designs", "genes", "channels", "channel", "x_channel",
-    "y_channel",
+    # runs and designs
+    "design", "design_a", "design_b", "design_or_id", "designs", "target", "reference", "result_id", "results",
+    "request_id",
+    # the model's own entities
+    "gene", "genes", "symbol", "species_id", "metabolite", "reactions", "regulon", "operons",
+    "retype_cistrons",
+    # the experiment's configuration: media, schedules, variant types, comparability arms
+    "condition", "timeline", "medium", "perturbation", "arm", "capability", "block_by", "sim_path",
+    # readouts
+    "channel", "channels", "x_channel", "y_channel", "unit",
 }
+
+# Parameters whose values come from a CLOSED set declared in the schema AT EVERY SITE. `validate_arguments`
+# already fails a value outside the enum and names it, so grounding would repeat that check less precisely.
+# Listed so the exclusion is a decision rather than an oversight, and tested: a name only belongs here while
+# every tool that takes it declares an enum for it.
+ENUM_GUARDED = {"kind", "mode", "objective", "elongation_model"}
+
+# The agent's own output: prose it is supposed to compose, and an address it is supposed to choose.
+AGENT_AUTHORED = {"claim", "rationale", "title", "question", "reason", "name", "url", "contains"}
+
+# `search` is in none of the three on purpose. It is a free substring filter on `list_species` (the agent's own)
+# and a search STRATEGY with an enum on `generate_designs` (closed) — one name, two roles, the same trap as
+# `kind`. A set keyed by the name cannot hold both, so neither group claims it.
+ROLE_DIFFERS_BY_TOOL = {"search"}
 
 # Below this length a substring match is meaningless ("s0", "ok", a seed index).
 MIN_HANDLE_LEN = 4
@@ -112,13 +147,36 @@ def _text_of(x: Any) -> str:
     return json.dumps(x, default=str) if not isinstance(x, str) else x
 
 
+def _strings_in(value: Any) -> list[str]:
+    """Every string leaf of a handle's value. `reactions` is a list, `medium` and `retype_cistrons` are objects
+    whose KEYS are the ids, so a scalar-only reader would check nothing at all on three of the FBA tools."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [s for v in value for s in _strings_in(v)]
+    if isinstance(value, dict):
+        return [s for k, v in value.items() for s in ([k] if isinstance(k, str) else []) + _strings_in(v)]
+    return []
+
+
+def _timeline_media(spec: str) -> list[str]:
+    """A timeline is '0 minimal, 1200 minimal_acetate' — the medium NAMES are the handles, not the string. The
+    whole string never appears in an earlier output, so checking it whole would flag every legitimate timeline."""
+    out = []
+    for part in str(spec).split(","):
+        tokens = part.strip().split()
+        out.extend(t for t in tokens[1:] if not t.lstrip("-").replace(".", "", 1).isdigit())
+    return out
+
+
 def _handle_values(args: dict) -> list[tuple[str, str]]:
     out = []
     for key, value in (args or {}).items():
         if key not in HANDLE_PARAMS:
             continue
-        for v in (value if isinstance(value, list) else [value]):
-            if isinstance(v, str) and len(v) >= MIN_HANDLE_LEN:
+        values = _timeline_media(value) if key == "timeline" and isinstance(value, str) else _strings_in(value)
+        for v in values:
+            if len(v) >= MIN_HANDLE_LEN:
                 out.append((key, v))
     return out
 
@@ -140,9 +198,14 @@ def score(trace: dict) -> dict:
         elif faults:
             arg_faults.append({"i": i, "tool": name, "faults": faults})
 
-        # grounding: against the question and every EARLIER output, never this call's own output
+        # Grounding: against the question, every EARLIER output, and the parameter's OWN declared enum. The enum
+        # is a legitimate source — the model is shown it with every call — so without that third source a
+        # schema-declared channel name counts as invented, which is a false finding about the agent and the
+        # same mistake one layer up.
+        props = ((specs.get(name) or {}).get("input_schema") or {}).get("properties") or {}
         missing = [f"{k}={v}" for k, v in _handle_values(args)
-                   if not any(v in s for s in seen_text)]
+                   if v not in ((props.get(k) or {}).get("enum") or ())
+                   and not any(v in s for s in seen_text)]
         if missing:
             ungrounded.append({"i": i, "tool": name, "args": missing})
 

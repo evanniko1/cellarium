@@ -256,3 +256,58 @@ if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):
             fn(); print("ok:", name)
+
+
+# ---- W4C-10: a timeline may not name a medium the model does not have -----------------------------------------
+
+def test_an_invented_medium_in_a_timeline_is_refused():
+    """The Council produced `minimal_minus_one_aa` and `rich_EZ_aa`; both passed `check` before this gate
+    (BACKLOG W4C-10). A timeline's media names go to the simulator verbatim and are looked up by name, so an
+    invented one raises KeyError in `chromosome_replication` at the shift — after the run has started, and with
+    a run directory left behind whose simOut stops there."""
+    for invented in ("rich_EZ_aa", "minimal_minus_one_aa", "minimal_plus_unobtanium"):
+        v = envelope.check(Design(perturbation="timeline", timeline=f"0 minimal, 600 {invented}"))
+        assert not v.in_envelope, invented
+        assert invented in v.reason
+        assert v.suggestion and "minimal_plus_amino_acids" in v.suggestion
+
+
+def test_a_real_recipe_with_no_doubling_time_gets_its_own_refusal():
+    """`minimal_plus_cytidine` and `minimal_plus_sam` are rows of media_recipes.tsv with no condition row, so
+    they are absent from `nutrient_to_doubling_time`. The distinction matters: one is a typo, the other needs a
+    condition row and a ParCa rebuild, which is a new comparability arm."""
+    for medium in ("minimal_plus_cytidine", "minimal_plus_sam"):
+        v = envelope.check(Design(perturbation="timeline", timeline=f"0 minimal, 600 {medium}"))
+        assert not v.in_envelope, medium
+        assert "doubling time" in v.reason
+        assert v.suggestion and "ParCa" in v.suggestion
+
+
+def test_the_media_gate_is_read_from_the_model_tables_not_a_hand_list():
+    """A hand-kept list drifts from the tables the runner mounts. 24 media have a doubling time; 26 recipes
+    exist; the two sets differ by exactly the two media the tf_activity gate patches by hand."""
+    known, recipes = envelope.media_with_a_doubling_time(), envelope.media_recipes()
+    assert known and recipes
+    assert known < recipes
+    assert recipes - known == {"minimal_plus_cytidine", "minimal_plus_sam"}
+    assert "minimal_plus_cytidine" in recipes   # and it is the tf_activity variant-14 medium
+    assert envelope.TF_ACTIVITY_NO_DOUBLING_TIME[14][1] == "minimal_plus_cytidine"
+
+
+def test_every_timeline_in_the_corpus_still_passes():
+    """The gate must not refuse a design the corpus already ran — an envelope narrower than reality forbids
+    valid work silently, which is the failure the metabolism-lever near-miss taught."""
+    from cellarium import store
+    timelines = {r.get("timeline") for r in store.list_results() if r.get("timeline")}
+    assert timelines, "no timeline rows in the corpus to check against"
+    for tl in timelines:
+        v = envelope.check(Design(perturbation="timeline", timeline=tl))
+        assert v.in_envelope, f"{tl}: {v.reason}"
+
+
+def test_an_unreadable_media_table_does_not_refuse_everything(monkeypatch):
+    """`None` from the table reader means NOT CHECKABLE, and the gate stands in front of every launch. Refusing
+    on it would be the absence failure with the guardrail as the silent party."""
+    monkeypatch.setattr(envelope, "media_with_a_doubling_time", lambda: None)
+    v = envelope.check(Design(perturbation="timeline", timeline="0 minimal, 600 rich_EZ_aa"))
+    assert v.in_envelope

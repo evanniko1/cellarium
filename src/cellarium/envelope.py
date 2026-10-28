@@ -14,7 +14,11 @@ in-envelope alternative.
 
 from __future__ import annotations
 
+import csv
+import functools
+import io
 from dataclasses import dataclass
+from pathlib import Path
 
 from .capability import ELONGATION_MODES, MODE_FLAGS
 from .model import Design
@@ -37,6 +41,51 @@ STATIC_ONLY_CARBON = {"acetate", "succinate", "fumarate", "malate"}
 # Replication looks the medium up at the first step, so the run dies with a KeyError before simulating
 # anything (known-fault audit E1, runs_validation/cellarium/tf_activity_000014).
 TF_ACTIVITY_NO_DOUBLING_TIME = {14: ("cytR inactive", "minimal_plus_cytidine", 13)}  # 13 = cytR active, runs
+
+# W4C-10, open since 2026-10-25, closed here. The gate above catches ONE route into a medium with no doubling
+# time — the tf_activity variant. A TIMELINE naming the same medium was unguarded, and a timeline's media names
+# go to the simulator verbatim (`runSim --timeline`). `chromosome_replication` looks the medium up in
+# `nutrient_to_doubling_time` at the first step of the shift, so an unknown name raises KeyError INSIDE the
+# container, where `runner._FAILURE_MARKERS` catches it only after the run has burned its minutes — and the
+# run root still exists on disk with a simOut that stops at the shift. A truncated-but-present run is this
+# project's worst failure mode: it looks like data.
+#
+# The Council has already produced the input that triggers it: `minimal_minus_one_aa` and `rich_EZ_aa`, both
+# invented, both passed `check` (BACKLOG W4C-10).
+#
+# `nutrient_to_doubling_time` is keyed by the `nutrients` column of `condition_defs.tsv`
+# (simulation_data.py:266-274), so the safe set is that column — NOT every row of `media_recipes.tsv`. Two
+# recipes have no condition row and therefore no doubling time, `minimal_plus_cytidine` and `minimal_plus_sam`,
+# which is the same hole the tf_activity gate above patches by hand for one variant index.
+_MEDIA_TABLES = Path(__file__).resolve().parents[2] / "model_overlay" / "files" / "reconstruction" / "ecoli" \
+    / "flat" / "condition"
+
+
+def _tsv(path: Path, column: str) -> set[str] | None:
+    """One column of a flat TSV, or None if it cannot be read.
+
+    None means "not checkable", and the caller must not refuse on it. An envelope that refuses every design
+    because a table moved would be the absence failure with the gate as the silent party — and this gate stands
+    in front of every launch.
+    """
+    try:
+        lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if not ln.lstrip().startswith("#")]
+        rows = csv.DictReader(io.StringIO("\n".join(lines)), delimiter="\t")
+        return {(r.get(column) or "").strip().strip('"') for r in rows} - {""}
+    except Exception:                                                     # noqa: BLE001
+        return None
+
+
+@functools.lru_cache(maxsize=1)
+def media_with_a_doubling_time() -> set[str] | None:
+    """The media names a timeline may use: the `nutrients` column of `condition_defs.tsv`."""
+    return _tsv(_MEDIA_TABLES / "condition_defs.tsv", "nutrients")
+
+
+@functools.lru_cache(maxsize=1)
+def media_recipes() -> set[str] | None:
+    """Every composed medium the model can MAKE — a superset of the ones it can time the cell cycle in."""
+    return _tsv(_MEDIA_TABLES / "media_recipes.tsv", "media id")
 
 
 @dataclass
@@ -108,6 +157,33 @@ def check(design: Design) -> EnvelopeVerdict:
     # The load-bearing check: a timeline that switches carbon source.
     if design.timeline:
         steps = _parse_timeline(design.timeline)
+
+        # Does every medium it names exist, and can the model time a cell cycle in it? Checked BEFORE the
+        # carbon-source rule, because `carbon_source()` classifies an unknown name by substring and would
+        # happily call an invented medium glucose-fed and wave it through.
+        known = media_with_a_doubling_time()
+        if known is not None:
+            recipes = media_recipes() or set()
+            for _, medium in steps:
+                if medium in known:
+                    continue
+                if medium in recipes:
+                    return EnvelopeVerdict(
+                        False,
+                        f"'{medium}' is a medium the model can make, but no condition row gives it a doubling "
+                        f"time. Replication reads the doubling time of the current medium at the first step of "
+                        f"the shift, so the run raises KeyError inside the container and leaves a simOut that "
+                        f"stops there.",
+                        "Use a medium that has a fitted condition, or add a condition row for this one and "
+                        "rebuild ParCa — which is a new comparability arm.",
+                    )
+                return EnvelopeVerdict(
+                    False,
+                    f"'{medium}' is not a medium this model has. Media names in a timeline go to the simulator "
+                    f"verbatim and are looked up by name, so an invented one is not a weaker experiment — it is "
+                    f"a run that dies at the shift and still leaves a run directory behind.",
+                    "Media the model can time a cell cycle in: " + ", ".join(sorted(known)) + ".",
+                )
         # The cell's physiology is the one it was fitted for, which is glucose unless the `condition` variant
         # selected an alternative carbon source. It goes at the head of the sequence, so that a timeline whose
         # FIRST event (at t=0) moves a glucose-fitted cell into acetate is a switch too. Measured in the large

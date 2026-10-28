@@ -159,3 +159,88 @@ def test_handle_params_do_not_include_the_agents_own_prose():
     """`title`, `claim` and `rationale` are the agent's to invent; grounding must not punish them."""
     for free in ("title", "claim", "rationale", "question", "url"):
         assert free not in trajectory.HANDLE_PARAMS
+
+
+# ---- the handle set, after auditing the model's own taxonomy --------------------------------------------------
+#
+# wcEcoli is not a gene model. Its knowledge base declares 21 molecule groups and 11 classes of individually
+# tracked object across 16 processes; reaction fluxes alone span 9,612 reactions. The first version of
+# HANDLE_PARAMS missed five classes of name, and the one that matters is `condition`: the Council has already
+# invented media names that passed the envelope check (BACKLOG W4C-10).
+
+def test_an_invented_medium_is_ungrounded():
+    s = trajectory.score(_trace([_call("survey_corpus", {}),
+                                 _call("provenance", {"perturbation": "condition", "condition": "rich_EZ_aa"})]))
+    assert any("condition=rich_EZ_aa" in a for u in s["ungrounded"] for a in u["args"])
+
+
+def test_a_medium_read_from_an_earlier_output_is_grounded():
+    s = trajectory.score(_trace([
+        _call("survey_corpus", {}, {"conditions": ["acetate", "basal"]}),
+        _call("provenance", {"perturbation": "condition", "condition": "acetate"}),
+    ]))
+    assert not any("condition=" in a for u in s["ungrounded"] for a in u["args"])
+
+
+def test_only_the_media_names_of_a_timeline_are_checked():
+    """The whole timeline string never appears in an earlier output, so checking it whole would flag every
+    legitimate shift. The handles are the medium names inside it."""
+    assert trajectory._timeline_media("0 minimal, 1200 minimal_acetate") == ["minimal", "minimal_acetate"]
+    known = _trace([_call("survey_corpus", {}, {"media": ["minimal", "minimal_acetate"]}),
+                    _call("run_experiment", {"perturbation": "timeline",
+                                             "timeline": "0 minimal, 1200 minimal_acetate"})])
+    assert not any("timeline=" in a for u in trajectory.score(known)["ungrounded"] for a in u["args"])
+    invented = _trace([_call("survey_corpus", {}, {"media": ["minimal"]}),
+                       _call("run_experiment", {"perturbation": "timeline",
+                                                "timeline": "0 minimal, 1200 minimal_unobtanium"})])
+    assert any("timeline=minimal_unobtanium" in a
+               for u in trajectory.score(invented)["ungrounded"] for a in u["args"])
+
+
+def test_ids_nested_in_a_list_or_an_object_key_are_checked():
+    """`reactions` is a list of reaction ids and `medium` is an object whose KEYS are metabolite ids. A
+    scalar-only reader checked nothing at all on four of the FBA tools."""
+    s = trajectory.score(_trace([_call("survey_corpus", {}),
+                                 _call("fba_flux", {"reactions": ["PGK-RXN", "MADE-UP-RXN"]})]))
+    assert {a for u in s["ungrounded"] for a in u["args"]} == {"reactions=PGK-RXN", "reactions=MADE-UP-RXN"}
+    s = trajectory.score(_trace([_call("survey_corpus", {}),
+                                 _call("fba_growth", {"medium": {"GLC[p]": 10.0, "NOTREAL[p]": 1.0}})]))
+    assert any("NOTREAL" in a for u in s["ungrounded"] for a in u["args"])
+
+
+def test_a_value_the_schema_itself_declares_is_grounded_by_the_schema():
+    """The model is shown the enum with every call, so an enum member is a legitimate source. Without this the
+    check calls a schema-declared channel name invented — a false finding about the agent, which is the same
+    mistake one layer up."""
+    s = trajectory.score(_trace([_call("survey_corpus", {}),
+                                 _call("trajectory", {"design": "wildtype/basal", "channel": "growth_rate"})]))
+    flagged = {a for u in s["ungrounded"] for a in u["args"]}
+    assert "channel=growth_rate" not in flagged
+    assert "design=wildtype/basal" in flagged      # nothing was read, so the design IS invented here
+
+
+def test_the_three_parameter_groups_do_not_overlap():
+    """Every string parameter is a handle, enum-guarded, or the agent's own. The groups are disjoint, and a
+    parameter in none of them is a decision nobody has made yet."""
+    assert not trajectory.HANDLE_PARAMS & trajectory.ENUM_GUARDED
+    assert not trajectory.HANDLE_PARAMS & trajectory.AGENT_AUTHORED
+    assert not trajectory.ENUM_GUARDED & trajectory.AGENT_AUTHORED
+    assert not trajectory.ROLE_DIFFERS_BY_TOOL & (
+        trajectory.HANDLE_PARAMS | trajectory.ENUM_GUARDED | trajectory.AGENT_AUTHORED)
+
+
+def test_an_enum_guarded_name_carries_an_enum_at_every_site():
+    """The exclusion is only safe while the schema really constrains the value everywhere. `search` was in this
+    group and did not belong: it is a free substring on `list_species` and a strategy enum on
+    `generate_designs` — one name, two roles. It is now in ROLE_DIFFERS_BY_TOOL and claimed by nobody."""
+    from cellarium import tools
+    sites = {}
+    for t in tools.TOOLS:
+        for n, m in ((t.get("input_schema") or {}).get("properties") or {}).items():
+            if n in trajectory.ENUM_GUARDED | trajectory.ROLE_DIFFERS_BY_TOOL:
+                sites.setdefault(n, []).append((t["name"], bool(m.get("enum"))))
+    for name in trajectory.ENUM_GUARDED:
+        assert sites.get(name), f"{name} is not a parameter of any tool"
+        bare = [tool for tool, has in sites[name] if not has]
+        assert not bare, f"{name} carries no enum on {bare}, so the schema does not guard it there"
+    assert any(not has for _, has in sites["search"]), "search no longer differs by tool; move it"
