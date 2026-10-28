@@ -48,8 +48,27 @@ refuses every call that names no run — the schema told the model an empty call
 requirement cannot be written as `required`, so it is now `anyOf`. This was only visible because the
 enum-honesty sweep could not exercise `chart` at all.
 
-**Not done:** 39 string parameters still have no description. That is documentation debt rather than a
-correctness bug, and it is recorded here rather than silently left out.
+**Then done, 2026-10-28.** The 39 remaining bare string parameters were not documentation debt after all. Every
+one of those names *is* described elsewhere in the surface — `reference` on 7 tools, `target` on 5,
+`perturbation` on 4, `design`/`result_id`/`gene`/`condition`/`kind` on 3 each — so the defect was not an
+undocumented vocabulary but the same word documented on one tool and bare on the next, with which version the
+model saw decided by which tool it happened to reach for. The fix is one glossary keyed by the parameter name
+(`tools._PARAM_GLOSSARY`), filling only empty descriptions: 37 sites from the glossary, 2 that write their own.
+Bare string parameters: **39 → 0**.
+
+A glossary keyed by a NAME is only safe while every site it reaches means the same thing by that name, and two
+do not: `kind` is a species class on `top_movers`/`list_species`/`read_species` and a chart type on `chart`;
+`search` is a substring filter here and a search strategy on `generate_designs`. Both of those sites already
+wrote their own sentence, so the filler never touched them — but that is luck unless it is checked, so
+`conformance.glossary_sites_agree` asserts that the sites one entry reached share an enum. A future bare `kind`
+on a chart-like tool now fails the sweep instead of inheriting the wrong sentence.
+
+**And the glossary found a defect of its own.** `read_series`, `read_raw_series` and `scan_series` run their
+`result_id` through `_resolve_result`, so a design label works; `list_species` and `read_species` go straight to
+the run's simOut path, where a label is simply not found. Nothing in the code recorded that difference. It is now
+**declared** in those two tools' descriptions rather than removed, because making the species tools resolve
+labels would silently pick a representative seed — the same substitution that drew the wrong seeds on discovery
+leg v4.
 
 ### 2.2 MAST (Cemri et al., ICLR 2026) — **had never been applied to the Council**
 
@@ -115,8 +134,8 @@ unconditionally though none is written under kinetic charging. They now carry `r
 | Source | Why not, and what it would take |
 |---|---|
 | OpenTelemetry GenAI semantic conventions (`execute_tool`, `gen_ai.tool.name`, `gen_ai.usage.*`) | `observability.usage_record` is a bespoke per-LLM-call shape whose docstring makes it a contract ("additions must be backward-additive"). The right move is an **exporter** mapping it to the OTel attribute names, not a rename. No consumer exists yet. Note that there is no per-tool-call span: the analogue is `evidence.record`, which is opt-in (`CELLARIUM_EVIDENCE=1`) |
-| TRAJECT-Bench's *metrics* (tool selection, argument correctness, dependency/order satisfaction) | family 6 mitigates one failure mode; the trajectory metric itself is an **eval**, not a tool fix. The input it needs already exists — the v1–v6 discovery-leg traces carry every tool call in order — so this is scoring work on data in hand, and belongs with the eval suite |
-| pass@k / pass^k (Anthropic evals) | not implemented as a harness metric. It is immediately usable: the five Council replicates are literally a pass^k setup, and the right question of them is how often all five survive the same checks, not how good the best one is |
+| ~~TRAJECT-Bench's *metrics*~~ | **Built 2026-10-28** — see §5 below. `src/cellarium/trajectory.py` scores a recorded trajectory, `scripts/trajectory_eval.py` runs it, 16 tests |
+| ~~pass@k / pass^k (Anthropic evals)~~ | **Built 2026-10-28** in both places it was needed: `score_hypotheses.py` (the Council replicate set) and `trajectory.score_set` (the share of trajectories with no contract fault) |
 | AWS AgentCore evaluators, Google ADK `tool_trajectory_avg_score` | evaluator taxonomies that overlap the three rows above; adopting them wholesale would duplicate families 1–8 under other names. Revisit if the trajectory eval gets built |
 | StableToolBench | cited for *why* an environment fault must be separable from a result; its harness (caching unstable third-party APIs) does not apply — Cellarium's tools are local and deterministic, which families 3 and 4 already enforce |
 
@@ -129,6 +148,47 @@ unconditionally though none is written under kinetic charging. They now carry `r
 5. **Contract** — a refusal names its kind: `reason`, `about`, `next_step`.
 6. **Selection** — no two tool names are confusable without each saying when to use the other.
 7. **Agreement** — two views of one capability do not disagree, unless the difference is declared.
-8. **Declared sets** — a closed value set is an enum, and no declared value is one its own tool refuses.
+8. **Declared sets** — a closed value set is an enum, no declared value is one its own tool refuses, every
+   string parameter says what it means, and one glossary sentence never reaches two sites that disagree.
 
 Families 7 and 8 exist because of this audit. Both found real defects on their first run.
+
+---
+
+## 5. Scoring the trajectory, not the answer
+
+TRAJECT-Bench's point is that a correctness check on the final answer cannot see the agent picking a
+plausible-looking wrong tool or filling a parameter it had no basis for. Families 6 and 8 guard those at the
+schema level. They say nothing about what the agent actually did on a real question, so `trajectory.py` reads
+the recorded traces.
+
+**What it is not.** TRAJECT-Bench compares a trajectory against a GOLD trajectory for the task. There are no
+gold trajectories for Cellarium's questions, and writing them now — after reading these traces — would be
+drawing the target around the shot. So this is the **reference-free subset**: properties of the trace that are
+facts about it, checkable without anyone deciding in advance what the right sequence was.
+
+| measure | what it asks | fault? |
+|---|---|---|
+| selection validity | every called tool exists in the declared surface | yes |
+| argument validity | every call satisfies its own schema: required present, no unknown property, right type, enum respected | yes |
+| argument faults | calls the surface refused with `about == "request"` — the agent's fault by the error contract | yes |
+| grounding | a corpus handle (design label, result_id, gene) appears in the question or in an EARLIER output. One that appears in neither was invented | yes |
+| declared order | a tool whose own description calls itself the FIRST STEP was called first. The declaration is read out of the description, so it predates the trace | yes |
+| redundancy | identical (tool, arguments) repeated; retries of a tool that just errored | no — descriptive |
+
+**First run, on the six discovery-leg traces (134 tool calls):** 5 of 6 clean, pass^k = 0.83. No unknown tool,
+no schema-invalid call, every handle grounded. The one fault is `v4`, which opened on `list_results` while
+`survey_corpus`'s own description says *"FIRST STEP for any results question"* — the same trace whose chart drew
+the wrong seeds.
+
+**And the measure that could not be measured.** The first run reported a request-refusal rate of 0.000. Those
+traces were recorded on 2026-10-27, a day before `errors.py`: 13 of their calls errored and **none** carries an
+`about` field, so the trace cannot say whose fault a refusal was. 0.000 would have been an absence in the trace
+format presented as a fact about the agent. The set report is three-valued and says
+*"not measurable: 13 of 13 errors carry no `about`"*. Two tests hold that behaviour in place.
+
+Every measure is also tested against a trajectory built to violate exactly that measure — a check that cannot
+fail reports 1.00 forever.
+
+**Still not built:** an OpenTelemetry GenAI exporter for `observability.usage_record` (no consumer yet), and
+per-tool-call spans (`evidence.record` is the analogue and is opt-in).

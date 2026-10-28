@@ -387,3 +387,42 @@ def test_a_one_of_requirement_is_expressed_in_the_schema():
     spec = next(t for t in tools.TOOLS if t["name"] == "chart")
     branches = [set(b.get("required") or []) for b in (spec["input_schema"].get("anyOf") or [])]
     assert {"result_id"} in branches and {"results"} in branches and {"design"} in branches
+
+
+def test_every_string_parameter_says_what_it_means():
+    """39 string parameters carried no description at all (measured 2026-10-28), and the same names WERE
+    described on other tools — so what the model knew about `reference` depended on which tool it reached for.
+    The glossary in tools.py fills them from one place; this is the check that keeps it true."""
+    rows = conformance.every_string_parameter_says_what_it_means()
+    bare = [f"{r['tool']}.{r['param']}" for r in rows if not r["ok"]]
+    assert rows, "no string parameter was inspected"
+    assert not bare, f"string parameters with no description: {bare}"
+
+
+def test_the_glossary_only_speaks_where_one_sentence_can_be_true():
+    """One sentence keyed by a parameter NAME is only safe while every site it reached means the same thing.
+    `kind` is a species class on three tools and a chart type on `chart`; the glossary must not have reached
+    both. A future bare `kind` on a chart-like tool has to fail here."""
+    rows = conformance.glossary_sites_agree()
+    assert rows, "the glossary reached no site"
+    bad = [r for r in rows if not r["ok"]]
+    assert not bad, json.dumps(bad, indent=1)
+
+
+def test_a_site_whose_meaning_differs_writes_its_own_sentence():
+    """read_series resolves a design label through `_resolve_result`; list_species/read_species go straight to a
+    run path and a label is simply not found. The difference is DECLARED rather than smoothed over, because
+    making the species tools resolve labels would silently pick a representative seed."""
+    for name in ("list_species", "read_species"):
+        spec = next(t for t in tools.TOOLS if t["name"] == name)
+        text = spec["input_schema"]["properties"]["result_id"]["description"]
+        assert "does NOT accept a design label" in text, f"{name} no longer declares the difference"
+    read_series = next(t for t in tools.TOOLS if t["name"] == "read_series")
+    assert "resolves here" in read_series["input_schema"]["properties"]["result_id"]["description"]
+
+
+def test_a_description_a_tool_wrote_itself_is_never_overwritten():
+    """The filler writes only into an EMPTY description. `chart.kind` already says what a chart kind is."""
+    spec = next(t for t in tools.TOOLS if t["name"] == "chart")
+    assert "line = trajectory over time" in spec["input_schema"]["properties"]["kind"]["description"]
+    assert "chart" not in [t for t, _ in tools.glossary_sites().get("kind", [])]

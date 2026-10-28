@@ -1661,6 +1661,65 @@ _CHANNEL_PARAMS = {
 }
 
 
+# WHY A GLOSSARY. 39 string parameters carried NO description (measured 2026-10-28): `reference` on 7 tools,
+# `target` on 5, `perturbation` on 4, `design`/`result_id`/`gene`/`condition`/`kind` on 3 each. Every one of those
+# names IS described somewhere else in the surface — so the defect was never an undocumented vocabulary, it was
+# the SAME word documented on one tool and bare on the next, with which version the model saw decided by which
+# tool it happened to reach for. OpenAI's function-calling guidance ("if the values are enumerable, do not use a
+# free-form string") and TRAJECT-Bench's parameter-blind selection both name this. Written once, keyed by the
+# parameter name, so the answer cannot drift between tools.
+#
+# A REPEATED NAME DOES NOT ALWAYS MEAN THE SAME THING. `kind` is a species class on top_movers/list_species/
+# read_species and a chart type on `chart`; `search` is a substring here and a search strategy on
+# generate_designs. Those sites already carry their own sentence, and the filler only ever writes into an EMPTY
+# description — never over one. `enumeration_agreement`'s companion check then asserts that the tools a glossary
+# entry actually reached agree on their enum, so a future bare `kind` on a chart-like tool fails the sweep
+# instead of quietly inheriting the wrong sentence.
+_PARAM_GLOSSARY = {
+    "target": "the design under test, as a label 'perturbation/condition' (e.g. 'gene_knockout/KO:pfkA'); get "
+              "labels from survey_corpus or list_results.",
+    "reference": "the design to compare against, as a label 'perturbation/condition' (default 'wildtype/basal'). "
+                 "It must sit in the SAME comparability arm as the target — rows from different arms are not "
+                 "poolable; comparable_designs lists the legitimate references for a design.",
+    "design": "the design to read, as a label 'perturbation/condition' (e.g. 'condition/acetate').",
+    "design_a": "the design under test, as a label 'perturbation/condition'; design_b is its reference.",
+    "perturbation": "the variant type — one of the runnable perturbations design_space lists (wildtype, "
+                    "gene_knockout, condition, timeline, ...). Not a design label: pass the condition separately.",
+    "condition": "the static media condition (e.g. 'basal', 'acetate', 'with_aa'). Omit it to get every variant "
+                 "under the perturbation.",
+    "timeline": "media-shift events as 'time medium, time medium' (e.g. '0 minimal, 1200 minimal_acetate'), for "
+                "designs that change medium during the run rather than holding one condition.",
+    "gene": "a gene symbol, e.g. 'pfkA' (not a locus tag, not a protein id).",
+    "symbol": "a gene symbol, e.g. 'pfkA' (not a locus tag, not a protein id).",
+    "result_id": "one run's result_id. A design label like 'condition/acetate' also resolves here, to that "
+                 "design's representative run (qc-ok, lowest seed).",
+    "kind": "which class of species to read: protein, mrna, metabolite, reaction_flux, exchange_flux or unique.",
+    "search": "optional substring filter on the species name; omit for everything of that kind.",
+    "species_id": "the exact species id as list_species prints it (ids are model-internal, so list first).",
+    "regulon": "which fitted regulon to read, from the declared set — these five are the only ones with a "
+               "validated readout.",
+    "title": "optional figure title; omit and the figure is titled from the channel and the runs.",
+    "url": "the full https URL to GET. Allow-listed scientific hosts only (PubMed/OpenAlex/...); anything else "
+           "is refused rather than fetched.",
+}
+
+# Sites where the glossary sentence would be FALSE, so the site writes its own. Recorded here rather than left as
+# a silent exception: `read_series`/`read_raw_series`/`scan_series` run their argument through `_resolve_result`,
+# so a design label works there; `list_species`/`read_species` go straight to the run's simOut path and a label
+# is simply not found. That difference is undocumented in the code and was found by this audit. It is DECLARED
+# here rather than removed, because making the species tools resolve labels would pick a representative seed
+# silently — the same substitution that drew the wrong seeds on discovery leg v4.
+_PARAM_SITE_TEXT = {
+    ("list_species", "result_id"): "one run's result_id, exactly as the manifest gives it. Unlike read_series, "
+                                   "this tool does NOT accept a design label — resolve the design to a run first.",
+    ("read_species", "result_id"): "one run's result_id, exactly as the manifest gives it. Unlike read_series, "
+                                   "this tool does NOT accept a design label — resolve the design to a run first.",
+}
+
+
+_GLOSSARY_SITES: dict = {}
+
+
 def _declare_closed_sets() -> None:
     """Attach the enums and the missing descriptions, in one place, from the declared namespaces."""
     from . import instrument
@@ -1668,10 +1727,28 @@ def _declare_closed_sets() -> None:
     for spec in TOOLS:
         props = (spec.get("input_schema") or {}).get("properties") or {}
         for param, meta in props.items():
-            if (spec["name"], param) in _CHANNEL_PARAMS and isinstance(meta, dict):
+            if not isinstance(meta, dict):
+                continue
+            if (spec["name"], param) in _CHANNEL_PARAMS:
                 meta["enum"] = channels
                 if not meta.get("description"):
                     meta["description"] = "one of the declared summary channels"
+            if meta.get("type") != "string" or (meta.get("description") or "").strip():
+                continue
+            if (spec["name"], param) in _PARAM_SITE_TEXT:
+                meta["description"] = _PARAM_SITE_TEXT[(spec["name"], param)]
+            elif param in _PARAM_GLOSSARY:
+                meta["description"] = _PARAM_GLOSSARY[param]
+                # Recorded OUTSIDE the schema: a bookkeeping key inside `properties` would ship to the model as
+                # part of the JSON schema it has to satisfy.
+                _GLOSSARY_SITES.setdefault(param, []).append((spec["name"], tuple(meta.get("enum") or ())))
+
+
+def glossary_sites() -> dict:
+    """Which (tool, param) pairs took their description from `_PARAM_GLOSSARY`, with each site's enum. The
+    conformance sweep checks only the sites the glossary actually reached — a site that writes its own sentence
+    is free to mean something else."""
+    return {k: list(v) for k, v in _GLOSSARY_SITES.items()}
 
 
 _declare_closed_sets()

@@ -465,6 +465,37 @@ def channels_declare_when_they_are_recorded() -> list[dict]:
 # those two would be useless, so tools whose other required arguments cannot be filled are reported as
 # `not_exercised` rather than counted as passes.
 
+def every_string_parameter_says_what_it_means() -> list[dict]:
+    """A string parameter with an empty description asks the model to guess a value out of nothing. 39 of them
+    were doing exactly that on 2026-10-28, and the same names were described on OTHER tools — so what the model
+    knew about `reference` depended on which tool it reached for. One row per remaining bare parameter."""
+    from . import tools
+    out = []
+    for t in tools.TOOLS:
+        props = ((t.get("input_schema") or {}).get("properties") or {})
+        for param, meta in props.items():
+            if not isinstance(meta, dict) or meta.get("type") != "string":
+                continue
+            described = bool((meta.get("description") or "").strip())
+            out.append({"tool": t["name"], "param": param, "describes_itself": described,
+                        "has_enum": bool(meta.get("enum")), "ok": described})
+    return out
+
+
+def glossary_sites_agree() -> list[dict]:
+    """The guard on the glossary itself. One sentence keyed by a parameter NAME is only safe while every site it
+    reached means the same thing by that name — `kind` is a species class on three tools and a chart type on
+    `chart`. The sites that write their own sentence are not checked; the ones the glossary filled must share an
+    enum, so a future bare `kind` on a chart-like tool fails here instead of inheriting the wrong sentence."""
+    from . import tools
+    out = []
+    for param, sites in sorted(tools.glossary_sites().items()):
+        enums = {e for _, e in sites}
+        out.append({"param": param, "n_sites": len(sites), "tools": [t for t, _ in sites],
+                    "distinct_enums": len(enums), "ok": len(enums) <= 1})
+    return out
+
+
 def enum_honesty(calls: dict[str, dict], heavy: bool = False) -> list[dict]:
     """Every enum value of every read-only tool, called. A failure is a declared value the tool rejects as a bad
     argument; `calls` supplies the plausible values for that tool's other arguments."""

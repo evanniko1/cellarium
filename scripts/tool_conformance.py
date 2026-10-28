@@ -7,7 +7,9 @@
 
 Prints one line per finding and writes the full report as JSON. Exit status 1 if any tool string-cuts its output,
 returns an empty success from an unreadable source, changes its answer when rows are reordered, refuses without a
-reason the registry can name, or answers an unresolvable argument without marking it unknown.
+reason the registry can name, answers an unresolvable argument without marking it unknown, declares an enum value
+its own tool refuses, leaves a string parameter with no description, or reaches two disagreeing sites with one
+glossary sentence.
 """
 from __future__ import annotations
 
@@ -53,7 +55,9 @@ def main() -> int:
               "confusable": conformance.confusable_pairs(),
               "enumeration_agreement": conformance.enumeration_agreement(),
               "channel_recording": conformance.channels_declare_when_they_are_recorded(),
-              "enum_honesty": conformance.enum_honesty(calls, a.heavy)}
+              "enum_honesty": conformance.enum_honesty(calls, a.heavy),
+              "param_descriptions": conformance.every_string_parameter_says_what_it_means(),
+              "glossary_sites": conformance.glossary_sites_agree()}
     with tempfile.TemporaryDirectory() as tmp:
         report["absence"] = conformance.absence_sweep(calls, Path(tmp), a.heavy)
 
@@ -113,6 +117,17 @@ def main() -> int:
                   f"({[x['value'] for x in r['rejected']][:4]})")
         elif r["verdict"] == "not_exercised":
             print(f"skip     {r['tool']}.{r['param']}: {r['n_values']} values, no sample call to exercise them")
+    for r in report["param_descriptions"]:
+        if not r["ok"]:
+            bad += 1
+            print(f"PARAM    {r['tool']}.{r['param']}: a string parameter with no description — the model is "
+                  f"asked to pick a value out of nothing")
+    for r in report["glossary_sites"]:
+        if not r["ok"]:
+            bad += 1
+            print(f"GLOSS    {r['param']}: one glossary sentence reached {r['n_sites']} sites with "
+                  f"{r['distinct_enums']} different enums ({r['tools']}) — it cannot mean the same thing at all "
+                  f"of them")
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     print(f"{bad} failure(s); report: {a.out}")
