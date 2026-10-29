@@ -9,9 +9,10 @@ Prints one line per finding and writes the full report as JSON. Exit status 1 if
 returns an empty success from an unreadable source, changes its answer when rows are reordered, refuses without a
 reason the registry can name, answers an unresolvable argument without marking it unknown, declares an enum value
 its own tool refuses, leaves a string parameter with no description, reaches two disagreeing sites with one
-glossary sentence, re-reads a fact that has a declared resolver, or -- with the run directory absent or a listener
-column unwritten -- answers an empty success, misclassifies whose fault that is, or drops a fact it had already
-resolved from the design's own declaration.
+glossary sentence, re-reads a fact that has a declared resolver, blames anything but the caller for a required
+argument left out or sent as null, declares an argument optional that its own signature requires, or -- with the
+run directory absent or a listener column unwritten -- answers an empty success, misclassifies whose fault that
+is, or drops a fact it had already resolved from the design's own declaration.
 """
 from __future__ import annotations
 
@@ -64,6 +65,8 @@ def main() -> int:
               "determinism": conformance.determinism_sweep(calls, a.heavy),
               "descriptions": conformance.description_claims(),
               "contract": conformance.contract_sweep(a.heavy),
+              "required_arguments": conformance.required_argument_sweep(a.heavy),
+              "declared_required": conformance.declared_required_matches_signature(),
               "unregistered_messages": conformance.unregistered_messages(),
               "confusable": conformance.confusable_pairs(),
               "enumeration_agreement": conformance.enumeration_agreement(),
@@ -130,6 +133,15 @@ def main() -> int:
         elif r["verdict"] == "answered" and not r["marks_unknown_input"]:
             bad += 1
             print(f"CONTRACT {r['tool']}: answered an unresolvable argument without marking it unknown")
+    for r in report["required_arguments"]:
+        if r["verdict"] == "fail":
+            bad += 1
+            print(f"REQARG/{r['grain']} {r['tool']}({r['argument']}): {r['why']} - "
+                  f"{str(r.get('detail') or r.get('message'))[:120]}")
+    for r in report["declared_required"]:
+        if r["verdict"] == "fail":
+            bad += 1
+            print(f"DECLARED {r['tool']}({r['argument']}): {r['why']}")
     for r in report["unregistered_messages"]:
         if r["dynamic"]:
             print(f"dynamic  {r['module']}: \"{r['message']}\" - classified at runtime from the exception name")

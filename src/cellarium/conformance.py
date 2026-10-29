@@ -618,6 +618,139 @@ def unregistered_messages() -> list[dict]:
     return found
 
 
+# ---- 5b. CONTRACT, at the grain of ONE ABSENT ARGUMENT ------------------------------------------------------
+#
+# Family 5 passes every tool an UNRESOLVABLE value for every argument it accepts. It never leaves one OUT, and
+# never passes `null`. Those two are what a model actually sends when it cannot fill a field, and both were
+# misattributed — the first by the error table, the second by the tools:
+#
+#   * LEFT OUT. The pre-check's own message, `missing required argument(s) for '<tool>': <field>`, matched no
+#     pattern, so it fell through to `unclassified` → `(environment, register_the_reason)`. The agent was told
+#     this machine was at fault and handed a DEVELOPER's instruction as its next step, for a mistake it had
+#     made itself and could have fixed in one retry. Its sibling, `unknown argument(s)`, classified correctly
+#     all along, which is why the gap survived: the contract family looked covered.
+#   * GIVEN AS `null`. The pre-check tested only for the KEY, so a null was passed through to the tool, which
+#     resolved it, failed somewhere downstream, and reported THAT. 26 of the 36 (tool, argument) pairs answered
+#     the caller's mistake with a statement about something else: 13 blamed this machine (10 `no_local_raw` →
+#     `use_another_tool_or_download`, telling the agent to download data it already had, and 3 crashes on
+#     `None.split`/`None.startswith` → `report_defect`); 7 blamed the CORPUS, which is the one class this
+#     package treats as evidence — `disconfirm(target=null)` and `fit_relation(x_channel=null)` returning
+#     `insufficient_data` is a fabricated negative result about a comparison whose target, or whose axis, was
+#     never named — and it arrives in the one channel an agent is entitled to write down; and 6
+#     ANSWERED, `provenance(perturbation=null)` replying `out_of_sample` being a claim about a perturbation
+#     that was never named. Only 10 of 36 already said `request`.
+#
+#     Those 26 are what the sweep reports on the pre-fix tree, and they are the reason the remedy is one guard
+#     at the boundary rather than 26 argument checks: the fault is the same in every one of them, and a guard
+#     per tool is 26 chances to forget.
+#
+# The remedy is one guard at the pre-check — a required argument present as `null` is a required argument the
+# caller has no value for, which is the same fault as omitting the key — plus one pattern in the error table.
+# This sweep is what makes that stay true. Note what it does and does not establish: both grains are refused at
+# the SAME boundary for every tool, so the 54 rows do not test 54 independent implementations, and this sweep
+# would not have found 54 separate bugs. It is a ratchet. The per-tool grain is there so that a tool which
+# later grows its own argument handling, or a dispatch path that stops running the pre-check, fails a check
+# rather than passing one. `declared_required_matches_signature` below is the per-tool half.
+
+_ARG_GRAINS = ("absent", "null")
+
+
+def required_argument_sweep(heavy: bool = False) -> list[dict]:
+    """For every tool with required arguments, leave each one out in turn and then pass each one as `null`, and
+    report how the refusal is classified. A PASS is an error carrying a registered reason whose `about` is
+    `request`: the caller's fault, with a caller-side remedy. Anything else is the failure — an answer, a raised
+    exception, an unregistered reason, or a refusal that blames the environment, the corpus or a policy for an
+    incomplete call. A tool whose requirement is a one-of-N `anyOf` branch is probed once with no branch
+    satisfied, since the pre-check reads only top-level `required` and that case is the tool's own to handle."""
+    from . import errors, tools
+    rows = []
+    for t in tools.TOOLS:
+        name = t["name"]
+        if _skip(name, heavy):
+            continue
+        schema = t.get("input_schema") or {}
+        props = (schema.get("properties") or {})
+        required = list(schema.get("required") or [])
+        branches = [list((b or {}).get("required") or []) for b in (schema.get("anyOf") or [])]
+        probes = [(k, g) for k in required for g in _ARG_GRAINS]
+        if not required and any(branches):
+            # No top-level requirement, but the schema says one of N groups is needed. Satisfy none of them.
+            probes = [("|".join(sorted({k for b in branches for k in b})), "no_branch")]
+        if not probes:
+            rows.append({"tool": name, "verdict": "no_required_arguments"})
+            continue
+        for arg, grain in probes:
+            if grain == "no_branch":
+                args = {}
+            else:
+                args = {a: _bad_value(props.get(a)) for a in required}
+                if grain == "absent":
+                    args.pop(arg, None)
+                else:
+                    args[arg] = None
+            out = call(name, args)
+            row = {"tool": name, "argument": arg, "grain": grain}
+            if "_exception" in out:
+                rows.append({**row, "verdict": "fail", "why": "raised instead of refusing",
+                             "detail": out["_exception"]})
+                continue
+            if "error" not in out:
+                rows.append({**row, "verdict": "fail", "why": "answered an incomplete call",
+                             "detail": json.dumps(out, default=str)[:200]})
+                continue
+            reason, about = out.get("reason"), out.get("about")
+            registered = reason in errors.REASONS and reason != "unclassified"
+            why = (None if registered and about == "request" else
+                   "error carries no registered reason" if not registered else
+                   f"an incomplete call blamed on {about!r}")
+            rows.append({**row, "verdict": "ok" if why is None else "fail", "reason": reason, "about": about,
+                         "next_step": out.get("next_step"), "why": why,
+                         "message": str(out.get("error"))[:160]})
+    return rows
+
+
+def declared_required_matches_signature() -> list[dict]:
+    """Where a tool's declared `required` set and its function's own un-defaulted parameters disagree. Static —
+    it calls no tool and reads no store. Only ONE of the two directions is a defect:
+
+      * `schema_omits_a_needed_argument` IS the defect. The agent is told a field is optional, omits it, the
+        pre-check passes it through, and the call raises a TypeError. It is classified correctly today (the
+        TypeError branch of `dispatch` produces `bad arguments for …`, which the table does name) — so the cost
+        is not a misattribution but the message: a raw TypeError rather than a refusal naming the field.
+      * `schema_is_stricter_than_the_signature` is DELIBERATE here, and is reported without being a failure.
+        Three tools do it, each so the agent must be explicit about a choice that would otherwise be silent:
+        `read_raw_series(channel)` would quietly default to growth_rate, `list_species(kind)` to protein. The
+        Python default stays for direct calls in notebooks and tests; the schema is the agent's contract and is
+        allowed to ask for more."""
+    import inspect
+
+    from . import tools
+    rows = []
+    for t in tools.TOOLS:
+        name = t["name"]
+        fn = tools._DISPATCH.get(name)
+        if fn is None:
+            continue
+        try:
+            sig = inspect.signature(fn)
+        except (TypeError, ValueError):
+            continue
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+            continue   # takes **kwargs; nothing is structurally required
+        declared = set((t.get("input_schema") or {}).get("required") or [])
+        needed = {k for k, p in sig.parameters.items()
+                  if p.default is inspect.Parameter.empty
+                  and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)}
+        for arg in sorted(needed - declared):
+            rows.append({"tool": name, "argument": arg, "direction": "schema_omits_a_needed_argument",
+                         "verdict": "fail",
+                         "why": "the signature has no default, so omitting it raises instead of refusing"})
+        for arg in sorted(declared - needed):
+            rows.append({"tool": name, "argument": arg,
+                         "direction": "schema_is_stricter_than_the_signature", "verdict": "declared",
+                         "why": "the agent must choose explicitly; the Python default is for direct calls"})
+    return rows
+
 # ---- 6. SELECTION: no two tools are confusable without saying so --------------------------------------------
 #
 # TRAJECT-Bench (He et al., ICLR 2026) names "similar tool confusion" — the model picks a near-duplicate tool —

@@ -1853,7 +1853,8 @@ def _closest_tool(name: str) -> str | None:
 def _validate_args(name: str, args: dict) -> str | None:
     """Semantic pre-validation of a tool call (AG-3). Catches the two mistakes an LLM tool call actually makes and
     names the exact field, instead of letting them surface as an opaque TypeError deep in the tool:
-      * MISSING required argument — from the tool's declared schema (the contract the agent was given), and
+      * MISSING required argument — from the tool's declared schema (the contract the agent was given), which
+        counts an argument PRESENT AS `null` as missing, because that is the same fault and the commoner one, and
       * UNKNOWN argument — checked against the tool function's ACTUAL signature (not the schema, which can
         under-declare properties), so this only ever flags a kwarg the call would have TypeError'd on anyway.
     Deliberately does NOT type-check (many tools accept int-as-float or symbol-or-list — an over-strict type guard
@@ -1862,9 +1863,22 @@ def _validate_args(name: str, args: dict) -> str | None:
 
     args = args or {}
     required = (_TOOL_SCHEMA.get(name) or {}).get("required") or []
+    # A required argument given as `null` is the caller having no value for it, which is the same fault as
+    # leaving it out — and the commoner one, since a model that cannot fill a field emits `null` rather than
+    # omitting the key. Before this it was passed THROUGH, and what came back was whatever the tool's own
+    # resolution happened to fail on. Measured over the 36 (tool, required argument) pairs the 5b sweep probes,
+    # 26 of them answered the caller's mistake with a statement about something else: 13 blamed this machine
+    # (10 `no_local_raw` → go download data already present, 3 crashes on `None.split`/`None.startswith` →
+    # `report_defect`), 7 blamed the CORPUS — `disconfirm` and `fit_relation` reporting `insufficient_data`, a
+    # fabricated negative result, in the one class this package treats as evidence — and 6 answered outright,
+    # `provenance(perturbation=null)` replying "out_of_sample" about a perturbation that was never named. Only
+    # 10 of 36 already said `request`.
     missing = [k for k in required if k not in args]
-    if missing:
-        return f"missing required argument(s) for '{name}': {', '.join(missing)} (schema requires {required})"
+    nulled = [k for k in required if k in args and args[k] is None]
+    if missing or nulled:
+        named = missing + [f"{k} (given as null)" for k in nulled]
+        return (f"missing required argument(s) for '{name}': {', '.join(named)} "
+                f"(schema requires {required})")
     fn = _DISPATCH.get(name)
     try:
         sig = inspect.signature(fn)

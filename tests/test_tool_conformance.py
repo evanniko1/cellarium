@@ -315,6 +315,150 @@ def test_an_exact_match_filter_with_an_unknown_value_is_an_argument_error_not_a_
     assert out.get("n") is None, "it must not also report a count that reads as absence"
 
 
+# ---- 5b. CONTRACT, at the grain of one absent argument -----------------------------------------------------
+
+def test_a_required_argument_left_out_or_sent_as_null_is_the_callers_fault():
+    """Family 5b. Family 5 sends an unresolvable VALUE for every argument; it never leaves one out and never
+    sends `null`. Both of those are `request` faults with a caller-side remedy, and nothing else: an incomplete
+    call must not come back as a statement about this machine, about the corpus, or as an answer."""
+    rows = conformance.required_argument_sweep()
+    failures = [r for r in rows if r["verdict"] == "fail"]
+    assert not failures, json.dumps(failures, indent=1, default=str)
+
+
+def test_the_required_argument_sweep_is_exercised_and_not_merely_green():
+    """A sweep that probes nothing passes. Pin the shape: both grains, over a broad set of tools, and every
+    row either carries a verdict or says the tool has no required arguments."""
+    rows = conformance.required_argument_sweep()
+    probed = [r for r in rows if r["verdict"] != "no_required_arguments"]
+    assert len(probed) >= 40, f"only {len(probed)} probes"
+    assert len({r["tool"] for r in probed}) >= 20
+    by_grain = {g: [r for r in probed if r["grain"] == g] for g in conformance._ARG_GRAINS}
+    for g, got in by_grain.items():
+        assert len(got) >= 15, f"grain {g!r} was probed {len(got)} times"
+    # the two argument grains are symmetric: the same (tool, argument) pairs, one left out and one nulled
+    assert ({(r["tool"], r["argument"]) for r in by_grain["absent"]}
+            == {(r["tool"], r["argument"]) for r in by_grain["null"]})
+
+
+def test_the_registry_names_the_fault_the_schema_pre_check_raises():
+    """The defect this family was built for. `unknown argument(s)` classified correctly from the day it was
+    written; `missing required argument(s)`, raised at the same line of the same function, matched no pattern
+    and fell through to `unclassified` -> `(environment, register_the_reason)`: the agent was told this machine
+    was at fault, and handed a developer's instruction, over a mistake in its own call."""
+    missing = errors.classify("missing required argument(s) for 'read_raw_series': channel "
+                              "(schema requires ['result_id', 'channel'])")
+    assert missing == "missing_argument"
+    assert errors.REASONS[missing][0] == "request"
+    # its sibling, and the distinction between them: a value to change vs. a value to supply
+    unknown = errors.classify("unknown argument(s) for 'read_raw_series': foo - accepts ['channel']")
+    assert unknown == "bad_argument" and unknown != missing
+    assert errors.REASONS[unknown][0] == "request"
+
+
+@pytest.mark.parametrize("tool,args,was", [
+    # crashed on None.split / None.startswith -> runtime_fault -> "report_defect"
+    ("comparable_designs", {"design": None}, "runtime_fault"),
+    ("similar_designs", {"design": None}, "runtime_fault"),
+    ("bimodality", {"channel": None}, "runtime_fault"),
+    # resolved the null to no design, then reported the DOWNSTREAM consequence -> "go download the data"
+    ("read_raw_series", {"result_id": None, "channel": "growth_rate"}, "no_local_raw"),
+    # answered: a claim about a perturbation that was never named
+    ("provenance", {"perturbation": None}, "answered out_of_sample"),
+])
+def test_a_null_for_a_required_argument_never_reaches_the_tool(tool, args, was):
+    """A model that cannot fill a field sends `null`, not an absent key, so this is the commoner of the two
+    grains -- and before the guard it was the worse one, because the null was passed THROUGH and whatever the
+    tool failed on downstream became the answer. Each case here is one of those, by its old reason."""
+    out = tools.dispatch(tool, args)
+    assert "error" in out, f"{tool} answered a call with no value for a required field (was: {was})"
+    assert out["reason"] == "missing_argument", f"{tool} was {was!r}, is {out['reason']!r}"
+    assert out["about"] == "request"
+    assert "null" in out["error"], "the message should say the field was given as null, not merely absent"
+
+
+def test_a_null_for_an_OPTIONAL_argument_still_reaches_the_tool():
+    """The boundary of the guard, which is the part that could break working calls. `null` means "no value",
+    and for an argument the contract declares OPTIONAL that is a legitimate thing to say -- it selects the
+    default. Only a REQUIRED argument may not be null."""
+    out = tools.dispatch("list_results", {"perturbation": None})
+    assert "error" not in out and out.get("n"), out
+    assert not (tools._TOOL_SCHEMA["list_results"].get("required") or []), \
+        "this test is only meaningful while the argument is optional"
+
+
+def test_the_sweep_fails_when_the_pattern_it_was_built_for_is_removed():
+    """The instrument has to detect the defect it was built for, or it is decoration. Take the one pattern back
+    out of the error table and the same sweep must go red -- which is also the proof that the 73 green rows are
+    reading the classification and not just the presence of an error."""
+    saved = list(errors.PATTERNS)
+    try:
+        errors.PATTERNS[:] = [(p, r) for p, r in saved if r != "missing_argument"]
+        rows = [r for r in conformance.required_argument_sweep()
+                if r["verdict"] != "no_required_arguments"]
+        failed = [r for r in rows if r["verdict"] == "fail"]
+        assert len(failed) >= 40, f"only {len(failed)} of {len(rows)} went red without the pattern"
+        assert {r["reason"] for r in failed} == {"unclassified"}
+        assert {r["about"] for r in failed} == {"environment"}
+    finally:
+        errors.PATTERNS[:] = saved
+    assert not [r for r in conformance.required_argument_sweep() if r["verdict"] == "fail"], \
+        "the table was not restored"
+
+
+def test_the_sweep_fails_when_a_null_is_passed_through_to_the_tool():
+    """The other half, forced the same way: restore the pre-check that tested only for the KEY. What comes back
+    is not one failure mode but several, which is the argument for a guard at the boundary rather than an
+    argument check in each tool -- and 7 of them blame the CORPUS, the one class this package treats as
+    evidence, so `disconfirm(target=null)` reports too little data to disconfirm a comparison whose target was
+    never named."""
+    def key_presence_only(name, args):
+        args = args or {}
+        required = (tools._TOOL_SCHEMA.get(name) or {}).get("required") or []
+        missing = [k for k in required if k not in args]
+        if missing:
+            return (f"missing required argument(s) for '{name}': {', '.join(missing)} "
+                    f"(schema requires {required})")
+        return None
+
+    saved = tools._validate_args
+    try:
+        tools._validate_args = key_presence_only
+        rows = [r for r in conformance.required_argument_sweep() if r.get("grain") == "null"]
+        failed = [r for r in rows if r["verdict"] == "fail"]
+        assert len(failed) >= 20, f"only {len(failed)} of {len(rows)} null probes went red"
+        assert {r.get("about") for r in failed} >= {"environment", "corpus"}, \
+            "the point is that an incomplete call was answered as evidence about the corpus"
+        assert any(r["why"] == "answered an incomplete call" for r in failed)
+    finally:
+        tools._validate_args = saved
+    assert not [r for r in conformance.required_argument_sweep() if r["verdict"] == "fail"], \
+        "the pre-check was not restored"
+
+
+def test_no_tool_declares_an_argument_optional_that_its_own_signature_requires():
+    """The static half, and the only direction that is a defect: the schema is the contract the agent reads, so
+    an argument the function cannot do without has to be in `required`. Otherwise the agent is invited to omit
+    it, the pre-check passes the call through, and it raises instead of refusing."""
+    rows = conformance.declared_required_matches_signature()
+    bad = [r for r in rows if r["verdict"] == "fail"]
+    assert not bad, json.dumps(bad, indent=1)
+
+
+def test_a_schema_stricter_than_its_signature_is_a_declaration_not_a_defect():
+    """The other direction, reported without failing. These are deliberate: the Python default is for direct
+    calls, while the schema makes the agent choose a value that would otherwise be picked for it silently."""
+    rows = [r for r in conformance.declared_required_matches_signature()
+            if r["direction"] == "schema_is_stricter_than_the_signature"]
+    assert rows, "the check reports nothing, so it is not reading the signatures"
+    import inspect
+    for r in rows:
+        assert r["verdict"] == "declared"
+        sig = inspect.signature(tools._DISPATCH[r["tool"]])
+        assert sig.parameters[r["argument"]].default is not inspect.Parameter.empty, \
+            "it is only a declaration if the signature really does have a default to override"
+        assert r["argument"] in (tools._TOOL_SCHEMA[r["tool"]].get("required") or [])
+
 # ---- 6. SELECTION ----------------------------------------------------------------------------------------
 
 def test_every_confusable_pair_of_tool_names_says_when_to_use_the_other():

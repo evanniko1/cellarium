@@ -51,6 +51,11 @@ REASONS: dict[str, tuple[str, str]] = {
     "unknown_entity": ("request", "fix_argument"),   # a named reaction, metabolite, regulon, skill, capability
     "unknown_tool": ("request", "fix_argument"),
     "bad_argument": ("request", "fix_argument"),
+    # Separate from `bad_argument` on purpose: the remedy differs in kind. `bad_argument` means "the value you
+    # sent cannot be used" -- change it. `missing_argument` means "you sent no value for a field the contract
+    # declares required" -- supply one. Both are `request`, which is the half that matters; the reason code is
+    # what tells the agent which of the two it is without parsing the message.
+    "missing_argument": ("request", "fix_argument"),
     # A fact the tool needs IS recorded somewhere, but not in the one place the tool reads. The caller can fix
     # it by supplying the value, so it is a `request` fault with a caller-side remedy -- and emphatically NOT
     # `corpus`, because "the design has no shift" was the wrong half of what the old message said.
@@ -74,7 +79,12 @@ REASONS: dict[str, tuple[str, str]] = {
 
 # Ordered: the first pattern that matches wins, so narrow phrasings come before broad ones.
 PATTERNS: list[tuple[re.Pattern, str]] = [(re.compile(p, re.I), r) for p, r in [
-    # --- deliberate refusals, first: several of them contain the word "no" or "not" ---
+    # --- first, because it is the narrowest phrasing in the table and the only one raised BEFORE the tool ran.
+    # Its message interpolates argument names, and an argument could be called anything ("raw_path", "no_cache"),
+    # so leaving it lower down would let a pattern written for the environment match on a field name. A fault
+    # detected by the schema pre-check cannot be anything but the caller's. ---
+    (r"missing required argument", "missing_argument"),
+    # --- deliberate refusals, next: several of them contain the word "no" or "not" ---
     (r"safety-?blocked|refus(ing|ed) to|needs a reason|only a pending draft|not pending_approval"
      r"|biosecurity|is (not available|write-gated) over MCP|only in unattended mode"
      r"|not listed on this surface|is not fetchable|are not permitted", "refused_by_policy"),
