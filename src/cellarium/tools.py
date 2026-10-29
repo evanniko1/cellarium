@@ -709,7 +709,18 @@ def read_raw_series(result_id: str, channel: str = "growth_rate", max_points: in
     except KeyError:
         return {"error": f"channel '{channel}' has no raw mapping; try {sorted(rawmod.CHANNELS)}."}
     if t.size == 0:
-        return {"error": f"no readable '{channel}' trajectory in the raw simOut for that seed."}
+        # THE RUN IS HERE AND THE COLUMN IS NOT. Found by the channel-grain absence sweep: the old message
+        # classified as `no_local_raw` -> `about: environment`, which tells the reader this machine could not
+        # look and invites a re-download that cannot help. An unwritten listener column is a property of the
+        # CORPUS, and `channel_not_recorded` is the registered (corpus, use_another_channel) reason for it.
+        return errors.fail(
+            "channel_not_recorded",
+            f"'{channel}' has no recorded values in {run['result_id']} — the run directory is on this machine, "
+            f"and the listener wrote no usable timesteps for this column (the ppGpp module writes ppgpp_conc, "
+            f"rela_conc and spot_conc only when it is on, and ribosome_conc is never written under kinetic "
+            f"charging).",
+            design_or_id=run["result_id"], channel=channel,
+            recorded_here=sorted(rawmod.recorded_channels(run["root"])))
     rigor.note_result(run["result_id"])
     import numpy as _np
 
@@ -757,7 +768,18 @@ def scan_series(result_id: str, channel: str = "growth_rate", min_effect_mad: fl
     except KeyError:
         return {"error": f"channel '{channel}' has no raw mapping; try {sorted(rawmod.CHANNELS)}."}
     if t.size == 0:
-        return {"error": f"no readable '{channel}' trajectory in the raw simOut for that seed."}
+        # THE RUN IS HERE AND THE COLUMN IS NOT. Found by the channel-grain absence sweep: the old message
+        # classified as `no_local_raw` -> `about: environment`, which tells the reader this machine could not
+        # look and invites a re-download that cannot help. An unwritten listener column is a property of the
+        # CORPUS, and `channel_not_recorded` is the registered (corpus, use_another_channel) reason for it.
+        return errors.fail(
+            "channel_not_recorded",
+            f"'{channel}' has no recorded values in {run['result_id']} — the run directory is on this machine, "
+            f"and the listener wrote no usable timesteps for this column (the ppGpp module writes ppgpp_conc, "
+            f"rela_conc and spot_conc only when it is on, and ribosome_conc is never written under kinetic "
+            f"charging).",
+            design_or_id=run["result_id"], channel=channel,
+            recorded_here=sorted(rawmod.recorded_channels(run["root"])))
     rigor.note_result(run["result_id"])
     return scan.scan_channel(t, v, channel, run, min_effect_mad=float(min_effect_mad),
                              min_width=int(min_width), fdr=float(fdr))
@@ -777,23 +799,40 @@ def scan_overview(design: str, channels: list | None = None, min_effect_mad: flo
         return {"error": f"no local raw simOut for '{design}' — see data_availability for the HF/regenerate path."}
     run = next((r for r in runs if r["result_id"] == design), runs[0])
     rigor.note_result(run["result_id"])
-    by_channel = []
+    by_channel, skipped = [], []
     for ch in (channels or _OVERVIEW_CHANNELS):
         try:
             t, v = rawmod.seed_channel(run["root"], ch)
         except KeyError:
+            skipped.append({"channel": ch, "why": "no raw mapping for this channel name"})
             continue
         if t.size == 0:
+            # A SKIPPED CHANNEL MUST BE NAMED. The channel-grain absence sweep caught this silently: with
+            # growth_rate and ppgpp_conc unwritten, `channels_scanned` went from 5 to 3 and nothing said which
+            # two had gone, so "no transient in growth_rate" and "growth_rate was never scanned" read the same.
+            # This is the shape rule -- say what was dropped -- applied to channels rather than to bytes.
+            skipped.append({"channel": ch, "why": "the listener wrote no usable timesteps for this column in "
+                                                  "this run; not scanned, which is not the same as flat"})
             continue
         res = scan.scan_channel(t, v, ch, run, min_effect_mad=float(min_effect_mad))
         top = max(res["events"], key=lambda e: e["magnitude_mad"]) if res["events"] else None
         by_channel.append({"channel": ch, "n_events": res["n_events"],
                            "max_magnitude_mad": (top["magnitude_mad"] if top else 0.0), "top_event": top})
     by_channel.sort(key=lambda x: x["max_magnitude_mad"], reverse=True)
+    asked = list(channels or _OVERVIEW_CHANNELS)
+    if not by_channel:
+        return errors.fail(
+            "channel_not_recorded",
+            f"none of the {len(asked)} requested channels has recorded values in {run['result_id']}; nothing "
+            f"was scanned, so this is not an absence of events.",
+            design=design, channels_requested=asked, channels_not_recorded=skipped)
     return {"design": design, "result_id": run["result_id"], "seed": run["seed"],
-            "channels_scanned": len(by_channel), "by_channel": by_channel,
+            "channels_requested": len(asked), "channels_scanned": len(by_channel), "by_channel": by_channel,
+            "channels_not_recorded": skipped,
             "note": ("Anomaly map across channels, ranked by the strongest event per channel — call scan_series on a "
-                     "channel for its full FDR-controlled event list. Empty everywhere != flat (loosen min_effect_mad).")}
+                     "channel for its full FDR-controlled event list. Empty everywhere != flat (loosen "
+                     "min_effect_mad). `channels_not_recorded` lists channels that were NOT scanned at all: a "
+                     "channel missing from `by_channel` for that reason has no event verdict either way.")}
 
 
 def variance_band(design: str, channel: str = "growth_rate", n_points: int = 40) -> dict:

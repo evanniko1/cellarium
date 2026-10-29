@@ -150,6 +150,18 @@ def scan_corpus(limit_runs: int = 40) -> dict:
             roots.append((survey.design_key(r), p))
         if len(roots) >= limit_runs:
             break
+    # NO CLEAN BILL OF HEALTH OVER NOTHING. With no run directory on this machine `roots` is empty and this
+    # function used to return `{"n_runs_scanned": 0, "n_columns_flagged": 0, "n_high": 0, "ok": true}` - a
+    # guard reporting PASS for a corpus it never opened, which is the exact silent-absence shape the guard
+    # itself exists to catch. Found by the run-grain absence sweep.
+    if not roots:
+        from . import errors
+        return errors.fail(
+            "no_local_raw",
+            "no run directory with simOut was readable on this machine, so no column was scanned for "
+            "truncation. This is NOT a pass: the check has no verdict to give.",
+            n_runs_scanned=0, n_rows_considered=len(rows), limit_runs=limit_runs)
+
     # collect per (column, run) so widths can be compared ACROSS runs — the deterministic truncation evidence
     per_col: dict = {}
     for design, root in roots:

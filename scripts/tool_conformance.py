@@ -9,7 +9,9 @@ Prints one line per finding and writes the full report as JSON. Exit status 1 if
 returns an empty success from an unreadable source, changes its answer when rows are reordered, refuses without a
 reason the registry can name, answers an unresolvable argument without marking it unknown, declares an enum value
 its own tool refuses, leaves a string parameter with no description, reaches two disagreeing sites with one
-glossary sentence, or re-reads a fact that has a declared resolver.
+glossary sentence, re-reads a fact that has a declared resolver, or -- with the run directory absent or a listener
+column unwritten -- answers an empty success, misclassifies whose fault that is, or drops a fact it had already
+resolved from the design's own declaration.
 """
 from __future__ import annotations
 
@@ -38,13 +40,24 @@ def main() -> int:
     if not keys:
         print("the store has no reportable designs; nothing to sweep")
         return 1
-    ko = next((k for k in keys if "/KO:" in k), keys[0])
+    # PREFER A DESIGN WHOSE RAW IS ON THIS MACHINE. The old choice was the first knockout key in sort order,
+    # which on this corpus is `gene_knockout/KO:alaS` -- one of the 17 designs whose seed directories were pruned
+    # to HuggingFace. Every raw-reading tool then answers "no local raw" for the baseline call too, so the
+    # absence sweeps have nothing to take away and report themselves as not exercised.
+    # The CHEAPEST design that still has data: one local seed is enough to make every raw-reading tool take its
+    # present-data path, and the sweeps call each tool up to three times, so seeds past the first buy nothing
+    # here and cost real minutes.
+    local = dict((k, n) for n, k in conformance.raw_backed_designs())
+    backed_ko = sorted((n, k) for k, n in local.items() if "/KO:" in k)
+    ko = (backed_ko[0][1] if backed_ko
+          else next((k for k in keys if "/KO:" in k), keys[0]))
     ref = next((k for k in keys if k != ko and k.split("/")[0] == ko.split("/")[0] and "KO:" not in k),
                "wildtype/basal")
     rid = next((r.get("id") for r in rows if survey.design_key(r) == ko), None)
     gene = ko.split("KO:")[-1].split("+")[0].split("#")[0] if "KO:" in ko else "pfkA"
     calls = conformance.sample_args(ko, ref, rid, gene)
-    print(f"store {a.store}: design {ko} vs {ref}; {len(calls)} tools with sample calls")
+    print(f"store {a.store}: design {ko} vs {ref}; {len(calls)} tools with sample calls; "
+          f"{local.get(ko, 0)} local raw seed(s) for the probe design")
 
     report = {"store": a.store, "design": ko, "reference": ref,
               "budget": conformance.budget_sweep(calls, a.heavy),
@@ -59,7 +72,8 @@ def main() -> int:
               "param_descriptions": conformance.every_string_parameter_says_what_it_means(),
               "glossary_sites": conformance.glossary_sites_agree(),
               "one_fact_one_resolver": conformance.one_fact_one_resolver(),
-              "resolver_places": conformance.a_resolver_reads_every_place_a_fact_can_live()}
+              "resolver_places": conformance.a_resolver_reads_every_place_a_fact_can_live(),
+              "fine_absence": conformance.fine_absence_sweep(calls, a.heavy, design=ko)}
     with tempfile.TemporaryDirectory() as tmp:
         report["absence"] = conformance.absence_sweep(calls, Path(tmp), a.heavy)
 
@@ -74,6 +88,29 @@ def main() -> int:
         if r["empty_success"]:
             bad += 1
             print(f"ABSENCE {r['tool']}: an unreadable store gave an empty success: {r['excerpt']}")
+    if any(r["verdict"] == "no_baseline" for r in report["fine_absence"]):
+        bad += 1
+        print(f"NOBASE   fine_absence: {ko} has no raw simOut on this machine, so the run- and channel-grain "
+              f"sweeps had nothing to take away. They are NOT a pass.")
+    for r in report["fine_absence"]:
+        if not r["reads_source"]:
+            continue
+        g = r["grain"]
+        if r["empty_success"]:
+            bad += 1
+            print(f"ABSENCE/{g} {r['tool']}: an absent {g} gave an empty success: {r['excerpt']}")
+        if r["facts_dropped"]:
+            bad += 1
+            print(f"FACTLOSS/{g} {r['tool']}: resolved {r['facts_dropped']} and then dropped it when the "
+                  f"{g} turned out to be absent")
+        if r.get("narrowed_silently"):
+            bad += 1
+            print(f"NARROW/{g} {r['tool']}: {r['narrowed_silently']} fell when the {g} was taken away and the "
+                  f"answer names no omission -- a partial read presented as a complete one")
+        if r["about_ok"] is False:
+            bad += 1
+            print(f"ABOUT/{g} {r['tool']}: refused with about={r['about']!r} where an absent {g} is "
+                  f"{r['about_expected']!r} -- {r['why_that_class']}")
     for r in report["determinism"]:
         if not r["repeat_equal"] or not r["order_invariant"]:
             bad += 1

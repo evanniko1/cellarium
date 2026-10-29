@@ -36,11 +36,46 @@ def calls() -> dict:
     keys = sorted({survey.design_key(r) for r in rows})
     if not keys:
         pytest.skip("no reportable designs in this checkout, so the sweeps have nothing to call")
-    ko = next((k for k in keys if "/KO:" in k), keys[0])
+    # PREFER A DESIGN WHOSE RAW SIMOUT IS ON THIS MACHINE. The first knockout in sort order is
+    # `gene_knockout/KO:alaS`, one of the 17 designs whose seed directories WELL-PRUNE-2 moved to HuggingFace --
+    # so every raw-reading tool answered "no local raw" for the BASELINE call and the sweeps below were quietly
+    # probing the absent-data path instead of the present-data one. Measured 2026-10-29 while adding the
+    # finer-grained absence sweeps: 23 of the corpus's 40 designs have local raw, and the fixture was choosing
+    # from the other 17.
+    # The CHEAPEST raw-backed design: one local seed exercises the present-data path, and the sweeps below call
+    # each tool up to three times, so extra seeds buy nothing and cost minutes.
+    local = dict((k, n) for n, k in conformance.raw_backed_designs())
+    backed_ko = sorted((n, k) for k, n in local.items() if "/KO:" in k)
+    ko = (backed_ko[0][1] if backed_ko
+          else next((k for k in keys if "/KO:" in k), keys[0]))
     ref = next((k for k in keys if k != ko and "KO:" not in k), "wildtype/basal")
     rid = next((r.get("id") for r in rows if survey.design_key(r) == ko), None)
     gene = ko.split("KO:")[-1].split("+")[0].split("#")[0] if "KO:" in ko else "pfkA"
     return conformance.sample_args(ko, ref, rid, gene)
+
+
+@pytest.fixture(scope="module")
+def recording_design() -> str:
+    """A design with local raw simOut that actually records `growth_rate`.
+
+    Module-scoped because finding it reads trajectories off disk, and three tests below need the same one."""
+    for _n, key in sorted(conformance.raw_backed_designs()):   # fewest seeds first: cheapest probe that works
+        runs = raw.seed_runs(key)
+        if runs and raw.seed_channel(runs[0]["root"], "growth_rate")[0].size:
+            return key
+    pytest.skip("no design in this checkout has local raw that records growth_rate")
+
+
+@pytest.fixture(scope="module")
+def fine_absence(calls) -> list:
+    """The run- and channel-grain sweep, run ONCE for the whole module: it calls every measurement tool three
+    times, so it is the most expensive sweep here."""
+    local = dict((k, n) for n, k in conformance.raw_backed_designs())
+    backed_ko = sorted((n, k) for k, n in local.items() if "/KO:" in k)
+    design = backed_ko[0][1] if backed_ko else next(iter(local), None)
+    if design is None:
+        pytest.skip("no design in this checkout has raw simOut locally")
+    return conformance.fine_absence_sweep(calls, design=design)
 
 
 def test_the_sweep_actually_calls_a_broad_set_of_tools(calls):
@@ -519,3 +554,162 @@ def test_an_absent_trajectory_still_reports_the_shift_time_it_resolved(monkeypat
     assert out["about"] == "environment", out            # not corpus: nothing here is evidence about the model
     assert out["declared_shift_s"] == 1200.0
     assert out["shift_time_from"] == "the design's declared timeline"
+
+
+# ---- 1b. ABSENCE AT THE RUN AND CHANNEL GRAIN -----------------------------------------------------------------
+#
+# Family 1 takes the whole store away. These take away one run, and then one column of a run that is present --
+# the two absences that actually occur in this corpus, and the grain at which continuous integration found a
+# defect the local suite could not reach (`shift_response` dropping a shift time it had already resolved).
+
+def test_the_forced_absences_are_faithful_to_the_real_conditions(recording_design):
+    """The contexts must reproduce what the machine really does, or every verdict below is about a fiction.
+
+    Run grain: `_seed_root` is the predicate the real condition turns on, so `seed_runs` must come back empty
+    through its own logic. Channel grain: `_col_1d` answers all-NaN for a column `not_recorded` marks, and
+    `seed_channel` filters non-finite values, so a forced-unwritten channel must yield an empty series while
+    every other channel keeps its own."""
+    design = recording_design
+    runs = raw.seed_runs(design)
+    assert runs, design
+    with conformance._no_local_runs():
+        assert raw.seed_runs(design) == []
+    assert raw.seed_runs(design), "the context did not restore seed_runs"
+
+    root = runs[0]["root"]
+    t_before, _v = raw.seed_channel(root, "growth_rate")
+    if not t_before.size:
+        pytest.skip(f"{design} does not record growth_rate, so it cannot be blinded")
+    with conformance._unwritten_channel("growth_rate"):
+        t_blind, _ = raw.seed_channel(root, "growth_rate")
+        t_other, _ = raw.seed_channel(root, "fba_objective")
+    assert t_blind.size == 0, "a forced-unwritten channel still returned a series"
+    assert t_other.size, "blinding one channel also blinded another"
+    assert raw.seed_channel(root, "growth_rate")[0].size == t_before.size, "the context did not restore _col_1d"
+
+
+def test_a_sweep_with_no_data_to_remove_reports_that_rather_than_passing(calls):
+    """An unexercised sweep reported as a pass is the same defect as an unread store reported as a finding.
+
+    This is how the sweep's own first run misled me: the probe was a design whose seed directories had been
+    pruned, 34 of 36 tools answered identically before and after, and the result read as clean."""
+    absent = next((k for _n, k in [(0, d) for d in
+                                   sorted({survey.design_key(r) for r in survey.analysis_rows()[0]})]
+                   if not raw.seed_runs(k)), None)
+    if absent is None:
+        pytest.skip("every design in this checkout has local raw, so there is no probe without a baseline")
+    rows = conformance.fine_absence_sweep(calls, design=absent)
+    assert rows and all(r["verdict"] == "no_baseline" for r in rows), (absent, rows[:3])
+    assert all(r["n_baseline_seeds"] == 0 for r in rows)
+
+
+def test_an_absent_run_or_an_unwritten_column_is_never_an_empty_success(fine_absence):
+    """The family-1 criterion, one and two grains finer."""
+    bad = [r for r in fine_absence if r.get("empty_success")]
+    assert not bad, ("these tools answered an absent run or an unwritten column with a well-formed empty "
+                     "success: " + json.dumps(bad, indent=1))
+
+
+def test_a_refusal_blames_the_grain_that_is_actually_missing(fine_absence):
+    """An absent run directory is `environment`; an unwritten listener column is `corpus`.
+
+    Not cosmetic. `environment` tells the agent this machine could not look, which invites a re-download that
+    cannot help when the data is already here; `corpus` tells it to ask for another channel, which is the true
+    and actionable answer. `read_raw_series` and `scan_series` both refused an unwritten column as
+    `no_local_raw`/`environment` until this sweep measured it (2026-10-29)."""
+    bad = [r for r in fine_absence if r.get("about_ok") is False]
+    assert not bad, ("these refusals name the wrong `about` class for the absence they met: "
+                     + json.dumps(bad, indent=1))
+
+
+def test_a_fact_resolved_from_the_declaration_survives_an_absent_measurement(fine_absence):
+    """The generalisation of the defect continuous integration found on 2026-10-28.
+
+    A design's declared shift time and its knocked-out genes come from the design, not from the trajectory, so a
+    tool that reported them with data present must still report them when the data turns out to be absent."""
+    bad = [r for r in fine_absence if r.get("facts_dropped")]
+    assert not bad, ("these tools resolved a fact from the design's own declaration and then dropped it when "
+                     "the measurement turned out to be absent: " + json.dumps(bad, indent=1))
+
+
+def test_a_narrowed_answer_names_what_it_narrowed(fine_absence):
+    """`scan_overview` answered `channels_scanned: 3` where the full read says 5, naming neither of the two it
+    skipped -- so "no transient in growth_rate" and "growth_rate was never scanned" arrived identical. Neither
+    empty nor an error, which is why the two checks above could not see it."""
+    bad = [r for r in fine_absence if r.get("narrowed_silently")]
+    assert not bad, ("these answers lost count without naming the omission: " + json.dumps(bad, indent=1))
+
+
+def test_the_finer_sweep_is_exercised_and_not_merely_green(fine_absence):
+    """A sweep whose every row says 'not exercised' proves nothing. This pins that real tools are reached."""
+    assert not any(r["verdict"] == "no_baseline" for r in fine_absence), "the probe design had no local raw"
+    exercised = [r for r in fine_absence if r.get("reads_source")]
+    assert len(exercised) >= 10, f"only {len(exercised)} tool/grain pairs read the source: {exercised}"
+    assert {r["grain"] for r in exercised} == {"run", "channel"}, "one of the two grains reached nothing"
+
+
+def test_a_count_like_key_is_recognised_by_shape_not_by_a_hand_list():
+    """`serialization_check` returned `{"n_runs_scanned": 0, "n_columns_flagged": 0, "n_high": 0, "ok": true}`
+    with nothing on disk -- a clean bill of health over a corpus it never opened -- and the detector walked past
+    it because that spelling was not in the set. All counts zero is the test, so flagging zero columns out of
+    real runs is still not an empty success."""
+    assert conformance.empty_success({"n_runs_scanned": 0, "n_columns_flagged": 0, "n_high": 0, "ok": True})
+    assert not conformance.empty_success({"n_runs_scanned": 18, "n_columns_flagged": 0, "n_high": 0, "ok": True})
+    assert conformance.empty_success({"total": 0, "rows": []})
+    assert not conformance.empty_success({"error": "nope", "n_runs": 0})
+    # a bool is not a count: `ok: False` must not be read as "a count of zero"
+    assert not conformance.empty_success({"ok": False, "verdict": "x"})
+
+
+def test_the_narrowing_detector_passes_an_answer_that_names_its_omission():
+    """Otherwise the fix for `scan_overview` would be to hide the number rather than to name the gap."""
+    full = {"channels_scanned": 5, "by_channel": [1, 2, 3, 4, 5]}
+    silent = {"channels_scanned": 3, "by_channel": [1, 2, 3]}
+    named = {"channels_scanned": 3, "by_channel": [1, 2, 3],
+             "channels_not_recorded": [{"channel": "growth_rate", "why": "no usable timesteps"}]}
+    assert conformance.narrowed_silently(full, silent) == ["channels_scanned"]
+    assert conformance.narrowed_silently(full, named) == []
+    assert conformance.narrowed_silently(full, {"error": "refused"}) == []
+
+
+def test_every_exempt_tool_is_exempt_for_a_stated_reason():
+    """`raw_available` answering `n_seeds_local: 0` is the ANSWER to the question it was asked, not a silent
+    absence -- the sweep's first run flagged it, and that was the sweep's error. The exemption is named so it
+    cannot grow quietly."""
+    assert conformance.AVAILABILITY_PROBES <= set(reconcile.MEASUREMENT_TOOLS) | set(
+        conformance.SIDE_EFFECT_OR_EXTERNAL)
+    assert "raw_available" in conformance.AVAILABILITY_PROBES
+    for t in conformance.AVAILABILITY_PROBES:
+        assert t in {x["name"] for x in tools.TOOLS}, f"{t} is exempt from a sweep but is not a tool"
+
+
+# ---- the three tools the two grains caught, each pinned on its own ---------------------------------------------
+
+def test_the_truncation_guard_gives_no_verdict_when_it_scanned_nothing():
+    with conformance._no_local_runs():
+        out = tools.dispatch("serialization_check", {})
+    assert "error" in out, out
+    assert out["reason"] == "no_local_raw" and out["about"] == "environment", out
+    assert out.get("ok") is not True, "a guard that scanned nothing must not report a pass"
+
+
+@pytest.mark.parametrize("tool", ["read_raw_series", "scan_series"])
+def test_an_unwritten_column_is_the_corpus_not_this_machine(tool, recording_design):
+    rid = raw.seed_runs(recording_design)[0]["result_id"]
+    with conformance._unwritten_channel("growth_rate"):
+        out = tools.dispatch(tool, {"result_id": rid, "channel": "growth_rate"})
+    assert out.get("reason") == "channel_not_recorded", out
+    assert out.get("about") == "corpus", out
+    assert "recorded_here" in out, "the refusal must say which channels this run DOES record"
+
+
+def test_the_channel_overview_names_the_channels_it_did_not_scan(recording_design):
+    design = recording_design
+    full = tools.dispatch("scan_overview", {"design": design})
+    with conformance._unwritten_channel("growth_rate"):
+        out = tools.dispatch("scan_overview", {"design": design})
+    assert out["channels_scanned"] < full["channels_scanned"], (full, out)
+    named = [c["channel"] for c in out["channels_not_recorded"]]
+    assert "growth_rate" in named, out
+    assert out["channels_requested"] >= out["channels_scanned"]
+    assert all(c.get("why") for c in out["channels_not_recorded"]), "an omission must say why"

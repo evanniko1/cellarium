@@ -46,6 +46,12 @@ _VOLATILE = re.compile(r"(time|seconds|latency|_ms$|timestamp|generated|elapsed|
 # the measurement, not noise in it. Excluded from the determinism sweep only, and named so the exclusion is visible.
 ENVIRONMENT_PROBES = {"system_resources", "estimate_sim_resources"}
 
+# TOOLS WHOSE PURPOSE IS TO REPORT ABSENCE. `raw_available` answering `{"n_seeds_local": 0, "note": "no raw
+# simOut on local disk for this design"}` is the correct answer, not a silent absence -- the question it was
+# asked is "is the data here", and "no" is a result. The sweep's first exercised run flagged it, which was the
+# sweep's error and not the tool's. Kept as a NAMED exemption, in the same spirit as ENVIRONMENT_PROBES above.
+AVAILABILITY_PROBES = {"raw_available", "data_availability", "coverage_check", "provenance"}
+
 
 def _canonical(x):
     """A value with volatile keys removed and lists sorted, so two answers compare by CONTENT, not by order."""
@@ -130,7 +136,19 @@ def budget_sweep(calls: dict[str, dict], heavy: bool = False) -> list[dict]:
 
 # ---- 1. ABSENCE: an unreadable source is an error, never a well-formed empty answer -----------------------------
 
-_COUNT_KEYS = {"n", "n_runs", "n_results", "n_designs", "n_compared", "count", "total", "n_seeds"}
+# A COUNT-LIKE KEY, by shape rather than by a list. The hand-listed set was {"n", "n_runs", "n_results",
+# "n_designs", "n_compared", "count", "total", "n_seeds"}, and the run-grain sweep walked straight past
+# `serialization_check` answering `{"n_runs_scanned": 0, "n_columns_flagged": 0, "n_high": 0, "ok": true}` with
+# no run directory on the machine -- a clean bill of health issued over nothing, which is the exact shape this
+# family exists to catch, missed because nobody had added that spelling. `all counts are zero` keeps it honest:
+# with data present `n_runs_scanned` is non-zero, so flagging zero columns is not an empty success.
+# The second half is DENOMINATOR counts -- how many things were looked at -- and not numerator counts like
+# `n_events` or `n_columns_flagged`, where zero can be a true finding about real data. `channels_scanned` is
+# the one that matters: the narrowing check was written for `scan_overview` going 5 -> 3 and could not see it,
+# because the first half of this pattern matches neither `channels_scanned` nor anything else in that answer.
+# Its own unit test caught that, which is the only reason it is not still broken.
+_COUNT_KEY = re.compile(r"^(n|num|count|total)(_|$)|_(count|n|total)$"
+                        r"|_(scanned|considered|checked|examined|compared|requested|returned)$", re.I)
 
 
 def empty_success(out: dict) -> bool:
@@ -138,7 +156,8 @@ def empty_success(out: dict) -> bool:
     could not be read, this is the silent-absence shape."""
     if not isinstance(out, dict) or any(k in out for k in ("error", "_exception", "refusal")):
         return False
-    counts = [v for k, v in out.items() if k in _COUNT_KEYS and isinstance(v, (int, float))]
+    counts = [v for k, v in out.items() if _COUNT_KEY.search(str(k)) and isinstance(v, (int, float))
+              and not isinstance(v, bool)]
     lists = [v for v in out.values() if isinstance(v, list)]
     return (bool(counts) and all(c == 0 for c in counts)) or (bool(lists) and not counts and all(len(v) == 0 for v in lists))
 
@@ -175,12 +194,242 @@ def absence_sweep(calls: dict[str, dict], tmp: Path, heavy: bool = False) -> lis
     rows = []
     with _unreadable_store(tmp):
         for name, args in calls.items():
-            if _skip(name, heavy) or name not in measurement:
+            # AVAILABILITY_PROBES are exempt here for the same reason as in the finer sweeps, and the exemption
+            # had to be added when the count-key detector was widened by shape: `raw_available` answers
+            # `n_seeds_local: 0`, which the hand-listed key set never recognised as a count, so family 1 had
+            # been walking past it since it was written. Widening the detector exposed the blind spot; the
+            # answer is still the right answer to the question that tool is asked.
+            if _skip(name, heavy) or name not in measurement or name in AVAILABILITY_PROBES:
                 continue
             out = call(name, args)
             rows.append({"tool": name, "empty_success": empty_success(out),
                          "kind": ("exception" if "_exception" in out else "error" if "error" in out else "result"),
                          "excerpt": json.dumps(out, default=str)[:160]})
+    return rows
+
+
+# ---- 1b. ABSENCE AT A FINER GRAIN: a readable store whose RUN, or whose CHANNEL, is not there -------------------
+#
+# Family 1 builds its own emptiness at the coarsest grain there is: no manifest, no caches, nothing to read at
+# all. That grain found four faults and then stopped finding any -- and a tool that handles a wholly unreadable
+# store correctly can still mishandle the two finer absences that are ORDINARY in this corpus:
+#
+#   RUN grain      the manifest row exists and the design is real, and the seed's run directory is not on this
+#                  machine -- pruned to HuggingFace (WELL-PRUNE-2 deleted 17 seed dirs) or never downloaded.
+#                  `_seed_root` returns None and `seed_runs` comes back empty.
+#   CHANNEL grain  the run is here and the listener never wrote the column. The module-off arm of the kinetic
+#                  campaign records none of ppGpp, RelA or ribosome concentration, and `_col_1d` already answers
+#                  all-NaN for that case -- so this grain is forced with THE SAME VALUE the real condition
+#                  produces, not with a synthetic one.
+#
+# The two grains have DIFFERENT correct classifications, and conflating them is itself a defect this checks: an
+# absent run directory is `environment` (this machine could not look, and is never evidence about the model),
+# while an unwritten column is `corpus` (`channel_not_recorded` -- the runs we hold genuinely do not carry it,
+# which IS evidence, about coverage).
+#
+# WHY THIS EXISTS, dated: continuous integration found the motivating defect at the run grain on 2026-10-28.
+# `shift_response` resolved the shift time from the declared timeline and then, finding no trajectory on the
+# runner, returned only "no local raw simOut" and DROPPED the resolved time -- so "this design declares no shift"
+# and "this machine does not hold its data" became indistinguishable one layer below the family-9 fix. The local
+# suite could not reach that branch, because this machine has the data. Hence the third check below: a fact the
+# tool resolved from the DECLARATION must survive an absent MEASUREMENT.
+
+# A field whose presence means "something was left out, and here is what". A narrowed answer that carries none
+# of these is presenting a partial read as a complete one.
+_NAMES_AN_OMISSION = re.compile(
+    r"(omit|not_recorded|unrecorded|not_measured|skip|unavailable|absent|missing|excluded|unwritten|"
+    r"_dropped|not_scanned|no_local|why)", re.I)
+
+_ABSENCE_GRAINS = ("run", "channel")
+# grain -> the `about` class a refusal at that grain must carry, and why it is that one and not the other.
+_GRAIN_ABOUT = {
+    "run": ("environment", "the seed's run directory is not on this machine; nothing about that is evidence "
+                           "about the model"),
+    "channel": ("corpus", "the runs we hold genuinely do not record this column, which is evidence about "
+                          "coverage"),
+}
+
+
+@contextlib.contextmanager
+def _no_local_runs():
+    """Readable store, real designs, and NO raw run directory on this machine.
+
+    Patched at `_seed_root`, which is the exact predicate the real condition turns on (`Path(p).exists()`), so
+    `seed_runs` reaches its empty answer through its own logic rather than being short-circuited."""
+    from . import raw
+    orig_root, orig_dirs = raw._seed_root, raw.simout_dirs
+    raw._seed_root = lambda result_id: None
+    raw.simout_dirs = lambda seed_root: []
+    try:
+        yield
+    finally:
+        raw._seed_root, raw.simout_dirs = orig_root, orig_dirs
+
+
+@contextlib.contextmanager
+def _unwritten_channel(*channels: str):
+    """Runs present; the named channels' listener columns were never written.
+
+    Returns all-NaN for those columns and leaves every other column -- `Main/time` above all -- untouched, which
+    is precisely what `_col_1d` returns for a column `not_recorded` marks. A channel name not in `raw.CHANNELS`
+    is ignored rather than raising: an unknown channel is a REQUEST fault and belongs to the contract sweep."""
+    import numpy as np
+
+    from . import raw
+    targets = {raw.CHANNELS[c] for c in channels if c in raw.CHANNELS}
+    orig = raw._col_1d
+
+    def blind(simout: str, table: str, column: str):
+        a = orig(simout, table, column)
+        if (table, column) not in targets:
+            return a
+        return np.full(a.shape[0] if getattr(a, "ndim", 0) else 1, np.nan)
+
+    raw._col_1d = blind
+    try:
+        yield
+    finally:
+        raw._col_1d = orig
+
+
+def _grain_context(grain: str, channels):
+    return _no_local_runs() if grain == "run" else _unwritten_channel(*channels)
+
+
+def _counts(out: dict) -> dict:
+    return {k: v for k, v in out.items()
+            if _COUNT_KEY.search(str(k)) and isinstance(v, (int, float)) and not isinstance(v, bool)} \
+        if isinstance(out, dict) else {}
+
+
+def narrowed_silently(full: dict, blind: dict) -> list[str]:
+    """Count-like keys that FELL when the source was taken away, in an answer that names no omission.
+
+    This is the check that `scan_overview` needed and `empty_success` could not give: with two channels
+    unwritten it answered `channels_scanned: 3` where the full read says 5, and nothing in the result said which
+    two had gone -- so "no transient in growth_rate" and "growth_rate was never looked at" arrived identical. The
+    answer was neither empty nor an error, which is exactly why a zero-count test misses it."""
+    if not isinstance(blind, dict) or any(k in blind for k in ("error", "_exception", "refusal")):
+        return []
+    if any(_NAMES_AN_OMISSION.search(str(k)) for k in blind):
+        return []
+    fc, bc = _counts(full), _counts(blind)
+    return sorted(k for k, v in fc.items() if k in bc and bc[k] < v)
+
+
+def _declared_facts(out: dict) -> dict:
+    """Every registered fact a result reports, by result key. Only facts resolvable from a design's DECLARATION
+    are registered, which is what makes "it must survive an absent measurement" the right expectation."""
+    found = {}
+    if not isinstance(out, dict):
+        return found
+    for _fact, spec in FACTS.items():
+        if not spec.get("from_declaration"):
+            continue
+        for key in spec.get("result_keys", ()):
+            if out.get(key) is not None:
+                found[key] = _canonical(out[key])
+    return found
+
+
+_RAW_BACKED: dict[tuple, list] = {}
+
+
+def raw_backed_designs() -> list[tuple[int, str]]:
+    """(n_local_seeds, design_key) for every design whose raw simOut is on this machine, most seeds first.
+
+    23 of the corpus's 40 designs have local raw; 17 do not, because WELL-PRUNE-2 moved their seed directories
+    to HuggingFace. A sweep probing one of those 17 takes away something that was already gone."""
+    from . import raw, survey
+    # MEMOISED BY WORKING DIRECTORY. Each call globs the filesystem for every design's simOut dirs, and several
+    # tests and sweeps ask for it; uncached it dominated the conformance module's runtime. The key is the cwd
+    # because `_unreadable_store` chdirs, and the answer is a property of the store it lands in.
+    # Keyed on the resolver's identity as well as the cwd: `_no_local_runs` replaces `raw._seed_root` without
+    # changing the directory, so a cwd-only key would hand a caller inside that context the pre-patch answer.
+    cwd = (os.getcwd(), id(raw._seed_root))
+    if cwd in _RAW_BACKED:
+        return list(_RAW_BACKED[cwd])
+    rows, _ = survey.analysis_rows()
+    out = []
+    for key in sorted({survey.design_key(r) for r in rows}):
+        try:
+            n = len(raw.seed_runs(key))
+        except Exception:
+            n = 0
+        if n:
+            out.append((n, key))
+    _RAW_BACKED[cwd] = sorted(out, reverse=True)
+    return list(_RAW_BACKED[cwd])
+
+
+def fine_absence_sweep(calls: dict[str, dict], heavy: bool = False,
+                       channels: tuple[str, ...] = ("growth_rate", "ppgpp_conc"),
+                       design: str | None = None) -> list[dict]:
+    """Each corpus-reading tool called with full data, then with the run absent, then with the channel unwritten.
+
+    Three checks per grain, and a tool is only judged on a grain whose source it actually reads:
+
+      `empty_success`   an absence must arrive as an error, not as a well-formed count of zero (family 1's
+                        criterion, one and two grains finer).
+      `about`           the refusal must carry the class the grain earns: `environment` for an absent run
+                        directory, `corpus` for an unwritten column. The wrong class is not cosmetic -- an agent
+                        is entitled to retry a `request` fault and to cite a `corpus` one as a finding.
+      `facts_dropped`   any registered declaration-derived fact present in the full answer must still be present,
+                        with the same value, in the refusal. This is the generalisation of the CI-caught
+                        `shift_response` defect.
+      `narrowed_silently`  a count that FELL with the source removed, in an answer that names no omission: a
+                        partial read presented as a complete one. Neither empty nor an error, and so invisible
+                        to the two checks above.
+
+    `reads_source` is False when the two answers are identical: that tool does not read this grain's source, so
+    the sweep reports it as not exercised rather than passing or failing it.
+
+    `design` is the probe whose data is taken away, and it MUST have raw simOut on this machine. The sweep's own
+    first run reported 34 of 36 tools at the run grain as not exercised, which looked like a clean result and was
+    not one: the probe was `gene_knockout/KO:alaS`, whose seed directories WELL-PRUNE-2 had already deleted, so
+    every answer was identical before and after because there had never been anything there. With no baseline
+    every row is `no_baseline`, and the runner fails on it -- an unexercised sweep reported as a pass is the same
+    defect as an unread store reported as a finding."""
+    from . import raw, reconcile
+    measurement = set(reconcile.MEASUREMENT_TOOLS)
+    n_baseline = len(raw.seed_runs(design)) if design else 0
+    if design and not n_baseline:
+        return [{"tool": t, "grain": g, "reads_source": False, "verdict": "no_baseline", "design": design,
+                 "n_baseline_seeds": 0}
+                for t in sorted(set(calls) & measurement if not heavy else set(calls) & measurement)
+                for g in _ABSENCE_GRAINS]
+    rows = []
+    for name, args in calls.items():
+        if _skip(name, heavy) or name not in measurement or name in AVAILABILITY_PROBES:
+            continue
+        full = call(name, args)
+        full_c, full_facts = _canonical(full), _declared_facts(full)
+        for grain in _ABSENCE_GRAINS:
+            want_about, why = _GRAIN_ABOUT[grain]
+            with _grain_context(grain, channels):
+                blind = call(name, args)
+            if _canonical(blind) == full_c:
+                rows.append({"tool": name, "grain": grain, "reads_source": False, "verdict": "not_exercised",
+                             "n_baseline_seeds": n_baseline})
+                continue
+            refused = isinstance(blind, dict) and any(k in blind for k in ("error", "_exception", "refusal"))
+            blind_facts = _declared_facts(blind)
+            dropped = sorted(k for k, v in full_facts.items() if blind_facts.get(k) != v)
+            narrowed = narrowed_silently(full, blind)
+            got_about = blind.get("about") if isinstance(blind, dict) else None
+            # `about` is only judged on a REFUSAL. A tool that still answers -- a wider read that simply has
+            # fewer seeds to average -- is not refusing, and has no `about` to get wrong.
+            about_ok = (got_about == want_about) if refused else None
+            rows.append({
+                "tool": name, "grain": grain, "reads_source": True, "n_baseline_seeds": n_baseline,
+                "empty_success": empty_success(blind), "refused": refused,
+                "about": got_about, "about_expected": want_about, "about_ok": about_ok, "why_that_class": why,
+                "reason": blind.get("reason") if isinstance(blind, dict) else None,
+                "facts_in_full": sorted(full_facts), "facts_dropped": dropped,
+                "narrowed_silently": narrowed,
+                "verdict": ("fail" if (empty_success(blind) or dropped or narrowed or about_ok is False)
+                            else "ok"),
+                "excerpt": json.dumps(blind, default=str)[:160]})
     return rows
 
 
@@ -547,6 +796,11 @@ FACTS = {
     "knockout_genes": {
         "resolver": "model.knockout_genes",
         "places": ["the design label", "a design key with a suffix", "a corpus row's condition", "its label"],
+        # Resolvable from the DESIGN alone, so `fine_absence_sweep` requires it to survive an absent
+        # measurement: a tool that knows which genes a design knocks out does not stop knowing when the run
+        # directory turns out not to be on this machine.
+        "from_declaration": True,
+        "result_keys": ("knocks_out",),
         "marker": r"""(?:\.split\(\s*["']KO:["']|\.replace\(\s*["']KO:["']|\.startswith\(\s*["']KO:["']"""
                   r"""|["']/?KO:["']\s+in\b)""",
         # Allowed to use the marker, each for a reason that is not "reads the gene list".
@@ -563,6 +817,9 @@ FACTS = {
     "shift_time": {
         "resolver": "dynamics.shift_sources",
         "places": ["a declared timeline", "a time encoded in the condition", "in the label", "the caller"],
+        # The fact whose loss CI caught on 2026-10-28; see `fine_absence_sweep`.
+        "from_declaration": True,
+        "result_keys": ("declared_shift_s", "shift_time_from"),
         "marker": r"""declared_events\(""",
         "exempt": {
             "dynamics.py": "defines the resolver",

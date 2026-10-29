@@ -114,6 +114,13 @@ KINDS = ("lookup", "purpose_shaped", "primitive", "blocked", "migrated")
 READ_SITE_REGISTRY: dict[str, dict] = {
     # --- LOOKUPS: "which row is this?", not "which rows may I use?". A purpose filter in front of a lookup
     # would HIDE the row being looked up — `data_availability` for a crashed run's id must still find it.
+    "src/cellarium/conformance.py::raw_backed_designs": {
+        "kind": "lookup", "why": ("asks which designs have raw simOut ON THIS MACHINE, so a conformance sweep "
+                                  "probes a design whose data is present rather than one already pruned to "
+                                  "HuggingFace. It must see every row, crashed and non-reportable included: a "
+                                  "purpose filter would shrink the candidate set and could leave the absence "
+                                  "sweeps with nothing to take away, which is the exact silent pass this "
+                                  "function was added to prevent.")},
     "src/cellarium/differential.py::_design_run_roots": {
         "kind": "lookup", "why": "resolves a design to its run directories; must see every row, crashed included"},
     "src/cellarium/differential.py::_qc_excluded": {

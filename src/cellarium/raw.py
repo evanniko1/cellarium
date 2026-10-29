@@ -191,6 +191,22 @@ def seed_channel(seed_root: str, channel: str) -> tuple[np.ndarray, np.ndarray]:
     return t_all[ok], v_all[ok]
 
 
+def recorded_channels(seed_root: str) -> list[str]:
+    """Which declared channels this run actually has usable values for.
+
+    Named in a `channel_not_recorded` refusal so the reader is not left guessing which channel to ask for
+    instead. Cheap enough to run on a refusal path: it reads each column once and keeps nothing."""
+    out = []
+    for ch in CHANNELS:
+        try:
+            t, _v = seed_channel(seed_root, ch)
+        except Exception:
+            continue
+        if t.size:
+            out.append(ch)
+    return out
+
+
 # ---------------- the cross-seed variance band ----------------
 def cross_seed_band(design_or_id: str, channel: str, n_points: int = 40) -> dict:
     """The thing the coarse shard can't give: a true CROSS-SEED variance band for `channel` over time-since-birth,
