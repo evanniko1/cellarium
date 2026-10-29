@@ -1333,19 +1333,64 @@ def power_check(channel: str = "growth_rate", effect_pct: float = 10.0, n_seeds:
 
 
 def design_panel(factors: dict, channel: str = "growth_rate", effect_pct: float = 10.0,
-                 seeds: int = 4, generations: int = 4, block_by: str | None = None) -> dict:
+                 seeds: int = 4, generations: int = 4, block_by: str | None = None,
+                 design: str = "full", runs: int | None = None, whole_plot: str | None = None) -> dict:
     """DESIGN a falsifier PANEL as a proper design-of-experiments (M-5), not an ad-hoc seeds×generations guess. Give
-    the FACTORS to vary as {name: [levels]} and get the full-factorial cells, a randomized run order, optional
-    blocking, the sim budget, and whether the panel is adequately POWERED to resolve `effect_pct` — grounded in the
-    corpus's real per-design replicate CV for `channel`. Each cell is one factor-combination to map onto a Design,
-    then queue with propose_experiments."""
+    the FACTORS to vary as {name: [levels]} and get the cells, a randomized run order, optional blocking, the sim
+    budget, and whether the panel is adequately POWERED to resolve `effect_pct` — grounded in the corpus's real
+    per-design replicate CV for `channel`. Each cell is one factor-combination to map onto a Design, then queue
+    with propose_experiments.
+
+    M-5b: `design` chooses HOW the cells are picked. 'full' crosses everything (and past the cap falls back to a
+    random subsample, which cannot attribute an effect to a factor); 'fractional' (needs `runs`, a power of two)
+    and 'plackett_burman' are resolution-defined screening designs that report exactly what they confound.
+    `whole_plot` names a factor that cannot be re-randomized between runs."""
     from . import doe
     if not isinstance(factors, dict) or not factors:
         return {"error": "factors must be a non-empty {name: [levels]} map, e.g. "
                          "{'gene': ['pfkA','pfkB'], 'condition': ['basal','acetate']}"}
+    # Caught HERE rather than inside `doe.fractional_factorial`, which receives `runs=0` and can only report
+    # that 0 is not a power of two — true, and useless to a caller who simply did not know the parameter
+    # exists. A refusal has to name the thing the caller must supply.
+    if design == "fractional" and runs is None:
+        return {"error": "design='fractional' needs `runs`: the size of the fraction, a power of two "
+                         "(4, 8, 16, 32...). Pick the smallest one above the number of factors + 1, then read "
+                         "`resolution` to see what it cost. For a non-power-of-two budget use "
+                         "design='plackett_burman', which sizes itself."}
     pc = power_check(channel=channel, effect_pct=effect_pct, n_seeds=seeds)   # ground the CV in real replicate noise
     cv = pc.get("observed_replicate_cv")   # None when the channel has no replicated design -> power stays unestimated
-    out = doe.panel(factors, seeds=seeds, generations=generations, cv=cv, effect_pct=effect_pct, block_by=block_by)
+    out = doe.panel(factors, seeds=seeds, generations=generations, cv=cv, effect_pct=effect_pct,
+                    block_by=block_by, design=design, runs=runs, whole_plot=whole_plot)
+    out["power_channel"] = channel
+    if cv is None:
+        out["power_note"] = pc.get("error", "no replicate CV for this channel — power not estimated")
+    return out
+
+
+def surface_panel(ranges: dict, design: str = "latin_hypercube", n: int = 10, channel: str = "growth_rate",
+                  effect_pct: float = 10.0, seeds: int = 4, generations: int = 4,
+                  alpha: str = "face", center: int = 1) -> dict:
+    """M-5b: DESIGN a panel over a CONTINUOUS lever — a space-filling or response-surface design.
+
+    Use this instead of design_panel when a factor is a number on an interval rather than a set of names: the
+    charged-fraction anchor across 0.55–0.85, a graded-knockout level across 5–99%, a ppGpp clamp. A factorial
+    over such a factor visits only its endpoints, so it reports a slope and cannot report a THRESHOLD sitting
+    between them — which is the shape the published synthetase-sensitivity result actually has.
+
+    'latin_hypercube' places `n` points one per bin in every one-dimensional projection: for LOCATING where a
+    response changes. 'central_composite' adds a centre point and axial points: the smallest design that can
+    tell a curve from a line. `ranges` is {name: [lo, hi]}."""
+    from . import doe
+    if not isinstance(ranges, dict) or not ranges:
+        return {"error": "ranges must be a non-empty {name: [lo, hi]} map, e.g. "
+                         "{'charged_fraction_target': [0.55, 0.85]}"}
+    pc = power_check(channel=channel, effect_pct=effect_pct, n_seeds=seeds)
+    cv = pc.get("observed_replicate_cv")
+    out = doe.surface_panel({k: tuple(v) if isinstance(v, (list, tuple)) else v for k, v in ranges.items()},
+                            design=design, n=n, seeds=seeds, generations=generations, cv=cv,
+                            effect_pct=effect_pct, alpha=alpha, center=center)
+    if "error" in out:
+        return out
     out["power_channel"] = channel
     if cv is None:
         out["power_note"] = pc.get("error", "no replicate CV for this channel — power not estimated")
@@ -1659,8 +1704,10 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"k": {"type": "integer", "minimum": 2, "description": "genes knocked out per candidate set (default 2; a multi-KO needs >= 2)"}, "max_candidates": {"type": "integer", "description": "how many top-ranked designs to return (default 8)"}, "objective": {"type": "string", "enum": ["viability", "information"], "description": "ranking goal: 'viability' (safest first) or 'information' (active learning — most informative first)"}, "search": {"type": "string", "enum": ["enumerate", "greedy", "beam"], "description": "search strategy: 'enumerate' (exact, C(n,k)); 'greedy' (one incremental build); 'beam' (top-beam_width partial sets — for large k / pool)"}, "beam_width": {"type": "integer", "description": "beam width for search='beam' (default = max_candidates)"}}}},
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
-    {"name": "design_panel", "description": "DESIGN a falsifier PANEL as a proper design-of-experiments — not an ad-hoc seeds×generations guess. Give the FACTORS to cross as {name:[levels]} (e.g. {'gene':['pfkA','pfkB'], 'condition':['basal','acetate']}) and get the full-factorial cells, a randomized run order, optional blocking, the sim budget, and whether the panel is adequately POWERED to resolve effect_pct (grounded in the corpus's real replicate CV for `channel`). Use to lay out a multi-factor falsifier panel; map each cell onto a Design and queue with propose_experiments.",
-     "input_schema": {"type": "object", "properties": {"factors": {"type": "object", "description": "{factor_name: [levels]} to cross, e.g. {'gene': ['pfkA','pfkB']}"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number"}, "seeds": {"type": "integer"}, "generations": {"type": "integer"}, "block_by": {"type": "string", "description": "optional factor name to block on"}}, "required": ["factors"]}},
+    {"name": "design_panel", "description": "DESIGN a falsifier PANEL as a proper design-of-experiments — not an ad-hoc seeds×generations guess. Give the FACTORS to cross as {name:[levels]} (e.g. {'gene':['pfkA','pfkB'], 'condition':['basal','acetate']}) and get the full-factorial cells, a randomized run order, optional blocking, the sim budget, and whether the panel is adequately POWERED to resolve effect_pct (grounded in the corpus's real replicate CV for `channel`). Use to lay out a multi-factor falsifier panel; map each cell onto a Design and queue with propose_experiments. This tool crosses DISCRETE factor levels; for a factor that is a number on an interval (a charged-fraction target, a graded-KO level, a ppGpp clamp) use surface_panel instead, because a factorial over a continuous factor visits only its endpoints.",
+     "input_schema": {"type": "object", "properties": {"factors": {"type": "object", "description": "{factor_name: [levels]} to cross, e.g. {'gene': ['pfkA','pfkB']}"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number", "description": "the relative effect size the panel must be able to resolve, in percent (default 10)"}, "seeds": {"type": "integer", "description": "replicate seeds per cell — the replicate unit (default 4)"}, "generations": {"type": "integer", "description": "generations per run; generations within one seed are NOT replicates (default 4)"}, "block_by": {"type": "string", "description": "optional factor name to block on — a nuisance factor held fixed within a block"}, "design": {"type": "string", "enum": ["full", "random_screen", "fractional", "plackett_burman"], "description": "how the cells are picked: 'full' crosses everything (past the cap it degrades to a RANDOM subsample whose aliasing is uncontrolled, so an effect cannot be attributed to a factor); 'random_screen' asks for that subsample by name; 'fractional' is a regular 2^(k-p) fraction (needs `runs`) that REPORTS its resolution and alias groups; 'plackett_burman' screens up to n-1 two-level factors in n runs at resolution III — which factors matter, never an interaction"}, "runs": {"type": "integer", "description": "size of the fraction for design='fractional' — a power of two (4, 8, 16, 32...); read `resolution` in the result to see what the saving cost"}, "whole_plot": {"type": "string", "description": "optional factor that CANNOT be re-randomized per run (a fitted knowledge base, a Docker image): the run order becomes a split-plot layout and the power annotation gains a whole-plot term, because that factor is replicated by plots, not by seeds"}}, "required": ["factors"]}},
+    {"name": "surface_panel", "description": "DESIGN a panel over a CONTINUOUS lever — a space-filling or response-surface design. Use INSTEAD of design_panel when a factor is a number on an interval rather than a set of names (a charged-fraction target over 0.55-0.85, a graded-KO level over 5-99%, a ppGpp clamp). A factorial over such a factor visits only its ENDPOINTS: it reports a slope and structurally cannot report a THRESHOLD between them, which is the shape the published synthetase-sensitivity result has. 'latin_hypercube' places n points one per bin in every 1-D projection — for LOCATING where a response changes; it has no alias structure and no replicated cell, so it does NOT support attributing an effect to a factor (it says so in `refuses`). 'central_composite' adds a centre point and axial points — the smallest design that can tell a curve from a line. `ranges` is {name: [lo, hi]}.",
+     "input_schema": {"type": "object", "properties": {"ranges": {"type": "object", "description": "{factor_name: [lo, hi]} continuous ranges, e.g. {'charged_fraction_target': [0.55, 0.85]}"}, "design": {"type": "string", "enum": ["latin_hypercube", "central_composite"], "description": "'latin_hypercube' (space-filling: locate where the response changes) or 'central_composite' (response surface: cube + axial + centre points, which separates a curve from a line)"}, "n": {"type": "integer", "description": "number of points for design='latin_hypercube' (default 10); ignored by central_composite, whose size is set by the factor count"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number", "description": "the relative effect size to resolve, in percent (default 10)"}, "seeds": {"type": "integer", "description": "replicate seeds per design point (default 4)"}, "generations": {"type": "integer", "description": "generations per run (default 4)"}, "alpha": {"type": "string", "enum": ["face", "rotatable"], "description": "axial distance for central_composite: 'face' (1.0) keeps every point INSIDE the declared range — the right default when a range is a hard bound; 'rotatable' ((2^k)^0.25 > 1) gives equal precision but pushes axial points outside, which is REPORTED in out_of_range and never clamped"}, "center": {"type": "integer", "description": "centre points for central_composite (default 1) — the centre point is what detects curvature at all"}}, "required": ["ranges"]}},
     {"name": "use_skill", "description": "Load a scientific Agent Skill's instructions into context. LITERATURE (vendored K-Dense, run over web_get): 'paper-lookup' (10 APIs — PubMed/OpenAlex/bioRxiv/… with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality) — check what's PUBLISHED / agreement / novelty; the corpus stays the source of primary numbers, literature is cited comparison only. PUBLICATION (Cellarium-authored): 'scientific-writing' (manuscript prose with the provenance + in/out-of-sample conventions), 'peer-review' (pre-submission adversarial self-critique; pairs with robustness_check), 'uncertainty-quantification' (routes each CI/p/power/robustness question to the toolkit's own grounded stats). Use these when drafting or reviewing a manuscript claim.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "literature: paper-lookup | literature-review | bgpt-paper-search · publication: scientific-writing | peer-review | uncertainty-quantification"}}, "required": ["name"]}},
     {"name": "web_get", "description": "HTTP GET for the literature skills — allow-listed scientific hosts only (eutils.ncbi/PubMed, api.openalex.org, api.crossref.org, api.semanticscholar.org, export.arxiv.org, rest.uniprot.org, ...). Read the skill's reference doc (use_skill) for the exact endpoint + params first. Refuses any non-allow-listed host.",
@@ -1703,7 +1750,7 @@ _CHANNEL_PARAMS = {
     ("read_series", "channel"), ("read_raw_series", "channel"), ("scan_series", "channel"),
     ("variance_band", "channel"), ("chart", "channel"), ("disconfirm", "channel"),
     ("robustness_check", "channel"), ("bimodality", "channel"), ("power_check", "channel"),
-    ("design_panel", "channel"),
+    ("design_panel", "channel"), ("surface_panel", "channel"),
 }
 
 
@@ -1831,7 +1878,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "check_feasibility": check_feasibility, "run_experiment": run_experiment,
              "vet_hypothesis": vet_hypothesis, "model_validation": model_validation, "power_check": power_check,
              "viability_surrogate": viability_surrogate, "generate_designs": generate_designs,
-             "design_panel": design_panel,
+             "design_panel": design_panel, "surface_panel": surface_panel,
              "use_skill": use_skill, "web_get": web_get,
              "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
              "propose_rebuild": propose_rebuild, "deg_rate_provenance": deg_rate_provenance,

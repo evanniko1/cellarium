@@ -145,7 +145,10 @@ ANALYSIS_ONLY_TOOLS: frozenset[str] = frozenset({
     "fba_growth", "fba_gene_knockout", "fba_flux", "fba_essentiality_panel", "fba_synthetic_lethal",
     "fba_gene_deletion", "fba_sensitivity", "fba_qc", "rnaseq_concordance",
     # design / experiment proposal + guardrails (act on the world, not falsifier tests)
-    "design_panel", "generate_designs", "check_feasibility", "vet_hypothesis", "screen_design", "screen_phenotype",
+    # `surface_panel` joins `design_panel` for the same reason and with one extra: it is the same kind of
+    # object (a layout plus a budget, not a measurement), and its ranges are continuous, so nothing it
+    # returns is a grounded observation the blind Council must not see.
+    "design_panel", "surface_panel", "generate_designs", "check_feasibility", "vet_hypothesis", "screen_design", "screen_phenotype",
     "run_experiment", "propose_experiment", "propose_experiments", "revise_experiment",
     # `propose_rebuild` sits with the proposal tools rather than getting a TestSpec, and for a stronger reason
     # than the others: it does not run a falsifier at all, it rebuilds the PARAMETERS every falsifier would be

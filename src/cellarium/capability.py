@@ -190,6 +190,122 @@ def _prose_keys(table: ModeProse) -> tuple[str, ...]:
     return tuple(out)
 
 
+# --- the third route: a mechanism DRAFTED for a mode that lacks it ------------------------------------------
+#
+# This table exists because `check()` knew exactly two routes out of a mode gap — "no elongation model
+# represents it" and "switch to a mode that does" — and the second one is the WRONG advice for the two gaps
+# below. Asked for the stringent response under the kinetic model, the registry said "set
+# elongation_model=steady_state", which throws away per-isoacceptor charging: the precise thing the caller
+# chose kinetic for. An agent reading that refusal concluded the combination is impossible. It is not
+# impossible; it is drafted, unapplied and uncosted, and those are three different sentences from "no".
+#
+# The symmetric danger is worse than the gap, so it is pinned in the type rather than in prose: `applied` is a
+# field, every renderer prints it, and `test_refusal_prose_names_the_patch_and_its_unapplied_status` fails if
+# a flag is ever named without its status. A registry that says `--kinetic-ppgpp` and stops has turned "not
+# yet" into "yes", which is this module's own subject matter pointed the other way.
+@dataclass(frozen=True)
+class DraftPatch:
+    """A mechanism written for a mode that lacks it, NOT present in the checkout Cellarium reads."""
+
+    patch_id: str                       # EXT-PORT-* — the id the patch's own comments carry
+    name: str                           # the resolved flag name inside the simulation options
+    flag: str                           # the runSim switch
+    # Prerequisites, MEASURED from `resolve_elongation_flags` in the patch itself rather than inferred from
+    # the flag's name: it raises ValueError on each missing one, so a short `requires` hands an operator a
+    # command that cannot start. EXT-PORT-P needs TWO.
+    requires: tuple[str, ...] = ()
+    # False for every entry here, and it is a field rather than an assumption so that applying a patch
+    # upstream is a one-line edit with a visible diff instead of a quiet re-reading of this whole table.
+    applied: bool = False
+    status: str = ""
+    composes_with: tuple[str, ...] = ()   # other patch ids that stack with this one
+    patch_file: str = ""                  # where the draft lives (local only — not in the public tree)
+    note: str = ""
+
+    def as_route(self, *, in_corpus: bool = False) -> dict:
+        """The machine-readable route. Never carries a value and never flips `can_answer`."""
+        return {"patch_id": self.patch_id, "flag": self.flag, "option": self.name,
+                "requires": list(self.requires), "applied": self.applied, "in_corpus": in_corpus,
+                "status": self.status, "composes_with": list(self.composes_with),
+                "patch_file": self.patch_file, "note": self.note}
+
+    def sentence(self) -> str:
+        """One clause for a refusal — the id, the flag, its prerequisites, and that it is NOT applied."""
+        req = (" It requires " + " and ".join(self.requires) + "." if self.requires else "")
+        return (f"A THIRD route exists and is NOT a switch away from this mode: {self.patch_id} "
+                f"({self.flag}) adds the mechanism TO this elongation model.{req} It is DRAFTED and NOT "
+                f"APPLIED in the checkout this registry probes, and no corpus row used it, so it is a "
+                f"PATCH-THEN-RUN proposal — not a flag to pass today."
+                + (f" {self.status}" if self.status else ""))
+
+
+DRAFT_PATCHES: dict[str, DraftPatch] = {
+    "EXT-PORT-A": DraftPatch(
+        patch_id="EXT-PORT-A",
+        name="kinetic_aa_supply",
+        flag="--kinetic-aa-supply",
+        requires=("--kinetic-trna-charging",),
+        status="Ran once on one seed: numerically clean, but growth fell 26-32% below the published kinetic "
+               "model and did not recover after leucine removal — the working diagnosis is that with ppGpp "
+               "fixed the synthesis enzymes are not maintained, which is why this patch is tested CROSSED "
+               "with EXT-PORT-P rather than on its own.",
+        composes_with=("EXT-PORT-P",),
+        patch_file="kinetic_port/for_alexey/kinetic_patch2_aa_supply.patch",
+        note="Puts synthesis, import and export inside the kinetic charging calculation, so the cell's own "
+             "enzymes set the amino-acid pool instead of the medium holding it fixed. Writes the 12 "
+             "GrowthLimits supply columns that only SteadyStateElongationModel wrote before.",
+    ),
+    "EXT-PORT-P": DraftPatch(
+        patch_id="EXT-PORT-P",
+        name="kinetic_ppgpp",
+        flag="--kinetic-ppgpp",
+        # TWO prerequisites, both enforced by a raise. Verified in the patch: `if kinetic_ppgpp and not
+        # kinetic_trna_charging: raise` and `if kinetic_ppgpp and not ppgpp_regulation: raise`.
+        requires=("--kinetic-trna-charging", "ppgpp_regulation on (do NOT pass --no-ppgpp-regulation)"),
+        status="Drafted, not yet run. Phase 6 of the kinetic campaign is the 2x2 that separates it from "
+               "EXT-PORT-A: KIN / KINP / KINA / KINAP.",
+        composes_with=("EXT-PORT-A",),
+        patch_file="kinetic_port/for_alexey/kinetic_patch3_ppgpp.patch",
+        note="Runs the RelA/SpoT synthesis and degradation reactions under the kinetic model — the same "
+             "`ppgpp_metabolite_changes` reactions and parameters SteadyStateElongationModel runs, fed with "
+             "this model's per-isoacceptor tRNA summed to amino acids. It also flips "
+             "('ppgpp_regulation', self.ppgpp_regulation and not self.kinetic_ppgpp), which is what stops "
+             "metabolism re-pinning ppGpp to a constant target behind the kinetic model's back.",
+    ),
+}
+
+# A named arm for a STACK of patches. Separate from `composes_with` because "these two stack" and "the two
+# together are the arm called KINAP" are different claims, and only the second one is what Phase 6 runs.
+# Option A is EXT-PORT-A alone: one axis of two, and deliberately NOT a combination entry, so an agent cannot
+# read a single patch as the hybrid.
+DRAFT_PATCH_COMBINATIONS: dict[str, tuple[str, ...]] = {
+    "KINAP": ("EXT-PORT-A", "EXT-PORT-P"),
+}
+
+
+def draft_patch_combination(patch_ids) -> dict | None:
+    """The named arm for a set of drafted patches, or None when the set is not a declared arm.
+
+    Returns None for a single patch on purpose: EXT-PORT-A on its own is Option A, which is ONE axis, and the
+    hybrid an agent means by "ppGpp and per-isoacceptor charging together" is both patches. Collapsing those
+    is the over-collapse this whole route exists to stop."""
+    want = frozenset(patch_ids)
+    for arm, ids in DRAFT_PATCH_COMBINATIONS.items():
+        if frozenset(ids) == want:
+            patches = [DRAFT_PATCHES[i] for i in ids]
+            flags: list[str] = []
+            for p in patches:
+                flags.extend([r for r in p.requires if r.startswith("--")] + [p.flag])
+            return {"arm": arm, "patch_ids": list(ids),
+                    "flags": sorted(set(flags)),
+                    "applied": all(p.applied for p in patches),
+                    "in_corpus": False,
+                    "note": "Both patches at once — the hybrid that represents ppGpp AND per-isoacceptor "
+                            "charging in one cell. Phase 6 runs it as one corner of a 2x2 (KIN / KINP / "
+                            "KINA / KINAP) precisely because neither patch has been shown correct alone."}
+    return None
+
+
 @dataclass(frozen=True)
 class Capability:
     """One mechanism the model may or may not represent."""
@@ -208,6 +324,11 @@ class Capability:
     # identity here has always been `key`, and no equal pair can differ in prose, so excluding them is safe.
     instead: ModeProse = field(default_factory=dict, hash=False)
     consequence: ModeProse = field(default_factory=dict, hash=False)
+    # {mode: patch_id} — a DRAFTED mechanism that would close this gap IN that mode, instead of leaving it.
+    # Mode-keyed for the same reason `instead` is, and it holds an ID rather than a sentence so the patch's
+    # prose, flags and prerequisites live in exactly one place and cannot drift per capability. `audit()`
+    # checks both halves: that the mode exists, and that the id resolves.
+    draft_patch: ModeProse = field(default_factory=dict, hash=False)
     # NOT mode-keyed, and checked rather than assumed. `available_in` answers "where does this mechanism come
     # from" — a property of the MECHANISM (an upstream release, or Cellarium's own variant), which does not
     # change with the model the question was asked under; every entry here names a provenance, none names a
@@ -256,6 +377,21 @@ class Capability:
         """How that model's output misleads. Same subject as `instead_in` — the pair must describe one model."""
         return _prose_for(self.consequence, self.prose_subject(mode))
 
+    def draft_patch_in(self, mode: str) -> DraftPatch | None:
+        """The drafted patch that would close this gap IN `mode`, or None.
+
+        Keyed on `mode` itself and deliberately NOT on `prose_subject(mode)`. The two differ in case (c),
+        where `prose_subject` resolves to DEFAULT_MODE because the sentence it governs describes the CORPUS.
+        A patch describes neither the corpus nor another model: it is a change to the mode the operator is
+        asking in. Routing it through `prose_subject` would offer a kinetic patch to a steady-state caller.
+
+        Returns None when `mode` already represents the mechanism, before the table is even consulted — a
+        patch offered where there is no gap is an offer to fix something that works, and the declaration
+        that would do it is caught by `audit()` rather than merely suppressed here."""
+        if mode in self.holds_in:
+            return None
+        return DRAFT_PATCHES.get(_prose_for(self.draft_patch, mode))
+
     def refusal(self, mode: str = DEFAULT_MODE) -> str:
         """What to say instead of returning a number. Names the gap, the substitute, and the route.
 
@@ -266,6 +402,9 @@ class Capability:
         Every branch quotes prose through `instead_in`/`consequence_in`, which resolve exactly ONE model's
         sentences, so no branch can render another mode's words."""
         instead, consequence = self.instead_in(mode), self.consequence_in(mode)
+        # The patch clause is appended to cases (a) and (b) — the two where a gap exists in `mode`. Case (c)
+        # cannot reach it: `draft_patch_in` returns None the moment `mode` is in `holds_in`.
+        patch = self.draft_patch_in(mode)
         if not self.holds_in:
             parts = [f"The model as configured CANNOT represent {self.key}: {self.detail or self.question}"]
             if instead:
@@ -276,6 +415,8 @@ class Capability:
                 parts.append(f"Where it does exist: {self.available_in}")
             if self.flag:
                 parts.append(f"Flag that would enable it here once ported: {self.flag}")
+            if patch:
+                parts.append(patch.sentence())
             return " ".join(parts)
         if mode not in self.holds_in:
             other = self.other_modes()[0]
@@ -289,6 +430,10 @@ class Capability:
                        if other in MODES_IN_CORPUS else
                        f"No run in the corpus used it ({corpus_modes_phrase()}), so this is a NEW RUN to "
                        f"propose, not a query to re-issue. ")
+                    # Appended AFTER the switch route, not in place of it. Both are true and they serve
+                    # different callers: switching answers the question from rows that already exist, while
+                    # patching keeps the mode the caller chose and costs a port plus a campaign.
+                    + (patch.sentence() + " " if patch else "")
                     + (f"Where it comes from: {self.available_in}" if self.available_in else ""))
         # Case (c) is "no run used this mode". Once a campaign lands in `mode`, that is FALSE, and the
         # sentence below would render "NO run in the corpus was produced by that model" immediately followed
@@ -557,6 +702,14 @@ CAPABILITIES: tuple[Capability, ...] = (
         consequence={("kinetic", "coarse_kinetic"): "GrowthLimits/ppgpp_conc still exists and still looks like "
                      "a measurement, so a flat ppGpp trace under starvation is the absence of the mechanism, "
                      "NOT evidence that the stringent response failed to fire. Nothing raises"},
+        # Keyed to "kinetic" ALONE, not to the ("kinetic", "coarse_kinetic") pair the two prose fields above
+        # use, and the asymmetry is the point. Those two sentences are true of both kinetic models; this
+        # route is not. EXT-PORT-P drives ppGpp FROM the per-isoacceptor charged-tRNA state, and the coarse
+        # model does not solve charging at all (np.zeros(86)), so there is nothing for the patch to read —
+        # which is also why `resolve_elongation_flags` refuses --kinetic-ppgpp without
+        # --kinetic-trna-charging. A tuple key here would have offered the coarse model a route that cannot
+        # exist, in the same breath as correctly refusing it a mechanism.
+        draft_patch={"kinetic": "EXT-PORT-P"},
         detail="ppGpp dynamics with transcriptional attenuation (Ahn-Horst et al. 2022)",
     ),
     Capability(
@@ -580,6 +733,9 @@ CAPABILITIES: tuple[Capability, ...] = (
                      "the metabolism cannot take up, so the rescue arm of the most obvious tRNA experiment — "
                      "starve, then rescue — is structurally inert, and a failed rescue is the missing "
                      "mechanism rather than biology"},
+        # Same single key, same reason: the patch puts synthesis/import/export INSIDE the kinetic charging
+        # ODE, so it has no meaning under a model that does not run that ODE.
+        draft_patch={"kinetic": "EXT-PORT-A"},
         detail="mechanistic amino-acid transport, i.e. whether medium supply reaches the FBA",
     ),
     Capability(
@@ -675,6 +831,18 @@ def check(key: str, mode: str = DEFAULT_MODE) -> dict:
         # kinetic run, find steady-state rows, and read them anyway.
         out["switch"] = {"mode": other, "design_field": f'elongation_model="{other}"',
                          "model_flag": MODE_FLAGS.get(other, ""), "in_corpus": other in MODES_IN_CORPUS}
+        # The third route, ALONGSIDE the switch and never instead of it. `switch` answers "where can this be
+        # read today"; `draft_patch` answers "what would keep the mode I chose". Emitted only when a patch is
+        # actually declared for this mode, so its absence stays informative — see
+        # `test_check_omits_the_patch_where_none_exists`.
+        patch = c.draft_patch_in(mode)
+        if patch is not None:
+            out["draft_patch"] = patch.as_route()
+            combo = draft_patch_combination(tuple(sorted({patch.patch_id, *patch.composes_with})))
+            if combo is not None:
+                # Named here because the two gaps are usually asked about together, and an agent told about
+                # one patch at a time will propose KINA or KINP and call it the hybrid.
+                out["draft_patch"]["combined_arm"] = combo
     else:                                                       # (c) this model does, but no run used it
         out["why_not"] = "no_run_used_this_mode"
         out["ported_but_off_by_default"] = True
@@ -898,9 +1066,28 @@ def audit(wcecoli: str | None = None) -> dict:
     # A prose table keyed by a mode that does not exist — a typo, or a field reverted to a bare string — makes
     # that sentence unreachable in every mode, and an unreachable `instead` degrades a refusal to a bare "no"
     # with nothing raising. Same failure shape as a stale `present=True`, so it is probed the same way.
-    bad_prose = [f"{c.key}.{name}[{m!r}]" for c in CAPABILITIES for name in ("instead", "consequence")
+    bad_prose = [f"{c.key}.{name}[{m!r}]" for c in CAPABILITIES
+                 for name in ("instead", "consequence", "draft_patch")
                  for m in _prose_keys(getattr(c, name)) if m not in ELONGATION_MODES]
-    ok = (not bad) and modes["ok"] and launch["ok"] and not bad_modes and not bad_prose
+    # A patch declaration has two more ways to be wrong than a prose table, and both fail SILENTLY at the
+    # call site: `draft_patch_in` returns None for an unresolvable id exactly as it does for no entry, and it
+    # returns None for a mode that already holds the capability exactly as it does for a mode with no patch.
+    # So the route simply disappears and the refusal degrades to the two-route form with nothing raising —
+    # which is the defect this whole field was added to remove.
+    bad_patches = []
+    for c in CAPABILITIES:
+        if not isinstance(c.draft_patch, dict):
+            bad_patches.append(f"{c.key}.draft_patch is not a mode-keyed table")
+            continue
+        for key, pid in c.draft_patch.items():
+            modes_claimed = (key,) if isinstance(key, str) else tuple(key)
+            if pid not in DRAFT_PATCHES:
+                bad_patches.append(f"{c.key}.draft_patch[{key!r}] -> {pid!r} is not in DRAFT_PATCHES")
+            for m in modes_claimed:
+                if m in c.holds_in:
+                    bad_patches.append(f"{c.key}.draft_patch[{m!r}] offers {pid!r} where the capability "
+                                       f"ALREADY holds — there is no gap to patch")
+    ok = (not bad) and modes["ok"] and launch["ok"] and not bad_modes and not bad_prose and not bad_patches
     verdict = ("disagreement" if not ok else
                "verified_consistent" if all_probeable_verified else
                "unverified")
@@ -923,6 +1110,7 @@ def audit(wcecoli: str | None = None) -> dict:
                               for r in bad],
             "undeclared_holds_in_modes": bad_modes,
             "undeclared_prose_modes": bad_prose,
+            "broken_patch_routes": bad_patches,
             "corpus_modes": modes,
             # `launch["ok"]` is True when there is no checkout to probe (`verified: False`), so an audit run
             # without WCECOLI_DIR stays green rather than reporting a failure it did not measure — read

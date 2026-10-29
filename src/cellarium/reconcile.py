@@ -66,6 +66,9 @@ NOT_A_MEASUREMENT: dict[str, str] = {
     "prune_candidates": "a prediction-driven filter over unrun candidates",
     # PROPOSALS. Nothing has been simulated.
     "design_panel": "a proposed panel; nothing here has been run",
+    # Same reason, one step further from the corpus: its points are coordinates in a continuous range,
+    # so not even a design label of it exists yet.
+    "surface_panel": "a proposed set of design POINTS; nothing here has been run",
     "generate_designs": "enumerated candidate designs; nothing here has been run",
     "propose_experiment": "a proposal; nothing here has been run",
     "propose_experiments": "proposals; nothing here has been run",

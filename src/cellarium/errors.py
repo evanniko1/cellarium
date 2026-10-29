@@ -102,7 +102,29 @@ PATTERNS: list[tuple[re.Pattern, str]] = [(re.compile(p, re.I), r) for p, r in [
      r"|did not land \d", "runtime_fault"),
     # --- the request ---
     (r"unknown tool", "unknown_tool"),
-    (r"unknown (argument|variant|mode|normalise|regulon|skill)|bad arguments for|must be (one of|'|a |non|>=)"
+    # --- M-5b: the design-of-experiments argument refusals. Every one is raised BEFORE any cell or
+    # point is built, from the caller's own factor map, range map or run budget, so each is a REQUEST
+    # fault: the class that tells the agent to fix the call, never one that is evidence about the
+    # corpus. Registered as a group rather than per message because the ratchet test is what keeps the
+    # group complete. ---
+    # Four of these must sit ABOVE `insufficient_data`, and two of them silently did not before this block
+    # was completed: "8 factors need at least 9 runs to estimate the main effects" and "stratification needs
+    # at least 2 bins per factor" matched the broad `need at least` pattern written for thin data and came
+    # back `insufficient_data`, whose `about` is `corpus` — the one value this module calls evidence. A
+    # caller's layout arithmetic was being handed to an agent as a fact about what the model contains, which
+    # is the silent-absence shape arriving through the module built to prevent it. Neither message is about
+    # data: both are about a layout that cannot estimate what was asked of it, whatever the corpus holds.
+    (r"two-level screening design needs|EXCEEDS the full factorial"
+     r"|no Plackett-Burman row is tabulated|central composite design without a centre point"
+     r"|alpha must be positive|^cube_runs=|no cells to order|is not a factor of these cells"
+     r"|are FITTED PARAMETERS"
+     r"|runs to estimate the main effects|is not a hypercube"
+     r"|no legal cells remain|cross to zero cells", "bad_argument"),
+    # A field the contract requires and the caller omitted, which is NOT the same fault as a value that
+    # cannot be used: the remedy is to supply one rather than to change one, and the reason code is what
+    # tells the agent which.
+    (r"needs `runs`", "missing_argument"),
+    (r"unknown ((surface )?design|argument|variant|mode|normalise|regulon|skill)|bad arguments for|must be (one of|'|a |non|>=)"
      r"|expected one of|^need \w+=|, got |give result_id|use 'median'|needs a (design label|non-empty)"
      r"|takes no hyper-parameter|has no hyper-parameter|invalid channel name|matches 0 arms"
      r"|no perturbation '", "bad_argument"),
