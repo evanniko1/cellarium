@@ -1332,9 +1332,52 @@ def power_check(channel: str = "growth_rate", effect_pct: float = 10.0, n_seeds:
                      "growth effect below this is UNDER-powered, not proven equivalent.")}
 
 
+# The factor-name-to-design-field convention, DERIVED from the model rather than listed here, so a field
+# added to `Design` becomes mappable without an edit in this file. `params` is excluded because it is the
+# destination for every factor that is not a field: a factor named `params` would otherwise overwrite the
+# whole bag with one level.
+_DESIGN_FIELDS = set(Design.model_fields) - {"params"}
+
+
+def _design_from_cell(cell: dict, base: dict | None = None):
+    """One factor-combination plus the panel's fixed fields, as a `Design`.
+
+    A factor whose name IS a design field sets that field; everything else goes into `params`. That is the
+    whole convention, and it is reported back to the caller (`design_mapping`) rather than applied silently,
+    because a factor that lands in `params` by a one-letter typo is invisible to the envelope — the check
+    would then pass a design missing the very thing the caller meant to vary."""
+    merged = dict(base or {})
+    params = dict(merged.pop("params", None) or {})
+    for name, level in cell.items():
+        if name in _DESIGN_FIELDS:
+            merged[name] = level
+        else:
+            params[name] = level
+    return Design(**merged, params=params)
+
+
+def _envelope_predicate(base: dict | None):
+    """A `doe.panel` legality predicate backed by `envelope.check`.
+
+    Returns (ok, reason). A cell that cannot even be CONSTRUCTED as a Design — `Design` raises on an unknown
+    elongation model rather than coercing it — comes back as an illegal cell carrying that message, because a
+    traceback here would lose the whole panel over one corner the generator chose."""
+    def legal(cell: dict):
+        try:
+            d = _design_from_cell(cell, base)
+        except Exception as exc:                     # pydantic ValidationError, and anything else it raises
+            return False, f"this cell is not a valid Design: {exc}"
+        v = envelope.check(d)
+        if v.in_envelope:
+            return True
+        return False, v.reason + (f" {v.suggestion}" if getattr(v, "suggestion", None) else "")
+    return legal
+
+
 def design_panel(factors: dict, channel: str = "growth_rate", effect_pct: float = 10.0,
                  seeds: int = 4, generations: int = 4, block_by: str | None = None,
-                 design: str = "full", runs: int | None = None, whole_plot: str | None = None) -> dict:
+                 design: str = "full", runs: int | None = None, whole_plot: str | None = None,
+                 base: dict | None = None, check_envelope: bool = True) -> dict:
     """DESIGN a falsifier PANEL as a proper design-of-experiments (M-5), not an ad-hoc seeds×generations guess. Give
     the FACTORS to vary as {name: [levels]} and get the cells, a randomized run order, optional blocking, the sim
     budget, and whether the panel is adequately POWERED to resolve `effect_pct` — grounded in the corpus's real
@@ -1357,13 +1400,61 @@ def design_panel(factors: dict, channel: str = "growth_rate", effect_pct: float 
                          "(4, 8, 16, 32...). Pick the smallest one above the number of factors + 1, then read "
                          "`resolution` to see what it cost. For a non-power-of-two budget use "
                          "design='plackett_burman', which sizes itself."}
+    base = dict(base or {})
+    stray = [k for k in base if k not in _DESIGN_FIELDS and k != "params"]
+    if stray:
+        return {"error": f"base names {stray}, which are not fields of a Design. Settable fields are "
+                         f"{sorted(_DESIGN_FIELDS)}; anything else a design carries belongs in "
+                         f"base['params']. A field name is refused rather than swept into params because a "
+                         f"mis-spelled `condition` there is invisible to the envelope check."}
+    # WHY THE CHECK CAN BE REFUSED. `envelope.check` passes a bare Design(perturbation="wildtype"), so a
+    # panel whose perturbation nothing determines would be checked as a wild type, pass every cell, and
+    # report itself checked. That is a check that cannot fail, and it is worse than no check because the
+    # output then carries a guarantee it did not earn. The perturbation has to come from `base` or from a
+    # factor; otherwise the tool says it did not check and why.
+    determined = ("perturbation" in base) or ("perturbation" in factors)
+    envelope_checked, envelope_note, legal = False, "", None
+    if not check_envelope:
+        envelope_note = ("envelope check not requested (check_envelope=False); no cell in this panel has "
+                         "been tested against the validated envelope.")
+    elif not determined:
+        envelope_note = ("NOT CHECKED: no perturbation is determined for these cells — pass it in `base` "
+                         "(e.g. base={'perturbation': 'gene_knockout'}) or cross it as a factor. A bare "
+                         "wildtype design passes the envelope, so checking one here would pass every cell "
+                         "and report a guarantee this panel has not earned.")
+    else:
+        envelope_checked, legal = True, _envelope_predicate(base)
     pc = power_check(channel=channel, effect_pct=effect_pct, n_seeds=seeds)   # ground the CV in real replicate noise
     cv = pc.get("observed_replicate_cv")   # None when the channel has no replicated design -> power stays unestimated
     out = doe.panel(factors, seeds=seeds, generations=generations, cv=cv, effect_pct=effect_pct,
-                    block_by=block_by, design=design, runs=runs, whole_plot=whole_plot)
+                    block_by=block_by, design=design, runs=runs, whole_plot=whole_plot, legal=legal)
+    if "n_cells" not in out:            # doe.panel refused the layout outright; nothing to annotate
+        return out
     out["power_channel"] = channel
     if cv is None:
         out["power_note"] = pc.get("error", "no replicate CV for this channel — power not estimated")
+    out["envelope_checked"] = envelope_checked
+    if envelope_note:
+        out["envelope_note"] = envelope_note
+    out["design_mapping"] = {
+        "fields": {n: n for n in factors if n in _DESIGN_FIELDS},
+        "params": [n for n in factors if n not in _DESIGN_FIELDS],
+        "base": base,
+        "note": "a factor whose name is a Design field sets that field; every other factor goes into "
+                "params. A factor in `params` is NOT seen by the envelope check, so read this list if a "
+                "factor you expected to be checked is in it.",
+    }
+    # The envelope's `suggestion` is the half an operator acts on, so it travels with the refusal rather
+    # than being flattened into the reason string alone.
+    if envelope_checked and out.get("illegal_cells"):
+        for item in out["illegal_cells"]:
+            reason = item.get("reason", "")
+            try:
+                v = envelope.check(_design_from_cell(item["cell"], base))
+                item["suggestion"] = getattr(v, "suggestion", None) or ""
+            except Exception:
+                item["suggestion"] = ""
+            item["reason"] = reason
     return out
 
 
@@ -1394,6 +1485,12 @@ def surface_panel(ranges: dict, design: str = "latin_hypercube", n: int = 10, ch
     out["power_channel"] = channel
     if cv is None:
         out["power_note"] = pc.get("error", "no replicate CV for this channel — power not estimated")
+    # A point is a tuple of numbers, not a factor-level combination, so there is no Design to map it onto
+    # and no envelope verdict to give. Said rather than omitted: an absent field reads as "checked, clean".
+    out["envelope_checked"] = False
+    out["envelope_note"] = ("NOT APPLICABLE: these are coordinates in a continuous range, not design cells, "
+                            "so there is no Design to check. Map the points you intend to run onto designs "
+                            "and envelope-check those (run_experiment / check_feasibility).")
     return out
 
 
@@ -1705,7 +1802,7 @@ TOOLS = [
     {"name": "power_check", "description": "Is a comparison adequately powered? Uses the corpus's observed per-design replicate CV for a channel to estimate the minimum detectable effect at n_seeds and the seeds needed for a target effect (two-sample, alpha .05, power .8). Use before reading a null (no effect) as real — a KO 'no growth effect' below min_detectable_effect is under-powered, not proven equivalent.",
      "input_schema": {"type": "object", "properties": {"channel": {"type": "string"}, "effect_pct": {"type": "number"}, "n_seeds": {"type": "integer"}}}},
     {"name": "design_panel", "description": "DESIGN a falsifier PANEL as a proper design-of-experiments — not an ad-hoc seeds×generations guess. Give the FACTORS to cross as {name:[levels]} (e.g. {'gene':['pfkA','pfkB'], 'condition':['basal','acetate']}) and get the full-factorial cells, a randomized run order, optional blocking, the sim budget, and whether the panel is adequately POWERED to resolve effect_pct (grounded in the corpus's real replicate CV for `channel`). Use to lay out a multi-factor falsifier panel; map each cell onto a Design and queue with propose_experiments. This tool crosses DISCRETE factor levels; for a factor that is a number on an interval (a charged-fraction target, a graded-KO level, a ppGpp clamp) use surface_panel instead, because a factorial over a continuous factor visits only its endpoints.",
-     "input_schema": {"type": "object", "properties": {"factors": {"type": "object", "description": "{factor_name: [levels]} to cross, e.g. {'gene': ['pfkA','pfkB']}"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number", "description": "the relative effect size the panel must be able to resolve, in percent (default 10)"}, "seeds": {"type": "integer", "description": "replicate seeds per cell — the replicate unit (default 4)"}, "generations": {"type": "integer", "description": "generations per run; generations within one seed are NOT replicates (default 4)"}, "block_by": {"type": "string", "description": "optional factor name to block on — a nuisance factor held fixed within a block"}, "design": {"type": "string", "enum": ["full", "random_screen", "fractional", "plackett_burman"], "description": "how the cells are picked: 'full' crosses everything (past the cap it degrades to a RANDOM subsample whose aliasing is uncontrolled, so an effect cannot be attributed to a factor); 'random_screen' asks for that subsample by name; 'fractional' is a regular 2^(k-p) fraction (needs `runs`) that REPORTS its resolution and alias groups; 'plackett_burman' screens up to n-1 two-level factors in n runs at resolution III — which factors matter, never an interaction"}, "runs": {"type": "integer", "description": "size of the fraction for design='fractional' — a power of two (4, 8, 16, 32...); read `resolution` in the result to see what the saving cost"}, "whole_plot": {"type": "string", "description": "optional factor that CANNOT be re-randomized per run (a fitted knowledge base, a Docker image): the run order becomes a split-plot layout and the power annotation gains a whole-plot term, because that factor is replicated by plots, not by seeds"}}, "required": ["factors"]}},
+     "input_schema": {"type": "object", "properties": {"factors": {"type": "object", "description": "{factor_name: [levels]} to cross, e.g. {'gene': ['pfkA','pfkB']}"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number", "description": "the relative effect size the panel must be able to resolve, in percent (default 10)"}, "seeds": {"type": "integer", "description": "replicate seeds per cell — the replicate unit (default 4)"}, "generations": {"type": "integer", "description": "generations per run; generations within one seed are NOT replicates (default 4)"}, "block_by": {"type": "string", "description": "optional factor name to block on — a nuisance factor held fixed within a block"}, "design": {"type": "string", "enum": ["full", "random_screen", "fractional", "plackett_burman"], "description": "how the cells are picked: 'full' crosses everything (past the cap it degrades to a RANDOM subsample whose aliasing is uncontrolled, so an effect cannot be attributed to a factor); 'random_screen' asks for that subsample by name; 'fractional' is a regular 2^(k-p) fraction (needs `runs`) that REPORTS its resolution and alias groups; 'plackett_burman' screens up to n-1 two-level factors in n runs at resolution III — which factors matter, never an interaction"}, "runs": {"type": "integer", "description": "size of the fraction for design='fractional' — a power of two (4, 8, 16, 32...); read `resolution` in the result to see what the saving cost"}, "whole_plot": {"type": "string", "description": "optional factor that CANNOT be re-randomized per run (a fitted knowledge base, a Docker image): the run order becomes a split-plot layout and the power annotation gains a whole-plot term, because that factor is replicated by plots, not by seeds"}, "base": {"type": "object", "description": "the design fields FIXED for the whole panel, e.g. {'perturbation': 'gene_knockout'}. Needed for the envelope check: every cell is built as that base plus the cell, a factor whose name is a Design field sets that field and every other factor goes into params. The result's design_mapping says which went where"}, "check_envelope": {"type": "boolean", "description": "envelope-check every generated cell (default true), dropping the illegal ones into illegal_cells with the envelope's own reason and suggestion. The check is REFUSED, with envelope_checked false and a note, when no perturbation is determined by `base` or by a factor — a bare wildtype passes the envelope, so checking one would pass every cell and claim a guarantee the panel has not earned"}}, "required": ["factors"]}},
     {"name": "surface_panel", "description": "DESIGN a panel over a CONTINUOUS lever — a space-filling or response-surface design. Use INSTEAD of design_panel when a factor is a number on an interval rather than a set of names (a charged-fraction target over 0.55-0.85, a graded-KO level over 5-99%, a ppGpp clamp). A factorial over such a factor visits only its ENDPOINTS: it reports a slope and structurally cannot report a THRESHOLD between them, which is the shape the published synthetase-sensitivity result has. 'latin_hypercube' places n points one per bin in every 1-D projection — for LOCATING where a response changes; it has no alias structure and no replicated cell, so it does NOT support attributing an effect to a factor (it says so in `refuses`). 'central_composite' adds a centre point and axial points — the smallest design that can tell a curve from a line. `ranges` is {name: [lo, hi]}.",
      "input_schema": {"type": "object", "properties": {"ranges": {"type": "object", "description": "{factor_name: [lo, hi]} continuous ranges, e.g. {'charged_fraction_target': [0.55, 0.85]}"}, "design": {"type": "string", "enum": ["latin_hypercube", "central_composite"], "description": "'latin_hypercube' (space-filling: locate where the response changes) or 'central_composite' (response surface: cube + axial + centre points, which separates a curve from a line)"}, "n": {"type": "integer", "description": "number of points for design='latin_hypercube' (default 10); ignored by central_composite, whose size is set by the factor count"}, "channel": {"type": "string", "description": "channel whose replicate noise grounds the power estimate (default growth_rate)"}, "effect_pct": {"type": "number", "description": "the relative effect size to resolve, in percent (default 10)"}, "seeds": {"type": "integer", "description": "replicate seeds per design point (default 4)"}, "generations": {"type": "integer", "description": "generations per run (default 4)"}, "alpha": {"type": "string", "enum": ["face", "rotatable"], "description": "axial distance for central_composite: 'face' (1.0) keeps every point INSIDE the declared range — the right default when a range is a hard bound; 'rotatable' ((2^k)^0.25 > 1) gives equal precision but pushes axial points outside, which is REPORTED in out_of_range and never clamped"}, "center": {"type": "integer", "description": "centre points for central_composite (default 1) — the centre point is what detects curvature at all"}}, "required": ["ranges"]}},
     {"name": "use_skill", "description": "Load a scientific Agent Skill's instructions into context. LITERATURE (vendored K-Dense, run over web_get): 'paper-lookup' (10 APIs — PubMed/OpenAlex/bioRxiv/… with provenance), 'literature-review' (search + synthesise a cited brief), 'bgpt-paper-search' (structured methods/results/quality) — check what's PUBLISHED / agreement / novelty; the corpus stays the source of primary numbers, literature is cited comparison only. PUBLICATION (Cellarium-authored): 'scientific-writing' (manuscript prose with the provenance + in/out-of-sample conventions), 'peer-review' (pre-submission adversarial self-critique; pairs with robustness_check), 'uncertainty-quantification' (routes each CI/p/power/robustness question to the toolkit's own grounded stats). Use these when drafting or reviewing a manuscript claim.",

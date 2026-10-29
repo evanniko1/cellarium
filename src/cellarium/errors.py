@@ -124,6 +124,13 @@ PATTERNS: list[tuple[re.Pattern, str]] = [(re.compile(p, re.I), r) for p, r in [
     # cannot be used: the remedy is to supply one rather than to change one, and the reason code is what
     # tells the agent which.
     (r"needs `runs`", "missing_argument"),
+    # Two more request faults, both caught by the ratchet on the commit that introduced them.
+    # `base names [...]` is a caller naming a field a Design does not have, and it is refused rather
+    # than swept into params because a mis-spelled `condition` in params is invisible to the envelope
+    # check. `locate()` on an empty document is an argument fault and must NOT share a verdict with a
+    # document whose plan sections could not be found — that distinction is the whole point of that
+    # module, so the two cannot collapse into one reason here either.
+    (r"are not fields of a Design|needs the document text", "bad_argument"),
     (r"unknown ((surface )?design|argument|variant|mode|normalise|regulon|skill)|bad arguments for|must be (one of|'|a |non|>=)"
      r"|expected one of|^need \w+=|, got |give result_id|use 'median'|needs a (design label|non-empty)"
      r"|takes no hyper-parameter|has no hyper-parameter|invalid channel name|matches 0 arms"
