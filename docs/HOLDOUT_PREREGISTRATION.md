@@ -4,7 +4,7 @@
 held-out report was read.
 
 The authority for every gate in this document is the table in
-[`src/cellarium/holdout.py`](../src/cellarium/holdout.py), and `cellarium.holdout.readiness()` is how the
+[`src/cellarium/holdout.py`](https://github.com/evanniko1/cellarium/blob/main/src/cellarium/holdout.py), and `cellarium.holdout.readiness()` is how the
 question "may the seal be broken?" is answered. A test asserts that every gate and every rule named in the
 code appears here, so this page cannot quietly fall behind it — the Platform Map once described two
 mechanisms in the past tense before either existed, and a stale pre-registration is worse than none because
