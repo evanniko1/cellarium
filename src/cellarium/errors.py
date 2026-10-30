@@ -44,6 +44,15 @@ import re
 REASONS: dict[str, tuple[str, str]] = {
     # the caller asked for something that does not exist, or asked wrongly
     "unknown_design": ("request", "fix_argument"),
+    # ADJ-3. `unknown_design` is ("request", "fix_argument") because inside the tool surface naming a
+    # design that does not exist IS the caller's mistake. The adjudicator's "caller" is a document
+    # somebody else wrote, so the same situation is a fact about OUR coverage and needs its own code;
+    # sharing one would tell an agent to fix a document it cannot edit.
+    "design_not_in_corpus": ("corpus", "run_more"),
+    # Two designs can both exist and still not be comparable. Rows from different fitted parameter
+    # sets describe different instruments, so this is coverage, and the remedy is the missing
+    # comparator rather than a different argument.
+    "no_shared_arm": ("corpus", "run_more"),
     "unknown_reference": ("request", "fix_argument"),
     "unknown_result_id": ("request", "fix_argument"),
     "ambiguous_result_id": ("request", "fix_argument"),

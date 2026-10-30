@@ -230,3 +230,110 @@ def test_an_ambiguous_heading_is_left_in_other_rather_than_guessed():
     out = adjudicate.locate("# T\n\n## Protocol Architecture\n\nbody\n")
     assert out["sections"][1]["kind"] == "other"
     assert out["located"] is False and "Protocol Architecture" in out["headings_seen"]
+
+
+# --- nesting: a heading's kind can come from its parent, and a container is not an empty section -------
+#
+# Found by chasing one ambiguous heading across the development set. `Protocol Architecture` is a level-4
+# CONTAINER nested under "### 4. Downstream Laboratory Experimental Validation", whose children are strain
+# construction, a mother machine and bulk kinetic assays. In isolation the heading is genuinely ambiguous;
+# in context it is not, and the context is its parent.
+#
+# The measurement that makes this load-bearing: 154 of 1,287 development-set sections (12.0%) have NO body
+# of their own, and 82 of those are `claim` sections with 2 `plan`. A plan whose body is empty because its
+# content sits in sub-headings is indistinguishable, in the old output, from a plan that says nothing — the
+# silent-absence shape, in the module written to end it.
+
+NESTED = """# Report
+
+## 4. Downstream Laboratory Experimental Validation
+
+### Protocol Architecture
+
+#### 1. Strain Construction
+
+Build the reporter.
+
+## Simulation Design Matrix
+
+### Step One
+
+| Factor | Levels |
+| --- | --- |
+| ppGpp | on, off |
+
+### Sample Preparation Assay
+
+A bench step nested inside the plan.
+"""
+
+
+def _by_heading(doc):
+    return {s["heading"]: s for s in adjudicate.locate(doc)["sections"]}
+
+
+def test_a_container_heading_inherits_its_kind_from_its_parent():
+    s = _by_heading(NESTED)["Protocol Architecture"]
+    assert s["kind"] == "validation_wetlab" and s["kind_basis"] == "inherited"
+    assert s["parent_heading"] == "4. Downstream Laboratory Experimental Validation"
+
+
+def test_an_uninformative_child_of_a_plan_inherits_plan():
+    s = _by_heading(NESTED)["Step One"]
+    assert s["kind"] == "plan" and s["kind_basis"] == "inherited"
+
+
+def test_a_heading_that_classifies_itself_beats_its_parent():
+    """A bench leg nested INSIDE a plan must not become a plan. Inheritance is a fallback for an
+    uninformative heading, never an override of an informative one — the reverse would file assays as
+    simulator demands via their parent, which is the error this field exists to prevent."""
+    s = _by_heading(NESTED)["Sample Preparation Assay"]
+    assert s["kind"] == "validation_wetlab" and s["kind_basis"] == "heading_words"
+
+
+def test_a_top_level_heading_with_no_informative_words_and_no_ancestor_defaults():
+    s = _by_heading("# Report\n\n## Miscellany\n\nprose\n")["Miscellany"]
+    assert s["kind"] == "other" and s["kind_basis"] == "default"
+
+
+def test_a_container_is_flagged_and_carries_a_subtree_span_wider_than_its_own():
+    s = _by_heading(NESTED)["Protocol Architecture"]
+    assert s["is_container"] is True
+    assert s["subtree_end"] > s["end"]
+    assert "Build the reporter." in NESTED[s["start"]:s["subtree_end"]]
+    assert "Build the reporter." not in NESTED[s["start"]:s["end"]]
+
+
+def test_an_empty_LEAF_section_is_not_a_container_and_is_still_reported():
+    """The two must not share a value. A container's content is elsewhere in the document; a leaf's absence
+    is real."""
+    s = _by_heading("# R\n\n## Says Nothing\n\n## Next\n\nbody\n")["Says Nothing"]
+    assert s["is_container"] is False and s["subtree_end"] == s["end"]
+
+
+def test_a_plan_section_hands_the_extractor_the_subtree_not_the_body():
+    """What an extractor must read. A plan container's own body is empty, so reading `start:end` would read
+    nothing and report a plan that specified nothing."""
+    out = adjudicate.locate(NESTED)
+    plan = next(s for s in out["plan_sections"] if s["heading"] == "Simulation Design Matrix")
+    assert plan["is_container"] is True
+    assert plan["read_span"] == [plan["start"], plan["subtree_end"]]
+    read = NESTED[plan["read_span"][0]:plan["read_span"][1]]
+    assert "ppGpp" in read                       # the table lives in a CHILD of the plan heading
+    assert "ppGpp" not in NESTED[plan["start"]:plan["end"]]
+
+
+def test_the_subtree_of_a_plan_still_excludes_a_bench_child_from_the_plan_set():
+    """A plan's subtree contains a nested assay, so the subtree span alone would re-admit bench text. The
+    bench child is its own section with its own kind, and `plan_sections` lists it nowhere."""
+    out = adjudicate.locate(NESTED)
+    assert "Sample Preparation Assay" not in [s["heading"] for s in out["plan_sections"]]
+    assert "Sample Preparation Assay" in [s["heading"] for s in out["validation_sections"]]
+    plan = next(s for s in out["plan_sections"] if s["heading"] == "Simulation Design Matrix")
+    assert plan["excluded_descendants"] == ["Sample Preparation Assay"]
+
+
+def test_container_counts_are_reported_so_a_zero_is_never_read_as_silence():
+    out = adjudicate.locate(NESTED)
+    assert out["n_containers"] >= 2
+    assert "containers" in out["note"].lower() or "container" in out["note"].lower()
