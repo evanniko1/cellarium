@@ -125,20 +125,35 @@ AGENT_PATH_CONTRACT = {
     "temperature": 0.0,
     "temperature_caveat": "0.0 WHERE THE MODEL ACCEPTS ONE. Found on the first live call: "
                           "claude-sonnet-5 answers 400 `temperature is deprecated for this model`, and "
-                          "llm.temperature_for returns None for that family. So on the default model "
-                          "sampling is NOT pinned and cannot be, agent extraction is not reproducible run "
-                          "to run, and `temperature_pinned` in the result says which case you are in. A "
-                          "contract clause that the default configuration cannot satisfy is worse than no "
-                          "clause, so it is recorded here rather than quietly dropped.",
+                          "llm.temperature_for returns None for that family -- so on THAT model sampling "
+                          "is not pinned and cannot be, and an extraction from it is not reproducible run "
+                          "to run. That is why the default is now a model which accepts an explicit "
+                          "temperature; `temperature_pinned` in the result says which case you are in, "
+                          "because the default is overridable and the clause has to stay honest for an "
+                          "operator who overrides it. A contract clause the configuration cannot satisfy "
+                          "is worse than no clause, so it is recorded rather than quietly dropped.",
     "gate": "every record passes extraction.verify_quotes against the source document; a field with no "
             "verbatim span is rejected, not repaired",
+    "quote_provenance": "CUT BY THE PLATFORM out of the units the model cites, never copied by the "
+                        "model. Measured on the first live section this path read: 10 records proposed, "
+                        "10 rejected for quote_not_in_source, and the cause was NOT markup -- checked all "
+                        "three ways it could have been innocent, exact matches 0, matches after the "
+                        "declared table-stripping 0, genuinely absent 10. The model rewrote the content "
+                        "and offered the rewrite as quotation, while the prompt said CHARACTER FOR "
+                        "CHARACTER in capitals. Asking harder is not a fix, so the opportunity is removed "
+                        "instead: the model is shown numbered units and cites numbers. What this does NOT "
+                        "buy is relevance -- a true span can be cited for a record it does not support, "
+                        "and that is counted (n_value_outside_quote), not assumed away.",
     "must": (
-        "quote a verbatim span for every field it fills",
+        "cite the unit numbers a field is stated on -- the platform cuts the quote out of those units, so "
+        "no copying is asked of it",
         "record why a field was left empty, in its own words, naming what the prose said instead",
         "run at temperature 0 — this is justification-side work, not generation",
         "read only the spans the locator marks plan or claim, and subtract excluded_descendants",
     ),
     "may_not": (
+        "retype, paraphrase or reconstruct the text: a `quote` field in the reply is IGNORED, and its "
+        "difference from the cited units is counted rather than argued with",
         "infer, complete or correct a field from the goal, the corpus, or what the text obviously meant",
         "widen any declared vocabulary after reading a document — an untranscribable field is COUNTED",
         "adjudicate its own output: the mechanical verifier is the gate, and a second model judging a "
@@ -470,7 +485,8 @@ def extract_report(text, agent_records=None, agent_client=None) -> dict:
         out["agent_vs_structural"] = reconcile(s, v["kept"])
     elif agent_client is not None:
         a = extract_agent(text, client=agent_client)
-        out["agent"] = {k: a[k] for k in ("n_kept", "n_rejected", "rejected", "unfilled", "note")
+        out["agent"] = {k: a[k] for k in ("n_kept", "n_rejected", "rejected", "unfilled", "note",
+                                          "quotes_cut_by_platform", "n_rewrote", "n_value_outside_quote")
                         if k in a}
         # The flag TRAVELS. A caller who must remember to read `span_failures` and then pass a parameter by
         # hand is a caller who forgets once, and the forgetting is silent.
@@ -1111,6 +1127,204 @@ def _temperature_for(model: str):
     return None if llm.temperature_for(model) is None else EXTRACTOR_TEMPERATURE
 
 
+# --- W9: a quote is CUT BY THE PLATFORM from cited units, never copied by the model --------------------
+#
+# THE MEASUREMENT THAT FORCED THIS. On the first live section this path ever read: 10 records proposed, 10
+# rejected for `quote_not_in_source`. Checked all three ways it could have been innocent -- exact matches 0,
+# matches after the declared table-stripping 0, genuinely absent 10 -- so it was not markup normalisation.
+# The model rewrote the content and offered the rewrite as quotation, with a prompt that said CHARACTER FOR
+# CHARACTER in capitals. A stricter prompt is not a fix for that; it is the same instrument, asked louder.
+#
+# So the opportunity is removed. The span is shown as NUMBERED UNITS, the model returns unit numbers, and
+# the platform cuts the quote. Verbatim stops depending on compliance and becomes a property of the cut --
+# which is why the units must TILE the span exactly: a cut that spans two units is a substring only if no
+# character falls between them. `verify_quotes` stays in place, now checking the construction rather than
+# the model.
+#
+# WHY UNITS AND NOT LINES. Measured over the development set: 11.7% of the lines inside a plan or claim span
+# run past 300 characters and the widest is 1,596. Numbering those as lines would make a citation resolve to
+# a whole paragraph -- verbatim and unreadable -- and would make a quote's size a property of how the OUTSIDE
+# producer wraps its text. A long line is therefore split at sentence boundaries, and a long line with no
+# sentence boundary stays whole, because inventing a break the text does not have is the worse error.
+#
+# WHAT THE SPLIT LEAVES, measured rather than assumed -- I first attributed the residue to wide table rows
+# and that was wrong. After the split 2.0% of units still exceed 300 characters (widest 584), and of those
+# 479 units: 253 are ONE unbroken sentence, 139 a list item, 84 have a break whose pieces are still long,
+# and 3 are table rows. Real table rows in this archive top out at 352 characters. So the residue is not a
+# failure of the split -- a 436-character sentence IS one sentence, and quoting it whole is right.
+
+CITABLE_UNIT_MAX = 300
+MIN_UNIT_CHARS = 40
+MAX_CITED_UNITS = 12
+
+# Why a record can fail to produce a quote. Declared, so a rejection names a cause instead of arriving as a
+# smaller list, and so `cut_not_in_source` stays distinguishable from the model-side failure it replaces:
+# it means the PLATFORM cut something the document does not contain, which is this module's bug.
+CITATION_REASONS = ("no_line_citation", "line_out_of_range", "line_citation_too_wide",
+                    "cited_units_are_blank", "cut_not_in_source")
+
+_SENTENCE_BREAK = re.compile(r"(?<=[.;:!?])\s+")
+_CITATION_TOKEN = re.compile(r"L?0*(\d+)\s*(?:[-\u2013\u2014]\s*L?0*(\d+))?")
+
+
+def _line_spans(text: str) -> list[tuple[int, int]]:
+    """The lines of `text` WITH their newline, so the spans tile it exactly and leave no gap."""
+    out, start = [], 0
+    for m in re.finditer("\n", text):
+        out.append((start, m.end()))
+        start = m.end()
+    if start < len(text) or not out:
+        out.append((start, len(text)))
+    return out
+
+
+def _sentence_spans(text: str, lo: int, hi: int) -> list[tuple[int, int]]:
+    """One line split into sentence-sized pieces, or left whole when it has nowhere to break."""
+    if hi - lo <= CITABLE_UNIT_MAX:
+        return [(lo, hi)]
+    line = text[lo:hi]
+    cuts, last = [], 0
+    for m in _SENTENCE_BREAK.finditer(line):
+        if m.end() - last >= MIN_UNIT_CHARS and m.end() < len(line):
+            cuts.append(m.end())
+            last = m.end()
+    if not cuts:
+        return [(lo, hi)]
+    out, prev = [], 0
+    for c in cuts:
+        out.append((lo + prev, lo + c))
+        prev = c
+    out.append((lo + prev, hi))
+    return out
+
+
+def citable_units(span_text: str) -> list[dict]:
+    """Numbered units that TILE `span_text` exactly: every character belongs to exactly one unit.
+
+    The tiling is the whole guarantee. A citation of units i..j is cut as span[units[i].start:units[j].end],
+    which is a contiguous substring precisely because nothing lies between consecutive units -- so a quote
+    cannot be a splice of two real fragments, which would be a fabrication manufactured by this module
+    rather than by the model."""
+    units = []
+    for lo, hi in _line_spans(span_text or ""):
+        for a, b in _sentence_spans(span_text, lo, hi):
+            units.append({"n": len(units) + 1, "start": a, "end": b, "text": span_text[a:b]})
+    return units
+
+
+def numbered_body(units: list[dict]) -> str:
+    """What the model is shown: one numbered unit per line, with its own newline stripped for display."""
+    return "\n".join("L%04d| %s" % (u["n"], u["text"].rstrip("\n")) for u in units)
+
+
+def _cited_numbers(cited) -> list[int]:
+    """The unit numbers a reply refers to, from whatever shape it wrote them in.
+
+    GENEROUS ABOUT THE POINTER, STRICT ABOUT THE CUT. "L0003", "3-4" and 3 are the same citation written
+    three ways; rejecting the spelling would discard a record whose evidence is fine, while the cut itself
+    stays mechanical and refuses anything it cannot resolve."""
+    if cited is None or isinstance(cited, bool):
+        return []
+    if isinstance(cited, dict):
+        for key in ("lines", "line", "line_numbers", "units", "unit"):
+            if key in cited:
+                return _cited_numbers(cited[key])
+        return []
+    if isinstance(cited, int):
+        return [cited]
+    items = [cited] if isinstance(cited, str) else list(cited) if isinstance(cited, (list, tuple, set)) \
+        else []
+    out: list[int] = []
+    for it in items:
+        if isinstance(it, bool):
+            continue
+        if isinstance(it, (int, float)):
+            out.append(int(it))
+        elif isinstance(it, (list, tuple, set, dict)):
+            out += _cited_numbers(it)
+        else:
+            for m in _CITATION_TOKEN.finditer(str(it)):
+                out.append(int(m.group(1)))
+                if m.group(2):
+                    out.append(int(m.group(2)))
+    return sorted(set(out))
+
+
+def cut_cited(span_text: str, units: list[dict], cited, source: str | None = None) -> dict:
+    """The quote for a citation, cut by this module. Returns a reason instead when it cannot be cut.
+
+    A NON-CONTIGUOUS citation is WIDENED to its range rather than joined. Joining units 3 and 5 would
+    produce text that appears nowhere in the document -- the exact failure this design exists to prevent,
+    committed by the platform instead of the model. Widening gives back something a reader can find, and
+    says it widened."""
+    nums = _cited_numbers(cited)
+    if not nums:
+        return {"quote": "", "units": [], "cited": nums, "reason": "no_line_citation",
+                "note": "the reply cites no unit number, so there is nothing to cut. A record with no "
+                        "citation has no evidence, and this path does not supply one for it."}
+    if nums[0] < 1 or nums[-1] > len(units):
+        return {"quote": "", "units": [], "cited": nums, "reason": "line_out_of_range",
+                "note": f"unit(s) cited outside the {len(units)} this section has. NOT clamped to the "
+                        f"nearest one: a clamped citation comes back as a confident quote of whatever "
+                        f"happens to sit at the boundary, which is the expensive direction."}
+    lo, hi = nums[0], nums[-1]
+    if hi - lo + 1 > MAX_CITED_UNITS:
+        return {"quote": "", "units": [], "cited": nums, "reason": "line_citation_too_wide",
+                "note": f"the citation spans {hi - lo + 1} units; the cap is {MAX_CITED_UNITS}. A whole "
+                        f"section is not a quote."}
+    span = list(range(lo, hi + 1))
+    quote = span_text[units[lo - 1]["start"]:units[hi - 1]["end"]].strip()
+    if not quote:
+        return {"quote": "", "units": span, "cited": nums, "reason": "cited_units_are_blank",
+                "note": "the cited units hold no text. An empty string is a substring of every document, "
+                        "so accepting it would pass a field with no evidence through the only check that "
+                        "asks for any."}
+    if source is not None and quote not in source:
+        return {"quote": "", "units": span, "cited": nums, "reason": "cut_not_in_source",
+                "note": "the cut is not a span of the source document. This is a fault in THIS module, not "
+                        "in the reply -- the units and the text being cut do not belong together -- and it "
+                        "is reported rather than repaired because it falsifies the construction this "
+                        "path's quotes rest on."}
+    note = f"cut by the platform from unit(s) {lo}-{hi} ({len(quote)} characters); verbatim by construction."
+    if len(span) > len(nums):
+        note += (f" The citation named {len(nums)} non-contiguous unit(s) and was WIDENED to the range "
+                 f"{lo}-{hi}: joining {nums} directly would have produced text that appears nowhere in the "
+                 f"document.")
+    return {"quote": quote, "units": span, "cited": nums, "reason": "", "note": note}
+
+
+# WHICH ROLES MUST CARRY THEIR VALUE IN THEIR OWN EVIDENCE. Exactly the roles whose value this module later
+# resolves against a DECLARED VOCABULARY -- the `factor:` roles, whose levels go through `normalise_value`
+# against a closed synonym table. For those, the value is a token the document either carries or does not.
+#
+# Everything else states its value in prose BY DESIGN. A `note` is the transcriber's sentence about the span;
+# a `readout:` record has its channel pinned by the ROLE and uses the value to describe what is predicted;
+# an `id` is a label. Asking prose to appear verbatim inside its own evidence asks the field to be something
+# it is not.
+#
+# MEASURED, in two steps, and the first was wrong. Across two development reports 298 of 333 kept records
+# reported "value not in the cited span" -- a 90% rate that was the instrument's fault. Excluding only
+# `note` and `id` left 97 of 104 still reporting it, because `readout:` records were counted as levels while
+# carrying sentences like "uncharged tRNA <2% during hardware dilution". The rule is not "exclude whatever
+# scores badly"; it is that a value is checkable against its span exactly when the platform will later check
+# it against a vocabulary. Both counts are always reported, so narrowing the population hides nothing.
+def _is_level_role(role: str) -> bool:
+    return str(role).startswith("factor:")
+
+
+def _value_in_quote(value: str, quote: str) -> bool:
+    """Whether the cited span actually carries the value, on a word boundary rather than a substring.
+
+    This is the risk the construction DOES NOT remove. A quote can no longer be invented, so the remaining
+    way to be wrong is to cite a real span for a record it does not support. It is counted, not refused: a
+    claim may legitimately be stated in words that never repeat its level ("raised to the higher setpoint"),
+    and refusing those would be a false rejection -- the direction this project treats as expensive."""
+    v = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not v:
+        return True
+    return bool(re.search(r"(?<![\w.-])" + re.escape(v) + r"(?![\w.-])", quote, re.I))
+
+
 def _agent_prompt(spans: list[dict]) -> tuple[str, str]:
     """The system prompt and the user message. Roles and prohibitions come from the declared tables."""
     roles = sorted(set(COLUMN_ROLES) | set(ROLE_IDENTIFIERS) | {f"readout:{c}" for c in adjudicate.channels()})
@@ -1121,17 +1335,24 @@ def _agent_prompt(spans: list[dict]) -> tuple[str, str]:
         "improve, or complete it, and you are not the adjudicator of your own output -- a deterministic "
         "checker gates everything you return.\n\n"
         "YOU MUST:\n" + must + "\n\nYOU MAY NOT:\n" + may_not + "\n\n"
+        "The text is given to you as NUMBERED UNITS, one per line, in the form `L0007| ...`. YOU DO NOT "
+        "COPY ANY TEXT. For each record you name the unit numbers it is stated on and the platform cuts "
+        "the quotation out of those units itself, so a quotation cannot be mistyped or reworded. Cite the "
+        "FEWEST units that state the record.\n\n"
         "A record is JSON with: kind ('requirement' or 'claim'), role (one of the declared roles below), "
-        "value, quote (a span copied CHARACTER FOR CHARACTER out of the text given to you), section. A "
-        "claim may also carry target, reference, direction ('up'/'down'/'change'), threshold_pct. For any "
-        "field you leave empty, add it to an `unfilled` object mapping the field name to your reason in "
-        "your own words, naming what the text said instead. A field with no verbatim quote will be "
-        "REJECTED, and so will an empty field with no reason -- neither is repaired.\n\n"
+        "value, lines (a list of unit numbers, e.g. [7] or [7, 8]), section. A claim may also carry "
+        "target, reference, direction ('up'/'down'/'change'), threshold_pct. For any field you leave "
+        "empty, add it to an `unfilled` object mapping the field name to your reason in your own words, "
+        "naming what the text said instead. A record whose `lines` are missing, outside the list, or more "
+        f"than {MAX_CITED_UNITS} units wide is REJECTED, and so is an empty field with no reason -- "
+        "neither is repaired. Any `quote` you write is IGNORED.\n\n"
         "DECLARED ROLES (use these exactly; do not invent one):\n  " + "\n  ".join(roles) + "\n\n"
         'Reply with JSON only: {"records": [ ... ]}'
     )
-    body = "\n\n".join(f"### SECTION: {s['heading']}  [{s['kind']}]\n{s['text']}" for s in spans)
-    user = ("Transcribe the records stated in these sections. Quote character for character.\n\n" + body)
+    body = "\n\n".join(f"### SECTION: {s['heading']}  [{s['kind']}]\n"
+                        f"{numbered_body(s.get('units') or citable_units(s['text']))}" for s in spans)
+    user = ("Transcribe the records stated in these sections. Cite unit numbers; do not copy text.\n\n"
+            + body)
     return system, user
 
 
@@ -1153,7 +1374,9 @@ def _agent_spans(text: str) -> list[dict]:
             if child["kind"] in ("validation_wetlab", "citation_context") and \
                     sec["start"] < child["start"] < sec["subtree_end"]:
                 span = span.replace(text[child["start"]:child["subtree_end"]], "")
-        out.append({"heading": sec["heading"], "kind": sec["kind"], "text": span.strip()})
+        body = span.strip()
+        out.append({"heading": sec["heading"], "kind": sec["kind"], "text": body,
+                    "units": citable_units(body)})
     return out
 
 
@@ -1270,7 +1493,7 @@ def extract_agent(text: str, client=None, model: str | None = None,
     known_roles = (set(COLUMN_ROLES) | set(ROLE_IDENTIFIERS)
                    | {f"readout:{c}" for c in adjudicate.channels()} | {"readout"})
     parsed_all, failures, retried_any = [], [], False
-    for span in spans:
+    for si, span in enumerate(spans):
         got = _agent_one_span(cl, span, mdl, temp, max_tokens)
         retried_any = retried_any or got.get("retried", False)
         if got["records"] is None:
@@ -1279,10 +1502,13 @@ def extract_agent(text: str, client=None, model: str | None = None,
         for item in got["records"]:
             if isinstance(item, dict):
                 item.setdefault("section", span["heading"])
-            parsed_all.append(item)
+            # The span INDEX travels with the record. The quote is cut from the span the model was shown,
+            # and cutting it from any other one is the `cut_not_in_source` fault.
+            parsed_all.append((si, item))
 
     candidates, rejected, unfilled, claims = [], [], [], []
-    for item in parsed_all:
+    n_rewrote = n_value_outside = n_level = n_free_text = n_free_text_para = 0
+    for si, item in parsed_all:
         if not isinstance(item, dict):
             rejected.append({"record": str(item)[:120], "reason": "not_a_record", "quote": ""})
             continue
@@ -1298,15 +1524,38 @@ def extract_agent(text: str, client=None, model: str | None = None,
         if missing_reason:
             rejected.append({**item, "reason": "unfilled_without_reason", "fields": missing_reason})
             continue
+        cut = cut_cited(spans[si]["text"], spans[si]["units"], item, source=text)
+        if cut["reason"]:
+            rejected.append({**item, "reason": cut["reason"], "cited": cut["cited"],
+                             "quote": "", "note": cut["note"]})
+            continue
+        q = cut["quote"]
+        offered = str(item.get("quote") or "").strip()
+        if offered and offered not in q:
+            # The W9 behaviour, still present and now inert. Counted rather than dropped: a design that
+            # removes an opportunity should keep showing that the behaviour it removed is still there.
+            n_rewrote += 1
+        value = str(item.get("value") or "")
+        supported = _value_in_quote(value, q)
+        if _is_level_role(role):
+            n_level += 1
+            if not supported:
+                n_value_outside += 1
+        else:
+            n_free_text += 1
+            if not supported:
+                # NOT an unsupported value -- a paraphrase is what this field is for. Counted because it is
+                # where the rewriting went: the model no longer offers a reworded QUOTE, it offers a
+                # reworded note beside a real one, and a reader can take the note for the document's words.
+                n_free_text_para += 1
         for f, reason in why.items():
-            unfilled.append({"field": f, "why": str(reason), "quote": str(item.get("quote") or ""),
+            unfilled.append({"field": f, "why": str(reason), "quote": q,
                              "section": str(item.get("section") or "")})
         candidates.append(Record(kind=str(item.get("kind") or "requirement"), role=role,
-                                 value=str(item.get("value") or ""), quote=str(item.get("quote") or ""),
+                                 value=value, quote=q,
                                  section=str(item.get("section") or ""), section_kind="plan",
                                  path="agent"))
         if str(item.get("kind")) == "claim":
-            q = str(item.get("quote") or "")
             thr = item.get("threshold_pct")
             if q and q in text:
                 claims.append(adjudicate.Claim(
@@ -1320,11 +1569,33 @@ def extract_agent(text: str, client=None, model: str | None = None,
            "kept": gated["kept"], "rejected": gated["rejected"] + rejected, "claims": claims,
            "unfilled": unfilled, "model": mdl, "n_spans": len(spans),
            "span_failures": failures, "retried_for_room": retried_any,
-           "temperature_pinned": temp is not None, "temperature_sent": temp}
+           "temperature_pinned": temp is not None, "temperature_sent": temp,
+           "quotes_cut_by_platform": True, "n_rewrote": n_rewrote,
+           "n_value_outside_quote": n_value_outside, "n_level_records": n_level,
+           "n_free_text_records": n_free_text, "n_free_text_paraphrased": n_free_text_para}
     note = [f"{gated['n_kept']} record(s) kept, {gated['n_rejected'] + len(rejected)} rejected, over "
-            f"{len(spans)} section(s). Rejections are NOT repaired: a fabricated quote, an undeclared role "
-            f"and a blank without a reason are each a record this path may not contribute. The model never "
-            f"saw the wet-lab sections."]
+            f"{len(spans)} section(s). Rejections are NOT repaired: an unusable citation, an undeclared "
+            f"role and a blank without a reason are each a record this path may not contribute. The model "
+            f"never saw the wet-lab sections.",
+            "Every quote was CUT BY THE PLATFORM out of the units the record cited, so a quote is verbatim "
+            "by construction and the gate checks that construction rather than the model's compliance."]
+    if n_rewrote:
+        note.append(f"{n_rewrote} record(s) also supplied their own wording, and it was not the cited "
+                    f"text: IGNORED, and counted. The behaviour that forced this design is still there; it "
+                    f"can no longer reach the output.")
+    if n_value_outside:
+        note.append(f"{n_value_outside} of {n_level} LEVEL-bearing record(s) carry a value the cited span "
+                    f"does not contain. Verbatim is not the same as relevant -- a real span can be cited "
+                    f"for a record it does not support -- so this is counted and not refused: a claim may "
+                    f"legitimately be stated in words that never repeat its level.")
+    if n_free_text:
+        note.append(f"{n_free_text} of {gated['n_kept']} kept record(s) state their value in prose "
+                    f"(note / readout / id) rather than as a declared factor level, so the kept count is "
+                    f"not a count of design facts; "
+                    f"{n_free_text_para} of them state the span in the transcriber's "
+                    f"own words, which is what the field is for and is NOT counted as an unsupported "
+                    f"value -- but it is where the rewriting went, and a note beside a verbatim quote can "
+                    f"be read as the document's words.")
     note.append("Sampling pinned at temperature 0, so a re-run is reproducible." if temp is not None else
                 f"SAMPLING IS NOT PINNED: {mdl} refuses an explicit temperature, so this extraction is NOT "
                 f"reproducible run to run. Two runs disagreeing is then a property of the sampler, not a "

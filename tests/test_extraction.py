@@ -960,17 +960,22 @@ def test_the_declared_role_vocabulary_is_in_the_prompt_rather_than_left_to_the_m
 
 # --- the gate does the work ---------------------------------------------------------------------------
 
-def test_a_fabricated_quote_is_rejected_even_though_the_model_returned_it():
-    """The whole reason an agent path is safe to add. The model is allowed to be wrong; the gate is not."""
+def test_a_record_the_model_cannot_point_at_is_rejected_even_though_it_returned_one():
+    """This test used to submit a FABRICATED QUOTE and watch the gate reject it. Through this path it can
+    no longer do that: a quote is not the model's to supply, so the way a record now fails is by pointing
+    nowhere. The gate itself is unchanged and still tested directly, on hand-built records, in
+    `test_an_agent_record_is_held_to_the_same_gate_as_any_other`.
+
+    The model is allowed to be wrong; the platform is not."""
     c = _PerSpanClient([_reply([
-        {"kind": "requirement", "role": "factor:perturbation", "value": "gene_knockout",
-         "quote": "gene_knockout", "section": "Factorial Simulation Matrix"},
+        _cited(5, kind="requirement", role="factor:perturbation", value="gene_knockout",
+               section="Factorial Simulation Matrix"),
         {"kind": "requirement", "role": "factor:medium", "value": "rich_EZ_aa",
          "quote": "we will use a rich defined medium throughout", "section": "Factorial Simulation Matrix"},
     ]), _reply([])])
     out = extraction.extract_agent(DOC, client=c)
     assert out["n_kept"] == 1 and out["n_rejected"] == 1
-    assert out["rejected"][0]["reason"] == "quote_not_in_source"
+    assert out["rejected"][0]["reason"] == "no_line_citation"
     assert all(r.path == "agent" for r in out["kept"])
 
 
@@ -1016,12 +1021,12 @@ def test_no_client_and_no_key_refuses_rather_than_pretending_to_run(monkeypatch)
 def test_the_agent_path_is_reconciled_against_the_STRUCTURAL_path_on_shared_roles():
     """The mechanical paths were complementary, so their agreement checked nothing. The agent is aimed at
     the roles the structural path already covers, which is what makes agreement informative at all."""
-    c = _FakeClient(_reply([
-        {"kind": "requirement", "role": "factor:ppgpp_module", "value": "on", "quote": "on",
-         "section": "Factorial Simulation Matrix"},
-        {"kind": "requirement", "role": "factor:perturbation", "value": "gene_knockout",
-         "quote": "gene_knockout", "section": "Factorial Simulation Matrix"},
-    ]))
+    c = _PerSpanClient([_reply([
+        _cited(5, kind="requirement", role="factor:ppgpp_module", value="on",
+               section="Factorial Simulation Matrix"),
+        _cited(5, kind="requirement", role="factor:perturbation", value="gene_knockout",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
     out = extraction.extract_report(DOC, agent_client=c)
     rec = out["agent_vs_structural"]
     assert rec["agreement"]["comparison_kind"] in ("redundant", "partial")
@@ -1033,10 +1038,9 @@ def test_the_agent_claim_binding_is_what_it_is_for():
     """A claim with a target AND a reference is the thing no pattern produced. 8,654 lexical readout
     mentions bound none."""
     c = _PerSpanClient([_reply([]), _reply([
-        {"kind": "claim", "role": "readout:growth_rate", "value": "growth rate",
-         "quote": "Growth rate falls by at least 20% in the argS knockout relative to wild type.",
-         "section": "Expected Outcomes", "target": "argS knockout", "reference": "wild type",
-         "direction": "down", "threshold_pct": 20.0},
+        _cited(3, kind="claim", role="readout:growth_rate", value="growth rate",
+               section="Expected Outcomes", target="argS knockout", reference="wild type",
+               direction="down", threshold_pct=20.0),
     ])])
     out = extraction.extract_agent(DOC, client=c)
     assert out["n_kept"] == 1
@@ -1049,10 +1053,9 @@ def test_a_claim_missing_a_reference_is_kept_but_flagged_not_filled():
     """R2: nothing is inferred. "growth falls in the knockout" names no reference, and supplying
     `wildtype/basal` would add a growth medium the hypothesis never chose."""
     c = _PerSpanClient([_reply([]), _reply([
-        {"kind": "claim", "role": "readout:growth_rate", "value": "growth rate",
-         "quote": "Growth rate falls by at least 20% in the argS knockout relative to wild type.",
-         "section": "Expected Outcomes", "target": "argS knockout", "reference": "",
-         "unfilled": {"reference": "the prose names no comparator"}},
+        _cited(3, kind="claim", role="readout:growth_rate", value="growth rate",
+               section="Expected Outcomes", target="argS knockout", reference="",
+               unfilled={"reference": "the prose names no comparator"}),
     ])])
     out = extraction.extract_agent(DOC, client=c)
     assert out["n_kept"] == 1
@@ -1132,8 +1135,8 @@ def test_an_empty_reply_is_reported_as_empty_and_not_as_unparseable():
 def test_an_empty_reply_is_RETRIED_once_with_a_bigger_budget():
     """The precedent from the agent loop: one retry with room, and no third attempt."""
     c = _EmptyReplyClient(then=_reply([
-        {"kind": "requirement", "role": "factor:ppgpp_module", "value": "on", "quote": "on",
-         "section": "Factorial Simulation Matrix"}]))
+        _cited(5, kind="requirement", role="factor:ppgpp_module", value="on",
+               section="Factorial Simulation Matrix")]))
     out = extraction.extract_agent(DOC, client=c, max_tokens=1000)
     assert c.calls[1]["max_tokens"] > c.calls[0]["max_tokens"]
     assert out["retried_for_room"] is True and out["n_kept"] >= 1
@@ -1201,8 +1204,8 @@ def test_each_call_carries_only_its_own_span():
 def test_one_failing_span_does_not_lose_the_document():
     """The point of making the unit smaller. A partial result with the gap named beats no result."""
     c = _PerSpanClient([
-        _reply([{"kind": "requirement", "role": "factor:ppgpp_module", "value": "on", "quote": "on",
-                 "section": "Factorial Simulation Matrix"}]),
+        _reply([_cited(5, kind="requirement", role="factor:ppgpp_module", value="on",
+                       section="Factorial Simulation Matrix")]),
         RuntimeError("503 overloaded"),
     ])
     out = extraction.extract_agent(DOC, client=c)
@@ -1424,3 +1427,305 @@ def test_pinned_means_ZERO_and_nothing_else(monkeypatch):
     out = extraction.extract_agent(DOC, client=c, model="claude-haiku-4-5-20251001")
     # The flag is true only because the value IS zero, never because a value was sent.
     assert out["temperature_sent"] == 0.0 and out["temperature_pinned"] is True
+
+
+# --- W9: the quote is CUT BY THE PLATFORM, never copied by the model ----------------------------------
+#
+# The measured failure, on the first live section this path ever read: 10 records proposed, 10 rejected for
+# `quote_not_in_source`, and the cause was not markup. Checked all three ways it could have been innocent --
+# exact matches 0, matches after the declared table-stripping 0, genuinely absent 10. The model rewrote the
+# content and offered the rewrite as quotation. Asking harder is not a fix; the prompt already said
+# "character for character" in capitals.
+#
+# So the opportunity is removed instead. The model is shown NUMBERED units and asked which units a record is
+# stated on; the platform cuts the quote from those units. A quote is then verbatim BY CONSTRUCTION, and the
+# gate stays in place as a check on the construction rather than on the model's compliance.
+#
+# The residual risk moves rather than vanishing: a real span can be cited for a record it does not support.
+# Verbatim is not the same as relevant, and that is measured (`n_value_outside_quote`), not assumed away.
+
+LONG_PROSE = ("We will hold the medium fixed across every arm. "
+              "The target setpoint is 0.85 in the high arm and 0.55 in the low arm. " * 8)
+
+
+def test_citable_units_tile_the_span_exactly():
+    """The whole construction rests on this. If the units do not tile the span, a cut across two of them is
+    not a substring of anything and "verbatim by construction" is a slogan."""
+    units = extraction.citable_units(DOC)
+    assert units
+    assert units[0]["start"] == 0 and units[-1]["end"] == len(DOC)
+    for u, nxt in zip(units, units[1:]):
+        assert u["end"] == nxt["start"], (u, nxt)
+    for u in units:
+        assert DOC[u["start"]:u["end"]] == u["text"]
+    assert [u["n"] for u in units] == list(range(1, len(units) + 1))
+
+
+def test_a_long_unwrapped_paragraph_is_split_into_sentence_sized_units():
+    """Measured need, not a guess: over the development set 11.7% of the lines in a plan or claim span run
+    past 300 characters and the widest is 1,596. A citation that resolves to a 1,596-character paragraph is
+    verbatim and useless, and it would make a quote's size a property of how the OUTSIDE producer wraps its
+    text."""
+    units = extraction.citable_units(LONG_PROSE)
+    assert len(units) > 1
+    assert max(len(u["text"]) for u in units) <= extraction.CITABLE_UNIT_MAX
+    assert "".join(u["text"] for u in units) == LONG_PROSE
+
+
+def test_a_long_line_with_no_sentence_boundary_stays_ONE_unit_and_is_not_truncated():
+    """A long row with no sentence to break on stays one unit at full length: the document's shape is
+    reported, and cutting a row in half to meet a target width would invent a boundary the text does not
+    have. The fixture is the pathological case rather than the common one -- measured, real table rows in
+    the archive top out at 352 characters and only 3 of the 479 over-300 units are rows; most are a single
+    long sentence, which is the right unit anyway."""
+    row = "| " + " | ".join("cell%d" % i for i in range(120)) + " |"
+    assert len(row) > extraction.CITABLE_UNIT_MAX
+    units = extraction.citable_units(row)
+    assert len(units) == 1 and units[0]["text"] == row
+
+
+def test_the_numbered_body_carries_one_number_per_unit():
+    units = extraction.citable_units(DOC)
+    body = extraction.numbered_body(units)
+    assert body.count("\n") >= len(units) - 1
+    for u in units[:5]:
+        assert "L%04d" % u["n"] in body
+
+
+def test_a_cut_is_a_contiguous_substring_of_the_span():
+    units = extraction.citable_units(DOC)
+    got = extraction.cut_cited(DOC, units, [5, 6])
+    assert not got["reason"]
+    assert got["quote"] in DOC
+    assert "Run ID" in got["quote"]
+
+
+def test_a_citation_of_NON_CONTIGUOUS_units_cuts_the_RANGE_rather_than_a_splice():
+    """Joining unit 3 to unit 5 would produce text that appears nowhere in the document -- a fabricated
+    quote manufactured by the platform rather than by the model. The cut is the RANGE, so what comes back is
+    always something a reader can find."""
+    units = extraction.citable_units(DOC)
+    got = extraction.cut_cited(DOC, units, [3, 5])
+    # Stripped at the ends, which keeps it a substring: whitespace trimmed off a substring leaves one.
+    assert got["quote"] == DOC[units[2]["start"]:units[4]["end"]].strip()
+    assert got["quote"] in DOC
+    assert got["units"] == [3, 4, 5]
+    assert "WIDENED" in got["note"]
+
+
+def test_a_record_with_no_citation_is_rejected_with_its_own_reason():
+    units = extraction.citable_units(DOC)
+    for empty in ([], None, "", {}):
+        got = extraction.cut_cited(DOC, units, empty)
+        assert got["reason"] == "no_line_citation", empty
+        assert got["quote"] == ""
+
+
+def test_a_citation_outside_the_span_is_rejected_rather_than_clamped():
+    """Clamping would turn a wrong citation into a confident quote of whatever happens to sit at the
+    boundary -- the expensive direction, because the result then looks evidenced."""
+    units = extraction.citable_units(DOC)
+    assert extraction.cut_cited(DOC, units, [len(units) + 5])["reason"] == "line_out_of_range"
+    assert extraction.cut_cited(DOC, units, [0])["reason"] == "line_out_of_range"
+
+
+def test_a_citation_wider_than_the_cap_is_rejected():
+    """A whole section is not a quote. The cap is declared, so the refusal is a rule and not a feeling."""
+    units = extraction.citable_units(LONG_PROSE)
+    assert len(units) > extraction.MAX_CITED_UNITS
+    wide = [1, extraction.MAX_CITED_UNITS + 1]
+    assert extraction.cut_cited(LONG_PROSE, units, wide)["reason"] == "line_citation_too_wide"
+
+
+def test_the_citation_field_accepts_the_SHAPES_A_MODEL_ACTUALLY_WRITES():
+    """Generous about the reference, strict about the cut. A citation is a pointer, so a model writing
+    "L0003" or "3-4" instead of 3 is a formatting difference; rejecting it would discard a record whose
+    evidence is fine."""
+    units = extraction.citable_units(DOC)
+    want = extraction.cut_cited(DOC, units, [3, 4])["quote"]
+    for shape in (["L0003", "L0004"], ["3-4"], "3-4", [3, "4"], {"lines": [3, 4]}):
+        got = extraction.cut_cited(DOC, units, shape)
+        assert got["quote"] == want, shape
+
+
+def test_a_unit_table_FROM_THE_WRONG_SPAN_is_caught_rather_than_trusted():
+    """Forcing the construction claim to fail. "Verbatim by construction" holds only while the units belong
+    to the text being cut; hand it a mismatched source and the membership check must catch it, or the claim
+    is decoration."""
+    units = extraction.citable_units(LONG_PROSE)
+    got = extraction.cut_cited(LONG_PROSE, units, [1, 2])
+    assert not got["reason"]
+    bad = extraction.cut_cited(LONG_PROSE, units, [1, 2], source=DOC)
+    assert bad["reason"] == "cut_not_in_source"
+
+
+# --- and what it does to the live path ---------------------------------------------------------------
+
+def _cited(n, **kw):
+    """A model reply record that cites units instead of copying text."""
+    return dict(lines=(n if isinstance(n, list) else [n]), **kw)
+
+
+def test_a_model_that_REWRITES_the_text_can_no_longer_fabricate_a_quote():
+    """The W9 finding, made harmless. The reply paraphrases -- exactly what the live run did ten times out
+    of ten -- and the record is still kept, with a quote the document actually contains, because the quote
+    is not the model's to supply."""
+    c = _PerSpanClient([_reply([
+        _cited(5, kind="requirement", role="factor:perturbation", value="gene_knockout",
+               quote="the first arm knocks out a gene", section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1 and out["n_rejected"] == 0
+    kept = out["kept"][0]
+    assert kept.quote in DOC
+    assert "gene_knockout" in kept.quote
+    # The behaviour that forced this design is still there. It just cannot reach the output any more, and it
+    # is COUNTED rather than silently discarded.
+    assert out["n_rewrote"] == 1
+    assert "own wording" in out["note"]
+
+
+def test_a_reply_that_offers_no_quote_at_all_is_fine_because_none_was_asked_for():
+    c = _PerSpanClient([_reply([
+        _cited([3, 5], kind="requirement", role="factor:target_charging", value="0.55",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert out["kept"][0].quote in DOC
+    assert out["n_rewrote"] == 0
+
+
+def test_every_kept_record_passes_the_quote_gate_BY_CONSTRUCTION():
+    c = _PerSpanClient([_reply([
+        _cited(5, kind="requirement", role="factor:ppgpp_module", value="on",
+               section="Factorial Simulation Matrix"),
+        _cited(6, kind="requirement", role="factor:ppgpp_module", value="off",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 2
+    assert not [r for r in out["rejected"] if str(r.get("reason", "")).startswith("quote_")]
+    assert all(r.quote in DOC for r in out["kept"])
+    assert out["quotes_cut_by_platform"] is True
+
+
+def test_a_citation_the_platform_cannot_use_is_rejected_and_named():
+    c = _PerSpanClient([_reply([
+        {"kind": "requirement", "role": "factor:ppgpp_module", "value": "on",
+         "section": "Factorial Simulation Matrix"},
+        _cited(999, kind="requirement", role="factor:medium", value="minimal",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 0 and out["n_rejected"] == 2
+    assert set(r["reason"] for r in out["rejected"]) == {"no_line_citation", "line_out_of_range"}
+
+
+def test_a_real_span_cited_for_a_record_it_does_not_support_is_kept_but_COUNTED():
+    """Where the risk went. The quote can no longer be invented, so the remaining way to be wrong is to
+    cite a true span for the wrong record -- verbatim and irrelevant. Not a refusal: a claim may legitimately
+    be stated in words that never repeat its level. But counted, so nobody reads a construction guarantee as
+    a guarantee of relevance."""
+    c = _PerSpanClient([_reply([
+        _cited(1, kind="requirement", role="factor:target_charging", value="0.85",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert out["n_value_outside_quote"] == 1
+    assert "0.85" not in out["kept"][0].quote
+    assert "does not contain" in out["note"]
+
+
+def test_the_prompt_shows_NUMBERED_units_and_asks_for_numbers():
+    c = _PerSpanClient([_reply([]), _reply([])])
+    extraction.extract_agent(DOC, client=c)
+    sent = json.dumps(c.calls[0])
+    assert "L0001" in sent and "L0003" in sent
+    assert "lines" in sent
+
+
+def test_the_contract_asks_for_LINE_NUMBERS_rather_than_a_copied_quote():
+    """The contract is what the prompt is built from, so the change has to land there or the prompt and the
+    checked rules drift apart."""
+    c = extraction.AGENT_PATH_CONTRACT
+    assert any("cite" in m.lower() and "number" in m.lower() for m in c["must"])
+    assert not any("quote a verbatim span" in m for m in c["must"])
+    assert any("retype" in m.lower() or "ignored" in m.lower() for m in c["may_not"])
+    assert "quote_provenance" in c
+    assert "10" in c["quote_provenance"]
+
+
+# --- where the rewriting went, and the instrument that nearly missed it -------------------------------
+#
+# The first live run of the fixed path, on two development reports: 333 records kept, 0 quotes that were not
+# verbatim spans -- the construction holds -- and 298 of the 333 reporting "the cited span does not contain
+# this value". A 90% rate, and almost all of it was the INSTRUMENT'S fault: those are `note` records, whose
+# value is the transcriber's own sentence about the span. Asking a free-text field to appear verbatim inside
+# its own evidence asks the format to be something it is not.
+#
+# The paraphrase is still the finding, and it has to be counted somewhere else: the model no longer offers a
+# reworded QUOTE, it offers a reworded NOTE sitting beside a real quote, and a reader skimming the pair can
+# take the note for the document's words.
+
+def test_a_NOTE_that_states_its_span_in_other_words_is_not_an_unsupported_VALUE():
+    c = _PerSpanClient([_reply([
+        _cited(8, kind="requirement", role="note",
+               value="the second arm turns operons off and uses the kinetic model",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert out["n_value_outside_quote"] == 0          # not a level, so not an unsupported level
+    assert out["n_free_text_records"] == 1
+    assert out["n_free_text_paraphrased"] == 1        # but counted, because this is where rewriting went
+    assert "own words" in out["note"]
+
+
+def test_a_LEVEL_role_is_still_held_to_its_cited_span():
+    """The split must not become an excuse. A factor level is a token the document either carries or does
+    not, and that one is still measured."""
+    c = _PerSpanClient([_reply([
+        _cited(1, kind="requirement", role="factor:target_charging", value="0.85",
+               section="Factorial Simulation Matrix"),
+        _cited(6, kind="requirement", role="factor:ppgpp_module", value="off",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_level_records"] == 2 and out["n_free_text_records"] == 0
+    assert out["n_value_outside_quote"] == 1
+
+
+def test_the_kept_count_says_how_much_of_it_is_FREE_TEXT():
+    """Measured need: the first live report kept 148 records and most were notes. "148 kept" read as 148
+    design facts would be an overstatement of nearly ten times."""
+    c = _PerSpanClient([_reply([
+        _cited(8, kind="requirement", role="note", value="we will run these with the kinetic elongation "
+                                                         "model", section="Factorial Simulation Matrix"),
+        _cited(5, kind="requirement", role="factor:ppgpp_module", value="on",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 2
+    assert out["n_level_records"] == 1 and out["n_free_text_records"] == 1
+    assert "not a count of design facts" in out["note"]
+
+
+def test_a_READOUT_record_describing_what_it_predicts_is_prose_not_an_unsupported_level():
+    """The second correction to this instrument. Excluding only note/id still left 97 of 104 records
+    reporting an unsupported value, because a `readout:` record has its channel pinned by the ROLE and uses
+    the value to say what is predicted -- "uncharged tRNA <2% during hardware dilution" is a sentence, not a
+    level. The line is drawn where the platform will later resolve the value against a declared vocabulary,
+    which is the `factor:` roles and nothing else."""
+    c = _PerSpanClient([_reply([]), _reply([
+        _cited(3, kind="claim", role="readout:growth_rate",
+               value="growth slows markedly in the knockout", section="Expected Outcomes",
+               target="argS knockout", reference="wild type", direction="down", threshold_pct=20.0),
+    ])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert out["n_level_records"] == 0 and out["n_free_text_records"] == 1
+    assert out["n_value_outside_quote"] == 0
+    assert extraction._is_level_role("factor:medium") is True
+    assert extraction._is_level_role("readout:growth_rate") is False
