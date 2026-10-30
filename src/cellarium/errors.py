@@ -107,6 +107,13 @@ PATTERNS: list[tuple[re.Pattern, str]] = [(re.compile(p, re.I), r) for p, r in [
     (r"no sim_data|no (frozen )?(degradation|invariant)|no kb found|catalogue is unreadable"
      r"|baseline unreadable|baseline at |alias map (at|unreadable)|carries no aliases|no .* shards"
      r"|cache missing|needs the Parquet manifest|no viability columns|to backfill", "missing_artifact"),
+    # ADJ: the agent extraction path. All three are ENVIRONMENT, never corpus: a model that could not be
+    # reached, a reply with no text block, and a reply that would not parse all mean THIS MACHINE
+    # COULD NOT LOOK. Nothing about the document follows from any of them -- and in particular none of
+    # them is a document that states no records, which is the reading `runtime_fault` keeps them away
+    # from. They are registered as a group because the ratchet is what keeps the group complete.
+    (r"the extraction model could not be reached|the extraction model returned no text block"
+     r"|reply for this section could not be parsed", "runtime_fault"),
     (r"^\w+ failed: |internal_defect|^\w*(Error|Exception|Warning): |produced no JSON|^HTTP \d"
      r"|did not land \d", "runtime_fault"),
     # --- the request ---

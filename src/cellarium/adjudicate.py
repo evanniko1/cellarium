@@ -553,6 +553,19 @@ def _corpus_rows():
 # here: conformance family 7 fails any two views of one capability that disagree without declaring it, and a
 # classifier carrying its own set of runnable variants is precisely that pair.
 
+# Demands the archive makes that NO variant module performs. Declared, because a refusal must name an
+# authority rather than a word shape -- see `_cost_candidates`. Measured: 7 of 45 reports ask for a
+# switch-off at a chosen generation, and 57 of 394 development design rows carry one.
+KNOWN_UNAVAILABLE_PERTURBATIONS = ("generation_timed_knockout",)
+
+# The one sentence every summary appends when its input was incomplete. Declared once: three summaries
+# wording partiality differently is how one of them ends up not saying it.
+PARTIAL_NOTE = (
+    " A partial extraction makes every count here a LOWER BOUND, not a count: "
+    "{n} section(s) were not read, so a class with zero members may simply be in one of them. "
+    "\"4 rebuilds\" and \"at least 4 rebuilds, {n} sections unread\" license different decisions, which is "
+    "why the flag travels rather than being left in span_failures for a caller to remember.")
+
 COST_CLASSES = ("run", "flag", "patch_then_run", "rebuild", "refused_by_gate", "not_a_simulation",
                 "ambiguous", "unresolved")
 
@@ -613,18 +626,29 @@ def _cost_candidates(text: str) -> list[dict]:
                           "authority": "envelope.VALIDATED_PERTURBATIONS",
                           "note": "inside the validated envelope, so it is a run rather than a change to "
                                   "the model."})
-    # A perturbation-shaped phrase the envelope does not validate. Checked last and only when nothing else
-    # matched, so a legal design is never reported as refused.
+    # A DEMAND WE KNOW WE CANNOT MEET, named. Only these, and only when nothing else matched.
+    #
+    # This replaced a token-SHAPE heuristic that fired on any snake_case word ending in "knockout",
+    # "shift" or "_conc", and probing it showed the heuristic was both over- and under-reaching:
+    # "a nutrient_downshift to acetate" was refused because the word ends in "shift" -- right, but by
+    # accident -- while "a carbon_source_switch mid-run" came back `unresolved` even though the envelope
+    # genuinely refuses a carbon switch. A verdict that is correct because a word ended in the right four
+    # letters is the proxy error this project has withdrawn findings for, and a FALSE refusal is the
+    # expensive direction: it tells a collaborator to drop a row of their own plan.
+    #
+    # So a cell-level refusal now needs a declared identifier. Everything else is undecidable at cell level
+    # and decided at ROW level, where a timeline and a medium exist for the envelope to actually check.
     if not found:
-        for token in re.findall(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+", low):
-            if token.endswith("knockout") or token.endswith("shift") or token.endswith("_conc"):
-                if token not in envelope.VALIDATED_PERTURBATIONS:
-                    found.append({"cost": "refused_by_gate", "matched": token,
-                                  "authority": "envelope.VALIDATED_PERTURBATIONS",
-                                  "note": f"{token!r} is not a validated model variant, so the feasibility "
-                                          f"gate refuses it before anything runs. Validated: "
-                                          f"{sorted(envelope.VALIDATED_PERTURBATIONS)}."})
-                    break
+        for ident in KNOWN_UNAVAILABLE_PERTURBATIONS:
+            if _names(ident, low):
+                found.append({"cost": "refused_by_gate", "matched": ident,
+                              "authority": "adjudicate.KNOWN_UNAVAILABLE_PERTURBATIONS, against "
+                                           "envelope.VALIDATED_PERTURBATIONS",
+                              "note": f"{ident!r} is a demand we have measured and cannot meet: no variant "
+                                      f"module performs it, so the feasibility gate refuses it before "
+                                      f"anything runs. Validated variants: "
+                                      f"{sorted(envelope.VALIDATED_PERTURBATIONS)}."})
+                break
     return found
 
 
@@ -667,7 +691,7 @@ def classify_cost(requirement) -> dict:
             "candidates": cands, "note": c["note"]}
 
 
-def cost_summary(requirements) -> dict:
+def cost_summary(requirements, partial: bool = False, n_unread: int = 0) -> dict:
     """The cost table for a set of demands, with EVERY class counted including the empty ones.
 
     "Only 4 of 45 reports need nothing but a rebuild" is a readable sentence only because the other classes
@@ -679,7 +703,10 @@ def cost_summary(requirements) -> dict:
         counts[v["cost"]] = counts.get(v["cost"], 0) + 1
         rows.append({"quote": getattr(r, "quote", ""), "section": getattr(r, "section", ""),
                      "cost": v["cost"], "authority": v["authority"], "matched": v.get("matched")})
-    return {"n": len(rows), "by_cost": counts, "items": rows,
-            "note": ("Every class is present with its count, zeros included. A demand's cost is a fact "
-                     "about THIS platform resolved against its own authorities, not a property of the "
-                     "document -- so the same sentence costs differently once a patch lands.")}
+    note = ("Every class is present with its count, zeros included. A demand's cost is a fact "
+            "about THIS platform resolved against its own authorities, not a property of the "
+            "document -- so the same sentence costs differently once a patch lands.")
+    if partial:
+        note += PARTIAL_NOTE.format(n=n_unread)
+    return {"n": len(rows), "by_cost": counts, "items": rows, "partial": bool(partial),
+            "n_unread_sections": int(n_unread), "note": note}

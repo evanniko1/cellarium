@@ -22,6 +22,7 @@ of the hypothesis hand-off made checkable, and it is what makes a language-model
 later: an agent can propose fields, and a field it invented cannot survive the check.
 """
 
+import json
 import os
 import sys
 
@@ -235,11 +236,12 @@ def test_no_field_is_called_accuracy_and_the_note_says_why():
 
 # --- the agent seam, declared and gated --------------------------------------------------------------
 
-def test_the_agent_path_is_declared_with_a_contract_and_is_not_implemented():
-    """An agent path is the plausible third calculation, and the contract it must satisfy exists before any
-    of it is written: quote-backed fields only, temperature 0, and the mechanical verifier as its gate."""
+def test_the_agent_path_contract_is_declared_and_now_implemented():
+    """The contract was written BEFORE the path existed -- quote-backed fields only, temperature 0, the
+    mechanical verifier as the gate -- which is why it could be used to build it rather than written to
+    describe what got built. `implemented` flipping is the only line of it that changed."""
     c = extraction.AGENT_PATH_CONTRACT
-    assert c["implemented"] is False
+    assert c["implemented"] is True
     assert c["temperature"] == 0.0
     assert "verify_quotes" in c["gate"]
     for key in ("may_not", "must"):
@@ -855,3 +857,570 @@ def test_a_cell_naming_no_gene_and_no_variant_is_undecidable_not_blocked():
     out = extraction.cost_row({"factor:perturbation": "a more aggressive depletion regime"})
     assert out["blocked"] is False
     assert "undecidable" in out["prerequisites"]
+
+
+# =====================================================================================================
+# THE AGENT PATH, built to the contract that was written before it.
+#
+# Its job is STRUCTURE, not a second opinion. Measured: the lexical path found 8,654 readout mentions over
+# the development set and bound NONE of them to a target/reference pair -- recall without structure, which
+# is what a language model does well and a pattern cannot. It is not a second opinion because the two
+# mechanical paths already showed what a complementary second path buys (role overlap ~0, Jaccard 0.004):
+# nothing.
+#
+# Every test here injects a fake client. The suite must never need an API key, and a path whose tests only
+# run with one is a path nobody runs.
+# =====================================================================================================
+
+class _FakeMessage:
+    def __init__(self, text):
+        self.content = [type("B", (), {"type": "text", "text": text})()]
+        self.usage = type("U", (), {"input_tokens": 100, "output_tokens": 50})()
+
+
+class _FakeClient:
+    """Records what it was asked, returns what it was told to."""
+
+    def __init__(self, reply):
+        self._reply = reply
+        self.calls = []
+        self.messages = self
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        return _FakeMessage(self._reply)
+
+
+def _reply(records):
+    return json.dumps({"records": records})
+
+
+# --- the contract, enforced on the call itself -------------------------------------------------------
+
+def test_the_call_takes_its_temperature_from_the_SEAM_not_a_literal():
+    """Justification-side work: the Council samples warm to generate rivals, an extractor must not. But
+    the first live call failed on exactly this -- `claude-sonnet-5` answers 400 "temperature is deprecated
+    for this model", and `llm.temperature_for` already returned None for that family. The literal 0.0 in
+    this module had bypassed the seam, which is the coupling LLM-7a exists to prevent.
+
+    So the assertion is on the POLICY: whatever the seam says is what is sent, and a model that refuses an
+    explicit temperature gets none."""
+    from cellarium import llm
+    for model in ("claude-haiku-4-5-20251001", "claude-sonnet-5"):
+        c = _FakeClient(_reply([]))
+        out = extraction.extract_agent(DOC, client=c, model=model)
+        want = llm.temperature_for(model)
+        if want is None:
+            assert "temperature" not in c.calls[0], model
+            assert out["temperature_pinned"] is False
+            assert "NOT PINNED" in out["note"]
+        else:
+            assert c.calls[0]["temperature"] == want
+            assert out["temperature_pinned"] is True
+
+
+def test_an_unpinnable_model_says_the_extraction_is_not_reproducible():
+    """The consequence, stated rather than left for a reader to work out: two runs disagreeing is then a
+    property of the sampler and not a finding about the document."""
+    c = _FakeClient(_reply([]))
+    out = extraction.extract_agent(DOC, client=c, model="claude-sonnet-5")
+    assert out["temperature_pinned"] is False and out["temperature_sent"] is None
+    assert "not reproducible" in out["note"].lower()
+    assert "temperature_caveat" in extraction.AGENT_PATH_CONTRACT
+
+
+def test_the_prompt_carries_only_plan_and_claim_spans():
+    """It must not be shown the wet-lab section. A model given a bench leg will faithfully extract a bench
+    readout, and the quote gate would pass it -- the span is real. The exclusion has to happen before the
+    model sees the text, not after."""
+    c = _FakeClient(_reply([]))
+    extraction.extract_agent(DOC, client=c)
+    everything = json.dumps(c.calls)
+    # Across all the per-section calls, both readable kinds appear and the bench leg never does.
+    assert "Factorial Simulation Matrix" in everything and "Expected Outcomes" in everything
+    assert "ribosome profiling" not in everything
+    assert "Downstream Laboratory Validation" not in everything
+
+
+def test_the_prompt_states_the_prohibitions_verbatim_from_the_contract():
+    """The contract is the single source. A prompt that paraphrased it could drift from the checked rules."""
+    c = _FakeClient(_reply([]))
+    extraction.extract_agent(DOC, client=c)
+    sent = json.dumps(c.calls[0])
+    for rule in extraction.AGENT_PATH_CONTRACT["may_not"]:
+        assert rule[:40] in sent, rule
+
+
+def test_the_declared_role_vocabulary_is_in_the_prompt_rather_than_left_to_the_model():
+    c = _FakeClient(_reply([]))
+    extraction.extract_agent(DOC, client=c)
+    sent = json.dumps(c.calls[0])
+    assert "factor:perturbation" in sent and "readout:" in sent
+
+
+# --- the gate does the work ---------------------------------------------------------------------------
+
+def test_a_fabricated_quote_is_rejected_even_though_the_model_returned_it():
+    """The whole reason an agent path is safe to add. The model is allowed to be wrong; the gate is not."""
+    c = _PerSpanClient([_reply([
+        {"kind": "requirement", "role": "factor:perturbation", "value": "gene_knockout",
+         "quote": "gene_knockout", "section": "Factorial Simulation Matrix"},
+        {"kind": "requirement", "role": "factor:medium", "value": "rich_EZ_aa",
+         "quote": "we will use a rich defined medium throughout", "section": "Factorial Simulation Matrix"},
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1 and out["n_rejected"] == 1
+    assert out["rejected"][0]["reason"] == "quote_not_in_source"
+    assert all(r.path == "agent" for r in out["kept"])
+
+
+def test_a_record_naming_an_undeclared_role_is_rejected_before_the_quote_gate():
+    """A role the vocabulary does not contain cannot be reconciled with either mechanical path, so it would
+    sit in `agent_only` for ever and look like a finding."""
+    c = _PerSpanClient([_reply([
+        {"kind": "requirement", "role": "factor:astrology", "value": "x", "quote": "Run ID",
+         "section": "Factorial Simulation Matrix"},
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_rejected"] == 1 and out["rejected"][0]["reason"] == "undeclared_role"
+
+
+def test_malformed_model_output_is_an_environment_fault_not_an_empty_extraction():
+    """An unparseable reply means we could not look. Returning zero records would be the silent-absence
+    shape with a language model as the silent party. Per span, so one bad section is named as such."""
+    out = extraction.extract_agent(DOC, client=_FakeClient("not json at all"))
+    assert "error" in out and out["about"] == "environment"
+    assert out["n_kept"] == 0
+    assert all("parsed as JSON" in f["error"] for f in out["span_failures"])
+    assert len(out["span_failures"]) == out["n_spans"]
+
+
+def test_an_api_failure_is_reported_as_environment_and_never_as_corpus():
+    class _Boom(_FakeClient):
+        def create(self, **kw):
+            raise RuntimeError("503 overloaded")
+    out = extraction.extract_agent(DOC, client=_Boom(_reply([])))
+    assert "error" in out and out["about"] == "environment"
+    assert any("503" in f["error"] for f in out["span_failures"])
+
+
+def test_no_client_and_no_key_refuses_rather_than_pretending_to_run(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(extraction, "_llm_client", lambda **kw: (_ for _ in ()).throw(RuntimeError("no key")))
+    out = extraction.extract_agent(DOC)
+    assert "error" in out and out["about"] == "environment"
+
+
+# --- redundancy, which is the point of pointing it at the same roles ---------------------------------
+
+def test_the_agent_path_is_reconciled_against_the_STRUCTURAL_path_on_shared_roles():
+    """The mechanical paths were complementary, so their agreement checked nothing. The agent is aimed at
+    the roles the structural path already covers, which is what makes agreement informative at all."""
+    c = _FakeClient(_reply([
+        {"kind": "requirement", "role": "factor:ppgpp_module", "value": "on", "quote": "on",
+         "section": "Factorial Simulation Matrix"},
+        {"kind": "requirement", "role": "factor:perturbation", "value": "gene_knockout",
+         "quote": "gene_knockout", "section": "Factorial Simulation Matrix"},
+    ]))
+    out = extraction.extract_report(DOC, agent_client=c)
+    rec = out["agent_vs_structural"]
+    assert rec["agreement"]["comparison_kind"] in ("redundant", "partial")
+    assert rec["agreement"]["n_agreed"] >= 1
+    assert rec["agreement"]["role_overlap"] > 0.0
+
+
+def test_the_agent_claim_binding_is_what_it_is_for():
+    """A claim with a target AND a reference is the thing no pattern produced. 8,654 lexical readout
+    mentions bound none."""
+    c = _PerSpanClient([_reply([]), _reply([
+        {"kind": "claim", "role": "readout:growth_rate", "value": "growth rate",
+         "quote": "Growth rate falls by at least 20% in the argS knockout relative to wild type.",
+         "section": "Expected Outcomes", "target": "argS knockout", "reference": "wild type",
+         "direction": "down", "threshold_pct": 20.0},
+    ])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    claim = out["claims"][0]
+    assert claim.target == "argS knockout" and claim.reference == "wild type"
+    assert claim.direction == "down" and claim.threshold_pct == 20.0
+
+
+def test_a_claim_missing_a_reference_is_kept_but_flagged_not_filled():
+    """R2: nothing is inferred. "growth falls in the knockout" names no reference, and supplying
+    `wildtype/basal` would add a growth medium the hypothesis never chose."""
+    c = _PerSpanClient([_reply([]), _reply([
+        {"kind": "claim", "role": "readout:growth_rate", "value": "growth rate",
+         "quote": "Growth rate falls by at least 20% in the argS knockout relative to wild type.",
+         "section": "Expected Outcomes", "target": "argS knockout", "reference": "",
+         "unfilled": {"reference": "the prose names no comparator"}},
+    ])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert out["unfilled"][0]["field"] == "reference"
+    assert "no comparator" in out["unfilled"][0]["why"]
+
+
+def test_a_field_left_unfilled_with_NO_reason_is_rejected():
+    """R6: every unfilled field records why, in the transcriber's words. A blank with no reason is
+    indistinguishable from a field nobody looked at."""
+    c = _PerSpanClient([_reply([]), _reply([
+        {"kind": "claim", "role": "readout:growth_rate", "value": "growth rate", "quote": "growth rate",
+         "section": "Expected Outcomes", "target": "argS knockout", "reference": ""},
+    ])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_rejected"] == 1
+    assert out["rejected"][0]["reason"] == "unfilled_without_reason"
+
+
+def test_the_contract_now_reports_itself_as_implemented():
+    assert extraction.AGENT_PATH_CONTRACT["implemented"] is True
+    assert extraction.AGENT_PATH_CONTRACT["temperature"] == 0.0
+    assert "verify_quotes" in extraction.AGENT_PATH_CONTRACT["gate"]
+    # The firm no stands and is still written down.
+    assert any("adjudicate its own output" in m for m in extraction.AGENT_PATH_CONTRACT["may_not"])
+    assert extraction.AGENT_PATH_CONTRACT["third_path_must_be_mechanical"]
+
+
+def test_the_module_still_imports_no_provider_sdk():
+    """LLM-7a's invariant: `anthropic` is constructed in exactly one module. An extractor that imported it
+    directly would reintroduce the coupling the seam exists to remove."""
+    src = open(os.path.join(os.path.dirname(__file__), "..", "src", "cellarium", "extraction.py"),
+               encoding="utf-8").read()
+    assert "import anthropic" not in src
+    assert "llm.client" in src or "_llm_client" in src
+
+
+# --- an EMPTY reply is not an unparseable one ---------------------------------------------------------
+#
+# Found on the first live call that got past the temperature bug. The 60,073-character report came back
+# with NO text block at all, and this module reported "the reply could not be parsed as JSON" -- a
+# misattributed cause, which sends anyone diagnosing it at the output format when the problem is the
+# budget. A minimal call to the same model returns a text block fine.
+#
+# It is also Appendix E item 4 reappearing in a new call site: "a reply spent its 4,096-token cap on
+# internal reasoning and wrote no text", fixed in the agent loop with one retry at a higher cap and not
+# fixed here, because this path was written without consulting that fix.
+
+class _EmptyReplyClient(_FakeClient):
+    """No text block, as a reply that spent its budget before writing one."""
+
+    def __init__(self, stop_reason="max_tokens", then=None):
+        super().__init__("")
+        self._stop = stop_reason
+        self._then = then
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        if self._then is not None and len(self.calls) > 1:
+            return _FakeMessage(self._then)
+        m = _FakeMessage("")
+        m.content = []
+        m.stop_reason = self._stop
+        return m
+
+
+def test_an_empty_reply_is_reported_as_empty_and_not_as_unparseable():
+    """Per SPAN now, which is the better contract: the cause is attached to the section it belongs to."""
+    out = extraction.extract_agent(DOC, client=_EmptyReplyClient(then=None))
+    assert "error" in out and out["about"] == "environment"
+    f = out["span_failures"][0]
+    assert "no text" in f["error"].lower() and f["about"] == "environment"
+    assert f["stop_reason"] == "max_tokens"
+    assert "parsed" not in f["error"].lower()
+
+
+def test_an_empty_reply_is_RETRIED_once_with_a_bigger_budget():
+    """The precedent from the agent loop: one retry with room, and no third attempt."""
+    c = _EmptyReplyClient(then=_reply([
+        {"kind": "requirement", "role": "factor:ppgpp_module", "value": "on", "quote": "on",
+         "section": "Factorial Simulation Matrix"}]))
+    out = extraction.extract_agent(DOC, client=c, max_tokens=1000)
+    assert c.calls[1]["max_tokens"] > c.calls[0]["max_tokens"]
+    assert out["retried_for_room"] is True and out["n_kept"] >= 1
+
+
+def test_a_reply_that_is_still_empty_after_the_retry_gives_up_cleanly():
+    c = _EmptyReplyClient(then=None)
+    out = extraction.extract_agent(DOC, client=c, max_tokens=1000)
+    assert len(c.calls) == 2 * out["n_spans"]      # one retry per span, and no third attempt
+    assert out["n_kept"] == 0 and len(out["span_failures"]) == out["n_spans"]
+
+
+def test_an_unparseable_NON_empty_reply_keeps_its_own_distinct_reason():
+    out = extraction.extract_agent(DOC, client=_FakeClient("here is some prose, no JSON at all"))
+    f = out["span_failures"][0]
+    assert "parsed as JSON" in f["error"]
+    assert "no text" not in f["error"].lower()
+
+
+# --- one call per SECTION, not one per document -------------------------------------------------------
+#
+# Forced by two live failures in a row on a 60,073-character report. A single prompt carrying every plan and
+# claim span came back with no text block at moderate budgets, and the retry at a tripled budget tripped the
+# SDK's own guard: "Streaming is required for operations that may take longer than 10 minutes."
+#
+# Both say the document is the wrong unit. A per-section call is small enough to answer and to parse, keeps
+# the quote gate tight on a span the model actually saw, and makes a failure LOCAL -- one unreadable section
+# no longer costs the whole document, which is the difference between a partial result and no result.
+
+class _PerSpanClient:
+    """Replies per call, from a list. Short replies, as a real per-section call gives."""
+
+    def __init__(self, replies):
+        self._replies = list(replies)
+        self.calls = []
+        self.messages = self
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        r = self._replies.pop(0) if self._replies else _reply([])
+        if isinstance(r, Exception):
+            raise r
+        return _FakeMessage(r)
+
+
+def test_one_call_is_made_per_located_span():
+    spans = extraction._agent_spans(DOC)
+    c = _PerSpanClient([_reply([]) for _ in spans])
+    out = extraction.extract_agent(DOC, client=c)
+    assert len(c.calls) == len(spans) >= 2
+    assert out["n_spans"] == len(spans)
+
+
+def test_each_call_carries_only_its_own_span():
+    c = _PerSpanClient([_reply([]), _reply([])])
+    extraction.extract_agent(DOC, client=c)
+    bodies = [json.dumps(k) for k in c.calls]
+    matrix = [b for b in bodies if "Factorial Simulation Matrix" in b]
+    outcomes = [b for b in bodies if "Expected Outcomes" in b]
+    assert len(matrix) == 1 and len(outcomes) == 1
+    # A section's text must not leak into another section's call.
+    assert "Expected Outcomes" not in matrix[0]
+
+
+def test_one_failing_span_does_not_lose_the_document():
+    """The point of making the unit smaller. A partial result with the gap named beats no result."""
+    c = _PerSpanClient([
+        _reply([{"kind": "requirement", "role": "factor:ppgpp_module", "value": "on", "quote": "on",
+                 "section": "Factorial Simulation Matrix"}]),
+        RuntimeError("503 overloaded"),
+    ])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert len(out["span_failures"]) == 1
+    assert out["span_failures"][0]["about"] == "environment"
+    assert "503" in out["span_failures"][0]["error"]
+    # And the partial-ness is stated, not left to be inferred from a count.
+    assert "partial" in out["note"].lower()
+
+
+def test_an_empty_reply_on_ONE_span_is_retried_only_for_that_span():
+    empty = _FakeMessage("")
+    empty.content = []
+
+    class _OneEmpty(_PerSpanClient):
+        def create(self, **kw):
+            self.calls.append(kw)
+            if len(self.calls) == 1:
+                m = _FakeMessage("")
+                m.content = []
+                m.stop_reason = "max_tokens"
+                return m
+            return _FakeMessage(_reply([]))
+
+    c = _OneEmpty([])
+    out = extraction.extract_agent(DOC, client=c, max_tokens=1000)
+    assert c.calls[1]["max_tokens"] > c.calls[0]["max_tokens"]
+    assert out["retried_for_room"] is True
+
+
+def test_the_per_span_budget_stays_under_the_streaming_threshold():
+    """The second live failure. A budget big enough to need streaming is a budget this path must not ask
+    for, so the cap is declared and a retry multiplies within it rather than past it."""
+    assert extraction.AGENT_MAX_TOKENS_CAP <= 16000
+    c = _PerSpanClient([_reply([]), _reply([])])
+    extraction.extract_agent(DOC, client=c, max_tokens=99999)
+    assert all(k["max_tokens"] <= extraction.AGENT_MAX_TOKENS_CAP for k in c.calls)
+
+
+def test_a_document_whose_every_span_fails_says_so_rather_than_returning_zero_records():
+    c = _PerSpanClient([RuntimeError("503"), RuntimeError("503")])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 0 and "error" in out and out["about"] == "environment"
+    assert len(out["span_failures"]) == 2
+
+
+# --- W4: a cell-level refusal reached by a TOKEN SHAPE is a verdict by proxy ---------------------------
+#
+# Probed rather than assumed. The snake_case heuristic was both over- and under-reaching:
+#
+#   "a nutrient_downshift to acetate"   -> refused_by_gate   (RIGHT, but by accident: it ends in "shift")
+#   "a carbon_source_switch mid-run"    -> unresolved        (WRONG: the envelope does refuse a carbon switch)
+#
+# A verdict that is correct because a word ended in the right four letters is the proxy error this project
+# has withdrawn findings for. `refused_by_gate` at CELL level is now reached only for identifiers we
+# DECLARE as demanded-and-unavailable; everything else is undecidable at cell level and decided at ROW
+# level, where a timeline and a medium exist for the envelope to actually check.
+
+def test_a_declared_unavailable_identifier_is_still_refused_at_cell_level():
+    out = adjudicate.classify_cost(adjudicate.Requirement(
+        text="generation_timed_knockout", quote="x", section="M", section_kind="plan"))
+    assert out["cost"] == "refused_by_gate"
+    assert "KNOWN_UNAVAILABLE" in out["authority"] or "VALIDATED_PERTURBATIONS" in out["authority"]
+
+
+@pytest.mark.parametrize("text", [
+    "a nutrient_downshift to acetate",
+    "a carbon_source_switch mid-run",
+    "an aggressive_depletion_regime",
+])
+def test_an_UNDECLARED_snake_case_token_is_no_longer_blocked_by_its_shape(text):
+    """Not refused and not run: unresolved. We do not know what the identifier is, and a refusal we cannot
+    attribute to an authority is worse than an honest unknown -- a false refusal tells a collaborator to
+    drop a row."""
+    out = adjudicate.classify_cost(adjudicate.Requirement(
+        text=text, quote=text, section="M", section_kind="plan"))
+    assert out["cost"] == "unresolved", out
+
+
+def test_the_known_unavailable_set_is_declared_and_disjoint_from_the_validated_one():
+    assert adjudicate.KNOWN_UNAVAILABLE_PERTURBATIONS
+    assert not (set(adjudicate.KNOWN_UNAVAILABLE_PERTURBATIONS) & set(envelope.VALIDATED_PERTURBATIONS))
+
+
+def test_a_validated_variant_is_never_refused_however_it_is_spelled():
+    for t in ("a graded_gene_knockout at 25%", "a multi_gene_knockout of argS and hisS",
+              "an amino_acid_shift at 1800 s", "the ppgpp_conc clamp"):
+        out = adjudicate.classify_cost(adjudicate.Requirement(
+            text=t, quote=t, section="M", section_kind="plan"))
+        assert out["cost"] != "refused_by_gate", t
+
+
+# --- W5: mapping CORRECTNESS is not mechanically checkable; membership is -----------------------------
+#
+# Probed. Round-tripping a normalised medium through the envelope does not validate the MAPPING: it
+# validates the DESIGN. `Acetate minimal -> minimal_acetate` is a correct mapping whose timeline the
+# envelope rightly refuses as a carbon switch, so a round-trip check would have reported a correct mapping
+# as broken.
+#
+# What a machine can check is MEMBERSHIP -- that the produced value is in the authority's set -- and that is
+# already enforced at call time. Which member is right is a judgement no check makes. So the mitigation is
+# to make the mappings AUDITABLE: list the ones actually applied, not only the ones that failed.
+
+def test_the_coverage_report_lists_the_mappings_it_APPLIED_not_only_the_failures():
+    recs = [extraction.Record(kind="requirement", role="factor:medium", value=v, quote="x", section="s",
+                              section_kind="plan", path="structural", start=0, end=0)
+            for v in ("Glucose minimal", "Acetate minimal", "Glucose minimal", "rich EZ medium")]
+    rep = extraction.normalisation_coverage(recs)
+    applied = rep["by_role"]["factor:medium"]["applied_mappings"]
+    assert applied["Glucose minimal"] == {"value": "minimal", "n": 2}
+    assert applied["Acetate minimal"] == {"value": "minimal_acetate", "n": 1}
+    assert "rich EZ medium" not in applied          # it did not map; it is in the unnormalised list
+    assert "rich EZ medium" in rep["by_role"]["factor:medium"]["unnormalised_values"]
+
+
+def test_the_report_states_that_membership_is_checked_and_correctness_is_not():
+    rep = extraction.normalisation_coverage([])
+    assert "membership" in rep["note"].lower()
+    assert "correct" in rep["note"].lower()
+
+
+# --- ADJ-W8: a summary over a PARTIAL extraction is a lower bound, not a count ------------------------
+#
+# Created by this turn's own per-section change. A document can now come back with some sections unread --
+# `span_failures` says so -- but a cost table built from it would report a total with nothing marking it
+# incomplete. That is the silent-absence shape one layer down, in the layer added to fix the layer above.
+#
+# The honest semantics is not "refuse": a partial result is useful. It is that the counts become a LOWER
+# BOUND and must say so, because "4 rebuilds" and "at least 4 rebuilds, 3 sections unread" license
+# different decisions.
+
+def test_a_cost_summary_told_it_is_partial_reports_a_lower_bound():
+    reqs = [adjudicate.Requirement(text="operons", quote="operons", section="M", section_kind="plan")]
+    out = adjudicate.cost_summary(reqs, partial=True, n_unread=3)
+    assert out["partial"] is True and out["n_unread_sections"] == 3
+    assert out["by_cost"]["rebuild"] == 1
+    assert "lower bound" in out["note"].lower()
+
+
+def test_a_complete_cost_summary_says_it_is_complete():
+    out = adjudicate.cost_summary([], partial=False)
+    assert out["partial"] is False
+    assert "lower bound" not in out["note"].lower()
+
+
+def test_the_cost_breakdown_carries_partiality_too():
+    recs = [extraction.Record(kind="requirement", role="factor:operons", value="operons", quote="operons",
+                              section="M", section_kind="plan", path="agent", start=0, end=0)]
+    out = extraction.cost_breakdown(recs, partial=True, n_unread=2)
+    assert out["partial"] is True and out["n_unread_sections"] == 2
+    assert "lower bound" in out["note"].lower()
+
+
+def test_a_row_summary_inherits_partiality_from_the_extraction_it_was_built_from():
+    out = extraction.row_cost_summary(DOC, partial=True, n_unread=1)
+    assert out["partial"] is True and out["n_unread_sections"] == 1
+    assert "lower bound" in out["note"].lower()
+
+
+def test_extract_report_hands_the_partial_flag_on_rather_than_leaving_it_to_be_noticed():
+    """The flag has to travel. A caller who must remember to look at `span_failures` and then set a
+    parameter by hand is a caller who will forget once."""
+    c = _PerSpanClient([_reply([]), RuntimeError("503")])
+    out = extraction.extract_report(DOC, agent_client=c)
+    assert out["agent"]["partial"] is True
+    assert out["agent"]["n_unread_sections"] == 1
+
+
+# --- the extractor pins its OWN zero, not the global temperature --------------------------------------
+#
+# Caught before shipping, by asking what the seam actually returns rather than trusting the field name.
+# `llm.temperature_for` returns `CELLARIUM_TEMPERATURE`, which is the Cellwright/global knob -- the Council
+# already pins its own separately, by purpose. So an operator raising the global for a sweep would have made
+# this extractor sample WARM while it reported `temperature_pinned: True`.
+#
+# "Pinned" is not "deterministic": a fixed 0.7 still samples. A transcription step that samples is a
+# transcription step whose two runs may differ for reasons that are not about the document -- which is the
+# exact claim `temperature_pinned` is read as denying.
+
+def test_the_extractor_pins_zero_even_when_the_global_temperature_is_warm(monkeypatch):
+    """Patched with setattr, NOT by reloading the module.
+
+    The first version of this test set the environment variable and reloaded `llm` to pick it up. A reload
+    REBINDS `llm.temperature_for` to a new function object, and `agent` imported that name earlier, so
+    `agent.temperature_for is llm.temperature_for` stopped holding and `test_llm_seam.py` failed -- in the
+    full suite only, because a two-file run imports `agent` fresh afterwards and the identity happens to
+    match again. Order-dependent breakage in another file, from a test of mine: the defect
+    `tests/conftest.py` was written to end. `setattr` patches the value monkeypatch can restore and rebinds
+    nothing."""
+    from cellarium import llm
+    monkeypatch.setattr(llm, "TEMPERATURE", 0.7)
+    assert llm.temperature_for("claude-haiku-4-5-20251001") == 0.7      # the global really is warm
+    c = _FakeClient(_reply([]))
+    out = extraction.extract_agent(DOC, client=c, model="claude-haiku-4-5-20251001")
+    assert c.calls[0]["temperature"] == 0.0, "the extractor must pin its own zero"
+    assert out["temperature_sent"] == 0.0 and out["temperature_pinned"] is True
+
+
+def test_a_model_that_refuses_a_temperature_still_gets_none(monkeypatch):
+    """The seam's other job is unchanged: a family that answers 400 to an explicit temperature gets none,
+    and the result says sampling is not pinned."""
+    c = _FakeClient(_reply([]))
+    out = extraction.extract_agent(DOC, client=c, model="claude-sonnet-5")
+    assert "temperature" not in c.calls[0]
+    assert out["temperature_pinned"] is False
+
+
+def test_pinned_means_ZERO_and_nothing_else(monkeypatch):
+    """The field is read as a reproducibility claim, so it must not be true for a fixed non-zero value.
+    Checked on the BEHAVIOUR rather than on the source text -- the first version of this test looked for the
+    literal "0.0" inside the function, which lives in a named constant outside it, so it was testing where
+    the number is written rather than what is sent."""
+    assert extraction.EXTRACTOR_TEMPERATURE == 0.0
+    from cellarium import llm
+    monkeypatch.setattr(llm, "TEMPERATURE", 0.9)
+    assert extraction._temperature_for("claude-haiku-4-5-20251001") == 0.0
+    c = _FakeClient(_reply([]))
+    out = extraction.extract_agent(DOC, client=c, model="claude-haiku-4-5-20251001")
+    # The flag is true only because the value IS zero, never because a value was sent.
+    assert out["temperature_sent"] == 0.0 and out["temperature_pinned"] is True

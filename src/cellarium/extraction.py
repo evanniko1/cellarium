@@ -37,6 +37,8 @@ written before any of it exists.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from dataclasses import asdict, dataclass
 
@@ -111,11 +113,23 @@ _TABLE_LINE = re.compile(r"^\s*\|.*\|\s*$", re.M)
 # contract added after reading a path's output is fitted to that output — the same rule the hypothesis
 # hand-off applies to its alias table.
 AGENT_PATH_CONTRACT = {
-    "implemented": False,
-    "why_not_here": "A language-model path is the plausible THIRD independent calculation, and the two "
-                    "mechanical paths had to exist first: without them there is nothing to compare an "
-                    "agent against except a reference standard this project does not have.",
+    "implemented": True,
+    "built_second_because": "The two mechanical paths had to exist first: without them there is nothing to "
+                            "compare an agent against except a reference standard this project does not "
+                            "have. They then measured what a complementary path buys (role overlap ~0, "
+                            "Jaccard 0.004), which is what decided this path's job -- STRUCTURE, aimed at "
+                            "the roles the structural path already covers so agreement means something.",
+    "what_it_is_for": "Binding a prose sentence into (target, reference, channel, direction, threshold). "
+                      "The lexical path found 8,654 readout mentions over the development set and bound "
+                      "NONE of them to a target/reference pair.",
     "temperature": 0.0,
+    "temperature_caveat": "0.0 WHERE THE MODEL ACCEPTS ONE. Found on the first live call: "
+                          "claude-sonnet-5 answers 400 `temperature is deprecated for this model`, and "
+                          "llm.temperature_for returns None for that family. So on the default model "
+                          "sampling is NOT pinned and cannot be, agent extraction is not reproducible run "
+                          "to run, and `temperature_pinned` in the result says which case you are in. A "
+                          "contract clause that the default configuration cannot satisfy is worse than no "
+                          "clause, so it is recorded here rather than quietly dropped.",
     "gate": "every record passes extraction.verify_quotes against the source document; a field with no "
             "verbatim span is rejected, not repaired",
     "must": (
@@ -422,7 +436,7 @@ def as_requirement(record: Record):
                                   section_kind=record.section_kind)
 
 
-def extract_report(text, agent_records=None) -> dict:
+def extract_report(text, agent_records=None, agent_client=None) -> dict:
     """Both mechanical paths, their comparison, and any agent records held to the same gate."""
     if not isinstance(text, str) or not text.strip():
         return {"error": f"extract_report() needs the document text as a non-empty string; got "
@@ -453,6 +467,21 @@ def extract_report(text, agent_records=None) -> dict:
                         "rejected": v["rejected"], "contract": AGENT_PATH_CONTRACT,
                         "note": "agent records pass the same mechanical gate as every other path: a field "
                                 "with no verbatim span is rejected rather than repaired."}
+        out["agent_vs_structural"] = reconcile(s, v["kept"])
+    elif agent_client is not None:
+        a = extract_agent(text, client=agent_client)
+        out["agent"] = {k: a[k] for k in ("n_kept", "n_rejected", "rejected", "unfilled", "note")
+                        if k in a}
+        # The flag TRAVELS. A caller who must remember to read `span_failures` and then pass a parameter by
+        # hand is a caller who forgets once, and the forgetting is silent.
+        out["agent"]["partial"] = bool(a.get("span_failures"))
+        out["agent"]["n_unread_sections"] = len(a.get("span_failures") or [])
+        out["agent"]["contract"] = AGENT_PATH_CONTRACT
+        out["agent_claims"] = a.get("claims", [])
+        # Reconciled against STRUCTURAL, deliberately, and not against lexical. The two mechanical paths
+        # are complementary, so their agreement checks nothing; the agent is aimed at the roles the
+        # structural path already covers, which is the only arrangement here where agreement is evidence.
+        out["agent_vs_structural"] = reconcile(s, a.get("kept", []))
     return out
 
 
@@ -617,7 +646,7 @@ def normalisation_coverage(records) -> dict:
             continue
         n = normalise_value(r.role, r.value)
         slot = by_role.setdefault(r.role, {"normalised": 0, "unnormalised": 0, "multi_level": 0,
-                                           "unnormalised_values": []})
+                                           "unnormalised_values": [], "applied_mappings": {}})
         if n["basis"] == "unnormalised":
             slot["unnormalised"] += 1
             if r.value not in slot["unnormalised_values"]:
@@ -626,6 +655,15 @@ def normalisation_coverage(records) -> dict:
             slot["multi_level"] += 1
         else:
             slot["normalised"] += 1
+            # The mappings ACTUALLY APPLIED, listed for audit. Probed: round-tripping a normalised medium
+            # through the envelope does NOT validate the mapping, it validates the design -- `Acetate
+            # minimal -> minimal_acetate` is a correct mapping whose timeline the envelope rightly refuses
+            # as a carbon switch, so a round-trip check would report a correct mapping as broken. A machine
+            # can check MEMBERSHIP (the value is in the authority's set), and does, at call time. WHICH
+            # member is right is a judgement no check makes, so the only honest mitigation is to make the
+            # applied mappings readable by someone who can judge them.
+            m = slot["applied_mappings"].setdefault(r.value, {"value": n["value"], "n": 0})
+            m["n"] += 1
     total = sum(s["normalised"] + s["unnormalised"] + s["multi_level"] for s in by_role.values())
     norm = sum(s["normalised"] for s in by_role.values())
     return {"by_role": by_role, "n_values": total, "n_normalised": norm,
@@ -633,7 +671,10 @@ def normalisation_coverage(records) -> dict:
             "note": "An unnormalised value is a gap in the declared synonym tables, NOT a value the "
                     "document failed to state. The values are listed so the gap is closeable; they are "
                     "frozen against the held-out reports, where a new spelling is counted rather than "
-                    "added."}
+                    "added. WHAT IS CHECKED AND WHAT IS NOT: membership is checked -- a produced value is "
+                    "in its authority's set or it is not produced at all. Whether the mapping chose the "
+                    "CORRECT member is a judgement no check here makes, which is why "
+                    "`applied_mappings` lists every mapping that fired, for a reader who can judge it."}
 
 
 # --- dedupe ------------------------------------------------------------------------------------------
@@ -717,7 +758,7 @@ def cost_of(record) -> dict:
     return out
 
 
-def cost_breakdown(records) -> dict:
+def cost_breakdown(records, partial: bool = False, n_unread: int = 0) -> dict:
     """Costs over DISTINCT demands, with `unresolved` split by why.
 
     Reported this way because the single number misleads in the expensive direction: a 69% unresolved rate
@@ -734,12 +775,13 @@ def cost_breakdown(records) -> dict:
         counts[v["cost"]] += 1
         if v["cost"] == "unresolved":
             why[v["unresolved_because"]] += 1
-    return {"by_cost": counts, "unresolved_because": why,
-            "n_distinct": sum(counts.values()),
+    return {"by_cost": counts, "unresolved_because": why, "partial": bool(partial),
+            "n_unread_sections": int(n_unread), "n_distinct": sum(counts.values()),
             "note": "Costs are over DISTINCT demands, not cells. `unresolved_because` splits the one class "
                     "that otherwise misleads: `row_dependent` is the classifier being right, "
                     "`cell_is_not_cost_bearing` is a medium or a shift that costs nothing alone, and only "
-                    "`value_not_normalised` is a gap in the declared tables."}
+                    "`value_not_normalised` is a gap in the declared tables."
+                    + (adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")}
 
 
 # --- costing a design ROW ----------------------------------------------------------------------------
@@ -958,7 +1000,7 @@ def extract_design_rows(text: str) -> list[dict]:
     return out
 
 
-def row_cost_summary(text: str) -> dict:
+def row_cost_summary(text: str, partial: bool = False, n_unread: int = 0) -> dict:
     """Row-level costs for a whole document, with the two numbers that decide whether this can work.
 
     `n_mode_unstated` is the one to read first: a row that does not name its elongation model cannot be
@@ -986,7 +1028,314 @@ def row_cost_summary(text: str) -> dict:
             "n_runnable_today": runnable, "n_not_runnable_today": len(rows) - runnable,
             "n_mode_unstated": unstated, "n_mode_stated": len(rows) - unstated,
             "patches_needed": patches_needed, "rows": details,
-            "note": ("A row is one simulation. `by_prerequisite` counts rows per prerequisite and the "
+            "partial": bool(partial), "n_unread_sections": int(n_unread),
+            "note": ((adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")
+                     + "A row is one simulation. `by_prerequisite` counts rows per prerequisite and the "
                      "counts OVERLAP, because a row can need several; `n_blocked` is kept apart because no "
                      "ordering of work clears a blocker. Read `n_mode_unstated` first: a row that does not "
                      "name its elongation model cannot be priced on its module cells at all.")}
+
+
+# --- the agent path: STRUCTURE, which is the one thing neither mechanical path produces ---------------
+#
+# WHAT IT IS FOR, stated narrowly because the measurement already ruled out the obvious alternative. The
+# lexical path found 8,654 readout mentions across the 33 development reports and bound NONE of them to a
+# target/reference pair -- recall without structure. Turning "growth rate falls by at least 20% in the argS
+# knockout relative to wild type" into (target, reference, channel, direction, threshold) is what a language
+# model does well and a pattern does not.
+#
+# WHAT IT IS NOT FOR. Not a second opinion. The two mechanical paths already measured what a complementary
+# second path buys: role overlap near zero, Jaccard 0.004, 30 of 33 reports agreeing on nothing. Adding a
+# third path that looks somewhere else again would add records and check nothing. So this path is aimed at
+# the SAME roles the structural path covers, which is what makes agreement between them informative --
+# `extract_report` reconciles agent against structural separately for exactly that reason.
+#
+# WHY IT IS SAFE TO ADD, and this is the whole argument. The model is allowed to be wrong; the gate is not.
+# Every field must quote a verbatim span, so an invented value cannot survive `verify_quotes`; a role
+# outside the declared vocabulary is rejected before that, because it could never be reconciled with either
+# mechanical path and would sit in `agent_only` looking like a finding; and a field left blank without a
+# stated reason is rejected, because a blank with no reason is indistinguishable from a field nobody looked
+# at. None of those three checks consults the model.
+#
+# THE PROHIBITIONS ARE SENT VERBATIM FROM THE CONTRACT rather than paraphrased into the prompt, so the
+# rules the prompt states and the rules the tests check cannot drift apart.
+#
+# No provider SDK is imported here: `llm.client()` is the one place a client is constructed (LLM-7a), and
+# `tests/test_llm_seam.py` asserts that over the tree.
+
+# MEASURED, not chosen on taste. On `claude-sonnet-5` this path does not work at all: the first live call
+# on a 3,114-character section came back with `block_types: ['thinking']` and `stop_reason: 'max_tokens'`
+# TWICE -- the model spent its entire budget on extended reasoning and never wrote a text block, at 3,000
+# and again at 9,000 tokens. That is Appendix E item 4 with the evidence attached.
+#
+# The same family also refuses an explicit temperature, so sampling could not be pinned there and the
+# extraction was not reproducible run to run. ADJ-W7 was recorded as a trade between a weaker model and
+# reproducibility; the measurement removed the trade. A transcription step does not need extended
+# reasoning, and this one is actively broken by it.
+#
+# Haiku accepts a pinned temperature (`llm.temperature_for` returns 0.0 for it) and writes text, so the
+# default is a model this path WORKS on and whose output is reproducible. Overridable, because the choice
+# is a measurement about today's models rather than a property of the design.
+AGENT_MODEL_DEFAULT = os.environ.get("CELLARIUM_EXTRACT_MODEL", "claude-haiku-4-5-20251001")
+
+# Fields a claim record may carry beyond the common ones. Declared so a model cannot introduce a field the
+# adjudicator will not read.
+_AGENT_CLAIM_FIELDS = ("target", "reference", "direction", "threshold_pct")
+
+
+def _llm_client(**kw):
+    """The provider seam. Separate function so a test can replace it without touching `llm`."""
+    from . import llm
+    return llm.client(**kw)
+
+
+# This path's OWN sampling temperature, pinned at zero. The Council pins its own too, and the asymmetry is
+# by purpose: a proposer samples warm to generate rivals, a transcriber must not sample at all.
+EXTRACTOR_TEMPERATURE = 0.0
+
+
+def _temperature_for(model: str):
+    """The temperature to SEND, or None to omit it.
+
+    TWO JOBS, and only one of them belongs to the seam. Whether a model ACCEPTS an explicit temperature is
+    provider policy and `llm.temperature_for` owns it -- hardcoding a value here is what the first live call
+    failed on. But WHICH value to send is this path's own decision, and inheriting the global was a defect
+    caught before shipping: `llm.temperature_for` returns `CELLARIUM_TEMPERATURE`, the Cellwright knob, so
+    an operator raising it for a sweep would have made this transcriber sample WARM while the result
+    reported `temperature_pinned: True`.
+
+    Pinned is not deterministic. A fixed 0.7 still samples, and two runs of a TRANSCRIPTION differing is
+    precisely the thing that field is read as denying. So the seam decides whether to send one and this
+    module decides that it is zero."""
+    from . import llm
+    return None if llm.temperature_for(model) is None else EXTRACTOR_TEMPERATURE
+
+
+def _agent_prompt(spans: list[dict]) -> tuple[str, str]:
+    """The system prompt and the user message. Roles and prohibitions come from the declared tables."""
+    roles = sorted(set(COLUMN_ROLES) | set(ROLE_IDENTIFIERS) | {f"readout:{c}" for c in adjudicate.channels()})
+    must = "\n".join(f"  - {m}" for m in AGENT_PATH_CONTRACT["must"])
+    may_not = "\n".join(f"  - {m}" for m in AGENT_PATH_CONTRACT["may_not"])
+    system = (
+        "You transcribe an outside research document into structured records. You are NOT asked to judge, "
+        "improve, or complete it, and you are not the adjudicator of your own output -- a deterministic "
+        "checker gates everything you return.\n\n"
+        "YOU MUST:\n" + must + "\n\nYOU MAY NOT:\n" + may_not + "\n\n"
+        "A record is JSON with: kind ('requirement' or 'claim'), role (one of the declared roles below), "
+        "value, quote (a span copied CHARACTER FOR CHARACTER out of the text given to you), section. A "
+        "claim may also carry target, reference, direction ('up'/'down'/'change'), threshold_pct. For any "
+        "field you leave empty, add it to an `unfilled` object mapping the field name to your reason in "
+        "your own words, naming what the text said instead. A field with no verbatim quote will be "
+        "REJECTED, and so will an empty field with no reason -- neither is repaired.\n\n"
+        "DECLARED ROLES (use these exactly; do not invent one):\n  " + "\n  ".join(roles) + "\n\n"
+        'Reply with JSON only: {"records": [ ... ]}'
+    )
+    body = "\n\n".join(f"### SECTION: {s['heading']}  [{s['kind']}]\n{s['text']}" for s in spans)
+    user = ("Transcribe the records stated in these sections. Quote character for character.\n\n" + body)
+    return system, user
+
+
+def _agent_spans(text: str) -> list[dict]:
+    """Only the plan and claim spans, with their excluded descendants removed.
+
+    The wet-lab sections never reach the model. A model shown a bench leg will faithfully extract a bench
+    readout and the quote gate would PASS it, because the span is real -- so the exclusion has to happen
+    before the model sees the text, not after it answers."""
+    out = []
+    loc = adjudicate.locate(text)
+    if loc.get("error"):
+        return out
+    for sec in loc.get("sections", []):
+        if sec["kind"] not in ("plan", "claim"):
+            continue
+        span = text[sec["read_span"][0]:sec["read_span"][1]]
+        for child in loc.get("sections", []):
+            if child["kind"] in ("validation_wetlab", "citation_context") and \
+                    sec["start"] < child["start"] < sec["subtree_end"]:
+                span = span.replace(text[child["start"]:child["subtree_end"]], "")
+        out.append({"heading": sec["heading"], "kind": sec["kind"], "text": span.strip()})
+    return out
+
+
+def _parse_agent_reply(raw: str) -> list[dict] | None:
+    """The records a reply carries, or None when it cannot be read.
+
+    None rather than [] on purpose: an unparseable reply means we could not look, and an empty list would
+    report that as a document stating nothing."""
+    s = (raw or "").strip()
+    if s.startswith("```"):
+        s = re.sub(r"^```[a-z]*\s*|\s*```$", "", s)
+    try:
+        obj = json.loads(s)
+    except Exception:
+        m = re.search(r"\{.*\}", s, re.S)
+        if not m:
+            return None
+        try:
+            obj = json.loads(m.group(0))
+        except Exception:
+            return None
+    recs = obj.get("records") if isinstance(obj, dict) else obj
+    return recs if isinstance(recs, list) else None
+
+
+# A budget big enough that the SDK demands streaming is a budget this path must not ask for. Found on the
+# second live failure: a retry at a tripled budget raised "Streaming is required for operations that may
+# take longer than 10 minutes." The retry now multiplies WITHIN this cap rather than past it.
+AGENT_MAX_TOKENS_CAP = 12000
+
+
+def _agent_one_span(cl, span: dict, mdl: str, temp, budget: int) -> dict:
+    """One call for one section. Returns parsed records, or a per-span failure with its cause.
+
+    ONE CALL PER SECTION, not per document, and both reasons came from live failures on a 60,073-character
+    report. A single prompt carrying every span returned no text block at moderate budgets, and the retry
+    tripped the SDK's streaming guard. A section is small enough to answer and to parse, keeps the quote
+    gate on a span the model actually saw, and makes a failure LOCAL -- one unreadable section no longer
+    costs the whole document, which is the difference between a partial result and none."""
+    system, user = _agent_prompt([span])
+    budget = min(budget, AGENT_MAX_TOKENS_CAP)
+
+    def _ask(b):
+        kw = {"model": mdl, "max_tokens": min(b, AGENT_MAX_TOKENS_CAP), "system": system,
+              "messages": [{"role": "user", "content": user}]}
+        if temp is not None:
+            kw["temperature"] = temp
+        m = cl.messages.create(**kw)
+        return m, "".join(blk.text for blk in m.content if getattr(blk, "type", "") == "text")
+
+    retried = False
+    try:
+        msg, raw = _ask(budget)
+        # AN EMPTY REPLY IS NOT AN UNPARSEABLE ONE. Conflating them misattributes the cause: the first live
+        # run reported "could not be parsed as JSON" for a reply that had no text block at all, which sends
+        # a reader at the output format when the cause is the budget. It is also Appendix E item 4 in a new
+        # call site -- a reply spending its cap before writing text -- fixed in the agent loop with one
+        # retry at a higher cap, and not fixed here because this path was written without consulting it.
+        if not raw.strip():
+            retried = True
+            msg, raw = _ask(budget * 3)
+    except Exception as exc:
+        return {"records": None, "retried": retried, "failure": {
+            "section": span["heading"], "error": f"the extraction model could not be reached: {exc}",
+            "reason": "runtime_fault", "about": "environment"}}
+    if not raw.strip():
+        return {"records": None, "retried": retried, "empty": True, "failure": {
+            "section": span["heading"],
+            "error": f"the extraction model returned no text block for this section "
+                     f"(stop_reason={getattr(msg, 'stop_reason', None)!r}), twice",
+            "reason": "runtime_fault", "about": "environment",
+            "stop_reason": getattr(msg, "stop_reason", None),
+            "block_types": [getattr(b, "type", "?") for b in msg.content]}}
+    parsed = _parse_agent_reply(raw)
+    if parsed is None:
+        return {"records": None, "retried": retried, "unparseable": True, "raw_prefix": raw[:200],
+                "failure": {"section": span["heading"],
+                            "error": "the model's reply for this section could not be parsed as JSON",
+                            "reason": "runtime_fault", "about": "environment"}}
+    return {"records": parsed, "retried": retried}
+
+
+def extract_agent(text: str, client=None, model: str | None = None,
+                  max_tokens: int = 4000) -> dict:
+    """The third extraction path: a language model, temperature from the seam, gated mechanically.
+
+    One call per located section. Returns the kept records, the rejected ones with a reason each, the
+    fields the model declined to fill with the reason it gave, and any per-span failures -- so a document
+    whose sections partly failed comes back partial and SAYS it is partial, rather than as a smaller clean
+    answer."""
+    from . import errors
+    if not isinstance(text, str) or not text.strip():
+        return {"n_kept": 0, "n_rejected": 0, "kept": [], "rejected": [], "claims": [], "unfilled": [],
+                "span_failures": [],
+                **errors.fail("bad_argument", "extract_agent() needs the document text as a non-empty "
+                                              f"string; got {type(text).__name__}.")}
+    spans = _agent_spans(text)
+    if not spans:
+        return {"n_kept": 0, "n_rejected": 0, "kept": [], "rejected": [], "claims": [], "unfilled": [],
+                "span_failures": [], "n_spans": 0,
+                "note": "no plan or claim span was located, so there is nothing to transcribe. That is a "
+                        "fact about the document's form, not about what it states."}
+    mdl = model or AGENT_MODEL_DEFAULT
+    temp = _temperature_for(mdl)
+    try:
+        cl = client if client is not None else _llm_client(max_retries=2)
+    except Exception as exc:
+        return {"n_kept": 0, "n_rejected": 0, "kept": [], "rejected": [], "claims": [], "unfilled": [],
+                "span_failures": [], "n_spans": len(spans),
+                **errors.fail("runtime_fault", f"no model client could be built: {exc}"),
+                "about": "environment",
+                "note": "This machine could not look. NOTHING about the document follows from it."}
+
+    known_roles = (set(COLUMN_ROLES) | set(ROLE_IDENTIFIERS)
+                   | {f"readout:{c}" for c in adjudicate.channels()} | {"readout"})
+    parsed_all, failures, retried_any = [], [], False
+    for span in spans:
+        got = _agent_one_span(cl, span, mdl, temp, max_tokens)
+        retried_any = retried_any or got.get("retried", False)
+        if got["records"] is None:
+            failures.append(got["failure"])
+            continue
+        for item in got["records"]:
+            if isinstance(item, dict):
+                item.setdefault("section", span["heading"])
+            parsed_all.append(item)
+
+    candidates, rejected, unfilled, claims = [], [], [], []
+    for item in parsed_all:
+        if not isinstance(item, dict):
+            rejected.append({"record": str(item)[:120], "reason": "not_a_record", "quote": ""})
+            continue
+        role = str(item.get("role") or "")
+        if role not in known_roles:
+            # Rejected BEFORE the quote gate. A role outside the vocabulary can never be reconciled with
+            # either mechanical path, so it would sit in `agent_only` for ever and read as a finding.
+            rejected.append({**item, "reason": "undeclared_role"})
+            continue
+        why = item.get("unfilled") or {}
+        blanks = [f for f in _AGENT_CLAIM_FIELDS if f in item and not str(item.get(f) or "").strip()]
+        missing_reason = [f for f in blanks if not str(why.get(f) or "").strip()]
+        if missing_reason:
+            rejected.append({**item, "reason": "unfilled_without_reason", "fields": missing_reason})
+            continue
+        for f, reason in why.items():
+            unfilled.append({"field": f, "why": str(reason), "quote": str(item.get("quote") or ""),
+                             "section": str(item.get("section") or "")})
+        candidates.append(Record(kind=str(item.get("kind") or "requirement"), role=role,
+                                 value=str(item.get("value") or ""), quote=str(item.get("quote") or ""),
+                                 section=str(item.get("section") or ""), section_kind="plan",
+                                 path="agent"))
+        if str(item.get("kind")) == "claim":
+            q = str(item.get("quote") or "")
+            thr = item.get("threshold_pct")
+            if q and q in text:
+                claims.append(adjudicate.Claim(
+                    quantity=str(item.get("value") or ""), target=str(item.get("target") or ""),
+                    reference=str(item.get("reference") or ""), quote=q,
+                    section=str(item.get("section") or ""), section_kind="claim",
+                    direction=str(item.get("direction") or ""),
+                    threshold_pct=(float(thr) if isinstance(thr, (int, float)) else None)))
+    gated = verify_quotes(candidates, text)
+    out = {"n_kept": gated["n_kept"], "n_rejected": gated["n_rejected"] + len(rejected),
+           "kept": gated["kept"], "rejected": gated["rejected"] + rejected, "claims": claims,
+           "unfilled": unfilled, "model": mdl, "n_spans": len(spans),
+           "span_failures": failures, "retried_for_room": retried_any,
+           "temperature_pinned": temp is not None, "temperature_sent": temp}
+    note = [f"{gated['n_kept']} record(s) kept, {gated['n_rejected'] + len(rejected)} rejected, over "
+            f"{len(spans)} section(s). Rejections are NOT repaired: a fabricated quote, an undeclared role "
+            f"and a blank without a reason are each a record this path may not contribute. The model never "
+            f"saw the wet-lab sections."]
+    note.append("Sampling pinned at temperature 0, so a re-run is reproducible." if temp is not None else
+                f"SAMPLING IS NOT PINNED: {mdl} refuses an explicit temperature, so this extraction is NOT "
+                f"reproducible run to run. Two runs disagreeing is then a property of the sampler, not a "
+                f"finding about the document.")
+    if failures:
+        note.append(f"PARTIAL: {len(failures)} of {len(spans)} section(s) could not be read "
+                    f"(about: environment). The sections that did read are here; the ones that did not are "
+                    f"in span_failures. A smaller clean-looking answer would hide them.")
+    out["note"] = " ".join(note)
+    if failures and not candidates:
+        out.update(errors.fail("runtime_fault",
+                               f"every one of {len(spans)} section(s) failed to read"))
+        out["about"] = "environment"
+    return out
