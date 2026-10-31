@@ -1392,6 +1392,26 @@ def test_a_row_summary_inherits_partiality_from_the_extraction_it_was_built_from
     assert "lower bound" in out["note"].lower()
 
 
+def test_the_agent_paths_KEPT_RECORDS_travel_through_extract_report_and_not_only_its_rejects():
+    """FOUND BY RUNNING THE HELD-OUT SCORER on one real report, which is the only way it could have been.
+
+    This surface passed `rejected` on and not `kept`, so a caller reading `['agent']['kept']` got an empty
+    list from a path that had kept sixty records. Nothing failed: role coverage came back 0.0, no report
+    was eligible for the comparison, and a held-out run would have reported the third path finding
+    NOTHING about documents it had read. The same shape as the level counters two lines down -- keys that
+    exist on `extract_agent`'s result and stop here -- which is why the test asserts against that result
+    rather than against a number."""
+    c = _PerSpanClient([_reply([
+        _cited(5, kind="requirement", role="factor:ppgpp_module", value="on",
+               section="Factorial Simulation Matrix")]), _reply([])])
+    out = extraction.extract_report(DOC, agent_client=c)
+    assert "kept" in out["agent"], "the kept records do not reach this surface at all"
+    assert len(out["agent"]["kept"]) == out["agent"]["n_kept"]
+    # And the comparison is built from them, so an empty `kept` cannot read as genuine disagreement.
+    if out["agent"]["n_kept"]:
+        assert out["agent_vs_structural"]["agreement"]["n_lexical"] == out["agent"]["n_kept"]
+
+
 def test_extract_report_hands_the_partial_flag_on_rather_than_leaving_it_to_be_noticed():
     """The flag has to travel. A caller who must remember to look at `span_failures` and then set a
     parameter by hand is a caller who will forget once."""
@@ -2138,7 +2158,7 @@ def test_EVERY_declared_summary_takes_the_flag_and_NOTHING_defaults_it_to_FALSE(
             seen += 1
             assert p.default is None, f"{mod.__name__}.{fname} defaults partial to {p.default!r}"
             assert f"{mod.__name__.split('.')[-1]}.{fname}" in adjudicate.COMPLETENESS_AWARE, fname
-    assert seen == len(adjudicate.COMPLETENESS_AWARE) == 5
+    assert seen == len(adjudicate.COMPLETENESS_AWARE) == 6
 
 
 # --- ADJ-W11: the record key normalises through the declared table ------------------------------------

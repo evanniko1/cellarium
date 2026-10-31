@@ -73,13 +73,13 @@ thresholds that today's numbers happen to clear.
 |---|---|---|---|
 | `G1_INDEPENDENT_CHECK` | Does anything in the pipeline check anything else? | `agent_vs_structural_comparison_kind` ∈ {redundant, partial} | ADJ-W1 |
 | `G2_ROLE_OVERLAP` | Do the two compared paths cover the same roles? | `agent_vs_structural_role_overlap` ≥ 0.5 | ADJ-W1 — **measured, FAILED** |
-| `G2B_STRUCTURAL_COVERAGE` | Of the roles the *table* reading found, how many did the model reading also find? | `agent_covers_structural_roles` ≥ 0.5 | ADJ-W1 — **measured, met** |
+| `G2B_STRUCTURAL_COVERAGE` | Of the roles the *table* reading found, how many did the model reading also find? | `agent_covers_structural_roles` ≥ 0.5 | ADJ-W1 — **measured, met (0.869)** |
 | `G3_QUOTES_VERBATIM` | Is every kept quote a verbatim span of its own document? | `quote_verbatim_rate` == 1.0 | ADJ-W9 |
 | `G7_LEVELS_DERIVED` | Is every `factor:` level derived from the cited span rather than accepted? | `levels_derived_by_platform` is True | ADJ-W10 |
 | `G4_PARTIALITY_TRAVELS` | Can a summary count over a partly-read document without saying so? | `summaries_carry_partial_flag` is True | ADJ-W8 (closed 2026-10-30) |
 | `G8_SAMPLING_PINNED` | Was the extraction sampled at a pinned temperature? | `extraction_temperature_pinned` is True | ADJ-W7 |
 | `G5_MAPPINGS_REVIEWED` | Has anyone but the author checked the value→member mappings? | `applied_mappings_signed_off_by` non-empty | ADJ-W5 |
-| `G6_SCORING_IS_MECHANICAL` | Is every held-out number produced by committed, tested code? | `score_produced_by_committed_code` is True | — (mitigation, not a defect) |
+| `G6_SCORING_IS_MECHANICAL` | Is every held-out number produced by committed, tested code? | `score_produced_by_committed_code` is True | — (mitigation, not a defect) — **met 2026-10-31** |
 
 Each gate in `holdout.py` also carries a `source` field naming the call that produces its number. A gate
 whose measurement has no stated source is a gate somebody fills in by hand at the moment of the run, which is
@@ -93,9 +93,11 @@ a one-shot run two runs disagreeing would be a property of the sampler with no s
 `G4` closed on 2026-10-30, and what closed it was not a mechanism but a **default**. All three summaries
 already accepted `partial` and already appended the partiality note when told; all three defaulted to
 `partial=False`, which answers the question with a confident no for a caller who was never asked. There are
-now three states — partial, complete, and *nobody said* — the five summaries in
+now three states — partial, complete, and *nobody said* — the summaries in
 `adjudicate.COMPLETENESS_AWARE` all carry them, and a test enumerates that list rather than trusting a
-reader to remember it.
+reader to remember it. It was five; `extraction.mapping_review_sheet` made it six on 2026-10-31, and it
+was added **by the test**, which failed until the new summary declared itself. A list nobody can join
+quietly is the only kind worth keeping.
 
 `G1` and `G2` are the pair that actually blocks today, and **they were measured on 2026-10-30 over all 33
 development reports** — 569 model calls, $6.58, every report's digest checked against the seal first.
@@ -182,9 +184,9 @@ and an unreported number is how a known weakness disappears from a result.
 | must report | asks |
 |---|---|
 | `M1_VALUE_OUTSIDE_QUOTE_RATE` | Of the level-bearing records *kept*, how many have a level nothing verified? (33 of 131 kept = 25% on the development set; 11% of the 312 proposed) |
-| `M4_LEVEL_REFUSAL_RATE` | What share of level-bearing records cite a span that states no derivable level? (58% on the development set) |
+| `M4_LEVEL_REFUSAL_RATE` | What share of level-bearing records cite a span that states no derivable level? (0.521 then 0.510 over two development runs — **the 0.524 first reported for the second run used an undeclared denominator**) |
 | `M5_MODEL_LEVEL_DISAGREEMENT_RATE` | Where a level *could* be derived, how often was the model's own value a different one? (26% on the development set) |
-| `M2_UNRESOLVED_REQUIREMENT_RATE` | What share of extracted requirements cannot be costed at all? (79.8% on the development set, before normalisation) |
+| `M2_UNRESOLVED_REQUIREMENT_RATE` | What share of extracted requirements cannot be costed at all? (**0.569** on the development set, table path; 0.888 on the model path — it was quoted as 79.8% from a stale literal, computed as 0.633, then 0.569 once `ADJ-W12` removed 47 misread demands) |
 | `M3_SPAN_FAILURE_RATE` | What share of located sections could not be read at all? |
 
 `M1` **changed meaning on 2026-10-30 and the old reading must not be carried over.** It used to count every
@@ -193,7 +195,7 @@ rejected rather than kept — that is `M4` — and a derived level's spelling is
 construction, so what is left in `M1` is the unverifiable tail: the `factor:` roles with no closed
 vocabulary (a shift, a cistron retyping map), which are refused a price rather than costed.
 
-`M4` is where the risk went instead, and it is deliberately not a gate: nobody knows how much of that 58% is
+`M4` is where the risk went instead, and it is deliberately not a gate: nobody knows how much of that half is
 the model pointing at the wrong unit and how much is a document stating a level in a spelling the frozen
 tables do not carry. Widening them to find out is precisely what the contract forbids, so the number is
 reported and the vocabulary stays frozen. `M5` keeps the removed behaviour visible, the way `n_rewrote` keeps
@@ -202,6 +204,166 @@ the fabricated quote visible after it stopped being able to reach the output.
 At readiness time these are supplied as the **development-set** value. The held-out value cannot exist before
 the run, so what is being asked is whether the instrument that produces the number exists and produces one —
 a result that omits a number because nothing could compute it is the same omission either way.
+
+## G6: the score comes from committed code, and writing it corrected three numbers
+
+`G6_SCORING_IS_MECHANICAL` is the mitigation for the single-annotator limitation rather than a defect found
+in the code. One person built the locator, the vocabularies and the mappings and has read the development
+set five times; that cannot be undone. What can be done is to keep his reading out of the score, so every
+held-out number comes from code that existed **before** the seal was broken. The gate's own words are that
+*a number computed by hand at the time of the run is the thing it exists to forbid.*
+
+`src/cellarium/holdout_score.py` is that code and `scripts/score_heldout.py` is its entry point, committed
+ahead of the run so the commit preceding the run is the version of the scorer that governed it — the same
+rule `separate_commit` states for this registration. The coverage check **reads the gate table in
+`holdout.py`** instead of carrying a copy, so a gate added later makes `G6` fail until somebody teaches the
+scorer to compute its number.
+
+**It did not pass on the first attempt, and the failures are the argument for the gate.** Three of the
+eleven numbers already reported for the development set did not come from their own declared sources:
+
+| number | reported | from its declared source | what happened |
+|---|---|---|---|
+| `M2_UNRESOLVED_REQUIREMENT_RATE` | 0.798 | **0.633** | a literal typed into a scratchpad script, commented *"before normalisation"*, carried unchanged across every run after it — including the two that changed what normalises |
+| `M4_LEVEL_REFUSAL_RATE` | 0.524 | **0.510** | divided by `rejected + derived + unverified`; the registration says `rejected + n_level_records`, and derived+unverified is a *subset* of them (1,305 of 1,378) |
+| `G1_INDEPENDENT_CHECK` | `partial` | rule now written down | the gate states a *scalar* comparison over a `source` that is a *distribution* across reports; "18 of 21 eligible reports are partial" became the single value `partial` by a judgement at a console |
+
+`M4`'s correction also means the reproducibility claim made on 2026-10-31 compared two *different formulas*.
+Like for like the two runs read 0.521 and 0.510 — still about a point, so the conclusion survives the
+correction and the comparison that produced it did not.
+
+**`G1`'s aggregation rule is a choice, so both answers are reported.** `MEASURE_RULES` declares it as the
+modal kind over the eligible reports, and declares that the rule was chosen with 18/21 already in view. The
+strict alternative — *every* eligible report must be partial — reads `complementary`, because 3 of the 21
+share no role at all between the two readings and on those three the agreement checks nothing. The scorer
+returns both and flags that they disagree. The modal rule is defended on what the gate asks (whether the
+*pipeline* has an internal check) rather than on which answer it gives; the strict rule would also fail a
+twelve-document run on one thin table.
+
+**Two defects in the scorer itself were found by running it, not by reading it.**
+
+- Scoring the development dump turned a *missing* `levels_derived_by_platform` key into `False`, and the
+  criterion reported `G7` as a **failed gate** — "I could not see it" rendered as "it is broken", this
+  project's own recurring bug class aimed at its own completion criterion. Absent and no are now separate
+  for every boolean and for the one categorical measurement.
+- Running the paid half on one real report found that `extract_report` passed the agent path's *rejected*
+  records on and **not its kept ones**. A caller reading `['agent']['kept']` got an empty list from a path
+  that had kept sixty records. Nothing failed: role coverage came back 0.0, no report was eligible for the
+  comparison, and **a held-out run would have reported the third path finding nothing** about documents it
+  had read — on a one-shot set, with no second run to catch it.
+
+What the scorer refuses to do is most of its value. It will not score a document whose bytes do not match
+the seal or one the seal never named; it will not average over the reports that worked when one did not
+read; it will not report a rate with an empty denominator as 0.0, which would clear two thresholds; and it
+will not supply `G5`'s reviewer, which is a person.
+
+## G5: the mapping review is now a page, not a corpus
+
+`G5_MAPPINGS_REVIEWED` asks whether anybody **other than the author** has checked which declared member
+each value maps to. No amount of code closes it. A machine checks *membership* — that the chosen value is
+in the authority's own set — and does, on every call. Which member is **right** for what the author wrote
+is a judgement, and a round-trip through the envelope validates the *design* rather than the mapping:
+`Acetate minimal → minimal_acetate` is a correct mapping whose timeline the envelope rightly refuses as a
+carbon switch, so a round-trip would report a correct mapping as broken.
+
+So the gate stays unmet — nobody has signed — but the **cost of signing** has changed.
+`extraction.mapping_review_sheet` lays out each of the **55** mappings that fired over the development set
+with the members it was chosen over, which is the one thing a reviewer cannot judge without:
+
+| role | the author wrote | mapped to | could have been | times |
+|---|---|---|---|---|
+| `factor:aa_supply` | Clamped Arg (150 uM) | `medium` | `enzymes` | 6 |
+| `factor:aa_supply` | Endogenous ON | `enzymes` | `medium` | 65 |
+| `factor:medium` | Glucose minimal | `minimal` | `minimal_acetate`, `minimal_succinate`, … | — |
+
+That first row is the point: whether a single-amino-acid clamp is `medium` or `enzymes` is a call no
+mechanical check makes, and it is now in front of a reviewer instead of inside a dictionary.
+
+`scripts/mapping_review.py` writes the worksheet plus a sign-off file beside it, and **refuses to build
+from the held-out partition** — the worksheet is made by reading the documents, which is the one thing the
+seal exists to prevent.
+
+**The sign-off is tied to what was actually seen.** A signature on a worksheet that has since changed means
+nothing, so `holdout_score.read_signoff` takes no name from a file whose recorded mappings do not hash to
+its recorded digest. The digest covers the `(role, value, member)` triples and *not* the occurrence counts,
+so re-running on more documents keeps a signature valid while changing one mapping invalidates it. And it
+reports a third category the gate's single string cannot: mappings firing **now** that the sign-off never
+covered. That matters on this gate specifically — the held-out documents may use spellings the reviewer
+could not have seen, because they were sealed, so a 56th mapping is a gap in the *review*, not grounds for
+retroactively voiding it.
+
+## ADJ-W12: a table's title read as its only column header
+
+Found while closing `G6`, by reading what the table path *produced* rather than by reading the parser.
+Four of the 33 development reports lay out their design matrix as an ASCII box table:
+
+```
+|                     WCECOLI SIMULATION MODULE MATRIX                     |
++---------------+---------------+--------------------+---------------------+
+| Configuration | ppGpp Module  | Endogenous Amino   | Extracellular ...   |
+| Designation   | State         | Acid Biosynthesis  | Regime / Carbon     |
++---------------+---------------+--------------------+---------------------+
+| Config 1      | ON (Dynamic   | Active             | Shift at t=0:       |
+| (Wild-Type)   | RelA / SpoT)  |                    | 0.4 mM AA -> 0 uM   |
+```
+
+The reader took the first table **line** as the header row. So the one-cell **title** became the header,
+a role was matched against the title's own words, and every later line's first cell became a **value** for
+that role: 52 records whose values are `Configuration`, `Designation`, `Config 1`, `(Wild-Type)` — row
+labels and header fragments, costed and counted as demands on the model, and every one of them
+`unresolved`. That is **47 of the 190 unresolved demands** on the whole development set. The two
+table-*title* spellings in `COLUMN_ROLES["factor:elongation_model"]` had been added to make that match
+work, which cemented it.
+
+Two rules fix it, and **neither is a vocabulary change**: a leading row with fewer cells than the table's
+modal row is a title, not a header; and how many lines make one row is set by the **header block's own
+line count**, not by adjacency. Adjacency was the first attempt and it is wrong — one layout in the corpus
+rules every logical row off (two lines per row) and the other rules only its header (four one-line rows in
+a single block), and joining by adjacency read that second table's four simulations as one row whose first
+cell was `Config 1 Config 2 Config 3 Config 4`.
+
+**What moved, over the 33 development reports, with the model reading held fixed** (it reads prose spans
+and never touches a table, so only one side of the comparison could move):
+
+| | before | after |
+|---|---|---|
+| structural records | 2,018 | 1,974 |
+| design rows asked for | 401 | 375 |
+| distinct structural demands | 300 | 255 |
+| unmapped column headers counted | 7 | **29** |
+| `M2` unresolved rate | 0.633 | **0.569** |
+| `G2B` role coverage | 0.745 | **0.869** |
+| `G1` under the *strict* rule | `complementary` | **`partial`** |
+| `G2` role overlap | 0.165 | 0.165 — *unchanged, still failed* |
+
+**Three of those are gate inputs and all three moved in the favourable direction, which is stated rather
+than buried.** The defence is the content of the records, not the direction of the numbers: a cell reading
+`Designation` is not an elongation model, and keeping a known-wrong record in order not to improve a gate
+would be the worse choice. `G2` not moving is the control.
+
+The most useful consequence was not planned. `G1`'s aggregation ambiguity — documented one section above,
+where the strict reading said `complementary` — **dissolved**: all three reports that shared no role with
+the model reading had exactly one structural role, `factor:elongation_model`, and it was the misread. With
+it gone those three have no table reading at all, so they leave the eligible set and all 18 remaining
+eligible reports are `partial`. Both rules now agree. `factor:elongation_model` also vanishes from the
+development set's structural roles entirely, which **confirms `ADJ-W3`** rather than contradicting it: the
+elongation model really is unstated in every development row, and the four reports that appeared to state
+it were an artefact of the reader.
+
+**The dialect is not closed, and the remainder is counted rather than accommodated.** A box-drawn row whose
+cells span two lines has no verbatim span to cite, so no quote can be cut from it and the row is **refused
+and counted** in `extract_report(...)['structural']['refused_rows']` — 6 rows across 3 reports on the
+development set, with their 6 real column headers now in `unmapped_columns`. Reading them needs a quote
+model for multi-line cells and six header spellings this vocabulary does not carry. The held-out run will
+report those rows as untranscribable, which is what the contract asks for and must not be read as those
+documents asking for less.
+
+One note on process, recorded because it happened rather than because it helped: a regex counting `+---+`
+lines was run across **both** partitions before the defect was characterised, and it reported that half the
+held-out reports contain such lines. That count turned out to be mostly ASCII *diagrams* in prose and
+played no part in the fix, which is justified entirely by the four development reports. No held-out
+document was read and no pattern derives from one, so the seal's own rule — *no pattern, heading spelling
+or alias is added after reading a held-out report* — holds. It is written down here anyway.
 
 ## The rules of the run
 

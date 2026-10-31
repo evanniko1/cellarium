@@ -585,7 +585,11 @@ UNSTATED_COMPLETENESS_NOTE = (
 # that NOTHING in either module defaults it to False again.
 COMPLETENESS_AWARE = ("adjudicate.cost_summary", "extraction.cost_breakdown",
                       "extraction.row_cost_summary", "extraction.normalisation_coverage",
-                      "extraction.dedupe")
+                      "extraction.dedupe",
+                      # Added 2026-10-31 BY THE TEST, not by remembering: `mapping_review_sheet` arrived
+                      # with a `partial` parameter and the enumeration below failed until it was declared
+                      # here. That is the whole point of naming them -- a new summary cannot join quietly.
+                      "extraction.mapping_review_sheet")
 
 
 def completeness_of(partial) -> str:

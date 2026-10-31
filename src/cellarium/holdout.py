@@ -81,6 +81,27 @@ READINESS_GATES = (
                "either. Dual extraction's whole value is two independent readings of ONE quantity. Until "
                "two paths read the same fields, every field in this pipeline has a provenance and no "
                "check, and a held-out run would report numbers nothing had verified.",
+        "measured": "MET as the gate is scored, and THE SCORING RULE IS A CHOICE THAT HAD TO BE WRITTEN "
+                    "DOWN -- found on 2026-10-31 while building G6's scorer. This gate states a SCALAR "
+                    "comparison (`in (redundant, partial)`) over a `source` that is a distribution across "
+                    "reports, so something has to turn 21 per-report verdicts into one. "
+                    "`holdout_score.MEASURE_RULES` declares the rule as the MODAL kind over the eligible "
+                    "reports, and declares that it was chosen with 18/21 already in view. "
+                    "THE STRICT ALTERNATIVE DOES NOT PASS, and is reported beside it rather than left "
+                    "out: requiring EVERY eligible report to be partial reads `complementary`, because 3 "
+                    "of the 21 share no role at all between the two readings and on those three the "
+                    "agreement checks nothing. `score_rows` returns both answers and flags that they "
+                    "disagree, so a reader can apply either. The modal rule is defended on what the gate "
+                    "asks -- whether the PIPELINE has an internal check -- rather than on which answer it "
+                    "gives; the strict rule would also fail a twelve-document run on one thin table. "
+                    "AND THE DISAGREEMENT THEN DISSOLVED, which is the better outcome and was not the "
+                    "plan: ADJ-W12 found that all three of those reports had exactly ONE structural role, "
+                    "`factor:elongation_model`, and that it was a MISREAD -- a box-drawn table's title "
+                    "line taken as its header. With the misread fixed those three reports have no table "
+                    "reading at all, so they leave the eligible set; all 18 remaining eligible reports are "
+                    "`partial`, and the modal rule and the strict rule now give the same answer. Both "
+                    "rules are kept and the scorer goes on reporting both, because a gate that agrees "
+                    "with its own strict reading today can stop agreeing tomorrow.",
     },
     {
         "id": "G2_ROLE_OVERLAP",
@@ -123,7 +144,14 @@ READINESS_GATES = (
                "agreement is a statement about a handful of fields -- and registered AFTER G2's number "
                "was seen, which is recorded here rather than hidden: it is why G2 is kept failing instead "
                "of being quietly retuned.",
-        "measured": "MET, 2026-10-30 and again 2026-10-31: mean 0.725 then 0.745, median 0.800 then "
+        "measured": "MET. 0.869 AFTER ADJ-W12, over 18 reports rather than 21 -- and the three reports "
+                    "that left the denominator were the three contributing 0.0, because their only "
+                    "structural role was a box-table title misread as a column header. The fix therefore "
+                    "RAISES this gate, which is stated rather than buried: the records it removed have "
+                    "values like `Designation` and `(Wild-Type)`, so keeping a known-wrong record in "
+                    "order not to improve a number would be the worse choice. `G2_ROLE_OVERLAP` did not "
+                    "move (0.165, still failed), which is the control that says this was not a retune. "
+                    "BEFORE ADJ-W12, 2026-10-30 and again 2026-10-31: mean 0.725 then 0.745, median 0.800 then "
                     "0.875 over the 21 reports with a non-empty structural reading; 17 of 21 at or above "
                     "0.5 both times, 4 then 6 at 1.0. The third path is aimed where it was meant to be "
                     "aimed, and two independent runs say so. "
@@ -183,7 +211,9 @@ READINESS_GATES = (
         "measure": "summaries_carry_partial_flag",
         "requires": ("is", True),
         "source": "whether any summary can still be called over a partial reading WITHOUT saying so. "
-                  "MET as of 2026-10-30: the five summaries in adjudicate.COMPLETENESS_AWARE take "
+                  "MET as of 2026-10-30: the summaries in adjudicate.COMPLETENESS_AWARE (five then, six "
+                  "since `mapping_review_sheet` joined them on 2026-10-31 -- added BY the enumerating "
+                  "test, which failed until it was declared) take "
                   "`partial` defaulting to None and append UNSTATED_COMPLETENESS_NOTE when nobody told "
                   "them, so there are three answers and the third is 'nobody said'. The defect was never "
                   "the mechanism -- all of them already appended PARTIAL_NOTE when told -- it was the "
@@ -224,6 +254,22 @@ READINESS_GATES = (
                "and a round-trip through the envelope validates the design rather than the mapping. "
                "`applied_mappings` lists every mapping that fired so the judgement can be reviewed. One "
                "annotator reviewing his own mapping table is not a review -- the field records who.",
+        "measured": "UNMET: nobody other than the author has reviewed the list. What CHANGED on "
+                    "2026-10-31 is that the review is now a page rather than a corpus. "
+                    "`extraction.mapping_review_sheet` lays out each of the 55 mappings that fired over "
+                    "the development set WITH THE MEMBERS IT WAS CHOSEN OVER, which is the one thing a "
+                    "reviewer cannot judge without -- `Clamped Arg (150 uM) -> medium` with `enzymes` as "
+                    "the alternative is exactly the call no mechanical check makes. "
+                    "`scripts/mapping_review.py` writes the worksheet and a sign-off file beside it, and "
+                    "it REFUSES to build from the held-out partition, because the worksheet is made by "
+                    "reading the documents. "
+                    "THE SIGN-OFF IS TIED TO WHAT WAS SEEN. A signature on a worksheet that has since "
+                    "changed means nothing, so `holdout_score.read_signoff` takes no name from a file "
+                    "whose recorded mappings do not hash to its recorded digest, and separately REPORTS "
+                    "any mapping firing now that the sign-off never covered. That third category matters "
+                    "on this gate specifically: the held-out documents may use spellings the reviewer "
+                    "could not have seen, because they were sealed, and a 56th mapping is a gap in the "
+                    "REVIEW rather than grounds for retroactively voiding it.",
     },
     {
         "id": "G6_SCORING_IS_MECHANICAL",
@@ -232,9 +278,25 @@ READINESS_GATES = (
         "asks": "Is every number in the held-out result produced by committed, tested code?",
         "measure": "score_produced_by_committed_code",
         "requires": ("is", True),
-        "source": "whether a committed, tested script computes every number the held-out report will "
-                  "carry. None exists yet, so this gate is unmet; a number computed by hand at the time "
-                  "of the run is the thing it exists to forbid.",
+        "source": "holdout_score.coverage()['score_produced_by_committed_code'] -- whether every "
+                  "measurement this file declares is either computed by `cellarium.holdout_score` or "
+                  "named there as one no code could produce (G5 needs a person; G6 is this check). "
+                  "`scripts/score_heldout.py` is the entry point, committed ahead of the run so the "
+                  "commit preceding it is the version of the scorer that governed it. The coverage check "
+                  "reads THIS FILE rather than carrying a copy of it, so a gate added later makes G6 fail "
+                  "until somebody teaches the scorer to compute it -- and it scores a specimen row rather "
+                  "than trusting its own rule table, because the first version of the check compared "
+                  "prose against prose and a rule with no arithmetic behind it passed.",
+        "measured": "MET, 2026-10-31. WHAT WRITING IT FOUND, which is the argument for the gate: three of "
+                    "the eleven numbers already reported for the development set did not come from their "
+                    "own declared sources. M2 was a stale literal (0.798 against a computed 0.633). M4 "
+                    "used a denominator this file does not declare (0.524 against 0.510), which also made "
+                    "a reproducibility claim a comparison between two formulas. And G1 is registered with "
+                    "a SCALAR comparison over a `source` that is a distribution across reports, so the "
+                    "step from `18 of 21 eligible reports are partial` to the single value `partial` was "
+                    "a judgement made at a console; it is now a written rule with the alternative it was "
+                    "chosen over recorded beside it. None of the three was visible while the numbers were "
+                    "assembled by hand, and all three fell out of recomputing them from this table.",
         "why": "The literature on single extraction is blunt: error rates up to 50-63% in reviews of the "
                "practice, single extraction about 22% worse than double, single screeners missing a median "
                "5% of studies. There is one annotator here and he has read the development set five times, "
@@ -283,7 +345,15 @@ MUST_REPORT = (
                "forbids. A high rate on the held-out set is a statement about the vocabulary; it must be "
                "reported either way, because this is where the rejected records went. OVER THE WHOLE "
                "DEVELOPMENT SET, 2026-10-30: 1,430 of 2,747 = 0.521, against 0.580 on the four reports "
-               "it was first measured on.",
+               "it was first measured on. "
+               "THE 2026-10-31 RE-RUN WAS FIRST REPORTED AS 0.524 WITH THE WRONG DENOMINATOR, found by "
+               "recomputing it from this `source` field in `holdout_score`: the scratchpad script divided "
+               "by `rejected + derived + unverified`, and derived+unverified is a SUBSET of the kept "
+               "level records -- 1,305 of 1,378, because a record whose supplied value already is the "
+               "declared level is kept without being either. The registered formula gives 1,434 of 2,812 "
+               "= 0.510. It also means the reproducibility claim compared two different formulas: "
+               "like for like the two runs are 0.521 and 0.510, which still moves by about a point, so "
+               "the conclusion survives the correction and the comparison that produced it did not.",
     },
     {
         "id": "M5_MODEL_LEVEL_DISAGREEMENT_RATE",
@@ -300,11 +370,26 @@ MUST_REPORT = (
     {
         "id": "M2_UNRESOLVED_REQUIREMENT_RATE",
         "measure": "unresolved_requirement_rate",
-        "source": "extraction.cost_breakdown(records)['by_cost']['unresolved'] over the total",
+        "source": "extraction.cost_breakdown(records)['by_cost']['unresolved'] / ['n_distinct'], over "
+                  "the STRUCTURAL path's records, summed per report. Which path was not stated here "
+                  "until 2026-10-31 and had to be decided: the table reading's, because the cost table an "
+                  "operator reads is the one over declared design rows. The model path's rate is reported "
+                  "beside it rather than pooled in, because it is four times further from zero and a "
+                  "pooled figure would hide which path it came from.",
         "asks": "What share of extracted requirements cannot be costed at all?",
-        "why": "79.8% of structural requirements came back `unresolved` on the development set before "
-               "normalisation. Whatever it is on the held-out set is the number a reader needs to size "
-               "every other number in the result.",
+        "why": "The number a reader needs to size every other number in the result. "
+               "IT WAS A LITERAL UNTIL 2026-10-31 AND THE LITERAL WAS STALE: 0.798 was typed into a "
+               "scratchpad script with the comment `development set, before normalisation` and carried "
+               "unchanged across every run after it, including the two that changed what normalises "
+               "(ADJ-W10 and ADJ-W11). Nothing recomputed it, because nothing had to -- which is exactly "
+               "the hand-computed number gate G6 exists to forbid, found by writing G6's scorer and "
+               "running it over the same records. Computed from the declared source over the 33 "
+               "development reports: 190 of 300 distinct structural demands = 0.633, and 569 of 641 = "
+               "0.888 on the model path. The stale value was 16 points high. "
+               "THEN ADJ-W12 MOVED IT AGAIN, to 145 of 255 = 0.569: 47 of those 190 unresolved demands "
+               "were the box-table misread -- cells reading `Configuration`, `Designation`, `Config 1` "
+               "costed as demands on the model, every one of them unresolved because none of them is a "
+               "demand at all. A quarter of this rate's numerator was an artefact of the reader.",
     },
     {
         "id": "M3_SPAN_FAILURE_RATE",
@@ -346,7 +431,17 @@ LIMITATIONS = {
     "mitigation_mechanical_scoring": "Every held-out number is produced by committed, tested code (gate "
                                      "G6_SCORING_IS_MECHANICAL), so the annotator's familiarity with the "
                                      "development set cannot reach the score through his reading of the "
-                                     "twelve.",
+                                     "twelve. `cellarium.holdout_score` is that code and "
+                                     "`scripts/score_heldout.py` its entry point, both committed ahead "
+                                     "of the run.",
+    "mitigation_reviewable_mappings": "The 55 value-to-member mappings that fired over the development "
+                                      "set are laid out with the alternatives each was chosen over "
+                                      "(`extraction.mapping_review_sheet`, written by "
+                                      "`scripts/mapping_review.py`), so the one judgement no mechanical "
+                                      "check makes costs a reviewer a page rather than a corpus. It does "
+                                      "not CLOSE the single-annotator limitation -- gate "
+                                      "G5_MAPPINGS_REVIEWED stays unmet until somebody other than the "
+                                      "author signs -- it removes the excuse for leaving it open.",
     "mitigation_two_paths": "Where two paths read the same field the record has two provenances. That is "
                             "what gate G1_INDEPENDENT_CHECK exists to establish BEFORE the run, because "
                             "a pipeline with one reading per field has no internal check at all.",
@@ -363,6 +458,17 @@ OUT_OF_SCOPE = {
     "ADJ-W6_setpoints_not_built": "The archive asks for charging setpoints 0.70 and 0.75 in 110 "
                                   "development rows; the campaign builds none/0.55/0.85. That is a "
                                   "mismatch between two plans, not an extraction defect.",
+    "ADJ-W12_box_tables_partly_unread": "A box-drawn design table whose cells span two lines cannot be "
+                                        "transcribed: a joined cell is not a verbatim span, so no quote "
+                                        "can be cut and the row is REFUSED and counted "
+                                        "(`extract_report(...)['structural']['refused_rows']`). On the "
+                                        "development set that is 6 rows across 3 reports, whose 6 real "
+                                        "column headers are now counted as unmapped. Reading them needs "
+                                        "a quote model for multi-line cells and six header spellings "
+                                        "this vocabulary does not carry, so the held-out run will REPORT "
+                                        "those rows as untranscribable rather than read them -- which is "
+                                        "what the contract asks for, and must not be read as the "
+                                        "documents asking for less.",
     "hypothesis_quality": "Whether the ideas in these reports are good science is not what the seal "
                           "measures. The run measures reading.",
 }
@@ -422,8 +528,23 @@ def readiness(measurements: dict | None = None) -> dict:
         else:
             reported.append({**_card(r), "value": m[r["measure"]]})
     may = not unmet and not unmeasured
+    # A gate this registration records as FAILED AS REGISTERED can never be met -- that is what keeping it
+    # failed means -- so while it is in `unmet`, `may_break_seal` is False for ever. That is a real
+    # consequence of refusing to retune G2, and it is surfaced rather than discovered at the moment
+    # somebody wants to open the seal. NOT resolved here: whether a superseded gate should stop blocking is
+    # a decision about the claim, and a function that quietly decided it would be the retune by another
+    # route.
+    permanent = [g["id"] for g in READINESS_GATES
+                 if "FAILED AS REGISTERED" in str(g.get("measured") or "")
+                 and g["id"] in {u["id"] for u in unmet}]
     note = [f"{len(met)} of {len(READINESS_GATES)} gate(s) met, {len(unmet)} failed, "
             f"{len(unmeasured)} with nothing measured."]
+    if permanent:
+        note.append(f"{permanent} is kept FAILED AS REGISTERED rather than retuned, so while it counts as "
+                    f"unmet this check can never answer yes. Whether a criterion that was superseded by a "
+                    f"separately named one should go on blocking is a decision about the claim and is NOT "
+                    f"made here; it is named so it cannot be settled by whoever happens to be holding the "
+                    f"seal.")
     note.append("A MISSING MEASUREMENT IS NOT A PASS: a readiness check that defaulted to yes would wave "
                 "through a tool nobody measured, which is the silent-absence shape applied to this "
                 "project's own process.")
@@ -434,7 +555,36 @@ def readiness(measurements: dict | None = None) -> dict:
         note.append("The seal stays closed. The held-out twelve are the only documents left that can test "
                     "this pipeline, and spending them early cannot be undone.")
     return {"may_break_seal": may, "n_gates": len(READINESS_GATES), "met": met, "unmet": unmet,
-            "unmeasured": unmeasured, "reported": reported, "note": " ".join(note)}
+            "unmeasured": unmeasured, "reported": reported, "permanently_unmet": permanent,
+            "note": " ".join(note)}
+
+
+def sealed_digests(partition: str = "held_out", path: str | None = None) -> dict:
+    """The sealed SHA-256 of each document in one partition, or the fact that this machine cannot look.
+
+    `seal_state` answers whether the seal agrees with the registration; this answers which bytes it
+    committed to, which is what a scorer needs to check that the file it just read is the file that was
+    sealed. Same discipline: unreadable returns `digests: None` and `about: environment`, because "I could
+    not open the seal" reported as "there is nothing sealed" is the defect this project keeps finding."""
+    p = path or os.environ.get("CELLARIUM_HOLDOUT_SEAL") or DEFAULT_SEAL_PATH
+    if partition not in ("held_out", "development"):
+        return {"digests": None, "about": "request", "path": p,
+                "note": f"{partition!r} is not a partition of the seal; it lists `held_out` and "
+                        f"`development`."}
+    try:
+        obj = json.loads(io.open(p, "rb").read().decode("utf-8"))
+    except (OSError, ValueError) as exc:
+        return {"digests": None, "about": "environment", "path": p,
+                "note": f"the seal could not be read at {p} ({exc.__class__.__name__}). This machine "
+                        f"could not look; nothing about the seal follows from it."}
+    got = obj.get(partition)
+    if not isinstance(got, dict):
+        return {"digests": None, "about": "environment", "path": p,
+                "note": f"the seal at {p} carries no {partition!r} map. Present and the wrong shape is "
+                        f"not the same as absent."}
+    return {"digests": {str(k): str(v) for k, v in got.items()}, "about": "", "path": p,
+            "partition": partition, "n": len(got),
+            "note": f"{len(got)} document(s) sealed in {partition!r}."}
 
 
 def seal_state(path: str | None = None) -> dict:

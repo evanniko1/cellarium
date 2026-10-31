@@ -37,6 +37,7 @@ written before any of it exists.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -63,8 +64,10 @@ COLUMN_ROLES: dict[str, tuple[str, ...]] = {
     "factor:perturbation": ("perturbation", "perturbation target", "perturbation (gen 1)",
                             "perturbation target (gen 1)", "genotype"),
     "factor:shift": ("nutritional shift", "shift perturbation", "carbon transition", "shift"),
-    "factor:elongation_model": ("elongation model", "charging model", "simulation module",
-                                "wcecoli simulation module matrix", "simulation module matrix"),
+    # NOT "simulation module matrix" or "wcecoli simulation module matrix": those are table TITLES, and
+    # they were registered here to make a title match as a header -- which is the ADJ-W12 misread, not a
+    # column spelling. See `_logical_rows`.
+    "factor:elongation_model": ("elongation model", "charging model", "simulation module"),
     "readout": ("primary readouts evaluated", "primary readouts", "readouts", "readout",
                 "analytical focus", "primary readout"),
     "id": ("run id", "sim id", "experiment id", "simulation set", "arm", "id"),
@@ -267,6 +270,110 @@ def _is_rule(cells) -> bool:
     return all(set(c) <= set("-: ") and c for c in cells)
 
 
+# An ASCII box-drawn table's row separator. NOT matched by `_TABLE_LINE`, which is the whole reason the
+# dialect went unnoticed: these lines simply vanished from the scan, so a box table's several lines per
+# logical row arrived as several rows.
+_BOX_RULE = re.compile(r"^\s*\+[-=+]{3,}\+\s*$", re.M)
+
+
+def _table_blocks(span: str) -> list[list[list[str]]]:
+    """The table lines of one section, grouped into the blocks its own rules delimit.
+
+    A Markdown table is one block of one-line rows. A box-drawn table's `+---+---+` lines separate blocks,
+    and a block may hold SEVERAL lines of one logical row -- or several one-line rows, which is the
+    ambiguity `_header_and_rows` resolves."""
+    ms = list(_TABLE_LINE.finditer(span))
+    rows = [_cells(m.group(0)) for m in ms]
+    if not _BOX_RULE.search(span):
+        # A pipe table: one line is one row, which is what it has always been. CAUGHT BY MEASURING -- the
+        # block grouping below puts a Markdown table's every line in ONE block, because nothing but a
+        # newline separates them, and the development set went from 2,018 structural records to 8.
+        return [[cs] for cs in rows if not _is_rule(cs)]
+    blocks: list[list[list[str]]] = []
+    for i, m in enumerate(ms):
+        if _is_rule(rows[i]):
+            continue
+        broken = bool(i) and bool(span[ms[i - 1].end():m.start()].strip())
+        if broken or not blocks:
+            blocks.append([rows[i]])
+        else:
+            blocks[-1].append(rows[i])
+    return blocks
+
+
+def _header_and_rows(span: str) -> dict:
+    """One section's design table as a header and its data rows, with the title dropped and multi-line
+    cells joined -- or, where no quote can be cut from them, refused and counted.
+
+    ADJ-W12, AND IT WAS FOUND BY READING WHAT THE PATH PRODUCED rather than by reading the parser. Four of
+    the 33 development reports lay out their design matrix as an ASCII box table:
+
+        |                     WCECOLI SIMULATION MODULE MATRIX                     |
+        +---------------+---------------+--------------------+---------------------+
+        | Configuration | ppGpp Module  | Endogenous Amino   | Extracellular ...   |
+        | Designation   | State         | Acid Biosynthesis  | Regime / Carbon     |
+        +---------------+---------------+--------------------+---------------------+
+        | Config 1      | ON (Dynamic   | Active             | Shift at t=0:       |
+        | (Wild-Type)   | RelA / SpoT)  |                    | 0.4 mM AA -> 0 uM   |
+
+    The old reader took the FIRST table line as the header row, so the one-cell TITLE became the header,
+    its single role was matched against the title's own words, and every later line's first cell became a
+    VALUE for that role. 52 records across five tables whose values are `Configuration`, `Designation`,
+    `Config 1`, `(Wild-Type)` -- row labels and header fragments, costed and counted as demands on the
+    model, and every one of them `unresolved`, which is 47 of the 190 unresolved demands on the whole
+    development set. The two table-TITLE spellings in `COLUMN_ROLES["factor:elongation_model"]` had been
+    added to make that match work, which cemented it; `factor:elongation_model` then vanished from the
+    development set's structural roles entirely once they were removed, which is ADJ-W3 confirmed rather
+    than contradicted.
+
+    TWO RULES, AND NO VOCABULARY CHANGE:
+
+      * A leading block whose first line has FEWER cells than the table's modal row is a TITLE, not a
+        header. A one-cell line above a six-column table is the table's name.
+      * HOW MANY LINES MAKE ONE ROW IS SET BY THE HEADER BLOCK, not by adjacency. Adjacency was the first
+        attempt and it is WRONG, measured on the two layouts in the corpus: one rules every logical row
+        off (`+---+` between each, two lines per row) and the other rules only its header (four one-line
+        data rows in a single block). Joining by adjacency read that second table's four simulations as one
+        row whose first cell was `Config 1 Config 2 Config 3 Config 4`. A box table is laid out uniformly,
+        so the header block's own line count is the table's lines-per-row.
+
+    A JOINED CELL IS NOT A VERBATIM SPAN, so a record cannot be cut from it: those rows are reported in
+    `n_multiline_rows` and the caller emits nothing for them. Rule R1, and gate G3_QUOTES_VERBATIM is a
+    check on exactly that construction -- a value whose citation had to be stitched out of two lines is the
+    fabricated quote in another costume. Reading them properly needs a quote model for multi-line cells and
+    six header spellings this vocabulary does not carry; it is filed, not improvised here."""
+    blocks = _table_blocks(span)
+    if len(blocks) < 2:
+        return {"header": [], "rows": [], "n_title_rows": 0, "n_multiline_rows": 0}
+    counts = [len(b[0]) for b in blocks]
+    modal = max(set(counts), key=counts.count)
+    n_title = 0
+    while blocks and len(blocks[0][0]) < modal:
+        blocks = blocks[1:]
+        n_title += 1
+    if len(blocks) < 2:
+        return {"header": [], "rows": [], "n_title_rows": n_title, "n_multiline_rows": 0}
+
+    def _join(lines):
+        return [" ".join(p for p in parts if p).strip() for parts in zip(*lines)]
+
+    head = blocks[0]
+    per_row = max(1, len(head))
+    header = _join(head) if per_row > 1 else head[0]
+    out, multi = [], 0
+    for block in blocks[1:]:
+        for k in range(0, len(block), per_row):
+            chunk = block[k:k + per_row]
+            if not chunk:
+                continue
+            if len(chunk) > 1:
+                multi += 1
+                out.append({"cells": _join(chunk), "n_lines": len(chunk)})
+            else:
+                out.append({"cells": chunk[0], "n_lines": 1})
+    return {"header": header, "rows": out, "n_title_rows": n_title, "n_multiline_rows": multi}
+
+
 def extract_structural(text: str) -> list[Record]:
     """Records from the DECLARED TABLES of plan sections: a column is a factor, a cell is its level.
 
@@ -279,15 +386,17 @@ def extract_structural(text: str) -> list[Record]:
         return out
     for sec in loc.get("plan_sections", []):
         span = text[sec["read_span"][0]:sec["read_span"][1]]
-        lines = [m.group(0) for m in _TABLE_LINE.finditer(span)]
-        rows = [_cells(ln) for ln in lines]
-        keep = [i for i, cs in enumerate(rows) if not _is_rule(cs)]
-        if len(keep) < 2:
+        table = _header_and_rows(span)
+        if not table["header"]:
             continue
-        headers = rows[keep[0]]
-        roles = [_ROLE_OF_HEADER.get(h.strip().lower()) for h in headers]
-        for i in keep[1:]:
-            cs = rows[i]
+        roles = [_ROLE_OF_HEADER.get(h.strip().lower()) for h in table["header"]]
+        for row in table["rows"]:
+            cs = row["cells"]
+            if row["n_lines"] > 1:
+                # A cell assembled from several lines is not a verbatim span of the document, so no quote
+                # can be cut for it. REFUSED and counted by `_multiline_cells`, not repaired: a value whose
+                # citation had to be stitched together is the fabricated-quote failure in another costume.
+                continue
             for j, cell in enumerate(cs):
                 if j >= len(roles) or roles[j] in (None, "id", "note"):
                     continue
@@ -326,11 +435,30 @@ def _n_design_rows(text: str) -> int:
     n = 0
     for sec in adjudicate.locate(text).get("plan_sections", []):
         span = text[sec["read_span"][0]:sec["read_span"][1]]
-        rows = [_cells(m.group(0)) for m in _TABLE_LINE.finditer(span)]
-        keep = [cs for cs in rows if not _is_rule(cs)]
-        if len(keep) >= 2:
-            n += len(keep) - 1          # minus the header
+        # One logical row per SIMULATION. A box-drawn row spans several lines, so the old count read a
+        # four-row matrix as nine rows plus a title, and `n_design_rows` is the number an operator reads
+        # as "how many runs is this plan asking for".
+        n += len(_header_and_rows(span)["rows"])
     return n
+
+
+def _refused_table_rows(text: str) -> dict:
+    """Design rows the table reader could NOT transcribe, counted rather than dropped.
+
+    The pre-registration's own words: a field the tool cannot transcribe is COUNTED as untranscribable,
+    not accommodated. A box-drawn row whose cells span two lines is exactly that -- no verbatim quote can
+    be cut from a stitched cell -- so the rows are refused and the count travels with the reading. A silent
+    drop would make those documents look like documents that asked for less."""
+    n_rows = n_titles = 0
+    for sec in adjudicate.locate(text).get("plan_sections", []):
+        t = _header_and_rows(text[sec["read_span"][0]:sec["read_span"][1]])
+        n_rows += t["n_multiline_rows"]
+        n_titles += t["n_title_rows"]
+    return {"n_multiline_rows_refused": n_rows, "n_title_rows_dropped": n_titles,
+            "why": ("a row whose cells are assembled from several lines has no verbatim span to cite, so "
+                    "no record is emitted for it (ADJ-W12). The row is counted here so a document the "
+                    "reader cannot transcribe does not read as a document that asked for less."
+                    if n_rows else "")}
 
 
 def _unmapped_columns(text: str) -> list[str]:
@@ -342,11 +470,13 @@ def _unmapped_columns(text: str) -> list[str]:
     loc = adjudicate.locate(text)
     for sec in loc.get("plan_sections", []):
         span = text[sec["read_span"][0]:sec["read_span"][1]]
-        rows = [_cells(m.group(0)) for m in _TABLE_LINE.finditer(span)]
-        keep = [cs for cs in rows if not _is_rule(cs)]
-        if len(keep) < 2:
+        table = _header_and_rows(span)
+        if not table["header"]:
             continue
-        for h in keep[0]:
+        # The REAL headers, now that the title is not mistaken for one. On the four box-drawn development
+        # reports this is where their six columns go: no declared role covers `Extracellular Medium Regime
+        # / Carbon`, and a gap nobody counts is a gap nobody closes.
+        for h in table["header"]:
             if h.strip() and _ROLE_OF_HEADER.get(h.strip().lower()) is None and h not in out:
                 out.append(h.strip())
     return out
@@ -495,6 +625,30 @@ def as_requirement(record: Record):
                                   section_kind=record.section_kind)
 
 
+def _structural_note(records, unmapped, refused, n_rows: int) -> str:
+    """What the table reading found, with "there was no table" kept apart from "I could not read it".
+
+    THE THIRD CASE IS THE ONE THAT WAS MISSING, and it is this project's own recurring defect: a report
+    whose box-drawn matrix asks for seven design rows came back saying `no declared table was found in any
+    plan section`, because the note's only test was whether any record survived. A reader would have taken
+    that as a fact about the document. An absence of records over a table that IS there is a fact about
+    this reader."""
+    found = bool(n_rows or unmapped or refused.get("n_multiline_rows_refused"))
+    if not records and not found:
+        return ("no declared table was found in any plan section, so this path has nothing to read -- "
+                "which is a fact about the document's form, not about what it demands.")
+    refused_n = refused.get("n_multiline_rows_refused") or 0
+    tail = (f" {refused_n} design row(s) could not be transcribed at all: their cells are assembled from "
+            f"several lines of a box-drawn table, so no verbatim quote can be cut from them (ADJ-W12)."
+            if refused_n else "")
+    if not records:
+        return (f"a declared table WAS found -- {n_rows} design row(s), {len(unmapped)} column(s) whose "
+                f"header no declared role covers -- and this path transcribed NONE of it. That is a fact "
+                f"about this reader, not about the document." + tail)
+    return (f"{len(records)} record(s) from declared tables; {len(unmapped)} column(s) carry a header no "
+            f"declared role covers and are counted, not dropped." + tail)
+
+
 def extract_report(text, agent_records=None, agent_client=None) -> dict:
     """Both mechanical paths, their comparison, and any agent records held to the same gate."""
     if not isinstance(text, str) or not text.strip():
@@ -504,17 +658,19 @@ def extract_report(text, agent_records=None, agent_client=None) -> dict:
     s_v, l_v = verify_quotes(s_raw, text), verify_quotes(l_raw, text)
     s, legs = s_v["kept"], l_v["kept"]
     unmapped = _unmapped_columns(text)
+    refused = _refused_table_rows(text)
+    n_rows = _n_design_rows(text)
     out = {
-        "structural": {"n_records": len(s), "n_rejected": s_v["n_rejected"],
+        # `kept` travels here for the same reason it now travels on the agent block: a caller that has to
+        # re-parse the document to see the records this call already cut is a caller whose second parse can
+        # disagree with the first. The held-out scorer was doing exactly that.
+        "structural": {"n_records": len(s), "kept": s, "n_rejected": s_v["n_rejected"],
                        "n_distinct": dedupe(s)["n_distinct"],
-                       "n_design_rows": _n_design_rows(text),
+                       "n_design_rows": n_rows,
                        "normalisation": normalisation_coverage(s),
                        "unmapped_columns": unmapped,
-                       "note": ("no declared table was found in any plan section, so this path has nothing "
-                                "to read — which is a fact about the document's form, not about what it "
-                                "demands." if not s else
-                                f"{len(s)} record(s) from declared tables; {len(unmapped)} column(s) carry "
-                                f"a header no declared role covers and are counted, not dropped.")},
+                       "refused_rows": refused,
+                       "note": _structural_note(s, unmapped, refused, n_rows)},
         "lexical": {"n_records": len(legs), "n_rejected": l_v["n_rejected"],
                     "note": f"{len(legs)} record(s) from prose, with every table line removed first so "
                             f"agreement with the structural path is not agreement by construction."},
@@ -540,7 +696,17 @@ def extract_report(text, agent_records=None, agent_client=None) -> dict:
         out["agent_vs_structural"] = reconcile(s, lv["kept"])
     elif agent_client is not None:
         a = extract_agent(text, client=agent_client)
-        out["agent"] = {k: a[k] for k in ("n_kept", "n_rejected", "rejected", "unfilled", "note",
+        out["agent"] = {k: a[k] for k in ("n_kept", "n_rejected",
+                                          # The KEPT records travel, not only the rejected ones. FOUND BY
+                                          # RUNNING THE HELD-OUT SCORER on one real report: it reads
+                                          # `['agent']['kept']` from this surface, the key was not in this
+                                          # list, and so every agent record silently vanished -- role
+                                          # coverage 0.0, no report eligible for the comparison, and a
+                                          # held-out run that would have reported the third path finding
+                                          # NOTHING. The same omission shape as the level counters below,
+                                          # one line up: the keys exist on `extract_agent`'s result and
+                                          # stopped here.
+                                          "kept", "rejected", "unfilled", "note",
                                           "quotes_cut_by_platform", "n_rewrote", "n_value_outside_quote",
                                           # ADJ-W10, and the omission was caught by USING this branch: the
                                           # first agreement run over the development set reported every
@@ -1173,6 +1339,56 @@ def cost_breakdown(records, partial: bool | None = None, n_unread: int = 0) -> d
                     "`value_not_normalised` is a gap in the declared tables."
                     + (adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else
                        adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")}
+
+
+def mapping_review_sheet(records, partial: bool | None = None, n_unread: int = 0) -> dict:
+    """Every value-to-member mapping that actually FIRED, laid out so a person can judge each one.
+
+    ADJ-W5 / gate G5, which asks whether anybody OTHER than the author has checked WHICH declared member
+    each value maps to. A machine checks MEMBERSHIP -- the chosen value is in the authority's set -- and
+    does, at call time. Which member is RIGHT is a judgement no check makes, and a round-trip through the
+    envelope validates the design rather than the mapping: `Acetate minimal -> minimal_acetate` is a
+    correct mapping whose timeline the envelope rightly refuses as a carbon switch, so a round-trip would
+    report a correct mapping as broken.
+
+    So the only honest mitigation is to make the judgement CHEAP, and that is what this is: each applied
+    mapping with the alternatives it was chosen over, from the authority itself. 55 rows over the whole
+    development set -- a reviewer reads a page, not a corpus.
+
+    THE SHEET CARRIES ITS OWN DIGEST, because a signature on a worksheet that has since changed means
+    nothing. `holdout_score` refuses a signature whose digest does not match the mappings in front of it,
+    so a reviewer's name cannot be inherited by a mapping table they never saw."""
+    cov = normalisation_coverage(records, partial=partial, n_unread=n_unread)
+    rows = []
+    for role, slot in sorted(cov["by_role"].items()):
+        members = sorted({canon for _, canon in level_vocabulary(role)})
+        for raw, m in sorted(slot["applied_mappings"].items()):
+            rows.append({"role": role, "author_wrote": raw, "mapped_to": m["value"],
+                         "occurrences": m["n"],
+                         # The members it was chosen OVER. A reviewer cannot judge a mapping without
+                         # seeing what else was available, and an empty list is itself informative: the
+                         # role has no closed vocabulary, so the mapping is numeric or identity.
+                         "other_members": [x for x in members if x != m["value"]],
+                         "authority": DERIVABLE_LEVEL_ROLES.get(role, "")})
+    payload = json.dumps([(r["role"], r["author_wrote"], r["mapped_to"]) for r in rows],
+                         sort_keys=True).encode("utf-8")
+    return {
+        "rows": rows, "n_mappings": len(rows),
+        "digest": hashlib.sha256(payload).hexdigest(),
+        "unnormalised_by_role": {role: slot["unnormalised_values"]
+                                 for role, slot in sorted(cov["by_role"].items())
+                                 if slot["unnormalised_values"]},
+        "fraction_normalised": cov["fraction_normalised"],
+        "partial": cov["partial"], "completeness": cov["completeness"],
+        "n_unread_sections": int(n_unread),
+        "note": ("Each row is a mapping that FIRED, with the members it was chosen over. What a reviewer "
+                 "is asked is not whether the target exists -- membership is checked mechanically at call "
+                 "time -- but whether it is the RIGHT member for what the author wrote. The digest covers "
+                 "the (role, value, member) triples only, so re-running on more documents without "
+                 "changing any mapping keeps a signature valid, and changing one mapping invalidates it."
+                 + (adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else
+                    adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")),
+    }
 
 
 # --- costing a design ROW ----------------------------------------------------------------------------

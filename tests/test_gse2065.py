@@ -18,6 +18,7 @@ import importlib.util
 import json
 import socket
 import sys
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -157,14 +158,28 @@ def _online() -> bool:
 
 @pytest.mark.skipif(not _online(), reason="no network: cannot re-fetch the GEO record")
 def test_full_chain_from_geo(tmp_path):
-    """Re-fetch GSE2065, verify the pinned hash, and rebuild the tables from the raw record."""
+    """Re-fetch GSE2065, verify the pinned hash, and rebuild the tables from the raw record.
+
+    A TRUNCATED DOWNLOAD IS SKIPPED, NOT FAILED, and the distinction is the whole reason this note exists.
+    `_online()` opens a socket to the host, which establishes that the network is up and NOT that a 115 KB
+    file arrives whole -- GEO throttles, and the same request succeeded and then truncated forty minutes
+    apart on 2026-10-31. A `ContentTooShortError` reported as a red test is an environment fault wearing
+    the costume of a result, in the one suite whose green is this project's main safety net: the next
+    person sees a failing test next to their own change. What must still FAIL is a download that arrives
+    whole and disagrees with the pinned hash or the paper's table, so only the truncation is caught here
+    and nothing else is."""
     spec = importlib.util.spec_from_file_location("gse", ROOT / "scripts" / "gse2065_reanalysis.py")
     mod = importlib.util.module_from_spec(spec)
     sys.modules["gse"] = mod
     spec.loader.exec_module(mod)
 
     mod.CACHE = tmp_path / "GSE2065_family.soft.gz"          # force a real download, not the cache
-    probe_to_group, by_time = mod.parse(mod.fetch(verify_download=True).decode("utf-8", "replace"))
+    try:
+        raw = mod.fetch(verify_download=True)
+    except urllib.error.ContentTooShortError as exc:
+        pytest.skip(f"GEO served a partial record ({exc}); the network is up but the file did not "
+                    f"arrive, which says nothing about the re-analysis")
+    probe_to_group, by_time = mod.parse(raw.decode("utf-8", "replace"))
 
     assert sorted(set(probe_to_group.values())) == sorted(GROUPS)
     pooled = [p for p, g in probe_to_group.items() if g == "LeuPQVT"]
