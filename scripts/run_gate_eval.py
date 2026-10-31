@@ -56,6 +56,7 @@ def _items(framings: int) -> list[dict]:
 
 
 HELDOUT = REPO / "evals" / "HELDOUT_GATE_QUESTIONS.json"
+HELDOUT2 = REPO / "evals" / "HELDOUT_GATE_QUESTIONS_V2.json"
 
 
 def _heldout_items() -> list[dict]:
@@ -67,6 +68,41 @@ def _heldout_items() -> list[dict]:
     got = hashlib.sha256(json.dumps(bank["items"], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     if got != lock:
         raise SystemExit("held-out items no longer match their lock; refusing to score an edited held-out set")
+    return [{"id": i["id"], "capability": ",".join(i["required_capabilities"]) or None, "mode": i["mode"],
+             "framing": i["category"], "kind": i["category"], "required": i["key"], "ask": i["question"],
+             "required_judgement": i["key_judgement"], "registry_can_express": i["registry_can_express"]}
+            for i in bank["items"]]
+
+
+def _heldout2_items() -> list[dict]:
+    """Held-out set v2, and it REFUSES while the set is unfrozen.
+
+    GATE-8b-HO2. v2 exists because the four corrections (A-D) were designed with v1's results in view, so
+    v1 can no longer measure them. The same logic condemns v2 the moment it is scored before it is frozen:
+    a set whose keys could still be edited after a run is a development set with a hash on it. Freezing
+    needs somebody other than the author to have reviewed the sample -- see
+    `scripts/build_heldout_bank_v2.py --freeze --reviewer`.
+
+    A missing bank is an environment fact and a missing LOCK is a process fact, so they are separate
+    messages: one means this checkout does not have the file, the other means the file is not ready."""
+    import hashlib
+    if not HELDOUT2.exists():
+        raise SystemExit(f"{HELDOUT2.name} is not in this checkout; nothing follows about whether v2 "
+                         f"exists elsewhere. Build it with scripts/build_heldout_bank_v2.py.")
+    bank = json.loads(HELDOUT2.read_text(encoding="utf-8"))
+    lock_path = HELDOUT2.with_suffix(".sha256")
+    if not lock_path.exists() or bank.get("status") != "frozen":
+        raise SystemExit(
+            "held-out set v2 is NOT FROZEN, so it cannot be scored. Scoring it now would spend the only "
+            "documents that can measure GATE-8b A-D on a set whose keys are still editable. It is frozen "
+            "by `scripts/build_heldout_bank_v2.py --freeze --reviewer \"Name, YYYY-MM-DD\"`, and the "
+            "reviewer must be somebody other than the author of the requirements -- that is the whole "
+            "reason the second set exists. The sample to review is evals/HELDOUT_V2_REVIEW_PACKET.md.")
+    lock = lock_path.read_text(encoding="utf-8").split()[0]
+    got = hashlib.sha256(
+        json.dumps(bank["items"], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+    if got != lock:
+        raise SystemExit("held-out v2 items no longer match their lock; refusing to score an edited set")
     return [{"id": i["id"], "capability": ",".join(i["required_capabilities"]) or None, "mode": i["mode"],
              "framing": i["category"], "kind": i["category"], "required": i["key"], "ask": i["question"],
              "required_judgement": i["key_judgement"], "registry_can_express": i["registry_can_express"]}
@@ -180,9 +216,18 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--dry-run", action="store_true", help="list the items and exit; no model calls")
     ap.add_argument("--heldout", action="store_true",
                     help="score the frozen held-out set (evals/HELDOUT_GATE_QUESTIONS.json) instead")
+    ap.add_argument("--heldout2", action="store_true",
+                    help="score held-out set v2; REFUSES until it is frozen by a reviewer (GATE-8b-HO2)")
     a = ap.parse_args(argv)
 
-    if a.heldout:
+    if a.heldout and a.heldout2:
+        raise SystemExit("--heldout and --heldout2 are different sets; score one of them.")
+    if a.heldout2:
+        items = _heldout2_items()
+        if a.out == str(OUT_DIR / "gate_eval.json"):
+            a.out = str(OUT_DIR / "gate_eval_heldout_v2.json")
+        print(f"{len(items)} held-out v2 items, parser model {a.model}")
+    elif a.heldout:
         items = _heldout_items()
         if a.out == str(OUT_DIR / "gate_eval.json"):
             a.out = str(OUT_DIR / "gate_eval_heldout.json")

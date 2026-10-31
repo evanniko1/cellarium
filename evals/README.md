@@ -10,6 +10,22 @@ operationalized, instrumentally-testable `Hypothesis`?
 - `grade.py` — the runner: deliberate on each case, then grade.
 - `results/` — saved scorecards (`*.json`) and console logs (`*.log`).
 
+**A different construct also lives here: the pre-dispatch GATE question banks.** They do not grade a
+hypothesis; they ask whether the system correctly decides that the simulator can answer a question at all.
+Separate files, separate runner (`scripts/run_gate_eval.py`), separate rubric.
+
+- `GATE_QUESTION_BANK.{json,md}` — the 216-question development bank, generated from the capability
+  registry plus framings.
+- `HELDOUT_GATE_QUESTIONS.{json,md,sha256}` — 60 hand-written questions, **frozen 2026-10-12 and run
+  once**. Headline 45/56 = 0.804.
+- `HELDOUT_GATE_QUESTIONS_V2.{json,md}` — 64 questions, **authored and NOT frozen**. It exists because the
+  four corrections the first set exposed (`GATE-8b` A–D) were all designed with that set's results in view,
+  so v1 can no longer measure them. Keys are *computed* from hand-labelled requirements by the registry's
+  predicates; the hand work is the question and which capabilities it needs.
+  `HELDOUT_V2_REVIEW_PACKET.md` is the sample of 18 requirements a second labeller is asked to check.
+  `run_gate_eval.py --heldout2` **refuses an unfrozen set**, and `GATE-8b` A–D must not be implemented
+  until it is frozen by `scripts/build_heldout_bank_v2.py --freeze --reviewer "Name, date"`.
+
 ## Running
 ```bash
 python evals/grade.py                 # all cases

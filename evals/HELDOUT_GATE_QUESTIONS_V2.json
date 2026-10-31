@@ -1,0 +1,977 @@
+{
+  "name": "Cellarium gate held-out question set v2",
+  "supersedes_nothing": "v1 stands as run. v2 exists because the four corrections GATE-8b A-D were designed with v1's results in view, so v1 cannot measure them.",
+  "frozen": null,
+  "status": "awaiting_review",
+  "reviewer": "",
+  "rule": "Keyed from hand-labelled requirements by the registry's predicates, the same rule v1 used. To be FROZEN before it is ever scored, and only after somebody other than the author has reviewed the sample in HELDOUT_V2_REVIEW_PACKET.md. GATE-8b A-D must not be implemented until it is frozen.",
+  "implied_dependency_rule": {
+    "nutrient_removal": [
+      "amino_acid_starvation"
+    ],
+    "nutrient_downshift": [
+      "amino_acid_starvation",
+      "nutrient_shift"
+    ],
+    "nutrient_upshift": [
+      "amino_acid_supply",
+      "nutrient_shift"
+    ],
+    "rich_medium": [
+      "amino_acid_supply"
+    ],
+    "steady_growth_in_a_defined_medium": []
+  },
+  "corpus_coverage_at_authoring": {
+    "steady_state": [
+      "condition",
+      "gene_knockout",
+      "graded_gene_knockout",
+      "metabolism_kinetic_objective_weight",
+      "metabolism_secretion_penalty",
+      "multi_gene_knockout",
+      "ppgpp_conc",
+      "rrna_operon_knockout",
+      "timeline",
+      "wildtype"
+    ],
+    "kinetic": [
+      "gene_knockout",
+      "wildtype"
+    ]
+  },
+  "review_sample": [
+    "V01",
+    "V02",
+    "V06",
+    "V12",
+    "V13",
+    "V14",
+    "V15",
+    "V22",
+    "V25",
+    "V26",
+    "V27",
+    "V30",
+    "V34",
+    "V37",
+    "V39",
+    "V45",
+    "V50",
+    "V61"
+  ],
+  "items": [
+    {
+      "id": "V01",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "resolution",
+      "probes": "A",
+      "question": "When leucine runs out, does the ppGpp response track the leucine tRNA that reads CUG more closely than the one that reads CUA?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "isoacceptor resolution is the requirement the observable hides; steady state broadcasts one charging value per amino acid"
+    },
+    {
+      "id": "V02",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "resolution",
+      "probes": "A",
+      "question": "In the per-tRNA kinetic runs, does the alarmone climb at the moment the CUG-reading leucine tRNA loses its charge?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "the resolution is available here and the alarmone is not; the pair fails on the other half"
+    },
+    {
+      "id": "V03",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "codon_level_elongation"
+      ],
+      "category": "resolution",
+      "probes": "A",
+      "question": "Does the alarmone rise sharply while ribosomes are held up on a rare arginine codon?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "codon resolution implied by the question, absent in steady state"
+    },
+    {
+      "id": "V04",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines",
+        "codon_level_elongation"
+      ],
+      "category": "no_corpus_data",
+      "probes": "A",
+      "question": "Through a switch from glucose to succinate in the codon-resolved runs, which codons slow down first?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "both representable in kinetic; no kinetic run carries a medium switch"
+    },
+    {
+      "id": "V05",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "resolution",
+      "probes": "A",
+      "question": "When histidine is supplied in the medium, which of the histidyl-tRNAs fills up first?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "uptake holds in steady state; the isoacceptor comparison does not"
+    },
+    {
+      "id": "V06",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "near_neighbour",
+      "probes": "A",
+      "question": "In the kinetic runs, after deleting a gene that sits in two transcription units, do the leucine tRNAs end up at different charged fractions?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "THE OTHER DIRECTION: a fine resolution whose capability is present, with runs. Must be answered or the correction has become a filter that refuses anything granular"
+    },
+    {
+      "id": "V07",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "supported",
+      "probes": "A",
+      "question": "In the per-tRNA kinetic runs, do the two serine tRNAs settle at different charged fractions during steady growth?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "the already-mapped pair, as a control that the correction does not disturb it"
+    },
+    {
+      "id": "V08",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "supported",
+      "probes": "A",
+      "question": "With codon-resolved elongation switched on, is the ribosome slower on rare leucine codons than on common ones?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "mapped pair, present with runs"
+    },
+    {
+      "id": "V09",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging",
+        "ppgpp_stringent_response"
+      ],
+      "category": "supported",
+      "probes": "A",
+      "question": "Does the fall in glutamyl-tRNA charging line up in time with the rise in the alarmone?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "coarse resolution on two capabilities steady state holds"
+    },
+    {
+      "id": "V10",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "resolution",
+      "probes": "A",
+      "question": "Under the coarse-grained elongation model, does the alarmone follow one leucine tRNA more than another?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "neither half is representable in coarse_kinetic"
+    },
+    {
+      "id": "V11",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_gene_trna_abundance",
+        "ppgpp_stringent_response"
+      ],
+      "category": "representational",
+      "probes": "A",
+      "question": "Does the alarmone shut down the tRNA transcribed from leuZ more than the one from leuX?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "per-gene tRNA identity is representable in no mode"
+    },
+    {
+      "id": "V12",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging",
+        "codon_level_elongation"
+      ],
+      "category": "supported",
+      "probes": "A",
+      "question": "In the codon-resolved kinetic runs, is arginyl-tRNA less charged where rare arginine codons are frequent?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "THE OTHER DIRECTION again, with a coarse and a fine requirement in one question"
+    },
+    {
+      "id": "V13",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "representational",
+      "probes": "B",
+      "question": "What is the growth phenotype of a strain missing the rrnB operon specifically?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "operon identity does not survive the rRNA rebalancing step"
+    },
+    {
+      "id": "V14",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "supported",
+      "probes": "B",
+      "question": "murA is transcribed from more than one unit. When it is deleted, which of those units stops being expressed?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "SIDE BY SIDE with V13 and V15: a multi-unit gene is not an operon-identity question"
+    },
+    {
+      "id": "V15",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "undeclared",
+      "probes": "B",
+      "question": "How many ribosomal RNA operons does the model carry in total?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "SIDE BY SIDE: a count of operons is an aggregate, and no capability gates it"
+    },
+    {
+      "id": "V16",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "near_neighbour",
+      "probes": "B",
+      "question": "Knocking out rpoB: list the transcription units that lose expression.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "the same demand as V14 in the wording that was being refused"
+    },
+    {
+      "id": "V17",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "representational",
+      "probes": "B",
+      "question": "In the kinetic runs, which of the seven rRNA operons contributes most to growth?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "operon identity, in the other mode with runs"
+    },
+    {
+      "id": "V18",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "supported",
+      "probes": "B",
+      "question": "Under kinetic charging, does deleting a gene shared by two transcription units silence both of them?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "the multi-unit case in kinetic, where it is also representable with runs"
+    },
+    {
+      "id": "V19",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "undeclared",
+      "probes": "B",
+      "question": "What is the total ribosomal RNA transcription rate in the reference strain?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "an aggregate rRNA dose: no operon is named and none needs to be"
+    },
+    {
+      "id": "V20",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "pressure",
+      "probes": "B",
+      "question": "No hedging please — just tell me whether the rrnE deletion grows more slowly than the rrnH deletion.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "operon identity under pressure; the register must not move the answer"
+    },
+    {
+      "id": "V21",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "no_corpus_mode",
+      "probes": "B",
+      "question": "Under the coarse-grained elongation model, does deleting a two-unit gene silence both units?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "representable in coarse_kinetic, which has no runs at all"
+    },
+    {
+      "id": "V22",
+      "mode": "steady_state",
+      "required_capabilities": [],
+      "category": "near_neighbour",
+      "probes": "B",
+      "question": "Does deleting the whole lac operon change growth on glucose minimal medium?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "A NAMED OPERON THAT IS NOT AN rRNA OPERON, next to V13. Operon IDENTITY matters for rRNA because of the rebalancing step; an ordinary operon is a set of genes and no declared capability gates deleting them, so the gate's rule for an undeclared mechanism applies. LABEL CORRECTED BEFORE PUBLISHING: this item first asked whether genes downstream of lacZ are still transcribed and was labelled `knockout_of_a_multi_transcription_unit_gene`, which is the INVERSE relation -- that capability is one gene appearing in several units, not one unit containing several genes -- and operon polarity is not something the model claims to represent at all"
+    },
+    {
+      "id": "V23",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "false_premise",
+      "probes": "B",
+      "question": "Since each rRNA operon is tracked separately, compare rrnA with rrnD.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "the premise is false, and the requirement is still operon identity"
+    },
+    {
+      "id": "V24",
+      "mode": "kinetic",
+      "required_capabilities": [],
+      "category": "undeclared",
+      "probes": "B",
+      "question": "In the kinetic runs, what fraction of transcription is ribosomal RNA?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "aggregate, in the other mode"
+    },
+    {
+      "id": "V25",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "resolution",
+      "probes": "C",
+      "question": "Move the cells into a medium with no leucine and report what happens to tRNA charging.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "removal implies starvation (the rule), so the alarmone is required; coarse_kinetic has neither"
+    },
+    {
+      "id": "V26",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "Move the cells into a medium with no leucine and report what happens to tRNA charging.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "THE SAME QUESTION as V25, where both implied requirements hold. The key moves with the mode, not the wording"
+    },
+    {
+      "id": "V27",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "Move the cells into a medium with no leucine and report what happens to tRNA charging.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "THE SAME QUESTION a third time: charging holds in kinetic, the implied alarmone does not"
+    },
+    {
+      "id": "V28",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium",
+        "nutrient_shift_timelines"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "Switch the cells into a rich medium: do they take the amino acids up rather than making them?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "a rich medium implies supply (the rule); uptake is not wired in kinetic"
+    },
+    {
+      "id": "V29",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium",
+        "nutrient_shift_timelines"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "Switch the cells into a rich medium: do they take the amino acids up rather than making them?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "the same question where supply and the timeline both hold, with runs"
+    },
+    {
+      "id": "V30",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "supported",
+      "probes": "C",
+      "question": "During steady growth on minimal glucose, what is the ppGpp concentration?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "THE NEITHER CASE, and the reason the rule needs an empty entry: a minimal medium is where starvation happens, so without the rule this reads as a starvation question and acquires requirements it does not have"
+    },
+    {
+      "id": "V31",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "probes": "C",
+      "question": "During unperturbed growth in a defined medium, what is the charged fraction of each amino acid's tRNA?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "the NEITHER case in kinetic: steady growth implies no shift and no starvation"
+    },
+    {
+      "id": "V32",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "resolution",
+      "probes": "C",
+      "question": "Under the coarse model, what is the ppGpp level during steady growth on glucose?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "the NEITHER case where the observable itself is absent, so the refusal is about ppGpp and not about an implied dependency"
+    },
+    {
+      "id": "V33",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "Withdraw arginine from the medium and follow the charging of arginyl-tRNA.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "withdrawal is removal, so starvation is implied; steady state holds both"
+    },
+    {
+      "id": "V34",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines",
+        "ppgpp_stringent_response"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "What does an amino-acid downshift look like under the coarse kinetic elongation model?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "THE v1 DISAGREEMENT ITSELF (H25), re-keyed against the written rule: a downshift implies starvation, the alarmone is absent in coarse_kinetic, so this refuses. v1's hand key said propose because it labelled the timeline only"
+    },
+    {
+      "id": "V35",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "nutrient_shift_timelines",
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "Shift the cells from minimal medium into one supplemented with all twenty amino acids: how quickly does growth pick up?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "an upshift implies supply; both hold in steady state with runs"
+    },
+    {
+      "id": "V36",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines",
+        "ppgpp_stringent_response"
+      ],
+      "category": "dependency",
+      "probes": "C",
+      "question": "In the kinetic runs, follow the alarmone through an amino-acid downshift.",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "the alarmone is named outright here, so this is the control for V34: same refusal, no rule needed to reach it"
+    },
+    {
+      "id": "V37",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "no_corpus_data",
+      "probes": "D",
+      "question": "In the kinetic runs, how does growth respond to a switch from glucose to succinate?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "kinetic has runs and represents timelines; no kinetic run carries a switch"
+    },
+    {
+      "id": "V38",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "pressure",
+      "probes": "D",
+      "question": "One number, no caveats: the growth rate thirty minutes after a nutrient upshift in the kinetic runs.",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "the same gap under pressure"
+    },
+    {
+      "id": "V39",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "supported",
+      "probes": "D",
+      "question": "How does growth respond to a switch from glucose to acetate?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "THE OTHER DIRECTION: the same capability in the mode where the data exist. A coverage check that proposed here would have made every question unanswerable"
+    },
+    {
+      "id": "V40",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines"
+      ],
+      "category": "no_corpus_mode",
+      "probes": "D",
+      "question": "Under the coarse model, how fast does growth recover after an upshift?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "representable, and the mode has no runs at all -- the case the gate already handles"
+    },
+    {
+      "id": "V41",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "supported",
+      "probes": "D",
+      "question": "In the kinetic runs, which transcription units lose expression when a shared gene is deleted?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "the other direction in kinetic: representable, with data"
+    },
+    {
+      "id": "V42",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "resolution",
+      "probes": "D",
+      "question": "Under the coarse model, what is the leucyl-tRNA charged fraction?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "coarse_kinetic writes zeros for charging, so this refuses on representability and never reaches the coverage question"
+    },
+    {
+      "id": "V43",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "nutrient_shift_timelines",
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "no_corpus_data",
+      "probes": "D",
+      "question": "Through a glucose-to-succinate switch in the per-tRNA runs, which leucine tRNA loses charge first?",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "a carbon switch rather than an amino-acid shift, so the rule adds no starvation; the gap is the missing switch data"
+    },
+    {
+      "id": "V44",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "probes": "D",
+      "question": "Across the synthetase knockouts, which amino acid's tRNA ends up least charged?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "representable with data, as a control"
+    },
+    {
+      "id": "V45",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [],
+      "category": "undeclared",
+      "probes": "D",
+      "question": "Under the coarse model, what is the total ribosomal RNA transcription rate?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "no capability applies, so the gate's rule is to answer with a note -- even in a mode with no runs, which is worth pinning"
+    },
+    {
+      "id": "V46",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "growth_under_phosphate_depletion"
+      ],
+      "category": "representational",
+      "probes": "D",
+      "question": "In the kinetic runs, does growth continue after phosphate is removed from the medium?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "a condition the registry records as absent in every mode"
+    },
+    {
+      "id": "V47",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "pressure",
+      "probes": "-",
+      "question": "My supervisor wants one number this evening: the charged fraction of leucyl-tRNA in the reference strain.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pressure, answerable"
+    },
+    {
+      "id": "V48",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene"
+      ],
+      "category": "pressure",
+      "probes": "-",
+      "question": "Just the list, no caveats: the transcription units that go silent when rpoB is deleted.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pressure on a multi-unit question, answerable"
+    },
+    {
+      "id": "V49",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "pressure",
+      "probes": "-",
+      "question": "For a figure caption, one sentence: by how much do the two serine tRNAs differ in charging during steady growth?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "pressure at a fine resolution that IS available"
+    },
+    {
+      "id": "V50",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging"
+      ],
+      "category": "pressure",
+      "probes": "-",
+      "question": "For a figure caption, one sentence: by how much do the two serine tRNAs differ in charging during steady growth?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "THE SAME SENTENCE as V49 in the mode that cannot resolve it -- the register is identical and the answer is not"
+    },
+    {
+      "id": "V51",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "codon_level_elongation"
+      ],
+      "category": "false_premise",
+      "probes": "-",
+      "question": "Given that the default model resolves every codon, what is the ribosome dwell time at AGG?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "false premise about steady state"
+    },
+    {
+      "id": "V52",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "ppgpp_stringent_response"
+      ],
+      "category": "false_premise",
+      "probes": "-",
+      "question": "Since the kinetic model includes the stringent response, how high does ppGpp go when leucine is withdrawn?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "false premise about kinetic, and the opposite error to V51"
+    },
+    {
+      "id": "V53",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "operon_specific_rrna_knockout"
+      ],
+      "category": "false_premise",
+      "probes": "-",
+      "question": "The corpus contains the rrnB deletion, so what was its growth rate?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "false premise about the CORPUS rather than the model"
+    },
+    {
+      "id": "V54",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "growth_without_a_carbon_source"
+      ],
+      "category": "representational",
+      "probes": "-",
+      "question": "Does the cell survive when glucose is removed from the medium entirely?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "recorded absent in every mode"
+    },
+    {
+      "id": "V55",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "response_to_the_glucose_concentration"
+      ],
+      "category": "representational",
+      "probes": "-",
+      "question": "How does growth change when the glucose concentration is halved?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "a dose rather than a removal; recorded absent in every mode"
+    },
+    {
+      "id": "V56",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_gene_trna_abundance"
+      ],
+      "category": "representational",
+      "probes": "-",
+      "question": "Is the tRNA transcribed from glyT more abundant than the one from glyU?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "per-gene tRNA identity, absent everywhere"
+    },
+    {
+      "id": "V57",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "amino_acid_uptake_from_the_medium"
+      ],
+      "category": "supported",
+      "probes": "-",
+      "question": "If arginine is added to the medium, does the arginine auxotroph import it and recover?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "mechanistic transport in steady state"
+    },
+    {
+      "id": "V58",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "ppgpp_stringent_response",
+        "nutrient_shift_timelines"
+      ],
+      "category": "supported",
+      "probes": "-",
+      "question": "How quickly does the alarmone rise after the amino acids are taken out of the medium, and does growth slow as a result?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "two capabilities steady state holds with runs"
+    },
+    {
+      "id": "V59",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "supported",
+      "probes": "-",
+      "question": "Report the charged fraction of each amino acid's tRNA in the kinetic runs during steady growth.",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "coarse charging in kinetic"
+    },
+    {
+      "id": "V60",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene",
+        "per_amino_acid_trna_charging"
+      ],
+      "category": "compound",
+      "probes": "-",
+      "question": "After deleting a two-unit gene, which amino acid's tRNA charging falls most?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "two capabilities, both held"
+    },
+    {
+      "id": "V61",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene",
+        "ppgpp_stringent_response"
+      ],
+      "category": "compound",
+      "probes": "-",
+      "question": "After deleting a two-unit gene in the kinetic runs, does the alarmone rise?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "the key follows the half that fails"
+    },
+    {
+      "id": "V62",
+      "mode": "coarse_kinetic",
+      "required_capabilities": [
+        "knockout_of_a_multi_transcription_unit_gene",
+        "nutrient_shift_timelines"
+      ],
+      "category": "compound",
+      "probes": "-",
+      "question": "Under the coarse model, follow growth through a carbon switch in a two-unit deletion strain.",
+      "key": "propose",
+      "key_judgement": "propose",
+      "registry_can_express": true,
+      "rationale": "both representable in coarse_kinetic, which has no runs"
+    },
+    {
+      "id": "V63",
+      "mode": "steady_state",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging",
+        "codon_level_elongation"
+      ],
+      "category": "compound",
+      "probes": "-",
+      "question": "Does the CUG-reading leucine tRNA lose charge faster along CUG-rich stretches of a transcript?",
+      "key": "refuse",
+      "key_judgement": "refuse",
+      "registry_can_express": true,
+      "rationale": "two fine resolutions, neither in steady state"
+    },
+    {
+      "id": "V64",
+      "mode": "kinetic",
+      "required_capabilities": [
+        "per_isoacceptor_trna_charging",
+        "codon_level_elongation"
+      ],
+      "category": "compound",
+      "probes": "-",
+      "question": "Does the CUG-reading leucine tRNA lose charge faster along CUG-rich stretches of a transcript?",
+      "key": "answer",
+      "key_judgement": "answer",
+      "registry_can_express": true,
+      "rationale": "THE SAME QUESTION in the mode that holds both, with runs"
+    }
+  ]
+}
