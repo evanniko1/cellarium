@@ -501,6 +501,7 @@ _MEDIUM_CAPABILITY: dict[str, tuple[str, ...]] = {
     # AUDIT-KF-N1: `condition/no_glucose` and timelines into `minimal_no_glucose`. The GLC_2mM/5mM/20mM media
     # keep glucose and do not match.
     "no_glucose": ("growth_without_a_carbon_source",),
+    "glucose_dose": ("response_to_the_glucose_concentration",),         # W4C-1
 }
 
 

@@ -110,6 +110,9 @@ def check_design(design: dict | Design) -> dict:
     env = envelope.check(d)
     bio = biosecurity.screen(d)
     usable = env.in_envelope and not (bio.flagged and bio.severity == "block")
+    ko = _knockout_reaches_its_target(d)
+    if ko.get("refuses"):
+        usable = False
     return {
         "usable": usable,
         "in_envelope": env.in_envelope,
@@ -118,4 +121,69 @@ def check_design(design: dict | Design) -> dict:
         "biosecurity_flagged": bio.flagged,
         "biosecurity_severity": bio.severity,
         "biosecurity_reason": bio.reason,
+        **({"knockout": ko} if ko else {}),
     }
+
+
+# W4C-11. The Council was picking multi-transcription-unit genes for `gene_knockout` panels -- leuS, thrS,
+# ileS, miaA, ilvA, hisB, hisG, trpC, argH, rpsA, rplA, relA -- and this function, which is the feasibility
+# evidence its judge reads, consulted the envelope and the biosecurity screen and nothing else. The
+# registry already knew: `knockout_of_a_multi_transcription_unit_gene` says the capability exists only
+# through `graded_gene_knockout`, because the stock variant zeroes ONE transcription unit and the gene
+# keeps being expressed from the others (murA 1403 copies -> 0 only under the graded variant). The
+# information was in the repo and unread, which is this project's recurring shape rather than a new bug.
+#
+# WHAT IT REFUSES ON, and the line matters more than the check. `scope.ko_will_silence` reports its
+# EVIDENCE, and only `measured` is trustworthy here:
+#   * measured            -- the footprint cache measured this gene's copy number under the variant.
+#                            murA (n_tu=2) and rpoB (n_tu=3) come back `will_silence: False`; pheS
+#                            (n_tu=2) comes back TRUE. Refusing on this is reading a measurement.
+#   * predicted_from_n_tu -- the `n_tu > 1 -> not silenced` rule, which scope.py records as 23 fit and 5
+#                            refute, about 82%. bamC and prfB are two of the named refutations and the
+#                            prediction still says False for them, so refusing on it would block exactly
+#                            the knockouts that work -- a mistake this project has already made once and
+#                            written down ("My refusal would have blocked exactly the knockouts that
+#                            work"). So a prediction is REPORTED and not refused.
+def _knockout_reaches_its_target(d: Design) -> dict:
+    """Whether a knockout design's variant actually silences its target. Reported; refused only if
+    MEASURED not to."""
+    from . import model, scope
+    if "knockout" not in (d.perturbation or ""):
+        return {}
+    # The CONDITION string, not the Design object: `knockout_genes` takes a label, a design key or a corpus
+    # row, and handing it a pydantic object made it stringify the repr and match nothing -- a silent empty
+    # answer, which is the shape this whole check exists to stop.
+    genes = model.knockout_genes({"condition": d.condition or "", "label": d.condition or ""}) or []
+    if not genes:
+        return {}
+    checked = [scope.ko_will_silence(g, d.perturbation) for g in genes]
+    measured_noop = [c for c in checked if c.get("will_silence") is False
+                     and c.get("evidence") == "measured"]
+    predicted_noop = [c for c in checked if c.get("will_silence") is False
+                      and c.get("evidence") != "measured"]
+    unknown = [c for c in checked if c.get("will_silence") is None]
+    out = {"genes": genes, "variant": d.perturbation,
+           "silences": [c.get("symbol") for c in checked if c.get("will_silence") is True],
+           "measured_no_op": [c.get("symbol") for c in measured_noop],
+           "predicted_no_op": [c.get("symbol") for c in predicted_noop],
+           "unknown": [c.get("symbol") for c in unknown],
+           "refuses": bool(measured_noop)}
+    if measured_noop:
+        out["reason"] = (
+            f"MEASURED no-op: {', '.join(c['symbol'] for c in measured_noop)} is transcribed from more "
+            f"than one transcription unit and `{d.perturbation}` zeroes ONE, so the gene keeps being "
+            f"expressed. A run of this design is not a knockout of it. Use `graded_gene_knockout`, which "
+            f"resolves the gene's own cistron and suppresses every transcription unit carrying it "
+            f"(capability `knockout_of_a_multi_transcription_unit_gene`).")
+    elif predicted_noop:
+        out["warning"] = (
+            f"PREDICTED no-op, not measured: {', '.join(c['symbol'] for c in predicted_noop)} has more "
+            f"than one transcription unit, and the n_tu rule that predicts a no-op from that fits 23 "
+            f"genes and is refuted by 5 (about 82%). NOT refused on a prediction -- bamC and prfB are "
+            f"among the refutations -- but a knockout claim about this design should say which it is, and "
+            f"`graded_gene_knockout` removes the doubt.")
+    elif unknown:
+        out["warning"] = (
+            f"{', '.join(str(c.get('symbol')) for c in unknown)} is not in the gene registry, so whether "
+            f"this variant silences it is genuinely unknown -- which is not the same as a no-op.")
+    return out

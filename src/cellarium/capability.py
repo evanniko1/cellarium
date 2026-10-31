@@ -598,6 +598,40 @@ CAPABILITIES: tuple[Capability, ...] = (
                      "(evals/results/phosphate_validation.json)"},
         detail="growth, adaptation or survival after phosphate is removed from the medium",
     ),
+    # W4C-1. The gate already told a dose question that lowering glucose is not REMOVAL (gate.py's parser
+    # instruction says so in as many words) and then had nowhere to send it: no capability said the dose
+    # itself is unrepresented, so the question fell through to whatever its observable implied.
+    #
+    # MEASURED IN THIS CORPUS rather than taken from the external campaign that reported it. Of the six
+    # dose-to-dose pairs available (2 mM / 5 mM / 20 mM at three seeds, generation 1), SIX are identical on
+    # ALL ELEVEN channels -- growth rate, ppGpp, ribosome concentration, charged-tRNA fraction and the rest
+    # -- so the dose changes nothing that is recorded. The mechanism upstream is a binary switch: uptake is
+    # gated at IMPORT_CONSTRAINT_THRESHOLD = 1e-5 mM (external_state.py), above which the concentration is
+    # not read again.
+    #
+    # WHERE OUR MEASUREMENT DISAGREES WITH THE SOURCE, recorded rather than smoothed: the external campaign
+    # reported `basal` as bit-identical to the three doses too (32/32). Here it is NOT -- `basal` differs
+    # from each dose on all eleven channels at the same seed and generation. `basal` is its own condition
+    # row with its own fitted doubling time, not the dose medium with a different number in it, and why the
+    # two differ is NOT established here.
+    Capability(
+        key="response_to_the_glucose_concentration",
+        question="Does the cell respond to HOW MUCH glucose is in the medium -- a dose, a ramp, a cut to a "
+                 "smaller but non-zero concentration?",
+        present=False,
+        holds_in=(),
+        markers=(),
+        instead={ALL_MODES: "every glucose concentration above 1e-5 mM gives the SAME cell: uptake is a "
+                 "binary switch (IMPORT_CONSTRAINT_THRESHOLD, external_state.py), so the number is read "
+                 "once to decide present-or-absent and never again. Measured here: the three doses in the "
+                 "corpus (2, 5 and 20 mM) are identical on all eleven recorded channels at every seed we "
+                 "have, 6 of 6 pairs"},
+        consequence={ALL_MODES: "a dose design RUNS and answers nothing about dose. A difference between "
+                     "two doses is a difference between two seeds, and a dose-response curve fitted to "
+                     "them describes the sampler. Glucose REMOVAL is a different question and has its own "
+                     "entry (growth_without_a_carbon_source), which is also refused"},
+        detail="a glucose dose, ramp, or reduction to a smaller non-zero concentration",
+    ),
     # AUDIT-KF-N1, same pattern as the entry above. Evidence: known-fault audit E2
     # (scripts/validate_known_faults.py, evals/results/known_faults_validation.json), steady_state only. The
     # kinetic models share the metabolism that produces this and were not run on it.

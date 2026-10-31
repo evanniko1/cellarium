@@ -412,3 +412,78 @@ def test_ppgpp_is_refused_under_both_kinetic_models():
     # or degrades ppGpp' is simply false there and must be unreachable, not merely unused.
     assert c.instead_in("steady_state") == "" and c.consequence_in("steady_state") == "", \
         "the kinetic account of ppGpp must not be reachable from the mode where ppGpp is computed"
+
+
+def test_a_glucose_DOSE_question_is_refused_and_not_mistaken_for_removal():
+    """W4C-1. The gate's own parser instruction already said that lowering glucose to a smaller but
+    non-zero concentration is not REMOVAL -- and then there was nowhere to send such a question, because
+    no capability said the dose itself is unrepresented. It fell through to whatever its observable
+    implied.
+
+    Measured in this corpus, not taken from the campaign that reported it: the three doses (2, 5, 20 mM)
+    are identical on all eleven recorded channels at every seed, 6 of 6 pairs. The mechanism is a binary
+    switch at 1e-5 mM, so the number is read once and never again."""
+    from cellarium import capability, gate
+
+    cap = capability.get("response_to_the_glucose_concentration")
+    assert cap is not None and cap.present is False and cap.holds_in == ()
+    assert "binary switch" in cap.instead[capability.ALL_MODES]
+    assert "answers nothing about dose" in cap.consequence[capability.ALL_MODES]
+    # The two questions stay apart: a dose is not a removal, and each has its own entry.
+    assert gate.DEPENDENCY_REQUIRES["carbon_source_concentration"] == (
+        "response_to_the_glucose_concentration",)
+    assert gate.DEPENDENCY_REQUIRES["carbon_source_removal"] == ("growth_without_a_carbon_source",)
+    # ... and the parser is told the distinction, or it can never emit the new dependency.
+    assert "carbon_source_concentration" in gate._PARSE_SYSTEM
+    assert "glucose ramp" in gate._PARSE_SYSTEM
+
+
+def test_a_gene_knockout_the_variant_cannot_silence_is_refused_by_the_DESIGN_CHECK():
+    """W4C-11. The Council was picking multi-transcription-unit genes for `gene_knockout` panels -- leuS,
+    thrS, ileS, miaA, ilvA, hisB, hisG, trpC, argH, rpsA, rplA, relA -- and `instrument.check_design`, the
+    feasibility evidence its judge reads, consulted the envelope and the biosecurity screen and nothing
+    else. The registry already knew: the capability exists only through `graded_gene_knockout`. The
+    information was in the repo and unread.
+
+    THE LINE MATTERS MORE THAN THE CHECK. Only a MEASURED no-op is refused. The `n_tu > 1 -> not silenced`
+    rule fits 23 genes and is refuted by 5, and `scope.py` records what refusing on it did last time: "My
+    refusal would have blocked exactly the knockouts that work". So a prediction is reported."""
+    from cellarium import instrument
+
+    murA = instrument.check_design({"perturbation": "gene_knockout", "condition": "KO:murA"})
+    assert murA["usable"] is False and murA["knockout"]["refuses"] is True
+    assert murA["knockout"]["measured_no_op"] == ["murA"]
+    assert "MEASURED no-op" in murA["knockout"]["reason"]
+    assert "graded_gene_knockout" in murA["knockout"]["reason"]
+    # The alternative the refusal names actually works, or the refusal is a dead end.
+    graded = instrument.check_design({"perturbation": "graded_gene_knockout", "condition": "KO:murA"})
+    assert graded["usable"] is True and graded["knockout"]["silences"] == ["murA"]
+
+
+def test_a_PREDICTED_no_op_is_reported_and_NOT_refused():
+    """The direction this project treats as expensive. `relA` has n_tu=2 and no measurement, so the no-op
+    is a prediction from a rule that is about 82% -- and `bamC` and `prfB` are two of its refutations, so
+    refusing on it would block knockouts that work. `pheS` is the proof the rule is not safe: n_tu=2 and
+    MEASURED to be silenced, so it passes."""
+    from cellarium import instrument
+
+    relA = instrument.check_design({"perturbation": "gene_knockout", "condition": "KO:relA"})
+    assert relA["usable"] is True and relA["knockout"]["refuses"] is False
+    assert relA["knockout"]["predicted_no_op"] == ["relA"]
+    assert "PREDICTED no-op, not measured" in relA["knockout"]["warning"]
+    pheS = instrument.check_design({"perturbation": "gene_knockout", "condition": "KO:pheS"})
+    assert pheS["usable"] is True and pheS["knockout"]["silences"] == ["pheS"]
+    clean = instrument.check_design({"perturbation": "gene_knockout", "condition": "KO:thrC"})
+    assert clean["usable"] is True and clean["knockout"]["silences"] == ["thrC"]
+    # A design with no knockout carries no knockout block at all, rather than an empty one to read past.
+    assert "knockout" not in instrument.check_design({"perturbation": "wildtype", "condition": "basal"})
+
+
+def test_the_design_check_resolves_the_GENE_from_the_condition_not_the_object():
+    """The silent-empty-answer this nearly shipped with: `model.knockout_genes` takes a label, a design key
+    or a corpus row, and a pydantic Design stringified to its repr and matched nothing -- so every design
+    came back clean. Caught by running it, not by reading it."""
+    from cellarium import instrument
+
+    multi = instrument.check_design({"perturbation": "multi_gene_knockout", "condition": "KO:gltX+relA"})
+    assert multi["knockout"]["genes"] == ["gltX", "relA"]

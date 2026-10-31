@@ -108,6 +108,8 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     "phosphate_depletion": ("growth_under_phosphate_depletion",),
     # AUDIT-KF-N1: the same reasoning for the carbon source.
     "carbon_source_removal": ("growth_without_a_carbon_source",),
+    # W4C-1: and for its DOSE, which is a different question from its removal and was falling through.
+    "carbon_source_concentration": ("response_to_the_glucose_concentration",),
 }
 
 
@@ -330,7 +332,9 @@ _PARSE_SYSTEM = (
     "particular, a question set in a medium lacking phosphate, or after phosphate is removed or becomes "
     "limiting, or about the Pho regulon, depends on phosphate_depletion, whatever quantity it asks about. "
     "Likewise a question set after glucose is removed, or in a medium with no carbon source, depends on "
-    "carbon_source_removal. Lowering glucose to a smaller but non-zero concentration is not removal."
+    "carbon_source_removal. Lowering glucose to a smaller but non-zero concentration is not removal -- "
+    "it depends on carbon_source_concentration instead, and so does any question about a glucose dose, a "
+    "glucose ramp, or comparing two non-zero glucose concentrations."
 )
 
 

@@ -133,9 +133,11 @@ def test_the_cell_census_is_what_the_plan_assumed():
     st = G.census(items)
     # 30 since 2026-10-12: item 4d added growth_under_phosphate_depletion, absent in all three modes, so
     # three more `refuse` cells and nothing else moves. 33 since 2026-10-22: AUDIT-KF-N1 added
-    # growth_without_a_carbon_source, the same way.
-    assert st["n_cells"] == 33
-    assert st["by_required"] == {"refuse": 21, "answer": 9, "propose": 3}
+    # growth_without_a_carbon_source, the same way. 36 since 2026-10-31: W4C-1 added
+    # response_to_the_glucose_concentration, the same way again -- a glucose DOSE is unrepresented in all
+    # three modes, which is a different question from glucose REMOVAL and had no entry of its own.
+    assert st["n_cells"] == 36
+    assert st["by_required"] == {"refuse": 24, "answer": 9, "propose": 3}
     assert st["by_stratum"]["no_corpus_data"] == 1
     assert st["by_stratum"]["no_corpus_mode"] == 2
 
