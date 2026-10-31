@@ -113,6 +113,48 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
 }
 
 
+# GATE-8b-C, DECLARED AND DELIBERATELY NOT WIRED. The held-out gate set refused three questions whose keys
+# said answer or propose, and on reading the gate was defensible in all three: an amino-acid DOWNSHIFT is
+# amino-acid starvation whether or not the question says the word, and a rich medium implies amino-acid
+# supply. The hand keys had labelled one capability. The same disagreement produced 17 of the first 216
+# run's errors, all of them about "starvation".
+#
+# THE DEFECT WAS THAT NO RULE WAS WRITTEN DOWN, so the parser, the keys and the reader each guessed
+# separately. This is the rule: what a question's CONDITION implies about its regulatory dependencies, as a
+# table rather than as three people's judgement.
+#
+# WHY IT IS NOT CONSULTED YET, and this is an ordering constraint rather than an oversight. Fixing C is one
+# of four corrections (GATE-8b A-D) that were all designed with held-out set v1 in view, so v1 can no
+# longer measure them. The registered order is: write and FREEZE a second held-out set, keyed against THIS
+# rule, with a second labeller reviewing a sample -- and only then wire A, D, B and C. Wiring it now would
+# fit the gate to the only documents left that could test the fix. `decide()` and the parser prompt do not
+# read this table, and a test asserts that they do not, so the constraint cannot be lost by somebody
+# plumbing it in helpfully.
+IMPLIED_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    # Removing or lowering a nutrient IS starvation of it, named or not.
+    "nutrient_removal": ("amino_acid_starvation",),
+    "nutrient_downshift": ("amino_acid_starvation", "nutrient_shift"),
+    # Adding it, or a rich medium, IS supply.
+    "nutrient_upshift": ("amino_acid_supply", "nutrient_shift"),
+    "rich_medium": ("amino_acid_supply",),
+    # And steady growth in a defined medium implies NEITHER. The empty tuple is the content of the rule,
+    # not a placeholder: without it, "the ppGpp pool of wild type on minimal glucose" reads as a starvation
+    # question because minimal media are where starvation happens.
+    "steady_growth_in_a_defined_medium": (),
+}
+
+IMPLIED_DEPENDENCIES_STATUS = {
+    "wired": False,
+    "why_not": "GATE-8b-C must be implemented AFTER held-out set v2 is frozen, because this rule and the "
+               "other three corrections were designed with v1 in view. Keying v2 against the rule is what "
+               "makes v2 able to measure it.",
+    "what_it_is_for_now": "the written rule that held-out set v2's keys are adjudicated against, and that "
+                          "the parser prompt will state once C is implemented. Reporting 0.804 as the "
+                          "headline and 0.857 as a sensitivity is the v1 treatment; the rule is what makes "
+                          "that sensitivity a judgement anybody can check rather than a re-reading.",
+}
+
+
 @dataclass(frozen=True)
 class Requirement:
     """What a question demands OF THE MODEL, as six fields rather than a sentence."""

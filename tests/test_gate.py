@@ -208,3 +208,44 @@ def test_a_broken_parser_proceeds_rather_than_refusing(monkeypatch):
     assert inv.gated is False and inv.answer == "ran"
     assert inv.decision.verdict == "answer"
     assert any("not evidence of absence" in n for n in inv.decision.notes)
+
+
+# --- GATE-8b-C: the implied-dependency rule, declared and NOT yet wired -------------------------------
+
+def test_every_IMPLIED_dependency_is_a_declared_dependency():
+    """The rule maps a question's CONDITION onto dependencies that already exist. A target the dependency
+    table does not carry would expand to nothing, so the rule would read as written and do nothing."""
+    for condition, implied in gate.IMPLIED_DEPENDENCIES.items():
+        for dep in implied:
+            assert dep in gate.DEPENDENCY_REQUIRES, f"{condition} implies undeclared {dep}"
+
+
+def test_the_rule_covers_BOTH_DIRECTIONS_and_the_NEITHER_case():
+    """Removal/downshift implies starvation; upshift/rich medium implies supply; steady growth in a defined
+    medium implies NEITHER. The third is the content of the rule and not a placeholder: without it, "the
+    ppGpp pool of wild type on minimal glucose" reads as a starvation question, because minimal media are
+    where starvation happens."""
+    r = gate.IMPLIED_DEPENDENCIES
+    assert "amino_acid_starvation" in r["nutrient_removal"]
+    assert "amino_acid_starvation" in r["nutrient_downshift"]
+    assert "amino_acid_supply" in r["nutrient_upshift"]
+    assert "amino_acid_supply" in r["rich_medium"]
+    assert r["steady_growth_in_a_defined_medium"] == ()
+    # A shift is also a shift, in both directions, or the timeline capability drops out of half of them.
+    assert "nutrient_shift" in r["nutrient_downshift"] and "nutrient_shift" in r["nutrient_upshift"]
+
+
+def test_the_rule_is_NOT_WIRED_and_the_ORDERING_REASON_travels_with_it():
+    """THE TEST IS THE CONSTRAINT. GATE-8b A-D were all designed with held-out set v1 in view, so v1 can no
+    longer measure them; the registered order is to freeze a second held-out set keyed against this rule
+    FIRST. Wiring it now would fit the gate to the only documents left that could test the fix. So this
+    fails the moment somebody plumbs it in helpfully, and the failure points at the ordering rather than
+    at the code."""
+    import inspect
+    assert gate.IMPLIED_DEPENDENCIES_STATUS["wired"] is False
+    assert "v2" in gate.IMPLIED_DEPENDENCIES_STATUS["why_not"]
+    for fn in (gate.required_capabilities, gate.decide):
+        assert "IMPLIED_DEPENDENCIES" not in inspect.getsource(fn), (
+            f"{fn.__name__} now reads the implied-dependency rule. If held-out set v2 is frozen, say so "
+            f"here and flip `wired`; if it is not, this is the fix being fitted to its own test set.")
+    assert "IMPLIED_DEPENDENCIES" not in gate._PARSE_SYSTEM
