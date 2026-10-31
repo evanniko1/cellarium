@@ -293,14 +293,25 @@ def bimodality(channel: str, designs: list | None = None) -> dict:
         return r["_pw"].get(channel[3:]) if channel.startswith("pw:") else r.get(channel)
 
     want = set(designs) if designs else None
-    vals = []
+    vals, used = [], []
     for r in rows:
-        label = f'{r.get("perturbation")}/{r.get("condition")}'
-        if want is not None and label not in want:
+        # TWO labels accepted, because the first one COLLIDES. `perturbation/condition` is the key
+        # `analysis_rows` was written to replace -- it drops the media timeline, so
+        # `gene_knockout/KO:thrC` names two different experiments (one knockout under two opposite
+        # nutrient shifts, 4 runs each) and pooling them under one label is the merge that key has
+        # already caused once. FOUND BY THE MEDIUM REFUSAL BELOW firing on what looked like a
+        # single-medium request. `survey.design_key` carries the timeline, so a caller can now address
+        # either experiment on its own, and the old label keeps working with the refusal to say what it
+        # spans rather than silently pooling.
+        labels = {f'{r.get("perturbation")}/{r.get("condition")}', survey.design_key(r)}
+        if want is not None and not (want & labels):
             continue
         v = val(r)
         if v is not None:
             vals.append(v)
+            # The ROW, not just its value: a pooling check has to know where each number came from, and
+            # this function's own docstring says it pools "across designs, or ALL designs if None".
+            used.append(r)
     for d in (designs or []):
         note_design(d)
     scope = sorted(want) if want else "all designs"
@@ -308,6 +319,38 @@ def bimodality(channel: str, designs: list | None = None) -> dict:
         return {"error": f"need >=4 '{channel}' values to test bimodality; got {len(vals)}",
                 "channel": channel, "n": len(vals), "scope": scope}
 
+    # H-17e(ii). THE MEDIUM IS NOT AN ARM and this is not an arm check: these rows describe the same
+    # instrument and may legitimately be compared. What they may not do is average into one number -- every
+    # mass and rate channel depends on the medium, so a pool across media has two populations in it by
+    # construction, and "bimodal" is then a property of the sampling rather than of the cell. Nothing in
+    # the tree refused that until now: `one_factor_neighbours` honours the partition for control SELECTION,
+    # so a comparison built through it was safe and a hand-built pooling met no refusal anywhere -- and
+    # this function pools ALL designs when asked for none, which is the widest such pooling available.
+    #
+    # The verdict is REFUSED rather than annotated, because a bimodality coefficient is read as a verdict;
+    # and the per-medium verdicts are returned with it, so the refusal leaves the caller with the
+    # defensible numbers instead of nothing.
+    from . import corpus_schema
+    media = corpus_schema.medium_split(used)
+    if media:
+        per = {}
+        for key in {corpus_schema.medium_of(r) for r in used}:
+            sub = [val(r) for r in used if corpus_schema.medium_of(r) == key]
+            sub = [v for v in sub if v is not None]
+            b = stats.bimodality_coefficient(sub) if len(sub) >= 4 else None
+            per["|".join(x for x in key if x)] = {
+                "n": len(sub),
+                "bimodality_coefficient": (round(b, 3) if b is not None else None),
+                "bimodal_suggested": (bool(b > stats.BC_BIMODAL_THRESHOLD) if b is not None else None),
+                "too_few_values": len(sub) < 4}
+        return {"channel": channel, "scope": scope, "n": len(vals),
+                "bimodality_coefficient": None, "bimodal_suggested": None,
+                "refused": media["refused"], "medium_split": media,
+                "per_medium": dict(sorted(per.items())),
+                "reason": "insufficient_data", "about": "corpus",
+                "note": "REFUSED a pooled verdict: " + media["why"] + " " + media["fix"]
+                        + " The per-medium coefficients are here; a medium with fewer than 4 values says "
+                          "so rather than reporting a coefficient over too little."}
     bc = stats.bimodality_coefficient(vals)
     skew = stats.skewness(vals)
     kurt = stats.kurtosis_excess(vals)

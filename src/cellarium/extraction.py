@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 from . import adjudicate
 
@@ -144,9 +144,23 @@ AGENT_PATH_CONTRACT = {
                         "instead: the model is shown numbered units and cites numbers. What this does NOT "
                         "buy is relevance -- a true span can be cited for a record it does not support, "
                         "and that is counted (n_value_outside_quote), not assumed away.",
+    "level_provenance": "DERIVED BY THE PLATFORM from the cited span, for every `factor:` role with a "
+                        "closed vocabulary -- not accepted from the model, which is the W9 move one "
+                        "level up. Measured on the same live run that fixed the quote: 249 of 312 "
+                        "level records carried a value the cited span does not contain, and 196 "
+                        "still did after normalisation, because the role vocabulary was being used "
+                        "as a TOPIC LABEL -- `factor:operons` = 'Ribosomal protein transcripts are "
+                        "among the most codon-biased...'. The model still proposes a value and it is "
+                        "IGNORED and counted (n_model_value_differed), the same way its offered "
+                        "quote is. A role with no closed vocabulary (a shift, a cistron retyping "
+                        "map) cannot be derived at all: those are kept UNVERIFIED and refused a "
+                        "price, never quietly costed.",
     "must": (
         "cite the unit numbers a field is stated on -- the platform cuts the quote out of those units, so "
         "no copying is asked of it",
+        "point at the unit where a LEVEL is stated: the platform derives the level from that span "
+        "against the declared vocabulary, so a value in the reply is a cross-check and not the "
+        "field",
         "record why a field was left empty, in its own words, naming what the prose said instead",
         "run at temperature 0 — this is justification-side work, not generation",
         "read only the spans the locator marks plan or claim, and subtract excluded_descendants",
@@ -178,6 +192,11 @@ class Record:
     path: str            # "structural" | "lexical" | "agent"
     start: int = 0
     end: int = 0
+    # ADJ-W10. True only for a `factor:` role with NO closed vocabulary to derive against, whose
+    # value the cited span does not carry either. It is not a warning: `cost_of` refuses to price it.
+    # Default False because the two mechanical paths read the value out of the cell ITSELF -- there is
+    # nothing to derive and nothing unverified about a cell that is its own value.
+    level_unverified: bool = False
 
     def key(self) -> tuple:
         """What counts as the same record across paths: the role and the normalised value.
@@ -440,7 +459,11 @@ def as_requirement(record: Record):
     n = normalise_value(record.role, record.value)
     value = n["value"] if n["basis"] not in ("unnormalised", "multi_level") else record.value
     ident = ROLE_IDENTIFIERS.get(record.role, "")
-    if record.role in ROW_DEPENDENT_ROLES:
+    if getattr(record, "level_unverified", False):
+        # Same device as a row-dependent cell: the ROLE in the text, so no authority matches a level
+        # nothing verified. `cost_of` then states which of the two it was.
+        text = f"{record.role} {value}".strip()
+    elif record.role in ROW_DEPENDENT_ROLES:
         # The cost cannot be decided from this cell. The ROLE is put in the text rather than a canonical
         # level, so the classifier returns `unresolved` -- which is the right verdict -- and the reason is
         # recoverable from ROW_DEPENDENT_ROLES rather than being a silent no-match.
@@ -478,15 +501,33 @@ def extract_report(text, agent_records=None, agent_client=None) -> dict:
     }
     if agent_records is not None:
         v = verify_quotes(agent_records, text)
-        out["agent"] = {"n_kept": v["n_kept"], "n_rejected": v["n_rejected"],
-                        "rejected": v["rejected"], "contract": AGENT_PATH_CONTRACT,
+        # ADJ-W10 reaches records somebody ELSE produced, or the derivation has a hole in it exactly where
+        # a caller supplies its own. FOUND BY ATTACKING THE FIX: this branch ran `verify_quotes` alone, so
+        # a level the model invented survived here while the same level was rejected one branch over.
+        lv = derive_given_records(v["kept"])
+        out["agent"] = {"n_kept": len(lv["kept"]), "n_rejected": v["n_rejected"] + lv["n_level_rejected"],
+                        "rejected": v["rejected"] + lv["rejected"], "contract": AGENT_PATH_CONTRACT,
+                        "derived": lv["derived"], "levels_derived_by_platform": True,
+                        **{k: lv[k] for k in ("n_level_derived", "n_level_rejected",
+                                              "n_level_unverified", "n_model_value_differed")},
                         "note": "agent records pass the same mechanical gate as every other path: a field "
-                                "with no verbatim span is rejected rather than repaired."}
-        out["agent_vs_structural"] = reconcile(s, v["kept"])
+                                "with no verbatim span is rejected rather than repaired. Every `factor:` "
+                                "LEVEL is then DERIVED from the cited span against the declared "
+                                "vocabulary and the supplied value ignored, exactly as when this module "
+                                "calls the model itself -- a record handed in from outside is not a way "
+                                "round the derivation."}
+        out["agent_vs_structural"] = reconcile(s, lv["kept"])
     elif agent_client is not None:
         a = extract_agent(text, client=agent_client)
         out["agent"] = {k: a[k] for k in ("n_kept", "n_rejected", "rejected", "unfilled", "note",
-                                          "quotes_cut_by_platform", "n_rewrote", "n_value_outside_quote")
+                                          "quotes_cut_by_platform", "n_rewrote", "n_value_outside_quote",
+                                          # ADJ-W10, and the omission was caught by USING this branch: the
+                                          # first agreement run over the development set reported every
+                                          # level counter as None, because the keys existed on
+                                          # extract_agent's result and stopped here.
+                                          "levels_derived_by_platform", "derived", "n_level_records",
+                                          "n_level_derived", "n_level_rejected", "n_level_unverified",
+                                          "n_model_value_differed", "temperature_pinned", "n_spans")
                         if k in a}
         # The flag TRAVELS. A caller who must remember to read `span_failures` and then pass a parameter by
         # hand is a caller who forgets once, and the forgetting is silent.
@@ -651,7 +692,279 @@ def normalise_value(role: str, raw: str) -> dict:
     return out
 
 
-def normalisation_coverage(records) -> dict:
+# --- ADJ-W10: a LEVEL is DERIVED from the span, never accepted from the model -------------------------
+#
+# W9 removed the model's chance to mistype a quote by not asking it for one. The same live run then showed
+# the FIELD was wrong where the quote was right: 249 of 312 `factor:` records carried a value the cited
+# span does not contain, and what the values actually were is sentences filed under a field name --
+# `factor:operons` = "Ribosomal protein transcripts are among the most codon-biased...". The role
+# vocabulary was being used as a TOPIC LABEL. So the same move one level up: the model points at the unit
+# a field is stated on, and the PLATFORM derives the level out of that span.
+#
+# WHY THE MATCHER IS NOT THE ONE `normalise_value` USES, and this is the whole of the design. That one
+# tests `word in low`, which is correct for a CELL -- a cell's text IS the author's own value -- and
+# catastrophic for a SPAN, whose text is a sentence about the field. Measured, by running this project's
+# own code: `normalise_value("factor:ppgpp_module", "elongation velocity must decelerate upon nutrient
+# downshift")` returns `on` with basis `declared_synonym`, because "elongati-ON" contains the spelling.
+# That is ADJ-W5's defect -- a mapping manufacturing a member the document never stated -- reached by
+# another route, and a test holds that call to its current answer so the reason stays visible.
+#
+# So a SPAN is matched on word boundaries (the rule `adjudicate._names` already applies to authority
+# identifiers), a spelling nested inside a longer one loses to the longer one, two distinct levels in one
+# span REFUSE rather than pick, and a level spelled as an ordinary English word must additionally sit in a
+# VALUE POSITION.
+#
+# REFUSING IS THE CHEAP DIRECTION HERE, which inverts this project's usual balance, and the reason is
+# specific to a level: it feeds a cost and a command-line flag. A refused record says "this span does not
+# state this field", which a reader can check against the span. A wrongly derived one adds
+# `--no-ppgpp-regulation` to a run the author never asked for, and reads exactly like a correct one.
+
+DERIVATION_REASONS = ("span_states_no_declared_level", "span_states_two_levels", "level_not_derivable")
+
+# Each derivable role with the AUTHORITY its levels come from. Nothing here is a new vocabulary: every
+# entry is a table that already existed for the per-cell path, or an authority's own domain.
+DERIVABLE_LEVEL_ROLES: dict[str, str] = {
+    "factor:ppgpp_module": "the declared _PPGPP_SYNONYMS",
+    "factor:aa_supply": "the declared _AA_SUPPLY_SYNONYMS",
+    "factor:operons": "the ParCa option's own domain, on|off (launch.vet_rebuild(operons=...))",
+    "factor:medium": "_MEDIUM_SYNONYMS, intersected with envelope.media_with_a_doubling_time() at CALL "
+                     "time, so a medium that stops having a condition row stops being derivable",
+    "factor:elongation_model": "capability.ELONGATION_MODES",
+    "factor:perturbation": "envelope.VALIDATED_PERTURBATIONS, plus a gene symbol read as a knockout of "
+                           "that gene -- which is the column's own meaning, not an inference",
+    "factor:target_charging": "a setpoint LITERAL (a decimal fraction) or a declared word for no refit",
+}
+
+# The `factor:` roles whose level CANNOT be derived, each with why. A third answer has to exist: saying
+# "this span states no level" for a role that has no levels would be a false statement about the span, and
+# inventing a vocabulary to match would be the defect this item is about.
+UNDERIVABLE_LEVEL_ROLES: dict[str, str] = {
+    "factor:shift": "a shift is a timeline -- what, to what, when -- not a member of a closed set, so "
+                    "there is nothing to match it against",
+    "factor:retype_cistrons": "the value is a MAP of rna_id -> type (runner.parca_rebuild), so there is "
+                              "no single level to derive",
+}
+
+# Levels whose spelling is an ordinary English word. Declared rather than detected: whether a word is
+# ambiguous in prose is a judgement, and a judgement belongs in a table somebody can argue with.
+_AMBIGUOUS_IN_PROSE = ("on", "off", "fixed", "active", "static", "none")
+
+# A level sitting immediately after one of these is a VALUE whatever word it is.
+_VALUE_MARK = re.compile(r"(?:[=:|]|\b(?:is|are|was|were|be|been|set|left|kept|held|turned|switched|"
+                         r"remains|remain|stays|stay|stayed)\b)\s*(?:the\s+)?$", re.I)
+
+# What may stand between a role's own spelling and its level, and nothing else may. "ppGpp module = off"
+# and "set operons off" qualify; "the ppGpp module depends on" does not, because `depends` is not here.
+_LINK_GAP = re.compile(r"^[\s=:|,.()\[\]-]*"
+                       r"(?:(?:is|are|was|were|be|been|set|left|kept|held|turned|switched|remains?|"
+                       r"stays?|stayed|run|ran|at|to|of|for|near|around|about|approximately|anchored|"
+                       r"pinned|raised|lowered|nominal|the|a|an|its|module|regulation|mode|supply|"
+                       r"setpoint|target|fraction|source)[\s=:|,.()\[\]-]*)*$", re.I)
+
+# A charging setpoint as the authority stores one: a fraction. `<2%` and `20%` are a different quantity in
+# different units, and deriving 2 from a readout sentence would price a rebuild nobody asked for.
+_SETPOINT = re.compile(r"(?<![\w.])(0?\.\d+|1\.0+)(?![\w.])")
+
+# What joins two levels of one factor inside one value: "ON and OFF", "0.55 / 0.85", "on vs off".
+_CONJUNCTION = re.compile(r"\s*(?:and|or|vs\.?|versus|&|/|,|-|–|—|to)\s*", re.I)
+
+_OPERONS_SYNONYMS = {"on": "on", "off": "off"}
+
+# The SALTS BASE every one of these media shares. `_MEDIUM_SYNONYMS` is ordered so the generic
+# spellings come last ("Last, because every one of the above also contains the word glucose"), and
+# first-match-wins is how the per-cell path uses that order. A span has no cell boundary to stop at,
+# so the order is made explicit instead: naming the BASE beside a specific medium is one medium
+# ("M9 glucose + 20 aa"), while naming two CARBON SOURCES is two ("from glucose to acetate") and
+# refuses. `glucose` is deliberately NOT a base -- it is a carbon source like acetate.
+_MEDIUM_BASE_SPELLINGS = ("m9", "minimal")
+
+
+def level_vocabulary(role: str) -> tuple[tuple[str, str], ...]:
+    """The (spelling, canonical level) pairs `role` derives against, from the authorities themselves."""
+    from . import capability, envelope
+    if role == "factor:ppgpp_module":
+        return tuple(_PPGPP_SYNONYMS.items())
+    if role == "factor:aa_supply":
+        return tuple(_AA_SUPPLY_SYNONYMS.items())
+    if role == "factor:operons":
+        return tuple(_OPERONS_SYNONYMS.items())
+    if role == "factor:medium":
+        known = envelope.media_with_a_doubling_time() or set()
+        return tuple((w, c) for w, c in _MEDIUM_SYNONYMS if c in known)
+    if role == "factor:elongation_model":
+        return tuple((m, m) for m in capability.ELONGATION_MODES)
+    if role == "factor:perturbation":
+        return tuple((p, p) for p in sorted(envelope.VALIDATED_PERTURBATIONS))
+    if role == "factor:target_charging":
+        return (("none", "none"), ("no refit", "none"), ("unanchored", "none"))
+    return ()
+
+
+def _boundary_pattern(spelling: str) -> str:
+    """`spelling` as its own word, with the separators of a declared identifier left interchangeable.
+
+    Prose writes `coarse kinetic` and `steady-state` for identifiers spelled `coarse_kinetic` and
+    `steady_state`. Matching the same declared token under another separator convention adds no token to
+    the vocabulary, which is the thing the contract forbids."""
+    parts = [re.escape(p) for p in re.split(r"[\s_-]+", str(spelling).strip()) if p]
+    return r"(?<![\w-])" + r"[\s_-]+".join(parts) + r"(?![\w-])" if parts else r"(?!)"
+
+
+def _in_value_position(role: str, span: str, start: int) -> bool:
+    """Whether the match at `start` sits where a VALUE goes, rather than anywhere in a sentence."""
+    before = span[max(0, start - 60):start]
+    if _VALUE_MARK.search(before):
+        return True
+    bare = role.split(":", 1)[-1]
+    idents = tuple(k for k, v in REFIT_LEVER_ROLES.items() if v == role)
+    for word in tuple(COLUMN_ROLES.get(role, ())) + idents + (bare.replace("_", " "), bare):
+        for m in re.finditer(_boundary_pattern(word), before, re.I):
+            if _LINK_GAP.match(before[m.end():]):
+                return True
+    return False
+
+
+def _level_matches(role: str, span: str) -> list[dict]:
+    """Every declared level `span` NAMES, with where it sits and whether that place is a value position."""
+    text = span or ""
+    out = []
+    for spelling, canon in level_vocabulary(role):
+        for m in re.finditer(_boundary_pattern(spelling), text, re.I):
+            out.append({"spelling": text[m.start():m.end()], "declared": spelling, "level": canon,
+                        "start": m.start(), "end": m.end(),
+                        "in_value_position": _in_value_position(role, text, m.start()),
+                        "ambiguous_in_prose": str(spelling).lower() in _AMBIGUOUS_IN_PROSE})
+    if role == "factor:target_charging":
+        for m in _SETPOINT.finditer(text):
+            # GUARDED, like a function word, and this one was MEASURED on live traffic rather than
+            # feared: an unguarded decimal read `1.3 \pm 0.2 generations` as a setpoint of 0.2 and
+            # `\mu pprox 0.95 h^-1` -- a GROWTH RATE -- as a setpoint of 0.95. A bare decimal is the
+            # most ambiguous token in a document, so it counts only where a value goes.
+            out.append({"spelling": m.group(1), "declared": "a decimal fraction", "level": m.group(1),
+                        "start": m.start(1), "end": m.end(1),
+                        "in_value_position": _in_value_position(role, text, m.start(1)),
+                        "ambiguous_in_prose": True})
+    if role == "factor:perturbation":
+        genes = [g.group(1) for g in _GENE.finditer(text)]
+        if genes:
+            # Two genes is ONE level (`multi_gene_knockout`), not two candidates.
+            first = _GENE.search(text)
+            out.append({"spelling": first.group(1), "declared": "a gene symbol",
+                        "level": "gene_knockout" if len(genes) == 1 else "multi_gene_knockout",
+                        "start": first.start(1), "end": first.end(1), "in_value_position": True,
+                        "ambiguous_in_prose": False})
+        for m in re.finditer(r"(?<![\w-])wild[\s-]?type(?![\w-])", text, re.I):
+            out.append({"spelling": text[m.start():m.end()], "declared": "wild type", "level": "wildtype",
+                        "start": m.start(), "end": m.end(), "in_value_position": True,
+                        "ambiguous_in_prose": False})
+    # A spelling matched INSIDE a longer one's match is that longer level, not a second one.
+    keep = [m for m in out
+            if not any(o is not m and o["start"] <= m["start"] and m["end"] <= o["end"]
+                       and (o["end"] - o["start"]) > (m["end"] - m["start"]) for o in out)]
+    return sorted(keep, key=lambda m: (m["start"], -m["end"]))
+
+
+def derive_level(role: str, span: str) -> dict:
+    """The level `span` states for `role`, or a reason it states none. Never the model's own value.
+
+    `basis` is `derived_from_span` or empty, `reason` is one of DERIVATION_REASONS, and `spelling` is the
+    text the level was read from -- which is a verbatim substring of the span by construction, so a reader
+    checks the derivation against the quote without taking this function's word for it."""
+    out = {"role": role, "value": "", "basis": "", "reason": "", "spelling": "", "candidates": [],
+           "note": ""}
+    if role in UNDERIVABLE_LEVEL_ROLES or role not in DERIVABLE_LEVEL_ROLES:
+        return {**out, "reason": "level_not_derivable",
+                "note": UNDERIVABLE_LEVEL_ROLES.get(
+                    role, f"{role} has no declared level vocabulary, so no level can be derived from any "
+                          f"span; the value stands unverified or not at all")}
+    found = _level_matches(role, span)
+    matches = [m for m in found if m["in_value_position"] or not m["ambiguous_in_prose"]]
+    # A LEVEL JOINED TO AN ACCEPTED ONE BY A CONJUNCTION IS IN THE SAME VALUE POSITION, and this is not a
+    # nicety. Measured on a real plan row -- `| Config 5 | ON and OFF | Active | ... |` -- the guard let
+    # `ON` through (it follows a cell boundary) and held `OFF` back (it follows the word "and"), leaving
+    # two matches that both say `on`. The cell CROSSES both levels, so deriving `on` would have halved the
+    # design: the one harm `multi_level` exists to prevent, committed by the guard meant to prevent
+    # another. Re-admitting across a conjunction cannot invent a level, because it needs an already
+    # accepted match of the same factor beside it.
+    for m in found:
+        if m in matches:
+            continue
+        for ok in matches:
+            gap = span[m["end"]:ok["start"]] if m["end"] <= ok["start"] else span[ok["end"]:m["start"]]
+            if _CONJUNCTION.fullmatch(gap):
+                matches.append(m)
+                break
+    if role == "factor:medium" and any(m["level"] != "minimal" for m in matches):
+        matches = [m for m in matches if m["declared"] not in _MEDIUM_BASE_SPELLINGS]
+    levels = sorted({m["level"] for m in matches})
+    if len(levels) > 1:
+        return {**out, "reason": "span_states_two_levels", "candidates": levels,
+                "note": f"the span names {', '.join(levels)}. A span stating two levels of one factor does "
+                        f"not state ONE, and taking the first would halve the design its author asked for."}
+    if not levels:
+        return {**out, "reason": "span_states_no_declared_level", "candidates": [],
+                "note": f"no declared level of {role} is named in the cited span, in a value position. "
+                        f"The span may be true and the field is not stated on it: derived from "
+                        f"{DERIVABLE_LEVEL_ROLES[role]}."}
+    # WHICH spelling is reported matters, because the spelling is what a reader checks the quote
+    # against. An unambiguous one is worth more than an earlier one: the row
+    # `| R1 | gene_knockout | on | enzyme-aware | ... |` states `enzymes` twice, and `enzyme-aware`
+    # is the half of it that is not also an English function word.
+    best = min((m for m in matches if m["level"] == levels[0]),
+               key=lambda m: (m["ambiguous_in_prose"], -(m["end"] - m["start"]), m["start"]))
+    return {**out, "value": levels[0], "basis": "derived_from_span", "spelling": best["spelling"],
+            "candidates": levels,
+            "note": f"derived from {best['spelling']!r} in the cited span ({best['declared']})."}
+
+
+def route_level(role: str, value: str, quote: str) -> dict:
+    """What happens to a level-bearing record, decided in ONE place.
+
+    There are two ways into the agent path -- `extract_agent`, which calls the model itself, and
+    `extract_report(agent_records=...)`, which is handed records somebody else produced -- and a rule
+    written twice is a rule that holds in one of them. That is the ADJ-W8 shape: a mechanism with no
+    obligation, discovered here by trying to get round the derivation rather than by reasoning about it.
+
+    `action` is `reject` or `keep`; a kept record carries either a derived level or, for a role with no
+    closed vocabulary, whether anything verified the one it already had."""
+    out = {"action": "keep", "value": value, "unverified": False, "derived": None, "reason": "",
+           "note": "", "candidates": []}
+    if not _is_level_role(role):
+        return out
+    d = derive_level(role, quote)
+    if d["reason"] in ("span_states_no_declared_level", "span_states_two_levels"):
+        return {**out, "action": "reject", "reason": d["reason"], "note": d["note"],
+                "candidates": d["candidates"]}
+    if d["reason"] == "level_not_derivable":
+        return {**out, "unverified": not _value_in_quote(value, quote), "note": d["note"]}
+    differed = (normalise_value(role, value)["value"] or "").strip().lower() != d["value"].lower()
+    return {**out, "value": d["value"], "note": d["note"],
+            "derived": {"role": role, "model_value": value, "value": d["value"],
+                        "spelling": d["spelling"], "basis": d["basis"], "differed": differed}}
+
+
+def derive_given_records(records) -> dict:
+    """`route_level` over records this module did not call the model for, so the same rule reaches them."""
+    kept, rejected, derived = [], [], []
+    n_der = n_unver = n_diff = 0
+    for r in records or []:
+        rr = route_level(r.role, r.value, r.quote)
+        if rr["action"] == "reject":
+            rejected.append({**asdict(r), "reason": rr["reason"], "note": rr["note"],
+                             "candidates": rr["candidates"]})
+            continue
+        if rr["derived"]:
+            derived.append({**rr["derived"], "quote": r.quote, "section": r.section})
+            n_der += 1
+            n_diff += int(rr["derived"]["differed"])
+        n_unver += int(rr["unverified"])
+        kept.append(replace(r, value=rr["value"], level_unverified=rr["unverified"]))
+    return {"kept": kept, "rejected": rejected, "derived": derived, "n_level_derived": n_der,
+            "n_level_rejected": len(rejected), "n_level_unverified": n_unver,
+            "n_model_value_differed": n_diff}
+
+
+def normalisation_coverage(records, partial: bool | None = None, n_unread: int = 0) -> dict:
     """How much of each role's values normalise, and which ones do not.
 
     The unnormalised VALUES are listed, not just counted, because a spelling the tables miss is a gap this
@@ -684,7 +997,12 @@ def normalisation_coverage(records) -> dict:
     norm = sum(s["normalised"] for s in by_role.values())
     return {"by_role": by_role, "n_values": total, "n_normalised": norm,
             "fraction_normalised": round(norm / total, 4) if total else 0.0,
-            "note": "An unnormalised value is a gap in the declared synonym tables, NOT a value the "
+            "partial": None if partial is None else bool(partial),
+            "completeness": adjudicate.completeness_of(partial),
+            "n_unread_sections": int(n_unread),
+            "note": (adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else
+                     adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")
+                    + "An unnormalised value is a gap in the declared synonym tables, NOT a value the "
                     "document failed to state. The values are listed so the gap is closeable; they are "
                     "frozen against the held-out reports, where a new spelling is counted rather than "
                     "added. WHAT IS CHECKED AND WHAT IS NOT: membership is checked -- a produced value is "
@@ -695,7 +1013,7 @@ def normalisation_coverage(records) -> dict:
 
 # --- dedupe ------------------------------------------------------------------------------------------
 
-def dedupe(records) -> dict:
+def dedupe(records, partial: bool | None = None, n_unread: int = 0) -> dict:
     """Collapse repeated DEMANDS, keeping every provenance and every occurrence count.
 
     THE NUMBER THIS FIXES. 342 `rebuild` records came out of roughly 277 table rows each carrying one
@@ -717,11 +1035,20 @@ def dedupe(records) -> dict:
                          "quotes": [x.quote for x in rs],
                          "sections": sorted({x.section for x in rs}),
                          "paths": sorted({x.path for x in rs}),
+                         # ALL, not ANY: a demand one occurrence evidenced IS evidenced, and `any`
+                         # would discard a verified demand because some other sentence mentioned it
+                         # loosely. A demand no occurrence evidenced stays unpriceable.
+                         "level_unverified": all(x.level_unverified for x in rs),
                          "spans": [[x.start, x.end] for x in rs]})
     return {"n_raw": len(records or []), "n_distinct": len(distinct), "distinct": distinct,
+            "partial": None if partial is None else bool(partial),
+            "completeness": adjudicate.completeness_of(partial),
+            "n_unread_sections": int(n_unread),
             "note": "Deduplicated per DOCUMENT on (kind, role, normalised value). `n_occurrences` keeps "
                     "the cell-level count, so the demand count and the row count stay separate numbers "
-                    "answering separate questions."}
+                    "answering separate questions."
+                    + (adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else
+                       adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")}
 
 
 def as_requirements_distinct(records):
@@ -732,7 +1059,8 @@ def as_requirements_distinct(records):
             continue
         rec = Record(kind="requirement", role=d["role"], value=d["value"], quote=d["quotes"][0],
                      section=d["sections"][0] if d["sections"] else "", section_kind="plan",
-                     path=d["paths"][0] if d["paths"] else "structural")
+                     path=d["paths"][0] if d["paths"] else "structural",
+                     level_unverified=bool(d.get("level_unverified")))
         out.append(as_requirement(rec))
     return out
 
@@ -753,6 +1081,17 @@ def cost_of(record) -> dict:
     ROW_DEPENDENT_ROLES by hand -- which is a reason recoverable only by someone who already knows it, and
     that is the shape this project calls a silent absence. So the distinction is attached here."""
     out = dict(adjudicate.classify_cost(as_requirement(record)))
+    if getattr(record, "level_unverified", False):
+        # REFUSED a price, not priced carefully. The level came from a model and nothing verified it
+        # against the span it cites, so a cost here would be a confident number resting on that.
+        # The verdict it WOULD have had is reported, because a refusal that hides its own stake is
+        # the harder one to argue with.
+        return {**out, "cost": "unresolved", "row_dependent": False,
+                "unresolved_because": "level_unverified", "cost_if_verified": out["cost"],
+                "note": f"REFUSED a price: {record.role} has no closed vocabulary to derive a level "
+                        f"from its span (see UNDERIVABLE_LEVEL_ROLES), and the cited span does not "
+                        f"carry {record.value!r} either, so NOTHING VERIFIED this level. It would "
+                        f"otherwise have been priced {out['cost']!r}."}
     if out["cost"] == "unresolved" and record.role in ROW_DEPENDENT_ROLES:
         out["row_dependent"] = True
         out["unresolved_because"] = "row_dependent"
@@ -774,30 +1113,35 @@ def cost_of(record) -> dict:
     return out
 
 
-def cost_breakdown(records, partial: bool = False, n_unread: int = 0) -> dict:
+def cost_breakdown(records, partial: bool | None = None, n_unread: int = 0) -> dict:
     """Costs over DISTINCT demands, with `unresolved` split by why.
 
     Reported this way because the single number misleads in the expensive direction: a 69% unresolved rate
     reads as a blind instrument when most of it is the instrument correctly declining to cost a cell."""
     counts = {c: 0 for c in adjudicate.COST_CLASSES}
-    why = {"row_dependent": 0, "value_not_normalised": 0, "cell_is_not_cost_bearing": 0}
+    why = {"row_dependent": 0, "value_not_normalised": 0, "cell_is_not_cost_bearing": 0,
+           "level_unverified": 0}
     for d in dedupe(records)["distinct"]:
         if d["kind"] != "requirement":
             continue
         rec = Record(kind="requirement", role=d["role"], value=d["value"], quote=d["quotes"][0],
                      section=d["sections"][0] if d["sections"] else "", section_kind="plan",
-                     path=d["paths"][0] if d["paths"] else "structural")
+                     path=d["paths"][0] if d["paths"] else "structural",
+                     level_unverified=bool(d.get("level_unverified")))
         v = cost_of(rec)
         counts[v["cost"]] += 1
         if v["cost"] == "unresolved":
             why[v["unresolved_because"]] += 1
-    return {"by_cost": counts, "unresolved_because": why, "partial": bool(partial),
+    return {"by_cost": counts, "unresolved_because": why,
+            "partial": None if partial is None else bool(partial),
+            "completeness": adjudicate.completeness_of(partial),
             "n_unread_sections": int(n_unread), "n_distinct": sum(counts.values()),
             "note": "Costs are over DISTINCT demands, not cells. `unresolved_because` splits the one class "
                     "that otherwise misleads: `row_dependent` is the classifier being right, "
                     "`cell_is_not_cost_bearing` is a medium or a shift that costs nothing alone, and only "
                     "`value_not_normalised` is a gap in the declared tables."
-                    + (adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")}
+                    + (adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else
+                       adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")}
 
 
 # --- costing a design ROW ----------------------------------------------------------------------------
@@ -1016,7 +1360,7 @@ def extract_design_rows(text: str) -> list[dict]:
     return out
 
 
-def row_cost_summary(text: str, partial: bool = False, n_unread: int = 0) -> dict:
+def row_cost_summary(text: str, partial: bool | None = None, n_unread: int = 0) -> dict:
     """Row-level costs for a whole document, with the two numbers that decide whether this can work.
 
     `n_mode_unstated` is the one to read first: a row that does not name its elongation model cannot be
@@ -1044,8 +1388,11 @@ def row_cost_summary(text: str, partial: bool = False, n_unread: int = 0) -> dic
             "n_runnable_today": runnable, "n_not_runnable_today": len(rows) - runnable,
             "n_mode_unstated": unstated, "n_mode_stated": len(rows) - unstated,
             "patches_needed": patches_needed, "rows": details,
-            "partial": bool(partial), "n_unread_sections": int(n_unread),
-            "note": ((adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")
+            "partial": None if partial is None else bool(partial),
+            "completeness": adjudicate.completeness_of(partial),
+            "n_unread_sections": int(n_unread),
+            "note": ((adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else
+                      adjudicate.PARTIAL_NOTE.format(n=n_unread) if partial else "")
                      + "A row is one simulation. `by_prerequisite` counts rows per prerequisite and the "
                      "counts OVERLAP, because a row can need several; `n_blocked` is kept apart because no "
                      "ordering of work clears a blocker. Read `n_mode_unstated` first: a row that does not "
@@ -1420,11 +1767,19 @@ def _agent_one_span(cl, span: dict, mdl: str, temp, budget: int) -> dict:
     budget = min(budget, AGENT_MAX_TOKENS_CAP)
 
     def _ask(b):
+        from . import observability
         kw = {"model": mdl, "max_tokens": min(b, AGENT_MAX_TOKENS_CAP), "system": system,
               "messages": [{"role": "user", "content": user}]}
         if temp is not None:
             kw["temperature"] = temp
+        t0 = observability.now()
         m = cl.messages.create(**kw)
+        # The LLM-2 seam: "every real API call publishes a per-call observability record" is council._emit's
+        # own words, and this path did not. FOUND BY USING IT: metering a 33-report agreement run reported
+        # n_calls=0 while the run was plainly spending money, so the cost of the one measurement this
+        # project most needs could not be stated. An unmetered call site is a spend nobody can size.
+        observability.emit(observability.usage_record(
+            "extractor", mdl, m, (observability.now() - t0) * 1000, temperature=temp))
         return m, "".join(blk.text for blk in m.content if getattr(blk, "type", "") == "text")
 
     retried = False
@@ -1506,8 +1861,9 @@ def extract_agent(text: str, client=None, model: str | None = None,
             # and cutting it from any other one is the `cut_not_in_source` fault.
             parsed_all.append((si, item))
 
-    candidates, rejected, unfilled, claims = [], [], [], []
+    candidates, rejected, unfilled, claims, derived = [], [], [], [], []
     n_rewrote = n_value_outside = n_level = n_free_text = n_free_text_para = 0
+    n_level_derived = n_level_rejected = n_level_unverified = n_model_value_differed = 0
     for si, item in parsed_all:
         if not isinstance(item, dict):
             rejected.append({"record": str(item)[:120], "reason": "not_a_record", "quote": ""})
@@ -1536,12 +1892,34 @@ def extract_agent(text: str, client=None, model: str | None = None,
             # removes an opportunity should keep showing that the behaviour it removed is still there.
             n_rewrote += 1
         value = str(item.get("value") or "")
-        supported = _value_in_quote(value, q)
+        unverified = False
         if _is_level_role(role):
+            # ADJ-W10. The level is DERIVED from the span, not read from the reply, and the rule itself
+            # lives in `route_level` so the other way into this path cannot miss it.
+            r = route_level(role, value, q)
+            if r["action"] == "reject":
+                # Rejected, not kept with a caveat. A level feeds a cost and a command-line flag, so a
+                # wrong one adds a switch the author never asked for and reads exactly like a right one.
+                rejected.append({**item, "reason": r["reason"], "quote": q, "cited": cut["cited"],
+                                 "candidates": r["candidates"], "note": r["note"]})
+                n_level_rejected += 1
+                continue
+            unverified = r["unverified"]
+            n_level_unverified += int(unverified)
+            if r["derived"]:
+                derived.append({**r["derived"], "quote": q,
+                                "section": str(item.get("section") or "")})
+                n_model_value_differed += int(r["derived"]["differed"])
+                n_level_derived += 1
+                value = r["value"]
             n_level += 1
-            if not supported:
+            if unverified:
+                # The level is not evidenced by its own span. For a DERIVED level this is 0 by
+                # construction -- the spelling it was read from is a substring of the quote -- so this
+                # number is now the unverifiable tail, and it no longer means what it meant before W10.
                 n_value_outside += 1
         else:
+            supported = _value_in_quote(value, q)
             n_free_text += 1
             if not supported:
                 # NOT an unsupported value -- a paraphrase is what this field is for. Counted because it is
@@ -1554,7 +1932,7 @@ def extract_agent(text: str, client=None, model: str | None = None,
         candidates.append(Record(kind=str(item.get("kind") or "requirement"), role=role,
                                  value=value, quote=q,
                                  section=str(item.get("section") or ""), section_kind="plan",
-                                 path="agent"))
+                                 path="agent", level_unverified=unverified))
         if str(item.get("kind")) == "claim":
             thr = item.get("threshold_pct")
             if q and q in text:
@@ -1572,7 +1950,11 @@ def extract_agent(text: str, client=None, model: str | None = None,
            "temperature_pinned": temp is not None, "temperature_sent": temp,
            "quotes_cut_by_platform": True, "n_rewrote": n_rewrote,
            "n_value_outside_quote": n_value_outside, "n_level_records": n_level,
-           "n_free_text_records": n_free_text, "n_free_text_paraphrased": n_free_text_para}
+           "n_free_text_records": n_free_text, "n_free_text_paraphrased": n_free_text_para,
+           "levels_derived_by_platform": True, "derived": derived,
+           "n_level_derived": n_level_derived, "n_level_rejected": n_level_rejected,
+           "n_level_unverified": n_level_unverified,
+           "n_model_value_differed": n_model_value_differed}
     note = [f"{gated['n_kept']} record(s) kept, {gated['n_rejected'] + len(rejected)} rejected, over "
             f"{len(spans)} section(s). Rejections are NOT repaired: an unusable citation, an undeclared "
             f"role and a blank without a reason are each a record this path may not contribute. The model "
@@ -1583,6 +1965,18 @@ def extract_agent(text: str, client=None, model: str | None = None,
         note.append(f"{n_rewrote} record(s) also supplied their own wording, and it was not the cited "
                     f"text: IGNORED, and counted. The behaviour that forced this design is still there; it "
                     f"can no longer reach the output.")
+    if n_level_derived or n_level_rejected or n_level_unverified:
+        note.append(f"Every `factor:` LEVEL was DERIVED by the platform from the cited span against the "
+                    f"declared vocabulary and never accepted from the reply: {n_level_derived} derived, "
+                    f"{n_level_rejected} rejected because the span states no declared level of that "
+                    f"factor (or states two of them), {n_level_unverified} kept UNVERIFIED because the "
+                    f"role has no closed vocabulary to derive against -- and those are refused a price "
+                    f"rather than costed from an unverified level.")
+    if n_model_value_differed:
+        note.append(f"{n_model_value_differed} record(s) proposed a level that is not the one its own "
+                    f"cited span states. The reply's value was IGNORED and the derived level kept, the "
+                    f"same way its offered quote is -- and counted, because the behaviour the design "
+                    f"removes should go on being visible.")
     if n_value_outside:
         note.append(f"{n_value_outside} of {n_level} LEVEL-bearing record(s) carry a value the cited span "
                     f"does not contain. Verbatim is not the same as relevant -- a real span can be cited "

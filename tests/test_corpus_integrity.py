@@ -322,3 +322,51 @@ def test_a_rows_kb_matches_the_campaign_it_ran_in():
             bad.append((sp, path, kb[:10], want[:10]))
     assert not bad, ("rows whose kb_sha256 contradicts the campaign in their own path:\n" +
                      "\n".join(f"  {sp}: {p} has {got} want {exp}" for sp, p, got, exp in bad[:8]))
+
+
+# --- H-17e(ii): the MEDIUM axis -- not an arm, and still not poolable --------------------------------
+
+def test_the_canonical_medium_key_resolves_every_shape_of_design_tag():
+    """The item recorded the key as UNSETTLED -- `condition` for most rows, `timeline` for some,
+    `media_segments` for shifts. It turned out already decided in code: `factors.parse` normalises all
+    three into `base` + `timeline_id`, which is what `one_factor_neighbours` has been filtering on for
+    control selection all along. These are the four shapes, from the parser's own branches."""
+    from cellarium import corpus_schema
+
+    cases = {
+        "condition/acetate": ("acetate", ""),
+        "ppgpp_conc/basal|ppGpp:0.6x": ("basal", ""),
+        "gene_knockout/KO:pfkA": ("basal", ""),
+        "rrna_operon_knockout/minimal|rRNA_KO:4op": ("minimal", ""),
+    }
+    for key, want in cases.items():
+        pert, _, tag = key.partition("/")
+        assert corpus_schema.medium_of({"perturbation": pert, "label": tag, "condition": tag}) == want, key
+
+
+def test_rows_spanning_TWO_MEDIA_are_refused_as_a_POOL_and_allowed_as_a_COMPARISON():
+    """The distinction the refusal has to carry, or it refuses the point of the corpus. Two media are two
+    EXPERIMENTS on the same instrument: comparing them is what the corpus is for, averaging them together
+    is a mixture of two populations presented as one."""
+    from cellarium import corpus_schema
+
+    a = {"perturbation": "condition", "label": "acetate", "condition": "acetate"}
+    b = {"perturbation": "condition", "label": "with_aa", "condition": "with_aa"}
+    assert corpus_schema.medium_split([a, a]) is None
+    assert corpus_schema.same_medium(a, a) and not corpus_schema.same_medium(a, b)
+    ref = corpus_schema.medium_split([a, a, b])
+    assert ref and "must not be pooled" in ref["refused"]
+    assert [m["rows"] for m in ref["media"]] == [2, 1]
+    assert "may be COMPARED" in ref["why"] and "per medium" in ref["fix"]
+    # It is NOT an arm refusal, and says so -- the rows describe the same instrument.
+    assert corpus_schema.arm_split([a, a, b]) is None
+
+
+def test_the_medium_refusal_is_NOT_an_arm_key_and_the_reason_is_recorded():
+    """A medium added to ARM_KEYS would filter every comparison down to one medium, which is the opposite
+    of what this corpus is read for. The reason is declared beside the key, not left to a commit message."""
+    from cellarium import corpus_schema
+
+    assert "condition" not in corpus_schema.ARM_KEYS
+    assert "condition" in corpus_schema.NOT_ARM_KEYS
+    assert corpus_schema.MEDIUM_KEYS == ("base", "timeline_id")

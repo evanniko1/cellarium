@@ -148,14 +148,37 @@ def test_clean_convergence_returns_falsifiable_hypothesis():
 
 
 def test_council_temperature_is_warm_and_reasoning_aware(monkeypatch):
-    """DD-MTH-2: the Council pins its OWN warm temperature (not Cellwright's 0.0), and omits it on a reasoning model
-    (the API forces temperature=1 there)."""
-    assert council._council_temperature("claude-sonnet-5") == council.COUNCIL_TEMPERATURE
-    assert council.COUNCIL_TEMPERATURE > 0.0                       # warm — exploration is the Council's function
-    assert council._council_temperature("claude-opus-4-8") is None  # reasoning model -> omit (API forces 1)
-    assert council._council_temperature("claude-sonnet-5", thinking=True) is None
+    """DD-MTH-2: the Council pins its OWN warm temperature, not Cellwright's 0.0.
+
+    REWRITTEN 2026-10-30 against a live measurement (LLM-8), and it used to assert the opposite: that a
+    reasoning model gets None, on the ground that the API forces temperature=1 there. Measured on three
+    families -- claude-sonnet-5, claude-opus-4-8, claude-fable-5 -- `temperature=1.0` is ACCEPTED by all
+    three and `0.3` is refused by all three with "`temperature` is deprecated for this model". The refusal
+    is of a VALUE, not of the parameter, so the Council's warm 1.0 goes through, and SENDING it beats
+    omitting it because the per-call record then states the sampling temperature instead of leaving it
+    blank.
+
+    The knob was the live bug: `CELLARIUM_COUNCIL_TEMPERATURE=0.3` with the default model -- sonnet-5 for
+    every role -- would have 400ed every role call of every run, which is LLM-8's failure exactly. It now
+    omits, so the run survives and the record claims no pin it did not get."""
+    monkeypatch.setattr(council, "COUNCIL_TEMPERATURE", 1.0)       # pin the knob: behaviour depends on it
+    assert council.COUNCIL_TEMPERATURE > 0.0                       # warm: exploration is the Council's function
+    for model in ("claude-sonnet-5", "claude-opus-4-8", "claude-fable-5", "claude-haiku-4-5-20251001"):
+        assert council._council_temperature(model) == 1.0, model
+    assert council._council_temperature("claude-sonnet-5", thinking=True) == 1.0
     monkeypatch.setattr(council, "COUNCIL_TEMPERATURE", 0.3)       # it's a recorded knob (the sweep tunes it)
-    assert council._council_temperature("claude-sonnet-5") == 0.3
+    assert council._council_temperature("claude-haiku-4-5-20251001") == 0.3   # takes any value
+    assert council._council_temperature("claude-sonnet-5") is None            # would have been a 400
+
+
+def test_the_sufficiency_gate_asks_the_policy_before_pinning_its_own_zero():
+    """LLM-8, the one live violation the AST test found: the gate pinned a literal `temperature=0.0` at an
+    `_emit` site whose model is overridable, and `models["judge"]` defaults to claude-sonnet-5 -- which
+    refuses 0.0. The value is still the gate's own decision (a classification must not flip run to run);
+    whether it can be sent is not."""
+    assert council.GATE_TEMPERATURE == 0.0
+    assert council._gate_temperature("claude-haiku-4-5-20251001") == 0.0
+    assert council._gate_temperature("claude-sonnet-5") is None
 
 
 def test_deliberate_pins_council_temperature_by_construction():

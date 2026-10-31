@@ -294,13 +294,28 @@ def _default_models() -> dict:
 # model, and this is the fact that governs which model the paper's control should use.
 COUNCIL_TEMPERATURE = float(os.environ.get("CELLARIUM_COUNCIL_TEMPERATURE", "1.0"))
 
+# The sufficiency gate is a CLASSIFICATION, not a deliberation: its verdict must not flip run to run.
+GATE_TEMPERATURE = float(os.environ.get("CELLARIUM_GATE_TEMPERATURE", "0.0"))
+
+
+def _gate_temperature(model: str | None) -> float | None:
+    """GATE_TEMPERATURE if the gate's model will take it, else None (omit). Same split as
+    `_council_temperature`: this module owns the value, `llm` owns whether it is sendable."""
+    from . import llm
+    return llm.sendable_temperature(model, GATE_TEMPERATURE)
+
 
 def _council_temperature(model: str | None, *, thinking: bool = False) -> float | None:
-    """The temperature to SEND for a Council role (None => omit, i.e. let the API force its default). Pinned to
-    COUNCIL_TEMPERATURE for a non-reasoning model with thinking off; None for a reasoning model / thinking on."""
-    if thinking or "opus" in (model or "").lower():
-        return None
-    return COUNCIL_TEMPERATURE
+    """The temperature to SEND for a Council role (None => omit, i.e. let the API force its default).
+
+    The VALUE is the Council's own decision - warm, because exploration across operationalizations is its
+    function. Whether the model will TAKE that value is provider policy and `llm.sendable_temperature` owns
+    it (LLM-8). This function used to answer both, with a family test for "opus" only, and the second answer
+    was wrong in a reachable way: claude-sonnet-5 is the default for every Council role and accepts an
+    explicit temperature ONLY at 1.0, so the documented `CELLARIUM_COUNCIL_TEMPERATURE=0.3` would have
+    400ed every role call of every run. Measured, not deduced - see `llm._FORCED_TEMPERATURE`."""
+    from . import llm
+    return llm.sendable_temperature(model, COUNCIL_TEMPERATURE, thinking=thinking)
 
 
 def _decode_nested(tool: dict, data: dict) -> dict:
@@ -726,10 +741,14 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
     # ONE cheap classification call (not a deliberation) — pin a small fast model; specification-adequacy + scope-only
     # clarifying questions don't need a frontier model. Overridable; tests pass their own `models`.
     model = (models or {}).get("judge") or os.environ.get("CELLARIUM_GATE_MODEL") or "claude-haiku-4-5-20251001"
-    # temperature=0: the residual (genuinely-ambiguous) cases must not flip verdict run-to-run — reproducibility is
-    # part of the predictability contract. The pre-pass already handles every clearly-specified question above.
+    # GATE_TEMPERATURE, through the policy: the residual (genuinely-ambiguous) cases must not flip verdict
+    # run-to-run — reproducibility is part of the predictability contract — but 0.0 is NOT sendable to every
+    # model, and the gate model is overridable to one that refuses it (CELLARIUM_GATE_MODEL, or
+    # `models["judge"]`, which defaults to claude-sonnet-5). A literal here was the LLM-8 shape exactly:
+    # pinning the value is this function's business, deciding the model will accept it is not.
     out = _emit(client, model, _SUFFICIENCY_SYS, _SUFFICIENCY_TOOL,
-                {"question": question, "dial_labels": labels}, max_tokens=1024, temperature=0.0, role="gate")
+                {"question": question, "dial_labels": labels}, max_tokens=1024,
+                temperature=_gate_temperature(model), role="gate")
     return {"sufficient": bool(out.get("sufficient", True)),   # fail-open: a degenerate emit must not block a run
             "missing": [m for m in (out.get("missing") or []) if isinstance(m, str)],
             "clarifying_questions": [q for q in (out.get("clarifying_questions") or []) if isinstance(q, str)][:2],

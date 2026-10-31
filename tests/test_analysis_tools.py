@@ -76,14 +76,52 @@ def test_fit_relation_reports_slope_inference():
 
 
 def test_bimodality_runs_on_corpus_and_guards_small_n():
-    """M-1: the Council's 'test for bimodality' is now executable. Whole-corpus growth_rate has enough pooled
-    per-seed values to score; a single-design scope (too few points) must gate cleanly, not crash."""
-    out = tools.bimodality(channel="growth_rate")
+    """M-1: the Council's 'test for bimodality' is executable. A scope within ONE medium scores; a scope
+    with too few points gates cleanly rather than crashing.
+
+    CHANGED 2026-10-30 by H-17e(ii), and it used to assert the opposite: that the WHOLE CORPUS returns a
+    coefficient. It does not any more, because the whole corpus is 17 media and every mass and rate
+    channel depends on the medium -- so "bimodal" over that pool can be the sampling rather than the
+    cell. That case is asserted below as a refusal."""
+    out = tools.bimodality(channel="growth_rate", designs=["gene_knockout/KO:pgi"])
     assert out["n"] >= 4 and isinstance(out["bimodality_coefficient"], float)
     assert isinstance(out["bimodal_suggested"], bool) and out["best_split"]["separation_sd"] is not None
     assert abs(out["bc_threshold"] - 5 / 9) < 0.01
     thin = tools.bimodality(channel="growth_rate", designs=["no_such/design"])
     assert "error" in thin and thin["n"] < 4                     # too few pooled values -> clean gate, not a crash
+
+
+def test_bimodality_REFUSES_a_pool_across_media_and_hands_back_the_per_medium_verdicts():
+    """H-17e(ii). This tool pools ALL designs when asked for none, which is the widest pooling in the tree,
+    and nothing refused it: `one_factor_neighbours` honours the medium partition for control SELECTION, so
+    a comparison built through that primitive was safe and a hand-built pool met no refusal anywhere.
+
+    A refusal that leaves the caller with nothing would just be pushed around, so the per-medium
+    coefficients come back with it -- and on this corpus they say the pooled verdict was not an artefact
+    of mixing media, which is a result the refusal surfaces rather than hides."""
+    out = tools.bimodality(channel="growth_rate")
+    assert out["bimodality_coefficient"] is None and out["bimodal_suggested"] is None
+    assert "must not be pooled" in out["refused"] and out["about"] == "corpus"
+    assert len(out["medium_split"]["media"]) > 1
+    assert "may be COMPARED" in out["medium_split"]["why"]
+    per = out["per_medium"]
+    assert len(per) == len(out["medium_split"]["media"])
+    assert sum(v["n"] for v in per.values()) == out["n"]          # every pooled value is accounted for
+    assert any(v["too_few_values"] for v in per.values()) or all(
+        v["bimodality_coefficient"] is not None for v in per.values())
+
+
+def test_the_bimodality_scope_label_that_COLLIDES_is_still_accepted_and_now_says_so():
+    """Found by the refusal above firing on what looked like a single-medium request. This tool's scope
+    label is `perturbation/condition`, the key `analysis_rows` was written to replace: it drops the media
+    timeline, so `gene_knockout/KO:thrC` names one knockout under TWO opposite nutrient shifts. The old
+    label keeps working -- and is now refused as the cross-medium pool it is -- while `survey.design_key`,
+    which carries the timeline, addresses either experiment on its own."""
+    both = tools.bimodality(channel="growth_rate", designs=["gene_knockout/KO:thrC"])
+    assert both["bimodality_coefficient"] is None and "must not be pooled" in both["refused"]
+    one = tools.bimodality(channel="growth_rate", designs=["gene_knockout/KO:thrC#tl:38639c"])
+    assert one.get("refused") is None and isinstance(one["bimodality_coefficient"], float)
+    assert one["n"] < both["n"]
 
 
 def test_dispatch_unknown_tool_and_semantic_validation():

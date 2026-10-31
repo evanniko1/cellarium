@@ -1,0 +1,62 @@
+# Citation File Format 1.2.0 — https://citation-file-format.github.io
+#
+# WHY THIS FILE EXISTS (NMI-3). Nature Methods requires a citation file, a data-availability statement and
+# a code/data DOI. The absence was conspicuous rather than neutral: this repository cites OTHER people's
+# DOIs correctly throughout (10.5281/zenodo.7859480 for WholeCellEcoliRelease v3.0.1, 10.5281/zenodo.8284223
+# for PRECISE-1K, 10.1093/nar/gkad435), so archiving everyone else's work and none of our own is a visible
+# asymmetry.
+#
+# WHAT IS STILL MISSING, named here rather than guessed at:
+#   * `doi:` — needs a Zenodo (or equivalent) deposit, which only the repository owner can make. It is left
+#     OUT rather than filled with a plausible-looking identifier: a wrong DOI resolves to someone else's
+#     work, which is worse than no DOI.
+#   * co-authors — authorship is the owner's call and not a thing to infer from a commit log. The one author
+#     below is the copyright holder named in LICENSE.
+#   * ORCID — not recorded anywhere in this repository, so it is not asserted here.
+#   * the DATA-AVAILABILITY statement is deliberately not written yet: its wording depends on the pending
+#     upstream-licence question for the model-derived parquet in `data/manifest/` (see NMI-5), and a
+#     statement that answers that question before the licensor does would be the wrong kind of commitment.
+cff-version: 1.2.0
+message: "If you use Cellarium, please cite it as below."
+title: Cellarium
+abstract: >-
+  A glass box over whole-cell reasoning. A blind Socratic Council frames a question about Escherichia coli
+  into a falsifiable hypothesis without seeing the data; a grounded agent then tests it against real
+  whole-cell simulations and the published literature, and proposes experiments for human approval. Every
+  number carries its provenance, and the agent never launches a simulation on its own.
+type: software
+authors:
+  - family-names: Nikolados
+    given-names: Evangelos-Marios
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/evanniko1/cellarium"
+keywords:
+  - whole-cell model
+  - Escherichia coli
+  - agentic workbench
+  - provenance
+  - falsifiability
+  - large language models
+# The simulator Cellarium runs on is a separate work under its own terms, and the corpus is published
+# separately from the code. Both are recorded as references so a citation of Cellarium does not read as a
+# citation of them.
+references:
+  - type: software
+    title: Whole-Cell Model of Escherichia coli (WholeCellEcoliRelease)
+    authors:
+      - name: Covert Lab, Stanford University
+    doi: 10.5281/zenodo.7859480
+    version: 3.0.1
+    notes: >-
+      Obtained separately under Stanford's academic licence; Cellarium's own MIT licence does not cover it.
+  - type: data
+    title: cellarium-corpus
+    authors:
+      - family-names: Nikolados
+        given-names: Evangelos-Marios
+    url: "https://huggingface.co/datasets/evanniko1/cellarium-corpus"
+    notes: >-
+      The simulation corpus Cellarium reads. Published under `license: other` because it is derived from a
+      model under non-commercial academic terms; the in-tree manifest under `data/manifest/` is the same
+      category of data and its licence wording is under review.

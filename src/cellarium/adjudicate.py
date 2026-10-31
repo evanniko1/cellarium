@@ -566,6 +566,34 @@ PARTIAL_NOTE = (
     "\"4 rebuilds\" and \"at least 4 rebuilds, {n} sections unread\" license different decisions, which is "
     "why the flag travels rather than being left in span_failures for a caller to remember.")
 
+# ADJ-W8. The sentence every summary appends when it was never TOLD. The defect was not the mechanism --
+# all three summaries accepted `partial` and appended PARTIAL_NOTE when told -- it was the DEFAULT:
+# `partial=False` answers the question with a confident no on behalf of a caller who was never asked, and
+# span failures are real on live traffic, so the forgetting path is reachable. Three states, not two.
+UNSTATED_COMPLETENESS_NOTE = (
+    " COMPLETENESS NOT STATED: this summary was not told whether its input was a complete reading, so "
+    "every count here may be a LOWER BOUND and nothing in this result can tell you which. Pass "
+    "`partial=` and `n_unread=` from the extraction that produced the input -- `span_failures` is where "
+    "that fact lives. This used to default to `partial=False`, which is the same silence with a confident "
+    "answer written over it.")
+
+
+# Every summary that must carry the three-state flag, NAMED, so a new one cannot quietly join without it
+# and a test can enumerate them instead of a reader remembering. The rule it encodes: a function returning
+# a COUNT or a RATE over an extraction has to say whether that extraction was complete, and "nobody said"
+# is one of the three answers. A test asserts each of these takes `partial` and defaults it to None, and
+# that NOTHING in either module defaults it to False again.
+COMPLETENESS_AWARE = ("adjudicate.cost_summary", "extraction.cost_breakdown",
+                      "extraction.row_cost_summary", "extraction.normalisation_coverage",
+                      "extraction.dedupe")
+
+
+def completeness_of(partial) -> str:
+    """`partial` as one of three states. Told apart by what was PASSED, never by truthiness: a truthiness
+    test reads `None` and `False` the same way, which is the defect itself."""
+    return "unstated" if partial is None else ("partial" if partial else "complete")
+
+
 COST_CLASSES = ("run", "flag", "patch_then_run", "rebuild", "refused_by_gate", "not_a_simulation",
                 "ambiguous", "unresolved")
 
@@ -691,7 +719,7 @@ def classify_cost(requirement) -> dict:
             "candidates": cands, "note": c["note"]}
 
 
-def cost_summary(requirements, partial: bool = False, n_unread: int = 0) -> dict:
+def cost_summary(requirements, partial: bool | None = None, n_unread: int = 0) -> dict:
     """The cost table for a set of demands, with EVERY class counted including the empty ones.
 
     "Only 4 of 45 reports need nothing but a rebuild" is a readable sentence only because the other classes
@@ -706,7 +734,11 @@ def cost_summary(requirements, partial: bool = False, n_unread: int = 0) -> dict
     note = ("Every class is present with its count, zeros included. A demand's cost is a fact "
             "about THIS platform resolved against its own authorities, not a property of the "
             "document -- so the same sentence costs differently once a patch lands.")
-    if partial:
+    if partial is None:
+        note += UNSTATED_COMPLETENESS_NOTE
+    elif partial:
         note += PARTIAL_NOTE.format(n=n_unread)
-    return {"n": len(rows), "by_cost": counts, "items": rows, "partial": bool(partial),
+    return {"n": len(rows), "by_cost": counts, "items": rows,
+            "partial": None if partial is None else bool(partial),
+            "completeness": completeness_of(partial),
             "n_unread_sections": int(n_unread), "note": note}

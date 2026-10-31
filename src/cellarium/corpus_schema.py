@@ -203,6 +203,65 @@ def same_arm(row_a: dict, row_b: dict) -> bool:
     return arm_of(row_a) == arm_of(row_b)
 
 
+# --- H-17e(ii): the MEDIUM axis, which is not an arm and still must not be pooled ---------------------
+#
+# `condition` is listed in NOT_ARM_KEYS above because it is the independent variable in most comparisons:
+# two media are two experiments, not two instruments, so refusing to COMPARE them would refuse the point.
+# What was missing is the other half -- nothing refused POOLING them into one statistic. `factors.parse`
+# honours the partition for control SELECTION (`one_factor_neighbours` requires the same `base`), so a
+# comparison built through that primitive is safe and a hand-built one met no refusal anywhere.
+#
+# THE CANONICAL KEY WAS RECORDED AS UNSETTLED, and it turned out to be already decided in code rather than
+# needing a new convention: `factors.parse(design_key(row))` yields `base` (the medium) and `timeline_id`
+# (which media sequence, for a shift design), and those two are the axis. The item's worry -- that the key
+# is `condition` for most rows, `timeline` for some and `media_segments` for shifts -- is exactly what
+# `factors.parse` already normalises: `basal|ppGpp:0.6x` -> basal, `KO:pfkA` -> basal (a knockout row's
+# medium, declared in the parser), `minimal|rRNA_KO:4op` -> minimal, a bare `acetate` -> acetate.
+#
+# MEASURED over the corpus on 2026-10-30: all 240 analysis rows resolve, NONE falls through without a
+# base, and they land in 17 distinct (base, timeline_id) keys -- basal 138, minimal 24, acetate 13,
+# with_aa 12, four timelines on basal 19 between them, and nine single-factor media with 2-8 rows each.
+# A key that resolved for most rows would be no use here, because the rows it missed are the ones a
+# pooling check has to catch.
+MEDIUM_KEYS = ("base", "timeline_id")
+
+
+def medium_of(row: dict) -> tuple:
+    """The (medium, media-timeline) key a row sits on. One definition, so no caller invents its own."""
+    from . import factors, survey
+    p = factors.parse(survey.design_key(row))
+    return (p.get("base") or "?", p.get("timeline_id") or "")
+
+
+def same_medium(row_a: dict, row_b: dict) -> bool:
+    """The predicate a read boundary calls before POOLING two rows into one statistic."""
+    return medium_of(row_a) == medium_of(row_b)
+
+
+def medium_split(rows: list[dict]) -> dict | None:
+    """None when every row shares a medium; otherwise a refusal naming the split.
+
+    Same contract as `arm_split`: a refusal is RETURNED so a caller can surface it to a reader, rather
+    than raised. The distinction from an arm matters and is stated in the refusal itself -- these rows
+    may legitimately be COMPARED; what they may not do is average into one number."""
+    seen = defaultdict(int)
+    for r in rows or []:
+        seen[medium_of(r)] += 1
+    if len(seen) <= 1:
+        return None
+    return {
+        "refused": "these rows span %d media and must not be pooled into one statistic" % len(seen),
+        "media": [{"base": k[0], "timeline_id": k[1], "rows": n}
+                  for k, n in sorted(seen.items(), key=lambda kv: -kv[1])],
+        "why": "growth rate, charging and every mass channel depend on the medium, so a mixture of media "
+               "has two populations in it by construction -- a spread that looks like a finding can be "
+               "the media. This is NOT an arm violation: the rows describe the same instrument and may be "
+               "COMPARED. They may not be averaged together.",
+        "fix": "pool within one medium and report per medium, or state that the pooling is across media "
+               "and that the medium is a candidate explanation for any structure found.",
+    }
+
+
 def arm_split(rows: list[dict]) -> dict | None:
     """None when every row shares an arm; otherwise a refusal naming the split.
 

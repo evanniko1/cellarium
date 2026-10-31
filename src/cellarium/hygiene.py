@@ -344,6 +344,17 @@ def rows(purpose: str, *, arm=None) -> tuple[list[dict], dict]:
         if note.get("arm_incomplete"):
             refusals.append({"refusal": "the chosen arm is not homogeneous",
                              "detail": note["arm_incomplete"]})
+        # H-17e(ii). The medium is deliberately NOT part of arm identity -- two media are two experiments,
+        # not two instruments, and filtering to one would refuse the comparison this corpus exists to
+        # make. So this boundary does not narrow; it DISCLOSES, because the gap the item names is a
+        # caller pooling these rows into one statistic with nothing anywhere saying it must not.
+        from . import corpus_schema
+        media = corpus_schema.medium_split(out)
+        if media:
+            refusals.append({"refusal": media["refused"], "media": media["media"],
+                             "why": media["why"], "fix": media["fix"],
+                             "note": "a DISCLOSURE, not a filter: these rows are returned and may be "
+                                     "compared across media. The refusal is of averaging them together."})
         return out, _ctx(purpose, {"returned": len(out)}, refusals,
                          {"channels": channels, "arm": note.get("arm")})
 

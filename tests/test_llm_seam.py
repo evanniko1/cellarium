@@ -105,3 +105,78 @@ def test_a_non_claude_model_is_pinned_rather_than_silently_unpinned():
 
     for model in ("gpt-4o", "llama-3.1-70b", "mistral-large", "qwen2.5-72b-instruct"):
         assert llm.temperature_for(model) == llm.TEMPERATURE, model
+
+
+# --- LLM-8: no call site may pin a temperature behind the policy's back ------------------------------
+#
+# The failure this comes from: `robustness.consistency_panel` passed a literal `temperature=0.0` to
+# `council._emit`, whose default judge is claude-sonnet-5, which answers 400 -- so EVERY juror panel died
+# before a single vote while the Council (which passes None) ran fine. `agent.py`'s own header records the
+# same failure hitting every Cellwright call once already. Both were fixed by hand, and nothing stopped the
+# next one, which is what this test is for.
+
+def _temperature_literals(path: Path) -> list[str]:
+    """Call sites that hand a CONSTANT temperature to a model call, from the syntax tree.
+
+    Two shapes, because the second is the obvious way round the first: `create(temperature=0.0)` and
+    `create(**{"temperature": 0.0})`. A NAME (`temperature=temp`) is fine -- that is the policy's answer
+    being passed along, which is the whole point of having one."""
+    out = []
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        name = (fn.attr if isinstance(fn, ast.Attribute) else
+                fn.id if isinstance(fn, ast.Name) else "")
+        owner = (fn.value.attr if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Attribute)
+                 else fn.value.id if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name)
+                 else "")
+        is_model_call = name in ("_emit", "emit") or (name == "create" and owner == "messages")
+        if not is_model_call:
+            continue
+        for kw in node.keywords:
+            if kw.arg == "temperature" and isinstance(kw.value, ast.Constant):
+                out.append(f"{path.name}:{node.lineno} {name}(temperature={kw.value.value!r})")
+            if kw.arg is None and isinstance(kw.value, ast.Dict):      # **{"temperature": 0.0}
+                for k, v in zip(kw.value.keys, kw.value.values):
+                    if (isinstance(k, ast.Constant) and k.value == "temperature"
+                            and isinstance(v, ast.Constant)):
+                        out.append(f"{path.name}:{node.lineno} {name}(**{{'temperature': "
+                                   f"{v.value!r}}})")
+    return out
+
+
+def test_no_call_site_pins_a_LITERAL_temperature_outside_the_policy_module():
+    """LLM-8. Which temperature a path wants is its own decision; whether the model will ACCEPT it is
+    provider policy, and a literal at the call site answers the second question without asking."""
+    offenders = [o for p in _py_files() for o in _temperature_literals(p)]
+    assert not offenders, (
+        "these model calls pin a temperature without consulting the policy, so they break on any model "
+        "that refuses that value: " + "; ".join(offenders)
+        + ". Pass `llm.sendable_temperature(model, YOUR_VALUE)` instead -- it answers with None when the "
+          "model will not take that value, and omitting the parameter is what keeps the call alive.")
+
+
+def test_the_policy_knows_WHICH_VALUES_a_reasoning_model_takes_not_just_whether():
+    """MEASURED against the live API on 2026-10-30, because the error message is misleading. On
+    claude-sonnet-5: `temperature=1.0` is ACCEPTED (stop_reason end_turn, a text block); `0.3` and `0.0`
+    both come back 400 "`temperature` is deprecated for this model". So that family does not refuse the
+    PARAMETER, it refuses any value but the one the API forces -- and the forced value is 1.0.
+
+    The distinction is not academic: the Council pins 1.0 and the extractor pins 0.0, one of those is
+    sendable to a reasoning model and the other is not, and before this they were decided by two different
+    family lists in two different modules."""
+    from cellarium import llm
+
+    assert llm.sendable_temperature("claude-sonnet-5", 1.0) == 1.0
+    for want in (0.0, 0.3, 0.7, 1.5):
+        assert llm.sendable_temperature("claude-sonnet-5", want) is None, want
+    assert llm.sendable_temperature("claude-haiku-4-5-20251001", 0.3) == 0.3
+    assert llm.sendable_temperature("claude-haiku-4-5-20251001", 1.0) == 1.0
+    # Thinking forces temperature=1 whatever the model, so only 1.0 survives it.
+    assert llm.sendable_temperature("claude-haiku-4-5-20251001", 0.0, thinking=True) is None
+    assert llm.sendable_temperature("claude-sonnet-5", 1.0, thinking=True) == 1.0
+    # ... and the old entry point is the same question with the global value, so it cannot drift from it.
+    assert llm.temperature_for("claude-sonnet-5") is llm.sendable_temperature("claude-sonnet-5",
+                                                                             llm.TEMPERATURE)

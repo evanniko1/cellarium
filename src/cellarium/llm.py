@@ -118,6 +118,39 @@ TEMPERATURE = float(os.environ.get("CELLARIUM_TEMPERATURE", "0.0"))
 _NO_EXPLICIT_TEMPERATURE = ("opus", "sonnet-5", "fable", "mythos")
 
 
+# The value the API FORCES on a family that refuses an explicit one. MEASURED against the live API on
+# 2026-10-30, because the 400 message ("`temperature` is deprecated for this model") says the parameter is
+# gone and it is not: on claude-sonnet-5, `temperature=1.0` is ACCEPTED (stop_reason end_turn, a text
+# block) while 0.3 and 0.0 are both refused with that same message. So the rejection is of a VALUE, not of
+# the parameter, and the sendable value is the forced one.
+#
+# WHY THAT MATTERS RATHER THAN BEING A CURIOSITY: the Council pins 1.0 (exploration is its function) and
+# the extractor pins 0.0 (a transcription must reproduce). One of those is sendable to a reasoning model
+# and the other is not. Before this was measured, the two were decided by two different family lists in
+# two different modules -- `council._council_temperature` tested only for "opus" -- so
+# `CELLARIUM_COUNCIL_TEMPERATURE=0.3`, a documented and tested knob, would have sent 0.3 to the default
+# claude-sonnet-5 and killed every role call of every Council run with a 400. That is LLM-8's failure
+# exactly: a call site answering a provider-policy question on its own.
+_FORCED_TEMPERATURE = 1.0
+
+
+def sendable_temperature(model: str | None, want: float | None, *,
+                         thinking: bool = False) -> float | None:
+    """`want` if this model will accept it, else None meaning OMIT the parameter.
+
+    The policy answers one question -- will this value get through? -- and the caller keeps the other:
+    which value its purpose needs. Omitting is not the same as pinning: a run whose record says
+    `temperature=None` is not claiming to have pinned anything, which is what keeps the provenance honest
+    when a path asked for a value the model would not take."""
+    if want is None:
+        return None
+    m = (model or "").lower()
+    if thinking or any(fam in m for fam in _NO_EXPLICIT_TEMPERATURE):
+        # Extended thinking forces temperature=1 too, so the same rule covers both.
+        return float(want) if float(want) == _FORCED_TEMPERATURE else None
+    return want
+
+
 def temperature_for(model: str | None, *, thinking: bool = False) -> float | None:
     """The temperature to SEND to the API (None => omit). Pinned to CELLARIUM_TEMPERATURE only for models
     that accept an explicit temperature with thinking OFF. None for reasoning models, and whenever extended
@@ -126,10 +159,7 @@ def temperature_for(model: str | None, *, thinking: bool = False) -> float | Non
     Reproducibility note: for a model that refuses an explicit temperature, sampling is NOT pinned and
     cannot be. Anything depending on run-to-run identity must say so rather than cite CELLARIUM_TEMPERATURE.
     """
-    m = (model or "").lower()
-    if thinking or any(fam in m for fam in _NO_EXPLICIT_TEMPERATURE):
-        return None
-    return TEMPERATURE
+    return sendable_temperature(model, TEMPERATURE, thinking=thinking)
 
 
 def temperature_is_rejected(exc: BaseException) -> bool:

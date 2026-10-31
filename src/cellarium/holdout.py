@@ -69,7 +69,13 @@ READINESS_GATES = (
         "measure": "agent_vs_structural_comparison_kind",
         "requires": ("in", ("redundant", "partial")),
         "source": "extraction.extract_report(text, agent_client=...)"
-                  "['agent_vs_structural']['agreement']['comparison_kind'], over the development set",
+                  "['agent_vs_structural']['agreement']['comparison_kind'], over the reports where BOTH "
+                  "paths produced at least one record. THE DENOMINATOR IS STATED because a measurement "
+                  "forced it: on 12 of the 33 development reports the structural path finds NOTHING (10 "
+                  "carry no design-table rows at all), and a report with nothing to compare against "
+                  "contributes `complementary` by arithmetic rather than by disagreement. Measured "
+                  "2026-10-30 over all 33: 18 partial / 15 complementary, and 18 of the 21 reports where "
+                  "both paths read something are `partial`. Both denominators are reported.",
         "why": "The two mechanical paths turned out COMPLEMENTARY -- role overlap about zero, Jaccard "
                "0.004, 30 of 33 reports agreeing on nothing -- so their agreement checked nothing about "
                "either. Dual extraction's whole value is two independent readings of ONE quantity. Until "
@@ -87,6 +93,42 @@ READINESS_GATES = (
         "why": "`comparison_kind` can read `partial` on a thin overlap. Half the roles shared is the "
                "weakest overlap on which an agreement rate means anything; below it, agreement is a "
                "statement about a handful of fields being reported as if it were about the pipeline.",
+        "measured": "FAILED AS REGISTERED, 2026-10-30: 0 of 33 development reports reach 0.5 (mean 0.161, "
+                    "median 0.200, max 0.4444; mean 0.254 over the 21 reports with a non-empty structural "
+                    "reading). AND THE THRESHOLD WAS UNREACHABLE BY CONSTRUCTION, which is a defect in "
+                    "this gate rather than in the paths: `role_overlap` is a JACCARD over role SETS, and "
+                    "the model path emits every role the structural path emits -- `table-only` is EMPTY "
+                    "across the whole development set -- plus ten more (`note`, `id`, `factor:operons`, "
+                    "`factor:retype_cistrons`, six further readout channels). So the union is wide by "
+                    "design, and the CEILING on this Jaccard, assuming the model path had found every "
+                    "structural role, averages 0.314 and reaches 0.5 on 1 of 21 reports. A perfect model "
+                    "reading could not have passed this gate. "
+                    "THE THRESHOLD IS NOT BEING EDITED. Rewriting a number after missing it is the "
+                    "failure this registration exists to prevent, so G2 stays, stays FAILED, and "
+                    "G2B_STRUCTURAL_COVERAGE is added beside it as a separately named criterion -- both "
+                    "visible, neither mistakable for the other.",
+    },
+    {
+        "id": "G2B_STRUCTURAL_COVERAGE",
+        "weakness": "ADJ-W1",
+        "asks": "Of the roles the TABLE reading found, how many did the model reading also find?",
+        "measure": "agent_covers_structural_roles",
+        "requires": (">=", 0.5),
+        "source": "|roles(structural) & roles(agent)| / |roles(structural)|, over the reports with a "
+                  "non-empty structural reading",
+        "why": "The question G2 meant to ask, in a form its own arithmetic does not cap. Dual extraction "
+               "buys redundancy when a second reading covers what the first found; it is not weakened by "
+               "the second reading ALSO finding things the first cannot represent, which is what the "
+               "Jaccard penalises. Registered at the same 0.5 and for the same reason -- below half, "
+               "agreement is a statement about a handful of fields -- and registered AFTER G2's number "
+               "was seen, which is recorded here rather than hidden: it is why G2 is kept failing instead "
+               "of being quietly retuned.",
+        "measured": "MET, 2026-10-30: mean 0.725, median 0.800 over the 21 reports with a non-empty "
+                    "structural reading; 17 of 21 at or above 0.5 and 4 at 1.0. The third path is aimed "
+                    "where it was meant to be aimed. What it does NOT buy is record-level agreement: 34 "
+                    "agreed records over 450 structural and 4,181 agent records (Jaccard mean 0.0061), "
+                    "and part of that is ADJ-W11 -- the record key does not normalise through the synonym "
+                    "table, so one setting in two declared spellings reads as a disagreement.",
     },
     {
         "id": "G3_QUOTES_VERBATIM",
@@ -103,18 +145,56 @@ READINESS_GATES = (
                "1.0 means the construction is broken and the number would be the finding.",
     },
     {
+        "id": "G7_LEVELS_DERIVED",
+        "weakness": "ADJ-W10",
+        "asks": "Is every `factor:` level derived from the cited span, rather than accepted from the "
+                "model?",
+        "measure": "levels_derived_by_platform",
+        "requires": ("is", True),
+        "source": "extraction.extract_agent(...)['levels_derived_by_platform'], and the same key on "
+                  "extract_report(...)['agent'] -- both entry points route through "
+                  "extraction.route_level",
+        "why": "G3's own sequel, and the reason G3 alone is not enough. With the quote cut by the "
+               "platform the remaining way to be wrong was the FIELD: 249 of 312 level records carried a "
+               "value the cited span does not contain, because the role vocabulary was being used as a "
+               "topic label. A level feeds a cost and a command-line flag, so a wrong one adds a switch "
+               "the author never asked for -- the one place in this pipeline where refusing is cheaper "
+               "than allowing. True by construction, so this gate checks the construction.",
+    },
+    {
         "id": "G4_PARTIALITY_TRAVELS",
         "weakness": "ADJ-W8",
         "asks": "Can a summary report a count over a document it only partly read, without saying so?",
         "measure": "summaries_carry_partial_flag",
         "requires": ("is", True),
-        "source": "whether adjudicate.cost_summary / extraction.cost_breakdown / "
-                  "extraction.row_cost_summary can still be called over a partial reading WITHOUT saying "
-                  "so. They accept `partial` and append PARTIAL_NOTE when told; all three default to "
-                  "False, so today the answer is no and this gate is unmet.",
+        "source": "whether any summary can still be called over a partial reading WITHOUT saying so. "
+                  "MET as of 2026-10-30: the five summaries in adjudicate.COMPLETENESS_AWARE take "
+                  "`partial` defaulting to None and append UNSTATED_COMPLETENESS_NOTE when nobody told "
+                  "them, so there are three answers and the third is 'nobody said'. The defect was never "
+                  "the mechanism -- all of them already appended PARTIAL_NOTE when told -- it was the "
+                  "DEFAULT of False, which answers the question with a confident no on behalf of a caller "
+                  "who was never asked. A test enumerates the list and fails if anything defaults it to "
+                  "False again.",
         "why": "Per-section calling means a document can come back with sections unread. A cost table over "
                "a partial extraction UNDER-COUNTS, and an under-count that looks clean is worse on a "
                "held-out set than anywhere else, because there is no second run to catch it.",
+    },
+    {
+        "id": "G8_SAMPLING_PINNED",
+        "weakness": "ADJ-W7",
+        "asks": "Was the extraction that produced these numbers sampled at a pinned temperature?",
+        "measure": "extraction_temperature_pinned",
+        "requires": ("is", True),
+        "source": "extraction.extract_agent(...)['temperature_pinned'], which is False whenever the "
+                  "configured model refuses an explicit temperature",
+        "why": "The default model accepts temperature 0 and the trade that made this a decision turned "
+               "out not to exist -- claude-sonnet-5 spends its whole budget on extended reasoning and "
+               "never writes a text block, so it was not a weaker-but-reproducible choice against a "
+               "stronger one, it was a model that works against one that does not. But the model is "
+               "OVERRIDABLE (CELLARIUM_EXTRACT_MODEL), and `temperature_pinned` only REPORTS the "
+               "unpinned case. On a one-shot held-out run a report is the only artefact: two runs "
+               "disagreeing would be a property of the sampler and there is no second run to find that "
+               "out with. So the note becomes an obligation exactly where it cannot be recovered from.",
     },
     {
         "id": "G5_MAPPINGS_REVIEWED",
@@ -160,11 +240,47 @@ MUST_REPORT = (
         "id": "M1_VALUE_OUTSIDE_QUOTE_RATE",
         "measure": "value_outside_quote_rate",
         "source": "extract_agent(...)['n_value_outside_quote'] / ['n_level_records']",
-        "asks": "How often is a real span cited for a record it does not support?",
-        "why": "What the platform-cut quote does NOT buy. Verbatim is not relevant, and nobody has a "
-               "principled threshold for this yet -- a claim may legitimately be stated in words that "
-               "never repeat its level. Reported, so the construction guarantee is not read as a guarantee "
-               "of relevance.",
+        "asks": "Of the level-bearing records KEPT, how many have a level nothing verified?",
+        "why": "What the platform-cut quote does NOT buy. THIS NUMBER CHANGED MEANING ON 2026-10-30 and "
+               "the old reading must not be carried over: before ADJ-W10 it counted every kept level "
+               "whose value was absent from its own span, and it was 80% (249 of 312). Those records are "
+               "now REJECTED rather than kept (see M4), and a derived level's spelling is a substring of "
+               "its quote by construction, so what is left here is the unverifiable tail -- the "
+               "`factor:` roles with no closed vocabulary to derive against (a shift, a cistron retyping "
+               "map). On the development set that is 33 of the 131 level records KEPT -- 25%, and 11% of "
+               "the 312 proposed, so the denominator has to be stated and it is `n_level_records`. Those "
+               "records are refused a price rather than costed, so this number sizes how much of a plan "
+               "this path cannot price at all. OVER THE WHOLE DEVELOPMENT SET, 2026-10-30 (33 reports, "
+               "569 calls): 174 of 1,317 kept level records = 0.132, and every one of those 174 is an "
+               "underivable-role record -- the invariant holds on real traffic, because a derived level's "
+               "spelling is a substring of its own quote by construction.",
+    },
+    {
+        "id": "M4_LEVEL_REFUSAL_RATE",
+        "measure": "level_refusal_rate",
+        "source": "extract_agent(...)['n_level_rejected'] / (['n_level_rejected'] + "
+                  "['n_level_records'])",
+        "asks": "What share of level-bearing records cite a span that states no derivable level?",
+        "why": "The number ADJ-W10's fix MOVES the risk into, and it has no defensible threshold: on the "
+               "development set it is 58% (181 of 312), and nobody knows how much of that is the model "
+               "pointing at the wrong unit and how much is a document stating a level in a spelling the "
+               "frozen tables do not carry -- widening them to find out is the thing the contract "
+               "forbids. A high rate on the held-out set is a statement about the vocabulary; it must be "
+               "reported either way, because this is where the rejected records went. OVER THE WHOLE "
+               "DEVELOPMENT SET, 2026-10-30: 1,430 of 2,747 = 0.521, against 0.580 on the four reports "
+               "it was first measured on.",
+    },
+    {
+        "id": "M5_MODEL_LEVEL_DISAGREEMENT_RATE",
+        "measure": "model_level_disagreement_rate",
+        "source": "extract_agent(...)['n_model_value_differed'] / ['n_level_derived']",
+        "asks": "Where a level COULD be derived, how often was the model's own value a different one?",
+        "why": "The direct measure of the behaviour the derivation removes, kept visible the same way "
+               "`n_rewrote` keeps the fabricated quote visible after it stopped being able to reach the "
+               "output. 26% on the development set (25 of 96): a quarter of the levels proposed where a "
+               "span states one were not the level that span states. OVER THE WHOLE DEVELOPMENT SET, "
+               "2026-10-30: 316 of 1,143 = 0.276, against 0.260 on the first four reports -- the rate the "
+               "four-report run reported did not move, which is the only reason to trust either.",
     },
     {
         "id": "M2_UNRESOLVED_REQUIREMENT_RATE",
@@ -181,7 +297,11 @@ MUST_REPORT = (
         "source": "len(extract_agent(...)['span_failures']) / ['n_spans']",
         "asks": "What share of located sections could not be read at all?",
         "why": "An environment fault, not a corpus fact -- but one that shrinks every count in the run. A "
-               "result over 80% of the sections is not a result over the documents.",
+               "result over 80% of the sections is not a result over the documents. OVER THE WHOLE "
+               "DEVELOPMENT SET, 2026-10-30: 92 of 569 located sections unread = 0.162, and 29 of the 33 "
+               "reports came back PARTIAL. That is not a rare case to note in passing; it is most of the "
+               "corpus, and it is why the completeness flag of ADJ-W8 had to stop defaulting to "
+               "complete.",
     },
 )
 

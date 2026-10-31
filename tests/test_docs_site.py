@@ -121,3 +121,38 @@ def test_no_shipped_doc_links_to_a_file_a_cloner_will_not_have():
     assert not offenders, (
         "these links point at documents a fresh clone does not receive, so `mkdocs build --strict` fails in "
         f"CI while passing locally: {offenders}. Either track the target or drop the link.")
+
+
+# --- NMI-3: the citation file ------------------------------------------------------------------------
+
+def test_the_citation_file_agrees_with_the_LICENSE_and_the_package_metadata():
+    """A published artefact nobody checks drifts. NMI-3 exists because the absence of our own citation
+    metadata was conspicuous next to the DOIs this repo cites correctly for everyone else's work; a
+    CITATION.cff that disagreed with LICENSE or pyproject would be the same defect wearing a file."""
+    import re
+
+    text = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    assert "cff-version: 1.2.0" in text
+    # The author is the copyright holder named in LICENSE, not an inference from the commit log.
+    holder = re.search(r"Copyright \(c\) \d{4} (.+)", (ROOT / "LICENSE").read_text(encoding="utf-8"))
+    assert holder and holder.group(1).strip() == "Evangelos-Marios Nikolados"
+    assert "family-names: Nikolados" in text and "given-names: Evangelos-Marios" in text
+    version = re.search(r'^version = "(.+?)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+                        re.M)
+    assert version and f"version: {version.group(1)}" in text
+    assert "license: MIT" in text
+
+
+def test_the_citation_file_asserts_NO_DOI_rather_than_a_plausible_one():
+    """The half of NMI-3 that cannot be done here: a DOI needs a deposit only the owner can make. A
+    fabricated identifier resolves to somebody else's work, so its absence is pinned -- and the two other
+    gaps (co-authorship, and the data-availability wording that waits on the upstream licence question)
+    are named in the file rather than quietly left out."""
+    text = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    own = [ln for ln in text.splitlines()
+           if ln.startswith("doi:") or ln.startswith("identifiers:")]
+    assert not own, f"CITATION.cff claims a DOI for Cellarium itself: {own}"
+    # Other people's DOIs under `references:` are exactly what SHOULD be there.
+    assert "10.5281/zenodo.7859480" in text
+    for gap in ("Zenodo", "co-authors", "ORCID", "DATA-AVAILABILITY"):
+        assert gap in text, gap

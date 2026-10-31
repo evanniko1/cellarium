@@ -249,6 +249,16 @@ def test_the_agent_path_contract_is_declared_and_now_implemented():
 
 
 def test_an_agent_record_is_held_to_the_same_gate_as_any_other():
+    """BOTH gates, and the second one was missing here until 2026-10-30.
+
+    This branch takes records somebody else produced, and it ran the verbatim check alone -- so a level
+    the model invented survived here while the identical record was rejected one branch over in
+    `extract_agent`. Found by attacking the W10 fix rather than by reasoning about it, which is why
+    `route_level` now holds the rule once and both entry points call it.
+
+    The first record's quote IS verbatim: `ppGpp Module` is the column HEADER. A header names the field
+    and states no level, so the record passes the quote gate and fails the derivation -- which is the
+    distinction the two gates exist to draw."""
     out = extraction.extract_report(DOC, agent_records=[
         extraction.Record(kind="requirement", role="factor:ppgpp_module", value="on",
                           quote="ppGpp Module", section="s", section_kind="plan", path="agent",
@@ -257,8 +267,24 @@ def test_an_agent_record_is_held_to_the_same_gate_as_any_other():
                           quote="we will use a rich defined medium", section="s", section_kind="plan",
                           path="agent", start=0, end=0),
     ])
-    assert out["agent"]["n_kept"] == 1 and out["agent"]["n_rejected"] == 1
-    assert out["agent"]["rejected"][0]["reason"] == "quote_not_in_source"
+    assert out["agent"]["n_kept"] == 0 and out["agent"]["n_rejected"] == 2
+    assert [r["reason"] for r in out["agent"]["rejected"]] == ["quote_not_in_source",
+                                                              "span_states_no_declared_level"]
+    assert out["agent"]["levels_derived_by_platform"] is True
+    assert out["agent"]["n_level_rejected"] == 1
+
+
+def test_a_record_handed_in_from_OUTSIDE_cannot_keep_its_own_level():
+    """The same point positively: a record whose quote is a real table ROW keeps the level the ROW states,
+    not the one it arrived with."""
+    out = extraction.extract_report(DOC, agent_records=[
+        extraction.Record(kind="requirement", role="factor:ppgpp_module", value="off",
+                          quote="| R1 | gene_knockout | on | enzyme-aware | 0.55 | growth rate, ppGpp |",
+                          section="s", section_kind="plan", path="agent", start=0, end=0),
+    ])
+    assert out["agent"]["n_kept"] == 1 and out["agent"]["n_model_value_differed"] == 1
+    assert out["agent"]["derived"][0]["value"] == "on"
+    assert out["agent"]["derived"][0]["model_value"] == "off"
 
 
 def test_extract_report_refuses_bad_input():
@@ -644,7 +670,7 @@ def test_the_breakdown_splits_unresolved_and_keeps_every_class():
     assert out["by_cost"]["run"] == 1 and out["by_cost"]["rebuild"] == 1
     assert out["by_cost"]["unresolved"] == 3
     assert out["unresolved_because"] == {"row_dependent": 1, "value_not_normalised": 1,
-                                         "cell_is_not_cost_bearing": 1}
+                                         "cell_is_not_cost_bearing": 1, "level_unverified": 0}
     assert out["n_distinct"] == 5
 
 
@@ -1622,20 +1648,24 @@ def test_a_citation_the_platform_cannot_use_is_rejected_and_named():
     assert set(r["reason"] for r in out["rejected"]) == {"no_line_citation", "line_out_of_range"}
 
 
-def test_a_real_span_cited_for_a_record_it_does_not_support_is_kept_but_COUNTED():
-    """Where the risk went. The quote can no longer be invented, so the remaining way to be wrong is to
-    cite a true span for the wrong record -- verbatim and irrelevant. Not a refusal: a claim may legitimately
-    be stated in words that never repeat its level. But counted, so nobody reads a construction guarantee as
-    a guarantee of relevance."""
+def test_a_real_span_cited_for_a_record_it_does_not_support_is_REJECTED_once_the_level_is_derivable():
+    """Where the risk went, and what ADJ-W10 then did about it. THIS TEST ASSERTED THE OPPOSITE until
+    2026-10-30: a level the cited span does not carry was KEPT and counted, on the ground that a claim may
+    legitimately be stated in words that never repeat its level. The 249-of-312 measurement showed that
+    allowance was carrying almost the whole population, so where the role has a closed vocabulary the
+    record is now REFUSED. The span cited here is the section HEADING, which states no setpoint, and a
+    heading is not evidence for a field. The old allowance survives exactly where it is still true: a
+    free-text role (note / readout / id), and a `factor:` role with no vocabulary to derive against."""
     c = _PerSpanClient([_reply([
         _cited(1, kind="requirement", role="factor:target_charging", value="0.85",
                section="Factorial Simulation Matrix"),
     ]), _reply([])])
     out = extraction.extract_agent(DOC, client=c)
-    assert out["n_kept"] == 1
-    assert out["n_value_outside_quote"] == 1
-    assert "0.85" not in out["kept"][0].quote
-    assert "does not contain" in out["note"]
+    assert out["n_kept"] == 0 and out["n_rejected"] == 1
+    assert out["rejected"][0]["reason"] == "span_states_no_declared_level"
+    assert out["n_level_rejected"] == 1 and out["n_level_derived"] == 0
+    assert "0.85" not in out["rejected"][0]["quote"]
+    assert "no declared level" in out["rejected"][0]["note"]
 
 
 def test_the_prompt_shows_NUMBERED_units_and_asks_for_numbers():
@@ -1685,7 +1715,9 @@ def test_a_NOTE_that_states_its_span_in_other_words_is_not_an_unsupported_VALUE(
 
 def test_a_LEVEL_role_is_still_held_to_its_cited_span():
     """The split must not become an excuse. A factor level is a token the document either carries or does
-    not, and that one is still measured."""
+    not -- and since ADJ-W10 the two outcomes are no longer "counted" and "counted" but REJECTED and
+    DERIVED. The heading states no setpoint, so that record goes; the second table row states `off`, so
+    that one is kept with a level the platform read out of the row itself."""
     c = _PerSpanClient([_reply([
         _cited(1, kind="requirement", role="factor:target_charging", value="0.85",
                section="Factorial Simulation Matrix"),
@@ -1693,8 +1725,12 @@ def test_a_LEVEL_role_is_still_held_to_its_cited_span():
                section="Factorial Simulation Matrix"),
     ]), _reply([])])
     out = extraction.extract_agent(DOC, client=c)
-    assert out["n_level_records"] == 2 and out["n_free_text_records"] == 0
-    assert out["n_value_outside_quote"] == 1
+    assert out["n_level_records"] == 1 and out["n_free_text_records"] == 0
+    assert out["n_level_rejected"] == 1 and out["n_level_derived"] == 1
+    assert out["kept"][0].value == "off"
+    # Zero, and that is the W10 property rather than a weaker check: the one record left is a DERIVED
+    # level, whose spelling is a substring of its own quote by construction.
+    assert out["n_value_outside_quote"] == 0
 
 
 def test_the_kept_count_says_how_much_of_it_is_FREE_TEXT():
@@ -1729,3 +1765,377 @@ def test_a_READOUT_record_describing_what_it_predicts_is_prose_not_an_unsupporte
     assert out["n_value_outside_quote"] == 0
     assert extraction._is_level_role("factor:medium") is True
     assert extraction._is_level_role("readout:growth_rate") is False
+
+
+# --- ADJ-W10: the LEVEL is derived from the span, not accepted from the model -------------------------
+#
+# W9 took away the model's chance to mistype a quote by not asking it for one. The same live run then showed
+# the FIELD was wrong where the quote was right: 249 of 312 `factor:` records carried a value the cited span
+# does not contain, and the values were sentences filed under a field name. So the same move one level up --
+# the model points at the unit, the platform derives the level. These tests are written against the hazard
+# that makes it hard rather than against the happy path, because the hazard is the design.
+
+def test_the_PER_CELL_normaliser_manufactures_a_level_out_of_a_SENTENCE():
+    """The measurement that decides the matcher, and it is this project's own code failing.
+
+    `normalise_value` tests `word in low`, which is right for a CELL -- a cell's text IS the author's value.
+    Applied to a SPAN it reads a sentence about elongation and returns `ppgpp_module = on`, because
+    "elongati-ON" contains the declared spelling. That is the W5 defect (a mapping manufacturing a member
+    the document never stated) reached by a different route, so the derivation may not reuse that matcher."""
+    span = "elongation velocity must decelerate upon nutrient downshift"
+    assert extraction.normalise_value("factor:ppgpp_module", span)["value"] == "on"
+    assert extraction.normalise_value("factor:ppgpp_module", span)["basis"] == "declared_synonym"
+    # The derivation refuses the same span.
+    d = extraction.derive_level("factor:ppgpp_module", span)
+    assert d["value"] == "" and d["reason"] == "span_states_no_declared_level"
+
+
+def test_a_level_matched_only_as_a_fragment_of_another_word_is_not_a_match():
+    for span in ("the transcription of ribosomal protein operons",
+                 "activity is conditional on the fixed-effect term",   # "on" inside no word, but no field
+                 "we report the concentration of ppGpp"):
+        assert extraction.derive_level("factor:ppgpp_module", span)["value"] in ("", "off")
+    assert extraction._level_matches("factor:ppgpp_module", "elongation") == []
+
+
+def test_a_table_cell_derives_every_one_of_its_levels():
+    """A row IS the author's own value for each of its fields, so every role in it derives."""
+    row = "| R1 | gene_knockout | on | enzyme-aware | 0.55 | growth rate, ppGpp |"
+    got = {r: extraction.derive_level(r, row) for r in
+           ("factor:ppgpp_module", "factor:aa_supply", "factor:target_charging", "factor:perturbation")}
+    assert got["factor:ppgpp_module"]["value"] == "on"
+    assert got["factor:aa_supply"]["value"] == "enzymes"
+    assert got["factor:target_charging"]["value"] == "0.55"
+    assert got["factor:perturbation"]["value"] == "gene_knockout"
+    assert all(g["basis"] == "derived_from_span" for g in got.values())
+
+
+def test_a_span_naming_TWO_levels_of_one_factor_is_refused_not_halved():
+    """Both rows at once. `on` and `off` are both stated, so the span does not state ONE level, and
+    picking the first would halve the design -- the same reason `multi_level` exists for a cell."""
+    both = ("| R1 | gene_knockout | on | enzyme-aware | 0.55 | growth rate, ppGpp |\n"
+            "| R2 | gene_knockout | off | medium-clamped | 0.85 | growth rate |\n")
+    d = extraction.derive_level("factor:ppgpp_module", both)
+    assert d["reason"] == "span_states_two_levels" and d["value"] == ""
+    assert d["candidates"] == ["off", "on"]
+    assert extraction.derive_level("factor:target_charging", both)["reason"] == "span_states_two_levels"
+
+
+def test_an_ambiguous_word_outside_a_VALUE_POSITION_is_found_and_then_GUARDED():
+    """The guard is visible, not implicit: the match IS found and then refused for where it sits.
+
+    "the ppGpp module depends on the elongation model" names the role and contains the declared spelling
+    `on` as its own word. A boundary matcher alone is not enough -- this is the sentence that proves it."""
+    span = "the ppGpp module depends on the elongation model"
+    ms = extraction._level_matches("factor:ppgpp_module", span)
+    assert [m["level"] for m in ms] == ["on"]
+    assert ms[0]["ambiguous_in_prose"] is True and ms[0]["in_value_position"] is False
+    assert extraction.derive_level("factor:ppgpp_module", span)["reason"] == "span_states_no_declared_level"
+
+
+def test_the_role_s_own_spelling_puts_the_next_word_in_a_value_position():
+    assert extraction.derive_level("factor:ppgpp_module", "ppGpp regulation is left on")["value"] == "on"
+    assert extraction.derive_level("factor:ppgpp_module", "ppGpp module = off")["value"] == "off"
+    assert extraction.derive_level("factor:operons", "set operons off for the second arm")["value"] == "off"
+    # ... and a word in neither position stays refused, even with the role named earlier in the sentence.
+    assert extraction.derive_level("factor:medium", "we will hold the medium fixed across every arm"
+                                   )["reason"] == "span_states_no_declared_level"
+
+
+def test_a_longer_declared_spelling_wins_over_the_one_nested_inside_it():
+    """`kinetic` is a substring of `coarse_kinetic`, and a span saying the longer one states ONE mode."""
+    d = extraction.derive_level("factor:elongation_model", "run under the coarse kinetic model")
+    assert d["value"] == "coarse_kinetic" and d["reason"] == ""
+    m = extraction.derive_level("factor:medium", "M9 glucose + 20 aa")
+    assert m["value"] == "minimal_plus_amino_acids"
+
+
+def test_an_identifier_written_with_spaces_still_names_the_declared_mode():
+    """Prose writes `steady-state`; the identifier is `steady_state`. Matching the same declared token
+    under another separator convention is not widening the vocabulary -- no token was added."""
+    for spelling in ("steady_state", "steady state", "steady-state"):
+        assert extraction.derive_level("factor:elongation_model",
+                                       f"the arm uses the {spelling} elongation model")["value"] == "steady_state"
+
+
+def test_neither_a_PERCENTAGE_nor_a_BARE_DECIMAL_is_a_charging_setpoint():
+    """A setpoint is a fraction, so `<2%` is a different quantity in different units -- and a bare decimal
+    anywhere in a sentence is not a setpoint either. THE SECOND HALF IS MEASURED, not cautious: over the
+    live run an unguarded decimal read `arrest within 1.3 +/- 0.2 generations` as a setpoint of 0.2
+    and `mu ~ 0.95 per hour` -- a GROWTH RATE -- as a setpoint of 0.95. So a decimal counts only where a
+    value goes: after a cell boundary, after `=`, or after a declared spelling of the field itself."""
+    for span in ("uncharged tRNA <2% during hardware dilution",
+                 "a 20% drop relative to wild type",
+                 "residual HisRS triggers arrest within 1.3 +/- 0.2 generations",
+                 "on glucose minimal medium (mu approx 0.95 h^-1), cells maintain ~22,000 ribosomes"):
+        d = extraction.derive_level("factor:target_charging", span)
+        assert d["value"] == "" and d["reason"] == "span_states_no_declared_level", span
+    # ... and where a value DOES go, it is read.
+    assert extraction.derive_level("factor:target_charging",
+                                   "charging setpoint anchored at 0.85")["value"] == "0.85"
+    assert extraction.derive_level("factor:target_charging", "| R1 | 0.55 |")["value"] == "0.55"
+    assert extraction.derive_level("factor:target_charging", "no refit is applied")["value"] == "none"
+
+
+def test_two_setpoints_in_one_span_are_refused():
+    d = extraction.derive_level("factor:target_charging", "the charging setpoint is 0.55 or 0.85")
+    assert d["reason"] == "span_states_two_levels" and sorted(d["candidates"]) == ["0.55", "0.85"]
+
+
+def test_a_level_the_GUARD_held_back_is_RE_ADMITTED_across_a_conjunction():
+    """The guard, caught creating the harm it was meant to prevent, on a real plan row.
+
+    `| Config 5 | ON and OFF | Active | ... |` -- `ON` follows a cell boundary and passes the guard,
+    `OFF` follows the word "and" and does not, and `Active` says `on` too. Two accepted matches, both
+    `on`, so the span derived `on` from a cell that CROSSES both levels: the design halved, which is the
+    one thing `multi_level` exists to stop. A conjunction joins two levels of one value, so a match beside
+    an ACCEPTED one is re-admitted -- which cannot invent a level, because it needs the accepted one."""
+    row = "| Config 5      | ON and OFF    | Active             | Nutritional Shifts:    | 0.65 |"
+    assert [m["level"] for m in extraction._level_matches("factor:ppgpp_module", row)] == ["on", "off", "on"]
+    d = extraction.derive_level("factor:ppgpp_module", row)
+    assert d["reason"] == "span_states_two_levels" and d["candidates"] == ["off", "on"]
+
+
+def test_a_medium_is_derived_only_while_the_AUTHORITY_still_carries_it(monkeypatch):
+    """The call-time check `normalise_value` already makes, kept here: a medium that stops having a
+    condition row in the model must stop being derivable, or the mapping outlives its authority."""
+    from cellarium import envelope
+    assert extraction.derive_level("factor:medium", "grown in M9 glucose")["value"] == "minimal"
+    monkeypatch.setattr(envelope, "media_with_a_doubling_time", lambda: {"minimal_acetate"})
+    assert extraction.derive_level("factor:medium", "grown in M9 glucose"
+                                   )["reason"] == "span_states_no_declared_level"
+    assert extraction.derive_level("factor:medium", "shifted into acetate")["value"] == "minimal_acetate"
+
+
+def test_a_gene_symbol_in_a_perturbation_span_derives_a_knockout():
+    """The column's own meaning, read from the span the same way `normalise_value` reads it from a cell.
+    Two genes is ONE level -- `multi_gene_knockout` -- not two candidates."""
+    assert extraction.derive_level("factor:perturbation", "the argS knockout arm")["value"] == "gene_knockout"
+    assert extraction.derive_level("factor:perturbation", "knock out argS and hisS"
+                                   )["value"] == "multi_gene_knockout"
+    assert extraction.derive_level("factor:perturbation", "the wild type control")["value"] == "wildtype"
+    assert extraction.derive_level("factor:perturbation", "growth rate falls in the mutant"
+                                   )["reason"] == "span_states_no_declared_level"
+
+
+def test_a_factor_role_with_no_declared_vocabulary_says_so_instead_of_rejecting():
+    """A third answer, and it has to exist. `factor:shift` is a timeline and `factor:retype_cistrons` is a
+    MAP of rna_id to type: there is no closed set to match, so "no level in this span" would be a false
+    statement about the span. The reason distinguishes the two, and only this one survives as unverified."""
+    for role in extraction.UNDERIVABLE_LEVEL_ROLES:
+        d = extraction.derive_level(role, "glucose to acetate at generation 3")
+        assert d["reason"] == "level_not_derivable" and d["note"]
+    assert "factor:shift" not in extraction.DERIVABLE_LEVEL_ROLES
+
+
+def test_every_declared_factor_role_is_either_derivable_or_declared_undecidable():
+    """No role may fall between the two. A `factor:` role in neither table would reach the keep path with
+    the model's own value and no check at all, which is the defect this item is."""
+    roles = {r for r in set(extraction.COLUMN_ROLES) | set(extraction.ROLE_IDENTIFIERS)
+             | set(extraction.REFIT_LEVER_ROLES.values()) if extraction._is_level_role(r)}
+    assert roles
+    assert roles == set(extraction.DERIVABLE_LEVEL_ROLES) | set(extraction.UNDERIVABLE_LEVEL_ROLES)
+    assert not set(extraction.DERIVABLE_LEVEL_ROLES) & set(extraction.UNDERIVABLE_LEVEL_ROLES)
+    for role in extraction.DERIVABLE_LEVEL_ROLES:
+        # Every derivable role must actually have something to derive against, or it is undecidable in
+        # disguise. target_charging's vocabulary is the numeric rule plus the words for none.
+        assert extraction.level_vocabulary(role), role
+
+
+# --- and what it does to the live path ---------------------------------------------------------------
+
+def test_a_sentence_filed_under_a_field_name_is_REJECTED_by_the_derivation():
+    """The W10 finding itself: `factor:operons` = "Ribosomal protein transcripts are among the most
+    codon-biased...". The quote is a real span of the document and the record is still not a field."""
+    c = _PerSpanClient([_reply([
+        _cited(3, kind="requirement", role="factor:target_charging",
+               value="Growth rate falls by at least 20% in the argS knockout",
+               section="Expected Outcomes"),
+    ])], )
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 0 and out["n_rejected"] == 1
+    assert out["rejected"][0]["reason"] == "span_states_no_declared_level"
+    assert out["n_level_rejected"] == 1
+    assert "derived" in out["note"].lower()
+
+
+def test_the_model_s_own_level_is_IGNORED_and_the_derived_one_is_kept():
+    """The whole of the fix in one assertion. The reply cites the row that says `on` and claims `off`;
+    the record is kept with `on`, because the level is not the model's to supply either."""
+    c = _PerSpanClient([_reply([
+        _cited(5, kind="requirement", role="factor:ppgpp_module", value="off",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1
+    assert out["kept"][0].value == "on"
+    assert out["n_model_value_differed"] == 1 and out["n_level_derived"] == 1
+    assert out["derived"][0]["model_value"] == "off" and out["derived"][0]["value"] == "on"
+    assert "ignored" in out["note"].lower()
+
+
+def test_a_derived_level_s_SPELLING_is_in_its_own_quote_by_construction():
+    """The W9 property one level up. The canonical level may be a different string from the document's
+    (`enzyme-aware` -> `enzymes`), so what is verbatim by construction is the SPELLING that was matched --
+    and that is the thing a reader checks the quote against."""
+    c = _PerSpanClient([_reply([
+        _cited(5, kind="requirement", role="factor:aa_supply", value="whatever",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1 and out["kept"][0].value == "enzymes"
+    d = out["derived"][0]
+    assert d["spelling"] == "enzyme-aware"
+    assert d["spelling"] in out["kept"][0].quote
+    assert extraction._value_in_quote(d["spelling"], out["kept"][0].quote)
+    assert out["n_value_outside_quote"] == 0
+
+
+def test_a_level_the_span_cannot_verify_is_kept_UNVERIFIED_and_refused_a_price():
+    """The second-choice treatment, used only where the first is impossible. There is no vocabulary for a
+    shift, so the record is kept -- rejecting a true record is the expensive direction -- and the fact
+    that nothing verified its level TRAVELS: `cost_of` refuses to price it instead of guessing."""
+    c = _PerSpanClient([_reply([
+        _cited(8, kind="requirement", role="factor:shift", value="a downshift at generation 3",
+               section="Factorial Simulation Matrix"),
+    ]), _reply([])])
+    out = extraction.extract_agent(DOC, client=c)
+    assert out["n_kept"] == 1 and out["n_level_unverified"] == 1 and out["n_level_derived"] == 0
+    rec = out["kept"][0]
+    assert rec.level_unverified is True
+    assert out["n_value_outside_quote"] == 1
+    cost = extraction.cost_of(rec)
+    assert cost["cost"] == "unresolved" and cost["unresolved_because"] == "level_unverified"
+    assert "nothing verified" in cost["note"].lower() or "unverified" in cost["note"].lower()
+    # And the refusal survives the table that counts demands rather than cells.
+    bd = extraction.cost_breakdown([rec])
+    assert bd["unresolved_because"]["level_unverified"] == 1
+
+
+def test_the_unverified_flag_survives_dedupe_only_while_NO_occurrence_verified_it():
+    """A demand found twice, once with its level in the span and once without, IS evidenced -- by the
+    occurrence that carried it. The flag is `all`, not `any`, and the direction matters: `any` would
+    throw away a verified demand because some other sentence mentioned it loosely."""
+    mk = lambda unver: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:shift", value="a downshift at generation 3",
+        quote="We will run these with the kinetic elongation model", section="s", section_kind="plan",
+        path="agent", level_unverified=unver)
+    assert extraction.dedupe([mk(True), mk(True)])["distinct"][0]["level_unverified"] is True
+    assert extraction.dedupe([mk(True), mk(False)])["distinct"][0]["level_unverified"] is False
+
+
+def test_the_contract_says_the_level_is_derived_not_accepted():
+    must = " ".join(extraction.AGENT_PATH_CONTRACT["must"]).lower()
+    may_not = " ".join(extraction.AGENT_PATH_CONTRACT["may_not"]).lower()
+    assert "level" in extraction.AGENT_PATH_CONTRACT["level_provenance"].lower()
+    assert "derive" in extraction.AGENT_PATH_CONTRACT["level_provenance"].lower()
+    assert "level" in must or "level" in may_not
+
+
+def test_BOTH_entry_points_route_one_record_the_same_way():
+    """The structural guard on the hole found by attacking the fix. One rule, one implementation,
+    asserted by driving the same record through both doors and comparing -- not by reading the code and
+    believing it. A rule written twice is a rule that holds in one of them."""
+    row = "| R1 | gene_knockout | on | enzyme-aware | 0.55 | growth rate, ppGpp |"
+    for role, claimed, expect in (("factor:ppgpp_module", "off", "on"),
+                                  ("factor:aa_supply", "medium", "enzymes"),
+                                  ("factor:target_charging", "0.85", "0.55")):
+        c = _PerSpanClient([_reply([_cited(5, kind="requirement", role=role, value=claimed,
+                                           section="Factorial Simulation Matrix")]), _reply([])])
+        live = extraction.extract_agent(DOC, client=c)
+        handed = extraction.extract_report(DOC, agent_records=[extraction.Record(
+            kind="requirement", role=role, value=claimed, quote=row, section="s", section_kind="plan",
+            path="agent")])
+        assert live["n_kept"] == handed["agent"]["n_kept"] == 1, role
+        assert live["kept"][0].value == handed["agent"]["derived"][0]["value"] == expect, role
+        assert live["n_model_value_differed"] == handed["agent"]["n_model_value_differed"] == 1, role
+
+
+def test_the_PROMPT_tells_the_model_the_platform_derives_the_level():
+    """The contract is what the prompt is built from, so a clause that never reaches the prompt is a rule
+    the model was never told. Checked on the call, not on the table."""
+    c = _PerSpanClient([_reply([]), _reply([])])
+    extraction.extract_agent(DOC, client=c)
+    sent = json.dumps(c.calls[0]).lower()
+    assert "derives the level" in sent and "declared vocabulary" in sent
+
+
+# --- ADJ-W8: a summary that was not TOLD whether its input was complete says so ----------------------
+
+def test_a_summary_NOT_TOLD_whether_its_input_was_complete_says_UNSTATED():
+    """The fix for the defect, which was not the mechanism but the DEFAULT. All three summaries already
+    accepted `partial` and appended PARTIAL_NOTE when told; all three defaulted to `partial=False`, which
+    answers the question with a confident no on behalf of a caller who was never asked. Measured
+    relevance the same day: span failures were real on live traffic, so the forgetting path is reachable.
+
+    Three states, not two, and the third is the one that was missing."""
+    recs = [extraction.Record(kind="requirement", role="factor:ppgpp_module", value="on",
+                              quote="ppGpp Module", section="s", section_kind="plan", path="structural")]
+    out = extraction.cost_breakdown(recs)
+    assert out["partial"] is None and out["completeness"] == "unstated"
+    assert "COMPLETENESS NOT STATED" in out["note"]
+    told = extraction.cost_breakdown(recs, partial=False)
+    assert told["partial"] is False and told["completeness"] == "complete"
+    assert "COMPLETENESS NOT STATED" not in told["note"]
+    yes = extraction.cost_breakdown(recs, partial=True, n_unread=3)
+    assert yes["partial"] is True and yes["completeness"] == "partial"
+    assert "3 section(s) were not read" in yes["note"]
+
+
+def test_ALL_THREE_summaries_have_the_same_three_states_and_the_same_words():
+    """Declared once, used three times. Three summaries wording partiality differently is how one of them
+    ends up not saying it -- which is what PARTIAL_NOTE's own comment says, so the unstated case gets the
+    same treatment rather than a second wording per module."""
+    recs = [extraction.Record(kind="requirement", role="factor:ppgpp_module", value="on",
+                             quote="ppGpp Module", section="s", section_kind="plan", path="structural")]
+    reqs = [extraction.as_requirement(recs[0])]
+    for call in (lambda **kw: extraction.cost_breakdown(recs, **kw),
+                 lambda **kw: adjudicate.cost_summary(reqs, **kw),
+                 lambda **kw: extraction.row_cost_summary(DOC, **kw)):
+        assert call()["completeness"] == "unstated"
+        assert adjudicate.UNSTATED_COMPLETENESS_NOTE.strip()[:40] in call()["note"]
+        assert call(partial=False)["completeness"] == "complete"
+        assert call(partial=True, n_unread=2)["completeness"] == "partial"
+        assert adjudicate.PARTIAL_NOTE.format(n=2).strip()[:40] in call(partial=True, n_unread=2)["note"]
+
+
+def test_the_UNSTATED_case_cannot_be_reached_by_passing_a_number_instead_of_a_flag():
+    """`partial=0` and `partial=""` are a caller SAYING complete, badly; `partial=None` is nobody saying
+    anything. The three states have to be told apart by what was passed, not by truthiness -- a
+    truthiness test would read `None` and `False` the same way and put the defect straight back."""
+    recs = [extraction.Record(kind="requirement", role="factor:ppgpp_module", value="on",
+                             quote="ppGpp Module", section="s", section_kind="plan", path="structural")]
+    assert extraction.cost_breakdown(recs, partial=0)["completeness"] == "complete"
+    assert extraction.cost_breakdown(recs, partial=None)["completeness"] == "unstated"
+
+
+def test_EVERY_declared_summary_takes_the_flag_and_NOTHING_defaults_it_to_FALSE():
+    """The obligation, enumerated instead of remembered. ADJ-W8 was not a missing mechanism -- the
+    mechanism was there and every one of the three defaulted to `partial=False`, so the rule held nowhere.
+    This walks both modules: each declared summary must take `partial` and default it to None, and no
+    function anywhere in either module may default it to False again."""
+    import inspect
+    mods = {"extraction": extraction, "adjudicate": adjudicate}
+    for name in adjudicate.COMPLETENESS_AWARE:
+        mod, fn = name.split(".")
+        sig = inspect.signature(getattr(mods[mod], fn))
+        assert "partial" in sig.parameters, name
+        assert sig.parameters["partial"].default is None, name
+        assert "n_unread" in sig.parameters, name
+    seen = 0
+    for mod in mods.values():
+        for fname, fn in vars(mod).items():
+            if not inspect.isfunction(fn) or fn.__module__ != mod.__name__:
+                continue
+            p = inspect.signature(fn).parameters.get("partial")
+            if p is None:
+                continue
+            if p.default is inspect.Parameter.empty:
+                # A REQUIRED flag cannot be forgotten, so it meets the obligation another way. That is
+                # `completeness_of` itself, which exists to stop the three states being told apart by
+                # truthiness.
+                continue
+            seen += 1
+            assert p.default is None, f"{mod.__name__}.{fname} defaults partial to {p.default!r}"
+            assert f"{mod.__name__.split('.')[-1]}.{fname}" in adjudicate.COMPLETENESS_AWARE, fname
+    assert seen == len(adjudicate.COMPLETENESS_AWARE) == 5

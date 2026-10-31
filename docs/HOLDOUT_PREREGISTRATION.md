@@ -65,31 +65,82 @@ succeed.
 
 ## The gates
 
-Four of the six are the open weakness items. That is deliberate: "finished" means the things already known
-to be wrong are no longer wrong. A criterion invented from scratch would be a second chance to pick
+Six of the nine are the open weakness items. That is deliberate: "finished" means the things already
+known to be wrong are no longer wrong. A criterion invented from scratch would be a second chance to pick
 thresholds that today's numbers happen to clear.
 
 | gate | asks | threshold | closes |
 |---|---|---|---|
 | `G1_INDEPENDENT_CHECK` | Does anything in the pipeline check anything else? | `agent_vs_structural_comparison_kind` ∈ {redundant, partial} | ADJ-W1 |
-| `G2_ROLE_OVERLAP` | Do the two compared paths cover the same roles? | `agent_vs_structural_role_overlap` ≥ 0.5 | ADJ-W1 |
+| `G2_ROLE_OVERLAP` | Do the two compared paths cover the same roles? | `agent_vs_structural_role_overlap` ≥ 0.5 | ADJ-W1 — **measured, FAILED** |
+| `G2B_STRUCTURAL_COVERAGE` | Of the roles the *table* reading found, how many did the model reading also find? | `agent_covers_structural_roles` ≥ 0.5 | ADJ-W1 — **measured, met** |
 | `G3_QUOTES_VERBATIM` | Is every kept quote a verbatim span of its own document? | `quote_verbatim_rate` == 1.0 | ADJ-W9 |
-| `G4_PARTIALITY_TRAVELS` | Can a summary count over a partly-read document without saying so? | `summaries_carry_partial_flag` is True | ADJ-W8 |
+| `G7_LEVELS_DERIVED` | Is every `factor:` level derived from the cited span rather than accepted? | `levels_derived_by_platform` is True | ADJ-W10 |
+| `G4_PARTIALITY_TRAVELS` | Can a summary count over a partly-read document without saying so? | `summaries_carry_partial_flag` is True | ADJ-W8 (closed 2026-10-30) |
+| `G8_SAMPLING_PINNED` | Was the extraction sampled at a pinned temperature? | `extraction_temperature_pinned` is True | ADJ-W7 |
 | `G5_MAPPINGS_REVIEWED` | Has anyone but the author checked the value→member mappings? | `applied_mappings_signed_off_by` non-empty | ADJ-W5 |
 | `G6_SCORING_IS_MECHANICAL` | Is every held-out number produced by committed, tested code? | `score_produced_by_committed_code` is True | — (mitigation, not a defect) |
 
 Each gate in `holdout.py` also carries a `source` field naming the call that produces its number. A gate
 whose measurement has no stated source is a gate somebody fills in by hand at the moment of the run, which is
-what `G6_SCORING_IS_MECHANICAL` exists to forbid. Three of the six say plainly that the answer today is no.
+what `G6_SCORING_IS_MECHANICAL` exists to forbid. Two of the eight — `G5` and `G6` — say plainly that the
+answer today is no.
 
-`G1` and `G2` are the one that actually blocks today. The two mechanical paths turned out *complementary* —
-role overlap about zero, Jaccard 0.004, 30 of 33 reports agreeing on nothing — so their agreement checked
-nothing about either of them. Dual extraction's entire value is two independent readings of **one** quantity.
-Until two paths read the same fields, every field in this pipeline has a provenance and no check.
+`G8` is the same move as `G4`: the unpinned case was already *reported* (`temperature_pinned`), and a
+report is not an obligation. The default model accepts temperature 0, but the model is overridable, and on
+a one-shot run two runs disagreeing would be a property of the sampler with no second run to discover it.
+
+`G4` closed on 2026-10-30, and what closed it was not a mechanism but a **default**. All three summaries
+already accepted `partial` and already appended the partiality note when told; all three defaulted to
+`partial=False`, which answers the question with a confident no for a caller who was never asked. There are
+now three states — partial, complete, and *nobody said* — the five summaries in
+`adjudicate.COMPLETENESS_AWARE` all carry them, and a test enumerates that list rather than trusting a
+reader to remember it.
+
+`G1` and `G2` are the pair that actually blocks today, and **they were measured on 2026-10-30 over all 33
+development reports** — 569 model calls, $6.58, every report's digest checked against the seal first.
+
+The two mechanical paths had turned out *complementary* — role overlap about zero, Jaccard 0.004, 30 of 33
+reports agreeing on nothing — so their agreement checked nothing about either of them. The third path was
+aimed at the structural path's roles precisely so that agreement could mean something. What the measurement
+says:
+
+- **`G1` reads `partial` on 18 of 33 reports** and `complementary` on 15. The denominator had to be stated,
+  because a free measurement made first showed that **on 12 of the 33 reports the structural path finds
+  nothing at all** (10 carry no design-table rows), and a report with nothing to compare against scores
+  `complementary` by arithmetic rather than by disagreement. Over the 21 reports where both paths read
+  something, 18 are `partial`.
+- **`G2` FAILS: 0 of 33 reports reach 0.5** (mean 0.161, median 0.200, max 0.4444).
+- **And `G2`'s threshold was unreachable by construction.** `role_overlap` is a Jaccard over role *sets*,
+  and the model reading emits every role the table reading emits — the table-only set is **empty** across
+  the whole development set — plus ten more it can represent and a plan table cannot (`note`, `id`,
+  `factor:operons`, `factor:retype_cistrons`, six further readout channels). The union is therefore wide by
+  design, and the *ceiling* on this Jaccard, assuming the model reading had found every structural role,
+  averages 0.314 and reaches 0.5 on 1 of 21 reports. **A perfect model reading could not have passed this
+  gate.**
+
+The threshold is **not** being edited. Rewriting a number after missing it is the failure this registration
+exists to prevent. `G2` stays, stays failed, and `G2B_STRUCTURAL_COVERAGE` is added beside it as a
+separately named criterion, so the record carries both the criterion that failed and the one that replaced
+it. `G2B` asks the question `G2` meant to ask — of the roles the table reading found, how many did the model
+reading also find — and it is **met: mean 0.725, median 0.800, 17 of 21 reports at or above 0.5, four at
+1.0.** The third path is aimed where it was meant to be aimed.
+
+What none of this buys is record-level agreement: **34 agreed records** over 450 structural and 4,181 agent
+records, Jaccard mean 0.0061. Part of that is `ADJ-W11` — the record key does not normalise through the
+synonym table, so one setting in two declared spellings reads as a disagreement — and that is filed, not
+fixed, because fixing it would raise the number this gate measures.
 
 `G3` reads 1.0 by construction now: quotes are cut by the platform from the units a record cites, not copied
 by the model. The gate stays because a check on a construction is the only thing that can tell you the
 construction broke.
+
+`G7` is `G3`'s sequel, and the reason `G3` alone was not enough. Once the quote could not be forged the
+remaining way to be wrong was the **field**: 249 of 312 level records carried a value their own cited span
+does not contain, because the role vocabulary was being used as a topic label — `factor:operons` =
+"Ribosomal protein transcripts are among the most codon-biased…". Levels are now derived by the platform
+from the cited span against the declared vocabulary, with the model's value ignored and counted. It is true
+by construction too, so `G7` is likewise a check on the construction.
 
 ### Measurements with no threshold
 
@@ -98,11 +149,23 @@ and an unreported number is how a known weakness disappears from a result.
 
 | must report | asks |
 |---|---|
-| `M1_VALUE_OUTSIDE_QUOTE_RATE` | How often is a real span cited for a record it does not support? |
+| `M1_VALUE_OUTSIDE_QUOTE_RATE` | Of the level-bearing records *kept*, how many have a level nothing verified? (33 of 131 kept = 25% on the development set; 11% of the 312 proposed) |
+| `M4_LEVEL_REFUSAL_RATE` | What share of level-bearing records cite a span that states no derivable level? (58% on the development set) |
+| `M5_MODEL_LEVEL_DISAGREEMENT_RATE` | Where a level *could* be derived, how often was the model's own value a different one? (26% on the development set) |
 | `M2_UNRESOLVED_REQUIREMENT_RATE` | What share of extracted requirements cannot be costed at all? (79.8% on the development set, before normalisation) |
 | `M3_SPAN_FAILURE_RATE` | What share of located sections could not be read at all? |
 
-`M1` is where the risk went when the quote stopped being forgeable: verbatim is not the same as relevant.
+`M1` **changed meaning on 2026-10-30 and the old reading must not be carried over.** It used to count every
+kept level whose value was absent from its own span, and it read 80% (249 of 312). Those records are now
+rejected rather than kept — that is `M4` — and a derived level's spelling is a substring of its quote by
+construction, so what is left in `M1` is the unverifiable tail: the `factor:` roles with no closed
+vocabulary (a shift, a cistron retyping map), which are refused a price rather than costed.
+
+`M4` is where the risk went instead, and it is deliberately not a gate: nobody knows how much of that 58% is
+the model pointing at the wrong unit and how much is a document stating a level in a spelling the frozen
+tables do not carry. Widening them to find out is precisely what the contract forbids, so the number is
+reported and the vocabulary stays frozen. `M5` keeps the removed behaviour visible, the way `n_rewrote` keeps
+the fabricated quote visible after it stopped being able to reach the output.
 
 At readiness time these are supplied as the **development-set** value. The held-out value cannot exist before
 the run, so what is being asked is whether the instrument that produces the number exists and produces one —
