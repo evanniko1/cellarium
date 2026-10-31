@@ -199,12 +199,33 @@ class Record:
     level_unverified: bool = False
 
     def key(self) -> tuple:
-        """What counts as the same record across paths: the role and the normalised value.
+        """What counts as the same record across paths: the role and the NORMALISED value.
 
         The quote is deliberately NOT part of the key. Two paths that found one fact in two places is the
         agreement worth having; requiring them to have found the same characters would reduce agreement to
-        a test of whether both read the same line, which is the thing the two paths are built not to do."""
-        return (self.kind, self.role, re.sub(r"\s+", " ", self.value).strip().lower())
+        a test of whether both read the same line, which is the thing the two paths are built not to do.
+
+        ADJ-W11. "Normalised" means THROUGH THE DECLARED TABLE, and until 2026-10-31 it did not: this
+        returned the value lowercased with its whitespace collapsed, so a structural CELL reading
+        `enzyme-aware` and a derived agent level of `enzymes` -- which `normalise_value` maps to each
+        other -- were reported as a disagreement. The description claimed the normalisation and the code
+        did not do it, which is this project's own recurring defect rather than a subtlety.
+
+        THREE THINGS THE NORMALISED KEY MUST NOT DO, each of which it would do if written naively:
+          * collapse a CROSSED cell onto one of its levels. `ON vs OFF` states two and is not the same
+            demand as `on`; `normalise_value` refuses to pick for exactly that reason, so a `multi_level`
+            value keeps its literal form here too. Halving a design is the expensive direction.
+          * merge two different genes. `normalise_value` answers `gene_knockout` for a perturbation cell
+            naming ONE gene, whatever that gene is, so a key built from the normalised value alone makes
+            `argS` and `hisS` one demand. The genes the normalisation resolved are therefore part of the
+            key -- and markup around a symbol (`*argS*`) is not a second demand.
+          * collapse every unrecognised spelling into one. A value the frozen tables do not carry keeps
+            its own text, so it stays a demand told apart by what it says.
+        """
+        n = normalise_value(self.role, self.value)
+        value = n["value"] if n["basis"] not in ("unnormalised", "multi_level") else self.value
+        return (self.kind, self.role, re.sub(r"\s+", " ", str(value)).strip().lower(),
+                tuple(n.get("genes") or ()))
 
 
 # --- the mechanical gate ------------------------------------------------------------------------------
@@ -1031,6 +1052,12 @@ def dedupe(records, partial: bool | None = None, n_unread: int = 0) -> dict:
     for key, rs in sorted(groups.items()):
         first = rs[0]
         distinct.append({"kind": key[0], "role": key[1], "value": first.value,
+                         # WHAT THE GROUP IS, beside the first member's own spelling. ADJ-W11 made the key
+                         # normalise, so a group can now hold several spellings -- `clamped 20 aa`,
+                         # `clamped arg (150 uM)` and `clamped glu (2.0 mM)` are one demand on the model --
+                         # and a reader shown only `value` would see one of the three and not know there
+                         # were three. The occurrences and quotes were already here; this names the level.
+                         "normalised_value": key[2],
                          "n_occurrences": len(rs),
                          "quotes": [x.quote for x in rs],
                          "sections": sorted({x.section for x in rs}),
@@ -1044,7 +1071,11 @@ def dedupe(records, partial: bool | None = None, n_unread: int = 0) -> dict:
             "partial": None if partial is None else bool(partial),
             "completeness": adjudicate.completeness_of(partial),
             "n_unread_sections": int(n_unread),
-            "note": "Deduplicated per DOCUMENT on (kind, role, normalised value). `n_occurrences` keeps "
+            "note": "Deduplicated per DOCUMENT on (kind, role, normalised value, resolved genes), and "
+                    "the normalisation is THROUGH THE DECLARED TABLE -- which this sentence claimed "
+                    "before it was true (ADJ-W11). Two cells naming one level in two declared spellings "
+                    "are one demand; a crossed cell is not merged onto either of its levels; two genes "
+                    "stay two demands. `n_occurrences` keeps "
                     "the cell-level count, so the demand count and the row count stay separate numbers "
                     "answering separate questions."
                     + (adjudicate.UNSTATED_COMPLETENESS_NOTE if partial is None else

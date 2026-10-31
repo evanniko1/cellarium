@@ -2139,3 +2139,111 @@ def test_EVERY_declared_summary_takes_the_flag_and_NOTHING_defaults_it_to_FALSE(
             assert p.default is None, f"{mod.__name__}.{fname} defaults partial to {p.default!r}"
             assert f"{mod.__name__.split('.')[-1]}.{fname}" in adjudicate.COMPLETENESS_AWARE, fname
     assert seen == len(adjudicate.COMPLETENESS_AWARE) == 5
+
+
+# --- ADJ-W11: the record key normalises through the declared table ------------------------------------
+
+def test_two_paths_naming_ONE_level_in_TWO_declared_spellings_now_AGREE():
+    """ADJ-W11. The key's own description said "the role and the normalised value" and the code lowercased
+    whitespace, so a structural CELL reading `enzyme-aware` and a derived agent level of `enzymes` --
+    which the declared table maps to each other -- were reported as a DISAGREEMENT. Two paths naming one
+    level in two spellings is precisely the agreement dual extraction exists to find."""
+    cell = extraction.Record(kind="requirement", role="factor:aa_supply", value="enzyme-aware",
+                             quote="| R1 | gene_knockout | on | enzyme-aware | 0.55 |", section="s",
+                             section_kind="plan", path="structural")
+    derived = extraction.Record(kind="requirement", role="factor:aa_supply", value="enzymes",
+                                quote="| R1 | gene_knockout | on | enzyme-aware | 0.55 |", section="s",
+                                section_kind="plan", path="agent")
+    assert cell.key() == derived.key()
+    r = extraction.reconcile([cell], [derived])
+    assert r["agreement"]["n_agreed"] == 1 and r["agreement"]["jaccard"] == 1.0
+    assert r["agreement"]["comparison_kind"] == "redundant"
+
+
+def test_a_CROSSED_cell_does_not_collapse_onto_one_of_its_levels():
+    """The limit that has to hold, or the fix halves designs. `ON vs OFF` states two levels, so it is not
+    the same demand as `on` -- which is the same reason `normalise_value` refuses to pick for a crossed
+    cell. A `multi_level` value keeps its literal form in the key."""
+    mk = lambda v: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:ppgpp_module", value=v, quote="q", section="s",
+        section_kind="plan", path="structural")
+    assert mk("ON vs OFF").key() != mk("on").key()
+    assert mk("ON vs OFF").key() == mk("on vs off").key()      # the same crossed cell, two spellings
+    assert mk("enabled").key() == mk("ON").key()               # one level, two declared spellings
+
+
+def test_two_DIFFERENT_GENES_stay_two_demands_under_the_normalised_key():
+    """The regression the fix nearly shipped. `normalise_value` answers `gene_knockout` for a perturbation
+    cell naming ONE gene, whatever the gene is -- so a key built from the normalised value alone merges
+    `argS` with `hisS` and reports two knockouts as one demand. The genes the normalisation resolved are
+    part of the key for exactly that reason."""
+    mk = lambda v: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:perturbation", value=v, quote="q", section="s",
+        section_kind="plan", path="structural")
+    assert mk("argS").key() != mk("hisS").key()
+    assert mk("*argS*").key() == mk("argS").key()              # markup is not a second demand
+    assert extraction.dedupe([mk("argS"), mk("hisS")])["n_distinct"] == 2
+    assert extraction.dedupe([mk("argS"), mk("*argS*")])["n_distinct"] == 1
+
+
+def test_an_UNNORMALISED_value_keeps_its_literal_form_in_the_key():
+    """A spelling the frozen tables do not carry must still be a demand, told apart by its own text --
+    otherwise every unrecognised value would collapse into one."""
+    mk = lambda v: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:medium", value=v, quote="q", section="s", section_kind="plan",
+        path="structural")
+    assert extraction.normalise_value("factor:medium", "a rich defined medium")["basis"] == "unnormalised"
+    assert mk("a rich defined medium").key() != mk("something else entirely").key()
+    assert mk("A Rich Defined Medium").key() == mk("a rich defined medium").key()
+
+
+def test_the_normalised_key_does_NOT_swallow_the_one_demand_that_must_be_refused():
+    """The boundary the merge must not cross, measured on real development-set spellings. `*argA*
+    knockdown` and `*argA* switch-off` are one demand -- the platform runs the same variant for both, and
+    merging them is why the key was fixed. `*argA* switch-off AT GENERATION 3` is NOT: it normalises to
+    `generation_timed_knockout`, the identifier the envelope deliberately does not validate, which is how
+    stage 4 refuses the single demand no variant module performs. A key that merged it into a plain
+    knockout would make an unrunnable demand look runnable."""
+    mk = lambda v: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:perturbation", value=v, quote="q", section="s",
+        section_kind="plan", path="structural")
+    assert mk("*argA* knockdown").key() == mk("*argA* switch-off").key()
+    assert mk("*argA* switch-off at generation 3").key() != mk("*argA* switch-off").key()
+    assert extraction.dedupe([mk("*argA* knockdown"), mk("*argA* switch-off"),
+                              mk("*argA* switch-off at generation 3")])["n_distinct"] == 2
+
+
+def test_the_three_CLAMPED_cells_the_key_merges_are_one_demand_on_the_model():
+    """The merge that costs the most information, read rather than waved through. Over the development set
+    the new key merges exactly five pairs of structural demands (450 -> 445), and three of them are these:
+    `clamped 20 aa`, `clamped arg (150 uM)` and `clamped glu (2.0 mM)` all state the same SUPPLY MODE and
+    differ in what is clamped and at what concentration -- which this role's vocabulary cannot express at
+    all, and which therefore was never part of its level space.
+
+    It is one demand because the model is asked the same thing by all three: the same declared level, and
+    the same cost. What the merge does lose is the distinct LIST showing three spellings; they survive as
+    three occurrences with three quotes, which is where a reader has to look for the concentrations."""
+    mk = lambda v: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:aa_supply", value=v, quote=f"| {v} |", section="s",
+        section_kind="plan", path="structural")
+    cells = ["clamped 20 aa", "clamped arg (150 uM)", "clamped glu (2.0 mM)"]
+    assert len({mk(v).key() for v in cells}) == 1
+    costs = {extraction.cost_of(mk(v))["cost"] for v in cells}
+    assert len(costs) == 1, "the merge would be wrong if the three cost differently"
+    d = extraction.dedupe([mk(v) for v in cells])
+    assert d["n_distinct"] == 1 and d["distinct"][0]["n_occurrences"] == 3
+    assert len(d["distinct"][0]["quotes"]) == 3        # the three spellings are still recoverable
+
+
+def test_a_deduped_group_names_the_LEVEL_it_is_not_just_its_first_spelling():
+    """The information the W11 merge would otherwise cost a reader. A group can now hold several
+    spellings, and `value` shows whichever came first -- so the group also carries the normalised level
+    it was grouped ON, which is the thing it actually is."""
+    mk = lambda v: extraction.Record(  # noqa: E731
+        kind="requirement", role="factor:aa_supply", value=v, quote=f"| {v} |", section="s",
+        section_kind="plan", path="structural")
+    d = extraction.dedupe([mk("clamped arg (150 uM)"), mk("clamped 20 aa")])["distinct"][0]
+    assert d["n_occurrences"] == 2
+    assert d["normalised_value"] == "medium"
+    assert d["value"] in ("clamped arg (150 uM)", "clamped 20 aa")   # one spelling of the two
+    assert len(d["quotes"]) == 2                                     # both are still recoverable

@@ -123,12 +123,27 @@ READINESS_GATES = (
                "agreement is a statement about a handful of fields -- and registered AFTER G2's number "
                "was seen, which is recorded here rather than hidden: it is why G2 is kept failing instead "
                "of being quietly retuned.",
-        "measured": "MET, 2026-10-30: mean 0.725, median 0.800 over the 21 reports with a non-empty "
-                    "structural reading; 17 of 21 at or above 0.5 and 4 at 1.0. The third path is aimed "
-                    "where it was meant to be aimed. What it does NOT buy is record-level agreement: 34 "
-                    "agreed records over 450 structural and 4,181 agent records (Jaccard mean 0.0061), "
-                    "and part of that is ADJ-W11 -- the record key does not normalise through the synonym "
-                    "table, so one setting in two declared spellings reads as a disagreement.",
+        "measured": "MET, 2026-10-30 and again 2026-10-31: mean 0.725 then 0.745, median 0.800 then "
+                    "0.875 over the 21 reports with a non-empty structural reading; 17 of 21 at or above "
+                    "0.5 both times, 4 then 6 at 1.0. The third path is aimed where it was meant to be "
+                    "aimed, and two independent runs say so. "
+                    "WHAT THE ROLE AXIS DOES NOT BUY IS RECORD-LEVEL AGREEMENT, and the gap between the "
+                    "two is the finding rather than a caveat. The Jaccard is the wrong instrument for it "
+                    "-- the model path reports 4,244 distinct demands to the table path's 445, so a ratio "
+                    "over the union is dominated by its denominator (0.0148). The question a reader has "
+                    "is the other one: of the demands the TABLE reading found, how many did the model "
+                    "reading also find? 17.3% overall and 24.3% of the `factor:` demands. So the paths "
+                    "look at the same fields and reproduce about a quarter of the individual demands "
+                    "inside them -- which is what dual extraction is FOR, since the other three quarters "
+                    "are where an error would be. The leading candidate for the SIZE of the gap is "
+                    "mechanical: M4 says the model path refuses 52% of its own level records, which caps "
+                    "how much of the table's demands it can corroborate at all. "
+                    "ADJ-W11 WAS HALF OF IT AND IS NOW FIXED: the record key claimed to normalise through "
+                    "the declared table and did not, so one level in two declared spellings read as a "
+                    "disagreement. Measured with BOTH key definitions over the SAME records, because "
+                    "fixing it raises this very number: 40 -> 77 agreed records, 8.9% -> 17.3% coverage. "
+                    "Under the literal key the two runs read 34 then 40, so the definition accounts for "
+                    "about 86% of the move and the sampler for the rest.",
     },
     {
         "id": "G3_QUOTES_VERBATIM",

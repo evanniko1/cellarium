@@ -126,10 +126,42 @@ it. `G2B` asks the question `G2` meant to ask — of the roles the table reading
 reading also find — and it is **met: mean 0.725, median 0.800, 17 of 21 reports at or above 0.5, four at
 1.0.** The third path is aimed where it was meant to be aimed.
 
-What none of this buys is record-level agreement: **34 agreed records** over 450 structural and 4,181 agent
-records, Jaccard mean 0.0061. Part of that is `ADJ-W11` — the record key does not normalise through the
-synonym table, so one setting in two declared spellings reads as a disagreement — and that is filed, not
-fixed, because fixing it would raise the number this gate measures.
+What the role axis does **not** buy is record-level agreement, and the gap between the two is the finding
+rather than a caveat.
+
+The Jaccard is the wrong instrument for it: the model reading reports 4,244 distinct demands to the table
+reading's 445, so a ratio over the union is dominated by its denominator (0.0148) and says almost nothing.
+The question a reader actually has is the other one — *of the demands the table reading found, how many did
+the model reading also find?* **17.3% overall, and 24.3% of the `factor:` demands** the two paths are both
+aimed at. So the paths look at the same fields and reproduce about a quarter of the individual demands
+inside them. That is what dual extraction is *for* — the other three quarters are where an error would be —
+and the leading candidate for the *size* of the gap is mechanical rather than interesting: `M4` says the
+model reading refuses 52% of its own level records, which caps how much of the table's demands it can
+corroborate at all.
+
+`ADJ-W11` was half of that gap and is now fixed. The record key's own description said "the role and the
+normalised value" and the code lowercased whitespace, so `Glucose minimal` (the table's cell) and `minimal`
+(the derived level) read as a **disagreement**. Because fixing it raises this very number, it was measured
+with **both key definitions over the same records** — one run, two keys:
+
+| | literal key | normalised key |
+|---|---|---|
+| agreed records | 40 | **77** |
+| coverage of the table reading's demands | 8.9% | **17.3%** |
+| … restricted to `factor:` demands | 11.8% | **24.3%** |
+| distinct structural demands | 450 | 445 |
+| distinct *model* demands | 4,244 | 4,244 |
+
+The run-to-run component is separately visible, which is the point of measuring it this way: under the
+*literal* key the two runs read 34 then 40 agreed records, so the definition accounts for about 86% of the
+move from 34 to 77 and the sampler for the rest. A naive before-and-after would have credited the fix with
+all of it. The model side's count does not move at all, which independently corroborates `ADJ-W10`: the
+derived levels are already in declared form, so there is nothing left to normalise there.
+
+The 37 added agreements were read, not counted — `Glucose minimal` ↔ `minimal`, `OFF (Fixed)` ↔ `off`,
+`Succinate minimal` ↔ `minimal_succinate`, `Medium-Clamped` ↔ `medium`. Every one is the table keeping the
+author's spelling while the model path emits the canonical level, and **`ADJ-W10` is what made `ADJ-W11`
+bite**: before it, the model's value was its own prose and matched nothing under either key.
 
 `G3` reads 1.0 by construction now: quotes are cut by the platform from the units a record cites, not copied
 by the model. The gate stays because a check on a construction is the only thing that can tell you the
