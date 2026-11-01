@@ -93,3 +93,66 @@ def test_the_census_records_why_ci_cannot_see_this_class():
     census = json.loads(CENSUS.read_text(encoding="utf-8"))
     assert census.get("why"), "the census does not say why it exists"
     assert "model image" in census["why"] or "WCECOLI" in census["why"]
+
+
+def test_every_test_module_imports_WITHOUT_another_module_having_moved_sys_path():
+    """A test module's importability must be a property of the tree, not of collection order.
+
+    MEASURED 2026-11-01: of the test modules that import `cellarium`, 31 carried no `sys.path.insert` of
+    their own and passed only because some earlier-imported module had already mutated `sys.path`. Run one
+    alone and it failed with `ModuleNotFoundError: No module named 'cellarium'` on a checkout where
+    cellarium is plainly present -- this repository's own silent-absence defect wearing an import error's
+    clothes, and a message that sends a reader to install a package they already have. `conftest.py` now
+    appends `src/` once for everybody, and this is the check that keeps it there.
+
+    WHY A SUBPROCESS, and why only one. The defect is invisible in-process: by the time this test runs,
+    `sys.path` has been mutated many times over and every module imports fine. The only way to observe it
+    is a fresh interpreter collecting ONE module. Collecting all 31 that way would cost 31 interpreter
+    starts for a property one witness establishes, so this picks the module that actually cost a detour --
+    and asserts the WITNESS still lacks its own insert, because if somebody adds one the test would go on
+    passing while measuring nothing.
+
+    `--collect-only` is enough: the failure was at import, so collection either reaches the tests or does
+    not."""
+    import subprocess
+
+    witness = REPO / "tests" / "test_openai_compat.py"
+    assert witness.is_file(), f"{witness.name} is gone; pick another module with no sys.path insert of its own"
+    text = witness.read_text(encoding="utf-8")
+    assert "sys.path.insert" not in text, (
+        f"{witness.name} now inserts src itself, so it no longer witnesses anything. Point this test at a "
+        "module that does not -- `_bare_modules()` below lists them.")
+    assert "from cellarium" in text or "import cellarium" in text, (
+        f"{witness.name} no longer imports cellarium and cannot witness the path at all")
+
+    r = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider",
+                        str(witness)], capture_output=True, text=True, cwd=str(REPO))
+    assert r.returncode == 0, (
+        f"{witness.name} cannot be collected on its own:\n{(r.stdout + r.stderr)[-1500:]}\n"
+        "conftest.py is supposed to put src/ on the path for every module. If that was removed, a reader "
+        "running one test file gets 'No module named cellarium' on a tree that has it.")
+
+
+def _bare_modules() -> list[str]:
+    """Test modules that import `cellarium` and do NOT put src on the path themselves."""
+    out = []
+    for f in sorted((REPO / "tests").glob("test_*.py")):
+        t = f.read_text(encoding="utf-8", errors="replace")
+        if "sys.path.insert" not in t and ("from cellarium" in t or "import cellarium" in t):
+            out.append(f.name)
+    return out
+
+
+def test_the_count_of_modules_relying_on_conftest_is_recorded_not_discovered():
+    """How many modules depend on conftest for their path, recorded so the number is a fact rather than an
+    impression. It may move in either direction -- a new module without an insert, or one gaining its own --
+    and either is fine; what is not fine is nobody knowing. The figure was arrived at by counting, after a
+    first pass subtracted 89 from 133 and said 44, which counted modules that import no cellarium at all."""
+    bare = _bare_modules()
+    assert bare, (
+        "no module relies on conftest for its path any more. That is a real improvement rather than a "
+        "failure -- update the count here and in conftest's docstring, and retarget the witness above")
+    assert len(bare) == 31, (
+        f"{len(bare)} test modules now rely on conftest for their path, not 31:\n  "
+        + "\n  ".join(bare)
+        + "\nUpdate the count here and in conftest._put_src_on_the_path's docstring")

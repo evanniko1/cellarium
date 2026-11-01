@@ -199,8 +199,19 @@ READINESS_GATES = (
                     "fabrication, committed by the platform instead of the model. A citation wider than "
                     "MAX_CITED_UNITS = 12 is refused: a whole section is not a quote. `verify_quotes` "
                     "STAYS and now checks the construction rather than the model, so `cut_not_in_source` "
-                    "is this module's bug and not a reply's. WHAT THIS VERDICT IS NOT: a rate measured "
-                    "over the development set -- see LIMITATIONS['development_verdicts_are_not_offline'].",
+                    "is this module's bug and not a reply's. THERE IS ALSO A LIVE FIGURE, and it is the "
+                    "construction being exercised rather than a compliance rate: over 4 development "
+                    "reports and 59 spans the step kept 750 records, 0 of them with a quote that is not a "
+                    "verbatim span of its own document, against 10 proposed and 10 FABRICATED by the same "
+                    "step before the cut. 45 records were rejected in that run "
+                    "(line_citation_too_wide 7, undeclared_role 24, unfilled_without_reason 14), so every "
+                    "gate fired on real traffic rather than passing for want of anything to refuse. "
+                    "WHAT THIS VERDICT IS NOT: a rate over the whole development set -- 4 reports of 33, "
+                    "and see LIMITATIONS['development_verdicts_are_not_offline'] for why the rest cannot "
+                    "be recovered. WHAT IS NOT CLOSED: the rewriting behaviour persists with nowhere to "
+                    "go -- `n_rewrote` is 0 because the model no longer offers a quote at all -- and a "
+                    "real sentence can still be cited for the wrong record, which is a smaller risk and a "
+                    "counted one.",
     },
     {
         "id": "G7_LEVELS_DERIVED",

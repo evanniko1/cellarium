@@ -49,6 +49,36 @@ def _load_env_before_anything_freezes_it() -> None:
 
 _load_env_before_anything_freezes_it()
 
+
+def _put_src_on_the_path() -> None:
+    """`src/` on sys.path, once, for every test module -- because 31 of them did not do it themselves.
+
+    MEASURED 2026-11-01: of the test modules that import `cellarium`, 31 carry no `sys.path.insert` of
+    their own. They pass in the full suite only because some earlier-imported module mutated `sys.path`
+    first, which means their importability is a property of COLLECTION ORDER rather than of the tree.
+    Run one of them alone and it fails with
+
+        ModuleNotFoundError: No module named 'cellarium'
+
+    on a checkout where `cellarium` is plainly present. That is this repository's own silent-absence defect
+    wearing an import error's clothes: "I could not find it on this path" reported as "it is not there",
+    and the message sends a reader to install a package they already have. It cost two detours in one
+    session -- `tests/test_capability.py` and then the three provider-seam modules, whose 42 tests all pass
+    in the full run.
+
+    Appended rather than inserted at position 0, deliberately. An INSTALLED cellarium must keep winning over
+    the working tree, because that is what CI tests and what a user gets; this only has to rescue the case
+    where nothing is installed and nobody mutated the path. The 89 modules that insert at 0 are untouched
+    and keep their own behaviour.
+    """
+    import sys
+    src = str(REPO / "src")
+    if src not in sys.path:
+        sys.path.append(src)
+
+
+_put_src_on_the_path()
+
 # REMOVED 2026-09-10: `CONFIGURED_IMAGE` / `CONFIGURED_CHECKOUT` read os.environ here and were never used
 # anywhere. That was harmless only while conftest did not reach the modules that FREEZE those variables
 # at import. Adding `docker_available()` below made conftest import `runner` directly, and
