@@ -1376,3 +1376,289 @@ RUNNERS = {
     "validation_arm",      # test_the_validation_arms_a_case_names_failed_the_way_the_case_says
     "validation_exchange", # test_the_no_carbon_run_still_takes_up_no_carbon_and_still_secretes_some
 }
+
+
+# ------------------------------------------------------------------------------------------------------------
+# 6 · EVERY `measured` VALUE OF THE SECOND PASS, RECOMPUTED FROM ITS DECLARED SOURCE.
+#
+# WHY THIS EXISTS, and it is the most uncomfortable entry in this file. The second pass added twelve cases
+# carrying 68 `measured` values, and an audit on 2026-11-01 found that 53 of the 68 were recorded by hand and
+# recomputed by NOTHING. Every one of them turned out to be right -- 44 were re-derived against their sources
+# and all 44 agreed -- but right by the author's care at the time is exactly the state this project keeps
+# finding numbers in just before they go stale. M2 was a literal that drifted 16 points that way. The cases
+# were written to make an answer key impossible to assert, and their own evidence block was asserted.
+#
+# So each key below is classified, and the classification is CHECKED FOR COMPLETENESS: a key must be
+# recomputed here, or driven by a named test, or declared history. There is no fourth option, and adding a
+# `measured` key without classifying it fails. That last assertion is the whole point -- the others only
+# check the numbers that exist today.
+# ------------------------------------------------------------------------------------------------------------
+
+_THIS_FILE = Path(__file__).read_text(encoding="utf-8")
+
+# The first pass's `measured` key count, in ONE place so a failure message can name what it
+# expected. See test_the_coverage_of_the_FIRST_pass_is_measured_rather_than_assumed.
+FIRST_PASS_MEASURED_KEYS = 54
+
+SECOND_PASS = ("C7.1", "C7.2", "C8.1", "C8.2", "C9.1", "C9.2", "C10.1", "C10.2", "C11.1", "C12.1", "C12.2",
+               "C13.1")
+
+# Keys that record what a source USED to say, so there is nothing live to recompute them against. Each one
+# has to earn its place: a key is history only when the thing it quotes is gone.
+HISTORY = {
+    ("C8.1", "registry_prose_before_this_case"):
+        "quotes the capability registry's wording BEFORE this case corrected it (six of six pairs; basal "
+        "differs on all eleven). The corrected wording is what the registry now carries, so the old "
+        "sentence exists nowhere to be re-read -- which is why it is written down here.",
+    ("C11.1", "the_artifact_readout_said_stop_times_from_s"):
+        "the validation artefact's own prose says 1,410 s where its `cells` give 1,433. Recomputed below "
+        "from the readout STRING rather than treated as history, because the string is still there -- this "
+        "entry stays only to say which of the two numbers is the artefact's and which is the arithmetic.",
+}
+
+# Keys driven by a named test elsewhere in this file, so recomputing them again here would be two copies of
+# one check. Named rather than counted, so a renamed test fails this instead of silently orphaning a key.
+DRIVEN_ELSEWHERE = {
+    ("C7.1", "corpus_minus_phosphate_reportable"): "test_the_condition_rows_a_case_points_at_are_really_there_and_really_reportable",
+    ("C7.2", "corpus_downshift_reportable_with_growth_rate"): "test_the_condition_rows_a_case_points_at_are_really_there_and_really_reportable",
+    ("C10.2", "reportable_with_growth_rate"): "test_the_condition_rows_a_case_points_at_are_really_there_and_really_reportable",
+    ("C8.1", "within_seed_arm_pairs_identical_on_all_channels"): "test_the_glucose_dose_arms_are_still_the_same_three_cells",
+    ("C8.2", "within_seed_arm_pairs_identical_on_all_channels"): "test_the_glucose_dose_arms_are_still_the_same_three_cells",
+    ("C8.1", "basal_vs_a_dose_row"): "test_the_glucose_dose_arms_are_still_the_same_three_cells",
+    ("C9.1", "cells"): "test_the_validation_runs_a_case_names_recorded_what_the_case_says_they_did",
+    ("C9.2", "cells"): "test_the_validation_runs_a_case_names_recorded_what_the_case_says_they_did",
+    ("C9.2", "n_seeds"): "test_the_validation_runs_a_case_names_recorded_what_the_case_says_they_did",
+    ("C9.2", "n_generations"): "test_the_validation_runs_a_case_names_recorded_what_the_case_says_they_did",
+    ("C10.1", "terminal_generation_duration_s"): "test_the_validation_arms_a_case_names_failed_the_way_the_case_says",
+    ("C10.1", "terminal_generation_expected_fold"): "test_the_validation_arms_a_case_names_failed_the_way_the_case_says",
+    ("C11.1", "stop_times_s"): "test_the_validation_arms_a_case_names_failed_the_way_the_case_says",
+    ("C11.1", "fold_fraction_of_expected_pct"): "test_the_validation_arms_a_case_names_failed_the_way_the_case_says",
+    ("C12.2", "carbon_bearing_uptake_species"): "test_the_no_carbon_run_still_takes_up_no_carbon_and_still_secretes_some",
+}
+
+
+def _val(path: str) -> dict:
+    return _validation(path)
+
+
+def _corpus_rows(con, ded, pert, cond, elong="steady_state", timeline_null=False):
+    """(n rows, n reportable carrying growth_rate, sorted distinct qc) for one design under one mode."""
+    q = (f"SELECT count(*), count_if(reportable AND growth_rate IS NOT NULL), list(DISTINCT qc) FROM {ded} "
+         "WHERE perturbation = ? AND condition = ? AND elongation_model = ?")
+    if timeline_null:
+        q += " AND timeline IS NULL"
+    n, rep, qc = con.execute(q, [pert, cond, elong]).fetchone()
+    return n, rep, tuple(sorted(qc or []))
+
+
+def _recomputations(con, ded):
+    """(case id, key) -> recomputed value, every one from the source the case's `source` field names."""
+    import collections
+    import re
+
+    from cellarium import capability, survey
+    P = _val("phosphate_validation.json")
+    K = _val("known_faults_validation.json")
+    out: dict[tuple[str, str], object] = {}
+
+    # ---- C7.1 · the corpus's phosphate rows, and the validation arms ------------------------------------
+    n, _rep, qc = _corpus_rows(con, ded, "condition", "minus_phosphate")
+    out[("C7.1", "corpus_minus_phosphate_rows")] = n
+    out[("C7.1", "corpus_minus_phosphate_qc")] = qc
+    out[("C7.1", "validation_runs")] = len(P["runs"])
+    neg = collections.Counter(k.split("/")[0] for k, v in P["runs"].items()
+                              if "NegativeCountsError" in v["identity_key"])
+    out[("C7.1", "validation_runs_stopping_with_negative_counts")] = dict(neg)
+    out[("C7.1", "validation_null_arms_completing")] = dict(collections.Counter(
+        k.split("/")[0] for k, v in P["runs"].items() if v["identity_key"] == "no_traceback"))
+    g = P["molecular_readout_seed0"]["gen0_at_2529s"]
+    out[("C7.1", "pi_cytoplasm_removed_vs_control_at_2529s")] = (g["B_removed"]["Pi[c]"],
+                                                                 g["C_control"]["Pi[c]"])
+    out[("C7.1", "atp_removed_vs_control_at_2529s")] = (g["B_removed"]["ATP[c]"], g["C_control"]["ATP[c]"])
+
+    # ---- C7.2 · the downshift rows ----------------------------------------------------------------------
+    DOWN = "shift:down:minimal_plus_amino_acids->minimal"
+    out[("C7.2", "corpus_downshift_rows")] = _corpus_rows(con, ded, "timeline", DOWN)[0]
+    out[("C7.2", "growth_rate_per_seed")] = tuple(
+        r[0] for r in con.execute(f"SELECT growth_rate FROM {ded} WHERE perturbation = 'timeline' AND "
+                                  "condition = ? ORDER BY seed", [DOWN]).fetchall())
+    out[("C7.2", "upshift_rows_for_contrast")] = _corpus_rows(
+        con, ded, "timeline", "shift:up:minimal->minimal_plus_amino_acids")[0]
+
+    # ---- C8.1 / C8.2 · the dose arms --------------------------------------------------------------------
+    ch = list(survey.CHANNELS)
+    dose = {(r[0], r[1]): r[2:] for r in con.execute(
+        f"SELECT condition, seed, {','.join(ch)} FROM {ded} WHERE condition IN "
+        "('glc_2mM', 'glc_5mM', 'glc_20mM')").fetchall()}
+    for cid in ("C8.1", "C8.2"):
+        out[(cid, "n_declared_channels")] = len(ch)
+        out[(cid, "rows")] = len(dose)
+        out[(cid, "distinct_channel_vectors_across_the_nine_rows")] = len(set(dose.values()))
+    out[("C8.2", "effective_n")] = len({k[1] for k in dose})
+
+    # ---- C9.1 / C9.2 · the two transcription-factor runs ------------------------------------------------
+    for cid, run in (("C9.1", "E1_tf_cytR_inactive/s0"), ("C9.2", "E1_tf_cytR_active/s0")):
+        out[(cid, "status_ledger_says")] = K["status"][run]
+    inactive = K["runs"]["E1_tf_cytR_inactive/s0"]
+    out[("C9.1", "innermost_frame")] = inactive["identity_key"]
+    out[("C9.1", "message")] = inactive["message"]
+    act = K["runs"]["E1_tf_cytR_active/s0"]["cells"][-1]
+    out[("C9.2", "shortfall_vs_expected_pct")] = round(
+        100 * (1 - act["final_fold"] / act["final_expected"]), 1)
+
+    # ---- C10.1 · the auxotroph arm, and the readout's own fold figures ----------------------------------
+    e3 = {k: v for k, v in K["runs"].items() if k.startswith("E3_")}
+    out[("C10.1", "validation_seeds")] = len(e3)
+    out[("C10.1", "seeds_ending_in_the_charging_NaN")] = sum(
+        1 for v in e3.values() if "calculate_trna_charging" in v["identity_key"])
+    out[("C10.1", "seeds_completing")] = sum(1 for v in e3.values() if v["identity_key"] == "no_traceback")
+    # dry mass from the cells, the other three from the readout's prose -- the only place they exist.
+    prose = K["readouts"]["E3_seed3_last_generation"]
+    folds = {"protein": r"protein x([\d.]+)", "rna": r"RNA x([\d.]+)",
+             "small_molecules": r"small molecules x([\d.]+)"}
+    got = {k: float(re.search(p, prose).group(1)) for k, p in folds.items()}
+    got["dry_mass"] = K["runs"]["E3_leucine_auxotroph_minimal/s3"]["cells"][-1]["final_fold"]
+    out[("C10.1", "terminal_generation_folds")] = got
+    n, rep, qc = _corpus_rows(con, ded, "gene_knockout", "KO:leuB", timeline_null=True)
+    out[("C10.1", "corpus_plain_KO_leuB_rows")] = n
+    out[("C10.1", "corpus_plain_KO_leuB_reportable")] = rep
+    out[("C10.1", "corpus_plain_KO_leuB_qc")] = tuple(
+        r[0] for r in con.execute(f"SELECT qc FROM {ded} WHERE perturbation = 'gene_knockout' AND "
+                                  "condition = 'KO:leuB' AND timeline IS NULL ORDER BY qc, seed").fetchall())
+
+    # ---- C10.2 · the wild type -------------------------------------------------------------------------
+    n, _rep, _qc = _corpus_rows(con, ded, "wildtype", "basal")
+    out[("C10.2", "steady_state_rows")] = n
+    out[("C10.2", "unreportable_qc")] = tuple(r[0] for r in con.execute(
+        f"SELECT DISTINCT qc FROM {ded} WHERE perturbation = 'wildtype' AND condition = 'basal' AND "
+        "elongation_model = 'steady_state' AND NOT reportable ORDER BY qc").fetchall())
+    out[("C10.2", "kinetic_rows_excluded")] = _corpus_rows(con, ded, "wildtype", "basal", "kinetic")[0]
+    lo, hi = con.execute(
+        f"SELECT min(growth_rate), max(growth_rate) FROM {ded} WHERE design_key = 'wildtype/basal' AND "
+        "reportable").fetchone()
+    out[("C10.2", "growth_rate_range_over_the_wildtype_basal_design")] = (lo, hi)
+
+    # ---- C11.1 · the solver arm ------------------------------------------------------------------------
+    e4 = {k: v for k, v in K["runs"].items() if k.startswith("E4_")}
+    out[("C11.1", "runs")] = len(e4)
+    out[("C11.1", "runs_stopping_in_generation_0_with_GLP_ESING")] = sum(
+        1 for v in e4.values() if "nf_glpk" in v["identity_key"] and len(v["cells"]) == 1)
+    out[("C11.1", "generations_completed")] = sum(len(v["cells"]) - 1 for v in e4.values())
+    out[("C11.1", "equilibrium_failures")] = (
+        0 if "No equilibrium failure occurred" in K["readouts"]["E4"] else -1)
+    out[("C11.1", "the_artifact_readout_said_stop_times_from_s")] = float(
+        re.search(r"\((\d),(\d\d\d)-", K["readouts"]["E4"]).expand(r"\1\2"))
+
+    # ---- C12.1 / C12.2 · carbon -------------------------------------------------------------------------
+    out[("C12.1", "modes_representing_growth_without_a_carbon_source")] = tuple(
+        capability.get("growth_without_a_carbon_source").holds_in)
+    out[("C12.1", "glucose_absent_runs")] = sum(1 for k in K["runs"] if k.startswith("E2_glucose_absent"))
+    out[("C12.1", "glucose_removed_runs")] = sum(1 for k in K["runs"]
+                                                 if k.startswith("E2_glucose_removed"))
+    out[("C12.1", "glucose_removed_runs_completing_two_generations")] = sum(
+        1 for k, v in K["runs"].items()
+        if k.startswith("E2_glucose_removed") and v["identity_key"] == "no_traceback")
+    absent = K["runs"]["E2_glucose_absent/s0"]["cells"][-1]
+    out[("C12.1", "fold_and_expected_fold")] = (absent["final_fold"], absent["final_expected"])
+    gm = re.search(r"dry mass ([\d.]+) -> ([\d.]+) fg", K["readouts"]["E2_glucose_absent_s0_growth"])
+    out[("C12.1", "dry_mass_fg_start_end")] = (float(gm.group(1)), float(gm.group(2)))
+    blk = K["readouts"]["E2_glucose_absent_s0_exchange_mmol_per_gDW_h"]
+    out[("C12.2", "uptake_mmol_per_gDW_h")] = blk["uptake"]
+    out[("C12.2", "secretion_mmol_per_gDW_h")] = blk["secretion"]
+    out[("C12.2", "no_carbon_uptake_flag")] = blk["no_carbon_uptake"]
+    ctrl = blk["control_C_s0"]
+    out[("C12.2", "control_uptake_mmol_per_gDW_h")] = {k: v for k, v in ctrl.items() if v < 0}
+    out[("C12.2", "control_secretion_mmol_per_gDW_h")] = {k: v for k, v in ctrl.items() if v > 0}
+
+    # ---- C13.1 · the kinetic rescue --------------------------------------------------------------------
+    cap = capability.get("amino_acid_uptake_from_the_medium")
+    out[("C13.1", "modes_representing_amino_acid_uptake_from_the_medium")] = tuple(cap.holds_in)
+    out[("C13.1", "draft_patch")] = cap.draft_patch
+    out[("C13.1", "mode_asked")] = tuple(_case("C13.1")["mode_constraint"])
+    return out
+
+
+def _norm(v):
+    """Compare tuples and lists alike -- JSON round-trips a tuple to a list and the cases store tuples."""
+    if isinstance(v, (list, tuple)):
+        return tuple(_norm(x) for x in v)
+    if isinstance(v, dict):
+        return {k: _norm(x) for k, x in v.items()}
+    return v
+
+
+def test_every_measured_value_of_the_second_pass_is_recomputed_from_its_source():
+    """The audit of 2026-11-01, turned into a standing check.
+
+    Each value is re-derived from the artefact the case's own `source` field names -- the shipped manifest,
+    the two validation artefacts, the capability registry, `survey.CHANNELS` -- and required to match. When
+    the audit was first run by hand all 44 values it could reach agreed, so this test is not fixing wrong
+    numbers; it is removing the condition under which they would quietly become wrong."""
+    con, ded = _duck()
+    try:
+        got = _recomputations(con, ded)
+    finally:
+        con.close()
+    assert got, "nothing was recomputed -- the resolver returned an empty table"
+    bad = []
+    for (cid, key), value in sorted(got.items()):
+        recorded = _case(cid)["measured"].get(key, "<<absent>>")
+        if _norm(recorded) != _norm(value):
+            bad.append(f"{cid}.{key}: recorded {recorded!r}, recomputed {value!r}")
+    assert not bad, "recorded `measured` values disagree with their sources:\n  " + "\n  ".join(bad)
+
+
+def test_no_measured_value_of_the_second_pass_is_left_unclassified():
+    """THE ASSERTION THAT MAKES THE OTHERS WORTH HAVING, and the one whose absence was the real defect.
+
+    Checking today's numbers is easy and insufficient: the 53 undriven values were all correct, and the
+    problem was that nothing would have noticed when they stopped being. So every `measured` key of the
+    twelve second-pass cases must be recomputed here, driven by a named test, or declared history -- and a
+    new key that is none of those fails this test rather than joining them silently.
+
+    Both directions. A classification naming a key no case carries is also a failure: it means a key was
+    renamed or dropped and its entry was left behind, pointing at nothing."""
+    con, ded = _duck()
+    try:
+        recomputed = set(_recomputations(con, ded))
+    finally:
+        con.close()
+    classified = recomputed | set(DRIVEN_ELSEWHERE) | set(HISTORY)
+    actual = {(c["id"], k) for c in cb.CASES if c["id"] in SECOND_PASS
+              for k in (c["measured"] or {}) if k != "source"}
+    missing = sorted(actual - classified)
+    assert not missing, (
+        f"{len(missing)} `measured` key(s) of the second pass are recomputed by nothing and declared "
+        f"nowhere:\n  " + "\n  ".join(f"{c}.{k}" for c, k in missing)
+        + "\nAdd a recomputation, point at the test that drives it, or declare it history with a reason.")
+    orphan = sorted(classified - actual)
+    assert not orphan, (
+        f"{len(orphan)} classification(s) name a key no case carries:\n  "
+        + "\n  ".join(f"{c}.{k}" for c, k in orphan))
+    for (cid, key), test_name in DRIVEN_ELSEWHERE.items():
+        assert f"def {test_name}(" in _THIS_FILE, (
+            f"{cid}.{key} is recorded as driven by {test_name}, which is not a test in this file")
+    for (cid, key), why in HISTORY.items():
+        assert len(why) > 40, f"{cid}.{key} is declared history without a reason worth reading"
+
+
+def test_the_coverage_of_the_FIRST_pass_is_measured_rather_than_assumed():
+    """What this file does NOT drive, stated as a number instead of left to be discovered.
+
+    The twelve second-pass cases are covered key by key above. The first ten carry 54 `measured` keys of
+    their own and are covered by the named per-case tests of sections 2-4 -- the seed case C3.1 most
+    thoroughly, because its whole key is a restatement of one scan file. That coverage was never counted,
+    so this counts it: how many of those keys a test in this file so much as mentions. It is a WEAK measure
+    and says so -- a key name appearing in the file does not prove it is asserted -- which is exactly why
+    the second pass gets the strict treatment above and this one reports a floor."""
+    first = {(c["id"], k) for c in cb.CASES if c["id"] not in SECOND_PASS
+             for k in (c["measured"] or {}) if k != "source"}
+    # One place, used by both the comparison and the message. Written twice first, and a mutation probe
+    # produced "the first pass now carries 54 measured keys, not 54" -- a message that cannot be acted on.
+    assert len(first) == FIRST_PASS_MEASURED_KEYS, (
+        f"the first pass now carries {len(first)} measured keys, not {FIRST_PASS_MEASURED_KEYS}; update "
+        "the constant and say which case changed")
+    mentioned = {(cid, k) for cid, k in first if f'"{k}"' in _THIS_FILE}
+    assert len(mentioned) >= 20, (
+        f"only {len(mentioned)} of the {len(first)} first-pass measured keys are mentioned anywhere in this "
+        "file; that is below the floor this test records, so coverage has gone backwards")

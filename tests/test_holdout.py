@@ -363,3 +363,99 @@ def test_the_prose_COUNTS_are_recomputed_from_the_gates_rather_than_typed():
             assert f"`{g['id']}`" not in sentence, (
                 f"{g['id']} is recorded MET and the sentence names it among those saying no, which is the "
                 "half of the 2026-11-01 error that made the page contradict its own table")
+
+
+# The machine-checkable claims each gate's verdict makes about the code it cites. Written after an audit on
+# 2026-11-01 asked the obvious next question: the verdicts were recorded and their KIND was pinned, but
+# nothing checked that the symbols and values they name still exist. A verdict reading "the default model is
+# haiku and its temperature is 0.0" is a number in prose, which is the state this whole criterion exists to
+# distrust -- so each claim that can be driven is driven.
+#
+# Deliberately NOT exhaustive, and the gap is named rather than hidden: the live figures a verdict quotes
+# from a run (G3's "750 records, 0 non-verbatim") came from an archive this repository does not hold, and
+# holdout.LIMITATIONS['development_verdicts_are_not_offline'] is the entry that says so. What is checkable
+# here is every claim about THIS tree.
+VERDICT_CLAIMS = {
+    "G3_QUOTES_VERBATIM": [
+        ("extraction.cut_cited exists", lambda: hasattr(_ex(), "cut_cited")),
+        ("extraction.citable_units exists", lambda: hasattr(_ex(), "citable_units")),
+        ("extraction.verify_quotes still checks the construction", lambda: hasattr(_ex(), "verify_quotes")),
+        ("MAX_CITED_UNITS is the 12 the verdict names", lambda: _ex().MAX_CITED_UNITS == 12),
+    ],
+    "G7_LEVELS_DERIVED": [
+        ("extraction.route_level holds the rule", lambda: hasattr(_ex(), "route_level")),
+        ("extraction.derive_level exists", lambda: hasattr(_ex(), "derive_level")),
+    ],
+    "G4_PARTIALITY_TRAVELS": [
+        ("COMPLETENESS_AWARE has the six members the verdict names",
+         lambda: len(_adj().COMPLETENESS_AWARE) == 6),
+        ("the third state has a note to append",
+         lambda: bool(getattr(_adj(), "UNSTATED_COMPLETENESS_NOTE", ""))),
+    ],
+    "G8_SAMPLING_PINNED": [
+        ("the default reading model is the one the verdict names",
+         lambda: _ex().AGENT_MODEL_DEFAULT == "claude-haiku-4-5-20251001"),
+        ("and its temperature really is pinned at 0.0",
+         lambda: _ex()._temperature_for(_ex().AGENT_MODEL_DEFAULT) == 0.0),
+        ("the override the verdict warns about is still the env var it names",
+         lambda: "CELLARIUM_EXTRACT_MODEL" in _ex_source()),
+    ],
+    "G6_SCORING_IS_MECHANICAL": [
+        ("holdout_score.coverage() is the call the gate reads",
+         lambda: "score_produced_by_committed_code" in _score().coverage()),
+    ],
+}
+
+
+def _ex():
+    from cellarium import extraction
+    return extraction
+
+
+def _ex_source():
+    import inspect
+    return inspect.getsource(_ex())
+
+
+def _adj():
+    from cellarium import adjudicate
+    return adjudicate
+
+
+def _score():
+    from cellarium import holdout_score
+    return holdout_score
+
+
+def test_every_claim_a_gate_VERDICT_makes_about_this_tree_still_holds():
+    """The verdicts name symbols and values; this drives them.
+
+    Recording a verdict fixed the blank, and pinning its KIND stopped a construction claim passing as a
+    rate -- but neither checked that `AGENT_MODEL_DEFAULT` is still haiku or that `MAX_CITED_UNITS` is
+    still 12. A verdict whose cited symbol has moved is worse than a blank, because it reads as checked.
+
+    Each entry is a sentence a reader could verify by hand, turned into one they do not have to."""
+    for gid, claims in VERDICT_CLAIMS.items():
+        gate = next((g for g in holdout.READINESS_GATES if g["id"] == gid), None)
+        assert gate is not None, f"{gid} is no longer a registered gate, but its verdict claims are still here"
+        assert gate.get("measured"), f"{gid} has no verdict for these claims to be about"
+        for sentence, probe in claims:
+            assert probe(), (
+                f"{gid}'s verdict says: {sentence} -- and that is no longer true of this tree. The verdict "
+                "now reads as checked while naming something that moved; correct it or re-measure the gate")
+
+
+def test_the_gates_that_make_CHECKABLE_claims_are_the_ones_covered():
+    """Both directions, so the coverage above cannot quietly shrink.
+
+    A gate whose verdict is a construction or configuration claim is making statements about this tree by
+    definition, so it must appear in `VERDICT_CLAIMS`. The measured-number gates need not: their evidence
+    is a run this repository does not hold, which is the limitation they already point at."""
+    kinds = {g["id"]: g["verdict_kind"] for g in holdout.READINESS_GATES}
+    structural = {gid for gid, k in kinds.items() if k in ("construction", "configuration")}
+    missing = sorted(structural - set(VERDICT_CLAIMS))
+    assert not missing, (
+        f"{missing} make claims about this tree ({[kinds[g] for g in missing]}) and nothing drives them. "
+        "Add the checkable sentences to VERDICT_CLAIMS, or say in the verdict why there are none.")
+    orphan = sorted(set(VERDICT_CLAIMS) - set(kinds))
+    assert not orphan, f"VERDICT_CLAIMS names {orphan}, which are not gates"

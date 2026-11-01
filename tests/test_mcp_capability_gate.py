@@ -176,3 +176,43 @@ def test_the_consent_gate_is_still_the_liftable_one(monkeypatch):
     src = inspect.getsource(mcp.capability_precheck)
     assert "environ" not in src and "getenv" not in src, \
         "the capability gate reads an environment variable; it must not be liftable"
+
+
+# How much of the tool surface the capability table actually covers. Recorded because the sentence "the raw
+# tool path now consults the capability gate" is true and reads as though it covered everything.
+#
+# MEASURED 2026-11-01: 5 of 74. The table is incomplete BY CONSTRUCTION -- it covers the tools whose output
+# IS a capability-scoped quantity, and `mcp.py` says in as many words that a tool absent from it "is not
+# thereby declared safe; it is undeclared, which is the honest word". That design is right. What was missing
+# is the NUMBER: an unrecorded 7% reads exactly like an unrecorded 100%, and the claim that the path is
+# gated was being made without it. Growing the table is welcome and moves this number; shrinking it, or
+# growing the tool surface without revisiting it, is what this notices.
+GATED_TOOLS = 5
+TOTAL_TOOLS = 74
+
+
+def test_how_much_of_the_tool_surface_the_capability_table_covers_is_recorded():
+    """The coverage of the gate on the raw-tool path, as a number rather than an impression.
+
+    This is not a threshold and must not become one. It is a ledger entry, in the same spirit as the skip
+    census: a quantity that is invisible until somebody writes it down, where the harm is not the value but
+    nobody knowing the value. Both directions fail, because both are real changes -- a table that shrank
+    silently narrowed a guarantee, and a tool surface that grew without the table being revisited widened
+    the ungated share while this file went on saying 5 of 74."""
+    from cellarium import tools as tools_mod
+
+    n_gated, n_tools = len(mcp._TOOL_CAPABILITY), len(tools_mod.TOOLS)
+    assert n_gated == GATED_TOOLS, (
+        f"the capability table now covers {n_gated} tools, not {GATED_TOOLS}. If it grew, that is good -- "
+        "update the count and say which tools joined. If it shrank, a guarantee narrowed and the sentence "
+        "'the raw tool path consults the capability gate' now covers less than it did.")
+    assert n_tools == TOTAL_TOOLS, (
+        f"the tool surface is now {n_tools} tools, not {TOTAL_TOOLS}. New tools are not gated by default "
+        "and are not thereby safe -- revisit `_TOOL_CAPABILITY` for any whose output is a "
+        "capability-scoped quantity, then update this count.")
+    # And every name in the table must still be a real tool, or the gate is guarding something that moved.
+    names = {t["name"] for t in tools_mod.TOOLS} | set(mcp._LOCAL)
+    unknown = sorted(set(mcp._TOOL_CAPABILITY) - names)
+    assert not unknown, (
+        f"the capability table gates {unknown}, which the tool surface does not carry -- the entry guards a "
+        "name nothing dispatches")

@@ -127,10 +127,20 @@ def test_every_test_module_imports_WITHOUT_another_module_having_moved_sys_path(
 
     r = subprocess.run([sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider",
                         str(witness)], capture_output=True, text=True, cwd=str(REPO))
-    assert r.returncode == 0, (
-        f"{witness.name} cannot be collected on its own:\n{(r.stdout + r.stderr)[-1500:]}\n"
-        "conftest.py is supposed to put src/ on the path for every module. If that was removed, a reader "
-        "running one test file gets 'No module named cellarium' on a tree that has it.")
+    out = r.stdout + r.stderr
+    # THE CRITERION IS THE IMPORT, not the exit code. An earlier version asserted `returncode == 0`, and a
+    # one-off sweep over all 31 modules then reported `test_mcp_server_wire.py` as a failure -- it is not.
+    # That module carries a module-level `pytest.importorskip("mcp")` for an optional extra, collects zero
+    # tests, and pytest exits 5 ("no tests collected"), which it does inside the full suite too. The exit
+    # code was a proxy for "could it import cellarium" and answered a different question. Measured with the
+    # right criterion: 31 of 31 import cleanly -- 30 collecting tests, 1 skipping wholesale.
+    assert "No module named 'cellarium'" not in out, (
+        f"{witness.name} cannot import cellarium on its own. conftest.py is supposed to put src/ on the "
+        f"path for every module; without it a reader running one test file gets 'No module named "
+        f"cellarium' on a tree that plainly has it. Tail of the run: {out[-900:]}")
+    assert r.returncode in (0, 5), (
+        f"{witness.name} failed to collect for a reason other than a missing import (exit "
+        f"{r.returncode}). Tail: {out[-900:]}")
 
 
 def _bare_modules() -> list[str]:
