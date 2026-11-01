@@ -64,6 +64,7 @@ PREREGISTRATION = {
 READINESS_GATES = (
     {
         "id": "G1_INDEPENDENT_CHECK",
+        "verdict_kind": "measured_number",
         "weakness": "ADJ-W1",
         "asks": "Does anything in the pipeline check anything else?",
         "measure": "agent_vs_structural_comparison_kind",
@@ -105,6 +106,7 @@ READINESS_GATES = (
     },
     {
         "id": "G2_ROLE_OVERLAP",
+        "verdict_kind": "measured_number",
         "weakness": "ADJ-W1",
         "asks": "Do the two compared paths actually cover the same roles?",
         "measure": "agent_vs_structural_role_overlap",
@@ -131,6 +133,7 @@ READINESS_GATES = (
     },
     {
         "id": "G2B_STRUCTURAL_COVERAGE",
+        "verdict_kind": "measured_number",
         "weakness": "ADJ-W1",
         "asks": "Of the roles the TABLE reading found, how many did the model reading also find?",
         "measure": "agent_covers_structural_roles",
@@ -175,6 +178,7 @@ READINESS_GATES = (
     },
     {
         "id": "G3_QUOTES_VERBATIM",
+        "verdict_kind": "construction",
         "weakness": "ADJ-W9",
         "asks": "Is every kept record's quote a verbatim span of its own document?",
         "measure": "quote_verbatim_rate",
@@ -186,9 +190,21 @@ READINESS_GATES = (
                "which is why quotes are now CUT BY THE PLATFORM from cited units rather than copied. The "
                "rate is 1.0 by construction, so this gate is a check on the construction: anything below "
                "1.0 means the construction is broken and the number would be the finding.",
+        "measured": "MET BY CONSTRUCTION, not by a compliance rate, and the distinction is the whole of "
+                    "ADJ-W9's fix. The quote is CUT by the platform (`extraction.cut_cited`) from units "
+                    "that TILE the cited span exactly (`citable_units`), so a cut across two of them is a "
+                    "contiguous substring of the document and there is no path by which a model's own text "
+                    "becomes a quote. A non-contiguous citation is WIDENED to its range and never joined, "
+                    "because joining units 3 and 5 would manufacture text appearing nowhere -- the same "
+                    "fabrication, committed by the platform instead of the model. A citation wider than "
+                    "MAX_CITED_UNITS = 12 is refused: a whole section is not a quote. `verify_quotes` "
+                    "STAYS and now checks the construction rather than the model, so `cut_not_in_source` "
+                    "is this module's bug and not a reply's. WHAT THIS VERDICT IS NOT: a rate measured "
+                    "over the development set -- see LIMITATIONS['development_verdicts_are_not_offline'].",
     },
     {
         "id": "G7_LEVELS_DERIVED",
+        "verdict_kind": "construction",
         "weakness": "ADJ-W10",
         "asks": "Is every `factor:` level derived from the cited span, rather than accepted from the "
                 "model?",
@@ -203,9 +219,21 @@ READINESS_GATES = (
                "topic label. A level feeds a cost and a command-line flag, so a wrong one adds a switch "
                "the author never asked for -- the one place in this pipeline where refusing is cheaper "
                "than allowing. True by construction, so this gate checks the construction.",
+        "measured": "MET BY CONSTRUCTION, the same way G3 is and for the same reason -- it is G3's sequel. "
+                    "`extraction.route_level` holds the rule once: the model points at the unit a field is "
+                    "stated on, `derive_level` matches the DECLARED vocabulary against THAT SPAN, and the "
+                    "reply's own value is ignored and counted (`n_model_value_differed`) exactly as its "
+                    "offered quote is. A record is REJECTED when the span states no declared level of that "
+                    "factor, or two -- refusing rather than picking. Both entry points "
+                    "(`extract_agent`, `extract_report(...)['agent']`) route through it, which is what "
+                    "makes the key true of the surface that ships rather than of one path. Re-read from "
+                    "the committed module on 2026-11-01: `derive_level` and `route_level` both present. "
+                    "NOT a development-set rate -- see "
+                    "LIMITATIONS['development_verdicts_are_not_offline'].",
     },
     {
         "id": "G4_PARTIALITY_TRAVELS",
+        "verdict_kind": "construction",
         "weakness": "ADJ-W8",
         "asks": "Can a summary report a count over a document it only partly read, without saying so?",
         "measure": "summaries_carry_partial_flag",
@@ -223,9 +251,21 @@ READINESS_GATES = (
         "why": "Per-section calling means a document can come back with sections unread. A cost table over "
                "a partial extraction UNDER-COUNTS, and an under-count that looks clean is worse on a "
                "held-out set than anywhere else, because there is no second run to catch it.",
+        "measured": "MET 2026-10-30, and what closed it was a DEFAULT rather than a mechanism -- which is "
+                    "the part worth keeping, because it is the shape the next one will have too. All "
+                    "three summaries already accepted `partial` and already appended PARTIAL_NOTE when "
+                    "told; all three defaulted to False, which answers 'was your input complete?' with a "
+                    "confident yes on behalf of a caller nobody asked. The obligation therefore did not "
+                    "exist while every part of the mechanism did. There are now three states -- partial, "
+                    "complete, and NOBODY SAID -- and the third appends "
+                    "UNSTATED_COMPLETENESS_NOTE. The enumeration is `adjudicate.COMPLETENESS_AWARE`, six "
+                    "as of 2026-10-31, held by a test that fails when a member defaults `partial` to "
+                    "False again. NOT a development-set rate -- see "
+                    "LIMITATIONS['development_verdicts_are_not_offline'].",
     },
     {
         "id": "G8_SAMPLING_PINNED",
+        "verdict_kind": "configuration",
         "weakness": "ADJ-W7",
         "asks": "Was the extraction that produced these numbers sampled at a pinned temperature?",
         "measure": "extraction_temperature_pinned",
@@ -240,9 +280,23 @@ READINESS_GATES = (
                "unpinned case. On a one-shot held-out run a report is the only artefact: two runs "
                "disagreeing would be a property of the sampler and there is no second run to find that "
                "out with. So the note becomes an obligation exactly where it cannot be recovered from.",
+        "measured": "MET AS CONFIGURED, and the configuration IS the measurement here rather than a proxy "
+                    "for it. Re-read from the committed module on 2026-11-01: "
+                    "`extraction.AGENT_MODEL_DEFAULT` is 'claude-haiku-4-5-20251001' and "
+                    "`extraction._temperature_for` returns 0.0 for it, so an unoverridden run is pinned. "
+                    "The gate stays worth asking because the model is OVERRIDABLE "
+                    "(CELLARIUM_EXTRACT_MODEL) and `temperature_pinned` is False for any family that "
+                    "refuses an explicit temperature -- claude-sonnet-5 being the measured case, which "
+                    "answers 400 `temperature is deprecated for this model`. What ADJ-W7 dissolved was "
+                    "the supposed trade: that family spends its budget on extended reasoning and never "
+                    "writes a text block, so the choice was never reproducible-but-weaker against "
+                    "stronger, it was a model that works against one that does not. NOT a "
+                    "development-set rate -- see "
+                    "LIMITATIONS['development_verdicts_are_not_offline'].",
     },
     {
         "id": "G5_MAPPINGS_REVIEWED",
+        "verdict_kind": "measured_number",
         "weakness": "ADJ-W5",
         "asks": "Has anyone other than the author checked which declared member each value maps to?",
         "measure": "applied_mappings_signed_off_by",
@@ -273,6 +327,7 @@ READINESS_GATES = (
     },
     {
         "id": "G6_SCORING_IS_MECHANICAL",
+        "verdict_kind": "construction",
         "not_a_weakness_because": "it is the mitigation for the single-annotator limitation rather than a "
                                   "defect found in the code",
         "asks": "Is every number in the held-out result produced by committed, tested code?",
@@ -296,7 +351,13 @@ READINESS_GATES = (
                     "step from `18 of 21 eligible reports are partial` to the single value `partial` was "
                     "a judgement made at a console; it is now a written rule with the alternative it was "
                     "chosen over recorded beside it. None of the three was visible while the numbers were "
-                    "assembled by hand, and all three fell out of recomputing them from this table.",
+                    "assembled by hand, and all three fell out of recomputing them from this table. "
+                    "THIS VERDICT IS ABOUT THE CODE rather than a rate over the development documents: "
+                    "`coverage()` answers whether every declared measure has arithmetic behind it, which "
+                    "any reader can re-ask by running it. See "
+                    "LIMITATIONS['development_verdicts_are_not_offline'] for what that does and does not "
+                    "settle -- and note that G6 governs the HELD-OUT numbers, which will be written to a "
+                    "file by scripts/score_heldout.py rather than recorded in prose here.",
         "why": "The literature on single extraction is blunt: error rates up to 50-63% in reviews of the "
                "practice, single extraction about 22% worse than double, single screeners missing a median "
                "5% of studies. There is one annotator here and he has read the development set five times, "
@@ -442,6 +503,34 @@ LIMITATIONS = {
                                       "not CLOSE the single-annotator limitation -- gate "
                                       "G5_MAPPINGS_REVIEWED stays unmet until somebody other than the "
                                       "author signs -- it removes the excuse for leaving it open.",
+    # FOUND 2026-11-01, by asking the module which gates carried a verdict and finding that four of nine
+    # carried none. The headline those four sit inside -- "7 of 9 gates met" -- was in the run tracker and
+    # on the Platform Map and nowhere else. Writing the four verdicts made the real limit visible: they are
+    # statements about the CONSTRUCTION and the CONFIGURATION, which is what can honestly be said, and the
+    # development set's own per-gate NUMBERS cannot be recovered from this repository at all.
+    "development_verdicts_are_not_offline": "The development-set gate verdicts recorded in `measured` are "
+                                            "of two kinds and the difference matters. G1, G2, G2B and G6 "
+                                            "carry MEASURED NUMBERS from the 2026-10-30/31 runs. G3, G4, "
+                                            "G7 and G8 carry verdicts about the CONSTRUCTION or the "
+                                            "CONFIGURATION -- the quote is cut by the platform, the level "
+                                            "is derived from the span, the summaries default to 'nobody "
+                                            "said', the default model is pinned at temperature 0 -- each "
+                                            "re-readable from committed code, and NONE of them a rate "
+                                            "over the development documents. "
+                                            "AND THE NUMBERS CANNOT BE RE-DERIVED HERE. The dump that "
+                                            "paid for them (569 calls, $6.60) predates "
+                                            "`holdout_score`: it carries no `levels_derived_by_platform`, "
+                                            "no `roles_structural`/`roles_agent`, and quote DIGESTS "
+                                            "rather than quotes, so a verbatim rate is not computable "
+                                            "from it -- `_all_true` exists in holdout_score because of "
+                                            "exactly that absence. The documents themselves are a "
+                                            "collaborator's unpublished archive and are local only. So "
+                                            "re-measuring the development set needs the archive and "
+                                            "another paid run, and any development figure quoted in a "
+                                            "paper must be cited to the run that produced it rather than "
+                                            "presented as reproducible. The HELD-OUT numbers are a "
+                                            "different matter and are the ones G6 governs: they will come "
+                                            "from `scripts/score_heldout.py` and be written to a file.",
     "mitigation_two_paths": "Where two paths read the same field the record has two provenances. That is "
                             "what gate G1_INDEPENDENT_CHECK exists to establish BEFORE the run, because "
                             "a pipeline with one reading per field has no internal check at all.",

@@ -65,9 +65,15 @@ succeed.
 
 ## The gates
 
-Six of the nine are the open weakness items. That is deliberate: "finished" means the things already
-known to be wrong are no longer wrong. A criterion invented from scratch would be a second chance to pick
-thresholds that today's numbers happen to clear.
+Eight of the nine close one of **six** open weakness items — `ADJ-W1` (three gates), `ADJ-W5`, `ADJ-W7`,
+`ADJ-W8`, `ADJ-W9`, `ADJ-W10` — and the ninth, `G6`, closes none: it is a mitigation for a limitation rather
+than a fix for a defect. That is deliberate: "finished" means the things already known to be wrong are no
+longer wrong. A criterion invented from scratch would be a second chance to pick thresholds that today's
+numbers happen to clear.
+
+> **Corrected 2026-11-01.** This paragraph read "Six of the nine are the open weakness items", which is
+> neither count: six is the number of distinct weakness items, eight is the number of gates closing one.
+> Recomputed from `holdout.READINESS_GATES` and this table's own `closes` column.
 
 | gate | asks | threshold | closes |
 |---|---|---|---|
@@ -83,8 +89,14 @@ thresholds that today's numbers happen to clear.
 
 Each gate in `holdout.py` also carries a `source` field naming the call that produces its number. A gate
 whose measurement has no stated source is a gate somebody fills in by hand at the moment of the run, which is
-what `G6_SCORING_IS_MECHANICAL` exists to forbid. Two of the eight — `G5` and `G6` — say plainly that the
-answer today is no.
+what `G6_SCORING_IS_MECHANICAL` exists to forbid. Two of the **nine** say plainly that the answer today is
+no, and they are not the two this sentence used to name: `G2_ROLE_OVERLAP` is **failed as registered** and
+`G5_MAPPINGS_REVIEWED` **needs a person**.
+
+> **Corrected 2026-11-01.** This read "Two of the eight — `G5` and `G6`". There are nine gates, and `G6`
+> was met on 2026-10-31 — which this document's own table two paragraphs above already said, so the page
+> contradicted itself. Recomputed by reading each gate's recorded verdict: the two beginning `FAILED` or
+> `UNMET` are `G2` and `G5`.
 
 `G8` is the same move as `G4`: the unpinned case was already *reported* (`temperature_pinned`), and a
 report is not an obligation. The default model accepts temperature 0, but the model is overridable, and on
