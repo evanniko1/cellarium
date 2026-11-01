@@ -47,6 +47,52 @@ These are not style preferences. Each is written against a specific failure this
   whenever `ppgpp_regulation` is on (`:1028-1034`). Related, and the same error class: never report a failed read
   or an empty grep as an established fact.
 
+- **An instrument that has not been made to fail is not evidence.** Before a measurement's output is written
+  into a file, a commit message, or a reply, the instrument gets the treatment a test gets here. Four things,
+  and the third is the one that is usually skipped:
+  **(1) assert the precondition** that makes the measurement meaningful, so an invalid run stops instead of
+  returning a well-formed number;
+  **(2) state the n and the population** the number is over, in the output itself;
+  **(3) run it on one input you know it should PASS and one you know it should FAIL** — a known-good case
+  alone is nearly worthless, because a proxy agrees with the quantity it stands in for on exactly the easy
+  cases and diverges on the hard one;
+  **(4) when no answer is known in advance, use two independent instruments and require them to agree** —
+  disagreement is the finding, and one of the two is wrong.
+  Prefer a committed test over a scratch script for any number that will be cited, because then
+  force-it-to-fail applies by convention rather than by memory; see **Numbers in prose need a driver** below.
+  *Evidence:* five failures in one session where the **measurement** was the broken part rather than the
+  thing measured, in three distinct kinds. *Proxy:* `returncode == 0` stood in for "can this module import
+  cellarium" and reported a module that correctly skips wholesale as a failure — it agreed with the real
+  question on 30 of 31 modules, so any single known-good case would have passed it; and secreted carbon was
+  compared against the mean of all four uptake fluxes, a quantity ammonium dominates and that has nothing to
+  do with carbon. *Truncated domain:* a loop printing only rows that matched hid 3 of 13 and sent "differs on
+  ten" into four files; "31 modules fixed" was shipped on a sample of three; and 133 − 89 = 44 counted a
+  population that was never checked. *Dead instrument:* `clientWidth` on a hidden browser pane is 0, so every
+  element read as overflowing; an md5 taken through a cp1252 console reported two files as differing from
+  `HEAD` that `git diff --exit-code` calls identical; and text-level equality on restored files hid a
+  whole-file CRLF conversion. In every dead-instrument case the disproof was already in my own output and was
+  read past, which is why (1) asserts rather than prints. The existing proxy and truncation rules did not
+  prevent any of this: those three were broken on the same day they were being cited.
+
+- **Numbers in prose need a driver.** A quantity stated in a document, a docstring, a commit message or an
+  answer-key field must have committed code that recomputes it from its source, and the set of such
+  quantities must carry a **completeness assertion** — every entry is recomputed, delegated to a named test,
+  or declared unrecomputable with a reason, and a new entry that is none of those fails the suite. Checking
+  only the values that exist today is insufficient and demonstrably so. Implemented instances to copy rather
+  than reinvent: `tests/test_number_provenance.py`, which re-derives `data/hf/CORPUS_COUNTS.json` from the
+  shipped manifest and holds the phrase-anchored document claims that quote it — written 2026-11-01 because
+  that driver **did not exist** while the Platform Map had claimed for several versions that "a test fails
+  when a document disagrees with it"; `CORPUS_COUNTS` appeared in exactly one file in the tree, the script
+  that writes it. Also `DRIVEN_ELSEWHERE` / `HISTORY` in
+  `tests/test_capbench_cases.py`; `VERDICT_CLAIMS` and `EXPECTED_VERDICT_KIND` in `tests/test_holdout.py`;
+  the prose-count recomputation for `docs/HOLDOUT_PREREGISTRATION.md`; and the `GATED_TOOLS` / `TOTAL_TOOLS`
+  ledger in `tests/test_mcp_capability_gate.py`. `tests/test_number_provenance.py` enumerates them and fails
+  if one loses its completeness assertion. *Evidence:* an audit of twelve freshly written benchmark cases
+  found **53 of their 68 recorded values were recomputed by nothing**. All 44 that could be re-derived
+  agreed — so no number was wrong, and nothing would have noticed when one stopped being right. That is
+  exactly the state `M2_UNRESOLVED_REQUIREMENT_RATE` was in before it drifted **sixteen points** as a literal
+  nobody recomputed.
+
 ## Orientation
 - Package: `src/cellarium/` — the blind Socratic Council (`council.py`), the grounded Cellwright agent
   (`agent.py`, `tools.py`), the guardrails (`provenance.py`, `biosecurity.py`, `envelope.py`, `rigor.py`).
