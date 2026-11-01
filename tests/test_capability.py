@@ -421,8 +421,17 @@ def test_a_glucose_DOSE_question_is_refused_and_not_mistaken_for_removal():
     implied.
 
     Measured in this corpus, not taken from the campaign that reported it: the three doses (2, 5, 20 mM)
-    are identical on all eleven recorded channels at every seed, 6 of 6 pairs. The mechanism is a binary
-    switch at 1e-5 mM, so the number is read once and never again."""
+    are identical on all eleven declared channels at every seed, 9 of 9 within-seed pairs -- nine rows
+    holding three distinct channel vectors. The mechanism is a binary switch at 1e-5 mM, so the number is
+    read once and never again.
+
+    CORRECTED 2026-11-01. This docstring said "6 of 6 pairs" (adjacent doses only, where nine pairs are
+    available) and the registry entry said `basal` differs from each dose on all eleven channels, where it
+    differs on at least ten -- no basal row agrees on more than one, and the only channel that ever agrees
+    is the saturating `division_rate`. Neither sentence was recomputed by anything, here or elsewhere; both
+    now are, by `tests/test_capbench_cases.py::test_the_glucose_dose_arms_are_still_the_same_three_cells`,
+    the executable check behind CAPBENCH C8.1 and C8.2. This test keeps asserting the registry STRUCTURE
+    those cases key against -- the numbers belong where they can be driven."""
     from cellarium import capability, gate
 
     cap = capability.get("response_to_the_glucose_concentration")

@@ -602,18 +602,35 @@ CAPABILITIES: tuple[Capability, ...] = (
     # instruction says so in as many words) and then had nowhere to send it: no capability said the dose
     # itself is unrepresented, so the question fell through to whatever its observable implied.
     #
-    # MEASURED IN THIS CORPUS rather than taken from the external campaign that reported it. Of the six
-    # dose-to-dose pairs available (2 mM / 5 mM / 20 mM at three seeds, generation 1), SIX are identical on
-    # ALL ELEVEN channels -- growth rate, ppGpp, ribosome concentration, charged-tRNA fraction and the rest
-    # -- so the dose changes nothing that is recorded. The mechanism upstream is a binary switch: uptake is
-    # gated at IMPORT_CONSTRAINT_THRESHOLD = 1e-5 mM (external_state.py), above which the concentration is
-    # not read again.
+    # MEASURED IN THIS CORPUS rather than taken from the external campaign that reported it. NINE within-seed
+    # dose-to-dose pairs are available (2 mM / 5 mM / 20 mM at three seeds, generation 1) and ALL NINE are
+    # identical on ALL ELEVEN declared channels (`survey.CHANNELS`) -- growth rate, ppGpp, ribosome
+    # concentration, charged-tRNA fraction and the rest -- so the nine rows hold three distinct channel
+    # vectors, one per seed, and the dose changes nothing that is recorded. The mechanism upstream is a binary
+    # switch: uptake is gated at IMPORT_CONSTRAINT_THRESHOLD = 1e-5 mM (external_state.py), above which the
+    # concentration is not read again.
+    #
+    # CORRECTED 2026-11-01, by writing an executable check for it (CAPBENCH C8.1/C8.2). This comment said
+    # "six dose-to-dose pairs available ... SIX are identical", counting adjacent doses only; nine are
+    # available and all nine are identical, so the earlier sentence understated its own evidence. It also
+    # said `basal` "differs from each dose on all eleven channels" -- it differs on AT LEAST TEN, and the
+    # blanket "all eleven" is wrong for most rows. NO basal row agrees with a dose row on more than ONE
+    # channel, and the only one that ever agrees is `division_rate`: a SATURATING FRACTION (divided
+    # generations over total) that is 1.0 for any fully dividing run and so cannot separate two healthy
+    # conditions at all (INV-15: not every column is an observable). Of the 13 reportable steady_state basal
+    # rows at the dose seeds, 10 agree with a dose row on `division_rate` and 3 agree on NOTHING -- those
+    # three are single-generation runs where `division_rate` is NULL, and a null compared with 1.0 is not an
+    # agreement (INV-4). Both sentences had been restated in a test docstring and recomputed by nothing.
+    #
+    # The FIRST correction of this sentence said simply "it differs on ten", from an exploratory print that
+    # listed only the rows WITH an agreement. The check written for it failed on the NULL rows at once. A
+    # filtered print is as bad as a truncated tail.
     #
     # WHERE OUR MEASUREMENT DISAGREES WITH THE SOURCE, recorded rather than smoothed: the external campaign
     # reported `basal` as bit-identical to the three doses too (32/32). Here it is NOT -- `basal` differs
-    # from each dose on all eleven channels at the same seed and generation. `basal` is its own condition
-    # row with its own fitted doubling time, not the dose medium with a different number in it, and why the
-    # two differ is NOT established here.
+    # from each dose on at least ten of the eleven channels at the same seed, never fewer. `basal` is its own
+    # condition row with its own fitted doubling time, not the dose medium with a different number in it, and
+    # why the two differ is NOT established here.
     Capability(
         key="response_to_the_glucose_concentration",
         question="Does the cell respond to HOW MUCH glucose is in the medium -- a dose, a ramp, a cut to a "
@@ -625,7 +642,7 @@ CAPABILITIES: tuple[Capability, ...] = (
                  "binary switch (IMPORT_CONSTRAINT_THRESHOLD, external_state.py), so the number is read "
                  "once to decide present-or-absent and never again. Measured here: the three doses in the "
                  "corpus (2, 5 and 20 mM) are identical on all eleven recorded channels at every seed we "
-                 "have, 6 of 6 pairs"},
+                 "have, 9 of 9 within-seed pairs -- nine rows holding three distinct channel vectors"},
         consequence={ALL_MODES: "a dose design RUNS and answers nothing about dose. A difference between "
                      "two doses is a difference between two seeds, and a dose-response curve fitted to "
                      "them describes the sampler. Glucose REMOVAL is a different question and has its own "

@@ -634,7 +634,11 @@ def test_every_gene_a_case_names_is_a_gene_the_model_knows():
         pytest.skip("data/cache/gene_scope.json is absent or empty — gene existence is unmeasurable here, "
                     "which is not the same as the genes being absent")
     named = {"C3.1": ("rpmE",), "C3.2": ("glmS",), "C2.1": ("murA",), "C2.2": ("murA",),
-             "C4.1": ("rpmE",), "C4.2": ("rpmE",)}
+             "C4.1": ("rpmE",), "C4.2": ("rpmE",),
+             # The second pass. cytR is the one that matters most here: C9's whole case is that a `tf_activity`
+             # variant index is NOT a ko_index, so the gene has to be confirmed to exist in its own right
+             # rather than through the variant number the run was launched with.
+             "C9.1": ("cytR",), "C9.2": ("cytR",), "C10.1": ("leuB",), "C11.1": ("cysE", "metA")}
     for cid, genes in named.items():
         _case(cid)                                   # the case must still exist under that id
         for g in genes:
@@ -655,7 +659,8 @@ def test_every_design_a_case_names_is_in_the_corpus():
     the parquet directly would test a different corpus from the one every consumer sees."""
     from cellarium import survey
     keys = {survey.design_key(r) for r in _rows()}
-    wanted = [(c["id"], c["data_defect"]["design_key"]) for c in cb.CASES if c["data_defect"]]
+    wanted = [(c["id"], c["data_defect"]["design_key"]) for c in cb.CASES
+              if c["data_defect"] and c["data_defect"]["design_key"]]
     wanted += [(c["id"], k) for c in cb.CASES for k in (c["measured"] or {}).get("design_keys", ())]
     assert wanted, "no case names a design — this check would otherwise pass over an empty set"
     for cid, key in wanted:
@@ -666,6 +671,39 @@ def test_every_design_a_case_names_is_in_the_corpus():
                 if c["check"]["kind"] == "manifest_design"}
     for cid, prefix in prefixes.items():
         assert any(k.startswith(prefix) for k in keys), f"{cid} expects designs under {prefix!r}; none exist"
+
+
+def test_every_flagged_defect_names_exactly_one_locus_and_that_locus_exists():
+    """A `data_defect` says WHERE the defective rows are, and after C9/C10 there are two possible answers: a
+    corpus design, or a run in one of the validation artifacts. Both keys are present on every defect with the
+    unused one None, so this test can require exactly one — the shape being uniform is what lets a grader rely
+    on it instead of inferring the locus from which keys happen to be there.
+
+    THE DISTINCTION IS LOAD-BEARING, not tidiness. The validation runs were deliberately never appended to the
+    manifest (each script's docstring says so), so a case flagging one and checked against the corpus would
+    find no contradicting row and pass for want of anything to contradict it — a vacuous green on exactly the
+    cases whose point is that the data looks clean. Conversely a corpus design must be resolvable through
+    `store.list_results` + `survey.design_key`, the boundary every other consumer reads."""
+    from cellarium import survey
+    defects = [(c["id"], c["data_defect"]) for c in cb.CASES if c["data_defect"]]
+    assert defects, "no case carries a data_defect — this check would pass over an empty set"
+    for cid, d in defects:
+        assert set(d) == {"design_key", "validation_file", "run_key", "qc_verdict", "defect", "route"}, (
+            f"{cid}'s data_defect carries {sorted(d)}; the shape must be uniform across every defect")
+        corpus, validation = bool(d["design_key"]), bool(d["validation_file"] and d["run_key"])
+        assert corpus != validation, (
+            f"{cid} names {'both' if corpus and validation else 'neither'} locus "
+            f"(design_key={d['design_key']!r}, validation_file={d['validation_file']!r}, "
+            f"run_key={d['run_key']!r}) — exactly one must say where the defective rows are")
+        if validation:
+            doc = _validation(d["validation_file"])
+            assert d["run_key"] in doc["runs"], (
+                f"{cid} flags run {d['run_key']!r}, which {d['validation_file']} does not record")
+            # ... and it must NOT be a corpus design, or the two loci would be describing the same rows and
+            # the distinction this test rests on would be cosmetic after all.
+            keys = {survey.design_key(r) for r in _rows()}
+            assert d["run_key"] not in keys, (
+                f"{cid} flags {d['run_key']!r} as a validation run and the corpus has a design of that name")
 
 
 def test_every_corpus_column_a_case_names_exists_in_the_shards():
@@ -711,6 +749,18 @@ def test_the_qc_verdicts_a_case_cites_are_real_and_correctly_attributed():
     assert "noop_knockout" not in statuses, (
         "noop_knockout has become a QCStatus member; C2.1's grounding says it is an audit-written manifest "
         "value, and that sentence now needs re-checking")
+    # The second pass's two verdicts are both real enum members, and asserting that is the whole reason they
+    # were chosen over a new CAPBENCH-local token: `empty` is what check_result returns for a result with no
+    # readable generation (C9.1's zero-length run) and `no_division` is what check_generation returns when
+    # `divided` is False (C10.1's capped terminal generation). If either leaves the enum, the cases stop
+    # citing a verdict any code path can emit, which is the state `noop_knockout` is explicitly marked as.
+    for v in ("empty", "no_division"):
+        assert v in statuses, (
+            f"{v!r} is no longer a qc.QCStatus member; the case citing it now names a verdict nothing emits, "
+            f"the way noop_knockout does — say so in its grounding or pick a verdict that exists")
+    assert set(cb.QC_VERDICTS) - statuses == {"noop_knockout"}, (
+        f"exactly one declared verdict may be outside the enum (noop_knockout, the audit-written manifest "
+        f"value); outside it now: {sorted(set(cb.QC_VERDICTS) - statuses)}")
     for c in cb.CASES:
         if not c["data_defect"]:
             continue
@@ -951,6 +1001,362 @@ def test_the_answerable_cases_can_point_at_rows_that_exist():
         con.close()
 
 
+
+
+# ------------------------------------------------------------------------------------------------------------
+# 5 · The second pass's checks. Every one of these recomputes its case's key from the artifact the case names,
+# and every one DERIVES THE DIRECTION IT ASSERTS IN FROM THE ACTION rather than reading a flag out of the
+# check box — the hole a mutation test found in `test_the_answerable_cases_can_point_at_rows_that_exist`,
+# where clearing a stored flag silently turned the assertion vacuous. A check whose own configuration can
+# switch it off is not a check.
+# ------------------------------------------------------------------------------------------------------------
+
+def _validation(name: str) -> dict:
+    """One of the two validation artifacts, or a skip naming it. Never an empty dict: an existence check over
+    `{}` would pass vacuously, which is the silent-absence bug this suite exists to keep out."""
+    assert name in cb.VALIDATION_ARTIFACTS, f"{name!r} is not a declared validation artifact"
+    path = REPO / "evals" / "results" / name
+    if not path.is_file():
+        pytest.skip(f"evals/results/{name} is not in this tree — the runs it records are unreadable here, "
+                    "which is not the same as the runs having gone differently")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    if not doc.get("runs"):
+        pytest.skip(f"evals/results/{name} parsed but records no runs")
+    return doc
+
+
+def test_the_condition_rows_a_case_points_at_are_really_there_and_really_reportable():
+    """`condition_rows` is the second pass's workhorse, and it runs in BOTH directions off one contract.
+
+    An `answer`/`qualify` case must find at least one reportable row of that design carrying the named column
+    — otherwise its label is as unfalsifiable as a refusal, and an over-refusal rate measured against cases
+    that were not answerable either is not a measurement. A `refuse`/`propose`/`flag` case must find ZERO,
+    because the whole force of C7.1 is that `condition/minus_phosphate` is a real design with four real rows
+    that carry no growth rate at all: a system looking for evidence by name finds them, and they are crash
+    rows. If a reportable phosphate row ever lands in the corpus, C7.1 stops being a refusal and this test is
+    what makes that a decision instead of a silent re-labelling.
+
+    The row COUNT and the qc vocabulary are pinned too, and skipped (not softened) when the local tree has
+    grown rows of its own — the same conftest guard the rest of the suite uses."""
+    named = [(c, c["check"]) for c in cb.CASES if c["check"]["kind"] == "condition_rows"]
+    assert named, "no case carries a condition_rows check"
+    con, ded = _duck()
+    try:
+        for c, chk in named:
+            where = "perturbation = ? AND condition = ? AND elongation_model = ?"
+            args = [chk["perturbation"], chk["condition"], chk["elongation_model"]]
+            n, n_rep, qcs = con.execute(
+                f"SELECT count(*), count_if(reportable AND {chk['column']} IS NOT NULL), "
+                f"list(DISTINCT qc) FROM {ded} WHERE {where}", args).fetchone()
+            assert n, (f"{c['id']} names {chk['perturbation']}/{chk['condition']} under "
+                       f"{chk['elongation_model']}, and the corpus has no such row — the case points at "
+                       "nothing, which is not the same as the design being empty")
+            if c["action"] in ("answer", "qualify"):
+                assert n_rep >= 1, (
+                    f"{c['id']} is labelled `{c['action']}` and {chk['perturbation']}/{chk['condition']} has "
+                    f"{n_rep} reportable row(s) carrying {chk['column']} — an answerable case with no row to "
+                    "answer from")
+            else:
+                assert n_rep == 0, (
+                    f"{c['id']} is labelled `{c['action']}` and {n_rep} reportable row(s) of "
+                    f"{chk['perturbation']}/{chk['condition']} carry {chk['column']}. The corpus can now "
+                    "answer it, so the honest label has changed")
+            # The reportable count itself, where the case records one. C10.2's whole contrast with C10.1 is
+            # "34 of 36 reportable" against "4 of 4 unreportable", and a number stated in `measured` that
+            # nothing recomputes is the defect this pass spent its time correcting elsewhere.
+            for key in ("reportable_with_growth_rate", "corpus_downshift_reportable_with_growth_rate",
+                        "corpus_minus_phosphate_reportable"):
+                if key in c["measured"]:
+                    assert n_rep == c["measured"][key], (
+                        f"{c['id']} records {c['measured'][key]} reportable row(s) of "
+                        f"{chk['perturbation']}/{chk['condition']} carrying {chk['column']}; recomputed "
+                        f"{n_rep}")
+            grown = _grown_locally()
+            if grown:
+                continue       # counts pin the SHIPPED corpus; the direction above is the load-bearing half
+            assert n == chk["n_rows"], (
+                f"{c['id']} says {chk['perturbation']}/{chk['condition']} has {chk['n_rows']} rows; the "
+                f"corpus has {n}")
+            assert sorted(qcs) == sorted(chk["qc_values"]), (
+                f"{c['id']} says the qc values are {sorted(chk['qc_values'])}; the corpus has {sorted(qcs)}")
+    finally:
+        con.close()
+
+
+def test_the_glucose_dose_arms_are_still_the_same_three_cells():
+    """C8's hero check, and the reason both members of the pair can share one runner: the SAME recomputation
+    answers "is there a dose response" (no, and no run could show one) and "are these three arms distinct
+    cells" (no — nine rows, three channel vectors).
+
+    `survey.CHANNELS` is what "the recorded channels" means here, and it is a DECLARED set of eleven names
+    kept in sync with `instrument.CHANNELS` by its own test — so the count is not a judgement call about
+    which columns are observables. Recomputing it corrected the capability registry's prose twice: the entry
+    said six dose-to-dose pairs were available where nine are, and said `basal` differs from each dose on all
+    eleven channels where it differs on ten (`division_rate` is a saturating fraction, 1.0 in both).
+
+    The direction is derived from the action for the pair's refusing member as well: an identity is what makes
+    the dose unanswerable, so if the arms ever stop being identical BOTH labels change."""
+    import itertools
+    from collections import Counter as collections_Counter
+
+    from cellarium import survey
+    named = [(c, c["check"]) for c in cb.CASES if c["check"]["kind"] == "dose_identity"]
+    assert named, "no case carries a dose_identity check"
+    ch = list(survey.CHANNELS)
+    assert len(ch) == 11, f"survey.CHANNELS declares {len(ch)} channels, not the eleven the cases cite: {ch}"
+    con, ded = _duck()
+    try:
+        for c, chk in named:
+            conds = list(chk["conditions"])
+            placeholders = ",".join("?" for _ in conds)
+            rows = con.execute(
+                f"SELECT condition, seed, {','.join(ch)} FROM {ded} WHERE condition IN ({placeholders})",
+                conds).fetchall()
+            assert rows, f"{c['id']} names conditions {conds} and the corpus has no such row"
+            by = {(r[0], r[1]): r[2:] for r in rows}
+            assert len(by) == len(rows), f"{c['id']}: duplicate (condition, seed) rows — dedup did not apply"
+            arms = sorted({k[0] for k in by})
+            seeds = sorted({k[1] for k in by})
+            # Only channels non-null on EVERY row can carry an identity claim; a null compared with a null is
+            # not an agreement (INV-4), and treating it as one is how a vacuous identity would pass.
+            usable = [i for i, _ in enumerate(ch) if all(by[k][i] is not None for k in by)]
+            assert len(usable) == len(ch), (
+                f"{c['id']}: {[ch[i] for i in range(len(ch)) if i not in usable]} is null on some dose row, "
+                "so the identity claim cannot be made over all eleven declared channels")
+            pairs = [(s, a, b) for s in seeds for a, b in itertools.combinations(arms, 2)]
+            same = [p for p in pairs if all(by[(p[1], p[0])][i] == by[(p[2], p[0])][i] for i in usable)]
+            assert len(same) == len(pairs), (
+                f"{c['id']}: only {len(same)} of {len(pairs)} within-seed dose pairs are identical. The arms "
+                "now differ, so the dose refusal (C8.1) AND the independence answer (C8.2) both need "
+                "re-deriving — this is not a tolerance to widen")
+            assert (len(same), len(pairs)) == tuple(
+                c["measured"]["within_seed_arm_pairs_identical_on_all_channels"]), (
+                f"{c['id']} records {c['measured']['within_seed_arm_pairs_identical_on_all_channels']} "
+                f"identical pairs; recomputed {(len(same), len(pairs))}")
+            distinct = len({by[k] for k in by})
+            assert distinct == chk["n_distinct_channel_vectors"] == len(seeds), (
+                f"{c['id']}: {len(by)} rows hold {distinct} distinct channel vectors across {len(seeds)} "
+                f"seeds; the case says {chk['n_distinct_channel_vectors']}. One vector per seed is the claim "
+                "— more means the doses have started to differ, fewer means seeds have collided")
+            # THE OTHER HALF OF THE REGISTRY'S CLAIM, and the half that was wrong — twice, because the
+            # first attempt to correct it was wrong too. `basal` is not the dose medium with a different
+            # number in it; it is its own condition row with its own fitted doubling time, and the entry
+            # said it differs from each dose on all eleven channels.
+            #
+            # What is actually true, recomputed over EVERY reportable basal row at a dose seed: no basal row
+            # agrees with a dose row on more than ONE channel, and the only channel that ever agrees is
+            # `division_rate` — divided-generations-over-total, which saturates at 1.0 for any run where
+            # every generation divided, so it cannot separate two healthy conditions at all (INV-15). It
+            # agrees on the rows that carry a value and not on the single-generation rows, where it is NULL
+            # and a null compared with 1.0 is not an agreement (INV-4). So "all eleven" holds for those rows
+            # and fails for the rest; "at least ten of eleven" holds for every row, and that is the sentence.
+            #
+            # The first version of this block asserted one exact agreement set for every row and failed on
+            # the NULL rows immediately. It was written from an exploratory print that showed only the rows
+            # WITH an agreement — a filtered print, which is as bad as a truncated tail, and which is how
+            # three of thirteen rows went unseen.
+            agree = c["measured"].get("basal_vs_a_dose_row")
+            if agree is not None:
+                ref = sorted(conds)[0]          # the arms are identical, so any one of them is the compare
+                basal = con.execute(
+                    f"SELECT seed, {','.join(ch)} FROM {ded} WHERE perturbation = 'wildtype' AND "
+                    f"condition = 'basal' AND elongation_model = 'steady_state' AND reportable "
+                    f"AND seed IN ({','.join('?' for _ in seeds)})", seeds).fetchall()
+                assert basal, (
+                    f"{c['id']} records a basal comparison and no reportable steady_state basal row shares "
+                    f"a seed with the dose arms — the comparison is unmeasurable here, not confirmed")
+                ever, counted = set(), collections_Counter()
+                for row in basal:
+                    vals = row[1:]
+                    same = frozenset(ch[i] for i in range(len(ch)) if vals[i] == by[(ref, row[0])][i])
+                    assert len(same) <= agree["max_channels_agreeing"], (
+                        f"{c['id']}: the basal row at seed {row[0]} agrees with a dose row on "
+                        f"{sorted(same)} — more than the {agree['max_channels_agreeing']} the case records. "
+                        "`basal` becoming the dose medium would re-derive the whole entry")
+                    ever |= same
+                    counted[tuple(sorted(same))] += 1
+                assert sorted(ever) == sorted(agree["channels_that_ever_agree"]), (
+                    f"{c['id']} records that only {sorted(agree['channels_that_ever_agree'])} ever agrees; "
+                    f"recomputed {sorted(ever)} over {len(basal)} reportable basal rows")
+                assert len(basal) == agree["basal_rows_compared"] or _grown_locally(), (
+                    f"{c['id']} compared {agree['basal_rows_compared']} basal rows; found {len(basal)}")
+                if not _grown_locally():
+                    assert dict(counted) == {tuple(k): v for k, v in agree["tally"]}, (
+                        f"{c['id']} records the agreement tally {agree['tally']}; recomputed "
+                        f"{sorted(counted.items())}. The rows agreeing on NOTHING are the ones whose "
+                        "division_rate is NULL, and a null is not an agreement")
+            if _grown_locally():
+                continue
+            assert len(by) == chk["n_rows"] and len(seeds) == chk["n_seeds"], (
+                f"{c['id']} says {chk['n_rows']} rows at {chk['n_seeds']} seeds; found {len(by)} at "
+                f"{len(seeds)}")
+    finally:
+        con.close()
+
+
+def test_the_validation_runs_a_case_names_recorded_what_the_case_says_they_did():
+    """`validation_run` — C9's pair, one run each, and the whole point of C9.1 is a number that looks like a
+    measurement. `final_fold == 1.0` against `final_expected == 1.0` is the cleanest possible "this change
+    does nothing", and it is the arithmetic of a zero-length interval: the run raised at t=0 and never had a
+    generation.
+
+    So the direction is derived from the action twice over. A `flag` member must have a zero-length cell —
+    if the run ever produces a timestep, the row stops being EMPTY and the case needs re-deriving. A
+    `qualify` member must have a real one, and must have exactly the ONE seed and ONE generation its caveat
+    rests on; two would make the caveat false."""
+    named = [(c, c["check"]) for c in cb.CASES if c["check"]["kind"] == "validation_run"]
+    assert named, "no case carries a validation_run check"
+    for c, chk in named:
+        doc = _validation(chk["file"])
+        run = doc["runs"].get(chk["run"])
+        assert run, (f"{c['id']} names run {chk['run']!r}, which {chk['file']} does not record. It has "
+                     f"{sorted(doc['runs'])[:6]}...")
+        assert run["identity_key"] == chk["identity_key"], (
+            f"{c['id']} says {chk['run']} ended {chk['identity_key']!r}; the artifact says "
+            f"{run['identity_key']!r}")
+        cells = run.get("cells") or []
+        assert len(cells) == chk["n_cells"] == run["n_cells"], (
+            f"{c['id']} says {chk['n_cells']} cell(s); the artifact records {len(cells)} in `cells` and "
+            f"{run['n_cells']} in `n_cells`")
+        last = cells[-1]
+        assert last["duration_s"] == chk["duration_s"], (
+            f"{c['id']} says the run's last cell lasted {chk['duration_s']} s; the artifact says "
+            f"{last['duration_s']}")
+        assert last["final_fold"] == chk["final_fold"], (
+            f"{c['id']} says final_fold {chk['final_fold']}; the artifact says {last['final_fold']}")
+        if c["action"] == "flag":
+            assert last["duration_s"] == 0.0, (
+                f"{c['id']} flags {chk['run']} as a run that never produced a timestep, and its last cell "
+                f"ran {last['duration_s']} s. A run with a duration has data, so the EMPTY verdict and the "
+                "flag both need re-deriving")
+            assert last["final_fold"] == last["final_expected"] == 1.0, (
+                f"{c['id']}'s defect is that a zero-length interval reports no change; the artifact has "
+                f"final_fold {last['final_fold']} against expected {last['final_expected']}")
+        else:
+            assert last["duration_s"] > 0.0, (
+                f"{c['id']} is labelled `{c['action']}` — a number that may be reported with a caveat — and "
+                f"its run lasted {last['duration_s']} s, i.e. there is no number")
+            assert c["measured"]["n_seeds"] == 1 and c["measured"]["n_generations"] == len(cells) == 1, (
+                f"{c['id']}'s caveat is that the number rests on one seed and one generation; `measured` "
+                f"says {c['measured']['n_seeds']} seed(s) and the artifact records {len(cells)} cell(s)")
+
+
+def test_the_validation_arms_a_case_names_failed_the_way_the_case_says():
+    """`validation_arm` — C10.1 and C11.1, where the claim is about a whole arm rather than one run, because
+    in both the ARM's shape is the finding.
+
+    C10.1: three of four seeds end with a NaN inside the tRNA charging solver and the fourth completes, so
+    the obvious filter ("use the runs that completed") selects exactly one run — the one whose terminal
+    generation ran the full 10,800 s cap without dividing while dry mass rose 5.736-fold. The identity-key
+    tally is asserted exactly, in both directions: a fourth NaN seed would remove the completed run this case
+    is about, and a second completed seed would give the arm the clean replicate it is flagged for lacking.
+
+    C11.1: all four runs stop in the GLPK solver and NONE reaches generation 1, which is why the action is
+    `propose` rather than `flag` — there is no number to flag. A `propose` member must therefore have no run
+    with more than one cell, and the stop times and the fraction-of-expected band are recomputed from the
+    `cells` rather than read from the artifact's own prose (which understates the minimum by 23 s)."""
+    import collections
+
+    named = [(c, c["check"]) for c in cb.CASES if c["check"]["kind"] == "validation_arm"]
+    assert named, "no case carries a validation_arm check"
+    for c, chk in named:
+        doc = _validation(chk["file"])
+        runs = {n: v for n, v in doc["runs"].items() if n.startswith(chk["arm"])}
+        assert runs, (f"{c['id']} names arm {chk['arm']!r} and {chk['file']} records no run under it; it has "
+                      f"{sorted({n.split('/')[0] for n in doc['runs']})}")
+        assert len(runs) == chk["n_runs"], (
+            f"{c['id']} says arm {chk['arm']!r} has {chk['n_runs']} runs; the artifact has {len(runs)} "
+            f"({sorted(runs)})")
+        tally = collections.Counter(v["identity_key"] for v in runs.values())
+        assert dict(tally) == dict(chk["identity_keys"]), (
+            f"{c['id']} says the arm ended {dict(chk['identity_keys'])}; recomputed {dict(tally)}. The arm's "
+            "shape IS the finding here, so a different tally re-derives the case rather than loosening it")
+        tg = chk["terminal_generation"]
+        if tg is not None:
+            cells = doc["runs"][tg["run"]]["cells"]
+            last = cells[-1]
+            for k in ("duration_s", "final_fold", "final_expected"):
+                assert last[k] == tg[k], f"{c['id']}'s terminal generation {k}: case {tg[k]}, artifact {last[k]}"
+            assert last["final_fold"] < last["final_expected"], (
+                f"{c['id']} flags mass accumulation in a stalled cell; a fold change at or above the fitted "
+                "expectation would be a different claim")
+            # The load-bearing half: the generation ran to the cap and did not divide, which is what makes
+            # qc.check_generation return NO_DIVISION and the 5.7-fold number not a growth rate.
+            assert last["duration_s"] == 10800.0, (
+                f"{c['id']}'s verdict is NO_DIVISION on a capped generation; the artifact records "
+                f"{last['duration_s']} s, so it is not capped and the verdict needs re-deriving")
+        if c["action"] == "propose":
+            assert all(len(v["cells"]) == 1 for v in runs.values()), (
+                f"{c['id']} proposes a campaign because no generation completed; a run in the arm now has "
+                "more than one cell, so there is something to read and the honest label has changed")
+            stops = tuple(sorted(v["cells"][-1]["duration_s"] for v in runs.values()))
+            assert stops == tuple(c["measured"]["stop_times_s"]), (
+                f"{c['id']} records stop times {c['measured']['stop_times_s']}; recomputed {stops}")
+            frac = tuple(sorted(round(100 * v["cells"][-1]["final_fold"] / v["cells"][-1]["final_expected"], 1)
+                                for v in runs.values()))
+            assert frac == tuple(c["measured"]["fold_fraction_of_expected_pct"]), (
+                f"{c['id']} records {c['measured']['fold_fraction_of_expected_pct']}% of expected; "
+                f"recomputed {frac}")
+            assert min(frac) > 50.0, (
+                f"{c['id']} says the cells were slowed and not stalled; the lowest is {min(frac)}% of "
+                "expected, which no longer supports that sentence")
+
+
+def test_the_no_carbon_run_still_takes_up_no_carbon_and_still_secretes_some():
+    """C12.2's check, and the arithmetic that justifies C12.1's refusal. The claim has two halves and both
+    have to hold: NO carbon-bearing species appears among the uptake fluxes, and carbon IS secreted — CO2 and
+    formate, each well above the glucose control's. One half alone proves nothing; together they say carbon
+    is not conserved, which is the sentence the refusal rests on.
+
+    The control is asserted too, and that is the null-arm discipline rather than decoration: a run that took
+    up no carbon because the recorder was broken would look identical, and the control taking up glucose at
+    -6.39 is what rules that out."""
+    named = [(c, c["check"]) for c in cb.CASES if c["check"]["kind"] == "validation_exchange"]
+    assert named, "no case carries a validation_exchange check"
+    # The elements whose presence in a species name makes it carbon-bearing for this check. Spelled out so a
+    # reader can see the test is not taking the artifact's own `no_carbon_uptake` flag on trust.
+    carbon_tokens = ("GLC", "CARBON", "FORMATE", "ACET", "SUCC", "PYRUVATE", "CIT", "MAL", "LACTATE",
+                     "GLYCEROL", "RIBOSE", "FRU", "GAL", "XYL", "SELENO")
+    for c, chk in named:
+        doc = _validation(chk["file"])
+        block = (doc.get("readouts") or {}).get(chk["readout"])
+        assert block, (f"{c['id']} names readout {chk['readout']!r}, which {chk['file']} does not carry; it "
+                       f"has {sorted(doc.get('readouts') or {})}")
+        uptake, secretion = block["uptake"], block["secretion"]
+        assert uptake and secretion, f"{c['id']}: the readout's uptake or secretion block is empty"
+        carbon_in = sorted(s for s in uptake if any(tok in s.upper() for tok in carbon_tokens))
+        assert carbon_in == list(chk["carbon_uptake_species"]), (
+            f"{c['id']} says the carbon-bearing uptake species are {list(chk['carbon_uptake_species'])}; "
+            f"recomputed {carbon_in} from the recorded fluxes")
+        assert all(v < 0 for v in uptake.values()), (
+            f"{c['id']}: an uptake flux is non-negative, so the sign convention this check reads is not the "
+            f"one the artifact wrote ({uptake})")
+        for sp in chk["secreted"]:
+            assert secretion.get(sp, 0) > 0, (
+                f"{c['id']} says the cell secretes {sp}; the readout has {secretion.get(sp)!r}")
+        control = block.get("control_C_s0") or {}
+        assert control, f"{c['id']}: the readout carries no control arm, so the uptake claim has no null"
+        for sp in chk["control_uptake_species"]:
+            assert control.get(sp, 0) < 0, (
+                f"{c['id']}'s null arm must take up {sp} — otherwise a broken recorder looks exactly like a "
+                f"cell eating nothing. The control records {control.get(sp)!r}")
+        # The imbalance, as the one comparison a reader can check: carbon OUT against carbon IN. The
+        # denominator is carbon uptake specifically, not the mean or the total uptake flux — an earlier
+        # version of this line compared against the mean of all four fluxes, which ammonium dominates, and
+        # ammonium is not carbon. That comparison was a proxy for the quantity the claim is about and it
+        # failed on data that supports the claim completely.
+        out = sum(v for s, v in secretion.items() if any(tok in s.upper() for tok in carbon_tokens))
+        carbon_uptake = sum(abs(uptake[s]) for s in carbon_in)
+        assert carbon_uptake == 0.0 and out > 0, (
+            f"{c['id']}: carbon in {carbon_uptake}, carbon out {out}. The refusal rests on carbon leaving a "
+            "cell that took none up, and that is no longer what the fluxes say")
+        control_out = sum(v for s, v in control.items()
+                          if v > 0 and any(tok in s.upper() for tok in carbon_tokens))
+        assert out > control_out > 0, (
+            f"{c['id']}: the no-carbon cell secretes {out} against the glucose control's {control_out}. "
+            "Secreting LESS than the control would be an ordinary slowed cell; secreting more while eating "
+            "nothing is the finding")
+
 # The check kinds this file knows how to execute. Declared at module scope so
 # `test_every_check_kind_has_a_runner_in_this_file` can compare it against CHECK_KINDS in both directions —
 # a kind with no runner is a check that never runs, and a runner with no kind is dead code pretending to guard.
@@ -962,4 +1368,11 @@ RUNNERS = {
     "manifest_design",  # test_the_rrna_designs_the_refusal_argues_against_are_really_there
     "manifest_column",  # test_the_answerable_cases_can_point_at_rows_that_exist
     "registry",         # test_the_registry_reproduces_every_registry_governed_answer_key
+    # The second pass. Each of these recomputes its case's key from the artifact the case names, and each
+    # derives the direction it asserts in from the ACTION rather than from a flag in the check box.
+    "condition_rows",      # test_the_condition_rows_a_case_points_at_are_really_there_and_really_reportable
+    "dose_identity",       # test_the_glucose_dose_arms_are_still_the_same_three_cells
+    "validation_run",      # test_the_validation_runs_a_case_names_recorded_what_the_case_says_they_did
+    "validation_arm",      # test_the_validation_arms_a_case_names_failed_the_way_the_case_says
+    "validation_exchange", # test_the_no_carbon_run_still_takes_up_no_carbon_and_still_secretes_some
 }

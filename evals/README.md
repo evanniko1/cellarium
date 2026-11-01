@@ -26,6 +26,31 @@ Separate files, separate runner (`scripts/run_gate_eval.py`), separate rubric.
   `run_gate_eval.py --heldout2` **refuses an unfrozen set**, and `GATE-8b` A–D must not be implemented
   until it is frozen by `scripts/build_heldout_bank_v2.py --freeze --reviewer "Name, date"`.
 
+**AND A THIRD CONSTRUCT, which until now this README did not mention at all.** `capbench_cases.py` is
+CAPBENCH-1, the selective-answering case corpus `main.tex` §6 pre-registers. It inverts `cases.py`: every
+case asserts that the system **declines, qualifies, or flags** rather than answering, and there is no rubric
+and no judge — each label is a discrete action with an executable check behind it.
+
+- `capbench_cases.py` — **22 cases**, schema `question / r / admissible_modes / action / check` plus
+  `governed_by`, `must_say`, `must_not_say`, `grounding`. Against `CAPBENCH-1`'s 40–60 target, and `BALANCE`
+  records the real distribution rather than the target one.
+- Nine of the 22 are **near-neighbour pairs**: two cases differing in exactly one field of `r` where the
+  correct action flips. That is the measurement — a system doing keyword matching sees the same nouns in both
+  members. The pairs exercise five of `r`'s six fields; `regulatory_dependencies` is the one still unmoved.
+- `tests/test_capbench_cases.py` **re-derives every label from the artifact it came from** — the capability
+  registry by driving `capability.check()`, the corpus by querying the shards, and the two validation
+  campaigns (`results/phosphate_validation.json`, `results/known_faults_validation.json`) by recomputing
+  their tallies. These are not schema checks: a test that only asserted the corpus was well-formed would
+  pass unchanged on one whose every number had rotted.
+- **No arm may be run against it yet.** `CAPBENCH-1a` — two independent adjudications (simulator expert +
+  domain expert) on FROZEN labels, before any model sees them — has not happened, and doing it afterwards
+  voids the claim. The module docstring says so and the gate is not advisory.
+
+The binding constraint on growing it is **grounded measurements, not authoring effort**: a case can only be
+written where a measurement already exists to key it against, and past the ones in this repository the next
+cases need machine time. Writing them without it would mean asserting keys, which is the thing CAPBENCH
+exists to make impossible.
+
 ## Running
 ```bash
 python evals/grade.py                 # all cases
