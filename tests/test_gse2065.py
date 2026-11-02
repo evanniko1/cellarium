@@ -156,18 +156,67 @@ def _online() -> bool:
         return False
 
 
+# HTTP codes that mean the HOST refused or failed, not that our request was wrong. 404 is deliberately
+# absent: that would be the record or our URL having moved, which IS a result about the data and must stay
+# red. 408/429/5xx are GEO throttling or falling over; 403 is what GEO actually served CI on 2026-11-02.
+_HOST_FAULT_CODES = frozenset({403, 408, 429, 500, 502, 503, 504})
+
+
+def _environment_fault(exc: BaseException) -> str | None:
+    """Why this exception is the network's fault rather than the re-analysis's, or None if it is ours.
+
+    `test_full_chain_from_geo` fixed the rule in its own docstring before any of these had been seen -- an
+    environment fault must not wear the costume of a result -- and then implemented it for
+    `ContentTooShortError` alone. CI went red on `HTTP Error 403: Forbidden` from GEO: the same class of
+    event, one step earlier in the same request, landing in the one suite whose green is this project's
+    safety net. The codes are enumerated rather than lumped into "any HTTPError" because the whole value of
+    the rule is that it still fails for the things that are about the data.
+
+    Order matters: `HTTPError` and `ContentTooShortError` are both subclasses of `URLError`.
+    """
+    if isinstance(exc, urllib.error.HTTPError):
+        return f"GEO refused the request (HTTP {exc.code})" if exc.code in _HOST_FAULT_CODES else None
+    if isinstance(exc, urllib.error.ContentTooShortError):
+        return f"GEO served a partial record ({exc})"
+    if isinstance(exc, urllib.error.URLError):
+        return f"the connection to GEO failed mid-request ({exc.reason})"
+    return None
+
+
+@pytest.mark.parametrize(("exc", "want"), [
+    (urllib.error.HTTPError("u", 403, "Forbidden", {}, None), "skip"),
+    (urllib.error.HTTPError("u", 429, "Too Many Requests", {}, None), "skip"),
+    (urllib.error.HTTPError("u", 503, "Service Unavailable", {}, None), "skip"),
+    (urllib.error.HTTPError("u", 404, "Not Found", {}, None), "FAIL"),
+    (urllib.error.HTTPError("u", 401, "Unauthorized", {}, None), "FAIL"),
+    (urllib.error.ContentTooShortError("got 12 of 115000 bytes", b""), "skip"),
+    (urllib.error.URLError("connection reset by peer"), "skip"),
+    (ValueError("the pinned hash does not match"), "FAIL"),
+])
+def test_only_a_host_fault_is_allowed_to_turn_the_network_test_into_a_skip(exc, want):
+    """Both directions of the rule, offline, with literal expectations.
+
+    A guard that only ever says "skip" would quietly swallow the failures the network test exists for, so
+    the FAIL half carries as many cases as the skip half -- including the 404 that would mean the record
+    moved, and a plain `ValueError` standing in for a hash mismatch."""
+    got = "skip" if _environment_fault(exc) is not None else "FAIL"
+    assert got == want, f"{exc!r} should be {want}, not {got}"
+
+
 @pytest.mark.skipif(not _online(), reason="no network: cannot re-fetch the GEO record")
 def test_full_chain_from_geo(tmp_path):
     """Re-fetch GSE2065, verify the pinned hash, and rebuild the tables from the raw record.
 
-    A TRUNCATED DOWNLOAD IS SKIPPED, NOT FAILED, and the distinction is the whole reason this note exists.
+    A DOWNLOAD THE HOST DID NOT SERVE IS SKIPPED, NOT FAILED, and the distinction is the whole reason this
+    note exists.
     `_online()` opens a socket to the host, which establishes that the network is up and NOT that a 115 KB
     file arrives whole -- GEO throttles, and the same request succeeded and then truncated forty minutes
-    apart on 2026-10-31. A `ContentTooShortError` reported as a red test is an environment fault wearing
-    the costume of a result, in the one suite whose green is this project's main safety net: the next
-    person sees a failing test next to their own change. What must still FAIL is a download that arrives
-    whole and disagrees with the pinned hash or the paper's table, so only the truncation is caught here
-    and nothing else is."""
+    apart on 2026-10-31, and on 2026-11-02 CI got `HTTP Error 403: Forbidden`. Either one reported as a
+    red test is an environment fault wearing the costume of a result, in the one suite whose green is this
+    project's main safety net: the next person sees a failing test next to their own change. What must
+    still FAIL is a download that arrives whole and disagrees with the pinned hash or the paper's table, so
+    `_environment_fault` enumerates the host's own faults and nothing else -- a 404 means the record or the
+    URL moved, which is a result, and stays red."""
     spec = importlib.util.spec_from_file_location("gse", ROOT / "scripts" / "gse2065_reanalysis.py")
     mod = importlib.util.module_from_spec(spec)
     sys.modules["gse"] = mod
@@ -176,9 +225,12 @@ def test_full_chain_from_geo(tmp_path):
     mod.CACHE = tmp_path / "GSE2065_family.soft.gz"          # force a real download, not the cache
     try:
         raw = mod.fetch(verify_download=True)
-    except urllib.error.ContentTooShortError as exc:
-        pytest.skip(f"GEO served a partial record ({exc}); the network is up but the file did not "
-                    f"arrive, which says nothing about the re-analysis")
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        why = _environment_fault(exc)
+        if why is None:
+            raise
+        pytest.skip(f"{why}; the network is up but the record did not arrive, which says nothing about "
+                    f"the re-analysis")
     probe_to_group, by_time = mod.parse(raw.decode("utf-8", "replace"))
 
     assert sorted(set(probe_to_group.values())) == sorted(GROUPS)
