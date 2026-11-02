@@ -90,6 +90,12 @@ data/hf_reclaim_manifest.json
 # distributed supplement to carrying no planning notes, so they stay local.
 docs/ROADMAP.md
 docs/HYPOTHESIS_MODE_PLAN.md
+# Same reason, added 2026-11-02: MUTATION_SCORE_PLAN.md scopes a measurement where NOTHING is installed
+# and nothing has run -- a purely prospective plan, which is the category this block exists for. (Contrast
+# PUB_A1_REPLICATION.md, which is tracked and in the nav because its offline machinery has shipped.) The
+# summary a reader needs lives in BACKLOG M-10; promote this to the nav if the run happens and it becomes
+# a methods record rather than an intention.
+docs/MUTATION_SCORE_PLAN.md
 
 # The raw GEO record. NCBI asks that records be retrieved from GEO rather than redistributed, and
 # the paper's asset register commits to that, so scripts/gse2065_reanalysis.py fetches it on demand
