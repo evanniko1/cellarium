@@ -95,6 +95,21 @@ def charged_aggregate(x_log, s):
     return np.asarray(agg).ravel()
 
 
+def charged_at_anchored(x_log, s):
+    """One charged fraction per ANCHORED condition, in `anchored` order.
+
+    Uses `cases_to_anchored_conditions` -- the anchor term's own selector -- rather than indexing the
+    per-case aggregate by hand. `cases` is condition-major, so a hand-rolled index is off by a
+    multiple of len(trnas) for every condition after the first; this cannot be.
+    """
+    x = np.power(10, x_log)
+    f = x[s['indexes']['f_slice']]
+    charged = 1 - (s['maps']['f_to_cases'] @ f)
+    sel = s['maps']['cases_to_anchored_conditions']
+    pool = sel @ s['c_trnas']
+    return np.asarray((sel @ (charged * s['c_trnas'])) / pool).ravel()
+
+
 def gauge(x_log, s):
     """(k_cat, median K_T, k_cat/K_T, k_cat*f/K_T) -- the degenerate product and its factors."""
     x = np.power(10, x_log)
@@ -120,13 +135,176 @@ def build_bounds(s):
     return b
 
 
+def anchored_f_positions(s, anchored):
+    """The f-slice positions belonging to the ANCHORED condition only.
+
+    `f` is laid out as (condition, K_T group) with conditions in V.CONDITIONS order, so condition ci
+    owns [ci*n_K_T, (ci+1)*n_K_T). Scaling the whole slice would drag the unanchored condition along
+    too, which the anchor term itself never does -- it is formed only over the anchored conditions.
+    """
+    idx = s['indexes']
+    start = idx['f_slice'].indices(idx['n_parameters'])[0]
+    out = []
+    for condition in anchored:
+        ci = V.CONDITIONS.index(condition)
+        out += list(range(start + ci * s['n_K_T'], start + (ci + 1) * s['n_K_T']))
+    return out
+
+
+def reachability(s, x0, common, anchored, targets):
+    """Is the anchor target reachable at a FEASIBLE steady-state balance, for this synthetase?
+
+    Three measurements, no anchor term involved in any of them -- this asks about the geometry of the
+    constraint, not about a weight:
+
+      start   the shipped argmin: its residual and its charged fraction.
+      f_only  `f` for the anchored condition scaled so the fraction lands on the target, nothing else
+              touched. Isolates what the fraction alone costs.
+      refit   the fraction HELD there (equal bounds, the device relation.py uses to pin K_A) while
+              k_cat, K_A, every K_T and min_f are re-fitted freely to minimise the residual. This is
+              the question Phase 5 rests on: can some OTHER chemistry support the target?
+
+    A `refit` residual near the shipped one means the target is reachable and only the anchor's
+    weight is in question. A `refit` residual orders above it means the target is unreachable by
+    construction, and no weight will ever produce it.
+    """
+    idx = s['indexes']
+    none = np.array([], dtype=np.float64)
+    out = {}
+
+    def resid(x_log):
+        return float(trna_charging_objective(x_log, *common, 0.0, 0.0, 0.0, none, False))
+
+    start_charged = charged_at_anchored(x0, s)[0]
+    target = float(targets[anchored[0]])
+    out['start_residual'] = resid(x0)
+    out['start_charged'] = start_charged
+    out['target'] = target
+
+    # charged = 1 - f, so landing on the target needs f scaled by (1-target)/(1-charged)
+    pos = anchored_f_positions(s, anchored)
+    scale = (1.0 - target) / (1.0 - start_charged)
+    xa = x0.copy()
+    xa[pos] = np.log10(np.clip(np.power(10, x0[pos]) * scale, F_LOWER, F_UPPER))
+    out['scale'] = scale
+    out['f_only_residual'] = resid(xa)
+    out['f_only_charged'] = float(charged_at_anchored(xa, s)[0])
+
+    # Hold f at the target; free everything else, including min_f -- a fairer test than pinning it,
+    # because min_f is not anchored and the min-synthetase balance should be free to re-satisfy.
+    bd = build_bounds(s)
+    for i in pos:
+        bd[i] = (float(xa[i]), float(xa[i]))
+    res = minimize(trna_charging_objective, xa, method='Powell', bounds=bd,
+        args=(*common, 0.0, V.W_B, 0.0, none, False),
+        options={'maxiter': 20000, 'ftol': 1e-10})
+    out['refit_residual'] = resid(res.x)
+    out['refit_charged'] = float(charged_at_anchored(res.x, s)[0])
+    out['refit_nfev'] = int(res.nfev)
+    out['refit_ok'] = bool(res.success)
+    out['refit_dx'] = float(np.linalg.norm(res.x - xa))
+    out['k_cat_before'] = float(np.power(10, x0[idx['k_cat_index']]))
+    out['k_cat_after'] = float(np.power(10, res.x[idx['k_cat_index']]))
+    out['K_T_before'] = float(np.median(np.power(10, x0[idx['K_T_slice']])))
+    out['K_T_after'] = float(np.median(np.power(10, res.x[idx['K_T_slice']])))
+    return out
+
+
+def reach_report(a, prepare, solutions, synth_to_aa, anchored, targets):
+    """Per synthetase: is the anchor target reachable at a feasible steady-state balance?
+
+    The feasibility yardstick is EMPIRICAL rather than asserted. Every row in the shipped solutions
+    file was accepted by the real fit's hard filter (max|v_charge - v_usage| <= 1e-3, applied after
+    minimising), so the largest residual among those rows is an observed upper bound on what the fit
+    will accept. Comparing against the residual at a single optimum would understate it.
+    """
+    none = np.array([], dtype=np.float64)
+    target = float(targets[anchored[0]])
+    names = sorted(synth_to_aa)
+
+    # The accepted-residual ceiling, measured across every shipped row at this sweep level.
+    ceiling, n_rows_total = 0.0, 0
+    prepared = {}
+    for name in names:
+        p = prepare(name)
+        if p is None:
+            continue
+        prepared[name] = p
+        s_ = p[0]
+        for r in (r for r in solutions if r['synthetase_id'] == name
+                  and int(r['sweep_level']) == a.sweep_level):
+            xr, _c, cm, _f = V.reassemble_argmin(r, s_, s_['trnas'], a.sweep_level,
+                units.umol / units.L)
+            ceiling = max(ceiling, float(
+                trna_charging_objective(xr, *cm, 0.0, 0.0, 0.0, none, False)))
+            n_rows_total += 1
+
+    print(f'anchor target        {a.target} -> {anchored[0]}={target}')
+    print(f'sweep level          {a.sweep_level}')
+    print(f'synthetases          {len(prepared)} of {len(names)} have a shipped row at this level')
+    print(f'accepted-residual    {ceiling:.3e}  (the LARGEST residual among all {n_rows_total} '
+          f'shipped rows at this level;')
+    print('  ceiling            every one passed the real fit\'s feasibility filter, so this is an '
+          'observed bound)')
+    print()
+    print('`f_only` scales f for the anchored condition onto the target and touches nothing else.')
+    print('`refit` holds it there and re-fits k_cat, K_A, every K_T and min_f freely.')
+    print('A refit residual at or below the ceiling means REACHABLE: only the weight is in question.')
+    print()
+
+    hdr = (f'{"synthetase":<18} {"charged":>8} {"->":>2} {"scale":>6} | {"residual":>10} '
+           f'{"f_only":>10} {"refit":>10} | {"x ceiling":>10} | {"k_cat":>18} {"med K_T":>18} '
+           f'{"nfev":>6} {"ok":>3}  verdict')
+    print(hdr)
+    print('-' * len(hdr))
+
+    reachable, unreachable, skipped = [], [], []
+    for name in names:
+        if name not in prepared:
+            skipped.append(name)
+            continue
+        s_, x0_, common_, _n = prepared[name]
+        r = reachability(s_, x0_, common_, anchored, targets)
+        over = r['refit_residual'] / ceiling if ceiling else float('inf')
+        ok = r['refit_residual'] <= ceiling
+        (reachable if ok else unreachable).append((name, over))
+        print(f'{name:<18} {r["start_charged"]:>8.4f} {"->":>2} {r["scale"]:>6.3f} | '
+              f'{r["start_residual"]:>10.3e} {r["f_only_residual"]:>10.3e} '
+              f'{r["refit_residual"]:>10.3e} | {over:>10.3g} | '
+              f'{r["k_cat_before"]:>8.3g}->{r["k_cat_after"]:<9.3g} '
+              f'{r["K_T_before"]:>8.3g}->{r["K_T_after"]:<9.3g} {r["refit_nfev"]:>6} '
+              f'{"y" if r["refit_ok"] else "N":>3}  '
+              f'{"REACHABLE" if ok else "unreachable"}')
+
+    print()
+    print(f'reachable at the target: {len(reachable)} of {len(prepared)}'
+          + (f'  ({", ".join(n for n, _ in reachable)})' if reachable else ''))
+    if unreachable:
+        worst = max(o for _, o in unreachable)
+        best = min(o for _, o in unreachable)
+        print(f'unreachable: {len(unreachable)}, between {best:.3g}x and {worst:.3g}x the accepted '
+              f'residual ceiling')
+    if skipped:
+        print(f'no shipped row at this level: {len(skipped)} ({", ".join(skipped)})')
+    print()
+    print('LIMITS. One starting point per synthetase (its best shipped row) and a local Powell '
+          'search. A synthetase marked unreachable here is one this search could not bring to the '
+          'target at a feasible residual; it is not a proof that no such solution exists anywhere.')
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--kb', required=True, help='path to simData.cPickle')
     ap.add_argument('--flat', default=None, help='flat dir holding optimization/*.tsv')
+    ap.add_argument('--mode', choices=('sweep', 'reach'), default='sweep',
+        help="'sweep' re-minimises one synthetase across a w_a x w_b grid. 'reach' asks, for every "
+             'synthetase, whether the target is reachable at a feasible residual at all -- which is '
+             'the prior question, and the one Phase 5 rests on')
     ap.add_argument('--synthetase', default='LEUS-MONOMER[c]',
-        help='LeuRS by default: 20 of its 27 free parameters are f and min_f, so it is the most '
-             'degenerate and the most sensitive instrument available')
+        help="LeuRS by default for 'sweep': 20 of its 27 free parameters are f and min_f, so it is "
+             "the most degenerate and most sensitive instrument available. 'all' runs every "
+             'synthetase (implied by --mode reach)')
     ap.add_argument('--target', default='avcilar_kucukgoze_2016')
     ap.add_argument('--weights', default='0,1e-6,1e-5,1e-4,1e-3',
         help='w_a values to sweep. 0 is the no-anchor control')
@@ -160,22 +338,38 @@ def main(argv=None):
     assert len(anchor_targets), f'target {a.target!r} anchors no condition; nothing to sweep'
 
     synth_to_aa = {v: k for k, v in relation.amino_acid_to_synthetase.items()}
+
+    def prepare(synthetase):
+        """(s, x0, common, n_rows) for one synthetase at the chosen sweep level, or None."""
+        aa_ = synth_to_aa.get(synthetase)
+        if aa_ is None:
+            return None
+        rows_ = [r for r in solutions if r['synthetase_id'] == synthetase
+                 and int(r['sweep_level']) == a.sweep_level]
+        if not rows_:
+            return None
+        s_ = V.assemble_synthetase(relation, synthetase, aa_, constants_by_key, mins_by_key,
+            conc_unit, anchored)
+        best = min(rows_, key=lambda r: float(r['objective']))
+        x0_, _c, common_, _f = V.reassemble_argmin(best, s_, s_['trnas'], a.sweep_level, conc_unit)
+        return s_, x0_, common_, len(rows_)
+
+    if a.mode == 'reach':
+        return reach_report(a, prepare, solutions, synth_to_aa, anchored, targets)
+
     amino_acid = synth_to_aa.get(a.synthetase)
     if amino_acid is None:
         raise SystemExit(f'{a.synthetase} is not in relation.amino_acid_to_synthetase. Known: '
                          f'{sorted(synth_to_aa)}')
-
-    s = V.assemble_synthetase(relation, a.synthetase, amino_acid, constants_by_key, mins_by_key,
-        conc_unit, anchored)
-
-    # The best shipped row at this sweep level is the starting point.
-    rows = [r for r in solutions
-            if r['synthetase_id'] == a.synthetase and int(r['sweep_level']) == a.sweep_level]
-    if not rows:
+    prepared = prepare(a.synthetase)
+    if prepared is None:
         raise SystemExit(f'no shipped solution row for {a.synthetase} at sweep level '
                          f'{a.sweep_level}')
-    row = min(rows, key=lambda r: float(r['objective']))
-    x0, c_syn_min, common, _ = V.reassemble_argmin(row, s, s['trnas'], a.sweep_level, conc_unit)
+    s, x0, common, n_rows = prepared
+    row = min((r for r in solutions if r['synthetase_id'] == a.synthetase
+               and int(r['sweep_level']) == a.sweep_level), key=lambda r: float(r['objective']))
+    rows = [r for r in solutions if r['synthetase_id'] == a.synthetase
+            and int(r['sweep_level']) == a.sweep_level]
     bounds = build_bounds(s)
 
     print(f'synthetase     {a.synthetase}  ({amino_acid})')
