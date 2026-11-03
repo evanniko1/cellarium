@@ -162,7 +162,7 @@ def test_the_count_of_modules_relying_on_conftest_is_recorded_not_discovered():
     assert bare, (
         "no module relies on conftest for its path any more. That is a real improvement rather than a "
         "failure -- update the count here and in conftest's docstring, and retarget the witness above")
-    assert len(bare) == 31, (
-        f"{len(bare)} test modules now rely on conftest for their path, not 31:\n  "
+    assert len(bare) == 32, (
+        f"{len(bare)} test modules now rely on conftest for their path, not 32:\n  "
         + "\n  ".join(bare)
         + "\nUpdate the count here and in conftest._put_src_on_the_path's docstring")

@@ -189,82 +189,16 @@ def main(argv=None):
             continue
 
         if synthetase not in cache:
-            trnas = relation.amino_acid_to_trnas[amino_acid]
-            codons = relation.amino_acid_to_codons[amino_acid]
-            maps, indexes, cases, n_K_T, K_T_indexes = build_case_maps(
-                relation, synthetase, amino_acid, trnas, codons, anchored)
-
-            # The shipped constants file is the authority on what the 2022 fit saw. If the
-            # knowledge base's tRNA or codon list for this synthetase has drifted, the vectors
-            # below would be assembled in a different order and the comparison would be
-            # meaningless while still producing numbers. Fail instead.
-            c_syn, c_aa, c_trnas, v_codons, v_total = [], [], [], [], []
-            for condition in CONDITIONS:
-                c = constants_by_key[f'{synthetase}__{condition}']
-                # read_tsv already JSON-decodes these columns (no unit in the name, so they come back
-                # as plain dicts, not Unums).
-                trna_conc = c['trnas']
-                codon_rate = c['codons']
-                assert list(trna_conc) == list(trnas), (
-                    f'{synthetase}/{condition}: shipped tRNA list {list(trna_conc)} != knowledge '
-                    f'base list {list(trnas)}')
-                assert list(codon_rate) == list(codons), (
-                    f'{synthetase}/{condition}: shipped codon list {list(codon_rate)} != knowledge '
-                    f'base list {list(codons)}')
-                for trna in trnas:
-                    c_trnas.append(trna_conc[trna])
-                    c_syn.append(c['synthetase'].asNumber(conc_unit))
-                    c_aa.append(c['amino_acid'].asNumber(conc_unit))
-                v = [codon_rate[codon] for codon in codons]
-                v_codons += v
-                v_total.append(sum(v))
-            cache[synthetase] = dict(
-                trnas=trnas, codons=codons, maps=maps, indexes=indexes, cases=cases,
-                n_K_T=n_K_T, K_T_indexes=K_T_indexes,
-                c_syn=np.array(c_syn), c_aa=np.array(c_aa),
-                c_trnas=np.array(c_trnas), v_codons=np.array(v_codons),
-                mins=np.array([mins_by_key[f'{synthetase}__{c}'] for c in CONDITIONS]))
+            cache[synthetase] = assemble_synthetase(
+                relation, synthetase, amino_acid, constants_by_key, mins_by_key, conc_unit,
+                anchored)
 
         s = cache[synthetase]
         trnas = s['trnas']
         sweep_level = int(row['sweep_level'])
 
-        # c_synthetase_min, exactly as relation.py builds it for this sweep level.
-        c_syn_min = []
-        for estimated_minimum in (sweep_level / N_INCREMENTS * s['mins']):
-            c_syn_min += [estimated_minimum] * len(trnas)
-        c_syn_min = np.array(c_syn_min)
-
-        # Reassemble the argmin in the optimiser's own parameter layout, then take log10 because
-        # the objective pre-conditions with 10**x.
-        K_T_by_trna = row['K_M_trna']
-        f_by_case = row['f_free']
-        min_f_by_case = row['f_free_at_min']
-
-        # K_T is stored per tRNA but is one value per K_T GROUP; recover the group vector.
-        n_K_T = s['n_K_T']
-        K_T_vec = np.zeros(n_K_T)
-        for i, trna in enumerate(trnas):
-            K_T_vec[s['K_T_indexes'][i]] = K_T_by_trna[trna]
-        # Same for f: one value per (condition, K_T group).
-        f_vec = np.zeros(n_K_T * len(CONDITIONS))
-        min_f_vec = np.zeros(n_K_T * len(CONDITIONS))
-        for ci, condition in enumerate(CONDITIONS):
-            for i, trna in enumerate(trnas):
-                col = ci * n_K_T + s['K_T_indexes'][i]
-                f_vec[col] = f_by_case[f'{trna}__{condition}']
-                min_f_vec[col] = min_f_by_case[f'{trna}__{condition}']
-
-        x = np.zeros(s['indexes']['n_parameters'])
-        x[s['indexes']['k_cat_index']] = row['k_cat'].asNumber(1 / units.s)
-        x[s['indexes']['K_A_index']] = row['K_M_amino_acid'].asNumber(conc_unit)
-        x[s['indexes']['K_T_slice']] = K_T_vec
-        x[s['indexes']['f_slice']] = f_vec
-        x[s['indexes']['min_f_slice']] = min_f_vec
-        x_log = np.log10(x)
-
-        common = (s['indexes'], s['maps'], s['v_codons'], s['c_syn'], c_syn_min,
-            s['c_aa'], s['c_trnas'])
+        x_log, c_syn_min, common, f_vec = reassemble_argmin(
+            row, s, trnas, sweep_level, conc_unit)
 
         got = trna_charging_objective(
             x_log, *common, W_R, W_B, 0.0, np.array([], dtype=np.float64), False)
@@ -327,6 +261,99 @@ def main(argv=None):
     print()
     print('known target names:', ', '.join(sorted(TRNA_CHARGED_FRACTION_TARGETS)))
     return 1 if n_failed else 0
+
+
+def assemble_synthetase(relation, synthetase, amino_acid, constants_by_key, mins_by_key,
+        conc_unit, anchored):
+    """Everything `trna_charging_objective` needs for one synthetase, from the SHIPPED tables.
+
+    Extracted verbatim from main() so a re-minimisation can be driven from exactly the inputs
+    the objective regression verifies. If this drifts from what the optimiser sees, that
+    regression fails -- which is the only reason it is safe to reuse.
+    """
+    trnas = relation.amino_acid_to_trnas[amino_acid]
+    codons = relation.amino_acid_to_codons[amino_acid]
+    maps, indexes, cases, n_K_T, K_T_indexes = build_case_maps(
+        relation, synthetase, amino_acid, trnas, codons, anchored)
+
+    # The shipped constants file is the authority on what the 2022 fit saw. If the
+    # knowledge base's tRNA or codon list for this synthetase has drifted, the vectors
+    # below would be assembled in a different order and the comparison would be
+    # meaningless while still producing numbers. Fail instead.
+    c_syn, c_aa, c_trnas, v_codons, v_total = [], [], [], [], []
+    for condition in CONDITIONS:
+        c = constants_by_key[f'{synthetase}__{condition}']
+        # read_tsv already JSON-decodes these columns (no unit in the name, so they come back
+        # as plain dicts, not Unums).
+        trna_conc = c['trnas']
+        codon_rate = c['codons']
+        assert list(trna_conc) == list(trnas), (
+            f'{synthetase}/{condition}: shipped tRNA list {list(trna_conc)} != knowledge '
+            f'base list {list(trnas)}')
+        assert list(codon_rate) == list(codons), (
+            f'{synthetase}/{condition}: shipped codon list {list(codon_rate)} != knowledge '
+            f'base list {list(codons)}')
+        for trna in trnas:
+            c_trnas.append(trna_conc[trna])
+            c_syn.append(c['synthetase'].asNumber(conc_unit))
+            c_aa.append(c['amino_acid'].asNumber(conc_unit))
+        v = [codon_rate[codon] for codon in codons]
+        v_codons += v
+        v_total.append(sum(v))
+    return dict(
+        trnas=trnas, codons=codons, maps=maps, indexes=indexes, cases=cases,
+        n_K_T=n_K_T, K_T_indexes=K_T_indexes,
+        c_syn=np.array(c_syn), c_aa=np.array(c_aa),
+        c_trnas=np.array(c_trnas), v_codons=np.array(v_codons),
+        mins=np.array([mins_by_key[f'{synthetase}__{c}'] for c in CONDITIONS]))
+
+
+def reassemble_argmin(row, s, trnas, sweep_level, conc_unit):
+    """The shipped argmin in the optimiser's own parameter layout, log10-preconditioned.
+
+    Extracted alongside assemble_synthetase so a re-minimisation can start from the SHIPPED
+    solution rather than a reconstructed guess. The objective regression evaluates the vector
+    this returns, so a layout mistake fails loudly instead of producing plausible numbers.
+
+    Returns (x_log, c_syn_min, common, f_vec); `common` is the objective's fixed arguments.
+    """
+    # c_synthetase_min, exactly as relation.py builds it for this sweep level.
+    c_syn_min = []
+    for estimated_minimum in (sweep_level / N_INCREMENTS * s['mins']):
+        c_syn_min += [estimated_minimum] * len(trnas)
+    c_syn_min = np.array(c_syn_min)
+
+    # Reassemble the argmin in the optimiser's own parameter layout, then take log10 because
+    # the objective pre-conditions with 10**x.
+    K_T_by_trna = row['K_M_trna']
+    f_by_case = row['f_free']
+    min_f_by_case = row['f_free_at_min']
+
+    # K_T is stored per tRNA but is one value per K_T GROUP; recover the group vector.
+    n_K_T = s['n_K_T']
+    K_T_vec = np.zeros(n_K_T)
+    for i, trna in enumerate(trnas):
+        K_T_vec[s['K_T_indexes'][i]] = K_T_by_trna[trna]
+    # Same for f: one value per (condition, K_T group).
+    f_vec = np.zeros(n_K_T * len(CONDITIONS))
+    min_f_vec = np.zeros(n_K_T * len(CONDITIONS))
+    for ci, condition in enumerate(CONDITIONS):
+        for i, trna in enumerate(trnas):
+            col = ci * n_K_T + s['K_T_indexes'][i]
+            f_vec[col] = f_by_case[f'{trna}__{condition}']
+            min_f_vec[col] = min_f_by_case[f'{trna}__{condition}']
+
+    x = np.zeros(s['indexes']['n_parameters'])
+    x[s['indexes']['k_cat_index']] = row['k_cat'].asNumber(1 / units.s)
+    x[s['indexes']['K_A_index']] = row['K_M_amino_acid'].asNumber(conc_unit)
+    x[s['indexes']['K_T_slice']] = K_T_vec
+    x[s['indexes']['f_slice']] = f_vec
+    x[s['indexes']['min_f_slice']] = min_f_vec
+    x_log = np.log10(x)
+
+    common = (s['indexes'], s['maps'], s['v_codons'], s['c_syn'], c_syn_min,
+        s['c_aa'], s['c_trnas'])
+    return x_log, c_syn_min, common, f_vec
 
 
 if __name__ == '__main__':

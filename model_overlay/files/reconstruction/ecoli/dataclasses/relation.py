@@ -9,6 +9,7 @@ import numpy as np
 import copy
 import json
 import warnings
+import zlib
 from Bio.Seq import Seq
 from scipy.optimize import minimize
 from wholecell.utils import units
@@ -32,6 +33,13 @@ KINETIC_TRNA_CHARGING_WIDTH_BUFFER = 10
 # `NameError: name 'print_optimization' is not defined` on the first sweep level. Same silent-absence
 # class as EXT-PORT-1's missing imports: it is invisible until the code path actually runs.
 print_optimization = False
+
+
+def _synthetase_rng(seed, synthetase):
+	"""The tRNA charging refit's random-restart generator for one synthetase. Keyed on the id
+	(crc32, not the salted built-in hash) so it does not depend on which synthetases are fitted
+	before it, or in which process."""
+	return np.random.RandomState((seed + zlib.crc32(synthetase.encode())) % 2**32)
 
 
 # =====================================================================================================
@@ -1103,7 +1111,8 @@ class Relation(object):
 			regularization_weight=1e-9,
 			bounds_penalty_weight=1e-9,
 			iterations=100,
-			viable_solutions=10):
+			viable_solutions=10,
+			seed=None):
 		'''
 		Optimizes kinetic parameters describing tRNA charging reactions.
 		- Aims to minimize differences between the rates of tRNA
@@ -1141,6 +1150,9 @@ class Relation(object):
 			iterations=3, viable_solutions=1 finishes a single synthetase in seconds. A scouting
 			run is NOT a fit: with 3 restarts the optimiser has not searched, and its output must
 			never be adopted as constants. Anything published must use the shipped budget.
+		seed -- seeds the random restarts with one generator per synthetase (_synthetase_rng), so
+			the same seed reproduces the same constants in any fitting order. Default None draws
+			from the global numpy generator, unseeded, as in v3.0.1.
 		'''
 
 		objective = trna_charging_objective
@@ -1171,7 +1183,7 @@ class Relation(object):
 		def get_random_initial_solution(c_synthetase, c_amino_acid,
 				c_trnas, v_codons_total, maps, n_K_T, n_f, indexes,
 				condition_start_indexes, K_T_range,
-				assume_full_saturation):
+				assume_full_saturation, rng):
 			'''
 			Random initialization
 			'''
@@ -1184,19 +1196,19 @@ class Relation(object):
 					c_amino_acid, c_synthetase, v_codons_total)
 
 			else:
-				K_A = np.random.uniform(
+				K_A = rng.uniform(
 					np.min(np.log10(c_amino_acid)),
 					np.max(np.log10(c_amino_acid)),
 					1)[0]
 			initial_solution[indexes['K_A_index']] = K_A
 
 			# K_T
-			K_T = np.random.uniform(K_T_range[0], K_T_range[1], n_K_T)
+			K_T = rng.uniform(K_T_range[0], K_T_range[1], n_K_T)
 			initial_solution[indexes['K_T_slice']] = K_T
 
 			# f
 			n_f = n_conditions * n_K_T
-			f = np.log10(np.random.uniform(0.1, 0.9, n_f))
+			f = np.log10(rng.uniform(0.1, 0.9, n_f))
 			# f = np.log10(np.random.uniform(0.1, 0.15, n_f))
 			initial_solution[indexes['f_slice']] = f
 
@@ -1219,7 +1231,7 @@ class Relation(object):
 			initial_solution[indexes['k_cat_index']] = np.log10(k_cat)
 
 			# f (min)
-			min_f = np.log10(np.random.uniform(0.1, 0.9, n_f))
+			min_f = np.log10(rng.uniform(0.1, 0.9, n_f))
 			# min_f = np.log10(np.random.uniform(0.85, 0.9, n_f))
 			initial_solution[indexes['min_f_slice']] = min_f
 
@@ -1280,6 +1292,9 @@ class Relation(object):
 			else '{} (w_a={:g}, w_r={:g}, w_b={:g}, anchor_min_f={})'.format(
 				{c: charged_fraction_target[c] for c in anchored_conditions},
 				w_a, w_r, w_b, anchor_min_f)))
+		print('EXT-PORT-11 refit seed: {}'.format(
+			'none (global numpy generator, as in v3.0.1)' if seed is None
+			else '{} (one generator per synthetase)'.format(seed)))
 
 		# Bounds
 		f_lower_bound = 0.051
@@ -1303,6 +1318,7 @@ class Relation(object):
 
 			# Get molecules
 			synthetase = self.amino_acid_to_synthetase[amino_acid]
+			rng = _synthetase_rng(seed, synthetase) if seed is not None else np.random
 			trnas = self.amino_acid_to_trnas[amino_acid]
 			codons = self.amino_acid_to_codons[amino_acid]
 
@@ -1460,7 +1476,7 @@ class Relation(object):
 				initial_solution = get_random_initial_solution(
 					c_synthetase, c_amino_acid, c_trnas, v_codons_total,
 					maps, n_K_T, n_f, indexes, condition_start_indexes,
-					K_T_range, assume_full_saturation=True)
+					K_T_range, assume_full_saturation=True, rng=rng)
 
 				result = minimize(
 					objective,
@@ -1516,7 +1532,7 @@ class Relation(object):
 						initial_solution = get_random_initial_solution(
 							c_synthetase, c_amino_acid, c_trnas, v_codons_total,
 							maps, n_K_T, n_f, indexes, condition_start_indexes,
-							K_T_range, assume_full_saturation=True)
+							K_T_range, assume_full_saturation=True, rng=rng)
 
 						# Optimize
 						result = minimize(
@@ -1553,7 +1569,7 @@ class Relation(object):
 						initial_solution = get_random_initial_solution(
 							c_synthetase, c_amino_acid, c_trnas, v_codons_total,
 							maps, n_K_T, n_f, indexes, condition_start_indexes,
-							K_T_range, assume_full_saturation=False)
+							K_T_range, assume_full_saturation=False, rng=rng)
 
 						# Optimize
 						result = minimize(

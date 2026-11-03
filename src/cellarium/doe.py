@@ -612,6 +612,11 @@ def _apply_legality(cells: list[dict], legal) -> tuple[list[dict], list[dict]]:
 REFIT_FACTORS = (
     "trna_charged_fraction_target",   # ParCa's charged-fraction anchor (EXT-PORT-11) — fitted, per build
     "charged_fraction_target",        # the same lever's short spelling
+    "trna_charged_fraction_weight",   # w_a on that anchor. Same build-time status as the target above, and
+                                      # it matches NONE of the hints below, so without this line a panel
+                                      # could cross it as a run-time column and look runnable.
+    "trna_charging_kinetics_seed",    # the refit's random-restart seed. Every value is its own fit and so
+                                      # its own kb_sha256: at most a whole plot, never a factorial column.
     "operons",                        # a ParCa-time option; 'off' is a different fit, not a different run
     "retype_cistrons",                # changes the reconstruction INPUT, so the whole fit moves
     "kb", "kb_sha256", "sim_path",    # the knowledge base itself, named directly

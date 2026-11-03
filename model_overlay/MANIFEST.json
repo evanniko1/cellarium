@@ -8,7 +8,7 @@
   "counts": {
     "ship": 45,
     "blocked": 0,
-    "ship_bytes": 6102468
+    "ship_bytes": 6104290
   },
   "files": [
     {
@@ -18,8 +18,14 @@
       "upstream_sha256": "533f57b6f092f772781d32ddec4fa69af0c6d2bff02df7b112607ce8c2fd1e04",
       "upstream_bytes": 5013,
       "status": "ship",
-      "overlay_sha256": "5aadd5280f2d6e283699912ac746fc3154594c499dacc048ec2d380f60d0678e",
-      "overlay_bytes": 79812
+      "overlay_sha256": "062e3d89c21f2d2d8e20a3568b0f762634099acbf238bc45a996b93aac93cc58",
+      "overlay_bytes": 80674,
+      "cellarium_patch": {
+        "why": "Refit reproducibility. Relation.optimize_trna_charging_kinetics drew its random-restart initial points from the unseeded global numpy generator, so two rebuilds of the same knowledge base produced different constants -- and every anchored-versus-unanchored comparison in the kinetic campaign depends on that not happening. --trna-charging-kinetics-seed N gives each synthetase its own RandomState keyed on (N + crc32(id)) rather than the salted built-in hash, so a synthetase's constants do not depend on fitting order or on which process fits it; a preempted rebuild is safe, and a single-synthetase diagnostic is comparable against a full fit. Received as a patch from Alexey Yermakov (commit 5f2465ef, 2026-10-30) against feature/wcecoli-platform; four of its five pre-image blobs were byte-identical to these overlay bodies and scriptBase.py applied at offsets -2/-4. OFF BY DEFAULT: with no seed the draws come from np.random exactly as in v3.0.1, so an unseeded Parca is unchanged.",
+        "harvested_sha256": "5aadd5280f2d6e283699912ac746fc3154594c499dacc048ec2d380f60d0678e",
+        "harvested_bytes": 79812,
+        "verified_by": "tests/test_trna_refit_seed.py"
+      }
     },
     {
       "path": "reconstruction/ecoli/dataclasses/molecule_groups.py",
@@ -78,8 +84,14 @@
       "upstream_sha256": "0fbd56e0df50bc653292b6d93a7b28e440c29289e8863a9bb5a5762d01cfc76c",
       "upstream_bytes": 148171,
       "status": "ship",
-      "overlay_sha256": "da17718fad41644fd03ff9eb7551e2c6c0d73b95c159554abcc96e28af46e7e1",
-      "overlay_bytes": 160770
+      "overlay_sha256": "2a57ec9be32d5cd964c3ca13035c6dd7291cfc063e1506f269def16497f438de",
+      "overlay_bytes": 161059,
+      "cellarium_patch": {
+        "why": "Refit reproducibility. Relation.optimize_trna_charging_kinetics drew its random-restart initial points from the unseeded global numpy generator, so two rebuilds of the same knowledge base produced different constants -- and every anchored-versus-unanchored comparison in the kinetic campaign depends on that not happening. --trna-charging-kinetics-seed N gives each synthetase its own RandomState keyed on (N + crc32(id)) rather than the salted built-in hash, so a synthetase's constants do not depend on fitting order or on which process fits it; a preempted rebuild is safe, and a single-synthetase diagnostic is comparable against a full fit. Received as a patch from Alexey Yermakov (commit 5f2465ef, 2026-10-30) against feature/wcecoli-platform; four of its five pre-image blobs were byte-identical to these overlay bodies and scriptBase.py applied at offsets -2/-4. OFF BY DEFAULT: with no seed the draws come from np.random exactly as in v3.0.1, so an unseeded Parca is unchanged.",
+        "harvested_sha256": "da17718fad41644fd03ff9eb7551e2c6c0d73b95c159554abcc96e28af46e7e1",
+        "harvested_bytes": 160770,
+        "verified_by": "tests/test_trna_refit_seed.py"
+      }
     },
     {
       "path": "reconstruction/ecoli/flat/rnas.tsv",
@@ -98,8 +110,14 @@
       "upstream_sha256": "7ec3a43e648f8b38fc97dc02f00d9ddbf0c75ad5635cb4ea41edd901683a5f91",
       "upstream_bytes": 3066,
       "status": "ship",
-      "overlay_sha256": "dccd77ee83e05107e65d880e8531c2f0070c9dcbca8ff10743e75f1fa8ae4920",
-      "overlay_bytes": 3925
+      "overlay_sha256": "a50688c41dea5b667802503bd4d57409858ea5cfd5c616c2a52d87efdd17677d",
+      "overlay_bytes": 4031,
+      "cellarium_patch": {
+        "why": "Refit reproducibility. Relation.optimize_trna_charging_kinetics drew its random-restart initial points from the unseeded global numpy generator, so two rebuilds of the same knowledge base produced different constants -- and every anchored-versus-unanchored comparison in the kinetic campaign depends on that not happening. --trna-charging-kinetics-seed N gives each synthetase its own RandomState keyed on (N + crc32(id)) rather than the salted built-in hash, so a synthetase's constants do not depend on fitting order or on which process fits it; a preempted rebuild is safe, and a single-synthetase diagnostic is comparable against a full fit. Received as a patch from Alexey Yermakov (commit 5f2465ef, 2026-10-30) against feature/wcecoli-platform; four of its five pre-image blobs were byte-identical to these overlay bodies and scriptBase.py applied at offsets -2/-4. OFF BY DEFAULT: with no seed the draws come from np.random exactly as in v3.0.1, so an unseeded Parca is unchanged.",
+        "harvested_sha256": "dccd77ee83e05107e65d880e8531c2f0070c9dcbca8ff10743e75f1fa8ae4920",
+        "harvested_bytes": 3925,
+        "verified_by": "tests/test_trna_refit_seed.py"
+      }
     },
     {
       "path": "wholecell/fireworks/firetasks/fitSimData.py",
@@ -108,8 +126,14 @@
       "upstream_sha256": "955eab349884d245ff6cc262b31696bf7d0b8e7585f8cfd5c55f3d01bc8a1ce9",
       "upstream_bytes": 2614,
       "status": "ship",
-      "overlay_sha256": "3253a41d1ac95fb21d7c5b78f8eda3c1e6618f4597bcc9c769f4441a5323f38b",
-      "overlay_bytes": 3356
+      "overlay_sha256": "afa526d66e64a7812c3d853bf24b499c66fc54b6d0b2fd78e9c44df7f4d04398",
+      "overlay_bytes": 3461,
+      "cellarium_patch": {
+        "why": "Refit reproducibility. Relation.optimize_trna_charging_kinetics drew its random-restart initial points from the unseeded global numpy generator, so two rebuilds of the same knowledge base produced different constants -- and every anchored-versus-unanchored comparison in the kinetic campaign depends on that not happening. --trna-charging-kinetics-seed N gives each synthetase its own RandomState keyed on (N + crc32(id)) rather than the salted built-in hash, so a synthetase's constants do not depend on fitting order or on which process fits it; a preempted rebuild is safe, and a single-synthetase diagnostic is comparable against a full fit. Received as a patch from Alexey Yermakov (commit 5f2465ef, 2026-10-30) against feature/wcecoli-platform; four of its five pre-image blobs were byte-identical to these overlay bodies and scriptBase.py applied at offsets -2/-4. OFF BY DEFAULT: with no seed the draws come from np.random exactly as in v3.0.1, so an unseeded Parca is unchanged.",
+        "harvested_sha256": "3253a41d1ac95fb21d7c5b78f8eda3c1e6618f4597bcc9c769f4441a5323f38b",
+        "harvested_bytes": 3356,
+        "verified_by": "tests/test_trna_refit_seed.py"
+      }
     },
     {
       "path": "wholecell/fireworks/firetasks/simulation.py",
@@ -156,8 +180,14 @@
       "source": "model_overlay/cleaned",
       "note": "De-ROUTE1'd from the working tree (28/5/3/1/1 markers -> 0) and harvested from model_overlay/cleaned/. Every ROUTE1 addition was reverted to upstream a4497e17; the diff against upstream is insertions only. What SURVIVES is the port: KineticTrnaChargingModel, CoarseKineticTrnaChargingModel, resolve_elongation_flags, and the kinetic_trna_charging / coarse_kinetic_elongation flags on all four allow-lists (scriptBase ANALYSIS_KEYS + SIM_KEYS and both firetask optional_params). What is GONE is the isoacceptor exploration: trna_charging_resolution, trna_demand_split, dcdt_jit_iso, clamp_charging_shared, T2A/A2T/KMtf_trna/n_trna_per_aa/trna_charging_mask, and the occupancy-form rewrite of ribosome_conc_a_site.",
       "status": "ship",
-      "overlay_sha256": "8b8b02a09f28cb4acb0d2facb39cfba5588bdb37b2bbc2528e053e8875e73361",
-      "overlay_bytes": 30659
+      "overlay_sha256": "aa2341d3b05e98afeee492fb05f94f72a92c0b3a8aa5dc3f4a3bf2dc55fedefb",
+      "overlay_bytes": 31119,
+      "cellarium_patch": {
+        "why": "Refit reproducibility. Relation.optimize_trna_charging_kinetics drew its random-restart initial points from the unseeded global numpy generator, so two rebuilds of the same knowledge base produced different constants -- and every anchored-versus-unanchored comparison in the kinetic campaign depends on that not happening. --trna-charging-kinetics-seed N gives each synthetase its own RandomState keyed on (N + crc32(id)) rather than the salted built-in hash, so a synthetase's constants do not depend on fitting order or on which process fits it; a preempted rebuild is safe, and a single-synthetase diagnostic is comparable against a full fit. Received as a patch from Alexey Yermakov (commit 5f2465ef, 2026-10-30) against feature/wcecoli-platform; four of its five pre-image blobs were byte-identical to these overlay bodies and scriptBase.py applied at offsets -2/-4. OFF BY DEFAULT: with no seed the draws come from np.random exactly as in v3.0.1, so an unseeded Parca is unchanged.",
+        "harvested_sha256": "8b8b02a09f28cb4acb0d2facb39cfba5588bdb37b2bbc2528e053e8875e73361",
+        "harvested_bytes": 30659,
+        "verified_by": "tests/test_trna_refit_seed.py"
+      }
     },
     {
       "path": "models/ecoli/sim/simulation.py",

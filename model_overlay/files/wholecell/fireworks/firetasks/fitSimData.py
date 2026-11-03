@@ -41,6 +41,7 @@ class FitSimDataTask(FiretaskBase):
 		'trna_charged_fraction_weight',
 		'trna_charged_fraction_anchor_min_f',
 		'trna_charging_kinetics_out',
+		'trna_charging_kinetics_seed',
 	]
 
 	def _get_default(self, key):
@@ -82,6 +83,7 @@ class FitSimDataTask(FiretaskBase):
 			trna_charged_fraction_weight=self.get('trna_charged_fraction_weight'),
 			trna_charged_fraction_anchor_min_f=self.get('trna_charged_fraction_anchor_min_f', False),
 			trna_charging_kinetics_out=self.get('trna_charging_kinetics_out'),
+			trna_charging_kinetics_seed=self.get('trna_charging_kinetics_seed'),
 		)
 
 		sys.setrecursionlimit(4000)  # limit found manually

@@ -45,6 +45,7 @@ class ParcaTask(FiretaskBase):
 		'trna_charged_fraction_weight',
 		'trna_charged_fraction_anchor_min_f',
 		'trna_charging_kinetics_out',
+		'trna_charging_kinetics_seed',
 		]
 
 	def _get_default(self, key):
@@ -92,7 +93,8 @@ class ParcaTask(FiretaskBase):
 				trna_charged_fraction_target=self.get('trna_charged_fraction_target'),
 				trna_charged_fraction_weight=self.get('trna_charged_fraction_weight'),
 				trna_charged_fraction_anchor_min_f=self.get('trna_charged_fraction_anchor_min_f', False),
-				trna_charging_kinetics_out=self.get('trna_charging_kinetics_out')),
+				trna_charging_kinetics_out=self.get('trna_charging_kinetics_out'),
+				trna_charging_kinetics_seed=self.get('trna_charging_kinetics_seed')),
 
 			InitRawValidationDataTask(
 				output=raw_validation_data_file),

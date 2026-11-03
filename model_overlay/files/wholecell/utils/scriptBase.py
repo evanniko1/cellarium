@@ -71,6 +71,7 @@ PARCA_KEYS = (
 	'trna_charged_fraction_weight',
 	'trna_charged_fraction_anchor_min_f',
 	'trna_charging_kinetics_out',
+	'trna_charging_kinetics_seed',
 	)
 
 SIM_KEYS = (
@@ -474,6 +475,12 @@ class ScriptBase(metaclass=abc.ABCMeta):
 			help='Directory to write the three refitted tRNA charging TSVs into. Default (None)'
 				 ' is reconstruction/ecoli/flat/, which is what v3.0.1 does and which OVERWRITES'
 				 ' the checked-in files.')
+		self.define_option(parser,
+			'trna_charging_kinetics_seed', int, default=None,
+			help='Seed for the tRNA charging refit\'s random restarts. Each synthetase gets its own'
+				 ' generator from (seed, synthetase id), so a rebuild with the same seed gives the'
+				 ' same constants whatever order the synthetases are fitted in. Default (None) draws'
+				 ' from the global numpy generator, unseeded, exactly as v3.0.1 does.')
 
 	def define_sim_loop_options(self, parser, manual_script=False):
 		# type: (argparse.ArgumentParser, bool) -> None

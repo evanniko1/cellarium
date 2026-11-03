@@ -51,10 +51,10 @@ _load_env_before_anything_freezes_it()
 
 
 def _put_src_on_the_path() -> None:
-    """`src/` on sys.path, once, for every test module -- because 31 of them did not do it themselves.
+    """`src/` on sys.path, once, for every test module -- because 32 of them did not do it themselves.
 
     MEASURED 2026-11-01: of the test modules that import `cellarium`, 31 carry no `sys.path.insert` of
-    their own. They pass in the full suite only because some earlier-imported module mutated `sys.path`
+    their own. 32 since 2026-11-03, when test_trna_refit_seed.py was added without one. They pass in the full suite only because some earlier-imported module mutated `sys.path`
     first, which means their importability is a property of COLLECTION ORDER rather than of the tree.
     Run one of them alone and it fails with
 

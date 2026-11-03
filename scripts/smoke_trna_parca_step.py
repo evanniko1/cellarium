@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import inspect
 import os
 import pickle
 import sys
@@ -51,7 +52,10 @@ def main(argv=None):
     ap.add_argument('--iterations', type=int, default=2,
         help='SCOUTING budget. Shipped is 100. The output of this script is not a fit.')
     ap.add_argument('--viable-solutions', type=int, default=1)
-    ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--seed', type=int, default=0,
+        help='Seeds the refit per synthetase (one generator per synthetase id), so a sweep '
+             'over --weight stays comparable synthetase by synthetase. Also seeds the global '
+             'generator, for anything else stochastic in the step function.')
     a = ap.parse_args(argv)
 
     flat = os.path.join(os.environ.get('WCECOLI_DIR', '/wcEcoli'),
@@ -78,7 +82,17 @@ def main(argv=None):
 
     Relation.optimize_trna_charging_kinetics = _scouting
 
+    # A GLOBAL seed makes one run reproducible but leaves every synthetase's draws dependent on loop
+    # position, so two runs that differ in one option are not comparable synthetase by synthetase --
+    # which is exactly what a weight sweep on a single synthetase needs. It stays for anything else
+    # stochastic in the step function; `trna_charging_kinetics_seed` below is what makes the refit's
+    # own restarts per-synthetase and order-independent.
     np.random.seed(a.seed)
+    if 'seed' not in inspect.signature(real).parameters:
+        sys.exit('this wcEcoli tree predates the refit seed: Relation.'
+                 'optimize_trna_charging_kinetics takes no `seed`. Apply the current model overlay '
+                 '(scripts/apply_model_overlay.py) before scouting, or the sweep is not comparable '
+                 'across runs.')
     t0 = time.time()
     sim_data, cell_specs = F.optimize_trna_charging_kinetics(
         sim_data, cell_specs, raw_data=raw_data,
@@ -86,6 +100,7 @@ def main(argv=None):
         trna_charged_fraction_target=a.target,
         trna_charged_fraction_weight=a.weight,
         trna_charging_kinetics_out=a.out,
+        trna_charging_kinetics_seed=a.seed,
         save_intermediates=False, intermediates_directory='', load_intermediate=None,
         )
     print(f'\nstep function completed in {time.time() - t0:.0f} s')

@@ -101,6 +101,8 @@ def fitSimData_1(raw_data, **kwargs):
 			the swept-down minimum synthetase too. Default False.
 		trna_charging_kinetics_out (str or None) - EXT-PORT-11. Where to write the three
 			refitted TSVs. None means reconstruction/ecoli/flat/, i.e. overwrite in place.
+		trna_charging_kinetics_seed (int or None) - seed for the refit's random restarts, one
+			generator per synthetase. None means the unseeded global numpy generator, as in v3.0.1.
 	"""
 
 	sim_data = SimulationDataEcoli()
@@ -480,6 +482,7 @@ def optimize_trna_charging_kinetics(sim_data, cell_specs, raw_data=None, **kwarg
 	effective_weight = (relation_module.TRNA_CHARGED_FRACTION_WEIGHT_DEFAULT
 		if target_weight is None else target_weight)
 	output_dir = kwargs.get('trna_charging_kinetics_out') or FLAT_DIR
+	seed = kwargs.get('trna_charging_kinetics_seed')
 
 	# QUOTE-FREE BY CONSTRUCTION, and asserted below. These files are written with
 	# tsv.writer(quotechar="'"), so a provenance string containing a single quote -- which
@@ -492,7 +495,8 @@ def optimize_trna_charging_kinetics(sim_data, cell_specs, raw_data=None, **kwarg
 		for condition in sim_data.relation.conditions) or 'no-anchor'
 	provenance = (
 		f'charged-fraction anchor: target={target_spec or "none"} -> {anchor_text};'
-		f' weight={effective_weight:g}; anchor_min_f={anchor_min_f}')
+		f' weight={effective_weight:g}; anchor_min_f={anchor_min_f};'
+		f' seed={"none" if seed is None else seed}')
 	assert not set(provenance) & set("'\"\t\n"), (
 		f'provenance string must stay free of quote and separator characters or it stops being a '
 		f'comment line in the TSV it is written to: {provenance!r}')
@@ -512,6 +516,7 @@ def optimize_trna_charging_kinetics(sim_data, cell_specs, raw_data=None, **kwarg
 		charged_fraction_target=target_spec,
 		charged_fraction_weight=target_weight,
 		anchor_min_f=anchor_min_f,
+		seed=seed,
 		)
 
 	def write_rows(path, rows):
