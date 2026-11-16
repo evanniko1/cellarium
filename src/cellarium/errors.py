@@ -93,6 +93,11 @@ PATTERNS: list[tuple[re.Pattern, str]] = [(re.compile(p, re.I), r) for p, r in [
     # so leaving it lower down would let a pattern written for the environment match on a field name. A fault
     # detected by the schema pre-check cannot be anything but the caller's. ---
     (r"missing required argument", "missing_argument"),
+    # The corpus registry names things that may simply not be registered. This is the caller naming
+    # an entity that does not exist, not an environment fault -- `unknown_entity` already carries
+    # exactly that ((request, fix_argument)), so this adds a phrasing rather than a 23rd reason.
+    (r"no corpus registered|no user-registered corpus|not registered:"
+     r"|is declared in code, not in", "unknown_entity"),
     # --- deliberate refusals, next: several of them contain the word "no" or "not" ---
     (r"safety-?blocked|refus(ing|ed) to|needs a reason|only a pending draft|not pending_approval"
      r"|biosecurity|is (not available|write-gated) over MCP|only in unattended mode"

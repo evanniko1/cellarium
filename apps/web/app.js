@@ -979,6 +979,7 @@ function _restoreFocus() { if (_overlayOpener && document.contains(_overlayOpene
 async function openCorpus() {
   _overlayOpener = document.activeElement;
   $("#corpusView").classList.add("open"); $("#corpusBtn").classList.add("active");
+  renderCorpora();
   $("#corpusSearch").focus();
   if (state.results === null) {
     $("#corpusBody").innerHTML = `<div class="empty">Loading the corpus…</div>`;
@@ -989,6 +990,156 @@ async function openCorpus() {
   $("#corpusSearch").value = "";
   renderCorpus("");
 }
+
+// ---------------------------------------------------------------- the corpora field
+// WHICH corpora Cellarium can read, and what each one can be asked. This is not decoration: the same
+// question is answerable against one corpus and refusable against another, and the registry records that
+// per corpus (well4cell stores the tRNA charged fraction per amino acid, 21 channels, so a per-isoacceptor
+// question must be refused there). The field shows state, both sizes, and the two gated actions.
+//
+// Sizes come from the server already rounded, in the BINARY convention the paper and
+// reconcile_corpus_counts.py use. Do not re-divide here: one file with two numbers across two surfaces is
+// the decay this project files findings about.
+let _corporaOpen = {};
+
+// A closed vocabulary: four known states map to four fixed spans, and anything else falls through to a
+// neutral pill carrying the state name ESCAPED. Nothing here interpolates a class, so the markup cannot be
+// steered by a value from the server.
+const CORPORA_PILLS = {
+  ready: `<span class="corpora-pill ready">ready</span>`,
+  metadata_absent: `<span class="corpora-pill absent">not fetched</span>`,
+  locator_missing: `<span class="corpora-pill missing">not on this machine</span>`,
+  undeclared_index: `<span class="corpora-pill na">not an index</span>`,
+};
+function corporaPill(state) {
+  return CORPORA_PILLS[state] || `<span class="corpora-pill na">${esc(state || "unknown")}</span>`;
+}
+const CORPORA_PLUGGED = `<span class="corpora-pill na">plugged in</span>`;
+
+// Both badges in one call, so the row template holds no conditional markup of its own. A corpus the user
+// plugged in says so, because a redirected built-in that looks built-in is a trap.
+function corporaBadges(c) {
+  return corporaPill(c.state) + (c.declared_in === "user" ? " " + CORPORA_PLUGGED : "");
+}
+
+// The two gated actions, from a fixed button set keyed on state and kind — never on server text.
+function corporaActs(c) {
+  const out = [];
+  if (c.state === "metadata_absent" && c.kind === "hf")
+    out.push(`<button class="btn" data-fetch="${esc(c.key)}">Fetch index</button>`);
+  if (c.kind === "hf" && c.state !== "undeclared_index")
+    out.push(`<button class="btn ghost" data-bulk="${esc(c.key)}">Size bulk</button>`);
+  return out.join("");
+}
+
+// The assembled rows, or the empty-state literal. Takes the already-built array so the row builder stays
+// one expression; every data field inside a row is esc()-wrapped where it is read.
+function corporaRows(builtRows) {
+  return builtRows.length ? builtRows.join("") : `<div class="empty">No corpus is registered.</div>`;
+}
+
+async function renderCorpora() {
+  const field = $("#corporaField");
+  if (!field) return;
+  field.innerHTML = `<div class="corpora-head">Corpora</div><div class="empty">Checking…</div>`;
+  let j;
+  try { j = await (await fetch("/api/corpora")).json(); }
+  catch (e) { field.innerHTML = `<div class="corpora-head">Corpora</div>
+    <div class="empty">The registry could not be read: ${esc(String(e))}. This is the interface failing,
+    not a statement that no corpus exists.</div>`; return; }
+  if (j.error) {
+    field.innerHTML = `<div class="corpora-head">Corpora</div><div class="empty">${esc(j.error)}</div>`;
+    return;
+  }
+  const rows = (j.corpora || []).map(c => {
+    const open = !!_corporaOpen[c.key];
+    const sizes = [];
+    if (c.index_mb != null) sizes.push(`index ${c.index_mb} MB`);
+    if (c.cached_mb) sizes.push(`cached ${c.cached_mb} MB`);
+    return `<div class="corpora-row ${c.state === "ready" ? "is-ready" : ""}" data-row="${esc(c.key)}">
+      <div class="corpora-main">
+        <div class="corpora-name">${esc(c.title)} ${corporaBadges(c)}</div>
+        <div class="corpora-meta">${esc(c.locator)}${sizes.length ? " · " + esc(sizes.join(" · ")) : ""}
+          · <button class="corpora-toggle" data-more="${esc(c.key)}">${open ? "less" : "what it answers"}</button></div>
+      </div>
+      <div class="corpora-acts">${corporaActs(c)}</div>
+      ${c.why ? `<div class="corpora-why">${esc(c.why)}</div>` : ""}
+      ${open ? `<div class="corpora-why"><strong>One row is</strong> ${esc(c.row_unit)}</div>
+        <div class="corpora-why"><strong>Answers</strong> ${esc((c.answers || []).join("; "))}</div>
+        <div class="corpora-why"><strong>Does not answer</strong> ${esc((c.does_not_answer || []).join("; "))}</div>
+        ${(c.caveats || []).map(v => `<div class="corpora-caveat">${esc(v)}</div>`).join("")}` : ""}
+    </div>`;
+  });
+  field.innerHTML = `<div class="corpora-head">Corpora
+      <span style="text-transform:none;letter-spacing:0;font-weight:400">${j.n_ready} of ${j.n_corpora} ready</span>
+    </div>${corporaRows(rows)}`;
+
+  field.querySelectorAll("[data-more]").forEach(b => b.onclick = () => {
+    _corporaOpen[b.dataset.more] = !_corporaOpen[b.dataset.more]; renderCorpora();
+  });
+
+  // Status goes in the field itself rather than a floating notice: the number the user is being asked to
+  // approve should sit next to the thing it is about, and still be there after they look away.
+  const say = (key, msg, cls) => {
+    const row = field.querySelector(`[data-row="${key}"]`);
+    if (!row) { announce(msg); return; }
+    const prev = row.querySelector(".corpora-status");
+    if (prev) prev.remove();
+    row.appendChild(el("div", "corpora-status " + (cls || "corpora-why"), safe`${msg}`));
+    announce(msg);
+  };
+
+  field.querySelectorAll("[data-bulk]").forEach(b => b.onclick = async () => {
+    const key = b.dataset.bulk;
+    b.disabled = true; b.textContent = "Sizing…";
+    try {
+      const r = await (await fetch(`/api/corpus_bulk_plan?key=${encodeURIComponent(key)}`)).json();
+      if (r.error) inlineError(b, r.error);
+      else say(key, `${r.n_files} files, ${r.est_gb} GB sit behind this index. Nothing was downloaded.`);
+    } catch (e) { inlineError(b, String(e)); }
+    b.disabled = false; b.textContent = "Size bulk";
+  });
+
+  field.querySelectorAll("[data-fetch]").forEach(b => b.onclick = async () => {
+    const key = b.dataset.fetch;
+    b.disabled = true; b.textContent = "Sizing…";
+    let plan;
+    // GATED in two calls: the first returns the plan and downloads nothing, and the user approves the byte
+    // count before the second runs. The same contract `hf.download_raw` applies per design.
+    try {
+      plan = await (await fetch("/api/corpus_fetch", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) })).json();
+    } catch (e) { inlineError(b, String(e)); b.disabled = false; b.textContent = "Fetch index"; return; }
+    b.disabled = false; b.textContent = "Fetch index";
+    if (plan.error) { inlineError(b, plan.error); return; }
+    if (plan.nothing_to_fetch) { say(key, plan.why || "nothing to fetch"); return; }
+
+    const row = field.querySelector(`[data-row="${key}"]`);
+    const prev = row && row.querySelector(".corpora-status");
+    if (prev) prev.remove();
+    const ask = el("div", "corpora-status corpora-why",
+      safe`Fetch ${String(plan.n_to_pull)} file(s), ${String(plan.est_mb)} MB, from ${plan.repo}? This makes the whole corpus queryable without downloading its bulk. `);
+    const yes = el("button", "btn primary", "Fetch");
+    const no = el("button", "btn ghost", "Cancel");
+    ask.appendChild(yes); ask.appendChild(no);
+    if (row) row.appendChild(ask); else { announce("approval needed"); return; }
+    no.onclick = () => { ask.remove(); announce("Fetch cancelled."); };
+    yes.onclick = async () => {
+      yes.disabled = true; no.disabled = true; yes.textContent = "Fetching…";
+      try {
+        const got = await (await fetch("/api/corpus_fetch", { method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, confirm: true }) })).json();
+        if (got.error) { inlineError(yes, got.error); return; }
+        announce(`${key}: fetched ${got.fetched} file(s). ${got.note}`);
+        await renderCorpora();
+        if (got.failed && got.failed.length)
+          say(key, `${got.failed.length} file(s) did not arrive: ${got.failed[0].error}`, "corpora-caveat");
+      } catch (e) { inlineError(yes, String(e)); }
+    };
+  });
+}
+
 function closeCorpus() { const wasOpen = $("#corpusView").classList.contains("open"); $("#corpusView").classList.remove("open"); $("#corpusBtn").classList.remove("active"); if (wasOpen) _restoreFocus(); }
 
 // ---------------- Hypothesis-Generation surface (the Socratic Council, split out + persisted) ----------------

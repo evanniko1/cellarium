@@ -481,6 +481,80 @@ def result_availability(request):
         return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
 
 
+# ---------------------------------------------------------------- the corpora Cellarium can read
+# One field, four verbs: list what is reachable, size a fetch, perform it, and size the bulk behind it.
+# The gating is the point. `corpus_fetch` without `confirm` returns the plan and downloads nothing, which
+# is the discipline `hf.download_raw` already applies per design — a user should approve a number of bytes
+# before the machine reaches out, and the metadata tier being only megabytes does not change who decides.
+def corpora_list(request):
+    """Every registered corpus with its measured state — the UI's corpora field. No network call."""
+    from cellarium import corpora
+    try:
+        return JSONResponse(corpora.status_all())
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
+
+
+def corpus_plan(request):
+    """Size this corpus's metadata tier WITHOUT fetching it. Touches the network for a remote corpus."""
+    from cellarium import corpora
+    key = request.query_params.get("key")
+    if not key:
+        return JSONResponse({"error": "no key"}, status_code=400)
+    try:
+        return JSONResponse(corpora.metadata_plan(key))
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
+
+
+async def corpus_fetch(request):
+    """Fetch a corpus's metadata tier, after which it is queryable. GATED: no `confirm` means no download."""
+    from cellarium import corpora
+    body = await request.json()
+    key = (body or {}).get("key")
+    if not key:
+        return JSONResponse({"error": "no key"}, status_code=400)
+    try:
+        return JSONResponse(corpora.fetch_metadata(key, confirm=bool((body or {}).get("confirm"))))
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
+
+
+def corpus_bulk_plan(request):
+    """Size the bulk behind a corpus, for the download control. Fetches nothing.
+
+    Separate from the metadata plan because the two are different cost classes and conflating them is how a
+    user ends up agreeing to a terabyte: well4cell's metadata tier is 12.03 MB and one of its charging part
+    files is 1.65 GB, both measured 2026-11-14.
+    """
+    from cellarium import corpora
+    key = request.query_params.get("key")
+    if not key:
+        return JSONResponse({"error": "no key"}, status_code=400)
+    pats = [s for s in (request.query_params.get("patterns") or "data/**").split(",") if s.strip()]
+    try:
+        return JSONResponse(corpora.bulk_plan(key, tuple(pats)))
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
+
+
+async def corpus_register(request):
+    """Plug a corpus in, or remove a plugged-in one. `row_unit` is required and the refusal says why."""
+    from cellarium import corpora
+    body = await request.json() or {}
+    try:
+        if body.get("remove"):
+            return JSONResponse(corpora.unregister(body["key"]))
+        fields = {k: v for k, v in body.items()
+                  if k in corpora.Corpus.__dataclass_fields__ and k != "declared_in"}
+        for k in ("key", "title", "kind", "locator", "row_unit"):
+            if not fields.get(k):
+                return JSONResponse({"error": f"{k} is required"}, status_code=400)
+        return JSONResponse(corpora.register(**fields))
+    except Exception as exc:
+        return JSONResponse({"error": f"{type(exc).__name__}: {exc}"})
+
+
 # ---------------------------------------------------------------- the experiment loop (airlock)
 def queue_list(request):
     from cellarium import launch, ui
@@ -716,6 +790,11 @@ routes = [
     Route("/api/session_pop", session_pop, methods=["POST"]),
     Route("/api/results", results_list, methods=["GET"]),
     Route("/api/result_availability", result_availability, methods=["GET"]),
+    Route("/api/corpora", corpora_list, methods=["GET"]),             # which corpora are reachable
+    Route("/api/corpus_plan", corpus_plan, methods=["GET"]),          # size the metadata tier
+    Route("/api/corpus_fetch", corpus_fetch, methods=["POST"]),       # gated: no confirm, no download
+    Route("/api/corpus_bulk_plan", corpus_bulk_plan, methods=["GET"]),
+    Route("/api/corpus_register", corpus_register, methods=["POST"]), # plug one in / remove one
     Route("/api/queue", queue_list, methods=["GET"]),
     Route("/api/queue_clear", queue_clear, methods=["POST"]),
     Route("/api/queue_clear_all", queue_clear_all, methods=["POST"]),

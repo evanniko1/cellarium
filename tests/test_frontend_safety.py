@@ -10,7 +10,11 @@ from pathlib import Path
 APP = os.path.join(os.path.dirname(__file__), "..", "apps", "web", "app.js")
 
 # an interpolation is SAFE if it is escaped/rendered by a known-safe helper, or is numeric/index/static.
-_SAFE_WRAP = re.compile(r"\b(esc|safe|md|inlineMd|relTime|trunc|pertLabel|primaryLabel|pertIcon|skillIcon)\s*\(")
+# The `corpora*` renderers (Pill, Badges, Acts, Rows) render from CLOSED vocabularies (a fixed state->label map,
+# a fixed button set, and rows whose every data field is esc()-wrapped at the leaf), which is the same
+# class as pertIcon/skillIcon already here. Reviewed 2026-11-14.
+_SAFE_WRAP = re.compile(r"\b(esc|safe|md|inlineMd|relTime|trunc|pertLabel|primaryLabel|pertIcon|skillIcon"
+                        r"|corpora\w+)\s*\(")
 _NUMERIC = re.compile(r"\.(length|size|rounds|seeds|generations|fid|round|toFixed)\b"
                       r"|\bn_\w+|\bi \+ 1\b|×|^\s*[\d.\s+\-*/()]+$")
 _STATIC = re.compile(r"^[A-Z][A-Z0-9_]{2,}\b")   # ALL-CAPS static consts (CHEV_SVG, ARROW_SVG, FLASK_SVG, …)
