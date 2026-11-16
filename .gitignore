@@ -127,3 +127,15 @@ audit/
 .coverage.*
 htmlcov/
 src/cellarium/_mutation_control_probe.py
+
+# Working documents from the 2026-11 audit and validation pass. Local-only for the same reason
+# docs/MUTATION_SCORE_PLAN.md and BACKLOG.md are: this repository is public, and these are internal
+# planning that names unreleased findings, file paths and decisions not yet taken. The MEASUREMENTS they
+# produced are tracked (data/mutation/*.json, the tests); the deliberation is not.
+MAP_AUDIT_*.md
+VALIDATION_LAYER_SPEC.md
+
+# Fetched corpus metadata tiers. A cache, not a measurement: `corpora.fetch_metadata` re-downloads any of
+# it from the dataset it names, and well4cell's tier alone is 12 MB of someone else's CC-BY data that we
+# should point at rather than re-host.
+data/corpora/
