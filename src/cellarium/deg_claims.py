@@ -194,7 +194,20 @@ MARKED_TOOLS: frozenset[str] = frozenset({
 _MARK_KEY = "parameter_provenance"
 
 # Bounds on the payload walk. A tool result is a small dict; `read_raw_series`-shaped payloads are not in
-# MARKED_TOOLS, but a bound is cheaper than trusting that to stay true.
+# MARKED_TOOLS, but a bound is cheaper than trusting that to stay true. The bound is now REPORTED when it is
+# reached — `payload_hits` turns a stopped walk into `could_not_verify`, never into `clear` — because a bound
+# nobody is told about is one the reader has to keep guessing at.
+#
+# WHAT THEY WERE MEASURED AGAINST (2026-11-13), so the next reader does not re-derive it. Of 42 real
+# marked-tool payloads recovered from `data/sessions.db`, the largest is `mechanistic_scope` at 138 nodes and
+# depth 5 — 20-40x inside the node budget, three levels inside the depth bound. The reachable case is not a
+# pathological payload but `top_movers`: `top` is a caller-controlled integer with no maximum in the tool
+# schema, each direction is capped independently, and `regulon_response` passes `top=400` internally. A
+# payload of exactly that shape COST 305 nodes at top=12 and 5,737 at top=400 while numeric dict values
+# still spent budget, so it first truncated at top=276; skipping them leaves 127 and 2,455 and moves the
+# first truncating top to 658. Four of the nine marked tools (`list_species`, `read_species`, `regulon_response`, and `top_movers`
+# against real simOut) could not be exercised on the measuring machine — no WCECOLI_DIR — so their footprints
+# are UNVERIFIED rather than known to be small.
 _MAX_NODES = 4000
 _MAX_DEPTH = 8
 _ALIASES = Path(os.environ.get("CELLARIUM_DEG_ALIASES") or "data/parca/deg_rate_aliases.json")
@@ -237,24 +250,47 @@ def _looks_like_id(s: str) -> bool:
     return 3 <= len(s) <= 64 and " " not in s and "\n" not in s
 
 
-def _walk(node, out: set, depth: int = 0, budget: list | None = None) -> None:
-    """Collect identifier-shaped strings from a payload's keys and short string values, bounded."""
+def _walk(node, out: set, depth: int = 0, budget: list | None = None, stopped: dict | None = None) -> dict:
+    """Collect identifier-shaped strings from a payload's keys and short string values, bounded.
+
+    AND RETURN THE STOP RECORD — `{"nodes": bool, "depth": bool}` — which is the whole of M-12. Both bounds
+    used to exit with a bare `return`, so a walk that stopped and a payload that held no identifier looked
+    identical to the caller, and `payload_hits` rendered both as `clear`. That is the silent-absence class
+    this module exists to prevent, with the bound as its cause. `stopped` is threaded through the whole
+    recursion the way `budget` already is; the four existing positional parameters keep their place and
+    order, so direct callers are unaffected by the addition.
+
+    A FLAG MEANS A CALL WAS REFUSED, not "the budget reached zero". A payload that consumes exactly
+    `_MAX_NODES` and then ends has lost nothing and is not truncated, which is why the node guard tests the
+    budget on ENTRY, before the decrement. Flagging on `budget[0] == 0` after the final decrement would
+    report a truncation on the one payload that fits exactly.
+    """
     budget = budget if budget is not None else [_MAX_NODES]
-    if depth > _MAX_DEPTH or budget[0] <= 0:
-        return
+    stopped = {"nodes": False, "depth": False} if stopped is None else stopped
+    # Split, where one guard used to stand, so the result can name WHICH bound stopped it: "too big" tells
+    # the caller that a narrower call would verify, "too deep" does not.
+    if depth > _MAX_DEPTH:
+        stopped["depth"] = True
+        return stopped
+    if budget[0] <= 0:
+        stopped["nodes"] = True
+        return stopped
     budget[0] -= 1
     if isinstance(node, dict):
         for k, v in node.items():
             if isinstance(k, str) and _looks_like_id(k):
                 out.add(k.lower())
-            _walk(v, out, depth + 1, budget)
+            if isinstance(v, (int, float)) or v is None:
+                continue        # a numeric VALUE can hold no identifier either — the list branch's own rule
+            _walk(v, out, depth + 1, budget, stopped)
     elif isinstance(node, (list, tuple)):
         for v in node:
             if isinstance(v, (int, float)) or v is None:
                 continue        # numeric arrays are the bulk of a payload and can hold no identifier
-            _walk(v, out, depth + 1, budget)
+            _walk(v, out, depth + 1, budget, stopped)
     elif isinstance(node, str) and _looks_like_id(node):
         out.add(node.lower())
+    return stopped
 
 
 def payload_hits(out, *, path: str | os.PathLike | None = None) -> dict:
@@ -264,20 +300,48 @@ def payload_hits(out, *, path: str | os.PathLike | None = None) -> dict:
     members. Ungrouped, a single ribosomal operon printed ten identical entries with ten identical
     explanations, which is the shape of an annotation a reader learns to scroll past.
 
-    Returns `{"verdict": ..., "units": [...]}`. Verdicts: `could_not_verify` (no map — never a pass),
-    `clear`, `rests_on_non_fits`.
+    Returns `{"verdict": ..., "units": [...]}`. Verdicts: `could_not_verify` (no map, or the walk stopped
+    at a bound — neither is ever a pass), `clear`, `rests_on_non_fits`.
+
+    `clear` is reachable ONLY from a walk that finished. A walk that hit `_MAX_NODES` or `_MAX_DEPTH` and
+    resolved nothing is the same not-knowing as a missing map, so it earns the same verdict, with
+    `truncated: true` and a `why` naming the bound. A walk that hit a bound and DID resolve a gene keeps
+    `rests_on_non_fits` and carries `truncated: true` beside it: the hit is positive evidence and does not
+    weaken because the walk stopped, but `units` and `n_units_matched` are then a LOWER BOUND on what the
+    payload contains. The asymmetry is this module's existing position — `could_not_verify` governs PASSES,
+    not findings (see `_load_aliases`, and the way `check` leaves a hit exactly as written).
     """
     base = _load_aliases(path)
     if base.get("error"):
         return {"verdict": "could_not_verify", "units": [], "why": base["error"]}
     seen: set = set()
-    _walk(out, seen)
+    stopped = _walk(out, seen)
+    truncated = stopped["nodes"] or stopped["depth"]
+    why = why_truncated = ""
+    if truncated:
+        if stopped["nodes"] and stopped["depth"]:
+            bound = (f"node budget (_MAX_NODES={_MAX_NODES}) and its nesting depth bound "
+                     f"(_MAX_DEPTH={_MAX_DEPTH})")
+        elif stopped["nodes"]:
+            bound = f"node budget (_MAX_NODES={_MAX_NODES})"
+        else:
+            bound = f"nesting depth bound (_MAX_DEPTH={_MAX_DEPTH})"
+        # Two sentences for the two cases, because they say different things to a reader: a refusal has to
+        # state that it is not a pass, while a finding that was cut short has to state that its unit list
+        # is incomplete.
+        why = (f"the payload walk stopped at its {bound} with part of this payload never visited — this "
+               f"result reports that it could not finish looking, never that the payload passed")
+        why_truncated = (f"the payload walk stopped at its {bound}, so these units are what it saw before "
+                         f"stopping — a LOWER BOUND on what this payload contains, not the complete set")
     genes: dict[str, dict] = {}
     for token in seen:
         gid = base["alias"].get(token)
         if gid and gid not in genes:
             genes[gid] = base["genes"].get(gid) or {}
     if not genes:
+        if truncated:
+            return {"verdict": "could_not_verify", "units": [], "truncated": True, "why": why,
+                    "kb_sha256": base["kb_sha256"]}
         return {"verdict": "clear", "units": [], "kb_sha256": base["kb_sha256"]}
     by_unit: dict[str, dict] = {}
     for gid, rec in genes.items():
@@ -296,9 +360,13 @@ def payload_hits(out, *, path: str | os.PathLike | None = None) -> dict:
             u["rate_class"] = entry["class"]
         u["genes_in_payload"] = sorted(set(u["genes_in_payload"]))
     ranked = sorted(by_unit.values(), key=lambda u: -(u["pct_of_mrna_expression"] or 0.0))
-    return {"verdict": "rests_on_non_fits", "units": ranked, "kb_sha256": base["kb_sha256"],
-            "n_units_matched": len(ranked), "n_genes_matched": len(genes),
-            "max_pct_of_mrna_expression": ranked[0]["pct_of_mrna_expression"]}
+    res = {"verdict": "rests_on_non_fits", "units": ranked, "kb_sha256": base["kb_sha256"],
+           "n_units_matched": len(ranked), "n_genes_matched": len(genes),
+           "max_pct_of_mrna_expression": ranked[0]["pct_of_mrna_expression"]}
+    if truncated:
+        res["truncated"] = True
+        res["why_truncated"] = why_truncated
+    return res
 
 
 def mark_payload(tool: str, out, *, path: str | os.PathLike | None = None):
@@ -306,7 +374,9 @@ def mark_payload(tool: str, out, *, path: str | os.PathLike | None = None):
 
     Silent on `clear` for the reason (a) is silent on a clean answer: a marker on every payload is a marker
     the model learns to skip. NOT silent on `could_not_verify` — an absent stamp reads as "this number is
-    fine", so a check that could not run has to say so rather than look like a pass.
+    fine", so a check that could not run has to say so rather than look like a pass. A payload too big for
+    the walk's bounds is one of those, and it used to reach the `clear` early return and stamp nothing,
+    which put "too large to examine" and "examined and fine" in front of the model as the same silence.
     """
     if tool not in MARKED_TOOLS or not isinstance(out, dict) or out.get("error"):
         return out
@@ -314,13 +384,20 @@ def mark_payload(tool: str, out, *, path: str | os.PathLike | None = None):
     if res["verdict"] == "clear":
         return out
     if res["verdict"] == "could_not_verify":
+        # `why` now distinguishes two causes, so `read_as` does too: an unreadable index is a deployment
+        # problem the model can do nothing about, while a truncated walk is one the CALLER can fix by
+        # asking for less.
+        read_as = "unverified, not verified — the degradation-provenance index could not be read"
+        if res.get("truncated"):
+            read_as = ("unverified, not verified — the payload was larger than the provenance walk's "
+                       "bound, so part of it was never examined. A narrower call (a smaller `top`, one "
+                       "direction, a pathway filter) returns a payload this check can finish.")
         out.setdefault(_MARK_KEY, {
-            "verdict": "could_not_verify", "why": res.get("why"),
-            "read_as": "unverified, not verified — the degradation-provenance index could not be read"})
+            "verdict": "could_not_verify", "why": res.get("why"), "read_as": read_as})
         return out
     shown = res["units"][:6]
     classes = {u["rate_class"] for u in shown if u["rate_class"]}
-    out.setdefault(_MARK_KEY, {
+    stamp = {
         "verdict": "rests_on_non_fits",
         "what_this_means": (
             "genes named in this result are transcribed from units whose degradation rate the ParCa "
@@ -340,5 +417,14 @@ def mark_payload(tool: str, out, *, path: str | os.PathLike | None = None):
                            "arm may not carry the same classification — check `provenance` for this "
                            "result's arm."),
         "full_picture": "call `deg_rate_provenance` for any single unit",
-    })
+    }
+    if res.get("truncated"):
+        # The finding stands; what is incomplete is the COUNT. Said here as well as in `why_truncated`
+        # because `n_units_matched` is the number a reader would otherwise quote as a total.
+        stamp["truncated"] = True
+        stamp["why_truncated"] = res["why_truncated"]
+        stamp["n_units_matched_is_a_lower_bound"] = (
+            "the walk stopped before the end of this payload, so there may be further non-fit units in the "
+            "part it did not reach — this count is a floor, not a total")
+    out.setdefault(_MARK_KEY, stamp)
     return out

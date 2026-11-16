@@ -185,7 +185,13 @@ def test_monomer_and_cistron_ids_match():
 
 
 def test_walk_is_bounded():
-    """A pathological payload must not hang or recurse away."""
+    """A pathological payload must not hang or recurse away.
+
+    `len(seen) <= D._MAX_NODES` is the self-referential assertion M-11 recorded: it compares the result
+    against the constant that produced it and so holds at every value of the bound. It is kept because
+    termination is still worth asserting, but read it as "this returns at all", nothing more. Where the
+    bound actually SITS is pinned by literal counts in tests/test_threshold_boundaries.py, and whether the
+    walk ADMITS to stopping is pinned there too plus by the stamp case below."""
     deep = {"a": "rpmJ"}
     for _ in range(200):
         deep = {"n": deep}
@@ -212,6 +218,30 @@ def test_missing_map_says_so_instead_of_passing(tmp_path):
     pp = out["parameter_provenance"]
     assert pp["verdict"] == "could_not_verify"
     assert "unverified, not verified" in pp["read_as"]
+
+
+def test_a_truncated_payload_still_reaches_the_model_as_a_stamp():
+    """The stamp-level half of M-12: a walk that stopped must SAY so in the payload the model reads.
+
+    `mark_payload` returns early on `clear` and that silence is deliberate -- a marker on every result is a
+    marker the model learns to skip. But before this fix a truncated walk reached that same early return,
+    so "too big to check" and "checked and fine" were both rendered as no stamp at all. The contract
+    asserted here is the one the missing-map case above already has: a check that could not run produces a
+    `could_not_verify` block saying "unverified, not verified".
+
+    The index is 4100 -- the backlog's own example, kept so the closing of M-12 is checkable against what
+    was filed. It is NOT the boundary: the first refused list index is 3998 (re-derived 2026-11-13), and
+    that literal lives in tests/test_threshold_boundaries.py where the bound's other counts are."""
+    rows = [f"zzfill{i}_pad" for i in range(5000)]
+    rows[4100] = "rpmJ"
+    pp = D.mark_payload("top_movers", {"up": rows})["parameter_provenance"]
+    assert pp["verdict"] == "could_not_verify"
+    assert "unverified, not verified" in pp["read_as"]
+    assert "never examined" in pp["read_as"]
+    assert "node budget" in pp["why"]
+
+    clean = D.mark_payload("top_movers", {"up": [f"zzfill{i}_pad" for i in range(50)]})
+    assert "parameter_provenance" not in clean, "a small clean payload must still produce no stamp at all"
 
 
 def test_empty_map_is_an_error_not_a_clean_bill(tmp_path):

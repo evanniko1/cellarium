@@ -387,6 +387,212 @@ def test_the_payload_walk_collects_its_declared_NODE_budget_and_no_more():
     assert len(out) == 3999 and "rows" in out
 
 
+# --- deg_claims.py: whether the bounded walk ADMITS to having stopped (M-12) -------------------------
+#
+# The two cases above pin WHERE the walk stops. These pin what the caller is TOLD when it does, which is a
+# separate defect and the one that bit: `payload_hits` read `_walk`'s empty result set and returned
+# `clear`, so "looked and found no non-fit gene" and "stopped looking" reached the model as the same word,
+# and `mark_payload` is silent on `clear`, so a truncated walk stamped nothing at all. That is the named
+# silent-absence class with the bound as its cause.
+#
+# Every count below is a LITERAL straddling a bound, re-derived 2026-11-13 against the committed alias map
+# (data/parca/deg_rate_aliases.json -- 4,557 aliases over 1,149 genes, recomputed, matching the module's
+# own docstring figures). The fillers are `zzfill{i}_pad` and not the `g{i}_rna` the case above uses,
+# because four of those (g36, g81, g436, g812) ARE aliases in the committed map: a verdict assertion over
+# them would be reading a collision rather than the token the case deliberately placed.
+
+_FILLER = "zzfill{}_pad"
+
+
+def test_a_truncated_walk_is_not_reported_as_clear():
+    """A non-fit gene PAST the node budget must not come back as `clear`.
+
+    Index 3998 is the first list member the walk refuses: the root dict and the list itself each spend a
+    budget unit, so members 0..3997 fit inside `_MAX_NODES = 4000`. Against the unmodified module this
+    payload returned `clear` with no flag -- the exact silent absence -- so the verdict, the flag and the
+    `why` text are all pinned. The second arm is the same shape small enough to finish, and it must stay
+    byte-identical to the old behaviour: a finding with no flag on it at all."""
+    rows = [_FILLER.format(i) for i in range(5000)]
+    rows[3998] = "rpmJ"
+    res = deg_claims.payload_hits({"rows": rows})
+    assert res["verdict"] == "could_not_verify"
+    assert res["truncated"] is True
+    assert res["units"] == []
+    assert "node budget" in res["why"] and "4000" in res["why"]
+    assert "never that the payload passed" in res["why"]
+
+    small = [_FILLER.format(i) for i in range(50)]
+    small[0] = "rpmJ"
+    inside = deg_claims.payload_hits({"rows": small})
+    assert inside["verdict"] == "rests_on_non_fits"
+    assert "truncated" not in inside
+
+
+def test_the_truncation_flag_is_false_at_exactly_the_bound():
+    """A payload that spends the budget EXACTLY is not truncated: the flag means a call was REFUSED.
+
+    4,000 nodes is the root dict, the list, and 3,998 members, and `len(seen)` is then 3,999 -- the `rows`
+    key plus all 3,998 members, the trailing `rpmJ` included. One member more is 4,001 nodes: the flag
+    fires and the trailing token is gone. Both arms are literal counts straddling `_MAX_NODES`, so halving
+    or doubling the budget turns one red; and an implementation that flags on `budget[0] == 0` after the
+    final decrement, instead of on a refused call, fails the 3,998 arm while passing the 3,999 one."""
+    at_bound = [_FILLER.format(i) for i in range(3997)] + ["rpmJ"]
+    assert len(at_bound) == 3998
+    seen: set = set()
+    stopped = deg_claims._walk({"rows": at_bound}, seen)
+    assert len(seen) == 3999 and "rpmj" in seen and "rows" in seen
+    assert stopped == {"nodes": False, "depth": False}
+    at_res = deg_claims.payload_hits({"rows": at_bound})
+    assert at_res["verdict"] == "rests_on_non_fits"
+    assert "truncated" not in at_res
+
+    over_bound = [_FILLER.format(i) for i in range(3998)] + ["rpmJ"]
+    assert len(over_bound) == 3999
+    seen2: set = set()
+    stopped2 = deg_claims._walk({"rows": over_bound}, seen2)
+    assert stopped2["nodes"] is True
+    assert len(seen2) == 3999 and "rpmj" not in seen2
+    assert deg_claims.payload_hits({"rows": over_bound})["verdict"] == "could_not_verify"
+
+
+def test_a_payload_deeper_than_the_bound_says_so():
+    """`_MAX_DEPTH = 8`, measured on the VALUE grain rather than the key grain above.
+
+    An identifier that is a dict value is walked one level BELOW the dict holding it, so eight wrappers
+    already put `rpmJ` out of reach -- one level earlier than the key case above, where `id8` survives and
+    `id9` does not. Seven wrappers: found, no flag. Eight: refused, and the result says which bound."""
+    def wrapped(n: int) -> dict:
+        node: object = {"id": "rpmJ"}
+        for _ in range(n):
+            node = {"wrap": node}
+        return node
+
+    inside = deg_claims.payload_hits(wrapped(7))
+    assert inside["verdict"] == "rests_on_non_fits"
+    assert "truncated" not in inside
+
+    past = deg_claims.payload_hits(wrapped(8))
+    assert past["verdict"] == "could_not_verify"
+    assert past["truncated"] is True
+    assert "depth" in past["why"] and "8" in past["why"]
+
+
+def test_a_numeric_leaf_past_the_depth_bound_is_not_a_truncation():
+    """The flag has to mean "a node that could have carried an identifier was refused", or it cries wolf.
+
+    A bare number one level past the bound lost nothing -- a float cannot be a gene id -- and a flag that
+    fires on it is the false positive that gets the whole stamp switched off. This is RED against the
+    straightforward patch and green only once dict VALUES are skipped when numeric, which is the rule the
+    list branch has carried all along ("numeric arrays ... can hold no identifier"). The third arm is the
+    control: the same nesting with a STRING at the bottom must still flag, or the fix would have bought
+    its silence by never flagging at all."""
+    def wrapped(leaf: dict, n: int) -> dict:
+        node: object = leaf
+        for _ in range(n):
+            node = {"wrap": node}
+        return node
+
+    assert "truncated" not in deg_claims.payload_hits(wrapped({"count": 5}, 7))
+    assert "truncated" not in deg_claims.payload_hits(wrapped({"count": 5}, 8))
+
+    control = deg_claims.payload_hits(wrapped({"id": "rpmJ"}, 8))
+    assert control["truncated"] is True
+
+
+def _top_movers_envelope(top: int) -> dict:
+    """`top_movers`' own payload shape, written out as a literal fixture.
+
+    Six keys per protein mover (`_reader_worker.py` emits five and `differential.py` annotates `symbol`),
+    both directions capped at `top` INDEPENDENTLY, eight `mid_rank_sample` and eight `strongest_unadjusted`
+    rows, and the power block. The ids are `zzmov{i}_pad`, which collide with nothing in the alias map, so
+    the verdict comes from the bound and not from a filler that happens to be a real gene."""
+    def mover(i: int) -> dict:
+        return {"id": f"zzmov{i}_pad", "target": 57.0, "reference": 41.0, "log2fc": 0.47, "q": 0.0123,
+                "symbol": f"zzsym{i}_pad"}
+
+    return {"kind": "protein", "n_compared": 3243, "n_significant_fdr10": 1950, "count_floor": 20.0,
+            "n_target_runs": 3,
+            "up": [mover(i) for i in range(top)],
+            "down": [mover(100000 + i) for i in range(top)],
+            "mid_rank_sample": [mover(200000 + i) for i in range(8)],
+            "power": {"n_target": 3, "n_reference": 3, "n_tests": 3243, "smallest_p": 1e-05,
+                      "smallest_q": 0.0123, "bh_p_needed_for_first_discovery": 3.08e-05},
+            "strongest_unadjusted": [{**mover(300000 + i), "p": 0.000123} for i in range(8)]}
+
+
+def test_a_top_movers_shaped_payload_truncates_at_a_literal_top():
+    """The bound is reachable from an agent-callable path, so pin where, in the real payload's shape.
+
+    `top` is an unbounded integer in `top_movers`' input schema (`tools.py`) and each direction is capped
+    separately, and `regulon_response` passes `top=400` internally. Measured 2026-11-13 on the fixture
+    above, under the walk as it was originally written: top=12 cost 305 nodes of which 178 were numeric
+    dict values (58%), and top=400 cost 5,737 of which 3,282 were numeric (57%), truncating -- and still
+    coming back `clear`. Skipping numeric dict values, the way the list branch always did, leaves 127 and
+    2,455 and moves the first truncating `top` from 276 to 658, so top=400 now FITS and the truncating arm
+    here is top=800. Three literal arms, and a change to
+    `_MAX_NODES` in either direction moves one of them off its verdict."""
+    small = deg_claims.payload_hits(_top_movers_envelope(12))
+    assert small["verdict"] == "clear"
+    assert "truncated" not in small
+
+    four_hundred = deg_claims.payload_hits(_top_movers_envelope(400))
+    assert four_hundred["verdict"] == "clear", "5,737 nodes, of which only 2,455 can hold an identifier"
+    assert "truncated" not in four_hundred
+
+    huge = deg_claims.payload_hits(_top_movers_envelope(800))
+    assert huge["verdict"] == "could_not_verify"
+    assert huge["truncated"] is True
+
+
+def test_a_found_unit_survives_a_truncated_walk():
+    """Truncation does not erase a finding -- this is the assertion that pins option B over option A.
+
+    A non-fit gene at index 0 of a 5,000-row list is positive evidence: the walk DID see `rpmJ`, and it
+    does not become less true because the walk later ran out of budget. So the verdict stays
+    `rests_on_non_fits` with the same unit a small payload reports, and `truncated` rides beside it to say
+    the unit list is a LOWER BOUND. ONE unit, not two: `rpmJ` belongs to `rpmJ[c]` alone and holds 1.584482%
+    of mRNA expression (both re-derived 2026-11-13 from the committed map). The second unit the probe's
+    stamp names comes from the ten OTHER ribosomal genes a `mechanistic_scope` payload carries, which
+    `tests/test_deg_payload.py` covers -- not from `rpmJ`.
+
+    Collapsing this to `could_not_verify` -- the obvious "any not-knowing outranks a finding" reading --
+    turns this red, which is the point: the module's own position is that `could_not_verify` governs
+    PASSES, not findings."""
+    rows = [_FILLER.format(i) for i in range(5000)]
+    rows[0] = "rpmJ"
+    res = deg_claims.payload_hits({"rows": rows})
+    assert res["verdict"] == "rests_on_non_fits"
+    assert [u["unit"] for u in res["units"]] == ["rpmJ[c]"]
+    assert res["units"][0]["pct_of_mrna_expression"] == pytest.approx(1.584482)
+    assert res["truncated"] is True
+    assert "node budget" in res["why_truncated"]
+
+    untruncated = deg_claims.payload_hits(
+        {"symbol": "rpmJ", "ko_footprint": {"measured": {"rpmJ": {"ko_mean": 50.0}}}})
+    assert untruncated["verdict"] == "rests_on_non_fits"
+    assert [u["unit"] for u in untruncated["units"]] == ["rpmJ[c]"]
+    assert untruncated["units"][0]["pct_of_mrna_expression"] == pytest.approx(1.584482)
+    assert "truncated" not in untruncated
+
+
+def test_the_walk_returns_its_stop_record_to_every_caller():
+    """`_walk` has to HAND BACK what it decided, or the next refactor drops it and `payload_hits` is back
+    to reading an empty set and guessing. The first arm stops at neither bound, so the record is the only
+    thing under test: a dict with both bound keys, both false. Against the old `-> None` signature that is
+    red on the first assertion. The other two arms pin which bound each shape reports."""
+    stopped = deg_claims._walk({"id": "rpmJ"}, set())
+    assert isinstance(stopped, dict)
+    assert stopped == {"nodes": False, "depth": False}
+
+    deep: object = {"id": "rpmJ"}
+    for _ in range(12):
+        deep = {"wrap": deep}
+    assert deg_claims._walk(deep, set()) == {"nodes": False, "depth": True}
+
+    wide_stop = deg_claims._walk({"rows": [_FILLER.format(i) for i in range(5000)]}, set())
+    assert wide_stop == {"nodes": True, "depth": False}
+
+
 # --- skills.py: the outbound fetch cap, and whether it admits to truncating --------------------------
 
 def _stub_opener(monkeypatch, n_bytes: int) -> None:
@@ -680,8 +886,30 @@ SELF_REFERENTIAL_REVIEW: dict[str, tuple[str, str]] = {
 # that is correct and value-independent (`correct_precondition`), or asserts a LITERAL against it,
 # which is the form this module exists to write (`pins_a_literal`). The third was added when a
 # boundary case here entered the join on its own merit and neither existing label fitted it.
+# Thresholds declared in `src` that nothing references yet, each with the reason it is allowed to be.
+# EMPTY as of 2026-11-14: M-11 deleted `sci2.MIN_COUNT` and wired `audit.GB_PER_GENERATION_ARRESTED`,
+# which were the only two. A new entry here is a deliberate, reviewed exception and needs a reason
+# long enough to be one.
+_UNWIRED_BY_DESIGN: dict[str, str] = {}
+
 _REVIEW_VERDICTS = ("self_referential", "correct_precondition", "pins_a_literal")
 _KINDS = ("boundary", "delegated", "declared")
+
+# Boundary cases BEYOND the one its disposition names, keyed test name -> the SURVIVORS entry it extends.
+# A disposition names a single test because for 21 of the 22 that is the whole story. `deg_claims`' two
+# bounds are the exception: the cases the ledger names pin where the walk stops (`out == {id0..id8}`,
+# `len(out) == 3999`), and M-12 added cases that pin whether the walk SAYS it stopped -- a second defect
+# behind the same two constants, and the one that reached the model. Declared rather than folded into
+# `detail` so the one-test-per-disposition assertion keeps its grip on the other 21 entries.
+EXTRA_BOUNDARY_CASES: dict[str, str] = {
+    "test_a_truncated_walk_is_not_reported_as_clear": "deg_claims.py::_MAX_NODES",
+    "test_the_truncation_flag_is_false_at_exactly_the_bound": "deg_claims.py::_MAX_NODES",
+    "test_a_top_movers_shaped_payload_truncates_at_a_literal_top": "deg_claims.py::_MAX_NODES",
+    "test_a_found_unit_survives_a_truncated_walk": "deg_claims.py::_MAX_NODES",
+    "test_a_payload_deeper_than_the_bound_says_so": "deg_claims.py::_MAX_DEPTH",
+    "test_a_numeric_leaf_past_the_depth_bound_is_not_a_truncation": "deg_claims.py::_MAX_DEPTH",
+    "test_the_walk_returns_its_stop_record_to_every_caller": "deg_claims.py::_MAX_DEPTH",
+}
 
 # The tests in this file that are ABOUT the ledger rather than about a threshold. Declared so that a new
 # test has to be one or the other and cannot arrive unaccounted for.
@@ -778,7 +1006,14 @@ def test_every_disposition_is_one_of_the_declared_kinds_and_delivers_what_it_cla
     # declared: a new test that is neither fails here rather than drifting in unclaimed.
     claimed = {d for _v, k, d in SURVIVORS.values() if k == "boundary"}
     assert claimed <= own, f"ledger claims tests this module does not define: {sorted(claimed - own)}"
-    unclaimed = sorted(own - claimed - META_TESTS)
+    # The extras carry the same two obligations as a `detail`: the test has to exist, and the disposition
+    # it extends has to be a real one -- so a rename or a dropped entry fails here instead of letting a
+    # case drift out of the ledger's sight while still looking declared.
+    for extra, key in sorted(EXTRA_BOUNDARY_CASES.items()):
+        assert extra in own, f"{extra!r} is declared as an extra case but is not a test in this module"
+        assert key in SURVIVORS, f"{extra!r} extends {key!r}, which has no disposition"
+        assert SURVIVORS[key][1] == "boundary", f"{extra!r} extends {key!r}, which is not a boundary case"
+    unclaimed = sorted(own - claimed - set(EXTRA_BOUNDARY_CASES) - META_TESTS)
     assert not unclaimed, f"tests that are neither a claimed boundary case nor a declared meta test: {unclaimed}"
 
 
@@ -883,7 +1118,23 @@ def test_the_harness_credits_a_threshold_to_code_that_references_it_and_not_to_p
     # `no_covering_tests`, which is never a pass, and into `SURVIVED`, which reads as measured and fine.
     dead = [t for t in mt.thresholds(names_only=True)
             if not t["ref_lines"] and not mt._cross_module_refs(t["name"], t["module"])]
-    assert dead, "the tree declares no unreferenced threshold; this half has nothing to measure"
+    # INVERTED 2026-11-14, and the reason is that M-11 closed the population this half used to measure.
+    # It read `assert dead, "...this half has nothing to measure"` -- a guard against passing vacuously on
+    # an empty set, written while `sci2.MIN_COUNT` and `audit.GB_PER_GENERATION_ARRESTED` were both
+    # declared and referenced nowhere. The first is now deleted and the second is wired into
+    # `audit.gaps()` through `calibration.calibrated()`, so the set is empty BY REPAIR. Asserting the
+    # emptiness is strictly stronger than guarding against it: it can never go vacuous, and a newly
+    # declared constant that nothing reads fails here immediately instead of waiting for the next tier
+    # run to report it as `no_covering_tests`. If a threshold must be declared before it is wired, add it
+    # to `_UNWIRED_BY_DESIGN` with the reason, which is this project's standing idiom for an exemption.
+    undeclared = [f"{t['module']}::{t['name']}" for t in dead
+                  if f"{t['module']}::{t['name']}" not in _UNWIRED_BY_DESIGN]
+    assert not undeclared, (
+        f"these thresholds are declared but referenced nowhere in src: {undeclared}. A dead constant is "
+        f"what M-11 was filed for -- `sci2.MIN_COUNT` contradicted the floor the code actually applied "
+        f"and had already misled a results document. Wire it, delete it, or record it in "
+        f"`_UNWIRED_BY_DESIGN` with a reason.")
+    # the original direction still holds for anything exempted: prose about it is not coverage of it
     for t in dead:
         assert mt._tests_naming(t["name"]) == [], (
             f"{t['module']}::{t['name']} is referenced nowhere in src yet has a name-sourced covering "
