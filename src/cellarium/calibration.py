@@ -34,6 +34,7 @@ import platform
 import statistics
 import subprocess
 import time
+from collections import Counter
 from pathlib import Path
 
 from . import redact
@@ -180,26 +181,77 @@ def observe_run(run_root: str, generations: int, elapsed_sec: float, arrested: b
 
 
 # ---------------- mining what is already on disk ----------------
+# The manifest's own non-dividing QC verdicts. `no_division` is the one that means what it says; `crashed` is
+# handled by its own column, and the remaining verdicts (`implausible_channel`, `noop_knockout`,
+# `over_replicated`, `empty`) are NOT arrest evidence — `over_replicated` is close to the opposite — so they
+# reach the arrested stratum only through `terminal_divided is False`, under that weaker signal's own name.
+_ARRESTED_QC = ("no_division",)
+
+
+def _arrest_signal(row: dict, n_gens_on_disk: int) -> tuple[str, str]:
+    """Which stratum this run belongs to, and WHICH SIGNAL put it there.
+
+    The rule used to be `len(gens) < int(requested_generations)` and nothing else, which cannot fire when that
+    column is NULL — 215 of the 369 manifest rows, INCLUDING all four KO:dapA rows, the run the declared 1.58
+    GB/gen was measured on. So the rule meant to find arrested runs was structurally blind to the template
+    arrested run, and the arrested stratum stayed at n = 0 however many runs were mined.
+
+    The signal is returned, not just the label, because the evidence is not of one strength: a depth shortfall
+    is a direct observation that the lineage stopped short of what it was asked for, whereas
+    `terminal_divided is False` on a row with no requested depth is a NULL-tolerant fallback. An 'arrested'
+    count is only as good as the signals behind it, so the caller reports them rather than a bare n."""
+    want = row.get("requested_generations")
+    if row.get("crashed"):
+        return "arrested", "crashed"                        # a crash is an arrest on its own evidence
+    if want:
+        want = int(want)
+        if n_gens_on_disk < want:
+            return "arrested", "depth_shortfall_on_disk"    # the original rule, measured from the run dir
+        reached = row.get("gens_reached")
+        if reached is not None and int(reached) < want:
+            return "arrested", "depth_shortfall_manifest"   # the lineage's own record of how far it got
+        return "dividing", "reached_requested_depth"
+    # No requested depth recorded. Fall back to the signals the manifest carries anyway, each under its own
+    # name so the weaker evidence is visible in the output and can be reviewed rather than trusted.
+    qc = row.get("qc") or ""
+    if qc in _ARRESTED_QC:
+        return "arrested", f"qc_{qc}"
+    if row.get("terminal_divided") is False:
+        return "arrested", "terminal_not_divided"
+    return "unclassified", "no_arrest_signal"               # kept as a stratum; never guessed into either
+
+
 def from_corpus_disk(limit: int = 60) -> dict:
     """Learn GB-per-GENERATION from run directories already on disk.
 
     Retro-mining rather than waiting for new runs: the corpus already holds the answer, and an estimator that
     only learns from future campaigns is useless on the very next one.
 
-    **Most historical rows cannot be classified as arrested or dividing** — `requested_generations` is NULL on
-    the majority of them, so there is nothing to compare the reached depth against. The first version quietly
-    fell back to `generations`, which made `want == reached` for every run and classified 100% as dividing,
-    folding genuine arrested runs (up to 1.96 GB/gen) into the dividing median. Rather than invent a label,
-    this reports the DISTRIBUTION and stratifies only the runs that carry the evidence, saying how many it
-    could not classify.
+    **Many historical rows cannot be classified as arrested or dividing** — `requested_generations` is NULL on
+    215 of the 369 manifest rows, so there is nothing to compare the reached depth against. The first version
+    quietly fell back to `generations`, which made `want == reached` for every run and classified 100% as
+    dividing, folding genuine arrested runs (up to 1.96 GB/gen) into the dividing median. Rather than invent a
+    label, this reports the DISTRIBUTION and stratifies only the runs that carry the evidence, saying how many
+    it could not classify.
+
+    `_arrest_signal` is what decides, and it is wider than the depth comparison alone: a run with no requested
+    depth can still be classified from `crashed`, `qc` or `terminal_divided`. That widening is the difference
+    between an arrested stratum that can ever hold evidence and one that cannot — the old rule could not
+    classify KO:dapA, the run the declared arrested rate was measured on. Each stratum reports
+    `classified_by`, the count per signal, because an 'arrested' sourced from the NULL-tolerant fallback is
+    weaker evidence than one sourced from a depth shortfall and the caller must be able to see which it got.
 
     Budgeting uses **p90, not the median**: an estimate that decides whether a sweep fits should be wrong on
     the safe side, and the spread here is 4x from end to end."""
     from . import raw, store, survey
     per = {"arrested": [], "dividing": [], "unclassified": []}
+    signals: dict[str, Counter] = {k: Counter() for k in per}
     seen = 0
+    # `crashed` and `terminal_divided` join the projection because `_arrest_signal` reads them. A rule that
+    # consults a column the query never selected would read every row's signal as absent and report the
+    # widening as having changed nothing — the silent-absence class, inside the repair for it.
     for row in survey._deduped_rows(["simout_path", "generations", "gens_reached", "qc",
-                                     "requested_generations"]):
+                                     "requested_generations", "crashed", "terminal_divided"]):
         if seen >= limit:
             break
         p = store._resolve_run(row.get("simout_path"))
@@ -214,31 +266,36 @@ def from_corpus_disk(limit: int = 60) -> dict:
         except Exception:
             continue
         gb_per_gen = (total / 1e9) / len(gens)
-        want = row.get("requested_generations")
-        if want:
-            # arrested = the lineage did not reach the depth it was ASKED for. That is what drives footprint:
-            # a non-dividing cell keeps simulating, and keeps writing, for its whole time budget.
-            key = "arrested" if len(gens) < int(want) else "dividing"
-        else:
-            key = "unclassified"
+        # arrested = the lineage did not run the way a healthy one does — it stopped short of the depth it was
+        # ASKED for, it crashed, or (where no requested depth was recorded) the manifest says it never divided.
+        # That is what drives footprint: a non-dividing cell keeps simulating, and keeps writing, for its whole
+        # time budget.
+        key, signal = _arrest_signal(row, len(gens))
         per[key].append(gb_per_gen)
+        signals[key][signal] += 1
 
-    def stats(vals):
+    def stats(vals, by_signal):
         if not vals:
-            return {"n": 0, "gb_per_generation": None}
+            return {"n": 0, "gb_per_generation": None, "classified_by": dict(by_signal)}
         srt = sorted(vals)
         p90 = srt[min(len(srt) - 1, int(round(0.9 * (len(srt) - 1))))]
         return {"n": len(vals), "median": round(statistics.median(srt), 3), "p90": round(p90, 3),
                 "spread": [round(srt[0], 3), round(srt[-1], 3)],
-                "gb_per_generation": round(p90, 3)}
+                "gb_per_generation": round(p90, 3),
+                "classified_by": dict(by_signal)}
 
-    out = {k: stats(v) for k, v in per.items()}
-    out["all"] = stats([v for vals in per.values() for v in vals])
+    out = {k: stats(v, signals[k]) for k, v in per.items()}
+    out["all"] = stats([v for vals in per.values() for v in vals],
+                       sum(signals.values(), Counter()))
     out["note"] = ("GB per GENERATION measured from run dirs on disk. `gb_per_generation` is the p90, not the "
                    "median: an estimate that decides whether a sweep fits should err on the safe side. "
-                   "Stratified by whether the lineage reached its REQUESTED depth, which is what drives "
-                   "footprint (an arrested cell keeps simulating and writing); runs whose manifest row has no "
-                   "`requested_generations` are reported as `unclassified` rather than assumed to be either.")
+                   "Stratified by whether the lineage ARRESTED — it stopped short of its requested depth, it "
+                   "crashed, or (with no requested depth recorded) its QC verdict or `terminal_divided` says "
+                   "it never divided — which is what drives footprint (an arrested cell keeps simulating and "
+                   "writing). `classified_by` names the signal behind every row in each stratum, because a "
+                   "depth shortfall is a direct observation and the no-requested-depth fallbacks are weaker; "
+                   "rows with no arrest signal at all stay `unclassified` rather than being assumed to be "
+                   "either.")
     return out
 
 
@@ -265,12 +322,18 @@ def calibrated() -> dict:
     """The learned parameters, each with its evidence. Values fall back to the constant below MIN_OBSERVATIONS
     and say so — a calibration derived from two runs would be more dangerous than a stale constant, because it
     would look authoritative."""
-    from . import resources
+    # `audit` is imported for its two disk-rate DECLARATIONS, lazily for the same reason `resources` is.
+    # These fallbacks used to be the literals 0.65 and 1.58 written out again here, so each number existed
+    # twice in the tree with nothing linking them: a mutation of audit's copy could not be detected through
+    # calibration, and a drift here would not move `audit._gb`. One declaration, two readers.
+    from . import audit, resources
     return {
         "per_sim_ram_gb": _summary("per_sim_ram_gb", resources._PER_SIM_RAM_GB, "GB"),
         "min_per_generation": _summary("min_per_generation", resources._PER_RUN_MIN_PER_GEN, "minutes"),
-        "gb_per_generation_dividing": _summary("gb_per_generation", 0.65, "GB", arrested=False),
-        "gb_per_generation_arrested": _summary("gb_per_generation", 1.58, "GB", arrested=True),
+        "gb_per_generation_dividing": _summary("gb_per_generation", audit.GB_PER_GENERATION, "GB",
+                                               arrested=False),
+        "gb_per_generation_arrested": _summary("gb_per_generation", audit.GB_PER_GENERATION_ARRESTED, "GB",
+                                               arrested=True),
         "host": _host_key(),
         "min_observations": MIN_OBSERVATIONS,
         "note": ("Learned from this host's own runs. `basis` is 'measured' or 'constant'; a measured value "

@@ -8,8 +8,13 @@ Answers the four librarian questions over the manifest (no Docker, no raw reads,
 
 `audit_report()` combines them, separating SAFE-TO-PRUNE (redundancy + supersession) from irreplaceable, so the
 caller decides. The gaps + budget are the data layer the council + agent turn into feasibility-gated experiment
-proposals ("what to run to strengthen / disconfirm a claim, given the disk budget"). GB figures are ESTIMATES
-from the observed ~650 MB/generation footprint (see docker-sim-ops), not a live directory scan.
+proposals ("what to run to strengthen / disconfirm a claim, given the disk budget"). GB figures are ESTIMATES,
+not a live directory scan — and they are of two kinds, which this module now keeps apart. The three that
+describe bytes ALREADY on disk (`coverage`, `redundancy`, `prune_candidates`) use the dividing-lineage rate
+(the observed ~650 MB/generation footprint, see docker-sim-ops), because that is what those runs were. The one
+that FORECASTS new runs (`gaps`) is stratified: it reads
+`calibration.calibrated()` and reports a dividing and an arrested figure with the `basis` and `n` behind each,
+because an arrested lineage writes 2-4x more and a knockout campaign sized off the dividing rate over-commits.
 """
 
 from __future__ import annotations
@@ -22,9 +27,19 @@ MANIFEST_GLOB = "data/manifest/*.parquet"
 # Observed simOut footprint per generation. This is NOT one number: a healthy dividing lineage writes ~0.65
 # GB/gen, but an ARRESTED one (a lethal KO that never divides) runs its full time budget and writes 2-4x the
 # timesteps — measured 1.58 GB/gen on KO:dapA (25.32 GB / 16 sim-generations). Budgeting a knockout campaign at
-# 0.65 therefore under-estimates by ~2.4x, which is how a sweep fills a disk mid-run. `_gb` stays at the
-# dividing rate because it describes what is ALREADY on disk; anything FORECASTING a knockout campaign should
-# use GB_PER_GENERATION_ARRESTED and say so.
+# 0.65 therefore under-estimates it, which is how a sweep fills a disk mid-run. Name the DENOMINATOR whenever
+# you quote that ratio, because there are three of them and they are not interchangeable: 1.58 / 0.65 = 2.43x
+# against this declared constant (the ~2.4x WELL-PRUNE-1 quotes); 1.58 / 0.808 = 1.96x against the measured
+# figure in `resources.py:195-199`; and 1.58 / 0.645 = 2.45x against what `calibration.calibrated()` reports
+# on this host today (n=12, spread 0.593-1.719). The last is host-specific and moves as runs land, so it is
+# recomputed from `forecast_basis` rather than written down — never quote a ratio without saying which
+# dividing figure it divided by.
+#
+# `_gb` DEFAULTS to the dividing rate because three of its four call sites describe what is ALREADY on disk.
+# The fourth, `gaps()`, forecasts, and it passes `rate=` per stratum rather than hard-coding the arrested
+# constant — see the comment there. These two are the single declaration of both rates in the tree:
+# `calibration.calibrated()` imports them as its fallbacks instead of restating the literals, so a mutation of
+# either is visible through both modules.
 GB_PER_GENERATION = 0.65             # a dividing lineage
 GB_PER_GENERATION_ARRESTED = 1.58    # a lethal/arrested KO — measured on KO:dapA, the SCI-TRNA-3 template
 TARGET_SEEDS = 4           # replication target: > this = redundancy candidate, < this = power gap
@@ -93,8 +108,29 @@ def _latest_per_run(rows: list[dict]) -> list[dict]:
     return list(best.values())
 
 
-def _gb(generations: int | None, seeds: int = 1) -> float:
-    return round((generations or 0) * GB_PER_GENERATION * seeds, 2)
+def _gb(generations: int | None, seeds: int = 1, *, rate: float = GB_PER_GENERATION) -> float:
+    """GB for `generations` x `seeds` at `rate` GB/generation, defaulting to the DIVIDING rate.
+
+    `rate` is keyword-only on purpose. The three on-disk call sites (`coverage`, `redundancy`,
+    `prune_candidates`) must keep the dividing rate and are not edited; a positional third argument would let
+    one of them be silently re-rated, which turns a description of bytes already written into a forecast."""
+    return round((generations or 0) * rate * seeds, 2)
+
+
+def _forecast_rate(cal: dict, key: str, fallback: float) -> tuple[float, dict]:
+    """One stratum's GB/generation for a FORECAST, paired with the evidence behind it.
+
+    A `basis: 'measured'` row with n = 0 is REFUSED rather than echoed, and this is not defensive habit:
+    `resources.py:195-199` records the day a stratum's unmeasured 1.58 dominated a measured 0.808 "while the
+    result was still labelled measured — a 2x over-estimate wearing an empirical label". The n decides, not
+    the word; with no evidence the declared constant is used and `basis` says so."""
+    row = cal.get(key) or {}
+    n = int(row.get("n") or 0)
+    value = row.get("value")
+    if row.get("basis") == "measured" and n > 0 and value:
+        return float(value), {"basis": "measured", "n": n, "gb_per_generation": float(value)}
+    return fallback, {"basis": "constant", "n": n, "gb_per_generation": fallback,
+                      "why": row.get("why") or f"no measured {key} on this host; using the declared constant"}
 
 
 def coverage() -> dict:
@@ -202,11 +238,40 @@ def gaps(target_seeds: int = TARGET_SEEDS) -> dict:
     thin = {d: {"n_seeds": info["n_seeds"], "seeds_needed": target_seeds - info["n_seeds"]}
             for d, info in cov["designs"].items() if info["n_seeds"] < target_seeds}
     free_gb = round(shutil.disk_usage(".").free / (1024 ** 3), 1)
-    per_lineage = _gb(8, 1)   # a full 8-generation lineage
+    # THE forecast, and the only `_gb` call site that sizes runs which do not exist yet. It used to apply the
+    # dividing rate to everything, so a knockout campaign planned off `feasible_8gen_lineages` over-committed:
+    # on a 100 GB volume, at the two DECLARED constants, the dividing rate says 19 lineages (100 / (8 x 0.65)
+    # = 19.23) and the arrested rate says 7 (100 / (8 x 1.58) = 7.91) — a 2.7x over-commitment in lineage
+    # count. The arrested constant is NOT hard-coded here, because the measured rate is what should be used
+    # when there is one: the evidence lives in `calibration.calibrated()`, which carries a `basis` and an `n`
+    # per stratum, and this reports BOTH strata with that evidence rather than silently picking one.
+    from . import calibration
+    cal = calibration.calibrated()
+    div_rate, div_basis = _forecast_rate(cal, "gb_per_generation_dividing", GB_PER_GENERATION)
+    arr_rate, arr_basis = _forecast_rate(cal, "gb_per_generation_arrested", GB_PER_GENERATION_ARRESTED)
+    per_div, per_arr = _gb(8, 1, rate=div_rate), _gb(8, 1, rate=arr_rate)   # a full 8-generation lineage
+    note = ("thin_designs are power gaps; feasible_8gen_lineages_dividing / _arrested are the disk ceiling for "
+            "new runs, STRATIFIED. An arrested lineage (a lethal KO that never divides) runs its full time "
+            "budget and writes 2-4x the timesteps, so size a knockout campaign off the ARRESTED figure. "
+            "`feasible_8gen_lineages` and `est_gb_per_8gen_lineage` are DEPRECATED aliases of the dividing "
+            "figures, kept for one release because documents quote them.")
+    # Say which stratum has no measurement behind it, rather than returning a bare number — the discipline
+    # `resources.estimate_sim_resources` already implements as `disk_caveat`. On this tree the arrested
+    # stratum is the empty one: `data/calibration/resource_observations.json` holds 164 `gb_per_generation`
+    # rows and not one of them carries `arrested: true`, so its forecast is a declared estimate, not evidence.
+    unmeasured = [s for s, b in (("dividing", div_basis), ("arrested", arr_basis)) if b["basis"] != "measured"]
+    if unmeasured:
+        note += (f" There is no MEASURED gb/generation for the {'/'.join(unmeasured)} stratum on this host, so "
+                 f"that figure is the DECLARED CONSTANT and not an observation — see forecast_basis for the n.")
     return {"target_seeds": target_seeds, "n_thin_designs": len(thin), "thin_designs": thin,
-            "free_disk_gb": free_gb, "est_gb_per_8gen_lineage": per_lineage,
-            "feasible_8gen_lineages": int(free_gb / per_lineage) if per_lineage else 0,
-            "note": "thin_designs are power gaps; feasible_8gen_lineages is the disk ceiling for new runs."}
+            "free_disk_gb": free_gb,
+            "est_gb_per_8gen_lineage_dividing": per_div, "est_gb_per_8gen_lineage_arrested": per_arr,
+            "feasible_8gen_lineages_dividing": int(free_gb / per_div) if per_div else 0,
+            "feasible_8gen_lineages_arrested": int(free_gb / per_arr) if per_arr else 0,
+            "forecast_basis": {"dividing": div_basis, "arrested": arr_basis},
+            "est_gb_per_8gen_lineage": per_div,                                      # DEPRECATED alias
+            "feasible_8gen_lineages": int(free_gb / per_div) if per_div else 0,       # DEPRECATED alias
+            "note": note}
 
 
 def prune_candidates(target_seeds: int = TARGET_SEEDS, channel: str = "growth_rate",
@@ -264,11 +329,19 @@ def audit_report(target_seeds: int = TARGET_SEEDS) -> dict:
                         "est_gb_prunable_safe": red.get("est_gb_prunable_safe", 0.0),
                         "n_inviable_by_crash": sup.get("n_inviable_by_crash", 0),
                         "n_thin_designs": gp.get("n_thin_designs", 0),
-                        "feasible_8gen_lineages": gp.get("feasible_8gen_lineages", 0)},
+                        # Both strata in the summary, because the summary is what gets quoted. The bare
+                        # `feasible_8gen_lineages` is the DIVIDING figure and is kept only as an alias.
+                        "feasible_8gen_lineages": gp.get("feasible_8gen_lineages", 0),
+                        "feasible_8gen_lineages_dividing": gp.get("feasible_8gen_lineages_dividing", 0),
+                        "feasible_8gen_lineages_arrested": gp.get("feasible_8gen_lineages_arrested", 0)},
             "coverage": cov, "redundancy": red, "gaps": gp,
             "housekeeping": sup,   # supersession is auto-consolidated by manifest.compact(); NOT a user decision
             "disclaimer": "read-only; nothing deleted. DECISIONS: redundancy carries a per-design power-grounded "
                           "verdict (prune-safe vs keep-for-power); gaps = thin designs + the disk budget. Superseded "
                           "rows are HOUSEKEEPING, auto-consolidated by manifest.compact() after a re-index — not a "
                           "user decision. Crashed runs are valid inviable datapoints, never pruned. GB figures are "
-                          "estimates (~0.65 GB/generation)."}
+                          "ESTIMATES of two different kinds: coverage/redundancy/prune_candidates describe bytes "
+                          "ALREADY on disk at the dividing-lineage rate (~0.65 GB/generation), while gaps() "
+                          "FORECASTS new runs and is stratified — see gaps.forecast_basis for the rate, basis "
+                          "('measured' with its n, or 'constant') behind each of the dividing and arrested "
+                          "figures. Size a knockout campaign off the arrested one."}
