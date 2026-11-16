@@ -35,9 +35,17 @@ after seeing the number, which is the thing this project forbids. The deliverabl
     python scripts/mutate_thresholds.py baseline   # time every covering set UNMUTATED, into the map
     python scripts/mutate_thresholds.py controls   # the positive and negative control; run before any tier
     python scripts/mutate_thresholds.py run [--only MODULE] [--limit N]
+    python scripts/mutate_thresholds.py selfref [--static] [--limit N]
 
 `baseline` runs between `map` and `run`: it supplies the per-mutant timeout its own covering set earns,
 and it is the only thing that makes a `timeout` verdict mean anything. `map` overwrites it.
+
+`selfref` is a SEPARATE sweep over the suite's own assertions rather than over the source, and it needs
+neither the map nor `.coverage`. Tier 0 answers "does anything notice this number move"; `selfref`
+answers "does this TEST notice", which is a different question with a different blind spot -- the join it
+replaces (`_survivor_keys()` x `tests_naming`) resolved to 2 tests while 40 name a declared threshold,
+and 7 of the 9 cases it had itself found were already outside it. See `_sweep_candidates` for the four
+classes and `_discriminate` for why it runs ONE test id and not the covering set.
 """
 
 from __future__ import annotations
@@ -58,6 +66,7 @@ SRC = REPO / "src" / "cellarium"
 COVDB = REPO / ".coverage"
 MAP = REPO / "data" / "mutation" / "threshold_test_map.json"
 OUT = REPO / "data" / "mutation" / "tier0_results.json"
+SELFREF = REPO / "data" / "mutation" / "selfref.json"
 
 # A mutant per threshold, in both directions. Two is the minimum that distinguishes "pinned" from "pinned
 # only on one side" -- a test asserting `x > T` is killed by lowering T and not by raising it.
@@ -590,17 +599,375 @@ def run(rows: dict, only: str | None, limit: int | None) -> int:
     return 0
 
 
+# ----------------------------------------------------------------------------------------------------
+# The `selfref` sweep: which ASSERTIONS cannot see their own threshold move.
+# ----------------------------------------------------------------------------------------------------
+#
+# WHY THIS IS NOT THE SHAPE THE BACKLOG ASKED FOR. The remedy filed for the nine self-referential cases
+# was a sweep for `<expr involving CONST> == <expr involving the same CONST>`. That rule was implemented
+# and MEASURED over all 136 test files: it matches ONE assertion in the suite (`tests/test_llm_seam.py:91`,
+# on `TEMPERATURE`, which is a CORRECT assertion -- two modules must agree) and NONE of the nine it was
+# generalised from. In all nine the constant appears on one side only and the other side holds a value the
+# PRODUCTION code derived from that same constant: `_gb(8, 1) == round(8 * audit.GB_PER_GENERATION, 2)`,
+# `max_tokens <= extraction.AGENT_MAX_TOKENS_CAP`, `len(seen) <= D._MAX_NODES`. That is data flow, not
+# syntax, so the static half here classifies rather than matches, and the decision is made by MUTATION.
+#
+# The four classes and the per-class meaning:
+#
+#   * both_sides       -- the same constant on two sides of one comparison. The backlog's shape. Rarest.
+#   * literal_pinned   -- the constant pinned BY LITERALS: an equality against a literal, or literals on
+#                         both sides of a chain (`8000 <= CAP <= 16000`). The form this project's ledger
+#                         exists to write; the expectation does not move with the mutant.
+#   * one_sided_bound  -- an inequality whose other sides are not pure literals. `CAP <= 16000` is here
+#                         and NOT in `literal_pinned`, deliberately: it catches raising the cap and not
+#                         lowering it, which is precisely what the review of `test_extraction.py:1269`
+#                         records about it. A one-sided literal bound is half a pin.
+#   * computed_equality -- an equality against something a call produced. The `test_audit.py:7` shape.
+_SELFREF_CLASSES = ("both_sides", "literal_pinned", "one_sided_bound", "computed_equality")
+
+# The verdicts stage 2 may record. Five, and they MUST partition the candidate set -- the same assertion
+# `run()` carries, for the same reason: the first Tier 0 run's summary line printed four of its five
+# categories and left its 13 timeouts out of its own total, reporting a partition of a population it had
+# silently shrunk. `unmeasured` is never a pass; neither is `error` or `timeout`.
+_SELFREF_VERDICTS = ("detects_it", "cannot_see_it_move", "unmeasured", "error", "timeout")
+
+# A pair's class, when its occurrences disagree. STRONGEST EVIDENCE FIRST: a pair that pins its constant
+# against a literal anywhere in the test is detectable regardless of what else it does, so `literal_pinned`
+# wins -- `tests/test_threshold_boundaries.py::test_the_agent_token_cap_has_a_FLOOR_and_not_only_a_ceiling`
+# carries both a `== 12000` and an `8000 <= .. <= 16000` and is correctly a pin. Then the backlog's own
+# shape, then the two data-flow shapes. Every class a pair carries is kept in `classes`, so the reduction
+# hides nothing; the primary is what the tally partitions on.
+_SELFREF_PRECEDENCE = ("literal_pinned", "both_sides", "computed_equality", "one_sided_bound")
+
+# Nodes whose value cannot be read off the source. A comparison side containing none of these is a pure
+# literal expression (`300`, `8000`, `"x" * 3`, `(1, 2)`), and only then can it pin anything.
+_OPAQUE = (ast.Name, ast.Attribute, ast.Call, ast.Subscript)
+_BOUND_OPS = (ast.Lt, ast.LtE, ast.Gt, ast.GtE)
+
+
+def _constant_inventory() -> dict[str, list[str]]:
+    """Every module-level constant-shaped name in `src/cellarium`, and the module(s) declaring it.
+
+    A DELIBERATE SUPERSET of `thresholds()`, which is why the rule is `name.lstrip('_').isupper()` and
+    carries no type test at all. `runner.WALL_MIN_PER_GEN = float(os.environ.get(..., "180"))` is the
+    proof it has to be: it is a threshold by every meaning of the word, `tests/test_failures.py:161` names
+    it, and `thresholds()` cannot see it because the assigned value is not an `ast.Constant`. A threshold
+    written as an expression was outside tier 0's universe by construction, and the join inherited that
+    blindness. MEASURED 2026-11-14: 479 names here against 63 declared numeric thresholds. Both counts
+    move with the tree, so `data/mutation/selfref.json` records the pair it was swept at rather than
+    leaving this comment as the only statement of it.
+
+    The value is a LIST because a name can be declared in several modules -- `TEMPERATURE` in `agent.py`
+    and `llm.py`, `MANIFEST_GLOB` in three. Stage 2 resolves the mutation target through `thresholds()`
+    instead, which currently declares no duplicated name, but the ambiguity is recorded per candidate
+    rather than collapsed, because a test naming `TEMPERATURE` may mean either one.
+    """
+    inv: dict[str, set[str]] = {}
+    for f in sorted(SRC.glob("*.py")):
+        try:
+            tree = ast.parse(f.read_text(encoding="utf-8", errors="replace"))
+        except SyntaxError:
+            continue
+        for node in tree.body:
+            targets = (node.targets if isinstance(node, ast.Assign)
+                       else [node.target] if isinstance(node, ast.AnnAssign) else [])
+            for t in targets:
+                if isinstance(t, ast.Name) and t.id.lstrip("_").isupper():
+                    inv.setdefault(t.id, set()).add(f.name)
+    return {k: sorted(v) for k, v in inv.items()}
+
+
+def _literal_only(node: ast.AST) -> bool:
+    """True when nothing in this subtree hides a value the source does not state."""
+    return not any(isinstance(n, _OPAQUE) for n in ast.walk(node))
+
+
+def _root_name(node: ast.AST) -> str | None:
+    """The leftmost bare name of an attribute/subscript chain: `extraction.citable_units` -> 'extraction'."""
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _subject_call_lines(fn: ast.AST, modules: set[str]) -> list[int]:
+    """Lines where this test CALLS one of the modules that declare the constant, assertions excluded.
+
+    This is what separates a slack bound from a correct precondition, and the distinction is positional
+    rather than syntactic. `tests/test_extraction.py:1528` asserts `len(row) > extraction.CITABLE_UNIT_MAX`
+    one line BEFORE `extraction.citable_units(row)`: the inequality is keeping the fixture pathological if
+    the cap ever moves, which is the right way to write it, and its slackness is correct. Two lines away in
+    the same file, `max(len(u['text'])) <= extraction.CITABLE_UNIT_MAX` comes AFTER the call and asserts a
+    property of the RESULT -- and that one holds at every cap. Same operator, opposite meaning.
+
+    Calls inside the assertion itself are excluded, or the assertion would be its own subject. Known limit:
+    a test that imports the function directly (`from cellarium.extraction import citable_units`) calls it
+    by a bare name that is not the module's, so no subject call is found and the flag stays False. The flag
+    is advisory -- it never changes a verdict, it tells a reviewer where to look first.
+    """
+    inside: set[int] = set()
+    for a in [n for n in ast.walk(fn) if isinstance(n, ast.Assert)]:
+        inside.update(id(n) for n in ast.walk(a))
+    return sorted({n.lineno for n in ast.walk(fn)
+                   if isinstance(n, ast.Call) and id(n) not in inside
+                   and _root_name(n.func) in modules})
+
+
+def _classify_side(cmp_node: ast.Compare, idx: int, name: str) -> str:
+    """The class of one (comparison side, constant) pair. The order of the tests IS the rule.
+
+    `both_sides` first because it is unconditional. `literal_pinned` second, and it demands the constant
+    actually be pinned -- an equality, or a position with literals on both sides of it -- because
+    `CAP <= 16000` leaves the constant free to fall and calling that a pin is the error the review of
+    `tests/test_extraction.py:1269` already recorded in prose. `one_sided_bound` third, so a chain of
+    inequalities against anything opaque lands there. `computed_equality` is the remainder, which is why
+    `in`/`not in` and `!=` against a call end up there rather than in a class of their own.
+    """
+    sides = [cmp_node.left, *cmp_node.comparators]
+    for j, side in enumerate(sides):
+        if j != idx and name in _referenced_names(side):
+            return "both_sides"
+    others = [s for j, s in enumerate(sides) if j != idx]
+    if all(_literal_only(s) for s in others):
+        equality = any(isinstance(op, (ast.Eq, ast.NotEq)) for op in cmp_node.ops)
+        straddled = 0 < idx < len(sides) - 1          # a literal on each side of the constant
+        if equality or straddled:
+            return "literal_pinned"
+    if all(isinstance(op, _BOUND_OPS) for op in cmp_node.ops):
+        return "one_sided_bound"
+    return "computed_equality"
+
+
+def _assert_shapes(text: str, rel: str, inventory: dict[str, list[str]]) -> list[dict]:
+    """Every (test, constant) candidate in one test file's source, reduced from its occurrences.
+
+    `inventory` is a parameter rather than a call so the classifier can be driven on PLANTED source with a
+    planted inventory -- `tests/test_selfreferential_assertions.py` does exactly that, one plant per class
+    plus the two legitimate false positives (a constant named only in a docstring, and the singular of a
+    plural in use). A classifier that has only ever been run on the real tree has never been shown to
+    refuse anything.
+
+    `_referenced_names` is reused unchanged, so "names the constant" has ONE definition across the harness:
+    attribute names, bare names and identifier tokens from non-docstring strings, exact identifiers never
+    substrings. It is applied here to a comparison SIDE rather than to a whole test body, which is a change
+    of domain and not of rule -- and the plants re-prove it in the new domain rather than assuming it.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    rows: dict[str, dict] = {}
+    for fn in [n for n in ast.walk(tree)
+               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name.startswith("test_")]:
+        subject_by_name: dict[str, list[int]] = {}
+        for a in [n for n in ast.walk(fn) if isinstance(n, ast.Assert)]:
+            for cmp_node in [n for n in ast.walk(a.test) if isinstance(n, ast.Compare)]:
+                sides = [cmp_node.left, *cmp_node.comparators]
+                for i, side in enumerate(sides):
+                    for nm in sorted(_referenced_names(side) & inventory.keys()):
+                        if nm not in subject_by_name:
+                            stems = {m[:-3] for m in inventory[nm]}
+                            subject_by_name[nm] = _subject_call_lines(fn, stems)
+                        subject = subject_by_name[nm]
+                        row = rows.setdefault(f"{fn.name}::{nm}", {
+                            "key": f"{rel}::{fn.name}::{nm}", "test": f"{rel}::{fn.name}",
+                            "constant": nm, "declared_in": inventory[nm], "occurrences": []})
+                        row["occurrences"].append({
+                            "line": a.lineno, "class": _classify_side(cmp_node, i, nm),
+                            "equality": any(isinstance(op, (ast.Eq, ast.NotEq)) for op in cmp_node.ops),
+                            # A precondition by position: the assertion runs before the module under test
+                            # is called at all, so it is validating the fixture rather than the result.
+                            "fixture_precondition": bool(subject) and a.lineno < min(subject)})
+    out = []
+    for row in rows.values():
+        classes = {c: sum(1 for o in row["occurrences"] if o["class"] == c) for c in _SELFREF_CLASSES}
+        row["classes"] = {c: n for c, n in classes.items() if n}
+        row["class"] = next(c for c in _SELFREF_PRECEDENCE if classes[c])
+        # The pair is a precondition only if EVERY occurrence is one. A single assertion made after the
+        # call is an assertion about the result, and that is the one worth measuring.
+        row["fixture_precondition"] = all(o["fixture_precondition"] for o in row["occurrences"])
+        out.append(row)
+    return sorted(out, key=lambda r: r["key"])
+
+
+def _sweep_candidates(inventory: dict[str, list[str]] | None = None,
+                      files: list[Path] | None = None) -> dict[str, dict]:
+    """Stage 1 over the whole suite: `tests/file.py::test_name::CONST` -> the candidate row."""
+    inv = inventory if inventory is not None else _constant_inventory()
+    out = {}
+    for f in files if files is not None else sorted((REPO / "tests").glob("test_*.py")):
+        text = f.read_text(encoding="utf-8", errors="replace")
+        for row in _assert_shapes(text, f"tests/{f.name}", inv):
+            out[row["key"]] = row
+    return out
+
+
+def _run_one(test_id: str, cwd: Path, timeout: int) -> tuple[int, str, float]:
+    """One pytest invocation on one node id, with the project's own `addopts` turned OFF.
+
+    `-o addopts=` is not tidiness. `pyproject.toml` sets `addopts = "-q"`, and a second `-q` on the command
+    line suppresses the summary line entirely -- which is how a run with zero collected tests becomes
+    indistinguishable from a green one by eye. The verdict here reads the EXIT CODE, but the tail is what a
+    reviewer sees, and a tail with no summary line is the same silent absence in a smaller place.
+    """
+    cmd = [sys.executable, "-m", "pytest", test_id, "-o", "addopts=", "-q", "--no-header",
+           "--tb=no", "-p", "no:cacheprovider"]
+    t0 = time.time()
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(cwd), timeout=timeout)
+        return r.returncode, (r.stdout + r.stderr)[-400:], round(time.time() - t0, 1)
+    except subprocess.TimeoutExpired:
+        return 124, "TIMEOUT", round(time.time() - t0, 1)
+
+
+def _discriminate(target: Path, line: int, literal: str, value, test_id: str, *,
+                  cwd: Path = REPO, timeout: int = 300) -> dict:
+    """Stage 2: perturb the literal both ways and run `test_id` ALONE. Never the covering set.
+
+    THE COVERING SET IS THE MASK, and this is the single change that makes the finding stay closed. A
+    self-referential assertion lives in a file beside tests that DO pin the constant; run them together and
+    the suite goes red, the mutant is recorded `killed`, and the assertion that cannot see its own threshold
+    move is reported as one that can. That is not an argument -- it is forced on planted source in
+    `tests/test_selfreferential_assertions.py`, where two tests over one constant give `detects_it` for the
+    file and `cannot_see_it_move` for the self-referential test id.
+
+    WHICH VERDICT WINS WHEN THE TWO MUTANTS DISAGREE. A failure under either direction is positive evidence
+    that the test notices, so `detects_it` is checked first. Everything after it is an absence of evidence
+    and is reported as one: a stalled run is `timeout`, a skip or an empty collection is `unmeasured`, a
+    broken interpreter or collection error is `error`. Only two completed, green, genuinely mutated runs
+    yield `cannot_see_it_move` -- and even that is a measurement handed to a human, not a conviction: a
+    fixture, a monkeypatch or a module-level cache holding the pre-mutation value produces the same signal.
+
+    `target` is restored in a `finally` for every mutant, and the caller is handed the reason when the
+    substitution refuses: `literal` is the source segment as WRITTEN, so `12_000` against a `repr`-derived
+    `'12000'` must come back `unmeasured` rather than as a clean run on an unmutated tree. Eight mutants of
+    the first Tier 0 pass died that way, and they were visible only because the substitution refused to
+    pretend it had found its target.
+    """
+    muts = mutants_for(value)
+    if not muts:
+        return {"verdict": "unmeasured", "runs": [],
+                "reason": f"no mutation operator for {value!r}; `mutants_for` produces none"}
+    runs: list[dict] = []
+    for label, newval in muts:
+        try:
+            orig = _apply(target, line, literal, repr(newval))
+        except (ValueError, IndexError) as exc:
+            return {"verdict": "unmeasured", "runs": runs,
+                    "reason": f"the literal {literal!r} could not be substituted at {target.name}:{line} "
+                              f"({exc}); the tree was NOT mutated, so nothing was measured"}
+        try:
+            code, tail, secs = _run_one(test_id, cwd, timeout)
+        finally:
+            target.write_text(orig, encoding="utf-8")
+        runs.append({"mutant": label, "new_value": newval, "code": code, "secs": secs,
+                     # pytest exits 0 for a skipped test, so the exit code alone cannot tell a test that
+                     # passed under the mutant from one that never ran. A skip is UNMEASURED.
+                     "skipped": bool(re.search(r"\b\d+ skipped\b", tail) and " passed" not in tail),
+                     "tail": tail[-200:]})
+    if any(r["code"] == 1 for r in runs):
+        return {"verdict": "detects_it", "runs": runs,
+                "reason": "the test failed under at least one mutant, so it can see the value move"}
+    if any(r["code"] == 124 for r in runs):
+        return {"verdict": "timeout", "runs": runs,
+                "reason": f"a mutant run did not finish inside {timeout}s; nothing is decided"}
+    if any(r["skipped"] or r["code"] == 5 for r in runs):
+        return {"verdict": "unmeasured", "runs": runs,
+                "reason": "the test skipped or collected nothing under a mutant, so it was never asked"}
+    if any(r["code"] not in (0, 1, 5, 124) for r in runs):
+        return {"verdict": "error", "runs": runs,
+                "reason": f"pytest exited {[r['code'] for r in runs]}; the run broke rather than deciding"}
+    return {"verdict": "cannot_see_it_move", "runs": runs,
+            "reason": "the test passed under BOTH mutants: the assertion holds whatever the constant is"}
+
+
+def selfref(limit: int | None = None, static: bool = False) -> int:
+    """The three stages, into `data/mutation/selfref.json`.
+
+    Stage 3 is the artefact and the two tallies, and both are ASSERTED to partition the candidate set
+    rather than printed. A summary whose categories do not add up to its own denominator is how the first
+    Tier 0 run reported 115 of 128 mutants as a complete classification.
+    """
+    t0 = time.time()
+    inv = _constant_inventory()
+    cands = _sweep_candidates(inv)
+    declared = {t["name"]: t for t in thresholds(names_only=True)}
+    files = sorted((REPO / "tests").glob("test_*.py"))
+    mutatable = sorted(k for k, v in cands.items() if v["constant"] in declared)
+    print(f"{len(files)} test files -> {len(cands)} (test, constant) candidates across "
+          f"{len({v['test'] for v in cands.values()})} tests")
+    print(f"  inventory {len(inv)} constants; {len(declared)} are declared numeric thresholds")
+    print(f"  {len(mutatable)} candidates have a mutation operator; "
+          f"{len(cands) - len(mutatable)} are STATIC ONLY and reported UNMEASURED\n")
+    measured = 0
+    for key in sorted(cands):
+        row = cands[key]
+        t = declared.get(row["constant"])
+        row["threshold"] = f"{t['module']}::{row['constant']}" if t else None
+        if not t:
+            row["verdict"], row["runs"] = "unmeasured", []
+            row["reason"] = ("not a declared numeric threshold, so there is no mutation operator for it; "
+                             "this candidate carries a STATIC classification and no measurement")
+            continue
+        if static or (limit is not None and measured >= limit):
+            row["verdict"], row["runs"] = "unmeasured", []
+            row["reason"] = ("stage 2 was not run for this candidate (--static or --limit), so whether "
+                             "the test can see the value move is UNMEASURED here")
+            continue
+        d = _discriminate(SRC / t["module"], t["assign_line"], t["literal"], t["value"], row["test"])
+        row["verdict"], row["reason"], row["runs"] = d["verdict"], d["reason"], d["runs"]
+        measured += 1
+        print(f"  {key:<104} {row['class']:<17} {row['verdict']}")
+    by_class = {c: sum(1 for v in cands.values() if v["class"] == c) for c in _SELFREF_CLASSES}
+    by_verdict = {v: sum(1 for r in cands.values() if r["verdict"] == v) for v in _SELFREF_VERDICTS}
+    if sum(by_class.values()) != len(cands):
+        raise AssertionError(f"classes {by_class} sum to {sum(by_class.values())}, not {len(cands)}")
+    if sum(by_verdict.values()) != len(cands):
+        raise AssertionError(f"verdicts {by_verdict} sum to {sum(by_verdict.values())}, not {len(cands)}")
+    # The backlog's own detector, run over the same candidate set so the artefact carries the comparison
+    # rather than a claim about it.
+    backlog_shape = sorted(k for k, v in cands.items()
+                           if any(o["class"] == "both_sides" and o["equality"] for o in v["occurrences"]))
+    SELFREF.parent.mkdir(parents=True, exist_ok=True)
+    SELFREF.write_text(json.dumps({
+        "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "note": "`unmeasured` is UNMEASURED, never a pass -- a candidate whose constant has no mutation "
+                "operator was asked nothing. `cannot_see_it_move` is a measurement handed to a reviewer, "
+                "not a conviction: a fixture or a module-level cache holding the pre-mutation value gives "
+                "the same signal. See tests/test_selfreferential_assertions.py for the ledger.",
+        "n_test_files": len(files), "n_candidates": len(cands),
+        "n_tests": len({v["test"] for v in cands.values()}),
+        "n_inventory_constants": len(inv), "n_declared_numeric_thresholds": len(declared),
+        "n_with_mutation_operator": len(mutatable), "n_measured": measured,
+        "by_class": by_class, "by_verdict": by_verdict,
+        "backlog_both_sides_equality_shape": backlog_shape,
+        "elapsed_s": round(time.time() - t0, 1),
+        "candidates": {k: cands[k] for k in sorted(cands)}}, indent=1) + "\n", encoding="utf-8")
+    print(f"\n{len(cands)} candidates in {time.time() - t0:.0f}s -> {SELFREF.relative_to(REPO).as_posix()}")
+    print("  class:   " + " | ".join(f"{k} {v}" for k, v in by_class.items())
+          + f"  = {sum(by_class.values())} of {len(cands)}")
+    print("  verdict: " + " | ".join(f"{k} {v}" for k, v in by_verdict.items())
+          + f"  = {sum(by_verdict.values())} of {len(cands)}")
+    print(f"  M-11's `CONST == CONST` shape matches {len(backlog_shape)} of {len(cands)}: {backlog_shape}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("cmd", choices=("map", "baseline", "controls", "run"))
+    ap.add_argument("cmd", choices=("map", "baseline", "controls", "run", "selfref"))
     ap.add_argument("--only", default=None, help="restrict to one source module, e.g. qc.py")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--force", action="store_true",
                     help="baseline: re-time sets that already carry a baseline for their current tests")
+    ap.add_argument("--static", action="store_true",
+                    help="selfref: classify only, run no mutants (every verdict is then UNMEASURED)")
     a = ap.parse_args(argv)
     if a.cmd == "map":
         build_map()
         return 0
+    # Neither the covering-set map nor `.coverage` is an input to `selfref`: it reads the TEST sources and
+    # mutates through `thresholds()`, so it must not be gated on an artefact it does not consume.
+    if a.cmd == "selfref":
+        return selfref(a.limit, a.static)
     if not MAP.is_file():
         sys.exit(f"{MAP} is absent; run `map` first")
     rows = json.loads(MAP.read_text(encoding="utf-8"))
