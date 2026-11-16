@@ -40,7 +40,6 @@ PRECISE1K_URLS = {
 ZENODO_DOI = "10.5281/zenodo.8284223"                  # PRECISE-1K citable snapshot (pin this)
 REF_CONDITION = "wt_glc"                               # PRECISE-1K WT M9-glucose aerobic = the model's basal control arm
 REF_STRAIN = "MG1655"                                  # strain fidelity: compare only same-strain samples (the brief)
-MIN_COUNT = 10.0                                        # independent-filter floor before correlating (both sides)
 PADJ_SIG = 0.1                                          # DESeq2 padj threshold for "confidently resolved" genes
 NULL_PERMUTATIONS = 25   # the shuffled-label baseline is a MEAN over this many draws, with its spread
                          # reported — one draw carries ~1/sqrt(n) of its own noise (see `concordance`).
@@ -354,7 +353,13 @@ def sim_lfc_detail(design: str, reference: str = "wildtype/basal", normalise: st
         },
         "n_genes": len(lfc),
         "count_floor": out.get("count_floor"),
-        "count_floor_note": ("Genes below this mean copy number in either arm are not returned. On the "
+        "count_floor_note": ("A gene is returned when the HIGHER of its two arm means clears this floor "
+                             "(`max(target, reference) >= count_floor`, at `_reader_agg.gene_lfc_map`) — an "
+                             "EITHER-arm rule. The floor is a stability guard on the PAIR's ratio, not a "
+                             "per-arm detection threshold: log2((t+1)/(r+1)) is defined when one arm is "
+                             "zero, so a per-arm floor would drop exactly the genes a knockout contrast is "
+                             "about. The floor the code applies is `count_floor`, default 20.0, at its two "
+                             "call sites — `sci2.sim_lfc_detail` and `differential.all_gene_lfc`. On the "
                              "acetate run that left 75 of ~4,300 — so the concordance is over the "
                              "high-abundance head of the distribution, not the transcriptome. Report n."),
         "unreachable_runs": out.get("_unreachable_runs"),

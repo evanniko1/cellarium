@@ -296,10 +296,19 @@ def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna",
     the FDR-significant movers `top_movers` returns (which range-restricts the sim-vs-RNA-seq concordance). Each
     entry is symbol-annotated via the gene map so the caller can join it to a b-number reference.
 
-    `count_floor` is the minimum mean copy number a gene must reach in BOTH arms to be returned, and it was
-    hard-coded at 20.0 until 2026-09-11. It is not a detail: on acetate-vs-glucose it left **75 of ~4,300
-    genes**, and the real contrast has 999 significantly DE genes of which the simulation could see 34 —
-    3.4% of the signal. What survives a floor of 20 is the high-abundance head, ribosomal and translation
+    `count_floor` is the minimum mean copy number the HIGHER of the two arm means must reach
+    (`max(tm, rm) >= count_floor`, at `_reader_agg.gene_lfc_map`) — an EITHER-arm rule, not a per-arm one. A
+    gene whose one arm is near zero is still returned, because log2((tm + 1) / (rm + 1)) is defined there and
+    a knockout contrast is exactly that case; the floor is a stability guard on the PAIR's ratio, not a
+    per-arm detection threshold. (This docstring said BOTH arms until 2026-11-14, and `sci2.sim_lfc_detail`
+    said "either arm" in the AND sense; neither matched the code. Pinned now by
+    `tests/test_reader_agg.py::test_the_count_floor_is_applied_to_the_pair_and_not_per_arm`.) The floor the
+    code applies is this `count_floor`, default 20.0, at its two call sites — `differential.all_gene_lfc`
+    here and `sci2.sim_lfc_detail` — and it was hard-coded at 20.0 until 2026-09-11. It is not a detail: on
+    acetate-vs-glucose it left **75 of ~4,300 genes**, and the real contrast has 999 significantly DE genes
+    of which the simulation could see 34 — 3.4% of the signal (all four figures read off the floor-20 row of
+    `data/sci2_count_floor_sweep.json`: n_genes 75, n_reference_genes 4344, n_reference_significant 999,
+    n_sig_visible 34). What survives a floor of 20 is the high-abundance head, ribosomal and translation
     machinery, which is the set most dominated by growth rate and least informative about condition-specific
     regulation. A concordance computed there is a concordance over the wrong genes, so the floor is now a
     parameter that a caller can sweep and must report.

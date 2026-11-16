@@ -15,10 +15,10 @@ import numpy as np
 
 
 def gene_lfc_map(t_runs: list, r_runs: list, floor: float) -> dict:
-    """Per-gene seed-mean log2 fold-change for EVERY gene present in >=1 target AND >=1 reference run above the
-    count floor — the FULL distribution SCI-2's concordance needs (the significance-filtered `mode_differential`
-    range-restricts Pearson/Deming). `t_runs`/`r_runs` are lists of {gene_id: count} per run. Returns
-    {id: {log2fc, target, reference, n_target, n_reference}}."""
+    """Per-gene seed-mean log2 fold-change for EVERY gene present in >=1 target AND >=1 reference run whose
+    HIGHER arm mean clears the count floor — the FULL distribution SCI-2's concordance needs (the
+    significance-filtered `mode_differential` range-restricts Pearson/Deming). `t_runs`/`r_runs` are lists of
+    {gene_id: count} per run. Returns {id: {log2fc, target, reference, n_target, n_reference}}."""
     if not t_runs or not r_runs:
         return {}
     ids = set().union(*[set(d) for d in t_runs + r_runs])
@@ -29,6 +29,11 @@ def gene_lfc_map(t_runs: list, r_runs: list, floor: float) -> dict:
         if not tvals or not rvals:                     # a gene must appear on BOTH sides to have a ratio
             continue
         tm, rm = float(np.mean(tvals)), float(np.mean(rvals))
+        # EITHER-arm is deliberate, not an accident of `max` vs `min`: the floor guards the PAIR's ratio, and
+        # the +1 pseudocount just below already makes log2((tm+1)/(rm+1)) defined and stable when one arm
+        # is zero — so a per-arm floor would discard exactly the genes a knockout contrast is about. Pinned by
+        # tests/test_reader_agg.py::test_the_count_floor_is_applied_to_the_pair_and_not_per_arm, whose inputs
+        # are chosen so the OR and AND readings disagree.
         if max(tm, rm) < floor:                        # count floor — very low counts give an unstable ratio
             continue
         out[i] = {"log2fc": round(math.log2((tm + 1.0) / (rm + 1.0)), 4),
