@@ -331,7 +331,13 @@ def _docker_image(name: str) -> bool:
     import subprocess
     if not shutil.which("docker"):
         return False
-    return subprocess.run(["docker", "image", "inspect", name], capture_output=True).returncode == 0
+    # Runs at COLLECTION time (it feeds the skipif below), so an unbounded call here hangs the whole suite before
+    # any test runs -- it did, for seventeen hours, on 2026-11-21 (tests/test_docker_calls_are_bounded.py).
+    try:
+        return subprocess.run(["docker", "image", "inspect", name], capture_output=True,
+                              timeout=25).returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
 
 
 @pytest.mark.skipif(not _docker_image("python:3.12-slim"), reason="needs Docker and the python:3.12-slim image")

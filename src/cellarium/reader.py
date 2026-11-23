@@ -90,13 +90,68 @@ def _worker_cmd(mode: str, args: list[str]) -> list[str]:
             "python", f"/cellarium_reader/{_WORKER.name}", mode, *args]
 
 
+# A generous bound, because its only job is to turn a HANG into an answer: a real read of a large run takes
+# minutes, an engine that never comes up takes forever. Measured 2026-11-20: with Docker Desktop mid-start,
+# `docker run` blocked and the reader -- which then had no timeout at all -- hung for the full two minutes the
+# shell allowed. Overridable for a corpus whose reads genuinely run longer.
+READER_TIMEOUT_S = int(os.environ.get("CELLARIUM_READER_TIMEOUT_S", "1800"))
+
+# The docker client's own wording for each failure, in both platform variants. The three causes are the ones
+# `tests/conftest.py::_docker_reason` already told apart so the SUITE skipped correctly -- the production
+# reader is held to the same standard here, rather than to a weaker one.
+_ENGINE_DOWN = ("failed to connect to the docker api", "cannot connect to the docker daemon",
+                "error during connect", "is the docker daemon running")
+_IMAGE_ABSENT = ("unable to find image", "no such image", "pull access denied", "manifest unknown")
+
+
+def _classify_docker_failure(stderr: str) -> str:
+    """Which of the distinguishable causes a failed run's stderr names.
+
+    `worker_fault` is the residual and it stays the honest default: a container that STARTED and then
+    printed no JSON is our code's problem, and calling it an environment fault would hide real defects behind
+    "start Docker".
+    """
+    s = (stderr or "").lower()
+    if any(k in s for k in _ENGINE_DOWN):
+        return "engine_unavailable"
+    if any(k in s for k in _IMAGE_ABSENT):
+        return "image_absent"
+    return "worker_fault"
+
+
 def _run_cmd(cmd: list[str], cwd: str | None) -> dict:
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=redact.child_env())
+    """Run the reader worker and return its JSON, or an error that names the actual cause.
+
+    BACKLOG M-13, MEASURED 2026-11-20. With the engine forced unreachable this returned "reader worker
+    produced no JSON" while its own captured stderr read "failed to connect to the docker API ... check if
+    the daemon is running". The cause was captured and nothing read it. And `errors.PATTERNS` routed that
+    message to `runtime_fault`, remedy `report_defect` -- so the agent was told to report a bug in Cellarium
+    when the fix was to start Docker. Each cause now gets its own message and its own reason code.
+    """
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=redact.child_env(),
+                              timeout=READER_TIMEOUT_S)
+    except FileNotFoundError:
+        return {"error": f"the {cmd[0]} client is not installed or not on PATH, so the reader container "
+                         f"could not be started", "cause": "client_missing"}
+    except subprocess.TimeoutExpired:
+        return {"error": f"the reader worker did not finish within {READER_TIMEOUT_S} s -- the engine may be "
+                         f"stalled, or the read is larger than the budget (CELLARIUM_READER_TIMEOUT_S raises "
+                         f"it)", "cause": "timed_out"}
     for line in reversed(proc.stdout.splitlines()):
         if line.startswith("CELLARIUM_JSON:"):
             return json.loads(line[len("CELLARIUM_JSON:"):])
-    return {"error": "reader worker produced no JSON", "returncode": proc.returncode,
-            "stderr": (proc.stderr or "")[-600:]}
+    tail = (proc.stderr or "")[-600:]
+    cause = _classify_docker_failure(proc.stderr)
+    msg = {
+        "engine_unavailable": "the Docker engine is not responding, so the reader container could not "
+                              "start -- start Docker Desktop (or the daemon) and retry. This is not a fault "
+                              "in the reader",
+        "image_absent": "the model image is not present on this machine, so the reader container could "
+                        "not start -- build or pull it and retry",
+        "worker_fault": "reader worker produced no JSON",
+    }[cause]
+    return {"error": msg, "cause": cause, "returncode": proc.returncode, "stderr": tail}
 
 
 def _invoke(mode: str, host_run_root: Path, extra: list[str] | None = None) -> dict:

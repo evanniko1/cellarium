@@ -35,6 +35,11 @@ OUT_ROOT = Path(os.environ.get("CELLARIUM_OUT", "runs")).resolve()
 WALL_MIN_PER_GEN = float(os.environ.get("CELLARIUM_WALL_MIN_PER_GEN", "180"))
 WALL_STARTUP_MIN = 30.0
 
+# Bound on a short Docker CLI call (`docker kill`, a one-file `docker run ... cat`). An engine that is up but not
+# answering is exactly the state in which runs hang, and an unbounded call made then never returns: it held the
+# wall-clock kill open on 2026-11-21's reproduction (tests/test_docker_calls_are_bounded.py).
+DOCKER_CLI_TIMEOUT_S = 120
+
 
 def wall_limit_s(generations: int) -> float | None:
     """Seconds a run of `generations` may take before it is killed, or None when the limit is off."""
@@ -592,6 +597,7 @@ def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None,
     log = open(log_path, "w", encoding="utf-8", errors="replace") if log_path else None
     timer = None
     timed_out = threading.Event()
+    kill_unconfirmed: list[str] = []
     try:
         if log:
             log.write(f"[cellarium] started {time.strftime('%Y-%m-%dT%H:%M:%S')} :: {last_argv() or ''}\n")
@@ -600,9 +606,19 @@ def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None,
         if wall_limit_s:
             def _kill():
                 timed_out.set()
-                if container:
-                    subprocess.run(["docker", "kill", container], capture_output=True, env=redact.child_env())
-                proc.kill()
+                try:
+                    if container:
+                        # Bounded, and the client is killed whatever happens here: an engine that has stopped
+                        # answering is when runs hang, and an unbounded `docker kill` then held this timer
+                        # thread forever, so the limit failed exactly when it was needed.
+                        r = subprocess.run(["docker", "kill", container], capture_output=True,
+                                           env=redact.child_env(), timeout=DOCKER_CLI_TIMEOUT_S)
+                        if r.returncode != 0:
+                            kill_unconfirmed.append(f"`docker kill {container}` exited {r.returncode}")
+                except (subprocess.TimeoutExpired, OSError) as e:
+                    kill_unconfirmed.append(f"`docker kill {container}` did not complete ({type(e).__name__})")
+                finally:
+                    proc.kill()
             timer = threading.Timer(wall_limit_s, _kill)
             timer.daemon = True
             timer.start()
@@ -623,6 +639,8 @@ def _run_checked(cmd: list[str], cwd: str | None, log_path: Path | None = None,
         if log:
             if timed_out.is_set():
                 log.write(f"\n{failures.WALL_MARK} {wall_limit_s:.0f} s\n")
+                for note in kill_unconfirmed:
+                    log.write(f"[cellarium] {note}; the container may still be running\n")
             log.write(f"\n{failures.EXIT_MARK} {rc}\n")
             if hit:
                 log.write(f"{failures.MARKER_MARK} {hit}\n")
@@ -656,10 +674,16 @@ def read_flat_file(rel: str) -> str:
     """
     if not WCECOLI_DOCKER:
         raise RuntimeError("a knowledge-base rebuild needs the model image (WCECOLI_DOCKER)")
-    r = subprocess.run(["docker", "run", "--rm", "--entrypoint", "sh", WCECOLI_DOCKER, "-c",
-                        "cat reconstruction/ecoli/flat/%s" % rel],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       env=redact.child_env())
+    try:
+        r = subprocess.run(["docker", "run", "--rm", "--entrypoint", "sh", WCECOLI_DOCKER, "-c",
+                            "cat reconstruction/ecoli/flat/%s" % rel],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env=redact.child_env(), timeout=DOCKER_CLI_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            "the Docker engine did not answer within %d s while reading reconstruction/ecoli/flat/%s from %s -- "
+            "it may still be starting, or be stalled; this is not a fault in the knowledge base"
+            % (DOCKER_CLI_TIMEOUT_S, rel, WCECOLI_DOCKER)) from None
     if r.returncode != 0 or not r.stdout:
         raise RuntimeError("could not read reconstruction/ecoli/flat/%s from %s" % (rel, WCECOLI_DOCKER))
     return r.stdout

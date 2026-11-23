@@ -235,7 +235,13 @@ def _docker_reason() -> str:
         return ("the docker daemon is not responding — the client is installed but the engine is down "
                 f"({(p.stderr or p.stdout or '').strip()[:120]})")
     img = runner.WCECOLI_DOCKER
-    q = subprocess.run(["docker", "image", "inspect", img], capture_output=True, text=True)
+    try:
+        # Bounded like the probe above. An engine can answer `docker version` and then stall; this call had no
+        # bound, and one like it held a whole session for seventeen hours (tests/test_docker_calls_are_bounded.py).
+        q = subprocess.run(["docker", "image", "inspect", img], capture_output=True, text=True, timeout=25)
+    except Exception as e:                                    # noqa: BLE001
+        return (f"the engine answered `docker version` but did not answer `docker image inspect {img}` "
+                f"({type(e).__name__}) — it may still be starting")
     if q.returncode != 0:
         return f"the engine is up but the image {img!r} is not present on this machine"
     return ""

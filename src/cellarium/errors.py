@@ -80,6 +80,11 @@ REASONS: dict[str, tuple[str, str]] = {
     "missing_artifact": ("environment", "build_artifact"),
     "missing_dependency": ("environment", "install_dependency"),
     "runtime_fault": ("environment", "report_defect"),
+    # BACKLOG M-13. An engine that is down is not a defect in Cellarium, and before this code existed it
+    # classified as `runtime_fault` -- remedy `report_defect` -- so the agent was told to report a bug
+    # when the fix was to start Docker. Distinct from `missing_dependency` because the client IS
+    # installed; what is missing is a running engine, and "install" would be the wrong instruction.
+    "engine_unavailable": ("environment", "start_the_engine"),
     # a deliberate refusal: a guard did its job. Not a fault at all.
     "refused_by_policy": ("policy", "none"),
     # the table does not yet cover this message. A sweep failure, not a usable answer.
@@ -103,6 +108,21 @@ PATTERNS: list[tuple[re.Pattern, str]] = [(re.compile(p, re.I), r) for p, r in [
      r"|biosecurity|is (not available|write-gated) over MCP|only in unattended mode"
      r"|not listed on this surface|is not fetchable|are not permitted", "refused_by_policy"),
     # --- the environment ---
+    # The reader container's three distinguishable start failures (reader._run_cmd), first, so that no
+    # broader pattern below can claim them. Each names a different remedy, which is the whole point.
+    (r"the Docker engine is not responding", "engine_unavailable"),
+    # A stalled engine during a one-file read (runner.read_flat_file): unlike the reader's timeout below this one
+    # IS attributable, because a single `cat` cannot legitimately take minutes.
+    (r"the Docker engine did not answer within", "engine_unavailable"),
+    (r"the model image is not present on this machine", "missing_artifact"),
+    (r"client is not installed or not on PATH", "missing_dependency"),
+    # A timeout is the one start failure that CANNOT be attributed: a stalled engine and a read larger
+    # than the budget look identical from outside. `runtime_fault` is the honest bucket for an
+    # undetermined environment fault, and the message itself names both possibilities and the setting
+    # that distinguishes them -- rather than a precise-sounding code that would be right half the time.
+    # `\d\w*`, not `\d+`: the ratchet (conformance.unregistered_messages) renders a placeholder as "9X", and
+    # `\d+ s` matched the live "1800 s" but not the rendered "9X s", so this pattern left the ratchet red.
+    (r"did not finish within \d\w* s", "runtime_fault"),
     (r"corpus (is )?(unreadable|empty)|no manifest\b|store unreadable|manifest .*unreadable"
      r"|corpus query failed", "store_unreadable"),
     (r"no (local )?raw( simOut)?|no simOut|missing simOut|no readable .* trajectory"
