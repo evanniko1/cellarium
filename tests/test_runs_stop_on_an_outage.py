@@ -240,3 +240,62 @@ def test_the_ab_sweep_stops_after_five_failed_arms_and_a_rerun_retries_them(ab, 
     monkeypatch.setattr(run_ab, "run_arm_b", up)
     assert run_ab.main() == 0
     assert len(ran) == 25, "the 5 errored arms are retried with the 20 never run; --force is not needed"
+
+
+# --- the judge panel (validation item 6 runs through it) ----------------------------------------------------
+# `regrade` let a failed judge call raise out of the loop, and the panel was written only after it returned, so an
+# outage part-way lost every grade already paid for; and a stored panel was "resumed" by reporting it as complete.
+
+import panel as PANEL  # noqa: E402
+
+
+def _ledger(n: int) -> dict:
+    return {f"{i}.1": {"_case": f"{i}.1", "_rep": 0,
+                       "a": {"shared": {"graded_text": f"answer {i}", "quality_score": 0.5, "judge_model": "j"}}}
+            for i in range(1, n + 1)}
+
+
+def _case(cid: str) -> dict:
+    return {"id": cid, "question": "q", "canonical": "c", "expected_observables": [], "expected_rivals": [],
+            "min_criteria": ["m"], "stringent_criteria": ["s"]}
+
+
+class _Judge:
+    """A judge whose first `ok_first` calls return a verdict and every later one raises."""
+
+    def __init__(self, ok_first: int):
+        self.ok_first, self.n = ok_first, 0
+
+    @property
+    def messages(self):
+        return self
+
+    def create(self, **kw):
+        self.n += 1
+        if self.n > self.ok_first:
+            raise ConnectionError("no route to host")
+        block = type("B", (), {"type": "tool_use", "input": {"min_criteria": [{"passed": True}], "stringent_criteria": [{"passed": True}]}})
+        return type("R", (), {"content": [block]})
+
+
+def test_the_panel_stops_on_an_outage_and_keeps_what_it_paid_for():
+    led = _ledger(5)
+    by_id = {f"{i}.1": _case(f"{i}.1") for i in range(1, 6)}
+    judge = _Judge(ok_first=3)
+    out = PANEL.regrade(led, ["claude-opus-4-8"], 2, judge, by_id)
+    assert judge.n == 3 + 5, "it stops at the fifth failure in a row"
+    assert out["_stopped_early"]["after_calls"] == 8 and out["_stopped_early"]["of"] == 10
+    kept = {u: s for u, s in out.items() if not u.startswith("_")}
+    assert sum(len(v) for js in kept.values() for v in js.values()) == 3, "the 3 grades paid for are kept"
+    assert all(q is not None for js in kept.values() for v in js.values() for q in v), "a failed call is no sample"
+
+
+def test_a_stopped_panel_resumes_by_asking_only_for_what_is_missing():
+    led = _ledger(5)
+    by_id = {f"{i}.1": _case(f"{i}.1") for i in range(1, 6)}
+    first = PANEL.regrade(led, ["claude-opus-4-8"], 2, _Judge(ok_first=3), by_id)
+    judge = _Judge(ok_first=10 ** 6)
+    done = PANEL.regrade(led, ["claude-opus-4-8"], 2, judge, by_id, existing=first)
+    assert judge.n == 10 - 3, "only the 7 missing samples are asked for"
+    assert "_stopped_early" not in done
+    assert all(len(v) == 2 for js in done.values() if isinstance(js, dict) for v in js.values())

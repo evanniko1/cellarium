@@ -277,17 +277,29 @@ def noise_vs_effect(summary: dict, stability: dict) -> dict:
 
 # ---------------------------------------------------------------- the billable part
 def regrade(ledger: dict, judges: list[str], samples: int, client, cases_by_id: dict,
-            on_progress=None) -> dict:
+            on_progress=None, existing: dict | None = None) -> dict:
     """Grade every stored artifact with every judge, `samples` times. The ONLY function here that costs money.
 
     Nothing is re-run and no arm is re-rolled: it reads `graded_text` off the ledger, so every judge scores
     byte-identical items — which is what an inter-rater statistic requires and what re-running the sweep could
-    never provide."""
+    never provide.
+
+    STOPS ON AN OUTAGE (2026-11-23, checklist T.3). Five failed judge calls in a row stop it, and what it has is
+    returned with `_stopped_early`, so the caller can save the grades already paid for; before, the first failed
+    call raised out of the loop and lost them all. A failed call is not a sample, so it is not recorded, and a
+    re-run with `existing` asks only for what is missing. A judge that answers with no verdict IS recorded, as
+    None: that is an observation of the judge, and the statistics drop it as missing, never as a zero."""
     sys.path.insert(0, str(ROOT / "evals"))
+    sys.path.insert(0, str(ROOT / "src"))
     import shared_metric
 
-    out: dict = {}
+    from cellarium import outage
+
+    brk = outage.Breaker()
+    out: dict = {u: {j: list(v) for j, v in js.items()} for u, js in (existing or {}).items()
+                 if not u.startswith("_") and isinstance(js, dict)}
     missing = []
+    planned = 0
     for a in artifacts(ledger):
         if not (a["text"] or "").strip():
             missing.append(a["unit"])
@@ -297,13 +309,24 @@ def regrade(ledger: dict, judges: list[str], samples: int, client, cases_by_id: 
             missing.append(a["unit"])
             continue
         for j in judges:
-            for s in range(samples):
-                g = shared_metric.grade(case, a["text"], client, j)
-                out.setdefault(a["unit"], {}).setdefault(j, []).append(g.get("quality_score"))
+            planned += samples
+            have = out.setdefault(a["unit"], {}).setdefault(j, [])
+            for s in range(len(have), samples):
+                if brk.tripped:
+                    break
+                try:
+                    g = shared_metric.grade(case, a["text"], client, j)
+                except Exception as exc:                 # noqa: BLE001 - counted, and the run stops on a burst
+                    brk.observe(False, type(exc).__name__)
+                    continue
+                brk.observe(True)
+                have.append(g.get("quality_score"))
                 if on_progress:
                     on_progress(a["unit"], j, s, g.get("quality_score"))
     if missing:
         out["_missing"] = missing        # surfaced, never silently a smaller panel
+    if brk.tripped:
+        out["_stopped_early"] = brk.report(planned)
     return out
 
 
@@ -337,10 +360,14 @@ def main():
         return
 
     panel_path = Path(a.panel_out) if a.panel_out else None
-    if panel_path and panel_path.exists():
-        panel = json.loads(panel_path.read_text(encoding="utf-8"))
+    stored = json.loads(panel_path.read_text(encoding="utf-8")) if panel_path and panel_path.exists() else None
+    if stored is not None and "_stopped_early" not in stored:
+        panel = stored
         print(f"resuming from {panel_path} ({len(panel)} unit(s) already scored)")
     else:
+        if stored is not None:
+            # A panel that stopped on an outage is not a panel: grade only what it is missing, never report it.
+            print(f"{panel_path} stopped early ({stored['_stopped_early']['why']}); grading only what is missing")
         # ONE resolver shared with run_ab, so the app's Settings tab (OS keychain) reaches the panel too — a key
         # saved the securest way must not be the one the billable runs cannot see.
         sys.path.insert(0, str(ROOT / "evals"))
@@ -352,9 +379,14 @@ def main():
         client = llm.client(max_retries=4)
         by_id = {c["id"]: c for c in cases_mod.by_id(None)}
         panel = regrade(ledger, judges, a.samples, client, by_id,
-                        on_progress=lambda u, j, s, q: print(f"  {u}  {j}  #{s}  q={q}"))
+                        on_progress=lambda u, j, s, q: print(f"  {u}  {j}  #{s}  q={q}"), existing=stored)
         if panel_path:
             panel_path.write_text(json.dumps(panel, indent=2), encoding="utf-8")
+        if "_stopped_early" in panel:
+            from cellarium import outage
+            print(panel["_stopped_early"]["why"] + (f" Saved to {panel_path}; re-run the same command to resume."
+                                                    if panel_path else " Pass --panel-out to keep what was paid for."))
+            return outage.EXIT_INTERRUPTED
 
     scores = {k: v for k, v in panel.items() if not k.startswith("_")}
     summary = summarise(scores)
@@ -369,4 +401,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
