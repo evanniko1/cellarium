@@ -156,18 +156,18 @@ def load_sessions(db: Path = DB) -> list[dict]:
     """Final answer + every tool result per tool-using session, READ-ONLY. Nothing is written back."""
     con = sqlite3.connect(f"file:{db.as_posix()}?mode=ro", uri=True)
     try:
-        rows = con.execute("SELECT messages FROM sessions").fetchall()
+        rows = con.execute("SELECT sid, messages FROM sessions").fetchall()
     finally:
         con.close()
     out = []
-    for (msgs,) in rows:
+    for sid, msgs in rows:
         m = json.loads(msgs or "[]")
         blocks = [(x.get("role"), b) for x in m if isinstance(x.get("content"), list)
                   for b in x["content"] if isinstance(b, dict)]
         tools = [str(b.get("content")) for role, b in blocks if b.get("type") == "tool_result"]
         texts = [b.get("text", "") for role, b in blocks if role == "assistant" and b.get("type") == "text"]
         if tools and texts:
-            out.append({"answer": texts[-1], "tool_texts": tools})
+            out.append({"sid": sid, "answer": texts[-1], "tool_texts": tools})
     return out
 
 
@@ -176,7 +176,11 @@ def main() -> int:
         print(f"{DB.relative_to(REPO)} is not on this machine; nothing follows about answers stored elsewhere.",
               file=sys.stderr)
         return 2
-    r = measure(load_sessions())
+    sessions = load_sessions()
+    r = measure(sessions)
+    # The session ids (opaque, no content) say WHICH answers this was computed from, so a later recomputation can
+    # use exactly those and a different store is recognised as different rather than as a disagreement.
+    r["session_ids"] = sorted(s["sid"] for s in sessions)
     r["source"] = "data/sessions.db sessions (final assistant answer + all tool results), read-only, this machine"
     r["computed_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     OUT.write_text(json.dumps(r, indent=1) + "\n", encoding="utf-8")

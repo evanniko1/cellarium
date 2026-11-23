@@ -65,10 +65,19 @@ def test_the_stored_measurement_says_what_the_2026_11_23_run_found(stored):
     assert stored["routed"] == {"original_supported": 100, "original_claims": 140, "swapped_claims": 62,
                                 "detected": 10, "supported_before_and_after": 40}
     assert set(stored) <= {"answers", "claims", "exposed_answers", "pooled_check_detected_swaps", "routed",
-                           "source", "computed_utc"}                                   # counts only, no text
+                           "session_ids", "source", "computed_utc"}                    # counts and ids, no text
+    assert len(stored["session_ids"]) == 60 and all(len(s) <= 40 for s in stored["session_ids"])
 
 
 @pytest.mark.skipif(not S.DB.is_file(), reason="data/sessions.db is the local app store; absent on this machine")
 def test_the_measurement_is_what_the_store_gives_today(stored):
-    now = S.measure(S.load_sessions())
+    """Recomputed over EXACTLY the sessions the artefact names. Any other store -- a seeded demo database in a
+    fresh clone, or this machine's store after new sessions -- skips with the reason. (Found 2026-11-23: comparing
+    against whatever store existed killed every mutant of the registry-mutation run, including its control.)"""
+    want = set(stored["session_ids"])
+    sessions = [s for s in S.load_sessions() if s["sid"] in want]
+    if len(sessions) != len(want):
+        pytest.skip(f"this machine's app store holds {len(sessions)} of the artefact's {len(want)} sessions, so it "
+                    "is not the store the artefact was computed from")
+    now = S.measure(sessions)
     assert {k: now[k] for k in now} == {k: stored[k] for k in now}

@@ -101,7 +101,16 @@ def test_the_artefact_carries_no_question_or_hypothesis_text(stored):
 
 @pytest.mark.skipif(not T.DB.is_file(), reason="data/sessions.db is the local app store; absent on this machine")
 def test_the_artefact_is_what_the_store_gives_today(stored):
-    now = T.summarize(T.load_app_runs())
+    """Recomputed over EXACTLY the runs the artefact was made from. A store that is not that store -- a fresh
+    clone's seeded demo database, or this machine's store after new runs were added -- is not a disagreement
+    with the artefact, so it skips with the reason instead of failing. (Found 2026-11-23: comparing against
+    whatever store existed made this test fail in a clean worktree once another test had seeded one.)"""
+    ids = {r["id"] for r in stored["per_run"]}
+    runs = [r for r in T.load_app_runs() if r["id"] in ids]
+    if len(runs) != len(ids):
+        pytest.skip(f"this machine's app store holds {len(runs)} of the artefact's {len(ids)} runs, so it is not "
+                    "the store the artefact was computed from")
+    now = T.summarize(runs)
     for k in ("runs", "rounds", "objections", "substantive", "minor", "collapse",
               "converged_below_its_own_earlier_best"):
         assert stored[k] == now[k], k
