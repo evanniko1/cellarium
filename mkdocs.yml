@@ -118,6 +118,7 @@ nav:
       - ROUTE1 corpus record: ROUTE1_CORPUS_RECORD.md
       - A/B replication plan: PUB_A1_REPLICATION.md
       - Held-out set pre-registration: HOLDOUT_PREREGISTRATION.md
+      - How the evaluations score against the agentic benchmark checklist: ABC_SELF_AUDIT.md
 
   # HYPOTHESIS_MODE_PLAN.md and ROADMAP.md are deliberately gitignored (planning docs stay local
   # so a cloner does not receive a list of unbuilt ideas), so they CANNOT appear here: CI builds
