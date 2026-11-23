@@ -10,6 +10,14 @@
   "detected": 10,
   "supported_before_and_after": 40
  },
+ "field_routed": {
+  "original_supported": 64,
+  "original_shared_only": 11,
+  "swapped_claims": 62,
+  "detected": 29,
+  "supported_before_and_after": 1,
+  "shared_before": 10
+ },
  "session_ids": [
   "adj_1786482303",
   "probe_1786481377916",
@@ -73,5 +81,5 @@
   "s_vljk5hkz"
  ],
  "source": "data/sessions.db sessions (final assistant answer + all tool results), read-only, this machine",
- "computed_utc": "2026-11-23T13:09:21Z"
+ "computed_utc": "2026-11-23T19:03:05Z"
 }

@@ -1,4 +1,10 @@
-"""Validation-layer item 9, step 1: would anything notice a right number credited to the wrong run?
+"""Validation-layer item 9, steps 1 and 2: would anything notice a right number credited to the wrong run?
+
+Step 2 (2026-11-23) routes each number to the FIELD it came from, not the record: the record rule caught 10 of the
+50 swapped claims it supported, because one comparison record names both runs; the field rule catches 29 of 30,
+and supports fewer claims to begin with (64 of 140 against 100). See `field_leaves` for the rule.
+`python evals/attribution_swap.py --same-sessions` re-measures exactly the recorded answers and refuses to write
+if any figure it already reported would change.
 
 Cellarium enforces grounding in the agent's prompt ("you cannot state a number you did not read from a tool") and
 by construction of its tools; it has NO post-hoc check of the numbers in an answer. The campaign branch's
@@ -110,6 +116,127 @@ def routed_ok(label: str, num: str, recs: list[str]) -> bool:
     return any(label in r and number_in(num, r) for r in recs)
 
 
+# --- step 2: route each number to the FIELD it came from (2026-11-23) --------------------------------------
+# The record-level rule above credits a number to every run its record names, so a comparison record that names
+# both runs supports either attribution. On the 60 recorded answers two shapes carried most of that: role fields
+# (`reference`, `target`) naming two runs, with the runs' values in fields named after the roles (`ref_mean`, or
+# `reference`/`target` inside `ranked` items) beside numbers that belong to the pair (log2fc, welch_t, pct); and
+# tool results cut off for the model's context, which parsed as nothing and so counted as one blob naming
+# every run.
+
+def repair_json(text):
+    """Parse JSON, or JSON cut off part-way: keep every complete member up to the last comma before the cut and close
+    whatever is still open. None when the text is not JSON at all."""
+    try:
+        return json.loads(text)
+    except (ValueError, TypeError):
+        pass
+    if not isinstance(text, str) or not text.lstrip().startswith(("{", "[")):
+        return None
+    stack, in_str, esc, cuts = [], False, False, []
+    for i, ch in enumerate(text):
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]":
+            if not stack:
+                break
+            stack.pop()
+            if not stack:                # a complete top-level value; json.loads failed on what follows it
+                return _loads_or_none(text[: i + 1])
+        elif ch == ",":
+            cuts.append((i, tuple(stack)))
+    # The last cut that parses: a truncation marker can itself hold a comma or a bracket.
+    for i, open_ in reversed(cuts[-200:]):
+        got = _loads_or_none(text[:i] + "".join(reversed(open_)))
+        if got is not None:
+            return got
+    return None
+
+
+def _loads_or_none(s):
+    try:
+        return json.loads(s)
+    except ValueError:
+        return None
+
+
+def _same_run(a: str, b: str) -> bool:
+    """`KO:argS` and `gene_knockout/KO:argS` name one run; `KO:arg` and `KO:argS` do not."""
+    return a == b or a.endswith("/" + b) or b.endswith("/" + a)
+
+
+def _role_owns(key: str, role: str) -> bool:
+    """Does a number stored under `key` belong to the run named in field `role`? `reference` owns `reference`,
+    `reference_mean` and `ref_mean`; `target` owns `target` and `target_mean`."""
+    k, r = key.lower(), role.lower()
+    head = k.split("_", 1)[0]
+    return k == r or k.startswith(r + "_") or (len(head) >= 3 and r.startswith(head))
+
+
+def field_leaves(tool_texts: list[str]) -> list[tuple[frozenset, str]]:
+    """(owner, number text) for every number in the tool results. The owner is the run the number belongs to: the
+    run its key names; else the run whose role field its key is named after; else every run the nearest naming
+    object names -- one run for a single-run object, the pair for a comparison's own statistics."""
+    out: list[tuple[frozenset, str]] = []
+
+    def owner(key, roles: dict) -> frozenset:
+        if key:
+            named = set(LABEL.findall(str(key)))
+            if len(named) == 1:
+                return frozenset(named)
+            hit = {lab for role, lab in roles.items() if _role_owns(str(key), role)}
+            if len(hit) == 1:
+                return frozenset(hit)
+        return frozenset(roles.values())
+
+    def walk(x, roles: dict, key=None):
+        if isinstance(x, dict):
+            own = {k: v.strip() for k, v in x.items() if isinstance(v, str) and LABEL.fullmatch(v.strip())}
+            scope = own or roles                  # the nearest object that names runs owns what is inside it
+            for k, v in x.items():
+                if k in own:
+                    continue
+                named = set(LABEL.findall(str(k)))
+                walk(v, {k: next(iter(named))} if len(named) == 1 else scope, k)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v, roles, key)
+        elif isinstance(x, bool) or x is None:
+            return
+        elif isinstance(x, (int, float)):
+            out.append((owner(key, roles), repr(x)))
+        elif isinstance(x, str) and NUM.search(x):
+            named = set(LABEL.findall(x))
+            out.append((frozenset(named) if len(named) == 1 else owner(key, roles), x))
+
+    for t in tool_texts:
+        obj = repair_json(t)
+        if obj is not None:
+            walk(obj, {})
+        else:
+            out += [(frozenset(LABEL.findall(line)), line) for line in (t or "").splitlines() if NUM.search(line)]
+    return out
+
+
+def field_routed_ok(label: str, num: str, leaves) -> bool:
+    """The field rule: the number sits in a field that belongs to the run it is credited to, and to no other."""
+    return any(len(o) == 1 and _same_run(label, next(iter(o))) and number_in(num, text) for o, text in leaves)
+
+
+def shared_ok(label: str, num: str, leaves) -> bool:
+    """The number belongs to a comparison that includes the run: a swap of the pair cannot be seen in it."""
+    return any(len(o) > 1 and any(_same_run(label, x) for x in o) and number_in(num, text) for o, text in leaves)
+
+
 def swap(answer: str, a: str, b: str) -> str:
     return answer.replace(a, "\x00").replace(b, a).replace("\x00", b)
 
@@ -119,6 +246,10 @@ def measure(sessions: list[dict]) -> dict:
     exposed, pooled_detect, n_claims = 0, 0, 0
     routed = {"original_supported": 0, "original_claims": 0, "swapped_claims": 0,
               "detected": 0, "supported_before_and_after": 0}
+    # Step 2, the same claims and swaps routed to the FIELD. `shared_before`: the number belongs to the pair's own
+    # comparison, so no attribution check can see a swap of the pair in it.
+    field = {"original_supported": 0, "original_shared_only": 0, "swapped_claims": 0,
+             "detected": 0, "supported_before_and_after": 0, "shared_before": 0}
     for s in sessions:
         blob = " ".join(s["tool_texts"])
         found = {lab for lab in LABEL.findall(s["answer"]) if lab in blob}
@@ -130,6 +261,10 @@ def measure(sessions: list[dict]) -> dict:
         recs = records(s["tool_texts"])
         routed["original_claims"] += len(cl)
         routed["original_supported"] += sum(routed_ok(lab, n, recs) for lab, n in cl)
+        leaves = field_leaves(s["tool_texts"])
+        field["original_supported"] += sum(field_routed_ok(lab, n, leaves) for lab, n in cl)
+        field["original_shared_only"] += sum(not field_routed_ok(lab, n, leaves) and shared_ok(lab, n, leaves)
+                                             for lab, n in cl)
         if len(labs) < 2 or not cl:
             continue
         exposed += 1
@@ -146,10 +281,18 @@ def measure(sessions: list[dict]) -> dict:
                 routed["detected"] += 1
             elif ok and after:
                 routed["supported_before_and_after"] += 1
+            field["swapped_claims"] += 1
+            f_ok, f_after = field_routed_ok(lab, n, leaves), field_routed_ok(moved, n, leaves)
+            if f_ok and not f_after:
+                field["detected"] += 1
+            elif f_ok and f_after:
+                field["supported_before_and_after"] += 1
+            elif shared_ok(lab, n, leaves):
+                field["shared_before"] += 1
     return {"answers": len(sessions), "claims": n_claims,
             "exposed_answers": exposed,
             "pooled_check_detected_swaps": pooled_detect,
-            "routed": routed}
+            "routed": routed, "field_routed": field}
 
 
 def load_sessions(db: Path = DB) -> list[dict]:
@@ -177,6 +320,20 @@ def main() -> int:
               file=sys.stderr)
         return 2
     sessions = load_sessions()
+    if "--same-sessions" in sys.argv[1:]:
+        # Re-measure EXACTLY the answers the stored artefact was computed from, and refuse if what it already
+        # reported would change: a new measurement added beside an old one must not quietly move the old one.
+        old = json.loads(OUT.read_text(encoding="utf-8"))
+        want = set(old["session_ids"])
+        sessions = [s for s in sessions if s["sid"] in want]
+        if len(sessions) != len(want):
+            print(f"this store holds {len(sessions)} of the artefact's {len(want)} sessions; not re-measuring.",
+                  file=sys.stderr)
+            return 2
+        moved = {k: (old[k], v) for k, v in measure(sessions).items() if k in old and old[k] != v}
+        if moved:
+            print(f"refusing: the stored figures would change: {moved}", file=sys.stderr)
+            return 3
     r = measure(sessions)
     # The session ids (opaque, no content) say WHICH answers this was computed from, so a later recomputation can
     # use exactly those and a different store is recognised as different rather than as a disagreement.
