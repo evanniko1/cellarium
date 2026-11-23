@@ -1,0 +1,31 @@
+{
+ "aborted_because": "both baseline attempts failed on tests/test_mutate_registry.py::test_the_harness_refuses_a_checkout_that_is_not_a_linked_worktree, which asserted that the harness refuses R.REPO. Inside the mutation worktree R.REPO IS a linked worktree, so the refusal correctly did not happen: the test was wrong for the one checkout the harness is meant to run in. The assertion is removed; the temporary-directory cases still pin both outcomes. Found by the harness's own rule that a red baseline stops the run.",
+ "plan_frozen": "2026-11-23",
+ "revision": "2034ad8deef976ab0ce5ed77cf1fab2d43011119",
+ "root": "C:\\tmp\\cellarium_mut3",
+ "reset_between_runs": true,
+ "kills_confirmed_by_a_second_run": true,
+ "started_utc": "2026-11-23T13:44:17Z",
+ "baseline": {
+  "exit": 1,
+  "secs": 89.3,
+  "first_failure": "tests/test_mutate_registry.py::test_the_harness_refuses_a_checkout_that_is_not_a_linked_worktree",
+  "summary": ""
+ },
+ "baseline_attempts": [
+  {
+   "exit": 1,
+   "secs": 99.8,
+   "first_failure": "tests/test_mutate_registry.py::test_the_harness_refuses_a_checkout_that_is_not_a_linked_worktree",
+   "summary": ""
+  },
+  {
+   "exit": 1,
+   "secs": 89.3,
+   "first_failure": "tests/test_mutate_registry.py::test_the_harness_refuses_a_checkout_that_is_not_a_linked_worktree",
+   "summary": ""
+  }
+ ],
+ "rows": [],
+ "aborted": "the unmutated suite is not green here, so no mutant verdict would mean anything"
+}
