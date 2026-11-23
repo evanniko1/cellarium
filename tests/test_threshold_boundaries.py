@@ -1033,14 +1033,23 @@ def test_the_thresholds_this_module_claims_to_pin_are_no_longer_survivors():
 
 @pytest.mark.skipif(not (TIER0.is_file() and MAP.is_file()), reason="mutation artefacts absent")
 def test_every_test_that_named_a_surviving_threshold_has_been_read_for_self_reference():
-    """The join is the detector, and it is measured: a test whose own source names a threshold, in the
-    covering set of a mutant that SURVIVED, either asserts the constant against itself or has a reason not
-    to care. Four of the five on 2026-11-02 were the former. A new member arriving with no verdict fails
-    here rather than sitting in the suite looking like coverage."""
-    rows = json.loads(MAP.read_text(encoding="utf-8"))
-    joined = {t for key in _survivor_keys() for t in (rows.get(key, {}).get("tests_naming") or [])}
-    unreviewed = sorted(joined - set(SELF_REFERENTIAL_REVIEW))
-    assert not unreviewed, f"tests naming a surviving threshold, not yet read: {unreviewed}"
+    """The integrity of the 2026-11-02 review ledger. NO LONGER the detector, and the reason is measured.
+
+    This test used to say "the join is the detector": tests whose source names a threshold, intersected with
+    thresholds whose mutants survived. Re-measured 2026-11-20 against the recorded run, that join resolves to
+    TWO tests while 40 tests name a declared threshold -- and 7 of the 9 entries in SELF_REFERENTIAL_REVIEW
+    sit OUTSIDE it. A detector that cannot see 7 of its own 9 cases was checking two tests against a nine-entry
+    ledger, so its completeness half could not fail on anything that mattered.
+
+    The detector is now the static-plus-per-test sweep in `scripts/mutate_thresholds.py selfref`, and its
+    completeness is enforced in ONE place: `tests/test_selfreferential_assertions.py::
+    test_every_measured_blind_assertion_has_a_disposition`, over the sweep's `cannot_see_it_move` verdicts.
+    The spec for M-11 asked for this test to be re-sourced to read the sweep instead; doing that would have
+    put the same check in two files, which is the duplicated-definition failure conformance family 9 exists
+    to catch. So the join's completeness half is retired here rather than copied, and what remains is what
+    this ledger alone can say: every recorded verdict is a declared one, carries a real reason, and names a
+    test that still exists. That the sweep rediscovers all nine is asserted where the sweep lives, by
+    `test_the_selfref_sweep_rediscovers_every_case_the_join_found`."""
     for tid, (verdict, reason) in sorted(SELF_REFERENTIAL_REVIEW.items()):
         assert verdict in _REVIEW_VERDICTS, f"{tid}: unknown verdict {verdict!r}"
         assert len(reason) >= 80, f"{tid}: a review needs a reason, got {reason!r}"
