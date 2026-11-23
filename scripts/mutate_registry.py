@@ -31,6 +31,10 @@ a linked worktree and the main checkout is refused), and the run STOPS when a co
 killed negative control means the harness reports kills it cannot have. The invalid first run is kept, as
 data/mutation/registry_results_run1_invalid.json.
 
+SECOND AMENDMENT, after run 2 aborted on its baseline (a concurrency test that passes alone): every kill must
+reproduce on a second run before it counts (otherwise `unstable`), and the baseline gets two attempts. A flaky
+test can only add kills, never survivors, so this guards the one direction it can distort.
+
     python scripts/mutate_registry.py --check                 # every edit applies exactly once; nothing runs
     python scripts/mutate_registry.py --root C:/tmp/wt        # baseline + controls + mutants, in a worktree
 """
@@ -130,33 +134,55 @@ def main(argv: list[str]) -> int:
     if a.check:
         return 0
 
-    reset(root)
-    base = run_suite(root, [], a.timeout)
-    print(f"baseline: exit {base['exit']} in {base['secs']} s  {base['summary']}")
+    # SECOND AMENDMENT (2026-11-23, run 2): the baseline of a fresh worktree failed once on a concurrency test
+    # (tests/test_launch.py, 40 threads saving one file through os.replace) that passes alone; on Windows a
+    # scanner holding the file can make one save fail. A flaky test can only ADD kills, never survivors, so a kill
+    # is accepted only when a second run, on a freshly reset worktree, also fails; otherwise it is `unstable`.
+    # The baseline gets two attempts. Edits, predictions and controls are unchanged.
     rev = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True,
                          timeout=60).stdout.strip()
+    attempts = []
+    for _ in range(2):
+        reset(root)
+        attempts.append(run_suite(root, [], a.timeout))
+        print(f"baseline: exit {attempts[-1]['exit']} in {attempts[-1]['secs']} s  {attempts[-1]['first_failure'] or ''}")
+        if attempts[-1]["exit"] == 0:
+            break
     results = {"plan_frozen": plan["frozen"], "revision": rev, "root": str(root), "reset_between_runs": True,
-               "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "baseline": base, "rows": []}
-    if base["exit"] != 0:
+               "kills_confirmed_by_a_second_run": True,
+               "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "baseline": attempts[-1],
+               "baseline_attempts": attempts, "rows": []}
+    if attempts[-1]["exit"] != 0:
         results["aborted"] = "the unmutated suite is not green here, so no mutant verdict would mean anything"
         Path(a.out).write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
         print(results["aborted"])
         return 3
-    for m in items:
+
+    def one(m: dict) -> dict:
         reset(root)
         path = root / m["file"]
         orig = apply_edit(path, m["old"], m["new"])
         try:
-            r = run_suite(root, m.get("likely_killers", []), a.timeout)
+            return run_suite(root, m.get("likely_killers", []), a.timeout)
         finally:
             restore(path, orig)
+
+    for m in items:
+        r = one(m)
         v = verdict(r["exit"])
+        confirm = None
+        if v == "killed":                                  # a kill must reproduce on a fresh worktree
+            confirm = one(m)
+            if confirm["exit"] != 1:
+                v = "unstable"
         results["rows"].append({"id": m["id"], "class": m["class"], "file": m["file"], "prediction": m["prediction"],
-                                "verdict": v, "as_predicted": v == m["prediction"], **r})
+                                "verdict": v, "as_predicted": v == m["prediction"], **r, "confirmation": confirm})
         print(f"  {m['id']:<6} {m['class']:<16} predicted {m['prediction']:<9} got {v:<9} "
-              f"{r['secs']:>7} s  {r['first_failure'] or ''}")
+              f"{r['secs']:>7} s  {r['first_failure'] or ''}"
+              + (f"  | confirm: {confirm['first_failure'] or 'passed'}" if confirm else ""))
         Path(a.out).write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")   # survive an interruption
-        if m["class"].startswith("control") and v != m["prediction"]:
+        control_failed = (m["id"] == "P1" and v != "killed") or (m["id"] == "N1" and v == "killed")
+        if m["class"].startswith("control") and control_failed:
             results["aborted"] = (f"control {m['id']} predicted {m['prediction']} but {v}: the harness is not "
                                   "measuring what it claims, so no mutant verdict after it would mean anything")
             Path(a.out).write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")

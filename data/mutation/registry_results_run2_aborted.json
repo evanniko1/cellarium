@@ -1,0 +1,16 @@
+{
+ "aborted_because": "the baseline (no edit) failed once in a fresh worktree on tests/test_launch.py::test_txn_serializes_concurrent_writes_no_lost_update, which passed alone in the same worktree (1.2 s): 40 threads saving one file through os.replace, which a Windows scanner can briefly refuse. The harness stopped, as its rule requires. Second amendment: kills are confirmed by a second run and the baseline gets two attempts.",
+ "plan_frozen": "2026-11-23",
+ "revision": "3a1c5bfb0b114cd0fa19400fed3f957e9b93f47d",
+ "root": "C:\\tmp\\cellarium_mut2",
+ "reset_between_runs": true,
+ "started_utc": "2026-11-23T13:21:53Z",
+ "baseline": {
+  "exit": 1,
+  "secs": 96.7,
+  "first_failure": "tests/test_launch.py::test_txn_serializes_concurrent_writes_no_lost_update",
+  "summary": ""
+ },
+ "rows": [],
+ "aborted": "the unmutated suite is not green here, so no mutant verdict would mean anything"
+}
