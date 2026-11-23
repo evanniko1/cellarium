@@ -190,7 +190,66 @@ def _report(recs: list[dict]) -> dict:
                        for k, v in sorted(by_framing.items())},
         "confusion": {f"{a}->{b}": c for (a, b), c in sorted(confusion.items())},
         "granularity_extracted": dict(collections.Counter(r["granularity"] for r in recs)),
+        **({"reliability": _reliability(recs)} if all("capability" in r and "mode" in r for r in recs) else {}),
         **(_heldout_report(recs) if any("required_judgement" in r for r in recs) else {}),
+    }
+
+
+def _reliability(recs: list[dict]) -> dict:
+    """What the headline accuracy is worth: against what a system with no knowledge would score, and with an
+    interval that respects how the items were drawn.
+
+    BACKLOG V-1, both halves measured on the stored 216 records before this existed.
+
+    TRIVIAL BASELINES. The gold labels are not balanced -- refuse 120, answer 72, propose 24 -- so a system
+    that refuses everything, with no registry, no source probing and no reasoning, scores 0.556. Quoting 0.875
+    against nothing invites a reader to compare it to 0.333 (chance over three verdicts), which overstates the
+    margin by a factor of two. The Agentic Benchmark Checklist (arXiv:2507.02825) has this as R.13, "compare
+    against trivial baselines", and O.b.3, "prevent success by guessing".
+
+    THE CLUSTERED INTERVAL. The 216 records are 8 framings nested in 27 capability-by-mode cells. Framings of
+    one cell share its answer, so they are not 216 independent trials, and the naive binomial interval
+    understates the uncertainty -- measured, by 2.7x. The cluster is the CELL, not the record id: `id` is
+    unique per record here, so the case-clustered helper in evals/aggregate.py, which clusters on `id`, would
+    have produced the naive interval while appearing to cluster. With 27 clusters a t critical value on 26
+    degrees of freedom is used rather than 1.96, as the clustered-SE literature recommends for few clusters
+    (arXiv:2411.00640).
+    """
+    import math
+    import statistics
+
+    n = len(recs)
+    acc = sum(1 for r in recs if r["correct"]) / n
+    gold = collections.Counter(r["required"] for r in recs)
+    baselines = {f"always_{v}": round(gold.get(v, 0) / n, 4) for v in ("refuse", "answer", "propose")}
+
+    cells: dict[tuple, list[float]] = collections.defaultdict(list)
+    for r in recs:
+        cells[(r["capability"], r["mode"])].append(1.0 if r["correct"] else 0.0)
+    means = [statistics.fmean(v) for v in cells.values()]
+    k = len(means)
+    se_cluster = statistics.stdev(means) / math.sqrt(k) if k > 1 else float("nan")
+    se_naive = math.sqrt(acc * (1 - acc) / n)
+    try:
+        from scipy.stats import t as _t
+        crit, crit_name = float(_t.ppf(0.975, k - 1)), f"t({k - 1})"
+    except Exception:                                             # noqa: BLE001 - scipy is optional
+        crit, crit_name = 1.96, "z (scipy absent; t unavailable)"
+    half = crit * se_cluster
+    best_baseline = max(baselines, key=baselines.get)
+    return {
+        "trivial_baselines": baselines,
+        "best_trivial_baseline": {"strategy": best_baseline, "accuracy": baselines[best_baseline]},
+        "margin_over_best_trivial": round(acc - baselines[best_baseline], 4),
+        "n_clusters": k,
+        "cluster_unit": "capability x mode",
+        "items_per_cluster": sorted(collections.Counter(len(v) for v in cells.values()).items()),
+        "accuracy_ci95_clustered": [round(acc - half, 4), round(acc + half, 4)],
+        "ci95_half_width_clustered": round(half, 4),
+        "ci95_half_width_naive": round(1.96 * se_naive, 4),
+        "naive_understates_se_by": round(se_cluster / se_naive, 2) if se_naive else None,
+        "critical_value": crit_name,
+        "note": "the naive interval treats the framings of one cell as independent trials; they are not",
     }
 
 

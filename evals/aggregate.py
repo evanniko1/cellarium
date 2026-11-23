@@ -64,6 +64,53 @@ def paired_vs_full(per_case_full: dict, per_case_other: dict):
     return out
 
 
+def paired_mde(per_case_a: dict, per_case_b: dict, alpha: float = 0.05, power: float = 0.80):
+    """The smallest paired difference this design could have detected, beside the difference it observed.
+
+    WHY THIS EXISTS (validation-layer item 4). A null reported as "the confidence intervals overlap" says
+    nothing about whether the design could have seen an effect. Inverting the power formula for the FIXED n
+    turns it into a statement: the design could only detect a difference of at least `mde`. When the observed
+    difference is smaller than that, the null is UNINFORMATIVE -- the run could not have seen an effect of
+    that size -- which is a different and more honest claim than "no effect" (arXiv:2411.00640, which
+    recommends the MDE inversion over the sample-size formula precisely when n is fixed and small).
+
+    Measured on the stored ablation, it separates the two auditors: under the Claude auditor every comparison
+    is underpowered (MDE 3.5-4.4 defects against observed 1.1-1.5), while under the GPT auditor the skeptic
+    and judge roles show differences larger than their MDE. The two auditors differ about 10x in per-case
+    noise, which is why reporting one of them alone is not neutral.
+
+    Uses a t critical value on n-1 degrees of freedom, because with 10 paired cases the normal 2.80 would
+    understate the MDE by ~11%. The SD is the observed SD of the paired differences, so the MDE describes what
+    THIS run's variability could resolve.
+    """
+    cids = sorted(set(per_case_a) & set(per_case_b))
+    diffs = [per_case_a[c] - per_case_b[c] for c in cids]
+    n = len(diffs)
+    if n < 2:
+        return {"n_paired_cases": n, "mde": None, "why": "fewer than two paired cases"}
+    sd = float(np.std(diffs, ddof=1))
+    mean = float(np.mean(diffs))
+    if sd == 0.0:
+        # Every paired difference is identical: the instrument has NO variance to power against. That is a
+        # saturated measure (PUB-A3's finding for the quality rubric, SD = 0.000 across all 120 records), not
+        # a design that "could detect any difference" -- an MDE of 0 would say the latter, falsely.
+        return {"n_paired_cases": n, "observed_diff": round(mean, 3), "sd_diff": 0.0, "mde": None,
+                "why": "the paired differences have zero variance -- the measure is saturated and cannot "
+                       "discriminate at any n"}
+    try:
+        from scipy.stats import t as _t
+        crit = float(_t.ppf(1 - alpha / 2, n - 1) + _t.ppf(power, n - 1))
+        crit_name = f"t({n - 1})"
+    except Exception:                                             # noqa: BLE001 - scipy is optional
+        crit, crit_name = 1.96 + 0.84, "normal (scipy absent)"
+    mde = crit * sd / math.sqrt(n)
+    return {"n_paired_cases": n, "observed_diff": round(mean, 3), "sd_diff": round(sd, 3),
+            "mde": round(mde, 3), "critical_value": crit_name,
+            "verdict": ("detectable: the observed difference is at least the MDE" if abs(mean) >= mde else
+                        "underpowered: the observed difference is smaller than the design could detect, so "
+                        "this null is uninformative rather than evidence of no effect")}
+
+
 def interrater(records):
     cs, gs, per_crit = [], [], {q: [0, 0] for q in Q}  # [agree, total]
     for r in records:
