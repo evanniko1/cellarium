@@ -1,0 +1,496 @@
+{
+ "runs": 30,
+ "rounds": 88,
+ "objections": 97,
+ "substantive": {
+  "raised": 46,
+  "resolved": 43,
+  "unresolved": 3,
+  "resolved_in_the_round_raised": 0,
+  "resolved_with_identical_claim_h1_h0": 2,
+  "resolved_with_text_similarity_ge_0.95": 3,
+  "identical_at": [
+   "h_881f123767:r1.1",
+   "h_a610b9e115:r1.2"
+  ]
+ },
+ "minor": {
+  "raised": 50,
+  "resolved": 40,
+  "unresolved": 10,
+  "resolved_in_the_round_raised": 0,
+  "resolved_with_identical_claim_h1_h0": 4,
+  "resolved_with_text_similarity_ge_0.95": 5,
+  "identical_at": [
+   "h_08a5af46a3:r2.1",
+   "h_66b8d31895:r2.1",
+   "h_881f123767:r1.2",
+   "h_ae1df6e181:r2.1"
+  ]
+ },
+ "unstated_severity": 1,
+ "collapse": {
+  "runs_with_a_substantive_objection": 23,
+  "converged_within_2_rounds_anyway": 1,
+  "ids": [
+   "h_a15d8e5736"
+  ]
+ },
+ "converged_below_its_own_earlier_best": {
+  "applicable_runs": 28,
+  "count": 0
+ },
+ "per_run": [
+  {
+   "id": "h_6b085ea91a",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_3470063f0d",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_73292ccc5b",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_cd1b0fe82a",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_fa7ffeba29",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_a3d5c81413",
+   "rounds": 4,
+   "converged": true,
+   "substantive": 2,
+   "minor": 0,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    0,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_f4fa2ad323",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_a610b9e115",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 1,
+   "resolved_identical": 1,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_ae1df6e181",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 2,
+   "resolved_identical": 1,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_dcf1e71eaf",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 4,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    3,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_66b8d31895",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 1,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_f238624d7c",
+   "rounds": 4,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_913aae91f0",
+   "rounds": 4,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    0,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_b8808da134",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_bf64f76cdb",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_a15d8e5736",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 3,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": true,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_8b3b91191a",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_307e5271b4",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_af1d9212b0",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 0,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_79a87ef231",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 2,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_08a5af46a3",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 1,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_35662e4295",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_57c1f2823b",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 0,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_8f38fb8d18",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_881f123767",
+   "rounds": 3,
+   "converged": true,
+   "substantive": 1,
+   "minor": 2,
+   "resolved_identical": 2,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_8ebf9a50c1",
+   "rounds": 4,
+   "converged": false,
+   "substantive": 5,
+   "minor": 1,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    1,
+    4,
+    3,
+    3
+   ],
+   "converged_below_earlier_best": null
+  },
+  {
+   "id": "h_66c1b17a77",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 2,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_0979743777",
+   "rounds": 4,
+   "converged": false,
+   "substantive": 2,
+   "minor": 5,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4,
+    0,
+    4
+   ],
+   "converged_below_earlier_best": null
+  },
+  {
+   "id": "h_2ec0213acf",
+   "rounds": 4,
+   "converged": true,
+   "substantive": 6,
+   "minor": 5,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    3,
+    3,
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  },
+  {
+   "id": "h_c525b2ffd1",
+   "rounds": 2,
+   "converged": true,
+   "substantive": 0,
+   "minor": 3,
+   "resolved_identical": 0,
+   "collapsed": false,
+   "judge_scores": [
+    4,
+    4
+   ],
+   "converged_below_earlier_best": false
+  }
+ ],
+ "source": "data/sessions.db council_runs (status 'done'), read-only; the app store of the machine that made the runs, so this artefact is re-derivable only there",
+ "computed_utc": "2026-11-23T12:12:02Z",
+ "limits": "claim/H1/H0 are the only proposer fields stored per round: 'identical' is an upper bound on 'nothing changed' and a lower bound on 'no substantive change'; the judge-rubric measure uses the Council's own four-item rubric, not the blind auditor"
+}
