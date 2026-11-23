@@ -1,0 +1,244 @@
+{
+ "plan_frozen": "2026-11-23",
+ "revision": "0863692f97ec3b9853d0a35c65b71d500c019ff3",
+ "root": "C:\\tmp\\cellarium_mut4",
+ "reset_between_runs": true,
+ "kills_confirmed_by_a_second_run": true,
+ "started_utc": "2026-11-23T14:17:47Z",
+ "baseline": {
+  "exit": 0,
+  "secs": 551.1,
+  "first_failure": null,
+  "summary": ""
+ },
+ "baseline_attempts": [
+  {
+   "exit": 0,
+   "secs": 551.1,
+   "first_failure": null,
+   "summary": ""
+  }
+ ],
+ "rows": [
+  {
+   "id": "P1",
+   "class": "control_positive",
+   "file": "src/cellarium/extraction.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 67.9,
+   "first_failure": "tests/test_holdout.py::test_every_claim_a_gate_VERDICT_makes_about_this_tree_still_holds",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 69.5,
+    "first_failure": "tests/test_holdout.py::test_every_claim_a_gate_VERDICT_makes_about_this_tree_still_holds",
+    "summary": ""
+   }
+  },
+  {
+   "id": "N1",
+   "class": "control_negative",
+   "file": "src/cellarium/egress.py",
+   "prediction": "survived",
+   "verdict": "survived",
+   "as_predicted": true,
+   "exit": 0,
+   "secs": 542.0,
+   "first_failure": null,
+   "summary": "",
+   "confirmation": null
+  },
+  {
+   "id": "W1",
+   "class": "widen",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 12.1,
+   "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 11.1,
+    "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+    "summary": ""
+   }
+  },
+  {
+   "id": "W2",
+   "class": "widen",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 11.2,
+   "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 11.7,
+    "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+    "summary": ""
+   }
+  },
+  {
+   "id": "A1",
+   "class": "aggregate",
+   "file": "src/cellarium/gate.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 27.6,
+   "first_failure": "tests/test_carbon_capability.py::test_the_gate_refuses_any_observable_once_carbon_removal_is_a_dependency",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 28.0,
+    "first_failure": "tests/test_carbon_capability.py::test_the_gate_refuses_any_observable_once_carbon_removal_is_a_dependency",
+    "summary": ""
+   }
+  },
+  {
+   "id": "A2",
+   "class": "aggregate",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 12.3,
+   "first_failure": "tests/test_agent_elongation_axis.py::test_a_mode_refusal_reaches_the_agent_through_dispatch",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 11.9,
+    "first_failure": "tests/test_agent_elongation_axis.py::test_a_mode_refusal_reaches_the_agent_through_dispatch",
+    "summary": ""
+   }
+  },
+  {
+   "id": "T1",
+   "class": "threshold",
+   "file": "src/cellarium/support.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 27.5,
+   "first_failure": "tests/test_capbench_cases.py::test_the_graded_murA_rows_really_are_below_both_evidential_floors",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 28.1,
+    "first_failure": "tests/test_capbench_cases.py::test_the_graded_murA_rows_really_are_below_both_evidential_floors",
+    "summary": ""
+   }
+  },
+  {
+   "id": "T2",
+   "class": "threshold",
+   "file": "src/cellarium/support.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 27.6,
+   "first_failure": "tests/test_capbench_cases.py::test_the_graded_murA_rows_really_are_below_both_evidential_floors",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 26.6,
+    "first_failure": "tests/test_capbench_cases.py::test_the_graded_murA_rows_really_are_below_both_evidential_floors",
+    "summary": ""
+   }
+  },
+  {
+   "id": "V1",
+   "class": "provenance",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 10.6,
+   "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 11.0,
+    "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+    "summary": ""
+   }
+  },
+  {
+   "id": "V2",
+   "class": "provenance",
+   "file": "src/cellarium/capability.py",
+   "prediction": "survived",
+   "verdict": "survived",
+   "as_predicted": true,
+   "exit": 0,
+   "secs": 558.9,
+   "first_failure": null,
+   "summary": "",
+   "confirmation": null
+  },
+  {
+   "id": "B1",
+   "class": "branch",
+   "file": "src/cellarium/gate.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 11.5,
+   "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 11.6,
+    "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+    "summary": ""
+   }
+  },
+  {
+   "id": "B2",
+   "class": "branch",
+   "file": "src/cellarium/gate.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 10.9,
+   "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+   "summary": "",
+   "confirmation": {
+    "exit": 1,
+    "secs": 11.1,
+    "first_failure": "tests/test_abc_forced_failures.py::test_the_guards_pass_unplanted",
+    "summary": ""
+   }
+  },
+  {
+   "id": "R1",
+   "class": "reproducibility",
+   "file": "pyproject.toml",
+   "prediction": "survived",
+   "verdict": "survived",
+   "as_predicted": true,
+   "exit": 0,
+   "secs": 568.3,
+   "first_failure": null,
+   "summary": "",
+   "confirmation": null
+  }
+ ],
+ "finished_utc": "2026-11-23T14:52:58Z"
+}
