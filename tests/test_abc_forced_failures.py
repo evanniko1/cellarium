@@ -22,6 +22,7 @@ for p in ("src", "scripts", "tests"):
 
 import run_gate_eval as ev  # noqa: E402
 import test_blind_external_reads as BLIND  # noqa: E402
+import test_eval_artefacts_record_their_environment as ENV  # noqa: E402
 import test_gate_error_accounting as ACCOUNT  # noqa: E402
 import test_gate_error_causes as CAUSES  # noqa: E402
 import test_gate_oracle as ORACLE  # noqa: E402
@@ -30,7 +31,7 @@ import test_remote_reads_are_pinned as PINNED  # noqa: E402
 import test_runs_stop_on_an_outage as OUTAGE  # noqa: E402
 
 from cellarium import capability as C  # noqa: E402
-from cellarium import corpora, egress, gate, outage  # noqa: E402
+from cellarium import corpora, egress, gate, outage, provenance  # noqa: E402
 
 RUN = REPO / "evals" / "results" / "gate_eval_8framings.json"
 
@@ -52,6 +53,12 @@ def test_T5_isolation_from_ground_truth(monkeypatch):
     """T.5: agents isolated from the results. Plant: the blind-run block list emptied."""
     monkeypatch.setattr(egress, "BLIND_BLOCKED_DOMAINS", ())
     assert _goes_red(BLIND.test_a_search_that_touched_a_dataset_page_never_reaches_a_role, monkeypatch)
+
+
+def test_T1_the_artefact_records_the_stack_that_ran(monkeypatch, tmp_path):
+    """T.1: tool and package versions specified. Plant: the environment the harness records comes back empty."""
+    monkeypatch.setattr(provenance, "code_environment", lambda lock=None: {})
+    assert _goes_red(ENV.test_a_gate_eval_artefact_records_its_environment, monkeypatch, tmp_path)
 
 
 def test_T3_an_outage_stops_the_run(monkeypatch, tmp_path):

@@ -47,7 +47,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from cellarium import gate, outage  # noqa: E402
+from cellarium import gate, outage, provenance  # noqa: E402
 
 OUT_DIR = REPO / "evals" / "results"
 VERDICTS = ("answer", "propose", "refuse")
@@ -390,7 +390,7 @@ def main(argv: list[str]) -> int:
             path = Path(p)
             d = json.loads(path.read_text(encoding="utf-8"))
             rep = _report(d["records"])
-            for k in ("model", "framings", "wall_seconds"):
+            for k in ("model", "framings", "wall_seconds", "environment"):   # the run's, not the rescorer's
                 if k in d["report"]:
                     rep[k] = d["report"][k]
             rep["report_recomputed"] = f"{stamp} from the stored records; no model call"
@@ -451,7 +451,8 @@ def main(argv: list[str]) -> int:
         part.parent.mkdir(parents=True, exist_ok=True)
         rep = {"model": a.model, "framings": a.framings, "n_items_planned": len(items), "n_records": len(recs),
                "parser_failures": sum(r["parser_failed"] for r in recs),
-               "wall_seconds": round(time.time() - t0, 1), "stopped_early": brk.report(len(items))}
+               "wall_seconds": round(time.time() - t0, 1), "stopped_early": brk.report(len(items)),
+               "environment": provenance.code_environment()}
         part.write_text(json.dumps({"report": rep, "records": recs}, indent=1), encoding="utf-8")
         print(file=sys.stderr)
         print(brk.message(len(items)), file=sys.stderr)
@@ -462,6 +463,7 @@ def main(argv: list[str]) -> int:
     rep["model"] = a.model
     rep["framings"] = a.framings
     rep["wall_seconds"] = round(time.time() - t0, 1)
+    rep["environment"] = provenance.code_environment()   # what ran this, not what the lock says should (T.1)
 
     print("\n=== gate eval ===")
     print(json.dumps(rep, indent=1))

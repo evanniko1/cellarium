@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cases as cases_mod  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
-from cellarium import council, instrument, outage  # noqa: E402
+from cellarium import council, instrument, outage, provenance  # noqa: E402
 
 CONFIGS = {
     "full":          dict(),                                        # proposer + skeptic + judge (the system)
@@ -133,7 +133,7 @@ def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader
     tasks = [(c, cfg, rep) for c in cases_mod.by_id(case_ids) for cfg in configs for rep in range(reps)]
     results, lock = [], threading.Lock()
     meta = {"configs": configs, "reps": reps, "temperature": temperature, "claude_grader": claude_grader,
-            "gpt_grader": gpt_model}
+            "gpt_grader": gpt_model, "environment": provenance.code_environment()}
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
     # Progress goes to <out>.partial.json, and the artefact itself is written once, complete. Until 2026-11-23

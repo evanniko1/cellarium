@@ -17,6 +17,7 @@ import time
 import uuid
 from pathlib import Path
 
+from . import atomic
 from .capability import DEFAULT_MODE
 from .model import Design
 
@@ -44,25 +45,11 @@ def _load() -> list[dict]:
 # _LOCK), and it lets go within milliseconds. Found 2026-11-23: two tests in tests/test_launch.py failed this way,
 # intermittently, in separate full runs. So the rename is retried briefly on that one error; any other error, or
 # one that outlasts the retries, still raises.
-_REPLACE_TRIES = 8
-
-
-def _replace_with_retry(tmp: Path, dest: Path) -> None:
-    for attempt in range(_REPLACE_TRIES):
-        try:
-            os.replace(tmp, dest)
-            return
-        except PermissionError:
-            if attempt == _REPLACE_TRIES - 1:
-                raise
-            time.sleep(0.02 * (attempt + 1))
-
-
 def _save(q: list[dict]) -> None:
     QUEUE.parent.mkdir(parents=True, exist_ok=True)
     tmp = QUEUE.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(q, indent=2), encoding="utf-8")
-    _replace_with_retry(tmp, QUEUE)   # atomic on POSIX + Windows — no half-written queue, ever
+    atomic.replace(tmp, QUEUE)   # atomic on POSIX + Windows — no half-written queue, ever
 
 
 @contextlib.contextmanager

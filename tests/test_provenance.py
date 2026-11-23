@@ -31,7 +31,8 @@ def test_run_environment_reproducibility_bundle():
     so a run reproduces against the exact code + stack. Best-effort: every field degrades gracefully, never raises."""
     env = provenance.run_environment()
     assert isinstance(env["python"], str) and env["python"].count(".") >= 2
-    assert set(env["packages"]) == {"anthropic", "pydantic", "numpy", "duckdb", "pyarrow"}
+    assert set(env["packages"]) == {"anthropic", "openai", "pydantic", "numpy", "scipy", "duckdb", "pyarrow",
+                                    "huggingface_hub"}   # widened 2026-11-23 to what can change an eval (T.1)
     assert all((v is None or isinstance(v, str)) for v in env["packages"].values())
     assert env["git_commit"] is None or isinstance(env["git_commit"], str)   # a short sha in a checkout, or None
 

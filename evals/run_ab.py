@@ -72,7 +72,10 @@ def _save_ledger(led: dict) -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
     tmp = LEDGER.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(led, indent=2, default=str), encoding="utf-8")
-    tmp.replace(LEDGER)   # atomic-ish: a crash mid-write leaves the prior ledger intact
+    # atomic: a crash mid-write leaves the prior ledger intact, and a rename Windows refuses for a moment is
+    # retried rather than killing an unattended sweep (cellarium.atomic)
+    from cellarium import atomic
+    atomic.replace(tmp, LEDGER)
 
 
 def _log(msg: str) -> None:
@@ -311,7 +314,8 @@ def main():
         LEDGER = Path(a.out)
 
     _resolve_api_key(_log)
-    from cellarium import llm, outage
+    from cellarium import llm, outage, provenance
+    env = provenance.code_environment()   # on every arm record: one ledger's arms can come from different stacks
     client = llm.client(max_retries=4)
     # Stop at the first run of consecutive failed arms rather than keep paying through an outage (checklist T.3).
     brk = outage.Breaker()
@@ -351,6 +355,7 @@ def main():
                 slot["b"] = {"id": cid, "status": "error", "error": f"{type(exc).__name__}: {exc}"}
                 _log(f"    Arm B  !! {type(exc).__name__}: {exc}")
                 traceback.print_exc()
+            slot["b"]["environment"] = env
             _save_ledger(led)
             if brk.observe(slot["b"].get("status") != "error", str(slot["b"].get("error", "")).split(":")[0]):
                 return _stopped()
@@ -369,6 +374,7 @@ def main():
                 slot["a"] = {"id": cid, "status": "error", "error": f"{type(exc).__name__}: {exc}"}
                 _log(f"    Arm A  !! {type(exc).__name__}: {exc}")
                 traceback.print_exc()
+            slot["a"]["environment"] = env
             _save_ledger(led)
             if brk.observe(slot["a"].get("status") != "error", str(slot["a"].get("error", "")).split(":")[0]):
                 return _stopped()

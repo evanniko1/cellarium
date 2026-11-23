@@ -201,6 +201,24 @@ def ab(monkeypatch, tmp_path):
     return logs
 
 
+def test_the_ab_ledger_survives_a_rename_windows_refuses_for_a_moment(ab, monkeypatch):
+    """Found 2026-11-23 when the stop test below failed once with WinError 5 on the ledger's rename: the same
+    transient refusal the job queue retries (tests/test_launch.py). An unattended sweep must not die of it."""
+    import os as _os
+    real = _os.replace
+    calls = {"n": 0}
+
+    def flaky(src, dst):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise PermissionError(5, "Access is denied")
+        return real(src, dst)
+    monkeypatch.setattr(_os, "replace", flaky)
+    run_ab._save_ledger({"1.1": {"b": {"status": "ok"}}})
+    assert calls["n"] == 3
+    assert json.loads(run_ab.LEDGER.read_text(encoding="utf-8")) == {"1.1": {"b": {"status": "ok"}}}
+
+
 def test_the_ab_sweep_stops_after_five_failed_arms_and_a_rerun_retries_them(ab, monkeypatch):
     ran: list[str] = []
 

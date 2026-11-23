@@ -300,22 +300,60 @@ def kb_provenance(sim_path: str = "cellarium") -> dict:
     return out
 
 
-def run_environment() -> dict:
-    """The reproducibility bundle for a run (H-3): the interpreter, the repo's git commit, and the pinned versions of
-    the load-bearing dependencies — recorded per Council run alongside the model + temperature (M-2/LLM-3) so a result
-    can be reproduced against the exact code + library stack (see requirements.lock for the full pin set). Best-effort:
-    any lookup that fails degrades to None, never raising."""
+# The installed packages whose version can change an evaluation's result: the two model SDKs (request shape,
+# retries, parsing), the schema layer, the numeric and statistics stack, the corpus readers, and the hub client.
+EVAL_PACKAGES = ("anthropic", "openai", "pydantic", "numpy", "scipy", "duckdb", "pyarrow", "huggingface_hub")
+
+
+def _norm(name: str) -> str:
+    return name.strip().lower().replace("_", "-")
+
+
+def _lock_pins(lock) -> dict | None:
+    """{normalised name: version} from a pip-freeze lock file, or None when there is no lock to compare with."""
+    import re
+    from pathlib import Path
+    try:
+        text = Path(lock).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return {_norm(m.group(1)): m.group(2) for m in
+            (re.match(r"^([A-Za-z0-9_.\-]+)==([^\s;#]+)", line.strip()) for line in text.splitlines()) if m}
+
+
+def code_environment(lock=None) -> dict:
+    """What an evaluation artefact records about the stack that produced it (checklist T.1): the interpreter, whether
+    it is a virtual environment, the git commit, the INSTALLED versions of EVAL_PACKAGES, and where they differ from
+    requirements.lock. A lock says what should run; this says what did — on 2026-11-23 the system interpreter differed
+    from the lock on 70 of 119 pins, `anthropic` among them. `differs_from_lock` is None when there is no lock to
+    compare with, which is not the same as no difference. No path is recorded: the artefacts are public."""
     import platform
+    import sys
     from importlib import metadata as _md
+    from pathlib import Path
 
     packages: dict = {}
-    for pkg in ("anthropic", "pydantic", "numpy", "duckdb", "pyarrow"):
+    for pkg in EVAL_PACKAGES:
         try:
             packages[pkg] = _md.version(pkg)
         except Exception:
             packages[pkg] = None
-    return {"python": platform.python_version(), "git_commit": _git_commit(), "packages": packages,
-            **kb_provenance()}
+    pins = _lock_pins(lock if lock is not None else Path(__file__).resolve().parents[2] / "requirements.lock")
+    differs = None if pins is None else {
+        p: {"locked": pins[_norm(p)], "installed": v} for p, v in packages.items()
+        if _norm(p) in pins and pins[_norm(p)] != v}
+    return {"python": platform.python_version(), "in_a_venv": sys.prefix != sys.base_prefix,
+            "git_commit": _git_commit(), "packages": packages,
+            "lock_file": None if pins is None else "requirements.lock", "differs_from_lock": differs}
+
+
+def run_environment() -> dict:
+    """The reproducibility bundle for a run (H-3): `code_environment()` — the interpreter, the repo's git commit, the
+    installed versions of the load-bearing dependencies and where they differ from requirements.lock — plus the
+    knowledge-base provenance, recorded per Council run alongside the model + temperature (M-2/LLM-3) so a result
+    can be reproduced against the exact code + library stack. Best-effort: any lookup that fails degrades to None,
+    never raising."""
+    return {**code_environment(), **kb_provenance()}
 
 
 def same_kb(a: dict, b: dict) -> dict:
