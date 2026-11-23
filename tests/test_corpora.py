@@ -184,11 +184,10 @@ def test_a_local_corpus_has_no_metadata_to_fetch_and_needs_no_network():
 # --- the scientific finding, pinned so an edit cannot quietly drop it -----------------------------
 
 def test_well4cell_is_recorded_as_unable_to_answer_a_per_isoacceptor_question():
-    """MEASURED 2026-11-14 and load-bearing for the paper. well4cell's own column map for the charging
-    channel carries 21 ids — the 20 canonical amino acids plus L-SELENOCYSTEINE[c] — not 86 indexed by
-    tRNA gene. So an independent group publishing the same simulator's output stored the resolution the
-    simulator computes rather than the 86-wide broadcast its listener exposes, which corroborates the
-    capability record Cellarium derives from source.
+    """MEASURED 2026-11-14. well4cell's own column map for the charging channel carries 21 ids — the 20
+    canonical amino acids plus L-SELENOCYSTEINE[c] — not 86 indexed by tRNA gene, so a per-isoacceptor
+    question cannot be answered from it. (An earlier docstring called this independent corroboration of
+    Cellarium's capability record; that was withdrawn on 2026-11-21 -- see the next test.)
 
     This test pins the CLAIM in the registry, not the file: the file is a 12 MB fetch that CI does not
     have. The claim is what a reader of the registry is told, and dropping it would let a per-isoacceptor
@@ -199,6 +198,29 @@ def test_well4cell_is_recorded_as_unable_to_answer_a_per_isoacceptor_question():
     assert any("21" in s and "SELENOCYSTEINE" in s for s in w.answers)
     assert any("F18" in s for s in w.caveats), "the superseded audit finding must stay recorded"
     assert any("F1" in s and "train/test" in s for s in w.caveats)
+
+
+def test_the_registry_names_the_release_each_finding_belongs_to():
+    """MEASURED 2026-11-21 against the live Hub: the release is 1.0.0-rc2 (built 2026-11-04), and the
+    project's audit is of 1.0.0-rc1. Three statements this entry used to make were wrong for rc2, and each is
+    pinned so it cannot come back:
+      - F1: the twin-leaking train/test splits were FIXED in rc2 (rebuilt per design, `split_by_tu` added --
+        the audit's own proposal), not removed. On the rc2 index 0 of 25,187 twin groups cross either split.
+      - F18: charging exists for 21,865 of 139,039 trajectories, not for the release; the 117,174 carried over
+        from rc1 still have none.
+      - The 21-column charging layout is NOT independent corroboration of Cellarium's capability record: a
+        per-amino-acid summary is written whether or not the 86 per-tRNA values are broadcasts, and the rc2
+        card is built on Cellarium's own definitions.
+    """
+    w = corpora.get("well4cell")
+    text = " ".join((w.row_unit, *w.answers, *w.does_not_answer, *w.caveats))
+    assert "1.0.0-rc1" in text and "1.0.0-rc2" in text
+    assert w.extra["release_measured"] == "1.0.0-rc2"
+    assert any("F1" in s and "split_by_tu" in s and "FIXED" in s for s in w.caveats)
+    assert any("21,865" in s and "139,039" in s for s in w.answers)
+    assert any("117,174" in s and "F18" in s for s in w.does_not_answer)
+    assert not any("no train/test column at all" in s for s in w.caveats)
+    assert not any("is independent corroboration" in s for s in w.caveats)
 
 
 def test_the_audit_is_recorded_as_describing_a_different_release():

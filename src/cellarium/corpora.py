@@ -134,7 +134,8 @@ WELL4CELL = Corpus(
     kind="hf",
     locator="cSynBioSys/well4cell",
     index="index.parquet",
-    row_unit="one TRAJECTORY. MEASURED 2026-11-14 from the fetched index: 139,039 rows, 90 columns, and "
+    row_unit="one TRAJECTORY. MEASURED 2026-11-14 from the fetched index of release 1.0.0-rc2: 139,039 rows, "
+             "90 columns, and "
              "`sample_id` is unique across every one of them. A row of a PART FILE is a different unit "
              "again — one timestep of one trajectory — so the index row and the data row never pool. The "
              "audited 1.0.0-rc1 had 117,174 rows x 67 columns, so the release grew by 21,865 trajectories "
@@ -143,8 +144,11 @@ WELL4CELL = Corpus(
                     "provenance/failed_jobs.parquet", "provenance/scan_runs.parquet",
                     "provenance/reference/*.parquet", "stats/*.parquet", "README.md"),
     answers=("per-AMINO-ACID tRNA charged fraction, 21 channels (the 20 canonical plus "
-             "L-SELENOCYSTEINE[c]) — measured from provenance/reference/charging_trna_charged_fraction",
-             "amino-acid pool sizes (21) and NTP pool sizes (4: ATP, CTP, GTP, UTP)",
+             "L-SELENOCYSTEINE[c]) — measured from provenance/reference/charging_trna_charged_fraction — for "
+             "21,865 of the 139,039 trajectories ONLY: the rc2 re-runs and wild-type controls, none in the "
+             "`regulation` family. Filter on the index column `trna_channels`",
+             "amino-acid pool sizes (21) and NTP pool sizes (4: ATP, CTP, GTP, UTP), for the same 21,865 "
+             "trajectories",
              "per-trajectory summary: 139,039 rows, one per sample_id",
              "expression and metabolism matrices, at coarse and 1-second resolution",
              "five perturbation families: single_knockout 97,478 trajectories, dynamic_media 21,404, "
@@ -154,30 +158,44 @@ WELL4CELL = Corpus(
         "rather than inferred: the release's own column map for the charging channel carries 21 rows "
         "indexed by amino acid, not 86 indexed by tRNA gene. A question about one isoacceptor against "
         "another must be refused here exactly as it is against Cellarium's steady_state mode.",
+        "ANY charging, amino-acid-pool or NTP-pool question about the 117,174 trajectories carried over from "
+        "1.0.0-rc1: they recorded none (`trna_channels` false; the card says the raw output was pruned), so "
+        "audit finding F18 still describes them.",
         "anything requiring a re-run: the release carries no simulation inputs (audit finding F17)",),
     licence="CC BY 4.0",
     citation="see the dataset card; the audit records that the citation block had no author in 1.0.0-rc1",
     caveats=(
         "THE PROJECT'S AUDIT IS OF A DIFFERENT RELEASE. `kinetic_port/WELL4CELL_AUDIT.md` (445 lines) "
-        "audited 1.0.0-rc1: 763 files, 1.399 TB, configs `core` plus four matrix configs. The live "
-        "dataset, measured 2026-11-14 via the HF API, carries 978 files across seven configs and was last "
-        "modified 2026-11-04. Every finding in that audit must be re-checked against the live release "
-        "before it is cited.",
-        "AUDIT FINDING F18 IS FALSE FOR THIS RELEASE, and the correction matters scientifically. F18 "
-        "read 'no charging, pool or per-amino-acid channel exists'. The live release carries a `charging` "
-        "config of 62,396,417 rows across 10 part files, with the index locators `charging_file`, "
-        "`charging_row_offset` and `charging_n_rows`, and three reference tables. MEASURED 2026-11-14: the "
-        "charged-fraction column map holds 21 ids -- the 20 canonical amino acids plus "
-        "L-SELENOCYSTEINE[c]. So well4cell stores the charged fraction at the resolution the simulator "
-        "actually computes it, and NOT as the 86-wide gene-indexed broadcast its default listener exposes. "
-        "That is independent corroboration of the capability record Cellarium derives from source: a "
-        "separate group publishing the same simulator's output chose 21 columns where the output label "
-        "offers 86.",
-        "Audit finding F1 was that both declared train/test splits put bit-identical trajectories on "
-        "opposite sides. MEASURED 2026-11-14: the live index carries no train/test column at all and the "
-        "only partition is `family`, so the leaking split is GONE from this release rather than fixed in "
-        "place. Anyone citing F1 must say which release they mean. Whether the underlying duplicate "
-        "trajectories still exist is a separate question and is UNVERIFIED here.",
+        "audited 1.0.0-rc1 (built 2026-10-21): 763 files, 1.399 TB, configs `core` plus four matrix "
+        "configs. The live release is 1.0.0-rc2, built 2026-11-04 (Hub revision 4ab4aa37, re-confirmed "
+        "live 2026-11-21): 978 files across seven configs. Every finding in that audit must be re-checked "
+        "against rc2 before it is cited, and a citation of either must name the release.",
+        "AUDIT FINDING F18 IS FALSE FOR 1.0.0-rc2 AS A WHOLE AND STILL TRUE FOR MOST OF ITS ROWS. F18 "
+        "read 'no charging, pool or per-amino-acid channel exists' of rc1. rc2 carries a `charging` config "
+        "of 62,396,417 rows across 10 part files, with the index locators `charging_file`, "
+        "`charging_row_offset` and `charging_n_rows`, and three reference tables -- but MEASURED 2026-11-21 "
+        "from the index and the manifest's `trna_channels` block, only 21,865 of the 139,039 trajectories "
+        "recorded it, every one an rc2 re-run or wild-type control and none in the `regulation` family; the "
+        "117,174 carried over from rc1 have none. MEASURED 2026-11-14: the charged-fraction column map holds "
+        "21 ids -- the 20 canonical amino acids plus L-SELENOCYSTEINE[c] -- which the card defines as the "
+        "fraction of each amino acid's tRNAs that is charged.",
+        "WITHDRAWN 2026-11-21: an earlier version of this entry called that 21-column layout independent "
+        "corroboration of the capability record Cellarium derives from source. It is neither. Not "
+        "evidence: a per-amino-acid summary is what an exporter writes whether or not the simulator's 86 "
+        "per-tRNA values are broadcasts of 21, so the layout cannot tell the two apart -- it is CONSISTENT "
+        "with the record and no more. Not independent: the rc2 card is built on Cellarium's own definitions "
+        "(`translation_collapse`, the qc vocabulary, the pathway panel) and is ordered as a response to the "
+        "review of rc1.",
+        "Audit finding F1 -- both declared train/test splits put bit-identical twin trajectories on "
+        "opposite sides -- describes 1.0.0-rc1 and was FIXED in 1.0.0-rc2, not removed. An earlier version "
+        "of this entry said the live index has no train/test column; that was wrong. The rc2 index carries "
+        "`split_by_lineage` (train 111,233 / val 13,910 / test 13,896), now assigned per design and seed, "
+        "and `split_by_tu` (train 107,228 / val 15,848 / test 15,963), which holds out whole transcription "
+        "units -- the fix the audit proposed; `split_by_gene` is gone. MEASURED 2026-11-21 on the rc2 index: "
+        "of 25,187 groups of rows sharing the release's `design_id`, seed and generation across more than "
+        "one cell, 0 cross either split; grouping instead on every design-defining index column, 0 of "
+        "13,099. Bit-identity itself needs the bulk data and was not re-checked; the card reports 447 "
+        "pairs, 13,108 trajectories, compared byte for byte on rc1.",
         "Audit finding F4: the alternative carbon sources are t=0 switches out of glucose-fitted "
         "physiology — the same class of boundary Cellarium's own envelope refuses.",
     ),
@@ -188,6 +206,9 @@ WELL4CELL = Corpus(
           "expression 38,098,821; metabolism 38,096,827; summary 139,039). Public, not gated.",
     extra={"api": "https://huggingface.co/api/datasets/cSynBioSys/well4cell",
            "audit": "kinetic_port/WELL4CELL_AUDIT.md",
+           "audit_release": "1.0.0-rc1",
+           "release_measured": "1.0.0-rc2",
+           "hub_revision_2026_11_21": "4ab4aa379afb51150b565e3afd05dddac7e27bd6",
            "files_measured_2026_11_14": 978,
            "configs_measured_2026_11_14": {"charging": 10, "core": 22, "expression": 64,
                                            "expression_1s": 246, "metabolism": 63,
