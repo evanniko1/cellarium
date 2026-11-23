@@ -113,6 +113,36 @@ _put_src_on_the_path()
 # of an API key's validity window; Anthropic revoking a key cannot reach into Windows Credential Manager. An
 # expired key explains a 401, never a missing entry.
 # ------------------------------------------------------------------------------------------------------------
+# NO MODEL PROVIDER IS REACHABLE FROM THE SUITE.
+#
+# FOUND 2026-11-23: the full suite hung at 18% inside a model request waiting for response headers. A test that
+# meant to check an ORDER (archive before deliberate) let the live Council run and relied on it failing for
+# want of a key; the request went to whatever endpoint the developer's ANTHROPIC_BASE_URL named, carrying a
+# key-like value an earlier test had left in the environment, and that endpoint had stopped answering. No real
+# key was reachable (the keychain guard below redirects it), so nothing was spent, but whether the suite
+# finished depended on a server outside it. Every provider base URL is pointed for the whole session at a port
+# where nothing listens, so an accidental model call now fails in seconds with a connection error instead of
+# hanging or, on a machine whose key IS in the environment, spending money. tests/test_suite_is_offline.py
+# pins it.
+UNREACHABLE_PROVIDER = "http://127.0.0.1:9"
+PROVIDER_URL_VARS = ("ANTHROPIC_BASE_URL", "OPENAI_BASE_URL")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_model_provider_is_reachable():
+    import os
+    saved = {k: os.environ.get(k) for k in PROVIDER_URL_VARS}
+    for k in PROVIDER_URL_VARS:
+        os.environ[k] = UNREACHABLE_PROVIDER
+    try:
+        yield
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
 
 @pytest.fixture(autouse=True, scope="session")
 def _never_touch_the_real_keychain():

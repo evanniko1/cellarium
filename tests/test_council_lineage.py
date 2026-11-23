@@ -109,10 +109,19 @@ def test_run_council_archives_before_it_overwrites(monkeypatch, store):
     real_archive = store.archive_prior
     monkeypatch.setattr(store, "archive_prior",
                         lambda rid: calls.setdefault("archived", real_archive(rid)))
-    try:
+
+    # The Council itself is replaced by one that fails at once. This used to rely on the LIVE Council failing for
+    # want of an API key, which made the test's speed depend on whatever endpoint ANTHROPIC_BASE_URL named on
+    # the machine running it: on 2026-11-23 that endpoint stopped answering and the full suite hung here, at
+    # 18%, with a request waiting for response headers. What is under test is only the order (archive first),
+    # so nothing here needs a network.
+    from cellarium import council
+
+    def _no_live_council(*a, **k):
+        raise RuntimeError("no live Council inside the test suite")
+    monkeypatch.setattr(council, "deliberate", _no_live_council)
+    with pytest.raises(RuntimeError, match="no live Council"):
         hypotheses.run_council(store, "refined question", reuse_id="h_6")
-    except Exception:
-        pass          # the live Council needs an API key; the archive must happen BEFORE it is reached
     assert calls.get("archived"), "run_council overwrote the row without archiving it first"
     kept = store.get(calls["archived"])
     assert kept and kept["rounds"], "the snapshot exists but is empty"
