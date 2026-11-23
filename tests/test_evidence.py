@@ -50,8 +50,24 @@ def test_it_stores_ids_not_values(ledger):
     """The numbers must always be re-derived from the manifest. Caching them here would create a second source of
     truth that can silently drift from the corpus it claims to describe."""
     evidence.record("differential", {}, {"id": "r1", "growth_rate": 0.42, "ppgpp_conc": 1.7e-4})
-    line = ledger.read_text(encoding="utf-8")
-    assert "r1" in line and "0.42" not in line and "1.7e-04" not in line
+    # Compared as NUMBERS, timestamp excluded. This was a substring check over the line, which failed on
+    # 2026-11-23 when the timestamp read 1795461470.424 ("0.42" inside it), and whose "1.7e-04" half could never
+    # fail: JSON writes 1.7e-4 as 0.00017, so that string cannot appear even when the value is stored.
+    rec = json.loads(ledger.read_text(encoding="utf-8").splitlines()[0])
+    rec.pop("ts", None)
+    nums: list = []
+
+    def walk(x):
+        if isinstance(x, dict):
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+        elif isinstance(x, (int, float)) and not isinstance(x, bool):
+            nums.append(x)
+    walk(rec)
+    assert "r1" in rec["entity_ids"] and 0.42 not in nums and 1.7e-4 not in nums
 
 
 def test_a_call_that_touched_no_run_is_not_recorded(ledger):
