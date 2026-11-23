@@ -218,8 +218,9 @@ def test_a_corpus_listing_is_recorded_as_an_external_read(monkeypatch):
     got = []
     unsubscribe = observability.subscribe(got.append)
     try:
-        corpora._repo_files("cSynBioSys/well4cell")
+        corpora._repo_files("cSynBioSys/well4cell", corpora.WELL4CELL.revision)
     finally:
         unsubscribe()
     reads = [r for r in got if r.get("kind") == "external_read"]
-    assert [r["url"] for r in reads] == ["https://huggingface.co/datasets/cSynBioSys/well4cell"]
+    assert [r["url"] for r in reads] == [
+        "https://huggingface.co/datasets/cSynBioSys/well4cell/tree/4ab4aa379afb51150b565e3afd05dddac7e27bd6"]

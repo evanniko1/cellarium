@@ -11,11 +11,12 @@ def test_download_raw_reports_per_archive_progress(monkeypatch):
     """A confirmed multi-archive pull streams progress (done/total) per archive through the agent's set_progress
     hook, so a multi-GB HF download shows 'downloading 2/5' instead of hanging silently. Network+extract stubbed."""
     huggingface_hub = pytest.importorskip("huggingface_hub")  # in the optional [hf] extra; skip if absent
-    plan = {"design": "x", "repo": hf.HF_REPO, "n_seeds": 3, "n_local": 0, "n_to_pull": 3, "est_gb": 14.0,
+    plan = {"design": "x", "repo": hf.HF_REPO, "revision": "a" * 40, "pinned": False,
+            "n_seeds": 3, "n_local": 0, "n_to_pull": 3, "est_gb": 14.0,
             "files": [{"result_id": f"r{i}", "hf_path": f"runs/cellarium/gk_{i}/000000.tar.gz",
                        "local": False, "on_hf": True, "seed": i} for i in range(3)]}
     monkeypatch.setattr(hf, "download_plan", lambda design: plan)
-    monkeypatch.setattr(huggingface_hub, "hf_hub_download", lambda repo, path, repo_type=None: "/tmp/x.tar.gz")
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", lambda repo, path, repo_type=None, revision=None: "/tmp/x.tar.gz")
 
     class _FakeTar:
         def __enter__(self): return self
@@ -92,7 +93,8 @@ def test_download_plan_counts_a_remnant_dir_as_pullable(tmp_path, monkeypatch):
     (remnant / "generation_000000").mkdir(parents=True)                 # exists, but NO simOut
     monkeypatch.setattr(hf, "_design_seeds", lambda d: [{"id": "r0", "seed": 0}])
     monkeypatch.setattr(hf.store, "simout_path", lambda rid: str(remnant))
-    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {p: 5_000_000_000 for p in paths})   # on HF, 5 GB
+    monkeypatch.setattr(hf, "_resolve_revision", lambda: ("a" * 40, None))     # no network
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths, revision: {p: 5_000_000_000 for p in paths})   # on HF, 5 GB
 
     plan = hf.download_plan("gk/x")
     assert plan["n_local"] == 0 and plan["n_to_pull"] == 1              # remnant is NOT local -> pull offered
@@ -120,20 +122,21 @@ def test_data_availability_verifies_real_hf_existence(monkeypatch):
     # verify" -- a correct message for that tree, and not what this test is about. Without this pin the
     # suite passes from git and fails from the anonymous download, which reads as broken software.
     monkeypatch.setattr(hf, "HF_REPO_REDACTED", False)
+    monkeypatch.setattr(hf, "_resolve_revision", lambda: ("a" * 40, None))     # no network
     rel = hf._hf_rel(p)
 
     def _hf(rid):
         return hf.data_availability(rid)["alternatives"]["1_download_from_hf"]
 
-    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {rel: 12345})          # (1) confirmed present
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths, revision: {rel: 12345})          # (1) confirmed present
     a = _hf("r1")
     assert a["available"] is True and a["verified"] is True and a["command"]
 
-    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {"runs/cellarium/other/s0/simOut.tar.gz": 1})  # (2) absent
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths, revision: {"runs/cellarium/other/s0/simOut.tar.gz": 1})  # (2) absent
     b = _hf("r1")
     assert b["available"] is False and b["verified"] is True and b["command"] is None and "NOT on HF" in b["status"]
 
-    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {})                     # (3) API error / offline
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths, revision: {})                     # (3) API error / offline
     c = _hf("r1")
     assert c["available"] is False and c["verified"] is False and c["command"] is None and "could not verify" in c["status"]
 
@@ -152,7 +155,8 @@ def test_redacted_dataset_owner_is_named_as_the_cause_not_offline(monkeypatch):
                         lambda: [{"id": "r1", "perturbation": "gene_knockout", "condition": "KO:pfkA", "seed": 0}])
     monkeypatch.setattr(hf, "_full_simout_local", lambda path: False)
     monkeypatch.setattr(hf, "HF_HAS_RAW", True)
-    monkeypatch.setattr(hf, "_repo_sizes", lambda paths: {})     # the ONE observable both cases share
+    monkeypatch.setattr(hf, "_repo_sizes", lambda paths, revision: {})     # the ONE observable both cases share
+    monkeypatch.setattr(hf, "_resolve_revision", lambda: ("a" * 40, None))     # no network
 
     def _status():
         return hf.data_availability("r1")["alternatives"]["1_download_from_hf"]["status"]

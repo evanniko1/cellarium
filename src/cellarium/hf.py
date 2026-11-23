@@ -26,6 +26,11 @@ HF_REPO_REDACTED = "X" in _HF_OWNER.upper() and set(_HF_OWNER.upper()) <= set("X
 # users get that capability out of the box. Per-design HF presence is still checked (a design not on HF reports so
 # honestly). Set CELLARIUM_HF_HAS_RAW=0 to force the regenerate-locally path instead.
 HF_HAS_RAW = os.environ.get("CELLARIUM_HF_HAS_RAW", "1").strip().lower() in ("1", "true", "yes")
+# WHICH COMMIT OF THE DEPOSIT IS READ (2026-11-23, checklist item T.6). Every listing and download names one
+# commit. With this unset, each plan resolves the head once and reads only at it, and the plan reports which
+# commit that was, because the deposit grows as designs are uploaded and a pin in code would hide every new
+# upload. Set it to a full 40-character commit to freeze the deposit, for example for the paper's release.
+HF_REVISION_PIN = os.environ.get("CELLARIUM_HF_REVISION", "").strip()
 # What the shard carries locally (no raw read) vs what needs raw simOut (HF download or regenerate).
 SHARD_ANSWERS = "panel-species terminal+coarse trajectory, summary channels, viability, pathways"
 NEEDS_RAW = "arbitrary (non-panel) species, full-resolution trajectories, FBA reaction/exchange fluxes"
@@ -72,9 +77,21 @@ def _design_seeds(design: str) -> list[dict]:
             and ((r.get("condition") or "") == cond or (cond and cond in (r.get("condition") or "")))]
 
 
-def _repo_sizes(paths: list[str]) -> dict:
-    """{hf_path: size_bytes} for the given repo paths that actually exist — one HfApi tree call per design dir.
-    Empty dict on any network/API error (caller treats missing as unavailable)."""
+def _resolve_revision() -> tuple[str | None, str | None]:
+    """(commit, error) for one plan: the pin when CELLARIUM_HF_REVISION is set, otherwise the head asked once.
+    A pin that is not a full commit is an error, not a branch name to read from."""
+    from .corpora import COMMIT, resolve_commit
+    if HF_REVISION_PIN:
+        if COMMIT.fullmatch(HF_REVISION_PIN):
+            return HF_REVISION_PIN, None
+        return None, (f"CELLARIUM_HF_REVISION is {HF_REVISION_PIN!r}; it must be a full commit, 40 lower-case "
+                      f"hex characters. Nothing was read.")
+    return resolve_commit(HF_REPO)
+
+
+def _repo_sizes(paths: list[str], revision: str) -> dict:
+    """{hf_path: size_bytes} for the given repo paths that actually exist at `revision` — one HfApi tree call per
+    design dir. Empty dict on any network/API error (caller treats missing as unavailable)."""
     try:
         from huggingface_hub import HfApi
     except Exception:
@@ -97,9 +114,10 @@ def _repo_sizes(paths: list[str]) -> dict:
     for d in dirs:
         for api in clients:
             try:
-                egress.record("hf_list_repo_tree", f"https://huggingface.co/datasets/{HF_REPO}/tree/main/{d}",
+                egress.record("hf_list_repo_tree", f"https://huggingface.co/datasets/{HF_REPO}/tree/{revision}/{d}",
                               purpose="raw simOut availability")
-                for f in api.list_repo_tree(HF_REPO, path_in_repo=d, repo_type="dataset", recursive=False):
+                for f in api.list_repo_tree(HF_REPO, path_in_repo=d, repo_type="dataset", recursive=False,
+                                            revision=revision):
                     p = getattr(f, "path", "")
                     if p.endswith(".tar.gz"):
                         sizes[p] = int(getattr(f, "size", 0) or 0)
@@ -123,13 +141,17 @@ def download_plan(design: str) -> dict:
         local = _full_simout_local(path)   # ACTUAL simOut present, not just the run dir (a remnant is NOT local)
         want.append({"result_id": r["id"], "seed": r.get("seed"), "hf_path": rel, "local": local})
     need = [w for w in want if w["hf_path"] and not w["local"]]
-    sizes = _repo_sizes([w["hf_path"] for w in need]) if need else {}
+    # ONE commit for the whole plan: what is listed here is exactly what download_raw pulls, even if an upload
+    # lands in between. Not resolved when nothing is needed, so an all-local design asks the hub nothing.
+    revision, revision_error = _resolve_revision() if need else (None, None)
+    sizes = _repo_sizes([w["hf_path"] for w in need], revision) if need and revision else {}
     for w in need:
         w["size_gb"] = round(sizes.get(w["hf_path"], 0) / 1e9, 2) if w["hf_path"] in sizes else None
         w["on_hf"] = w["hf_path"] in sizes
     to_pull = [w for w in need if w.get("on_hf")]
     est_gb = round(sum((sizes.get(w["hf_path"], 0) for w in to_pull)) / 1e9, 2)
-    return {"design": design, "repo": HF_REPO,
+    return {"design": design, "repo": HF_REPO, "revision": revision, "pinned": bool(HF_REVISION_PIN),
+            **({"revision_error": revision_error} if revision_error else {}),
             "n_seeds": len(want), "n_local": sum(1 for w in want if w["local"]),
             "n_to_pull": len(to_pull), "est_gb": est_gb,
             "not_on_hf": [w["result_id"] for w in need if not w.get("on_hf")],
@@ -150,6 +172,8 @@ def download_raw(design: str, confirm: bool = False, on_progress=None) -> dict:
         msg = ("already local — nothing to download." if plan["n_local"] == plan["n_seeds"]
                else ("the dataset owner is redacted in this snapshot, so no seed can be found on HF — set "
                      "CELLARIUM_HF_REPO, or regenerate locally." if HF_REPO_REDACTED
+                     else "nothing was read, because the commit to read could not be named: "
+                          + plan["revision_error"] if plan.get("revision_error")
                      else "none of the missing seeds are on HF yet (regenerate locally, or check the upload ledger)."))
         return {**plan, "downloaded": [], "note": msg}
     if not confirm:
@@ -176,17 +200,18 @@ def download_raw(design: str, confirm: bool = False, on_progress=None) -> dict:
     for w in to_pull:
         _tick(len(done), f"downloading {w['result_id']} (seed {w.get('seed')})")
         try:
-            egress.record("hf_hub_download", f"https://huggingface.co/datasets/{HF_REPO}/blob/main/{w['hf_path']}",
+            egress.record("hf_hub_download",
+                          f"https://huggingface.co/datasets/{HF_REPO}/blob/{plan['revision']}/{w['hf_path']}",
                           purpose="raw simOut download", result_id=w["result_id"])
-            local_tar = hf_hub_download(HF_REPO, w["hf_path"], repo_type="dataset")
+            local_tar = hf_hub_download(HF_REPO, w["hf_path"], repo_type="dataset", revision=plan["revision"])
             with tarfile.open(local_tar, "r:gz") as tf:
                 tf.extractall(str(OUT_ROOT), filter="data")   # arcname is cellarium/<variant>/<seed> -> lands under runs/
             done.append(w["result_id"])
             _tick(len(done), f"extracted {w['result_id']}")
         except Exception as e:
             failed.append({"result_id": w["result_id"], "error": str(e)[:160]})
-    return {"design": design, "repo": HF_REPO, "downloaded": done, "failed": failed,
-            "est_gb": plan["est_gb"],
+    return {"design": design, "repo": HF_REPO, "revision": plan["revision"], "pinned": plan["pinned"],
+            "downloaded": done, "failed": failed, "est_gb": plan["est_gb"],
             "note": f"pulled {len(done)} archive(s) into {OUT_ROOT}; raw_available/variance_band can now read them."}
 
 
@@ -203,16 +228,20 @@ def data_availability(result_id: str) -> dict:
     # download` for a run that isn't uploaded. hf_exists: True=confirmed present, False=confirmed absent, None=could-
     # not-verify (offline / no hub client). A download command is emitted ONLY when presence is confirmed.
     hf_exists = None
+    revision = revision_error = None
     if HF_HAS_RAW and rel is not None:
-        sizes = _repo_sizes([rel])          # {} on any API/network error -> stays unverified, never a false 'present'
+        revision, revision_error = _resolve_revision()
+        sizes = _repo_sizes([rel], revision) if revision else {}   # {} on any error -> unverified, never 'present'
         if sizes:
             hf_exists = rel in sizes
     available = hf_exists is True
-    download = (f"hf download {HF_REPO} --repo-type dataset --include '{rel}' --local-dir {OUT_ROOT.parent} && "
-                f"tar xzf '{OUT_ROOT.parent}/{rel}' -C '{OUT_ROOT}'"
+    # The command names the commit that was just checked, so the copy a reader pulls is the one verified here.
+    download = (f"hf download {HF_REPO} --repo-type dataset --revision {revision} --include '{rel}' "
+                f"--local-dir {OUT_ROOT.parent} && tar xzf '{OUT_ROOT.parent}/{rel}' -C '{OUT_ROOT}'"
                 if available else None)
-    hf_alt = {"repo": HF_REPO, "path": rel, "available": available, "verified": hf_exists is not None,
-              "command": download}
+    hf_alt = {"repo": HF_REPO, "path": rel, "revision": revision, "available": available,
+              "verified": hf_exists is not None, "command": download,
+              **({"revision_error": revision_error} if revision_error else {})}
     if not HF_HAS_RAW:
         hf_alt["status"] = "raw corpus not uploaded to HF yet — use alternative 2 (regenerate) for now"
     elif rel is None:

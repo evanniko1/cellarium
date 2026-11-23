@@ -9,6 +9,7 @@ guard stops noticing its fault, the claim in the audit stops being true, and thi
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -25,9 +26,10 @@ import test_gate_error_accounting as ACCOUNT  # noqa: E402
 import test_gate_error_causes as CAUSES  # noqa: E402
 import test_gate_oracle as ORACLE  # noqa: E402
 import test_gate_reliability as RELIABILITY  # noqa: E402
+import test_remote_reads_are_pinned as PINNED  # noqa: E402
 
 from cellarium import capability as C  # noqa: E402
-from cellarium import egress, gate  # noqa: E402
+from cellarium import corpora, egress, gate  # noqa: E402
 
 RUN = REPO / "evals" / "results" / "gate_eval_8framings.json"
 
@@ -49,6 +51,18 @@ def test_T5_isolation_from_ground_truth(monkeypatch):
     """T.5: agents isolated from the results. Plant: the blind-run block list emptied."""
     monkeypatch.setattr(egress, "BLIND_BLOCKED_DOMAINS", ())
     assert _goes_red(BLIND.test_a_search_that_touched_a_dataset_page_never_reaches_a_role, monkeypatch)
+
+
+def test_T6_remote_reads_name_a_commit(monkeypatch):
+    """T.6: an environment frozen at release. Plants: well4cell unpinned; the revision removed from the real
+    corpora.py download call. Each must turn its guard red."""
+    monkeypatch.setattr(corpora, "WELL4CELL", dataclasses.replace(corpora.WELL4CELL, revision=""))
+    assert _goes_red(PINNED.test_well4cell_is_read_at_the_rc2_commit)
+    src = (REPO / "src" / "cellarium" / "corpora.py").read_text(encoding="utf-8")
+    assert "revision=rev," in src, "the plant's anchor moved; re-aim it"
+    assert PINNED.hub_reads_without_revision(src.replace("revision=rev,", "", 1)) == [
+        f"<src>:{next(i for i, line in enumerate(src.splitlines(), 1) if 'hf_hub_download(c.locator' in line)} "
+        "hf_hub_download"]
 
 
 def test_T9_the_oracle_solver(monkeypatch, recs):
@@ -99,5 +113,7 @@ def test_the_guards_pass_unplanted(monkeypatch, recs):
                      (RELIABILITY.test_a_system_that_refuses_everything_scores_0_556_on_this_surface, (recs,)),
                      (ORACLE.test_a_perfect_parser_matches_26_of_27_cells_and_the_27th_is_gate_8b_d, (recs, None)),
                      (ACCOUNT.test_the_8_framing_run_has_27_wrong_verdicts_and_2_of_them_answer_with_no_run_behind_them,
-                      ())):
+                      ()),
+                     (PINNED.test_well4cell_is_read_at_the_rc2_commit, ()),
+                     (PINNED.test_every_hub_read_in_the_package_names_a_revision, ())):
         assert not _goes_red(fn, *args), fn.__name__

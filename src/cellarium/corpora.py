@@ -26,12 +26,22 @@ WHAT THIS MODULE DOES NOT DO. It does not make two corpora comparable. Cellarium
 knowledge base crossed with an operon setting and an elongation model — the "arm" of section 03 — and
 nothing here asserts that well4cell's physiology is the same arm. `answers` and `does_not_answer` record
 what each corpus can be ASKED, which the capability gate consumes; they do not license a pooled statistic.
+
+EVERY REMOTE READ NAMES A COMMIT (2026-11-23, Agentic Benchmark Checklist item T.6). A remote corpus is read at
+a commit, never at whatever the Hub serves today. A corpus whose claims this project measures against is PINNED
+in code (`revision`): well4cell is pinned to its 1.0.0-rc2 commit. A corpus with no pin resolves ONE commit per
+plan, reads only at it and reports it, so the read can be repeated exactly even though it was not frozen. The
+cache knows which commit it holds from the hub library's own download records, so a cache fetched at another
+commit reads `stale_cache`, never `ready`, and `verify_cache` re-hashes every cached file against the etag the
+hub served it with.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -49,6 +59,14 @@ KINDS = ("local", "hf")
 # Reporting 7.85 here where the dataset card and the Platform Map say 7.5 would put a third number on one
 # file, which is the decay this project files findings about. One convention, named where it is used.
 MB = 1024 ** 2
+# A commit, written the way the hub writes one: 40 lower-case hex characters. A branch or tag name moves and a
+# short sha is ambiguous, so neither pins anything; an upper-case sha would never equal the commit the cache
+# records.
+COMMIT = re.compile(r"[0-9a-f]{40}")
+# Where huggingface_hub keeps its record of each local-dir download: `<path>.metadata`, three lines (commit,
+# etag, time written). Read from the installed library (0.30.2) and checked against the real well4cell cache on
+# 2026-11-23: 24 records, 24 commits equal to the pin, 24 etags equal to the file's recomputed hash.
+HUB_RECORDS = Path(".cache") / "huggingface" / "download"
 
 
 @dataclass(frozen=True)
@@ -74,6 +92,7 @@ class Corpus:
     declared_in: str = "code"          # "code" for the three below, "user" for a plugged-in one
     notes: str = ""
     extra: dict = field(default_factory=dict)
+    revision: str = ""                 # "hf" only: the commit every read names. "" = resolve one per plan
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -82,6 +101,13 @@ class Corpus:
             raise ValueError(f"{self.key}: row_unit is required — a corpus whose row unit is undeclared "
                              f"cannot be pooled or compared, and this project has already shipped one "
                              f"wrong statement of it (mcp.describe_cellarium: 'one row is one generation')")
+        if self.revision and self.kind != "hf":
+            raise ValueError(f"{self.key}: a revision pins a remote ('hf') corpus; a {self.kind!r} corpus is "
+                             f"read in place and has no commit to name")
+        if self.revision and not COMMIT.fullmatch(self.revision):
+            raise ValueError(f"{self.key}: revision must be a full commit, 40 lower-case hex characters, not "
+                             f"{self.revision!r}. A branch or tag moves and a short sha is ambiguous, so "
+                             f"neither pins anything.")
 
 
 # --- the corpora declared in code -----------------------------------------------------------------
@@ -125,7 +151,9 @@ CELLARIUM_HF = Corpus(
     licence="see dataset card",
     caveats=("Neither a superset nor a subset of the local copy.",),
     notes="Reached through `hf.py`, which owns the per-design plan and the gated pull. This record exists "
-          "so the deposit appears in the registry beside the others rather than being invisible to it.",
+          "so the deposit appears in the registry beside the others rather than being invisible to it. "
+          "Not pinned in code, because the deposit grows as designs are uploaded: each plan resolves one "
+          "commit, reads only at it and reports it. Set CELLARIUM_HF_REVISION to freeze it.",
 )
 
 WELL4CELL = Corpus(
@@ -203,7 +231,10 @@ WELL4CELL = Corpus(
           "and that 12 MB makes all 978 files and ~1.4 TB queryable. Bulk is a different cost class: one "
           "charging part file is 1.65 GB, and the configs total 1,375,149,012 data rows "
           "(core 379,148,262; expression_1s 379,148,262; metabolism_1s 379,128,423; charging 62,396,417; "
-          "expression 38,098,821; metabolism 38,096,827; summary 139,039). Public, not gated.",
+          "expression 38,098,821; metabolism 38,096,827; summary 139,039). Public, not gated. "
+          "Every read names the 1.0.0-rc2 commit (`revision`), so a later release changes nothing here until "
+          "the pin is moved on purpose.",
+    revision="4ab4aa379afb51150b565e3afd05dddac7e27bd6",
     extra={"api": "https://huggingface.co/api/datasets/cSynBioSys/well4cell",
            "audit": "kinetic_port/WELL4CELL_AUDIT.md",
            "audit_release": "1.0.0-rc1",
@@ -322,8 +353,51 @@ def _local_index_files(c: Corpus) -> list[Path]:
 
 
 def _cached_files(c: Corpus) -> list[Path]:
+    """The cached DATA files. The hub library's own bookkeeping under `.cache/` is not data: counting it, as
+    this did until 2026-11-23, reported the real well4cell cache as 49 files when it holds 24."""
     d = cache_dir(c.key)
-    return [p for p in sorted(d.rglob("*")) if p.is_file()] if d.is_dir() else []
+    if not d.is_dir():
+        return []
+    return [p for p in sorted(d.rglob("*")) if p.is_file() and p.relative_to(d).parts[0] != ".cache"]
+
+
+def _download_record(c: Corpus, rel: str) -> dict | None:
+    """The hub library's record of where one cached file came from: {commit, etag}, or None when there is no
+    valid record. Mirrors the library's own rule that a file modified after its record was written has no valid
+    record (it allows one second of clock slack, and so does this)."""
+    d = cache_dir(c.key)
+    try:
+        commit, etag, written = (d / HUB_RECORDS / (rel + ".metadata")).read_text(encoding="utf-8").splitlines()[:3]
+        if (d / rel).stat().st_mtime - 1 > float(written):
+            return None
+    except (OSError, ValueError):
+        return None
+    return {"commit": commit.strip(), "etag": etag.strip()}
+
+
+def cache_revisions(key: str) -> dict:
+    """{cached file: the commit it was downloaded at, or None when that is unrecorded}."""
+    c = get(key)
+    d = cache_dir(key)
+    return {p.relative_to(d).as_posix(): (_download_record(c, p.relative_to(d).as_posix()) or {}).get("commit")
+            for p in _cached_files(c)} if c else {}
+
+
+def _commit_counts(revs: dict) -> dict:
+    out: dict = {}
+    for v in revs.values():
+        out[v or "unrecorded"] = out.get(v or "unrecorded", 0) + 1
+    return out
+
+
+def _cache_fields(c: Corpus) -> dict:
+    """What `status` says about the cache's commit. `cache_revision` is the one commit every cached file shares,
+    or None when they do not share one or any is unrecorded; `cache_matches_pin` is None for an unpinned corpus,
+    because there is nothing to match."""
+    counts = _commit_counts(cache_revisions(c.key))
+    one = next(iter(counts)) if len(counts) == 1 and "unrecorded" not in counts else None
+    return {"pinned_revision": c.revision or None, "cache_revision": one, "cache_revisions": counts,
+            "cache_matches_pin": (one == c.revision) if c.revision else None}
 
 
 def status(key: str) -> dict:
@@ -336,6 +410,8 @@ def status(key: str) -> dict:
       `undeclared_index` — registered without an index, so it cannot be queried (the HF deposit record is
                            deliberately in this state: it is reached per design through `hf.py`, not by an
                            index of its own).
+      `stale_cache`  — a PINNED corpus whose cache was fetched at another commit, or whose files carry no
+                       valid download record. The index is local, but it is not the release this code reads.
     No network call is made. A remote corpus's reachability is UNMEASURED here and is measured only by
     `metadata_plan`, so that `status()` stays usable offline and never reports "unreachable" for a laptop
     with the wifi off — the misattribution recorded in `hf._repo_sizes` and again in BACKLOG M-13.
@@ -369,7 +445,14 @@ def status(key: str) -> dict:
                     "index_mb": round(sum(p.stat().st_size for p in files) / MB, 2)}
         return out
     local_index = cache_dir(c.key) / c.index
-    if local_index.is_file():
+    out |= _cache_fields(c)
+    if local_index.is_file() and c.revision and not out["cache_matches_pin"]:
+        held = out["cache_revision"] or "commits " + ", ".join(sorted(out["cache_revisions"]))
+        out |= {"state": "stale_cache", "n_index_files": 1, "index_path": str(local_index),
+                "why": f"the cache holds {held}, but this release reads {c.revision} — re-fetch the metadata "
+                       f"tier to read the pinned release, or call verify_cache({c.key!r}) to see which files "
+                       f"differ"}
+    elif local_index.is_file():
         out |= {"state": "ready", "n_index_files": 1,
                 "index_mb": round(local_index.stat().st_size / MB, 2),
                 "index_path": str(local_index)}
@@ -433,8 +516,42 @@ def _clients() -> list:
     return out
 
 
-def _repo_files(repo: str) -> tuple[dict, str | None]:
-    """({path: size_bytes}, error). Exactly one of the two is populated, and the error is the real message."""
+def resolve_commit(repo: str) -> tuple[str | None, str | None]:
+    """(commit, error): the commit a dataset repo's head points at NOW, asked once, so that everything read
+    under one plan comes from that one commit. Exactly one of the two is populated. Used for a corpus with no
+    pin, and by `hf.py` for the deposit."""
+    try:
+        from huggingface_hub import HfApi  # noqa: F401 - the ImportError is the thing we report
+    except ImportError as exc:
+        return None, (f"huggingface_hub is not installed ({exc}). That is an environment gap, not a "
+                      f"statement about {repo}: install it with `pip install huggingface_hub`.")
+    from . import egress
+    errors = []
+    for api in _clients():
+        try:
+            egress.record("hf_repo_info", f"https://huggingface.co/api/datasets/{repo}",
+                          purpose="resolve the commit to read")
+            sha = str(getattr(api.repo_info(repo, repo_type="dataset"), "sha", "") or "")
+            if COMMIT.fullmatch(sha):
+                return sha, None
+            errors.append(f"the hub answered with {sha!r}, which is not a commit")
+        except Exception as exc:                          # noqa: BLE001 - reported below
+            errors.append(f"{type(exc).__name__}: {exc}")
+    return None, (f"could not resolve the commit to read for {repo}, so nothing was read. This may be the "
+                  f"network, a stale local token, or the repo itself: " + " | ".join(errors))
+
+
+def _revision_for(c: Corpus) -> tuple[str | None, bool, str | None]:
+    """(commit, pinned, error) for one plan: the pin when there is one, otherwise the head resolved once."""
+    if c.revision:
+        return c.revision, True, None
+    sha, err = resolve_commit(c.locator)
+    return sha, False, err
+
+
+def _repo_files(repo: str, revision: str) -> tuple[dict, str | None]:
+    """({path: size_bytes}, error) at one commit. Exactly one of the two is populated, and the error is the
+    real message."""
     try:
         from huggingface_hub import HfApi  # noqa: F401 - the ImportError is the thing we report
     except ImportError as exc:
@@ -444,8 +561,9 @@ def _repo_files(repo: str) -> tuple[dict, str | None]:
     for api in _clients():
         try:
             from . import egress
-            egress.record("hf_list_repo_tree", f"https://huggingface.co/datasets/{repo}", purpose="corpus file listing")
-            tree = api.list_repo_tree(repo, repo_type="dataset", recursive=True)
+            egress.record("hf_list_repo_tree", f"https://huggingface.co/datasets/{repo}/tree/{revision}",
+                          purpose="corpus file listing")
+            tree = api.list_repo_tree(repo, repo_type="dataset", recursive=True, revision=revision)
             return {getattr(f, "path", ""): int(getattr(f, "size", 0) or 0)
                     for f in tree if getattr(f, "size", None) is not None}, None
         except Exception as exc:                          # noqa: BLE001 - reported below
@@ -476,15 +594,19 @@ def metadata_plan(key: str) -> dict:
     if not c.metadata_files:
         return {"key": key, "kind": c.kind, "nothing_to_fetch": True,
                 "why": "this corpus declares no metadata tier. " + (c.notes or "")}
-    files, err = _repo_files(c.locator)
+    rev, pinned, err = _revision_for(c)
     if err:
         return {"key": key, "error": err, "network_checked": True}
+    files, err = _repo_files(c.locator, rev)
+    if err:
+        return {"key": key, "error": err, "network_checked": True, "revision": rev, "pinned": pinned}
     want = _match(c.metadata_files, list(files))
     missing = [pat for pat in c.metadata_files if not _match((pat,), list(files))]
-    cached = _cached_files(c)
-    have = {p.relative_to(cache_dir(key)).as_posix() for p in cached} if cached else set()
+    # A cached file counts as present only if it was downloaded at THIS commit: a file of the same name from
+    # another release is a different file.
+    have = {p for p, commit in cache_revisions(key).items() if commit == rev}
     to_pull = [p for p in want if p not in have]
-    return {"key": key, "repo": c.locator, "n_repo_files": len(files),
+    return {"key": key, "repo": c.locator, "revision": rev, "pinned": pinned, "n_repo_files": len(files),
             "n_matched": len(want), "n_already_local": len(want) - len(to_pull),
             "n_to_pull": len(to_pull),
             "est_mb": round(sum(files[p] for p in to_pull) / MB, 2),
@@ -513,14 +635,15 @@ def fetch_metadata(key: str, confirm: bool = False, on_progress=None) -> dict:
     dest = cache_dir(key)
     dest.mkdir(parents=True, exist_ok=True)
     got, failed = [], []
+    rev = plan["revision"]                                # the one commit the plan listed; every file comes from it
     for i, f in enumerate(plan["files"], 1):
         last = "no attempt was made"
         for api_kw in ({}, {"token": False}):
             try:
                 from . import egress
-                egress.record("hf_hub_download", f"https://huggingface.co/datasets/{c.locator}/blob/main/{f['path']}",
+                egress.record("hf_hub_download", f"https://huggingface.co/datasets/{c.locator}/blob/{rev}/{f['path']}",
                               purpose="corpus metadata fetch", corpus=key)
-                hf_hub_download(c.locator, f["path"], repo_type="dataset",
+                hf_hub_download(c.locator, f["path"], repo_type="dataset", revision=rev,
                                 local_dir=str(dest), **api_kw)
                 got.append(f["path"])
                 break
@@ -531,10 +654,57 @@ def fetch_metadata(key: str, confirm: bool = False, on_progress=None) -> dict:
         if on_progress:
             on_progress({"i": i, "n": len(plan["files"]), "path": f["path"]})
     return {"key": key, "fetched": len(got), "failed": failed, "cache": str(dest),
-            "state_now": status(key)["state"],
+            "revision": rev, "pinned": plan["pinned"], "state_now": status(key)["state"],
             "note": ("the corpus is queryable" if not failed else
                      f"{len(failed)} file(s) did not arrive, so the corpus is NOT fully fetched; the "
                      f"errors are reported rather than reduced to 'unavailable'")}
+
+
+def _content_hash(data: bytes, etag: str) -> str | None:
+    """The hash the hub's etag is: SHA-256 of the bytes for a file stored in large-file storage (64 hex), git's
+    blob hash for a small one (40 hex). None for any other shape, which then counts as a mismatch."""
+    if len(etag) == 64:
+        return hashlib.sha256(data).hexdigest()
+    if len(etag) == 40:
+        return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+    return None
+
+
+def verify_cache(key: str) -> dict:
+    """Re-hash every cached file and compare it with the etag the hub served it with. No network.
+
+    `status` trusts the download records; this checks the bytes behind them, which is what a reader needs before
+    citing a number computed from the cache. `verified` is True only when every file has a valid record, every
+    record names one commit (the pin, for a pinned corpus), and every recomputed hash equals its etag.
+    """
+    c = get(key)
+    if c is None:
+        return {"error": f"no corpus registered under {key!r}"}
+    d = cache_dir(key)
+    files = [p.relative_to(d).as_posix() for p in _cached_files(c)]
+    mismatches, unrecorded, revs, ok = [], [], {}, 0
+    for rel in files:
+        rec = _download_record(c, rel)
+        if rec is None:
+            unrecorded.append(rel)
+            continue
+        revs[rec["commit"]] = revs.get(rec["commit"], 0) + 1
+        if _content_hash((d / rel).read_bytes(), rec["etag"]) == rec["etag"]:
+            ok += 1
+        else:
+            mismatches.append(rel)
+    one = next(iter(revs)) if len(revs) == 1 else None
+    at_pin = (one == c.revision) if c.revision else one is not None
+    verified = bool(files) and not mismatches and not unrecorded and at_pin
+    why = ("every cached file is byte-identical to what the hub served at " + str(one) if verified else
+           "nothing is cached" if not files else
+           f"{len(mismatches)} file(s) differ from their etag and {len(unrecorded)} have no valid record"
+           if mismatches or unrecorded else
+           f"the cache holds {sorted(revs)}, not the pin {c.revision}" if c.revision else
+           f"the cache mixes commits {sorted(revs)}")
+    return {"key": key, "revision": one, "pinned_revision": c.revision or None, "verified": verified,
+            "n_files": len(files), "n_bytes_verified": ok, "revisions": revs,
+            "mismatches": mismatches, "unrecorded": unrecorded, "why": why}
 
 
 def bulk_plan(key: str, patterns=("data/**",)) -> dict:
@@ -549,12 +719,15 @@ def bulk_plan(key: str, patterns=("data/**",)) -> dict:
         return {"error": f"no corpus registered under {key!r}"}
     if c.kind == "local":
         return {"key": key, "nothing_to_fetch": True, "why": "a local corpus has no bulk to fetch"}
-    files, err = _repo_files(c.locator)
+    rev, pinned, err = _revision_for(c)
     if err:
         return {"key": key, "error": err, "network_checked": True}
+    files, err = _repo_files(c.locator, rev)
+    if err:
+        return {"key": key, "error": err, "network_checked": True, "revision": rev, "pinned": pinned}
     want = _match(tuple(patterns), list(files))
     total = sum(files[p] for p in want)
-    return {"key": key, "repo": c.locator, "patterns": list(patterns),
+    return {"key": key, "repo": c.locator, "revision": rev, "pinned": pinned, "patterns": list(patterns),
             "n_files": len(want), "est_gb": round(total / 1024 ** 3, 2),
             "largest": [{"path": p, "gb": round(files[p] / 1024 ** 3, 2)}
                         for p in sorted(want, key=lambda x: -files[x])[:5]],

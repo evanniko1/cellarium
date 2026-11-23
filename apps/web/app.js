@@ -1010,6 +1010,8 @@ const CORPORA_PILLS = {
   metadata_absent: `<span class="corpora-pill absent">not fetched</span>`,
   locator_missing: `<span class="corpora-pill missing">not on this machine</span>`,
   undeclared_index: `<span class="corpora-pill na">not an index</span>`,
+  // The index is local but was fetched at a different commit from the one this release reads.
+  stale_cache: `<span class="corpora-pill absent">other version</span>`,
 };
 function corporaPill(state) {
   return CORPORA_PILLS[state] || `<span class="corpora-pill na">${esc(state || "unknown")}</span>`;
@@ -1027,6 +1029,8 @@ function corporaActs(c) {
   const out = [];
   if (c.state === "metadata_absent" && c.kind === "hf")
     out.push(`<button class="btn" data-fetch="${esc(c.key)}">Fetch index</button>`);
+  if (c.state === "stale_cache" && c.kind === "hf")
+    out.push(`<button class="btn" data-fetch="${esc(c.key)}">Re-fetch index</button>`);
   if (c.kind === "hf" && c.state !== "undeclared_index")
     out.push(`<button class="btn ghost" data-bulk="${esc(c.key)}">Size bulk</button>`);
   return out.join("");

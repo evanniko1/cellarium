@@ -170,7 +170,7 @@ def test_an_offline_status_call_never_claims_a_remote_corpus_is_unreachable():
     JSON) and that `hf._repo_sizes` records for a stale token on a public repo."""
     st = corpora.status("well4cell")
     assert st["network_checked"] is False
-    assert st["state"] in ("ready", "metadata_absent")
+    assert st["state"] in ("ready", "metadata_absent", "stale_cache")
     assert "unreachable" not in json.dumps(st).lower()
 
 

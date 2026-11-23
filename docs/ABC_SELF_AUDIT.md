@@ -23,9 +23,9 @@ citing an R item by number.
 
 | Status | Items |
 |---|---|
-| MET, guarded by a test that was forced to fail | T.5, T.9 (gate), T.10, O.b.3, R.9, R.10 (gate), R.13 (gate) |
+| MET, guarded by a test that was forced to fail | T.5, T.6, T.9 (gate), T.10, O.b.3, R.9, R.10 (gate), R.13 (gate) |
 | MET, documented or by construction | T.2, T.4, O.h.1, O.h.2, R.1, R.2, R.3, R.6, R.7, R.8 |
-| PARTLY | T.1, T.3, T.6, T.7, T.8, R.4, R.5, R.11 |
+| PARTLY | T.1, T.3, T.7, T.8, R.4, R.5, R.11 |
 | NOT MET, open | O.c.1, O.i.1, R.12; and for the Council: R.10, R.13, O.b.2 |
 | OUT OF SCOPE, declared | T.9 for the Council: no oracle exists for an open-ended hypothesis |
 | NOT APPLICABLE, with the reason | O.a.1-2, O.b.1, O.d.1-2, O.e.1-3, O.f.1-2, O.g.1-3 |
@@ -39,7 +39,7 @@ citing an R item by number.
 | T.3 | Detect API interruptions; stop and inform | PARTLY | A failed call becomes an explicit record and is counted (`no_verdict` in the gate's error count since 2026-11-23). The harness does not stop on a burst of failures. |
 | T.4 | Clean state before each task | MET, by construction | One stateless parse and decision per gate item; a fresh `deliberate()` per Council case; a fresh session per A/B case. |
 | T.5 | Isolate agents from ground truth | MET, forced | The Council never sees corpus readings (`tests/test_blindness.py`). Its literature search is blocked from the dataset hosts and every URL it saw is audited (`tests/test_blind_external_reads.py`); a brief from a breached search is discarded and the A/B scorer refuses the run. Forced: with the block list emptied the leak reaches the proposer. Not covered: what the model already knows from training (PUB-A4). |
-| T.6 | Environment frozen at release, not dynamic | PARTLY | Simulator and knowledge base are hashed per run. The remote corpora are read at the Hub's current revision: the registry records the revision measured (well4cell 4ab4aa37, 2026-11-21), but reads do not pin it. Open. |
+| T.6 | Environment frozen at release, not dynamic | MET, forced | Simulator and knowledge base are hashed per run. Since 2026-11-23 every remote read names a commit. well4cell is pinned in code to its 1.0.0-rc2 commit (4ab4aa37); a corpus with no pin (Cellarium's own deposit, or one a user plugs in) resolves one commit per plan, reads only at it and reports it. The cache knows which commit it holds, from the hub library's own download records, and a cache from another commit reads `stale_cache`; `verify_cache` re-hashes every file against the etag it was served with, and the real well4cell cache verified 24 of 24 files at the pin (`tests/test_remote_reads_are_pinned.py`). Forced: unpinning well4cell, and removing the revision from the real download call, each turn a guard red. Not covered: the deposit is recorded, not frozen, until `CELLARIUM_HF_REVISION` is set at release; three maintenance scripts that check what is on the Hub now (`verify_hf_upload.py`, `verify_dataset_size.py`, `corpus_audit.py`) read the head by design. |
 | T.7 | Ground-truth annotation verified | PARTLY | Gate keys are generated from the registry, never hand-labelled, and a second, principled key is reported beside the stored one; the held-out set also carries a judgement key. But 16 of the 216 keys are disputed: the two kinetic tRNA-charging questions imply starvation, which their key ignores (GATE-8b-C). Re-keying waits for held-out set v2, so the benchmark is not fitted to the gate. |
 | T.8 | Task setup verified | PARTLY | Registry-deletion twins check the decision step on 16 situations (`tests/test_gate_paired_twins.py`, 16/16). The oracle (T.9) found one cell whose setup no parse can satisfy. |
 | T.9 | An oracle solver shows the configuration is correct | MET for the gate; OUT OF SCOPE for the Council | Gate: a perfect parser, handed each cell's canonical requirement, matches the key on 26 of 27 cells; the 27th is GATE-8b-D, so the ceiling on the bank is 208/216 = 0.963 (`tests/test_gate_oracle.py`; forced). Council: no oracle can say a hypothesis is the right one, and none is claimed; this row is the declaration. |
@@ -82,7 +82,8 @@ citing an R item by number.
 
 ## What this table changes
 
-Six items are open and cost something to close: O.c.1 and R.12 need human raters and paid judge runs; O.i.1
-retires the six-point rubric as a headline; T.6 needs remote reads pinned to a revision; R.13 for the Council needs
-one cheap trivial arm; O.b.2 for the Council is one probe. None of them is a property the platform claims today,
+Five items are open and cost something to close: O.c.1 and R.12 need human raters and paid judge runs; O.i.1
+retires the six-point rubric as a headline; R.13 for the Council needs
+one cheap trivial arm; O.b.2 for the Council is one probe. (T.6 was on this list until 2026-11-23, when remote
+reads were pinned.) None of them is a property the platform claims today,
 and the paper should say so in these words rather than leave the rows blank.
