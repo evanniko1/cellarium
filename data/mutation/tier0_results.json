@@ -1,6 +1,6 @@
 {
  "generated_utc": "2026-11-02T19:38:12Z",
- "note": "No mutation-score target and no pass mark by design; see docs/MUTATION_SCORE_PLAN.md s.7. `no_covering_tests` is UNMEASURED, never a pass.",
+ "note": "No mutation-score target and no pass mark by design: a survivor earns a disposition (a test, a stated reason, or a recorded blind spot), never a score. The verdict rules are stated in scripts/mutate_thresholds.py's docstring; the plan they came from is a local working document, not in the public tree. `no_covering_tests` is UNMEASURED, never a pass.",
  "n_thresholds": 64,
  "n_mutants": 128,
  "killed": 75,

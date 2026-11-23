@@ -310,7 +310,7 @@ def build_map() -> dict:
     return rows
 
 
-def _apply(path: Path, line: int, old_literal: str, new_repr: str) -> str:
+def _apply(path: Path, line: int, old_literal: str, new_repr: str) -> bytes:
     """Replace the literal on one line, byte-wise, and return the original text for restoration.
 
     `old_literal` is the source segment as WRITTEN (`20_000`, `1e-6`), not `repr` of the parsed value.
@@ -318,8 +318,11 @@ def _apply(path: Path, line: int, old_literal: str, new_repr: str) -> str:
     every downstream verdict a clean tree to run against and report the survivors of a mutation that
     never happened.
     """
-    original = path.read_text(encoding="utf-8")
-    lines = original.splitlines(keepends=True)
+    # BYTES in and out, the file's own line endings kept (2026-11-23). Text mode turned CRLF into LF on the
+    # read and, on Windows, every LF into CRLF on the write, so a "restored" file came back with different
+    # bytes: eighteen source files sat modified in `git status` with their text identical to the commit.
+    original = path.read_bytes()
+    lines = original.decode("utf-8").splitlines(keepends=True)
     i = line - 1
     if old_literal not in lines[i]:
         raise ValueError(f"{path.name}:{line} does not contain {old_literal!r}: {lines[i]!r}")
@@ -327,8 +330,13 @@ def _apply(path: Path, line: int, old_literal: str, new_repr: str) -> str:
     if mutated == lines[i]:
         raise ValueError(f"{path.name}:{line} unchanged by {old_literal!r} -> {new_repr!r}")
     lines[i] = mutated
-    path.write_text("".join(lines), encoding="utf-8")
+    path.write_bytes("".join(lines).encode("utf-8"))
     return original
+
+
+def _restore(path: Path, original: bytes) -> None:
+    """Put back exactly the bytes `_apply` returned. Every restore goes through here (tests pin it)."""
+    path.write_bytes(original)
 
 
 def _run(tests: list[str], timeout: int = 180) -> tuple[int, str, float]:
@@ -485,7 +493,7 @@ def controls(rows: dict) -> int:
             # instrument built to catch it.
             code, tail, _secs = _run(pos["tests"], timeout=_budget(pos.get("baseline_s")))
         finally:
-            path.write_text(orig, encoding="utf-8")
+            _restore(path, orig)
         print(f"  POSITIVE CONTROL  MAX_CITED_UNITS 12 -> 13 : "
               f"{'killed  OK' if code not in (0, 5) else 'SURVIVED  <-- the harness is not detecting'}")
         ok = ok and code not in (0, 5)
@@ -495,7 +503,7 @@ def controls(rows: dict) -> int:
     try:
         orig = _apply(probe, 1, "1", "2")
         code, _tail, _secs = _run(["tests/test_number_provenance.py"])
-        probe.write_text(orig, encoding="utf-8")
+        _restore(probe, orig)
         print(f"  NEGATIVE CONTROL  a constant nothing reads   : "
               f"{'survived  OK' if code == 0 else 'killed  <-- the harness reports kills it cannot have'}")
         ok = ok and code == 0
@@ -564,7 +572,7 @@ def run(rows: dict, only: str | None, limit: int | None) -> int:
                     code, tail, secs = _run(tests, timeout=retry)
                     budget = retry
             finally:
-                path.write_text(orig, encoding="utf-8")
+                _restore(path, orig)
             verdict = ("killed" if code not in (0, 5, 124)
                        else "timeout" if code == 124 else "SURVIVED")
             results.append({**{k: t[k] for k in ("module", "name", "value")}, "mutant": label,
@@ -584,7 +592,10 @@ def run(rows: dict, only: str | None, limit: int | None) -> int:
         raise AssertionError(f"verdicts {tally} sum to {sum(tally.values())}, not {len(results)} mutants")
     OUT.write_text(json.dumps({
         "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "note": "No mutation-score target and no pass mark by design; see docs/MUTATION_SCORE_PLAN.md s.7. "
+        "note": "No mutation-score target and no pass mark by design: a survivor earns a disposition (a test, "
+                "a stated reason, or a recorded blind spot), never a score. The verdict rules are stated in "
+                "scripts/mutate_thresholds.py's docstring; the plan they came from is a local working document, "
+                "not in the public tree. "
                 "`no_covering_tests` is UNMEASURED, never a pass.",
         "n_thresholds": len(items), "n_mutants": len(results),
         "killed": tally["killed"], "survived": tally["SURVIVED"],
@@ -858,7 +869,7 @@ def _discriminate(target: Path, line: int, literal: str, value, test_id: str, *,
         try:
             code, tail, secs = _run_one(test_id, cwd, timeout)
         finally:
-            target.write_text(orig, encoding="utf-8")
+            _restore(target, orig)
         runs.append({"mutant": label, "new_value": newval, "code": code, "secs": secs,
                      # pytest exits 0 for a skipped test, so the exit code alone cannot tell a test that
                      # passed under the mutant from one that never ran. A skip is UNMEASURED.
