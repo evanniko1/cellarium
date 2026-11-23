@@ -47,7 +47,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from cellarium import gate  # noqa: E402
+from cellarium import gate, outage  # noqa: E402
 
 OUT_DIR = REPO / "evals" / "results"
 VERDICTS = ("answer", "propose", "refuse")
@@ -193,6 +193,29 @@ def principled_label(item: dict) -> str:
     return "propose" if C.represents(cap, item["mode"]) else "refuse"
 
 
+def _guarded(it: dict, model: str, brk: outage.Breaker) -> dict | None:
+    """One item, unless the run is stopping: then None, and the item never starts. The breaker is consulted
+    here, where the call starts, so no call begins after it trips (checklist T.3)."""
+    if brk.tripped:
+        return None
+    rec = _run_one(it, model)
+    brk.observe(not rec["parser_failed"], rec["parser_error"] or "")
+    return rec
+
+
+def _run_one(it: dict, model: str) -> dict:
+    """The record of one item: its result, or an error record when the harness itself raised."""
+    try:
+        return _one(it, model)
+    except Exception as e:                                       # noqa: BLE001 - recorded below
+        return {"id": it["id"], "capability": it["capability"], "mode": it["mode"],
+                "framing": it["framing"], "kind": it["kind"], "required": it["required"],
+                "got": "error", "correct": False, "observable": "", "granularity": "",
+                "dependencies": [], "parser_failed": True, "parser_error": type(e).__name__,
+                "required_capabilities": [], "blocking": [], "route": "", "seconds": 0, "ask": it["ask"],
+                "error": f"{type(e).__name__}: {e}"}
+
+
 def _one(item: dict, model: str) -> dict:
     t0 = time.time()
     req = gate.parse(item["ask"], model=model)
@@ -207,6 +230,9 @@ def _one(item: dict, model: str) -> dict:
         "observable": req.observable, "granularity": req.granularity,
         "dependencies": list(req.regulatory_dependencies),
         "parser_failed": "failed:" in (req.parser or ""),
+        # The failure's type, so a run of them can be told apart from a run of hard items (checklist T.3).
+        "parser_error": (req.parser or "").split("failed: ", 1)[1].rstrip(")") if "failed:" in (req.parser or "")
+        else None,
         "required_capabilities": list(d.required_capabilities),
         "blocking": list(d.blocking), "route": d.route,
         "seconds": round(time.time() - t0, 2),
@@ -350,6 +376,9 @@ def main(argv: list[str]) -> int:
                     help="score held-out set v2; REFUSES until it is frozen by a reviewer (GATE-8b-HO2)")
     ap.add_argument("--rescore", nargs="+", metavar="RESULTS_JSON",
                     help="recompute the report of stored results from their own records; no model call")
+    ap.add_argument("--stop-after-failures", type=int, default=outage.DEFAULT_LIMIT,
+                    help="stop when this many model calls in a row fail (default %(default)s); the partial "
+                         "records go to <out>.partial.json and the exit code is 3")
     a = ap.parse_args(argv)
 
     if a.rescore:
@@ -406,21 +435,28 @@ def main(argv: list[str]) -> int:
 
     recs: list[dict] = []
     t0 = time.time()
+    # An outage must stop the run, not be scored: gate.parse proceeds on a blank requirement when its call fails,
+    # so every item after an outage began would be graded as the ignorance rule (checklist T.3).
+    brk = outage.Breaker(a.stop_after_failures)
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
-        futs = {ex.submit(_one, it, a.model): it for it in items}
+        futs = [ex.submit(_guarded, it, a.model, brk) for it in items]
         for k, f in enumerate(as_completed(futs), 1):
-            try:
-                recs.append(f.result())
-            except Exception as e:                               # noqa: BLE001
-                it = futs[f]
-                recs.append({"id": it["id"], "capability": it["capability"], "mode": it["mode"],
-                             "framing": it["framing"], "kind": it["kind"], "required": it["required"],
-                             "got": "error", "correct": False, "observable": "", "granularity": "",
-                             "dependencies": [], "parser_failed": True, "required_capabilities": [],
-                             "blocking": [], "route": "", "seconds": 0, "ask": it["ask"],
-                             "error": f"{type(e).__name__}: {e}"})
-            if k % 10 == 0 or k == len(items):
+            rec = f.result()
+            if rec is not None:                                  # None: never started, the run was stopping
+                recs.append(rec)                                 # every call that was made is on record
+            if not brk.tripped and (k % 10 == 0 or k == len(items)):
                 print(f"  {k}/{len(items)}")
+    if brk.tripped:
+        part = Path(a.out).with_name(Path(a.out).stem + ".partial.json")
+        part.parent.mkdir(parents=True, exist_ok=True)
+        rep = {"model": a.model, "framings": a.framings, "n_items_planned": len(items), "n_records": len(recs),
+               "parser_failures": sum(r["parser_failed"] for r in recs),
+               "wall_seconds": round(time.time() - t0, 1), "stopped_early": brk.report(len(items))}
+        part.write_text(json.dumps({"report": rep, "records": recs}, indent=1), encoding="utf-8")
+        print(file=sys.stderr)
+        print(brk.message(len(items)), file=sys.stderr)
+        print(f"partial records (no score; not a result): {part}", file=sys.stderr)
+        return brk.exit_code()
 
     rep = _report(recs)
     rep["model"] = a.model

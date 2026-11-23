@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cases as cases_mod  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
-from cellarium import council, instrument  # noqa: E402
+from cellarium import council, instrument, outage  # noqa: E402
 
 CONFIGS = {
     "full":          dict(),                                        # proposer + skeptic + judge (the system)
@@ -85,10 +85,13 @@ def grade_gpt(case, h, oai, model="gpt-4o") -> dict:
               + ", plus a 'rationale' string.\n\n" + json.dumps(_payload(case, h)))
     r = oai.chat.completions.create(model=model, temperature=0, response_format={"type": "json_object"},
                                     messages=[{"role": "user", "content": prompt}])
+    # An unreadable reply is an error, not a grade. This returned {} until 2026-11-23, which scores 0 of 6: a judge
+    # that said nothing readable recorded as one that found nothing (none in the stored 120 records).
     try:
         return json.loads(r.choices[0].message.content)
-    except Exception:
-        return {}
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"the GPT grader's reply is not JSON ({exc}): "
+                         f"{str(r.choices[0].message.content)[:120]!r}") from exc
 
 
 def _score(g: dict) -> int:
@@ -133,24 +136,44 @@ def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader
             "gpt_grader": gpt_model}
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
-    def _submit(ex, t):
-        return ex.submit(_one_cell, t[0], t[1], t[2], temperature, client, oai, gpt_model, claude_grader)
+    # Progress goes to <out>.partial.json, and the artefact itself is written once, complete. Until 2026-11-23
+    # every progress write went to `out_path`, so any interrupted re-run replaced the stored ablation with a
+    # fragment of a new one. An outage now stops the run (checklist T.3) and leaves only the partial.
+    brk = outage.Breaker()
+    partial = Path(out_path).with_name(Path(out_path).stem + ".partial.json")
+
+    def _guarded(t):
+        if brk.tripped:                                   # checked where a call starts, so none starts after a trip
+            return None
+        rec = _one_cell(t[0], t[1], t[2], temperature, client, oai, gpt_model, claude_grader)
+        brk.observe("error" not in rec, (rec.get("error") or "").split(":")[0])
+        return rec
 
     with ThreadPoolExecutor(max_workers=workers) as ex:
-        futs = {_submit(ex, t): t for t in tasks}
+        futs = [ex.submit(_guarded, t) for t in tasks]
         done = 0
         for fut in as_completed(futs):
             rec = fut.result()
+            if rec is None:
+                continue
             with lock:
                 results.append(rec)
-                Path(out_path).write_text(json.dumps({**meta, "results": results}, indent=2), encoding="utf-8")
+                partial.write_text(json.dumps({**meta, "results": results}, indent=2), encoding="utf-8")
             done += 1
             cq = rec.get("claude", {}).get("score", "-")
             gq = rec.get("gpt", {}).get("score", "-")
             print(f"[{done}/{len(tasks)}] {rec['id']:4s} {rec['config']:13s} rep{rec['rep']}: "
                   f"claude_q={cq}/6 gpt_q={gq}/6 conv={rec.get('converged')} rounds={rec.get('rounds_used')}"
                   f" {rec.get('error','')}", flush=True)
+    if brk.tripped:
+        partial.write_text(json.dumps({**meta, "stopped_early": brk.report(len(tasks)), "results": results},
+                                      indent=2), encoding="utf-8")
+        print(f"\n{brk.message(len(tasks))}\npartial results, not a result: {partial}", flush=True)
+        return brk.exit_code()
+    Path(out_path).write_text(json.dumps({**meta, "results": results}, indent=2), encoding="utf-8")
+    partial.unlink(missing_ok=True)
     print(f"\nwrote {len(results)} records -> {out_path}", flush=True)
+    return 0
 
 
 def main():
@@ -164,8 +187,9 @@ def main():
     p.add_argument("--out", default=str(Path(__file__).resolve().parent / "results" / "ablation.json"))
     p.add_argument("--workers", type=int, default=6)
     a = p.parse_args()
-    run(a.ids, a.configs.split(","), a.reps, a.temperature, a.out, a.gpt_model, a.claude_grader, a.workers)
+    return run(a.ids, a.configs.split(","), a.reps, a.temperature, a.out, a.gpt_model, a.claude_grader,
+               a.workers)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

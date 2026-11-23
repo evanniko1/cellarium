@@ -13,9 +13,10 @@ grades + aggregates into evals/results/:
 
 Design goals (so you can literally leave it running):
   - UNATTENDED: never prompts; the Council's D3 ask_user is answered by a fixed scope policy.
-  - CRASH-ISOLATED: a per-case/per-arm failure is recorded and the sweep continues.
-  - RESUMABLE: a completed arm is skipped on re-launch (ledger at evals/results/ab_ledger.json). If it dies at
-    case 17, re-launch and it picks up at 17.
+  - CRASH-ISOLATED: a per-case/per-arm failure is recorded and the sweep continues -- until five arms in a row
+    have failed, which is an outage rather than five hard cases: then it stops, saves the ledger and exits 3.
+  - RESUMABLE: a completed arm is skipped on re-launch (ledger at evals/results/ab_ledger.json) and an errored
+    arm is retried. If it dies at case 17, re-launch and it picks up at 17.
 
 Needs ANTHROPIC_API_KEY (read from .env at the repo ROOT). Long + billable: ~25 cases x 2 arms x many model calls.
 
@@ -310,8 +311,16 @@ def main():
         LEDGER = Path(a.out)
 
     _resolve_api_key(_log)
-    from cellarium import llm
+    from cellarium import llm, outage
     client = llm.client(max_retries=4)
+    # Stop at the first run of consecutive failed arms rather than keep paying through an outage (checklist T.3).
+    brk = outage.Breaker()
+    n_planned = max(1, a.reps) * len(cases_mod.by_id(a.ids or None)) * (2 if a.arm == "both" else 1)
+
+    def _stopped() -> int:
+        _log(brk.message(n_planned))
+        _log(f"ledger saved: {LEDGER}. Re-run the same command to resume; the errored arms are retried.")
+        return brk.exit_code()
     council_models = {"proposer": a.council_model, "skeptic": a.council_model, "judge": a.council_model}
 
     selected = cases_mod.by_id(a.ids or None)
@@ -329,7 +338,7 @@ def main():
         slot["_case"], slot["_rep"] = cid, rep          # so aggregate_ab can group replicate cells by case
         _log(f"[{i}/{len(selected)}]{'' if a.reps == 1 else f' rep {rep + 1}/{a.reps}'} {cid}  {case['question'][:60]}")
 
-        if a.arm in ("b", "both") and (a.force or "b" not in slot):
+        if a.arm in ("b", "both") and (a.force or "b" not in slot or slot["b"].get("status") == "error"):
             try:
                 slot["b"] = run_arm_b(case, client, council_models, a.rounds, a.quota, a.grader_model,
                                       judge_model=a.judge_model or a.grader_model)
@@ -343,8 +352,10 @@ def main():
                 _log(f"    Arm B  !! {type(exc).__name__}: {exc}")
                 traceback.print_exc()
             _save_ledger(led)
+            if brk.observe(slot["b"].get("status") != "error", str(slot["b"].get("error", "")).split(":")[0]):
+                return _stopped()
 
-        if a.arm in ("a", "both") and (a.force or "a" not in slot):
+        if a.arm in ("a", "both") and (a.force or "a" not in slot or slot["a"].get("status") == "error"):
             try:
                 slot["a"] = run_arm_a(case, a.agent_model, client=client,
                                       judge_model=a.judge_model or a.grader_model,
@@ -359,12 +370,15 @@ def main():
                 _log(f"    Arm A  !! {type(exc).__name__}: {exc}")
                 traceback.print_exc()
             _save_ledger(led)
+            if brk.observe(slot["a"].get("status") != "error", str(slot["a"].get("error", "")).split(":")[0]):
+                return _stopped()
 
     if a.reps == 1:
         _aggregate(led, selected, a, time.time() - t0)   # the n=1 scorecard (keyed by cid) — unchanged
     else:
         _log(f"\nwrote {a.reps}×{len(selected)} replicate cell(s) in {round(time.time() - t0, 1)}s → run the powered "
              f"comparison:\n    python evals/aggregate_ab.py {LEDGER} --metric quality_score")
+    return 0
 
 
 # Read from the CAPBENCH module rather than restated here -- a pre-registered number written down twice
@@ -434,4 +448,4 @@ def _aggregate(led: dict, selected: list, args, elapsed: float) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

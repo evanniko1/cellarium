@@ -27,9 +27,10 @@ import test_gate_error_causes as CAUSES  # noqa: E402
 import test_gate_oracle as ORACLE  # noqa: E402
 import test_gate_reliability as RELIABILITY  # noqa: E402
 import test_remote_reads_are_pinned as PINNED  # noqa: E402
+import test_runs_stop_on_an_outage as OUTAGE  # noqa: E402
 
 from cellarium import capability as C  # noqa: E402
-from cellarium import corpora, egress, gate  # noqa: E402
+from cellarium import corpora, egress, gate, outage  # noqa: E402
 
 RUN = REPO / "evals" / "results" / "gate_eval_8framings.json"
 
@@ -51,6 +52,18 @@ def test_T5_isolation_from_ground_truth(monkeypatch):
     """T.5: agents isolated from the results. Plant: the blind-run block list emptied."""
     monkeypatch.setattr(egress, "BLIND_BLOCKED_DOMAINS", ())
     assert _goes_red(BLIND.test_a_search_that_touched_a_dataset_page_never_reaches_a_role, monkeypatch)
+
+
+def test_T3_an_outage_stops_the_run(monkeypatch, tmp_path):
+    """T.3: API interruptions detected; the run stops and says so. Plant: a breaker that never trips. The gate
+    eval then scores every item after the outage began, which is the fault T.3 names."""
+    class Never(outage.Breaker):
+        def observe(self, ok, why=""):
+            return False
+    monkeypatch.setattr(outage, "Breaker", Never)
+    def run(ok_first, workers=1, extra=()):
+        return OUTAGE.gate_run_with(monkeypatch, tmp_path, ok_first, workers, extra)
+    assert _goes_red(OUTAGE.test_the_gate_eval_stops_on_an_outage_and_writes_a_marked_partial, run)
 
 
 def test_T6_remote_reads_name_a_commit(monkeypatch):
