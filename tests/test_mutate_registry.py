@@ -40,6 +40,29 @@ def test_an_edit_that_would_not_land_exactly_once_refuses(tmp_path, body):
     assert p.read_text(encoding="utf-8") == body                  # nothing was written
 
 
+def test_the_harness_refuses_a_checkout_that_is_not_a_linked_worktree(tmp_path):
+    """The reset before each run deletes untracked and ignored files; in the main checkout that would take
+    local-only work with it. A linked worktree has a `.git` FILE; the main checkout has a directory."""
+    main = tmp_path / "main"
+    (main / ".git").mkdir(parents=True)
+    with pytest.raises(SystemExit, match="not a linked git worktree"):
+        R.require_worktree(main)
+    linked = tmp_path / "linked"
+    linked.mkdir()
+    (linked / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
+    R.require_worktree(linked)                                    # accepted, no exception
+    with pytest.raises(SystemExit):
+        R.require_worktree(R.REPO)                                # this checkout itself is refused
+
+
+def test_the_invalid_first_run_is_kept_and_says_why():
+    """Run 1 killed its own negative control; it is evidence about the harness, kept beside the valid run."""
+    bad = json.loads((R.REPO / "data" / "mutation" / "registry_results_run1_invalid.json").read_text(encoding="utf-8"))
+    assert "negative control" in bad["invalid_because"].lower()
+    n1 = next(r for r in bad["rows"] if r["id"] == "N1")
+    assert n1["prediction"] == "survived" and n1["verdict"] == "killed"
+
+
 def test_the_plan_predicts_every_mutant_before_any_result_exists():
     plan = json.loads(R.PLAN.read_text(encoding="utf-8"))
     items = plan["controls"] + plan["mutants"]

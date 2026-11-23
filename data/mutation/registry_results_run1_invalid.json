@@ -1,0 +1,172 @@
+{
+ "invalid_because": "the NEGATIVE control (a comment edit, predicted to survive) was killed, as were 12 of the 13 edits, almost all by tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today. The baseline had seeded data/sessions.db into the worktree (apps.hypotheses._bootstrap), and that test then compared its committed artefact against the seed instead of the store it came from. Not a property of any mutant. Fixed by resetting the worktree before every run and by recomputing only over the recorded session ids; run 2 is data/mutation/registry_results.json.",
+ "plan_frozen": "2026-11-23",
+ "revision": "c9dcfcbc7abfee528507867e87b3e647373feee3",
+ "root": "C:\\tmp\\cellarium_mut",
+ "started_utc": "2026-11-23T12:58:16Z",
+ "baseline": {
+  "exit": 0,
+  "secs": 541.7,
+  "first_failure": null,
+  "summary": ""
+ },
+ "rows": [
+  {
+   "id": "P1",
+   "class": "control_positive",
+   "file": "src/cellarium/extraction.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 15.5,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "N1",
+   "class": "control_negative",
+   "file": "src/cellarium/egress.py",
+   "prediction": "survived",
+   "verdict": "killed",
+   "as_predicted": false,
+   "exit": 1,
+   "secs": 15.7,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "W1",
+   "class": "widen",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 11.3,
+   "first_failure": "tests/test_agent_elongation_axis.py::test_a_mode_refusal_reaches_the_agent_through_dispatch",
+   "summary": ""
+  },
+  {
+   "id": "W2",
+   "class": "widen",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 15.2,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "A1",
+   "class": "aggregate",
+   "file": "src/cellarium/gate.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 15.1,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "A2",
+   "class": "aggregate",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 11.4,
+   "first_failure": "tests/test_agent_elongation_axis.py::test_a_mode_refusal_reaches_the_agent_through_dispatch",
+   "summary": ""
+  },
+  {
+   "id": "T1",
+   "class": "threshold",
+   "file": "src/cellarium/support.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 15.5,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "T2",
+   "class": "threshold",
+   "file": "src/cellarium/support.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 15.4,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "V1",
+   "class": "provenance",
+   "file": "src/cellarium/capability.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 15.3,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "V2",
+   "class": "provenance",
+   "file": "src/cellarium/capability.py",
+   "prediction": "survived",
+   "verdict": "killed",
+   "as_predicted": false,
+   "exit": 1,
+   "secs": 15.3,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "B1",
+   "class": "branch",
+   "file": "src/cellarium/gate.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 14.8,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "B2",
+   "class": "branch",
+   "file": "src/cellarium/gate.py",
+   "prediction": "killed",
+   "verdict": "killed",
+   "as_predicted": true,
+   "exit": 1,
+   "secs": 14.7,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  },
+  {
+   "id": "R1",
+   "class": "reproducibility",
+   "file": "pyproject.toml",
+   "prediction": "survived",
+   "verdict": "killed",
+   "as_predicted": false,
+   "exit": 1,
+   "secs": 15.4,
+   "first_failure": "tests/test_attribution_swap.py::test_the_measurement_is_what_the_store_gives_today",
+   "summary": ""
+  }
+ ],
+ "finished_utc": "2026-11-23T13:01:27Z"
+}

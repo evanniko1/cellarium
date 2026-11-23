@@ -22,6 +22,15 @@ full suite's either way. A baseline run must be green, or no verdict is meaningf
 Edits are byte-exact both ways (read and written as bytes, the file's own line endings kept), because
 `mutate_thresholds.py` was found on 2026-11-23 to leave restored files with changed line endings.
 
+AMENDED 2026-11-23, after the first run was invalid. Its baseline passed; then the NEGATIVE control (a comment
+edit) was "killed", as were nearly all mutants, by one unrelated test. The baseline had seeded an app database
+into the worktree (`apps.hypotheses._bootstrap`), and a test that compared a committed artefact against "the
+local store" then compared it against that seed. Two changes, neither touching the plan's edits or predictions:
+the worktree is reset to its committed state before EVERY run (`git clean -fdx`, which is why mutants run only in
+a linked worktree and the main checkout is refused), and the run STOPS when a control misbehaves, because a
+killed negative control means the harness reports kills it cannot have. The invalid first run is kept, as
+data/mutation/registry_results_run1_invalid.json.
+
     python scripts/mutate_registry.py --check                 # every edit applies exactly once; nothing runs
     python scripts/mutate_registry.py --root C:/tmp/wt        # baseline + controls + mutants, in a worktree
 """
@@ -60,6 +69,25 @@ def apply_edit(path: Path, old: str, new: str) -> bytes:
 
 def restore(path: Path, original: bytes) -> None:
     path.write_bytes(original)
+
+
+def require_worktree(root: Path) -> None:
+    """Mutants run only in a LINKED git worktree, whose `.git` is a file. The reset between runs deletes every
+    untracked and ignored file, which in the main checkout would take local-only work with it."""
+    if not (root / ".git").is_file():
+        raise SystemExit(f"{root} is not a linked git worktree; create one (git worktree add --detach <dir> <rev>) "
+                         "and pass it as --root. The main checkout is refused because each run is preceded by "
+                         "git clean -fdx.")
+
+
+def reset(root: Path) -> None:
+    """The worktree back to its committed state: nothing a previous run left behind survives into the next."""
+    require_worktree(root)
+    subprocess.run(["git", "-C", str(root), "clean", "-fdxq"], check=True, timeout=120)
+    dirty = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True,
+                           timeout=120).stdout.strip()
+    if dirty:
+        raise SystemExit(f"the worktree still differs from its commit after a reset: {dirty}")
 
 
 def run_suite(root: Path, first: list[str], timeout_s: int) -> dict:
@@ -102,9 +130,12 @@ def main(argv: list[str]) -> int:
     if a.check:
         return 0
 
+    reset(root)
     base = run_suite(root, [], a.timeout)
     print(f"baseline: exit {base['exit']} in {base['secs']} s  {base['summary']}")
-    results = {"plan_frozen": plan["frozen"], "revision": plan.get("revision"), "root": str(root),
+    rev = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True,
+                         timeout=60).stdout.strip()
+    results = {"plan_frozen": plan["frozen"], "revision": rev, "root": str(root), "reset_between_runs": True,
                "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "baseline": base, "rows": []}
     if base["exit"] != 0:
         results["aborted"] = "the unmutated suite is not green here, so no mutant verdict would mean anything"
@@ -112,6 +143,7 @@ def main(argv: list[str]) -> int:
         print(results["aborted"])
         return 3
     for m in items:
+        reset(root)
         path = root / m["file"]
         orig = apply_edit(path, m["old"], m["new"])
         try:
@@ -124,6 +156,12 @@ def main(argv: list[str]) -> int:
         print(f"  {m['id']:<6} {m['class']:<16} predicted {m['prediction']:<9} got {v:<9} "
               f"{r['secs']:>7} s  {r['first_failure'] or ''}")
         Path(a.out).write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")   # survive an interruption
+        if m["class"].startswith("control") and v != m["prediction"]:
+            results["aborted"] = (f"control {m['id']} predicted {m['prediction']} but {v}: the harness is not "
+                                  "measuring what it claims, so no mutant verdict after it would mean anything")
+            Path(a.out).write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
+            print(results["aborted"])
+            return 4
     results["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     Path(a.out).write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
     return 0
