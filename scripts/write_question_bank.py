@@ -92,10 +92,18 @@ def main() -> int:
         L += ["", "## What the gate did with them", "",
               "| | |", "|---|---|",
               f"| accuracy | {rep['accuracy']} |",
-              f"| **under-refusals** (unanswerable admitted) | **{rep['under_refusals']}** |",
-              f"| over-refusals (answerable declined) | {rep['over_refusals']} |",
-              f"| parser failures | {rep['parser_failures']} |", "",
-              "Accuracy by framing:", "", "| framing | items | accuracy |", "|---|---|---|"]
+              f"| wrong verdicts | {rep['errors']['wrong']} |",
+              f"| **too permissive** (answered with no run behind it, or proposed an unrepresentable run) "
+              f"| **{rep['errors']['too_permissive']}** |",
+              f"| too cautious (declined or deferred what the corpus can answer) | {rep['errors']['too_cautious']} |",
+              f"| parser failures | {rep['parser_failures']} |", ""]
+        if len(scored) != len(rows):
+            # The bank is generated from TODAY's registry; the results are from one past run. When the registry
+            # has grown since, the numbers above describe only the items that run saw, and the page must say so.
+            L += [f"**The stored run scored {len(scored)} of these {len(rows)} items.** The other "
+                  f"{len(rows) - len(scored)} were added to the registry after it and have not been through "
+                  f"the gate eval; the figures above are about the {len(scored)} only.", ""]
+        L += ["Accuracy by framing:", "", "| framing | items | accuracy |", "|---|---|---|"]
         for k, v in sorted(rep["by_framing"].items(), key=lambda x: -x[1]["accuracy"]):
             L.append(f"| `{k}` | {v['n']} | {v['accuracy']} |")
 

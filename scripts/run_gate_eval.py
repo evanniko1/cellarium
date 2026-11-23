@@ -21,9 +21,11 @@ system answering confidently when it should decline, and confidence is sensitive
 WHAT A GOOD RESULT LOOKS LIKE, stated before the run so it cannot be chosen afterwards. The deterministic arm
 scores 100% by construction and is not interesting. What is interesting is (a) whether the parser's
 granularity extraction survives the adversarial framings -- `assumed` and `pressured` are the ones designed to
-push a system into answering -- and (b) whether errors are symmetric. Over-refusal and under-refusal are not
-equally bad here: refusing an answerable question is a usability cost, while admitting an unanswerable one is
-the failure the whole architecture exists to prevent, so they are reported separately rather than summed.
+push a system into answering -- and (b) whether errors are symmetric. The two directions are not equally bad:
+declining or deferring what the corpus can answer is a usability cost, while answering with nothing behind the
+answer is the failure the whole architecture exists to prevent, so they are reported separately rather than
+summed. With three honest responses a wrong verdict has SIX shapes (`ERROR_SHAPES`), each counted in exactly one
+direction; until 2026-11-23 only three were counted, and a wrong verdict on a `propose`-keyed item fell in none.
 
     python scripts/run_gate_eval.py --framings 1            # one framing per capability-mode cell -- the pilot
     python scripts/run_gate_eval.py --framings 8            # the full paraphrase sweep
@@ -48,6 +50,61 @@ sys.path.insert(0, str(REPO / "scripts"))
 from cellarium import gate  # noqa: E402
 
 OUT_DIR = REPO / "evals" / "results"
+VERDICTS = ("answer", "propose", "refuse")
+
+# A question has three honest responses, so a wrong verdict has SIX possible shapes. Each is named once, in one
+# of two directions. TOO CAUTIOUS costs the user an answer the corpus could give. TOO PERMISSIVE is what the
+# architecture exists to prevent: a claim with no run behind it, or a run the model cannot represent.
+#
+# Until 2026-11-23 the report had two columns, answer -> {refuse, propose} and refuse -> answer, so a wrong
+# verdict on a `propose`-keyed item fell in NEITHER. On the stored 8-framing run that was 10 of 27 errors, and
+# "under_refusals: 0" was true only because its two answers with no run behind them were not counted
+# (VALIDATION_LAYER_SPEC item 1; tests/test_gate_error_accounting.py).
+ERROR_SHAPES: dict[tuple[str, str], tuple[str, str]] = {
+    ("answer", "refuse"): ("too_cautious", "refused a question the corpus can answer"),
+    ("answer", "propose"): ("too_cautious", "proposed a new run where the corpus already holds the answer"),
+    ("propose", "refuse"): ("too_cautious",
+                            "refused a question the model represents, where it should have proposed a run"),
+    ("propose", "answer"): ("too_permissive",
+                            "answered with no run behind it: the model represents this, the corpus holds none"),
+    ("refuse", "answer"): ("too_permissive", "answered a question the model cannot represent"),
+    ("refuse", "propose"): ("too_permissive", "proposed a run the model cannot represent"),
+}
+
+
+def _errors(recs: list[dict], key: str = "required") -> dict:
+    """Every wrong verdict against `key`, in exactly one named shape -- or an exception.
+
+    A wrong verdict the table cannot place RAISES rather than being skipped: a counter whose definition
+    silently leaves a case out is the defect this replaced. A parser that returned no verdict at all (`got` is
+    "error") is `no_verdict`, in neither direction, because nothing was decided."""
+    shapes = {f"{a}->{b}": {"n": 0, "direction": d, "meaning": m} for (a, b), (d, m) in ERROR_SHAPES.items()}
+    ids: dict[str, list[str]] = {"too_cautious": [], "too_permissive": [], "no_verdict": []}
+    for r in recs:
+        want, got = r[key], r["got"]
+        if got == want:
+            continue
+        if want not in VERDICTS:
+            raise ValueError(f"{r['id']}: the key {want!r} is not one of {VERDICTS}")
+        if got not in VERDICTS:
+            ids["no_verdict"].append(r["id"])
+            continue
+        if (want, got) not in ERROR_SHAPES:
+            raise ValueError(f"{r['id']}: the wrong verdict {want} -> {got} has no named shape")
+        s = shapes[f"{want}->{got}"]
+        s["n"] += 1
+        ids[s["direction"]].append(r["id"])
+    wrong = sum(1 for r in recs if r["got"] != r[key])
+    placed = sum(len(v) for v in ids.values())
+    if placed != wrong:                       # unreachable through the loop above; asserted so it cannot drift
+        raise AssertionError(f"{wrong} wrong verdicts but {placed} placed")
+    return {"wrong": wrong,
+            "too_cautious": len(ids["too_cautious"]),
+            "too_permissive": len(ids["too_permissive"]),
+            "no_verdict": len(ids["no_verdict"]),
+            "too_permissive_ids": sorted(ids["too_permissive"]),
+            "no_verdict_ids": sorted(ids["no_verdict"]),
+            "by_shape": shapes}
 
 
 def _items(framings: int) -> list[dict]:
@@ -171,6 +228,7 @@ def _report(recs: list[dict]) -> dict:
 
     confusion = collections.Counter((r["required"], r["got"]) for r in recs)
     # the two error directions are not interchangeable and are never summed
+    errors = _errors(recs)
     over = sum(1 for r in recs if r["required"] == "answer" and r["got"] in ("refuse", "propose"))
     under = sum(1 for r in recs if r["required"] == "refuse" and r["got"] == "answer")
 
@@ -181,8 +239,14 @@ def _report(recs: list[dict]) -> dict:
         "accuracy": round(correct / n, 3) if n else None,
         "accuracy_principled_key": round(corr_p / n, 3) if n else None,
         "items_where_the_two_keys_differ": sorted({r["id"].rsplit("__", 1)[0] for r in relabelled}),
-        "over_refusals": over,          # answerable, declined -- a usability cost
-        "under_refusals": under,        # unanswerable, admitted -- the failure the architecture prevents
+        "errors": errors,
+        **({"errors_principled_key": _errors(recs, "required_principled")} if relabelled else {}),
+        "superseded_two_column_count": {
+            "over_refusals": over, "under_refusals": under,
+            "wrong_verdicts_in_neither_column": errors["wrong"] - over - under,
+            "why": "the report's only two error columns until 2026-11-23: answer -> {refuse, propose} and "
+                   "refuse -> answer. A wrong verdict on a propose-keyed item fell in neither. Kept so an "
+                   "earlier citation can be reconciled; never a headline."},
         "parser_failures": sum(r["parser_failed"] for r in recs),
         "by_kind": {k: {"n": len(v), "accuracy": round(sum(x["correct"] for x in v) / len(v), 3)}
                     for k, v in sorted(by_kind.items())},
@@ -190,7 +254,11 @@ def _report(recs: list[dict]) -> dict:
                        for k, v in sorted(by_framing.items())},
         "confusion": {f"{a}->{b}": c for (a, b), c in sorted(confusion.items())},
         "granularity_extracted": dict(collections.Counter(r["granularity"] for r in recs)),
-        **({"reliability": _reliability(recs)} if all("capability" in r and "mode" in r for r in recs) else {}),
+        # the clustered interval is defined for the generated bank (framings nested in capability x mode cells);
+        # held-out items are distinct questions with no such nesting, so they do not get one
+        **({"reliability": _reliability(recs)}
+           if all("capability" in r and "mode" in r for r in recs)
+           and not any("required_judgement" in r for r in recs) else {}),
         **(_heldout_report(recs) if any("required_judgement" in r for r in recs) else {}),
     }
 
@@ -260,7 +328,10 @@ def _heldout_report(recs: list[dict]) -> dict:
     gap = [r for r in recs if not r.get("registry_can_express")]
     return {"headline_items": len(expr),
             "headline_accuracy": round(sum(r["correct"] for r in expr) / len(expr), 3) if expr else None,
-            "headline_under_refusals": sum(1 for r in expr if r["required"] == "refuse" and r["got"] == "answer"),
+            "headline_errors": _errors(expr) if expr else None,
+            # the old headline counted refuse -> answer only; on the stored run it said 2 where the count is 4
+            "headline_under_refusals_superseded": sum(1 for r in expr
+                                                      if r["required"] == "refuse" and r["got"] == "answer"),
             "registry_gap_items": len(gap),
             "registry_gap_correct_against_judgement": sum(r["correct_judgement"] for r in gap)}
 
@@ -277,7 +348,28 @@ def main(argv: list[str]) -> int:
                     help="score the frozen held-out set (evals/HELDOUT_GATE_QUESTIONS.json) instead")
     ap.add_argument("--heldout2", action="store_true",
                     help="score held-out set v2; REFUSES until it is frozen by a reviewer (GATE-8b-HO2)")
+    ap.add_argument("--rescore", nargs="+", metavar="RESULTS_JSON",
+                    help="recompute the report of stored results from their own records; no model call")
     a = ap.parse_args(argv)
+
+    if a.rescore:
+        # The records are the measurement; the report is arithmetic over them. Re-deriving it after a change
+        # to the arithmetic keeps every stored artefact true to the current definitions without re-asking the
+        # model anything, and the records are written back byte-for-byte unchanged.
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        for p in a.rescore:
+            path = Path(p)
+            d = json.loads(path.read_text(encoding="utf-8"))
+            rep = _report(d["records"])
+            for k in ("model", "framings", "wall_seconds"):
+                if k in d["report"]:
+                    rep[k] = d["report"][k]
+            rep["report_recomputed"] = f"{stamp} from the stored records; no model call"
+            path.write_text(json.dumps({"report": rep, "records": d["records"]}, indent=1), encoding="utf-8")
+            e = rep["errors"]
+            print(f"{path.name}: {e['wrong']} wrong = {e['too_cautious']} too cautious + "
+                  f"{e['too_permissive']} too permissive + {e['no_verdict']} no verdict")
+        return 0
 
     if a.heldout and a.heldout2:
         raise SystemExit("--heldout and --heldout2 are different sets; score one of them.")

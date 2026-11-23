@@ -37,9 +37,16 @@ The eight framings are deliberately varied in register, and three of them (`assu
 | | |
 |---|---|
 | accuracy | 0.875 |
-| **under-refusals** (unanswerable admitted) | **0** |
-| over-refusals (answerable declined) | 17 |
+| wrong verdicts | 27 |
+| **too permissive** (answered with no run behind it, or proposed an unrepresentable run) | **2** |
+| too cautious (declined or deferred what the corpus can answer) | 25 |
 | parser failures | 0 |
+
+Corrected 2026-11-23. This table used to show "under-refusals 0" and "over-refusals 17". Those two columns did
+not count a wrong verdict on a question keyed `propose`, so 10 of the 27 errors were in neither, including the
+two answers given with no run behind them (both on `nutrient_shift_timelines` in kinetic mode, under the
+`assumed` and `delegated` framings). The bank below is the 216-item bank the stored run scored; the registry has
+since grown to 36 cells, and the 9 added cells have not been through the gate eval.
 
 Accuracy by framing:
 

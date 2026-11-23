@@ -7,8 +7,95 @@
    "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic",
    "nutrient_shift_timelines__coarse_kinetic"
   ],
-  "over_refusals": 2,
-  "under_refusals": 0,
+  "errors": {
+   "wrong": 5,
+   "too_cautious": 3,
+   "too_permissive": 2,
+   "no_verdict": 0,
+   "too_permissive_ids": [
+    "knockout_of_a_multi_transcription_unit_gene__coarse_kinetic__direct",
+    "nutrient_shift_timelines__coarse_kinetic__direct"
+   ],
+   "no_verdict_ids": [],
+   "by_shape": {
+    "answer->refuse": {
+     "n": 2,
+     "direction": "too_cautious",
+     "meaning": "refused a question the corpus can answer"
+    },
+    "answer->propose": {
+     "n": 0,
+     "direction": "too_cautious",
+     "meaning": "proposed a new run where the corpus already holds the answer"
+    },
+    "propose->refuse": {
+     "n": 1,
+     "direction": "too_cautious",
+     "meaning": "refused a question the model represents, where it should have proposed a run"
+    },
+    "propose->answer": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "answered with no run behind it: the model represents this, the corpus holds none"
+    },
+    "refuse->answer": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "answered a question the model cannot represent"
+    },
+    "refuse->propose": {
+     "n": 2,
+     "direction": "too_permissive",
+     "meaning": "proposed a run the model cannot represent"
+    }
+   }
+  },
+  "errors_principled_key": {
+   "wrong": 3,
+   "too_cautious": 3,
+   "too_permissive": 0,
+   "no_verdict": 0,
+   "too_permissive_ids": [],
+   "no_verdict_ids": [],
+   "by_shape": {
+    "answer->refuse": {
+     "n": 2,
+     "direction": "too_cautious",
+     "meaning": "refused a question the corpus can answer"
+    },
+    "answer->propose": {
+     "n": 0,
+     "direction": "too_cautious",
+     "meaning": "proposed a new run where the corpus already holds the answer"
+    },
+    "propose->refuse": {
+     "n": 1,
+     "direction": "too_cautious",
+     "meaning": "refused a question the model represents, where it should have proposed a run"
+    },
+    "propose->answer": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "answered with no run behind it: the model represents this, the corpus holds none"
+    },
+    "refuse->answer": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "answered a question the model cannot represent"
+    },
+    "refuse->propose": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "proposed a run the model cannot represent"
+    }
+   }
+  },
+  "superseded_two_column_count": {
+   "over_refusals": 2,
+   "under_refusals": 0,
+   "wrong_verdicts_in_neither_column": 3,
+   "why": "the report's only two error columns until 2026-11-23: answer -> {refuse, propose} and refuse -> answer. A wrong verdict on a propose-keyed item fell in neither. Kept so an earlier citation can be reconciled; never a headline."
+  },
   "parser_failures": 0,
   "by_kind": {
    "no_corpus_data": {
@@ -53,9 +140,39 @@
    "per_amino_acid": 4,
    "aggregate": 8
   },
+  "reliability": {
+   "trivial_baselines": {
+    "always_refuse": 0.6296,
+    "always_answer": 0.3333,
+    "always_propose": 0.037
+   },
+   "best_trivial_baseline": {
+    "strategy": "always_refuse",
+    "accuracy": 0.6296
+   },
+   "margin_over_best_trivial": 0.1852,
+   "n_clusters": 27,
+   "cluster_unit": "capability x mode",
+   "items_per_cluster": [
+    [
+     1,
+     27
+    ]
+   ],
+   "accuracy_ci95_clustered": [
+    0.6582,
+    0.9714
+   ],
+   "ci95_half_width_clustered": 0.1566,
+   "ci95_half_width_naive": 0.1465,
+   "naive_understates_se_by": 1.02,
+   "critical_value": "t(26)",
+   "note": "the naive interval treats the framings of one cell as independent trials; they are not"
+  },
   "model": "claude-opus-4-8",
   "framings": 1,
-  "wall_seconds": 18.0
+  "wall_seconds": 18.0,
+  "report_recomputed": "2026-11-23T11:40:08Z from the stored records; no model call"
  },
  "records": [
   {

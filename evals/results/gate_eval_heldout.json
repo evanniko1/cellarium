@@ -4,8 +4,57 @@
   "accuracy": 0.783,
   "accuracy_principled_key": 0.783,
   "items_where_the_two_keys_differ": [],
-  "over_refusals": 6,
-  "under_refusals": 2,
+  "errors": {
+   "wrong": 13,
+   "too_cautious": 9,
+   "too_permissive": 4,
+   "no_verdict": 0,
+   "too_permissive_ids": [
+    "H27",
+    "H28",
+    "H36",
+    "H37"
+   ],
+   "no_verdict_ids": [],
+   "by_shape": {
+    "answer->refuse": {
+     "n": 6,
+     "direction": "too_cautious",
+     "meaning": "refused a question the corpus can answer"
+    },
+    "answer->propose": {
+     "n": 0,
+     "direction": "too_cautious",
+     "meaning": "proposed a new run where the corpus already holds the answer"
+    },
+    "propose->refuse": {
+     "n": 3,
+     "direction": "too_cautious",
+     "meaning": "refused a question the model represents, where it should have proposed a run"
+    },
+    "propose->answer": {
+     "n": 2,
+     "direction": "too_permissive",
+     "meaning": "answered with no run behind it: the model represents this, the corpus holds none"
+    },
+    "refuse->answer": {
+     "n": 2,
+     "direction": "too_permissive",
+     "meaning": "answered a question the model cannot represent"
+    },
+    "refuse->propose": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "proposed a run the model cannot represent"
+    }
+   }
+  },
+  "superseded_two_column_count": {
+   "over_refusals": 6,
+   "under_refusals": 2,
+   "wrong_verdicts_in_neither_column": 5,
+   "why": "the report's only two error columns until 2026-11-23: answer -> {refuse, propose} and refuse -> answer. A wrong verdict on a propose-keyed item fell in neither. Kept so an earlier citation can be reconciled; never a headline."
+  },
   "parser_failures": 0,
   "by_kind": {
    "compound": {
@@ -126,12 +175,58 @@
   },
   "headline_items": 56,
   "headline_accuracy": 0.804,
-  "headline_under_refusals": 2,
+  "headline_errors": {
+   "wrong": 11,
+   "too_cautious": 7,
+   "too_permissive": 4,
+   "no_verdict": 0,
+   "too_permissive_ids": [
+    "H27",
+    "H28",
+    "H36",
+    "H37"
+   ],
+   "no_verdict_ids": [],
+   "by_shape": {
+    "answer->refuse": {
+     "n": 4,
+     "direction": "too_cautious",
+     "meaning": "refused a question the corpus can answer"
+    },
+    "answer->propose": {
+     "n": 0,
+     "direction": "too_cautious",
+     "meaning": "proposed a new run where the corpus already holds the answer"
+    },
+    "propose->refuse": {
+     "n": 3,
+     "direction": "too_cautious",
+     "meaning": "refused a question the model represents, where it should have proposed a run"
+    },
+    "propose->answer": {
+     "n": 2,
+     "direction": "too_permissive",
+     "meaning": "answered with no run behind it: the model represents this, the corpus holds none"
+    },
+    "refuse->answer": {
+     "n": 2,
+     "direction": "too_permissive",
+     "meaning": "answered a question the model cannot represent"
+    },
+    "refuse->propose": {
+     "n": 0,
+     "direction": "too_permissive",
+     "meaning": "proposed a run the model cannot represent"
+    }
+   }
+  },
+  "headline_under_refusals_superseded": 2,
   "registry_gap_items": 4,
   "registry_gap_correct_against_judgement": 2,
   "model": "claude-opus-4-8",
   "framings": 1,
-  "wall_seconds": 46.4
+  "wall_seconds": 46.4,
+  "report_recomputed": "2026-11-23T11:40:08Z from the stored records; no model call"
  },
  "records": [
   {
