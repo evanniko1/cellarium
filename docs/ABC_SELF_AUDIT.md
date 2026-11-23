@@ -23,9 +23,9 @@ citing an R item by number.
 
 | Status | Items |
 |---|---|
-| MET, guarded by a test that was forced to fail | T.3, T.5, T.6, T.9 (gate), T.10, O.b.3, R.9, R.10 (gate), R.13 (gate) |
-| MET, documented or by construction | T.2, T.4, O.h.1, O.h.2, R.1, R.2, R.3, R.6, R.7, R.8 |
-| PARTLY | T.1, T.7, T.8, R.4, R.5, R.11 |
+| MET, guarded by a test that was forced to fail | T.1, T.3, T.5, T.6, T.9 (gate), T.10, O.b.3, R.9, R.10 (gate), R.13 (gate) |
+| MET, documented or by construction | T.2, T.4, O.h.1, O.h.2, R.1, R.2, R.3, R.5, R.6, R.7, R.8, R.11 |
+| PARTLY | T.7, T.8, R.4 |
 | NOT MET, open | O.c.1, O.i.1, R.12; and for the Council: R.10, R.13, O.b.2 |
 | OUT OF SCOPE, declared | T.9 for the Council: no oracle exists for an open-ended hypothesis |
 | NOT APPLICABLE, with the reason | O.a.1-2, O.b.1, O.d.1-2, O.e.1-3, O.f.1-2, O.g.1-3 |
@@ -34,7 +34,7 @@ citing an R item by number.
 
 | ID | Item (paraphrased) | Status | Evidence, and what is missing |
 |---|---|---|---|
-| T.1 | Specify tool and package versions for self-hosted tools | PARTLY | The simulator's image digest and knowledge-base hash are recorded per run (`provenance.py`), and every eval artefact records the model id. Python dependencies are ranges, not pins, and the registry-mutation plan predicts that loosening one goes unnoticed (mutant R1). |
+| T.1 | Specify tool and package versions for self-hosted tools | MET, forced, for runs from 2026-11-23 | The simulator's image digest and knowledge-base hash are recorded per run (`provenance.py`). `requirements.lock` pins 119 packages and the project's `.venv` matches 117, but a lock says what should run, not what did: the system interpreter the suite runs on differed from it on 70 of 119, `anthropic` 0.92.0 against 0.116.0. Since 2026-11-23 the gate eval, the ablation and every A/B arm record the interpreter, the git commit, the installed versions of the eight packages that can change a result, and where those differ from the lock (`tests/test_eval_artefacts_record_their_environment.py`); the anthropic upper bound is guarded (`tests/test_registry_survivor_guards.py`). Forced: an empty recorded environment turns the guard red. Not covered: every stored artefact predates this and records only its model id. |
 | T.2 | API availability; manage rate limits | MET, documented | Every eval path uses the client with retries and backoff (`llm.client(max_retries=4)`); a parser that returned nothing is recorded, not retried silently. |
 | T.3 | Detect API interruptions; stop and inform | MET, forced | Since 2026-11-23 the three scored harnesses (gate eval, ablation, A/B) stop at the first run of five consecutive failed model calls, each already retried by the client. No new call starts, the partial records go to `<out>.partial.json` with the reason and no score, the artefact itself is not touched, and the exit code is 3 (`src/cellarium/outage.py`, `tests/test_runs_stop_on_an_outage.py`). It matters most for the gate: its parser proceeds on a blank requirement when its call fails, so an outage would otherwise have been graded as the ignorance rule on every later item; each record now names its parser error. Corrected: this row said a failed call becomes a `no_verdict`, which held only when the harness itself raised, not for a failed parse. No stored run is affected (0 failed parses in all three gate runs). The A/B now retries an errored arm on a re-run, and the ablation no longer writes progress over its artefact. Forced: with a breaker that never trips, the stop test goes red. Not covered: the other paid scripts (judge-panel re-grade, temperature sweep, tool probe, live loop); and a model that answers wrongly on every call is a result, not an interruption. |
 | T.4 | Clean state before each task | MET, by construction | One stateless parse and decision per gate item; a fresh `deliberate()` per Council case; a fresh session per A/B case. |
@@ -70,15 +70,119 @@ citing an R item by number.
 | R.2 | Open evaluation harness | MET | `evals/` and `scripts/run_gate_eval.py` are public; stored records can be re-scored offline (`--rescore`). |
 | R.3 | Contamination measures; a held-out set | MET | Held-out gate set v1 is frozen with a hash lock and refuses to score if edited; v2 refuses until a second reviewer freezes it; the blind-read audit of T.5. |
 | R.4 | Challenges updated over time | PARTLY | The bank is generated from the registry, which has grown from 27 to 36 cells; the 9 new cells have not been through the gate eval. |
-| R.5 | Relationship between capabilities and outcomes stated | PARTLY | `run_gate_eval.py` states its construct: whether the system declines exactly when the registry lacks a capability, not "accuracy". A construct statement per surface is not yet written for the paper. |
+| R.5 | Relationship between capabilities and outcomes stated | MET, documented | Each surface's construct is named, with what it is not, its unit and sample, the confounds controlled and the error analysis, in the section below (2026-11-23). The gate's, for example: agreement with the registry, not the registry's correctness and not accuracy at answering questions. |
 | R.6 | The evaluation subject stated | MET | Every artefact records the model ids and the harness. |
 | R.7 | Steps to prevent, find and fix flaws | MET | The GATE-8b ledger, the Platform Map audit, mutation testing, the conformance families, this table. |
 | R.8 | Qualitative discussion of unavoidable flaws | MET | Limits are stated in each module and in the Platform Map. |
 | R.9 | Quantitative analysis of flaws | MET, forced | The principled-key sensitivity (pilot 0.815 against 0.889); the complete error count and its attribution (25 + 2; oracle ceiling 0.963); a minimum detectable effect beside every ablation null. |
 | R.10 | Significance; confidence intervals | MET for the gate and the ablation; NOT for the A/B | Gate: clustered t(26) interval, half-width 0.126, about three times the naive one (forced). Ablation: paired MDE on t(9). The A/B (10 cases) is reported descriptively. |
-| R.11 | Guidance for reading results given the flaws | PARTLY | The Map says the ablation must be read per judge and is underpowered; a reader's guide per surface is not written. |
+| R.11 | Guidance for reading results given the flaws | MET, documented | A "reading the number" and a "cannot tell you" paragraph per surface, below: per auditor and never pooled for the ablation; within a set and never across sets for selective answering; descriptively for the A/B. |
 | R.12 | Non-AI baselines, such as human experts | NOT MET | No surface has a human baseline; the human floor of validation item 6 needs two raters. |
 | R.13 | Results of trivial agents | MET for the gate; NOT for the Council | Gate: the three always-the-same-verdict strategies (forced). Council: no trivial baseline (for example the question restated as a claim) has run; the proposer-only arm is a weaker system, not a trivial one. |
+
+## What each surface measures, and how to read its numbers
+
+Items R.5 and R.11, written 2026-11-23. For each surface: the construct, named narrowly enough to be wrong about;
+what it is not; the unit and sample; the confounds the design controls; the error analysis; how to read its
+headline number; and what it cannot tell you. Every figure below was re-read from the stored artefact named
+beside it on the day this was written.
+
+### The capability gate (`evals/results/gate_eval_8framings.json`, `gate_eval_heldout.json`)
+
+**Construct.** Whether the system declines exactly when the capability registry has no record of what a question
+requires, and otherwise answers from the corpus or proposes a run. It is agreement with the registry. It is not
+the registry's correctness, and it is not accuracy at answering science questions.
+
+**Unit and sample.** One verdict per question. The bank is 27 situations (a capability in a simulator mode), each
+asked in 8 framings: 216 records, but far fewer independent units, because the framings of one situation mostly
+agree with each other. The interval is therefore clustered on the situation.
+
+**Confounds controlled.** Wording, by the 8 framings. The key, which is generated from the registry rather than
+hand-labelled, with a second, principled key reported beside it. Fitting the benchmark, by a held-out set of 60
+items written afterwards and frozen with a hash lock. The decision step on its own, by 16 registry-deletion twins
+(16 of 16) that need no model. Guessing, by scoring the trivial strategies on the same records.
+
+**Errors, analysed.** 27 wrong verdicts: 25 too cautious, 2 too permissive. Every one traces to one of two
+registered defects: 25 to GATE-8b-C (the parser reads an unstated starvation or amino-acid-supply condition into
+the question) and 2 to GATE-8b-D (the gate cannot propose a run in a mode that already has runs). A perfect
+parser would score 208 of 216, 0.963.
+
+**Reading the number.** 0.875 (189 of 216) has a clustered 95% interval of plus or minus 0.126, about three
+times the naive 0.044. Refusing everything scores 0.556 on the same records, so the margin over the best trivial
+strategy is 0.319. The errors are not 27 independent failures: 25 are one defect, and one rule change would
+move most of them together. On the held-out set the headline is 45 of 56 (0.804), with 11 errors, 4 of them
+answers given where the key says not to (H27, H28, H36, H37). On the 27-item pilot the two keys disagree (0.815
+stored, 0.889 principled); on the 216-record run they agree (0.875).
+
+**Cannot tell you.** Whether a registry record is right: a wrong record produces a verdict that scores as
+correct. How the gate does on the 9 situations added since the stored run (the registry has 36; 27 were
+scored). Which answer is right for the 16 records whose key is disputed, until held-out set v2 is frozen.
+
+### The Council's role ablation (`evals/results/ablation.json`, `ablation_summary.json`)
+
+**Construct.** Whether adversarial deliberation, a skeptic and a judge beside the proposer, produces a
+better-operationalised hypothesis than the proposer alone, measured as the defects an independent auditor still
+finds in the final hypothesis ("residual defects"; fewer is better).
+
+**Not the construct.** The six-point operationalisation rubric. It scores 6.0 of 6 for `full` and for
+`proposer_only` under both judges, and 5.97 at its lowest anywhere: it measures whether the required fields are
+present, not how good the framing is. It is not a headline (O.i.1).
+
+**Unit and sample.** 10 cases, 4 arms (`full`, `no_skeptic`, `proposer_only`, `generic_judge`), 3 repetitions:
+120 records, 0 errors. Arms are compared case by case, so n is 10.
+
+**Confounds controlled.** The same cases, temperature and graders in every arm; two auditors from different
+model families; a minimum detectable effect beside every null (`tests/test_ablation_mde.py`). The answer-key arm
+(`leaked`), the positive control, exists in code and has not run.
+
+**Reading a number.** Per auditor, never pooled. Under the Claude auditor `full` leaves 3.37 residual defects
+on average and `proposer_only` 4.50, but that auditor is about nine times noisier than the GPT auditor and the
+two disagree case by case, so under it no difference between arms is detectable at n = 10. Under the GPT
+auditor, removing the critique is detectable. A difference here is a statement about the auditor that scored
+it.
+
+**Debate telemetry (stored Council runs, `evals/results/council_telemetry.json`).** Of 43 substantive objections
+marked resolved, 2 were resolved with the claim, H1 and H0 word-for-word unchanged. Of 23 runs with a
+substantive objection, 1 converged within two rounds anyway. Of 28 converged runs, 0 ended on a draft the judge
+had rated below an earlier one. "Unchanged" is measured on the only proposer fields stored per round, so it is an
+upper bound on "nothing changed".
+
+**Cannot tell you.** Whether a hypothesis is true or new: no oracle exists, and T.9 is declared out of scope for
+this surface. Whether the roles beat the same budget spent on one proposer (validation item 3, a paid run).
+What a trivial answer scores (R.13). How a person would grade the same outputs (R.12).
+
+### The Council-versus-Cellwright A/B (`evals/results/ab_ledger.json`)
+
+**Construct.** Whether a hypothesis framed blind (the Council reads no corpus) differs from one framed after
+reading the data (Cellwright reads the corpus before committing): the HARKing contrast. The count of corpus
+reads is the proxy for having looked.
+
+**Unit and sample.** 25 case cells, one run per arm.
+
+**Reading a number.** Descriptively, case by case. The arms are scored on different instruments, a quality score
+for Cellwright and pass-or-fail bars for the Council, so no paired difference or interval exists; and one run per
+arm cannot separate the arm from run-to-run variation.
+
+**Cannot tell you.** Which arm is better. The replication with repetitions and one shared rubric is planned
+(`docs/PUB_A1_REPLICATION.md`) and is a paid run.
+
+### Selective answering (Platform Map, section 18)
+
+**Construct.** For a system allowed to decline: coverage (the fraction of questions it answered) and risk (of
+those it answered, the fraction the selected simulator mode and the available evidence do not support), compared
+between systems only at comparable coverage. Risk is not error: a number can be plausible and still unsupported.
+
+**Unit and sample.** Four question sets of different composition: a discrimination set of 9, a capability-grid
+pilot of 27, the gate bank of 216, and the held-out headline of 56. Labels for the 9 and the 27 were frozen
+before any response, and two independent judges agreed on 9 of 9 and 24 of 27.
+
+**Reading a number.** Within a set, never across sets. On the bank of 216 the gate's coverage is 0.264 and its
+risk 0.035 (2 of 57 answers), but 120 of those 216 are keyed refuse, so that coverage is not comparable with any
+other row.
+
+**Cannot tell you.** Much at n = 9 or n = 27. One question moves coverage by 0.11 or 0.04, and because risk is
+counted over the answered questions only (4 of 9 and 11 of 27 for the language-model arms), one answer moves it
+by 0.25 or 0.09. And there is no human reference on any set (R.12).
 
 ## What this table changes
 
