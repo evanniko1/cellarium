@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from . import store
+from . import egress, store
 from .runner import OUT_ROOT
 
 HF_REPO = os.environ.get("CELLARIUM_HF_REPO", "evanniko1/cellarium-corpus")
@@ -97,6 +97,8 @@ def _repo_sizes(paths: list[str]) -> dict:
     for d in dirs:
         for api in clients:
             try:
+                egress.record("hf_list_repo_tree", f"https://huggingface.co/datasets/{HF_REPO}/tree/main/{d}",
+                              purpose="raw simOut availability")
                 for f in api.list_repo_tree(HF_REPO, path_in_repo=d, repo_type="dataset", recursive=False):
                     p = getattr(f, "path", "")
                     if p.endswith(".tar.gz"):
@@ -174,6 +176,8 @@ def download_raw(design: str, confirm: bool = False, on_progress=None) -> dict:
     for w in to_pull:
         _tick(len(done), f"downloading {w['result_id']} (seed {w.get('seed')})")
         try:
+            egress.record("hf_hub_download", f"https://huggingface.co/datasets/{HF_REPO}/blob/main/{w['hf_path']}",
+                          purpose="raw simOut download", result_id=w["result_id"])
             local_tar = hf_hub_download(HF_REPO, w["hf_path"], repo_type="dataset")
             with tarfile.open(local_tar, "r:gz") as tf:
                 tf.extractall(str(OUT_ROOT), filter="data")   # arcname is cellarium/<variant>/<seed> -> lands under runs/

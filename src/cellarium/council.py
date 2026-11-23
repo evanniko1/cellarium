@@ -25,7 +25,7 @@ import os
 import re
 from typing import Callable
 
-from . import instrument, observability, test_registry
+from . import egress, instrument, observability, test_registry
 from .capability import ELONGATION_MODES
 from .hypothesis import Falsifier, Hypothesis, NamedTest, OperationalDef, Rival
 from .model import Design
@@ -757,7 +757,10 @@ def sufficiency_gate(question: str, *, client=None, models: dict | None = None, 
 
 # --- Phase 3(a): native web/literature access (the librarian) ----------------------------------------------
 # web_search is on the standard Messages endpoint (no beta). Bump the dated type as newer ones ship.
-_WEB_SEARCH_TOOL = {"type": "web_search_20260318", "name": "web_search", "max_uses": 5}
+# The librarian must stay blind to the corpus RESULTS, so the dataset hosts and this project's own repository are
+# blocked in the request (egress.BLIND_BLOCKED_DOMAINS), and every URL the search returned is audited after it.
+_WEB_SEARCH_TOOL = {"type": "web_search_20260318", "name": "web_search", "max_uses": 5,
+                    "blocked_domains": list(egress.BLIND_BLOCKED_DOMAINS)}
 
 _LIBRARIAN_SYS = (
     "You are the LIBRARIAN of a Socratic Council. Given a research QUESTION (and, optionally, the sharpened claim "
@@ -771,20 +774,46 @@ _LIBRARIAN_SYS = (
     "the literature says, with sources. You inform the FRAMING; you never preview the corpus answer.")
 
 
+def _get(obj, key, default=None):
+    """A content block's field, whether the SDK handed back an object or a plain dict."""
+    return obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
+
+
 def _read_web_brief(resp) -> dict:
-    """Pull the synthesized text + its web citations out of a web_search response (text blocks carry .citations)."""
+    """Pull the synthesized text + its web citations out of a web_search response (text blocks carry .citations).
+
+    Also every QUERY the search ran (`server_tool_use.input.query`) and every RESULT it returned
+    (`web_search_tool_result.content[].url`), cited or not: a page the model read and did not cite can still have
+    shaped the brief, so the blindness audit has to see all of them. A failed search returns its error as an
+    object in place of the result list; that is kept too, so a search that never ran cannot read as a clean one."""
     parts: list[str] = []
     sources: list[dict] = []
+    queries: list[str] = []
+    fetched: list[dict] = []
+    errors: list[str] = []
     seen: set = set()
-    for b in getattr(resp, "content", None) or []:
-        if getattr(b, "type", None) == "text":
-            parts.append(getattr(b, "text", "") or "")
-            for c in (getattr(b, "citations", None) or []):
-                url = getattr(c, "url", None)
+    for b in _get(resp, "content", None) or []:
+        kind = _get(b, "type")
+        if kind == "text":
+            parts.append(_get(b, "text", "") or "")
+            for c in (_get(b, "citations", None) or []):
+                url = _get(c, "url")
                 if url and url not in seen:
                     seen.add(url)
-                    sources.append({"url": url, "title": getattr(c, "title", None)})
-    return {"brief": "".join(parts).strip(), "sources": sources}
+                    sources.append({"url": url, "title": _get(c, "title")})
+        elif kind == "server_tool_use":
+            inp = _get(b, "input", None)
+            q = _get(inp, "query") if inp is not None else None
+            if q:
+                queries.append(q)
+        elif kind == "web_search_tool_result":
+            content = _get(b, "content", None)
+            if isinstance(content, list):
+                fetched += [{"url": _get(r, "url"), "title": _get(r, "title")} for r in content if _get(r, "url")]
+            elif content is not None:
+                errors.append(str(_get(content, "error_code", "unknown_error")))
+    return {"brief": "".join(parts).strip(), "sources": sources, "queries": queries, "fetched": fetched,
+            "search_errors": errors}
 
 
 def web_research(question: str, *, focus: str | None = None, client=None, model: str | None = None,
@@ -808,7 +837,10 @@ def web_research(question: str, *, focus: str | None = None, client=None, model:
                                   tools=[_WEB_SEARCH_TOOL],
                                   messages=[{"role": "user", "content": json.dumps(payload)}])
     observability.emit(observability.usage_record("librarian", model, resp, (observability.now() - t0) * 1000))
-    return _read_web_brief(resp)
+    out = _read_web_brief(resp)
+    out["blocked_domains_requested"] = list(_WEB_SEARCH_TOOL.get("blocked_domains") or [])
+    out["audit"] = egress.audit([r["url"] for r in out["fetched"]] + [s["url"] for s in out["sources"]])
+    return out
 
 
 # --- the loop ----------------------------------------------------------------------------------------------
@@ -842,13 +874,34 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     # a CITED brief to inform FRAMING (mechanisms, rival explanations, quantitative priors, where models are known to
     # disagree with reality). The JUDGE never receives it: it assesses falsifiability STRUCTURE, not agreement with
     # the literature. Best-effort — a failed/empty search leaves library_brief=None and deliberation is unchanged.
+    #
+    # VALIDATION_LAYER_SPEC item 7: what the search saw is RECORDED on the hypothesis (`external_reads`), audited
+    # against egress.BLIND_BLOCKED_DOMAINS here rather than trusted from the callee, and a brief from a search that
+    # touched a blocked host is DISCARDED before any role sees it. A librarian that failed is recorded as failed,
+    # so it can never read as one that searched and found nothing.
     library_brief = None
+    external_reads: dict = {}
     if use_librarian:
         try:
             lib = web_research(question, client=client, labels=labels)
-            library_brief = (lib.get("brief") or None) if isinstance(lib, dict) else None
-        except Exception:
-            library_brief = None
+        except Exception as exc:                                   # noqa: BLE001 - recorded, deliberation goes on
+            external_reads["librarian"] = {"used": False, "error": f"{type(exc).__name__}: {exc}"[:300]}
+        else:
+            lib = lib if isinstance(lib, dict) else {}
+            fetched = [r.get("url") for r in lib.get("fetched") or [] if isinstance(r, dict) and r.get("url")]
+            cited = [s.get("url") for s in lib.get("sources") or [] if isinstance(s, dict) and s.get("url")]
+            seen = egress.audit(fetched + cited)
+            brief = lib.get("brief") or None
+            library_brief = brief if seen["clean"] else None
+            external_reads["librarian"] = {
+                "used": library_brief is not None, "queries": list(lib.get("queries") or []),
+                "fetched": fetched, "cited": cited, "search_errors": list(lib.get("search_errors") or []),
+                "blocked_domains_requested": list(lib.get("blocked_domains_requested") or []),
+                "audit": seen, "brief_discarded_for_breach": bool(brief) and not seen["clean"]}
+
+    def _done(h: Hypothesis) -> Hypothesis:
+        h.external_reads = external_reads
+        return h
 
     answered: list[tuple[str, str]] = []
     parked: set[str] = set()
@@ -882,8 +935,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
 
         # Proposer-only ablation (no critique, no gate): a single-shot baseline.
         if not use_skeptic and not use_judge:
-            return _assemble(question, cand, residual=[], converged=True, rounds_used=1,
-                             substantive_objections=0)
+            return _done(_assemble(question, cand, residual=[], converged=True, rounds_used=1,
+                                   substantive_objections=0))
 
         if use_skeptic:
             open_led = [o for o in ledger if o["resolved_round"] is None]
@@ -978,15 +1031,17 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         # genuinely raised and resolved), OR has been stably clean for two rounds — an airtight hypothesis yields
         # few substantive objections, so 'stable' is the honest convergence signal when the quota is unreachable.
         if clean and (total_substantive >= quota or consecutive_clean >= 2):
-            return _assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
-                             substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, rnd + 1))
+            return _done(_assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
+                                   substantive_objections=total_substantive,
+                                   ledger=_finalize_ledger(ledger, rnd + 1)))
 
     # Round cap. The full debate has run, so the quota's scrutiny has been applied; if any round produced a clean
     # judge-certified candidate, accept it. Otherwise return the best complete candidate, flagged not-converged.
     if converged_cand:
-        return _assemble(question, converged_cand, residual=[], converged=True, rounds_used=max_rounds,
-                         substantive_objections=total_substantive, ledger=_finalize_ledger(ledger, max_rounds))
+        return _done(_assemble(question, converged_cand, residual=[], converged=True, rounds_used=max_rounds,
+                               substantive_objections=total_substantive,
+                               ledger=_finalize_ledger(ledger, max_rounds)))
     final = best if best else (previous_candidate or {})
     residual = (_residual(open_objections, parked) + unreadable) or ["reached round cap without full convergence"]
-    return _assemble(question, final, residual=residual, converged=False, rounds_used=max_rounds,
-                     substantive_objections=total_substantive, ledger=ledger)
+    return _done(_assemble(question, final, residual=residual, converged=False, rounds_used=max_rounds,
+                           substantive_objections=total_substantive, ledger=ledger))

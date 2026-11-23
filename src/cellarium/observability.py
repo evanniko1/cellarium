@@ -153,8 +153,14 @@ class CostMeter:
 
     def __init__(self):
         self.records: list = []
+        self.reads: list = []                      # egress.record() fetches: on the stream, but not model calls
 
     def __call__(self, record: dict) -> None:   # the subscriber callable
+        # An external read is not a model call. Counting it as one would inflate `n_calls` and flip
+        # `cost_partial` (it carries no price), so it is kept beside the calls rather than among them.
+        if record.get("kind") == "external_read":
+            self.reads.append(record)
+            return
         self.records.append(record)
 
     @property

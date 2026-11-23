@@ -75,11 +75,31 @@ _JUDGE_SYS = (
 
 
 # ---------------------------------------------------------------- normalization (pure)
+class BlindnessBreach(RuntimeError):
+    """The run's librarian read a host a blind run may not read (cellarium.egress). An environment fault: the
+    run is excluded, never scored. Defined here rather than imported so this module stays import-light."""
+
+
+def _breach(h) -> list:
+    reads = h.get("external_reads") if isinstance(h, dict) else getattr(h, "external_reads", None)
+    audit = ((reads or {}).get("librarian") or {}).get("audit") or {}
+    return list(audit.get("breaches") or []) if audit.get("clean") is False else []
+
+
 def from_council(h) -> str:
     """Arm B's artifact as plain text. `brief()` is the Council's own prose rendering, so nothing is added or
-    summarized here — using the structured model_dump instead would hand the judge a format tell."""
+    summarized here — using the structured model_dump instead would hand the judge a format tell.
+
+    A run whose blindness audit failed RAISES here, so the A/B (run_ab, the blind-arm comparison) cannot grade a
+    run whose librarian read a blocked host (VALIDATION_LAYER_SPEC item 7). Other harnesses grade
+    `model_dump()` directly and do not enable the librarian; tests/test_blind_external_reads.py fails if one
+    starts to without routing through here."""
     if h is None:
         return ""
+    breaches = _breach(h)
+    if breaches:
+        raise BlindnessBreach(f"the librarian read {len(breaches)} blocked URL(s), e.g. {breaches[0].get('url')}; "
+                              "a blind run that read the dataset is an environment fault and is never scored")
     brief = getattr(h, "brief", None)
     if callable(brief):
         return str(brief() or "")

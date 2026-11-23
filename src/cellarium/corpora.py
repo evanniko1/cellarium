@@ -443,6 +443,8 @@ def _repo_files(repo: str) -> tuple[dict, str | None]:
     errors = []
     for api in _clients():
         try:
+            from . import egress
+            egress.record("hf_list_repo_tree", f"https://huggingface.co/datasets/{repo}", purpose="corpus file listing")
             tree = api.list_repo_tree(repo, repo_type="dataset", recursive=True)
             return {getattr(f, "path", ""): int(getattr(f, "size", 0) or 0)
                     for f in tree if getattr(f, "size", None) is not None}, None
@@ -515,6 +517,9 @@ def fetch_metadata(key: str, confirm: bool = False, on_progress=None) -> dict:
         last = "no attempt was made"
         for api_kw in ({}, {"token": False}):
             try:
+                from . import egress
+                egress.record("hf_hub_download", f"https://huggingface.co/datasets/{c.locator}/blob/main/{f['path']}",
+                              purpose="corpus metadata fetch", corpus=key)
                 hf_hub_download(c.locator, f["path"], repo_type="dataset",
                                 local_dir=str(dest), **api_kw)
                 got.append(f["path"])

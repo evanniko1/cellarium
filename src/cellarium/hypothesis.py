@@ -77,6 +77,11 @@ class Hypothesis(BaseModel):
     rounds_used: int = 0                                            # debate rounds actually run (for the ablations)
     substantive_objections: int = 0                                # cumulative substantive objections the skeptic raised
     objection_ledger: list[dict] = Field(default_factory=list)     # every objection raised + the round that resolved it
+    # What the run read from OUTSIDE the model (the librarian's queries, every URL its search returned, the
+    # blindness audit of them). Empty when nothing external was read. VALIDATION_LAYER_SPEC item 7.
+    # EXCLUDED from model_dump on purpose: every eval harness hands `model_dump()` to a grader, and a grader that
+    # saw which pages were read would know which arm it was grading. Code that needs it reads the attribute.
+    external_reads: dict = Field(default_factory=dict, exclude=True)
 
     def brief(self) -> str:
         """Compact justification brief injected into the grounded agent's context (agent.run)."""
