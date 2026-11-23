@@ -288,10 +288,12 @@ def test_no_committed_binary_carries_a_key_shaped_string():
 
 
 # ---------------------------------------------------------------- funnel 4: the durable Council error row
-def test_a_failed_council_run_persists_a_scrubbed_error(tmp_path, monkeypatch):
-    monkeypatch.setenv("CELLARIUM_SESSIONS_DB", str(tmp_path / "s.db"))
+def test_a_failed_council_run_persists_a_scrubbed_error(tmp_path):
+    # The store's path is passed EXPLICITLY. This test used to set CELLARIUM_SESSIONS_DB, which nothing reads:
+    # `apps/hypotheses.py` opens data/sessions.db, so every suite run wrote this row into the developer's real
+    # app store (found 2026-11-23 as `h_test1`, status error, in the Hypotheses list).
     import hypotheses
-    store = hypotheses.HypothesisStore()
+    store = hypotheses.HypothesisStore(tmp_path / "s.db")
     rid = "h_test1"
     store.create(rid, "does argS matter?", model="test")
     store.fail(rid, f"APIConnectionError: Illegal header value b'{ANT}'")
