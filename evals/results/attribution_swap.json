@@ -1,0 +1,15 @@
+{
+ "answers": 60,
+ "claims": 140,
+ "exposed_answers": 11,
+ "pooled_check_detected_swaps": 0,
+ "routed": {
+  "original_supported": 100,
+  "original_claims": 140,
+  "swapped_claims": 62,
+  "detected": 10,
+  "supported_before_and_after": 40
+ },
+ "source": "data/sessions.db sessions (final assistant answer + all tool results), read-only, this machine",
+ "computed_utc": "2026-11-23T12:14:24Z"
+}
