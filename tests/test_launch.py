@@ -331,3 +331,31 @@ def test_shard_outcome_works_without_pandas(tmp_path, monkeypatch):
     out = manifest.shard_outcome(p)
     assert out["read"] is True, "shard_outcome still depends on pandas"
     assert (out["rows"], out["ok"]) == (1, 1)
+
+
+def test_a_rename_refused_for_a_moment_is_retried_and_a_lasting_refusal_still_raises(tmp_path, monkeypatch):
+    """Windows refuses os.replace onto a file another process holds open for a moment ("Access is denied").
+    Found 2026-11-23 as two intermittent failures in this file. A brief refusal must not lose the save; a refusal
+    that outlasts the retries must still surface, not be swallowed."""
+    import os as _os
+
+    monkeypatch.setattr(launch, "QUEUE", tmp_path / "q.json")
+    real = _os.replace
+    calls = {"n": 0}
+
+    def flaky(src, dst):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise PermissionError(5, "Access is denied")
+        return real(src, dst)
+    monkeypatch.setattr(launch.os, "replace", flaky)
+    monkeypatch.setattr(launch.time, "sleep", lambda s: None)
+    launch._save([{"id": "a"}])
+    assert calls["n"] == 3 and [r["id"] for r in launch._load()] == ["a"]
+
+    def always(src, dst):
+        raise PermissionError(5, "Access is denied")
+    monkeypatch.setattr(launch.os, "replace", always)
+    import pytest as _pytest
+    with _pytest.raises(PermissionError):
+        launch._save([{"id": "b"}])
