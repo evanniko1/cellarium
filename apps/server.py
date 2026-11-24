@@ -286,8 +286,11 @@ async def investigate(request):
                                   "gated": True, "verdict": decision.verdict}))
                 return
 
-            answer = agent.converse(sess["messages"], model=chosen, on_tool=on_tool, on_text=on_text,
-                                     on_note=on_note, on_usage=on_usage, verbose=False, reasoning=reasoning)
+            # P-1: the admitted turn's tools run inside the admission, so a read beyond it is marked
+            from cellarium import effect
+            with effect.admitted(decision):
+                answer = agent.converse(sess["messages"], model=chosen, on_tool=on_tool, on_text=on_text,
+                                         on_note=on_note, on_usage=on_usage, verbose=False, reasoning=reasoning)
             SESSIONS.put(sid, sess)   # write-through so the conversation survives a restart
             ev.put(("answer", {"answer": answer, "trust": ui.trust_signals(trace), "session_id": sid,
                               "model": chosen, "routed": routed, "first_turn": first_turn, "gated": False}))

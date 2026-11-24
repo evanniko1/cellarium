@@ -114,8 +114,13 @@ def investigate(question: str, *, use_council: bool = True, rounds: int = 4, quo
                                  brief=hyp.brief() if (hyp is not None and hasattr(hyp, "brief")) else None,
                                  decision=decision, gated=True)
 
+    # P-1: the tools run inside the admission, so a result that reads beyond it is marked (effect.py)
+    import contextlib
+
+    from . import effect
     from .agent import run  # imported late so the API key is present in env
-    answer = run(question, hypothesis=hyp, max_turns=max_turns, verbose=verbose, on_tool=on_tool)
+    with (effect.admitted(decision) if decision is not None else contextlib.nullcontext()):
+        answer = run(question, hypothesis=hyp, max_turns=max_turns, verbose=verbose, on_tool=on_tool)
 
     brief = hyp.brief() if (hyp is not None and hasattr(hyp, "brief")) else None
     return Investigation(question=question, used_council=use_council, answer=answer,

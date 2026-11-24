@@ -21,7 +21,7 @@ _log = logging.getLogger("cellarium.tools")
 # An internal-defect log below uses exc_info=True, and a CHAINED traceback is the one place a malformed API key
 # (a paste with a trailing newline -> httpx's "Illegal header value b'…'") survives in plaintext. A logging.Filter
 # is the only hook that reaches rendered traceback text, so install it where the logger is defined.
-from . import deg_claims, errors, evidence, reconcile, redact  # noqa: E402
+from . import defaults, deg_claims, effect, errors, evidence, reconcile, redact  # noqa: E402
 
 redact.install_log_filter("cellarium.tools")
 
@@ -1121,6 +1121,23 @@ def revise_experiment(request_id: str, perturbation: str | None = None, conditio
                          elongation_model=elongation_model)
 
 
+def with_reach(fn):
+    """L-1: a proposal can say what it is meant to resolve (`observable`, `granularity`, `dependencies`), and then
+    carries `reach`: whether any run of the proposed elongation model resolves it, and which model would if not.
+    The proposer itself is unchanged and never sees the three arguments (src/cellarium/reach.py)."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*, observable: str | None = None, granularity: str | None = None, dependencies=None, **kw):
+        out = fn(**kw)
+        if observable and isinstance(out, dict):
+            from . import reach
+            out = {**out, "reach": reach.reach(observable, granularity or "aggregate", dependencies or (),
+                                               mode=kw.get("elongation_model"))}
+        return out
+    return wrapper
+
+
 def propose_experiments(designs: list | None = None) -> dict:
     """PROPOSE a WHOLE PANEL of experiments in ONE call — use this instead of many propose_experiment calls whenever
     you are queuing more than one design (e.g. the Socratic Council's full falsifier panel: a reference + N KOs +
@@ -1641,6 +1658,18 @@ def web_get(url: str, headers: dict | None = None) -> dict:
     return skills.web_get(url, headers)
 
 
+# L-1: what a proposed run is FOR, so the proposal can say whether a run of its kind can resolve it at all.
+_REACH_PROPS = {
+    "observable": {"type": "string", "description": "optional: the quantity that would separate the hypotheses "
+                   "(as the gate names it: trna_charging, ppgpp, elongation, ...). Given, the proposal carries "
+                   "`reach`: whether a run of this elongation model resolves it, and which model would if not."},
+    "granularity": {"type": "string", "description": "optional, with observable: the resolution needed "
+                    "(aggregate, per_amino_acid, per_isoacceptor, per_codon, per_operon, per_gene)"},
+    "dependencies": {"type": "array", "items": {"type": "string"},
+                     "description": "optional, with observable: mechanisms the separation rides on (e.g. "
+                                    "amino_acid_starvation)"},
+}
+
 _DESIGN_PROPS = {
     "perturbation": {"type": "string", "description": "variant type (wildtype, gene_knockout, ppgpp_conc, timeline, ...)"},
     "condition": {"type": "string", "description": "static media condition, e.g. basal, acetate"},
@@ -1818,7 +1847,7 @@ TOOLS = [
     {"name": "run_experiment", "description": "Envelope- AND biosecurity-check a design and report whether it's already in the corpus. Enforces the guardrails; does not launch heavy sims per query.",
      "input_schema": {"type": "object", "properties": _DESIGN_PROPS}},
     {"name": "propose_experiment", "description": "PROPOSE a NEW experiment to run when the corpus lacks the data you need. Cellwright CANNOT launch sims itself — the design is vetted (safety-gated) and QUEUED pending HUMAN approval; after a human approves and it runs, the result is indexed so you can analyse it. Call design_space first to resolve gene symbols. Single-gene KO: perturbation='gene_knockout' + gene='pfkA'. MULTI-gene KO (e.g. a synthetic-lethal pair): perturbation='multi_gene_knockout' + genes=['pfkA','pfkB'] — the ko_indices are resolved for you, no need to guess indices. To CHANGE an argument on a draft you already proposed, use revise_experiment (NOT this — proposing again leaves a stale duplicate). Returns request id + vet result (pending_approval or blocked).",
-     "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}}}},
+     "input_schema": {"type": "object", "properties": {**_DESIGN_PROPS, "gene": {"type": "string", "description": "single KO gene (perturbation='gene_knockout') — also sets the scope prior"}, "genes": {"type": "array", "items": {"type": "string"}, "description": "gene SET for a multi_gene_knockout, e.g. ['pfkA','pfkB'] — each is resolved to its ko_index automatically"}, **_REACH_PROPS}}},
     {"name": "deg_rate_provenance", "description": "Is a transcript's DEGRADATION RATE (mRNA half-life) a FITTED value, a CONSTRAINT, or a population DEFAULT? sim_data stores all three as the same kind of float, so a half-life is not self-describing. ParCa bounds inferred rates below by the slowest single measured cistron (and clips at the fastest), and gives any unit whose cistrons were NEVER measured the MEAN of the reported half-lives. MEASURED on the corpus fit: 854 of 3,133 mRNA units (27%) carry a value that is not a fit, holding 12.087% of mRNA expression in basal (11.165-15.491% across the 67 conditions). CALL THIS BEFORE reporting or reasoning about any transcript's stability, decay or half-life — and BEFORE proposing a knowledge-base rebuild to answer \"is that half-life fitted or the estimator's floor?\", because this answers that in seconds for free whereas a rebuild costs ~7 minutes plus comparator runs plus a NEW ARM. Pass `unit` (a transcription-unit id or substring, e.g. 'rpmJ') for one transcript; omit it for the whole-fit summary. The verdict is THREE-WAY — NOT A FIT, FIT, or no such unit — and the last two are reported together with a caveat rather than merged, so \"I could not find it\" is never returned as \"it is fine\".",
      "input_schema": {"type": "object", "properties": {"unit": {"type": "string", "description": "transcription-unit id or substring (e.g. 'rpmJ'); omit for the whole-fit summary"}, "sim_path": {"type": "string", "description": "which knowledge base (default 'cellarium')"}}}},
     {"name": "propose_rebuild", "description": "PROPOSE a KNOWLEDGE-BASE REBUILD (ParCa) — the fitted PARAMETERS, not a simulation. Use this when the question is about the FIT rather than a design: \"does this hold with the pseudogene reverted?\", \"does this hold with operons off?\". No number of simulations can answer those, because every run in the corpus shares ONE fitted parameter set, so if a claim rests on a reconstruction INPUT a rebuild is the only experiment that tests it. DO NOT propose a rebuild merely to ask whether a half-life is a fitted value or the estimator's floor — `deg_rate_provenance` answers that for free in seconds on any existing knowledge base, whereas this costs ~7 minutes plus comparator runs plus a new arm. ~7 minutes vs hours for a campaign. Cellwright CANNOT launch it: vetted and QUEUED pending HUMAN approval, exactly like propose_experiment. HARD GATE: a rebuild at a path whose knowledge base live corpus rows depend on is REFUSED (it would orphan them from their own parameters — this happened once, 18 rows). A rebuild MINTS A NEW ARM: its runs carry a different kb_sha256 and are NOT poolable with the corpus, so propose the comparators too. `reason` is required. `retype_cistrons` is {rna_id: type} e.g. {\"G0-10634_RNA\": \"pseudo\"} — rows are retyped, NEVER deleted (deleting breaks referential integrity and the build dies before fitting). `operons` is a ParCa-time option ('on' default; 'off' is untested here and has no comparator).",
@@ -1977,7 +2006,7 @@ _DISPATCH = {"survey_corpus": survey_corpus, "lethality_landscape": lethality_la
              "viability_surrogate": viability_surrogate, "generate_designs": generate_designs,
              "design_panel": design_panel, "surface_panel": surface_panel,
              "use_skill": use_skill, "web_get": web_get,
-             "propose_experiment": propose_experiment, "propose_experiments": propose_experiments,
+             "propose_experiment": with_reach(propose_experiment), "propose_experiments": propose_experiments,
              "propose_rebuild": propose_rebuild, "deg_rate_provenance": deg_rate_provenance,
              "revise_experiment": revise_experiment,
              "metabolic_essentiality": metabolic_essentiality}
@@ -2055,6 +2084,12 @@ def dispatch(name: str, args: dict) -> dict:
         # because the probe's one genuine failure was a protein copy number whose sentence used no
         # degradation vocabulary at all — nothing downstream could have caught it.
         out = deg_claims.mark_payload(name, out)
+        # J-1: the defaults that shaped this result, named ON it (src/cellarium/defaults.py): the parameters the call
+        # left out, as the function's own signature filled them, and what its designs' labels leave unsaid.
+        if isinstance(out, dict) and not out.get("error"):
+            out = {**out, "defaults_applied": defaults.applied(name, args or {}, fn)}
+        # P-1: inside a gate admission, a result that reads beyond what was admitted says so (src/cellarium/effect.py)
+        out = effect.verify(name, args or {}, out)
         # ERR-1: a refusal says what KIND of refusal it is. `about` separates "the corpus does not contain this"
         # from "this machine could not look", which is the distinction four discovery-leg failures turned on.
         out = errors.annotate(out)
