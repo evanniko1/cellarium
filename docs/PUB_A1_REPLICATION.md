@@ -48,11 +48,14 @@ Run the sweep **twice** — once with `--matched-framing` and once without — a
 **Budget estimate (rough).** ~14 cases × 5 reps × 2 arms ≈ 140 arm-runs; a Council deliberation is ~4 rounds × 3 roles ≈ 12 calls, a Cellwright arm ~10-20 tool-turns. Order ~2-4k model calls → hours of wall-clock and a real (but modest) API bill. Chunking by case-batch keeps each session bounded and resumable.
 
 **Budget, derived (2026-11-24, `python evals/costs.py`).** Five repetitions, both framings, the Council run once per
-repetition and Cellwright once per framing, each graded by the shared judge: 10 cases $42.68 / $47.86 / $73.60, all
-25 cases $106.71 / $119.64 / $184.01 (low / central / high). Cellwright's share is not estimated: it is the metered
-mean of the stored A/B's 25 arm-A runs ($0.32 a run; the dearest was $0.93), scaled for the bands. The high case
-assumes no cache reads and the round cap, so it is a ceiling. `run_ab.py` stops on an outage but has no spend cap
-yet; add one before an unattended sweep.
+repetition and Cellwright once per framing, each graded by the shared judge: 10 cases $48.09 / $53.86 / $83.03, all
+25 cases $120.24 / $134.66 / $207.57 (low / central / high). These replace a first derivation ($47.86 and $119.64
+central) that assumed 3.5 characters per token; the provider's token counter measured these prompts at 2.5 to 2.9,
+after the first paid run metered more than its "high" estimate. Cellwright's share is not estimated: it is the
+metered mean of the stored A/B's 25 arm-A runs ($0.32 a run; the dearest was $0.93), scaled for the bands. The high
+case assumes no cache reads and the round cap, so it is a ceiling. The shared judge and the Council arm's grader
+report to the meter since 2026-11-24 (before, a cap could not have seen them). `run_ab.py` stops on an outage but
+has no spend cap yet; add one before an unattended sweep.
 
 ## Implementation steps (code owed, all offline-testable except the live run)
 

@@ -19,8 +19,14 @@ THE ESTIMATE. The `estimate_*` functions multiply measured sizes by one assumpti
   * rounds per Council run from the stored runs for the central case (the A/B's 25 Council runs for the full
     system, the ablation for the arms only it ran), the round cap for the high case;
   * the cost of a Cellwright arm as METERED in the stored A/B (`llm.cost_usd`), not estimated;
-  * the assumption: characters per token. No tokenizer ships here and nothing is sent to count, so every
-    figure is given at 4.0 / 3.5 / 3.0 characters per token (low / central / high).
+  * characters per token, MEASURED: 2.9 / 2.5 / 2.2 (low / central / high). The provider's token counter
+    (free; it reproduced every billed call of M0, the first approved paid run, to a constant 124 tokens) puts
+    these runs' prose system prompts at 2.67-2.89 characters per token and their JSON (tool schemas, hypotheses,
+    defect lists, dial labels) at 1.99-2.78, mean 2.52, on claude-sonnet-5 and claude-opus-4-8 alike
+    (2026-11-24). The bands used to assume 4.0 / 3.5 / 3.0, and M0 metered $2.67 against a "high" of $2.39. GPT
+    calls get the same bands, which overstates them a little (its tokenizer packs more into a token);
+  * a forced tool call's preamble, 124 input tokens on every Anthropic call (`TOOL_USE_TOKENS`), measured as the
+    gap between the counter and M0's bills.
 Caching follows `council._emit`: a role's system prompt and tool schema are cached after its first call and read
 at 0.1x the input rate; a prefix under 1,024 tokens is not cacheable and is billed in full. Cache writes (1.25x,
 once per role per five minutes) are left out. The HIGH case also drops every cache read, so it is a ceiling and
@@ -51,8 +57,9 @@ EXIT_SPEND_CAP = 4
 # USD per 1M tokens (input, output), Standard tier, developers.openai.com/api/docs/pricing, read 2026-11-24.
 OPENAI_PRICES = {"gpt-4o": (2.50, 10.00)}
 
-CHARS_PER_TOKEN = {"low": 4.0, "central": 3.5, "high": 3.0}
-BANDS = {"low": (4.0, True), "central": (3.5, True), "high": (3.0, False)}    # (characters per token, cache on)
+CHARS_PER_TOKEN = {"low": 2.9, "central": 2.5, "high": 2.2}          # measured 2026-11-24, see the docstring
+BANDS = {"low": (2.9, True), "central": (2.5, True), "high": (2.2, False)}    # (characters per token, cache on)
+TOOL_USE_TOKENS = 124   # input tokens a forced tool call adds to each Anthropic call (M0's bills minus the count)
 CACHE_MIN_TOKENS = 1024
 CACHE_READ = 0.1
 ROUND_CAP = 4
@@ -178,8 +185,11 @@ class Call:
         p = price(self.model)
         if p is None:
             raise ValueError(f"no list price for {self.model!r}; add it before estimating a run that uses it")
+        anthropic = observability._price(self.model) is not None
         pre, pay, rep = self.prefix / cpt, self.payload / cpt, self.reply / cpt
-        cached = cache and observability._price(self.model) is not None and pre >= CACHE_MIN_TOKENS
+        if anthropic:
+            pay += TOOL_USE_TOKENS
+        cached = cache and anthropic and pre >= CACHE_MIN_TOKENS
         return ((pre * (CACHE_READ if cached else 1.0) + pay) * p[0] + rep * p[1]) / 1e6
 
 
@@ -420,7 +430,8 @@ def render(est: dict, title: str = "") -> str:
     """A plain table of an ablation estimate."""
     def usd(d):
         return f"${d['low']:.2f} / ${d['central']:.2f} / ${d['high']:.2f}"
-    lines = [f"{title} -- estimate, USD low / central / high (4.0 / 3.5 / 3.0 characters per token; "
+    cpt = " / ".join(f"{v}" for v in CHARS_PER_TOKEN.values())
+    lines = [f"{title} -- estimate, USD low / central / high ({cpt} characters per token, measured; "
              f"high also assumes no cache reads and the round cap)"]
     for arm, a in est["arms"].items():
         lines.append(f"  {arm:17s} {a['records']:4d} records  ablate {usd(a['ablate_usd'])}  audit {usd(a['audit_usd'])}")

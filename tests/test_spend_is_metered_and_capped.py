@@ -114,3 +114,37 @@ def test_a_cap_that_could_never_hold_is_refused(cap_usd, reserve):
 def test_the_capped_exit_code_is_four_not_the_outage_three():
     from cellarium import outage
     assert costs.EXIT_SPEND_CAP == 4 and outage.EXIT_INTERRUPTED == 3
+
+
+# --- the estimate against what was metered --------------------------------------------------------------------
+# FOUND 2026-11-24 by M0, the first approved paid run: 58 Claude audits metered $2.6694 against an estimate of
+# $1.79 / $2.05 / $2.39, so the "high" case, documented as a ceiling, was not one. The estimate assumed 4.0 / 3.5 /
+# 3.0 characters per token; the provider's token counter (free, and it reproduced every billed M0 call to a
+# constant 124-token tool-use overhead) puts these runs' prose at 2.67-2.89 and their JSON at 1.99-2.78.
+
+M0_METERED_USD = 2.6694     # evals/results/audited_zeros_reaudit.json `spent_usd`: 58 audits, Claude only
+
+
+def test_m0s_artefact_still_says_what_this_file_compares_with():
+    import json
+    art = json.loads((REPO / "evals" / "results" / "audited_zeros_reaudit.json").read_text(encoding="utf-8"))
+    assert (art["spent_usd"], len(art["results"]), art["gpt_auditor"]) == (M0_METERED_USD, 58, None)
+
+
+def test_the_high_estimate_is_a_ceiling_for_what_m0_metered():
+    est = costs.estimate_audit(58, gpt=False)["total_usd"]
+    assert est["high"] >= M0_METERED_USD
+    assert est["low"] <= M0_METERED_USD
+
+
+def test_the_central_estimate_is_within_a_fifth_of_what_m0_metered():
+    central = costs.estimate_audit(58, gpt=False)["total_usd"]["central"]
+    assert 0.8 * M0_METERED_USD <= central <= 1.2 * M0_METERED_USD
+
+
+def test_every_anthropic_call_pays_the_tool_use_overhead():
+    """Each call here forces a tool, and the provider bills a fixed system preamble for that: 124 input tokens on
+    every M0 call. A call of zero characters still costs those tokens; a GPT call has no such preamble here."""
+    empty = costs.Call("claude-opus-4-8", 0, 0, 0)
+    assert empty.usd(2.5) == pytest.approx(124 * 5.00 / 1e6)
+    assert costs.Call("gpt-4o", 0, 0, 0).usd(2.5) == 0.0
