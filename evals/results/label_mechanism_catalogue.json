@@ -1,0 +1,208 @@
+{
+ "spec": "J-2",
+ "designs": "the 82-design manifest of 2026-11-24 (CORPUS_DESIGNS_2026_11_24)",
+ "n_designs": 82,
+ "n_flagged": 27,
+ "n_unverified": 4,
+ "classes": {
+  "acceptor_added_under_oxygen": {
+   "designs": [
+    "condition/plus_nitrate"
+   ],
+   "examples": [
+    {
+     "design": "condition/plus_nitrate",
+     "reading_ruled_out": "not nitrate respiration: the medium keeps oxygen, the preferred acceptor, so the run is aerobic growth with nitrate present"
+    }
+   ],
+   "n": 1
+  },
+  "carbon_source_added_beside_glucose": {
+   "designs": [
+    "condition/plus_arabinose"
+   ],
+   "examples": [
+    {
+     "design": "condition/plus_arabinose",
+     "reading_ruled_out": "not growth on arabinose: the medium keeps glucose, so the run grows on glucose with arabinose present"
+    }
+   ],
+   "n": 1
+  },
+  "misnamed": {
+   "designs": [
+    "gene_knockout/KO:dnaN",
+    "gene_knockout/KO:murA",
+    "gene_knockout/KO:rpmJ",
+    "gene_knockout/KO:rpoB",
+    "gene_knockout/KO:valS",
+    "graded_gene_knockout/KO:murA#expr:0.1",
+    "graded_gene_knockout/KO:murA#expr:0.5",
+    "graded_gene_knockout/KO:murA#expr:0.9",
+    "multi_gene_knockout/KO:gltX+relA+spoT"
+   ],
+   "examples": [
+    {
+     "design": "gene_knockout/KO:dnaN",
+     "true_label": "TU_KO:dnaN-recF(silences nothing measured)",
+     "notes": [
+      "dnaN is NOT silenced by this design (it has 2 TUs)",
+      "recF shares the zeroed TU and is AT RISK (unverified)"
+     ]
+    },
+    {
+     "design": "gene_knockout/KO:murA",
+     "true_label": "TU_KO:murA(silences nothing measured)",
+     "notes": [
+      "murA is NOT silenced by this design (it has 2 TUs)"
+     ]
+    },
+    {
+     "design": "gene_knockout/KO:rpmJ",
+     "true_label": "TU_KO:rplNXE-rpsNH-rplFR-rpsE-rpmD-rplO-secY-rpmJ(\u2192secY)",
+     "notes": [
+      "rpmJ is NOT silenced by this design (it has 2 TUs)"
+     ]
+    }
+   ],
+   "n": 9
+  },
+  "operon_wide": {
+   "designs": [
+    "gene_knockout/KO:dapA",
+    "gene_knockout/KO:flgB",
+    "gene_knockout/KO:glmS",
+    "gene_knockout/KO:leuB",
+    "gene_knockout/KO:leuB#tl:379e4c",
+    "gene_knockout/KO:leuB#tl:38639c",
+    "gene_knockout/KO:lysS",
+    "gene_knockout/KO:pheS",
+    "gene_knockout/KO:rplB",
+    "gene_knockout/KO:selA",
+    "gene_knockout/KO:thrC#tl:38639c",
+    "gene_knockout/KO:thrC#tl:b0ae2f",
+    "gene_knockout/KO:ymgD"
+   ],
+   "examples": [
+    {
+     "design": "gene_knockout/KO:dapA",
+     "true_label": "operon_KO:dapA-nlpB",
+     "notes": []
+    },
+    {
+     "design": "gene_knockout/KO:flgB",
+     "true_label": "operon_KO:flgBCDEFGHIJ",
+     "notes": []
+    },
+    {
+     "design": "gene_knockout/KO:glmS",
+     "true_label": "operon_KO:glmUS",
+     "notes": []
+    }
+   ],
+   "n": 13
+  },
+  "relabel_required": {
+   "designs": [
+    "rrna_operon_knockout/minimal|rRNA_KO:2op",
+    "rrna_operon_knockout/minimal|rRNA_KO:4op",
+    "rrna_operon_knockout/minimal|rRNA_KO:6op"
+   ],
+   "examples": [
+    {
+     "design": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+     "true_label": "rRNA_operons_removed:2of7",
+     "notes": [
+      "not an operon deletion: the rebalance erases operon identity but preserves the dose"
+     ]
+    },
+    {
+     "design": "rrna_operon_knockout/minimal|rRNA_KO:4op",
+     "true_label": "rRNA_operons_removed:4of7",
+     "notes": [
+      "not an operon deletion: the rebalance erases operon identity but preserves the dose"
+     ]
+    },
+    {
+     "design": "rrna_operon_knockout/minimal|rRNA_KO:6op",
+     "true_label": "rRNA_operons_removed:6of7",
+     "notes": [
+      "not an operon deletion: the rebalance erases operon identity but preserves the dose"
+     ]
+    }
+   ],
+   "n": 3
+  },
+  "unverified": {
+   "designs": [
+    "graded_gene_knockout/KO:argS@0.05",
+    "graded_gene_knockout/KO:argS@0.10",
+    "graded_gene_knockout/KO:argS@0.25",
+    "graded_gene_knockout/KO:argS@0.50"
+   ],
+   "examples": [
+    {
+     "design": "graded_gene_knockout/KO:argS@0.05",
+     "true_label": "gene_KO:argS@0.05 (not checked)",
+     "notes": [
+      "argS@0.05 is not in the gene scope map, so its knockout was not checked"
+     ]
+    },
+    {
+     "design": "graded_gene_knockout/KO:argS@0.10",
+     "true_label": "gene_KO:argS@0.10 (not checked)",
+     "notes": [
+      "argS@0.10 is not in the gene scope map, so its knockout was not checked"
+     ]
+    },
+    {
+     "design": "graded_gene_knockout/KO:argS@0.25",
+     "true_label": "gene_KO:argS@0.25 (not checked)",
+     "notes": [
+      "argS@0.25 is not in the gene scope map, so its knockout was not checked"
+     ]
+    }
+   ],
+   "n": 4
+  }
+ },
+ "computed_utc": "2026-11-24T22:52:15Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "318bdc6",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
