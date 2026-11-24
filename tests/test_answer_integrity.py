@@ -11,6 +11,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
@@ -171,13 +173,17 @@ def test_the_planted_swaps_are_caught_where_the_rule_reaches():
 def test_the_recorded_answers_reproduce_the_stored_counts():
     db = REPO / "data" / "sessions.db"
     if not db.is_file():
-        import pytest
         pytest.skip("data/sessions.db is not on this machine: the stored counts cannot be recomputed here")
     sys.path.insert(0, str(REPO / "evals"))
     import answer_integrity as A
     want = set(json.loads((REPO / "evals" / "results" / "attribution_swap.json").read_text(encoding="utf-8"))
                ["session_ids"])
-    got = A.measure([s for s in A.load() if s["sid"] in want])
+    sessions = [s for s in A.load() if s["sid"] in want]
+    if len(sessions) != len(want):
+        # a fresh clone's store is the demo seed (data/sessions.seed.db), which holds a subset: a different store,
+        # not a disagreement (CI found this; I.8's script refuses the same way)
+        pytest.skip(f"this store holds {len(sessions)} of the {len(want)} sessions the stored counts came from")
+    got = A.measure(sessions)
     stored = _stored()
     for key in ("answers", "claim_status", "named", "citations", "gate", "planted_swap"):
         assert got[key] == stored[key], key

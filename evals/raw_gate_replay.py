@@ -132,7 +132,13 @@ def main() -> int:
               file=sys.stderr)
         return 2
     from cellarium import provenance
-    recorded, used = calls()
+    # The stored replay names its sessions. A store that does not hold all of them is a different store (a fresh
+    # clone's is the demo seed), so measuring it would overwrite the counts with another sample's; refuse instead.
+    prev = json.loads(OUT.read_text(encoding="utf-8"))["session_ids"] if OUT.is_file() else None
+    recorded, used = calls(sessions=set(prev) if prev else None)
+    if prev and used != prev:
+        print(f"this store holds {len(used)} of the replay's {len(prev)} sessions; not measuring.", file=sys.stderr)
+        return 2
     r = measure(recorded, before, show="--show" in sys.argv[1:])
     r.update({"adjudicated": ADJUDICATED, "session_ids": used, "before_commit": BEFORE_COMMIT,
               "source": "every tool_use block in data/sessions.db, read-only. These are Cellwright's own calls, "
