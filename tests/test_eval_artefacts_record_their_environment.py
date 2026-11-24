@@ -99,7 +99,7 @@ def test_an_ablation_records_its_environment(monkeypatch, tmp_path):
     monkeypatch.setattr(ablate, "load_dotenv", lambda *a, **kw: None)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(llm, "client", lambda **kw: object())
-    monkeypatch.setattr(ablate, "_one_cell", lambda case, cfg, rep, *a: {"id": case["id"], "config": cfg, "rep": rep})
+    monkeypatch.setattr(ablate, "_one_cell", lambda case, cfg, rep, *a, **kw: {"id": case["id"], "config": cfg, "rep": rep})
     out = tmp_path / "ablation.json"
     assert ablate.run(["1.1"], ["full"], 1, 0.7, str(out), "gpt-4o", "claude-opus-4-8", workers=1) == 0
     env = json.loads(out.read_text(encoding="utf-8"))["environment"]

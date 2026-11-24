@@ -136,7 +136,7 @@ def ablation(monkeypatch, tmp_path):
     calls: list[tuple] = []
 
     def run(ok_first: int):
-        def fake_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader):
+        def fake_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader, **kw):
             calls.append((case["id"], cfg, rep))
             rec = {"id": case["id"], "config": cfg, "rep": rep, "temperature": temperature}
             if len(calls) > ok_first:

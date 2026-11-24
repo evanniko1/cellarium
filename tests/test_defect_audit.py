@@ -275,3 +275,65 @@ def test_a_complete_claude_grade_still_scores():
     full = {k: True for k in ablate.Q}
     g = ablate.grade_claude({"question": "q"}, _h(), _Client(_Resp([_Block(full)])))
     assert ablate._score(g) == 6
+
+
+# --- variants: the other hypotheses a record carries ------------------------------------------------------
+
+def _counting_auditor(calls):
+    def fake(rec, client, model="claude-opus-4-8", hypothesis=None):
+        h = rec["hypothesis"] if hypothesis is None else hypothesis
+        calls.append(h["claim"])
+        if h["claim"] == "unreadable":
+            raise audit.UnreadableAudit("the Claude audit was cut off at max_tokens=4096")
+        n = {"returned": 8, "after four rounds": 6}[h["claim"]]
+        return {"defects": [{"type": "t", "issue": "i"}] * n, "stop_reason": "tool_use", "output_tokens": 1}
+    return fake
+
+
+def test_each_distinct_variant_is_audited_once_and_a_duplicate_says_what_it_equals(monkeypatch):
+    calls: list = []
+    monkeypatch.setattr(audit, "audit_claude", _counting_auditor(calls))
+    rec = {"id": "1.1", "config": "full", "rep": 0, "hypothesis": {"claim": "returned"},
+           "variants": {"all_rounds": {"claim": "after four rounds"}, "again": {"claim": "returned"},
+                        "twin": {"claim": "after four rounds"}}}
+    out = audit._one(rec, object(), None, "gpt-4o", "claude-opus-4-8")
+    assert out["claude_defects"] == 8 and out["variants"]["all_rounds"]["claude_defects"] == 6
+    assert out["variants"]["again"] == {"same_as": "hypothesis"}
+    assert out["variants"]["twin"] == {"same_as": "all_rounds"}
+    assert calls == ["returned", "after four rounds"] and audit.n_audits([rec]) == 2
+
+
+def test_an_unreadable_variant_is_an_error_on_that_variant_and_nowhere_else(monkeypatch):
+    monkeypatch.setattr(audit, "audit_claude", _counting_auditor([]))
+    rec = {"id": "1.1", "config": "full", "rep": 0, "hypothesis": {"claim": "returned"},
+           "variants": {"all_rounds": {"claim": "unreadable"}}}
+    out = audit._one(rec, object(), None, "gpt-4o", "claude-opus-4-8")
+    assert "error" not in out and out["claude_defects"] == 8
+    assert out["variants"]["all_rounds"]["error"].startswith("UnreadableAudit")
+    assert "claude_defects" not in out["variants"]["all_rounds"]
+
+
+def test_the_audit_stops_at_its_spend_cap_and_leaves_the_artefact_alone(monkeypatch, tmp_path):
+    """$1.00 a record, a $3.50 cap, $0.50 held back for the one record in flight: three records, then exit 4."""
+    import costs
+    monkeypatch.setattr(costs, "estimate_audit", lambda *a, **kw: {"per_record": {"high": 0.5}})
+    monkeypatch.setattr(audit, "_one", lambda rec, *a: {"id": rec["id"], "config": "full", "rep": 0,
+                                                         "claude_defects": 8, "llm": {"cost_usd": 1.0}})
+    recs = [{"id": f"c{i}", "config": "full", "rep": 0, "hypothesis": {"claim": "x"}} for i in range(6)]
+    out = tmp_path / "audited.json"
+    code = audit.run(recs, str(out), client=object(), oai=None, gpt_model="gpt-4o",
+                     claude_auditor="claude-opus-4-8", workers=1, max_usd=3.5)
+    assert code == 4 and not out.exists()
+    stop = json.loads(out.with_name("audited.partial.json").read_text(encoding="utf-8"))["stopped_early"]
+    assert (stop["reason"], stop["spent_usd"], stop["after_records"]) == ("spend cap", 3.0, 3)
+
+
+def test_the_confirmation_dry_run_prices_the_58_records_and_calls_nothing(monkeypatch, capsys):
+    def no_client(**kw):
+        raise AssertionError("a dry run made a client")
+    monkeypatch.setattr(llm, "client", no_client)
+    monkeypatch.setattr(sys, "argv", ["audit.py", "--only-claude-zeros", str(STORED_AUDIT), "--auditors", "claude",
+                                      "--dry-run"])
+    assert audit.main() == 0
+    out = capsys.readouterr().out
+    assert "58 records, 58 hypotheses to audit (Claude only)" in out and "dry run" in out
