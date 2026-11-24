@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import cases as cases_mod  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
-from cellarium import council, instrument  # noqa: E402
+from cellarium import council, instrument, observability  # noqa: E402
 
 _DIRECTION = ("increase", "decrease", "higher", "lower", "greater", "less", "rise", "rises", "fall", "falls",
               "up", "down", "positive", "negative", "bimodal", "more", "fewer", ">", "<", "exceed", "above",
@@ -93,11 +93,14 @@ def llm_grade(case: dict, h, client, grader_model: str) -> dict:
         "generated_hypothesis": h.model_dump(by_alias=True, mode="json"),
         "generated_brief": h.brief(),
     }
+    t0 = observability.now()
     resp = client.messages.create(
         model=grader_model, max_tokens=2048, system=_GRADER_SYS, tools=[_GRADE_TOOL],
         tool_choice={"type": "tool", "name": "grade"},
         messages=[{"role": "user", "content": json.dumps(payload)}],
     )
+    observability.emit(observability.usage_record("case_grader", grader_model, resp,
+                                                  (observability.now() - t0) * 1000))   # so a cap counts it
     for block in resp.content:
         if getattr(block, "type", None) == "tool_use":
             return dict(block.input)

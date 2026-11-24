@@ -168,11 +168,17 @@ def grade(case: dict, candidate_answer: str, client, judge_model: str) -> dict:
     artifacts for every judge, which is also the only way an inter-rater statistic means anything."""
     if not (candidate_answer or "").strip():
         return dict(score_from([], []), comment="empty artifact", judged=False, graded_text="")
+    from cellarium import observability
+    t0 = observability.now()
     resp = client.messages.create(
         model=judge_model, max_tokens=2048, system=_JUDGE_SYS, tools=[_JUDGE_TOOL],
         tool_choice={"type": "tool", "name": "grade"},
         messages=[{"role": "user", "content": json.dumps(payload(case, candidate_answer))}],
     )
+    # Reported to the meter like every other paid call, so a spend cap counts it (missing until 2026-11-24: M4's
+    # meter never saw its 30 judge calls; tests/test_every_paid_call_is_metered.py).
+    observability.emit(observability.usage_record("shared_judge", judge_model, resp,
+                                                  (observability.now() - t0) * 1000))
     out = dict(score_from([], []), comment="judge emitted no verdict", judged=False)
     want = len(case["min_criteria"]) + len(case["stringent_criteria"])
     for block in resp.content:

@@ -391,10 +391,14 @@ def parse(question: str, *, model: str | None = None, client: Any = None) -> Req
             # provider choice and the agent's retry policy, and `test_llm_seam` pins that no runtime
             # module reaches past it.
             client = llm.client(max_retries=4)
+        from . import observability
+        t0 = observability.now()
         resp = client.messages.create(
             model=model, max_tokens=1024, system=_PARSE_SYSTEM, tools=[_PARSE_TOOL],
             tool_choice={"type": "tool", "name": "state_requirement"},
             messages=[{"role": "user", "content": question}])
+        observability.emit(observability.usage_record("gate_parse", model, resp,
+                                                      (observability.now() - t0) * 1000))   # so a cap counts it
         block = next(b for b in resp.content if getattr(b, "type", "") == "tool_use")
         d = block.input if isinstance(block.input, dict) else json.loads(block.input)
         return Requirement(
