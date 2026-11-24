@@ -103,6 +103,31 @@ def test_the_paid_run_scores_every_answer_with_every_instrument(scored):
     assert "full" in art["reference"] and "python" in art["environment"]
 
 
+def test_each_reference_point_comes_from_the_instrument_it_is_compared_with():
+    """FOUND 2026-11-24, before M4 ran: the shared judge's reference read `quality_score` from the A/B's Council
+    rows, which have none. They predate the shared judge; their criteria come from grade.llm_grade, a different
+    grader that sees the structured hypothesis. So the reference was None and the comparison would have printed
+    blank. The A/B's Cellwright answers to the same ten cases were scored by the shared judge itself."""
+    ref = tb.reference_points(ablate.EXPLORATORY_IDS)
+    assert ref["ab_cellwright_shared_quality"] == 0.4875          # ab_ledger.json arm A, the ten exploratory cases
+    assert "ab_council_shared_quality" not in ref
+    assert "predate the shared judge" in ref["ab_council_shared_quality_absent"]
+    assert ref["full"] == {"rubric_claude": 6.0, "defects_gpt": 3.8}
+    assert ref["proposer_only"] == {"rubric_claude": 6.0, "defects_gpt": 4.77}
+    one = tb.reference_points(["1.1"])                                 # only the cases asked for
+    assert one["ab_cellwright_shared_quality"] == 0.625
+    assert (one["full"]["defects_gpt"], one["proposer_only"]["defects_gpt"]) == (2.67, 4.67)
+
+
+def test_the_rubric_reference_is_taken_over_the_cases_asked_for(monkeypatch):
+    """Every stored rubric score is 6 of 6, so on the real files the case filter cannot show; a stand-in can."""
+    import costs
+    abl = {"results": [{"id": "1.1", "config": "full", "claude": {"score": 4}},
+                       {"id": "2.1", "config": "full", "claude": {"score": 6}}]}
+    monkeypatch.setattr(costs, "_stored", lambda name: abl if name == "ablation.json" else None)
+    assert tb.reference_points(["1.1"])["full"]["rubric_claude"] == 4.0
+
+
 def test_the_paid_run_stops_on_an_outage(scored, monkeypatch):
     tmp, calls = scored
 

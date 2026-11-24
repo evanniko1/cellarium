@@ -139,20 +139,29 @@ def _score_one(case: dict, kind: str, client, oai, gpt_model: str, claude: str, 
     return rec
 
 
-def reference_points() -> dict:
-    """The stored real answers to compare against, per arm: the rubric (ablation.json), the GPT defect count
-    (audited.json; the Claude column is not used, see evals/audit.py) and the A/B Council's shared quality."""
+def reference_points(case_ids) -> dict:
+    """The stored real answers to the same cases, each scored by the instrument it is compared with: the rubric
+    (ablation.json), the GPT defect count (audited.json; the stored Claude column is not used, see evals/audit.py)
+    and the shared judge's quality of the A/B's Cellwright answers (ab_ledger.json, arm A).
+
+    The A/B's Council rows predate the shared judge: their criteria come from grade.llm_grade, a different grader
+    that sees the structured hypothesis, so no stored Council answer has a shared-judge score. That reference is
+    absent and says why; it is never filled in from the other grader."""
+    ids = set(case_ids)
     out: dict = {}
     abl = (costs._stored("ablation.json") or {}).get("results") or []
     aud = (costs._stored("audited.json") or {}).get("results") or []
     for cfg in ("full", "proposer_only"):
-        rs = [r for r in abl if r.get("config") == cfg and r.get("claude")]
-        ds = [r["gpt_defects"] for r in aud if r.get("config") == cfg and "gpt_defects" in r]
+        rs = [r for r in abl if r.get("config") == cfg and r.get("claude") and r.get("id") in ids]
+        ds = [r["gpt_defects"] for r in aud if r.get("config") == cfg and "gpt_defects" in r and r.get("id") in ids]
         out[cfg] = {"rubric_claude": round(sum(r["claude"]["score"] for r in rs) / len(rs), 2) if rs else None,
                     "defects_gpt": round(sum(ds) / len(ds), 2) if ds else None}
     ab = costs._stored("ab_ledger.json") or {}
-    q = [(s.get("b") or {}).get("quality_score") for s in ab.values() if (s.get("b") or {}).get("quality_score") is not None]
-    out["ab_council_shared_quality"] = round(sum(q) / len(q), 3) if q else None
+    q = [(s.get("a") or {}).get("quality_score") for k, s in ab.items() if s.get("_case", k) in ids]
+    q = [x for x in q if x is not None]
+    out["ab_cellwright_shared_quality"] = round(sum(q) / len(q), 4) if q else None
+    out["ab_council_shared_quality_absent"] = ("the A/B's Council rows predate the shared judge (their criteria "
+                                               "come from grade.llm_grade, which sees the structured hypothesis)")
     return out
 
 
@@ -161,7 +170,8 @@ def run(case_ids, out_path: str, *, client, oai, gpt_model="gpt-4o", claude="cla
     cases = cases_mod.by_id(case_ids)
     tasks = [(c, k) for c in cases for k in KINDS]
     meta = {"kinds": list(KINDS), "case_ids": [c["id"] for c in cases], "claude": claude,
-            "gpt": gpt_model if oai else None, "judge": judge, "reference": reference_points(),
+            "gpt": gpt_model if oai else None, "judge": judge,
+            "reference": reference_points([c["id"] for c in cases]),
             "environment": provenance.code_environment()}
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
