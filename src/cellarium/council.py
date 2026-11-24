@@ -20,6 +20,7 @@ BEST complete candidate it reached, not merely the last (a late round can degene
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -851,13 +852,24 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                use_skeptic: bool = True, use_judge: bool = True, leak: str | None = None,
                judge_mode: str = "rubric", temperature: float | None = None,
                adversarial_skeptic: bool = False, use_librarian: bool = False,
-               on_round: Callable[[dict], None] | None = None) -> Hypothesis:
+               on_round: Callable[[dict], None] | None = None, log_stop: dict | None = None,
+               objection_source: Callable[[int, dict, list], dict] | None = None) -> Hypothesis:
     """Run the elenchus and return a justification-ready Hypothesis (see module docstring).
 
     Ablation knobs (all default to the full system): `use_skeptic`/`use_judge` disable a role (proposer-only when
     both False = a single-shot baseline); `leak` hands the proposer an answer key (quarantine ablation);
     `judge_mode='generic'` swaps the falsifiability rubric for a plain quality judge; `temperature` pins sampling;
-    `adversarial_skeptic` strengthens the critic."""
+    `adversarial_skeptic` strengthens the critic.
+
+    Two controls for the evaluation (VALIDATION_LAYER_SPEC item 5(d)), both off by default:
+    `log_stop` (a dict) RECORDS the early stop instead of taking it. The run goes to `max_rounds`, and the dict
+    receives `round` (where the rule first fired, None if never), `branch` ('quota', 'stability' or 'both'),
+    `quota_met`, `stable`, `hypothesis` (exactly what a normal run would have returned there) and `rounds` (each
+    round's clean flag and counters). The return value is the round-cap result.
+    `objection_source(round, candidate, open_objections) -> {"objections", "resolved"}` stands in for the skeptic:
+    no skeptic call is made, and what it returns is handled exactly as the skeptic's reply would be, so an
+    unreadable reply is still reported as unreadable. The evaluation feeds it objections raised against a
+    different question (the irrelevant-objection noise arm)."""
     labels = labels if labels is not None else instrument.dial_labels()
     if client is None:
         from . import llm
@@ -916,6 +928,8 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
     converged_score = -1
     consecutive_clean = 0
     unreadable: list[str] = []   # rounds whose proposer or skeptic emit could not be read (see _garbled)
+    if log_stop is not None:
+        log_stop.update(round=None, branch=None, quota_met=None, stable=None, hypothesis=None, rounds=[])
 
     for rnd in range(max_rounds):
         digest = _debate_digest(debate_log, ledger)   # rounds 1..rnd — a blind, bounded memory for every role
@@ -940,9 +954,13 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
 
         if use_skeptic:
             open_led = [o for o in ledger if o["resolved_round"] is None]
-            objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
-                            temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest,
-                            library_brief=library_brief)
+            if objection_source is not None:   # the noise control: objections replayed, no skeptic call
+                objs = objection_source(rnd + 1, cand, open_led)
+                objs = objs if isinstance(objs, dict) else {}
+            else:
+                objs = _skeptic(client, models, question, labels, cand, answered, open_objections=open_led,
+                                temperature=temperature, adversarial=adversarial_skeptic, debate_so_far=digest,
+                                library_brief=library_brief)
             if not _skeptic_readable(objs):   # an unreadable critique is not "no objections"
                 round_unreadable.append(f"[skeptic_unreadable] round {rnd + 1}")
             resolved_ids = {r for r in (objs.get("resolved") or []) if isinstance(r, str)}
@@ -1030,10 +1048,24 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         # Exit early once a clean candidate has ALSO survived the quota of doubt (>= quota substantive objections
         # genuinely raised and resolved), OR has been stably clean for two rounds — an airtight hypothesis yields
         # few substantive objections, so 'stable' is the honest convergence signal when the quota is unreachable.
-        if clean and (total_substantive >= quota or consecutive_clean >= 2):
-            return _done(_assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
-                                   substantive_objections=total_substantive,
-                                   ledger=_finalize_ledger(ledger, rnd + 1)))
+        fires = clean and (total_substantive >= quota or consecutive_clean >= 2)
+        if log_stop is not None:
+            log_stop["rounds"].append({"round": rnd + 1, "clean": bool(clean), "fires": bool(fires),
+                                       "total_substantive": total_substantive,
+                                       "consecutive_clean": consecutive_clean})
+        if fires:
+            # In log mode the snapshot gets its own copy of the ledger: _finalize_ledger writes into the entries,
+            # and the debate goes on using them.
+            early = _done(_assemble(question, cand, residual=[], converged=True, rounds_used=rnd + 1,
+                                    substantive_objections=total_substantive,
+                                    ledger=_finalize_ledger(ledger if log_stop is None else copy.deepcopy(ledger),
+                                                            rnd + 1)))
+            if log_stop is None:
+                return early
+            if log_stop["round"] is None:
+                quota_met, stable = total_substantive >= quota, consecutive_clean >= 2
+                log_stop.update(round=rnd + 1, quota_met=quota_met, stable=stable, hypothesis=early,
+                                branch="both" if quota_met and stable else "quota" if quota_met else "stability")
 
     # Round cap. The full debate has run, so the quota's scrutiny has been applied; if any round produced a clean
     # judge-certified candidate, accept it. Otherwise return the best complete candidate, flagged not-converged.
