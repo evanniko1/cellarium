@@ -109,16 +109,20 @@ with a number that would look precise and mean nothing.
 The full derivations, statistics and literature anchors are in [docs/CASE_MATRIX.md](docs/CASE_MATRIX.md). In
 brief, Cellarium mapped — provenance-controlled — **where the whole-cell model predicts and where it breaks**:
 
-- **Trust, out-of-sample.** On axes it was never fitted to, the model reproduces the physiology: the ppGpp
-  *allocation optimum* (growth worst at both clamp extremes, Zhu & Dai 2019); the **nitrate respiratory hierarchy**
-  — it *induces* the nitrate-respiration chain (nuo Complex I) **and** *represses* fermentation (frd/cyd) once the
-  anaerobic shift is controlled (Goh 2005), though not the nitrate-specific narGHJI operon; these nitrate rows are
-  recorded from July and not yet re-derived.
-- **Boundaries, each traced to architecture.** The TRN misses **specific inducible catabolic on-switches**
-  (arabinose→araBAD, re-derived on 2026-11-24; nitrate→narGHJI). The homeostatic FBA objective **under-calls essentiality** (fabI/murA/lpxC
-  reroute to zero-flux viability). An earlier claim that the **stringent response is inverted** (synthetase
-  knockouts collapsing ppGpp) was **withdrawn on 2026-11-24**: the runs that pass today's quality control do not
-  reproduce it (`scripts/regulation_scope.py`; the correction at the top of the case matrix).
+- **Trust, out-of-sample.** On perturbations the fit never saw, the model reproduces physiology that follows from
+  growth and ribosome allocation: the ppGpp *allocation optimum* (growth worst at both clamp extremes, Zhu & Dai
+  2019), rRNA operon dosage, and the ribosome–growth law across those perturbations (R² 0.62 over seven designs).
+- **Calibrated, not predicted.** Every named condition reaches the fit with a doubling time, and seven switch on
+  transcription factors beyond basal's, whose fold changes the fit builds in, so agreement there is consistency. The nitrate and
+  arabinose responses read in July as missing on-switches are of this kind (re-derived 2026-11-24): NarL is fitted to
+  `plus_nitrate`, which is aerobic glucose medium with nitrate, so narGHJI rises against the matched aerobic reference
+  as its fold changes say, and the July comparison against the anaerobic reference measured oxygen, not nitrate;
+  AraC's fitted fold changes on araBAD are negative, in a medium that contains glucose.
+- **Boundaries, each traced to architecture.** The homeostatic FBA objective **under-calls essentiality**: the model
+  calls 59 of the 400 Keio-essential genes lethal (fabI/murA/lpxC reroute to zero-flux viability). An earlier claim
+  that the **stringent response is inverted** (synthetase knockouts collapsing ppGpp) was **withdrawn on
+  2026-11-24**: the runs that pass today's quality control do not reproduce it (`scripts/regulation_scope.py`; the
+  correction at the top of the case matrix).
 - **The showcase — a clash that led somewhere.** Cutting total rRNA synthesis capacity (to 74 / 46 / 16% of
   wild-type, by zeroing 2/4/6 of the seven operon rows) makes ribosomes and growth fall *together*
   (the *numbers* axis) — the opposite of Scott's second law, where impairing ribosome *efficiency* makes a cell

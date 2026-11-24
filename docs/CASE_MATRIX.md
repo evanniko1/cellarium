@@ -25,14 +25,24 @@ Stats convention: `target vs reference | effect% | Welch t | n_seeds`. |t| ≥ 2
 > by 13%, the expected direction, but the 0.2× clamp lowers them too, by 29%. The rows below keep their original
 > numbers as the dated record they are.
 >
-> **Gene-level rows, the same day** (`scripts/regulation_scope.py --with-reader`, through the simulator's reader).
-> **OOS-7, arabinose, holds:** 0 of 9 ara genes pass FDR 0.10, with 2 arabinose runs against 17 basal runs; the araA,
-> araB and araD proteins sit at 8 to 10 copies against 34 to 35 on basal, not significantly. One figure is revised:
-> 306 of 3,329 proteins move, not 12; the July reference set is not recorded, and seventeen basal runs give small
-> shifts the power to reach significance. Four further basal runs sit outside the reader's mount and were left out,
-> named; before a reader fix the same day, one such run aborted the comparison. **OOS-6, nitrate, not re-derived:**
-> the anaerobic reference arm's raw output is not on this machine (8 runs, 9.8 GB on the public deposit). Against
-> aerobic basal alone, narG moves +2.04 log₂ (July: +2.15), which is the loss of oxygen, not nitrate.
+> **Gene-level rows, the same day** (`scripts/regulation_scope.py --with-reader`, through the simulator's reader,
+> with the eight anaerobic reference runs downloaded from the deposit). The numbers reproduce; two readings do not.
+> The knowledge base's own tables (`condition_defs.tsv`, `media_recipes.tsv`, `tf_condition.tsv`, `fold_changes.tsv`)
+> show that `plus_nitrate` is **aerobic** glucose medium with nitrate added and NarL switched on, and that
+> `plus_arabinose` is glucose medium with arabinose and the AraC–arabinose complex switched on; ParCa builds each
+> condition's expression from the active factor's fold changes. **OOS-6, nitrate: withdrawn as stated.** Against the
+> anaerobic reference (2 nitrate runs, 8 anaerobic) frdABCD −2.1 to −2.7, cydAB −3.1 and −3.4, grcA −4.5 and nuo
+> +3.6 to +3.9 reproduce July exactly, but they are the oxygen shift: FNR and ArcA are on only in the reference, and
+> these are their fitted targets. Against the matched aerobic reference narGHJI **rise** (narG +2.04, q = 0.002; narH
+> +1.57, q = 0.01; narJ, narI +2.5, +2.3), as NarL's fitted fold changes (+2.6 to +2.8) say: calibrated, not
+> predicted. **OOS-7, arabinose: the null holds, the boundary reading is withdrawn.** 0 of 9 ara genes pass FDR 0.10
+> (2 arabinose runs against 17 basal); araA, araB and araD sit at 8 to 10 copies against 34 to 35, the direction of
+> AraC's fitted fold changes for this condition (−0.35 to −0.70), and the medium contains glucose, under which real
+> cells induce araBAD only weakly; 306 of 3,329 proteins move, not 12. **Also:** the ribosome–growth law holds over
+> the seven perturbation designs alone (R² 0.62, slope p = 0.035), since acetate and succinate are fitted conditions;
+> and the carbon-source ordering follows the doubling times the fit is given (136 and 82 min against 44), so it is
+> calibrated. Before a reader fix the same day (`40ea297`), one basal run outside the reader's mount aborted the
+> arabinose comparison; four such runs are now left out and named.
 
 > **The one fact that organizes everything.** wcEcoli's metabolism runs a **homeostatic** FBA objective — keep
 > ~173 metabolite pools in range (soft kinetic targets), *minimize deviation*. There is **no biomass-maximization
