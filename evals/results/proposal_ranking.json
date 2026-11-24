@@ -1,0 +1,362 @@
+{
+ "spec": "D-1",
+ "source": "evals/results/ablation_m1m2.json",
+ "what_the_score_is": "the number of competing hypotheses whose realisable falsifier names the run as its target: how many one run tests at once; not information gain, and unvalidated until the runs exist",
+ "n_questions": 10,
+ "n_hypotheses": 210,
+ "totals": {
+  "n_realisable": 202,
+  "n_not_realisable": 8,
+  "own_run_is_top_target": 108
+ },
+ "per_question": {
+  "1.1": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "wildtype/basal",
+     "hypotheses": 16,
+     "in_corpus": true
+    },
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 2,
+     "in_corpus": false
+    },
+    {
+     "run": "new_gene/basal",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 5,
+   "shared_references": {
+    "wildtype/basal": 19,
+    "gene_knockout/basal": 1,
+    "gene_knockout/basal_relA": 1
+   },
+   "own_run_is_top_target": 16,
+   "mean_own_run_score": 12.52
+  },
+  "1.2": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "wildtype/basal",
+     "hypotheses": 11,
+     "in_corpus": true
+    },
+    {
+     "run": "rrna_operon_knockout/basal",
+     "hypotheses": 5,
+     "in_corpus": false
+    },
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 7,
+   "shared_references": {
+    "wildtype/basal": 18,
+    "rrna_operon_knockout/basal": 1,
+    "new_gene/basal_lowTE_gradedKO": 1,
+    "ppgpp_conc/basal": 1
+   },
+   "own_run_is_top_target": 11,
+   "mean_own_run_score": 7.19
+  },
+  "2.1": {
+   "n_hypotheses": 21,
+   "n_realisable": 20,
+   "top_runs": [
+    {
+     "run": "wildtype/basal",
+     "hypotheses": 8,
+     "in_corpus": true
+    },
+    {
+     "run": "amino_acid_shift/downshift",
+     "hypotheses": 2,
+     "in_corpus": false
+    },
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 2,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 11,
+   "shared_references": {
+    "rrna_operon_knockout/basal": 1,
+    "wildtype/basal": 9,
+    "relA_knockout/basal": 3,
+    "gene_knockout/basal": 3,
+    "gene_knockout/basal (relA knockout)": 1,
+    "wildtype/aa_downshift": 1,
+    "gene_knockout/relA_spoT_ko": 1,
+    "wildtype/aa_starved": 1
+   },
+   "own_run_is_top_target": 8,
+   "mean_own_run_score": 4.0
+  },
+  "2.2": {
+   "n_hypotheses": 21,
+   "n_realisable": 16,
+   "top_runs": [
+    {
+     "run": "wildtype/basal",
+     "hypotheses": 3,
+     "in_corpus": true
+    },
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 2,
+     "in_corpus": false
+    },
+    {
+     "run": "amino_acid_shift/wildtype",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 13,
+   "shared_references": {
+    "relA_knockout/basal": 2,
+    "wildtype/aa_downshift_timeline": 1,
+    "wildtype/basal_to_shift": 1,
+    "wildtype/amino_acid_downshift": 1,
+    "wildtype/basal": 5,
+    "gene_knockout/basal": 1,
+    "ppgpp_conc/basal": 1,
+    "ppgpp_conc/basal_then_downshift_0.2x": 1,
+    "ppgpp_conc/clamped_basal_shift": 1,
+    "wildtype/basal_then_shift": 1,
+    "wildtype/downshift": 1
+   },
+   "own_run_is_top_target": 3,
+   "mean_own_run_score": 1.5
+  },
+  "3.1": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "wildtype/basal",
+     "hypotheses": 18,
+     "in_corpus": true
+    },
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 2,
+     "in_corpus": false
+    },
+    {
+     "run": "wildtype/basal_8seeds",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 3,
+   "shared_references": {
+    "wildtype/basal": 13,
+    "wildtype/basal_control_small_n": 1,
+    "rrna_operon_knockout/basal": 2,
+    "wildtype/basal_doubleseeds": 1,
+    "wildtype/basal_power_check": 1,
+    "wildtype/basal_single_seed_baseline": 1,
+    "wildtype/basal_batch2": 1,
+    "wildtype/basal_tight": 1
+   },
+   "own_run_is_top_target": 18,
+   "mean_own_run_score": 15.67
+  },
+  "4.1": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 4,
+     "in_corpus": false
+    },
+    {
+     "run": "ppgpp_conc/basal",
+     "hypotheses": 3,
+     "in_corpus": false
+    },
+    {
+     "run": "condition/acetate_to_basal_panel",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 16,
+   "shared_references": {
+    "wildtype/basal": 19,
+    "wildtype/acetate": 1,
+    "condition/basal_rich_timeline": 1
+   },
+   "own_run_is_top_target": 4,
+   "mean_own_run_score": 1.86
+  },
+  "4.2": {
+   "n_hypotheses": 21,
+   "n_realisable": 19,
+   "top_runs": [
+    {
+     "run": "amino_acid_shift/aa_withdrawal",
+     "hypotheses": 3,
+     "in_corpus": false
+    },
+    {
+     "run": "amino_acid_shift/minimal_plus_amino_acids_to_minimal",
+     "hypotheses": 3,
+     "in_corpus": false
+    },
+    {
+     "run": "amino_acid_shift/rich_to_minimal",
+     "hypotheses": 3,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 13,
+   "shared_references": {
+    "gene_knockout/relA_shift": 1,
+    "wildtype/basal": 16,
+    "amino_acid_shift/rich_to_minimal": 1,
+    "amino_acid_shift/minimal_plus_amino_acids_to_minimal": 1
+   },
+   "own_run_is_top_target": 9,
+   "mean_own_run_score": 1.95
+  },
+  "5.1": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "gene_knockout/basal",
+     "hypotheses": 12,
+     "in_corpus": false
+    },
+    {
+     "run": "gene_knockout/basal_panel",
+     "hypotheses": 7,
+     "in_corpus": false
+    },
+    {
+     "run": "gene_knockout/acetate",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 4,
+   "shared_references": {
+    "wildtype/basal": 20,
+    "gene_knockout/basal": 1
+   },
+   "own_run_is_top_target": 12,
+   "mean_own_run_score": 9.29
+  },
+  "6.1": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "condition/acetate",
+     "hypotheses": 16,
+     "in_corpus": true
+    },
+    {
+     "run": "amino_acid_shift/acetate",
+     "hypotheses": 1,
+     "in_corpus": false
+    },
+    {
+     "run": "amino_acid_shift/basal",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 6,
+   "shared_references": {
+    "wildtype/basal": 19,
+    "amino_acid_shift/basal": 1,
+    "condition/basal": 1
+   },
+   "own_run_is_top_target": 16,
+   "mean_own_run_score": 12.43
+  },
+  "6.2": {
+   "n_hypotheses": 21,
+   "n_realisable": 21,
+   "top_runs": [
+    {
+     "run": "timeline/glucose_to_acetate_shift",
+     "hypotheses": 11,
+     "in_corpus": false
+    },
+    {
+     "run": "timeline/diauxic_shift",
+     "hypotheses": 4,
+     "in_corpus": false
+    },
+    {
+     "run": "amino_acid_shift/basal",
+     "hypotheses": 1,
+     "in_corpus": false
+    }
+   ],
+   "n_candidate_runs": 8,
+   "shared_references": {
+    "wildtype/basal": 15,
+    "condition/acetate": 2,
+    "condition/basal": 4
+   },
+   "own_run_is_top_target": 11,
+   "mean_own_run_score": 6.81
+  }
+ },
+ "computed_utc": "2026-11-24T23:12:21Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "318bdc6",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
