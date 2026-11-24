@@ -433,7 +433,7 @@ def render(est: dict, title: str = "") -> str:
 
 
 PLANS = {
-    # The prepared paid runs (WAITING_ON_YOU.md), so their figures are re-derivable: python evals/costs.py
+    # The prepared paid runs, so their figures are re-derivable: python evals/costs.py
     "M1 budget-matched arm (+ leave-one-in, leaked; re-runs full and proposer_only)": lambda: estimate_ablation(
         ["full", "no_skeptic", "skeptic_only", "proposer_only", "leaked", "proposer_bestofN"], 10, 3, rubric=False),
     "M2 stopping-rule regret + noise arm": lambda: estimate_ablation(["full", "noise_skeptic"], 10, 3, rubric=False,

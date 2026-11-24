@@ -112,6 +112,26 @@ def test_an_unknown_rule_is_refused():
         ablate.select([_hyp()], "judge")
 
 
+def test_mbr_is_the_pick_reported_first_unless_another_is_asked_for(monkeypatch):
+    """Decided 2026-11-24, before any best-of-N run. The spec's rule gives 27 of the 30 stored
+    drafts its maximum, so as a headline it would mostly report the first feasible draft. Both picks are still
+    computed, stored and audited; this sets which one a report leads with, and a run's plan records it."""
+    import inspect
+
+    import api_keys
+    assert inspect.signature(ablate.run).parameters["select_primary"].default == "mbr"
+    seen: dict = {}
+    monkeypatch.setattr(api_keys, "require", lambda *p, **kw: None)
+    monkeypatch.setattr(ablate, "run", lambda *a, **kw: seen.update(kw) or 0)
+    monkeypatch.setattr(sys, "argv", ["ablate.py", "--configs", "full,proposer_bestofN", "--no-rubric"])
+    assert ablate.main() == 0
+    assert seen["select_primary"] == "mbr"
+    monkeypatch.setattr(sys, "argv", ["ablate.py", "--configs", "full,proposer_bestofN", "--no-rubric",
+                                      "--select", "score"])
+    assert ablate.main() == 0
+    assert seen["select_primary"] == "score"
+
+
 # --- best-of-N: the budget -------------------------------------------------------------------------------
 
 @pytest.fixture
@@ -343,7 +363,7 @@ def test_an_errored_record_in_the_partial_is_done_again(sweep, monkeypatch):
     out = tmp / "ablation.json"
     out.with_name("ablation.partial.json").write_text(json.dumps({
         "configs": ["full"], "reps": 1, "temperature": 0.7, "case_ids": ["1.1"], "rubric": True,
-        "log_stop_rule": False, "select_primary": "score", "budget_unit": "tokens",
+        "log_stop_rule": False, "select_primary": "mbr", "budget_unit": "tokens",
         "results": [{"id": "1.1", "config": "full", "rep": 0, "error": "APIConnectionError: down"}]}),
         encoding="utf-8")
     assert ablate.run(["1.1"], ["full"], 1, 0.7, str(out), "gpt-4o", "claude-opus-4-8", workers=1) == 0

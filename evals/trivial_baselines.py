@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -39,12 +38,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import ablate  # noqa: E402
+import api_keys  # noqa: E402
 import audit  # noqa: E402
 import cases as cases_mod  # noqa: E402
 import costs  # noqa: E402
 import grade as grade_mod  # noqa: E402
 import shared_metric  # noqa: E402
-from dotenv import load_dotenv  # noqa: E402
 
 from cellarium import council, instrument, observability, outage, provenance  # noqa: E402
 
@@ -223,20 +222,18 @@ def main() -> int:
         f = free_checks(q, kind)
         print(f"{kind:9s} council._score {f['council_score']}/{f['council_score_max']}  complete={f['complete']} "
               f"structural={f['structural_ok']} feasible={f['feasible']}  A/B minimum bar={f['ab_minimum_bar']}")
-    load_dotenv(str(HERE.parent / ".env"))
-    gpt = bool(os.environ.get("OPENAI_API_KEY")) or a.dry_run
-    est = costs.estimate_trivial(len(ids), len(KINDS), gpt=gpt)
+    est = costs.estimate_trivial(len(ids), len(KINDS), gpt=True)     # every grader, GPT's included
     print(f"{len(ids)} cases x {len(KINDS)} answers: estimate USD low / central / high "
           f"{est['total_usd']['low']:.2f} / {est['total_usd']['central']:.2f} / {est['total_usd']['high']:.2f}")
     if a.dry_run:
         print("(dry run -- nothing called)")
         return 0
+    api_keys.require(api_keys.ANTHROPIC, api_keys.OPENAI)
+    import openai
+
     from cellarium import llm
     client = llm.client(max_retries=6)
-    oai = None
-    if os.environ.get("OPENAI_API_KEY"):
-        import openai
-        oai = openai.OpenAI(max_retries=6)
+    oai = openai.OpenAI(max_retries=6)
     return run(ids, a.out, client=client, oai=oai, gpt_model=a.gpt_model, claude=a.claude, judge=a.judge,
                workers=a.workers, max_usd=a.max_usd)
 

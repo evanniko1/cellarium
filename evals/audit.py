@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import threading
 import time
@@ -43,9 +42,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import api_keys  # noqa: E402
 import cases as cases_mod  # noqa: E402
 import costs  # noqa: E402
-from dotenv import load_dotenv  # noqa: E402
 
 from cellarium import observability, outage, provenance  # noqa: E402
 
@@ -264,11 +263,10 @@ def main():
     p.add_argument("--max-usd", type=float, help="stop before the metered spend passes this (exit 4)")
     p.add_argument("--dry-run", action="store_true", help="print what the selected records cost; call nothing")
     a = p.parse_args()
-    load_dotenv(str(REPO / ".env"))
     zeros = (json.loads(Path(a.only_claude_zeros).read_text(encoding="utf-8"))["results"]
              if a.only_claude_zeros else None)
     recs = select(json.loads(Path(a.src).read_text(encoding="utf-8"))["results"], only_claude_zeros=zeros)
-    gpt = a.auditors == "both" and (bool(os.environ.get("OPENAI_API_KEY")) or a.dry_run)
+    gpt = a.auditors == "both"          # the plan asked for, never the keys that happen to be present
     est = costs.estimate_audit(n_audits(recs), gpt=gpt, claude_auditor=a.claude_auditor, gpt_model=a.gpt_model)
     print(f"{len(recs)} records, {est['records']} hypotheses to audit "
           f"({'Claude and GPT' if gpt else 'Claude only'}): estimate USD low / central / high "
@@ -276,10 +274,12 @@ def main():
     if a.dry_run:
         print("(dry run -- nothing called)")
         return 0
+    api_keys.require(api_keys.ANTHROPIC, *([api_keys.OPENAI] if gpt else []),
+                     hint="To audit with Claude alone, pass --auditors claude.")
     from cellarium import llm
     client = llm.client(max_retries=6)
     oai = None
-    if a.auditors == "both" and os.environ.get("OPENAI_API_KEY"):
+    if gpt:
         import openai
         oai = openai.OpenAI(max_retries=6)
     return run(recs, a.out, client=client, oai=oai, gpt_model=a.gpt_model, claude_auditor=a.claude_auditor,

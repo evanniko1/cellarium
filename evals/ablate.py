@@ -20,7 +20,8 @@ Two are DERIVED from the same sweep's `full` records, so they run after them (or
                  item 3; tokens by default, `--budget-unit`), at most 12, then one kept by a rule that calls no
                  model: `score` (the spec's rule, `council._score` with the structural verdict) or `mbr` (among
                  the top-scoring drafts, the one sharing most words with the others). Both picks and the first
-                 draft are stored, so the audit scores all three; `--select` names the one reported first. The
+                 draft are stored, so the audit scores all three; `--select` names the one reported first,
+                 `mbr` unless another is asked for (fixed 2026-11-24, before any best-of-N run). The
                  spec's rule scores 27 of the 30 stored single-shot drafts at its maximum, so alone it mostly
                  returns the first feasible draft.
   noise_skeptic  full, but no skeptic call: each round replays objections `full` raised against a DIFFERENT
@@ -60,6 +61,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import api_keys  # noqa: E402
 import cases as cases_mod  # noqa: E402
 import costs  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
@@ -329,7 +331,7 @@ def derive(full_recs: list, case_ids, unit: str) -> dict:
 # --- one record --------------------------------------------------------------------------------------------
 
 def _one_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader, *, rubric=True, log_stop=False,
-              derived=None, select_primary="score"):
+              derived=None, select_primary="mbr"):
     rec = {"id": case["id"], "config": cfg, "rep": rep, "temperature": temperature}
     try:
         with observability.meter(this_thread=True) as gen:
@@ -378,7 +380,7 @@ def _one_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader
 # --- the sweep ---------------------------------------------------------------------------------------------
 
 def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader, workers=6, *, rubric=True,
-        log_stop=False, select_primary="score", budget_unit="tokens", max_usd=None, derive_from=None):
+        log_stop=False, select_primary="mbr", budget_unit="tokens", max_usd=None, derive_from=None):
     unknown = [c for c in configs if c not in ARMS]
     if unknown:
         raise ValueError(f"unknown arm(s) {unknown}; the arms are {list(ARMS)}")
@@ -516,7 +518,7 @@ def main():
     p.add_argument("--no-rubric", action="store_true", help="skip the six-criterion rubric (saturated, O.i.1)")
     p.add_argument("--log-stop-rule", action="store_true",
                    help="validation item 5(d): `full` logs its early stop and runs to the round cap")
-    p.add_argument("--select", choices=SELECTORS, default="score",
+    p.add_argument("--select", choices=SELECTORS, default="mbr",
                    help="the best-of-N rule reported first (both are computed and stored)")
     p.add_argument("--budget-unit", choices=BUDGET_UNITS, default="tokens")
     p.add_argument("--derive-from", help="a finished ablation artefact whose `full` records set the derived arms")
@@ -534,7 +536,7 @@ def main():
     if unknown:
         p.error(f"unknown arm(s) {unknown}; the arms are {list(ARMS)}")
     est = costs.estimate_ablation(configs, len(ids), a.reps, log_stop=a.log_stop_rule, rubric=not a.no_rubric,
-                                  gpt=bool(os.environ.get("OPENAI_API_KEY")) or a.dry_run)
+                                  gpt=True)        # the plan asked for, never the keys that happen to be present
     print(costs.render(est, title=f"ablation: {len(ids)} cases x {a.reps} reps"))
     if a.dry_run:
         print("\n(dry run -- nothing called)")
@@ -542,6 +544,8 @@ def main():
     if a.max_usd is not None and a.max_usd <= a.workers * est["max_per_record_usd"]:
         p.error(f"--max-usd {a.max_usd} is below what {a.workers} records in flight could cost "
                 f"(~${a.workers * est['max_per_record_usd']:.2f}); raise it or lower --workers")
+    api_keys.require(api_keys.ANTHROPIC, *([] if a.no_rubric else [api_keys.OPENAI]),
+                     hint="The six-criterion rubric grades with GPT as well; to run without it, pass --no-rubric.")
     return run(ids, configs, a.reps, a.temperature, a.out, a.gpt_model, a.claude_grader, a.workers,
                rubric=not a.no_rubric, log_stop=a.log_stop_rule, select_primary=a.select,
                budget_unit=a.budget_unit, max_usd=a.max_usd, derive_from=a.derive_from)
