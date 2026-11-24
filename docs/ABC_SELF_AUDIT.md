@@ -118,7 +118,7 @@ stored, 0.889 principled); on the 216-record run they agree (0.875).
 correct. How the gate does on the 9 situations added since the stored run (the registry has 36; 27 were
 scored). Which answer is right for the 16 records whose key is disputed, until held-out set v2 is frozen.
 
-### The Council's role ablation (`evals/results/ablation.json`, `ablation_summary.json`)
+### The Council's role ablation (`evals/results/ablation.json`, `ablation_summary.json`; re-run 2026-11-24 as `ablation_m1m2.json`, `audited_m1m2.json`)
 
 **Construct.** Whether adversarial deliberation, a skeptic and a judge beside the proposer, produces a
 better-operationalised hypothesis than the proposer alone, measured as the defects an independent auditor still
@@ -129,11 +129,15 @@ finds in the final hypothesis ("residual defects"; fewer is better).
 present, not how good the framing is. It is not a headline (O.i.1).
 
 **Unit and sample.** 10 cases, 4 arms (`full`, `no_skeptic`, `proposer_only`, `generic_judge`), 3 repetitions:
-120 records, 0 errors. Arms are compared case by case, so n is 10.
+120 records, 0 errors. Arms are compared case by case, so n is 10. The 2026-11-24 re-run with the current Council
+has 7 arms over the same 10 cases (adding `skeptic_only`, `leaked`, the budget-matched `proposer_bestofN` and the
+`noise_skeptic` control): 210 records, 1 error (a best-of-N draft that failed the hypothesis schema).
 
 **Confounds controlled.** The same cases, temperature and graders in every arm; two auditors from different
-model families; a minimum detectable effect beside every null (`tests/test_ablation_mde.py`). The answer-key arm
-(`leaked`), the positive control, exists in code and has not run.
+model families; a minimum detectable effect beside every null (`tests/test_ablation_mde.py`). The re-run's
+readouts were fixed in code before it ran (`evals/arms_report.py`, e74b965). The answer-key arm (`leaked`) ran
+there and changed nothing either auditor could detect, so the auditors judge the method, not whether the answer
+is right.
 
 **Reading a number.** Per auditor, never pooled. The stored Claude column (`evals/results/audited.json`) held 58
 zeros among 120 audits, while no other Claude audit found fewer than 7 defects and the GPT auditor never recorded
@@ -150,7 +154,11 @@ removing the critique is detectable (`full` 3.8 against `proposer_only` 4.77). A
 against each other and nothing more: an answer with nothing in it gets 8.5 defects from the Claude auditor and 4.2
 from the GPT one (R.13). The Claude auditor names all seven of its defect types in 29 of the 30 trivial answers
 and in 49 of the 58 real ones it re-audited: it fills the list of types it is given, which is why its counts
-cluster near 9 whatever it reads. A difference here is a statement about the auditor that scored it.
+cluster near 9 whatever it reads. In the 2026-11-24 re-run, under the GPT auditor: `full` 3.13, `skeptic_only`
+2.97, `proposer_only` 4.77, the budget-matched `proposer_bestofN` 4.73, `noise_skeptic` 4.17; `full` against
+best-of-N is 1.60 against a detectable 0.62. Under the Claude auditor every arm sits between 8.13 and 9.17, and
+only `skeptic_only` against `proposer_only` (0.97, detectable 0.65) clears its MDE. A difference here is a
+statement about the auditor that scored it.
 
 **Debate telemetry (stored Council runs, `evals/results/council_telemetry.json`).** Of 43 substantive objections
 marked resolved, 2 were resolved with the claim, H1 and H0 word-for-word unchanged. Of 23 runs with a
@@ -159,7 +167,9 @@ had rated below an earlier one. "Unchanged" is measured on the only proposer fie
 upper bound on "nothing changed".
 
 **Cannot tell you.** Whether a hypothesis is true or new: no oracle exists, and T.9 is declared out of scope for
-this surface. Whether the roles beat the same budget spent on one proposer (validation item 3, a paid run).
+this surface. Whether the roles' advantage holds on the fifteen held-out cases: the 2026-11-24 re-run (the full
+Council 1.6 defects below one proposer given the same tokens under the GPT auditor, the skeptic carrying it, no
+regret from stopping early) is exploratory, on the ten cases it was designed on.
 How a person would grade the same outputs (R.12).
 
 ### The Council-versus-Cellwright A/B (`evals/results/ab_ledger.json`)
