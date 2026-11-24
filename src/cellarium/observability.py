@@ -151,11 +151,14 @@ class CostMeter:
     (see `meter()`), then read `.summary()`. Not billing: `cost_usd` is a list-price ESTIMATE and is a lower
     bound when any call used an unpriced model (`cost_partial`)."""
 
-    def __init__(self):
+    def __init__(self, thread: int | None = None):
         self.records: list = []
         self.reads: list = []                      # egress.record() fetches: on the stream, but not model calls
+        self._thread = thread                      # None: every call; an ident: only calls emitted on that thread
 
     def __call__(self, record: dict) -> None:   # the subscriber callable
+        if self._thread is not None and threading.get_ident() != self._thread:
+            return
         # An external read is not a model call. Counting it as one would inflate `n_calls` and flip
         # `cost_partial` (it carries no price), so it is kept beside the calls rather than among them.
         if record.get("kind") == "external_read":
@@ -194,12 +197,16 @@ class CostMeter:
 
 
 @contextlib.contextmanager
-def meter():
+def meter(*, this_thread: bool = False):
     """Scope a `CostMeter` over a block: `with observability.meter() as m: ...; m.summary()`. Subscribes it for
     the block and unsubscribes on exit. Fan-out is by design: every meter open during a call sees that call's
     record — so a Council-run meter and a transcript sink both observe the same calls, and nested scopes are
-    additive rather than isolating."""
-    m = CostMeter()
+    additive rather than isolating.
+
+    `this_thread=True` keeps only the calls made from the thread that opened it. An evaluation that runs records
+    in worker threads needs that: with fan-out, each record's meter would also count every other record's calls
+    made while it was open. `emit` runs its subscribers on the calling thread, which is what makes this exact."""
+    m = CostMeter(threading.get_ident() if this_thread else None)
     unsubscribe = subscribe(m)
     try:
         yield m

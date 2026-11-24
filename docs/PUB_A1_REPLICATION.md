@@ -47,6 +47,13 @@ Run the sweep **twice** — once with `--matched-framing` and once without — a
 
 **Budget estimate (rough).** ~14 cases × 5 reps × 2 arms ≈ 140 arm-runs; a Council deliberation is ~4 rounds × 3 roles ≈ 12 calls, a Cellwright arm ~10-20 tool-turns. Order ~2-4k model calls → hours of wall-clock and a real (but modest) API bill. Chunking by case-batch keeps each session bounded and resumable.
 
+**Budget, derived (2026-11-24, `python evals/costs.py`).** Five repetitions, both framings, the Council run once per
+repetition and Cellwright once per framing, each graded by the shared judge: 10 cases $42.68 / $47.86 / $73.60, all
+25 cases $106.71 / $119.64 / $184.01 (low / central / high). Cellwright's share is not estimated: it is the metered
+mean of the stored A/B's 25 arm-A runs ($0.32 a run; the dearest was $0.93), scaled for the bands. The high case
+assumes no cache reads and the round cap, so it is a ceiling. `run_ab.py` stops on an outage but has no spend cap
+yet; add one before an unattended sweep.
+
 ## Implementation steps (code owed, all offline-testable except the live run)
 
 - [x] `run_ab.py --reps N` + a `rep` tag on each persisted row (keys `cid#r{rep}`, tagged `_case`/`_rep`).
