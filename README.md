@@ -111,10 +111,11 @@ brief, Cellarium mapped — provenance-controlled — **where the whole-cell mod
 
 - **Trust, out-of-sample.** On axes it was never fitted to, the model reproduces the physiology: the ppGpp
   *allocation optimum* (growth worst at both clamp extremes, Zhu & Dai 2019); the **nitrate respiratory hierarchy**
-  — it *induces* the nitrate-respiration chain (nuo Complex I) **and** *represses* fermentation (frd/cyd), the
-  full NarL switch, once the anaerobic shift is controlled (Goh 2005).
+  — it *induces* the nitrate-respiration chain (nuo Complex I) **and** *represses* fermentation (frd/cyd) once the
+  anaerobic shift is controlled (Goh 2005), though not the nitrate-specific narGHJI operon; these nitrate rows are
+  recorded from July and not yet re-derived.
 - **Boundaries, each traced to architecture.** The TRN misses **specific inducible catabolic on-switches**
-  (arabinose→araBAD, nitrate→narGHJI). The homeostatic FBA objective **under-calls essentiality** (fabI/murA/lpxC
+  (arabinose→araBAD, re-derived on 2026-11-24; nitrate→narGHJI). The homeostatic FBA objective **under-calls essentiality** (fabI/murA/lpxC
   reroute to zero-flux viability). An earlier claim that the **stringent response is inverted** (synthetase
   knockouts collapsing ppGpp) was **withdrawn on 2026-11-24**: the runs that pass today's quality control do not
   reproduce it (`scripts/regulation_scope.py`; the correction at the top of the case matrix).

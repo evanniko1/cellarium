@@ -8,10 +8,13 @@ script re-runs every finding that summary channels can decide, through the same 
 (`rigor.disconfirm`, `rigor.fit_relation`, `factors.identity`, all reading `hygiene.rows("analysis")`), so the
 table in the Platform Map's Appendix J can be checked by anyone with the corpus.
 
-Not re-derived here: the gene-level nitrate and arabinose differentials. They need the simulator's own reader (the
-`wcecoli-sim` image) over full simOut, and the nitrate reference arm's raw output is no longer local.
+The gene-level nitrate and arabinose rows need the simulator's own reader (the model image, through Docker) over
+both arms' full simOut, so they run only with `--with-reader`. A row the reader cannot compute is kept, with the
+reason: on 2026-11-24 the nitrate rows could not be, because the anaerobic reference arm's raw output is not on this
+machine. Runs the reader cannot see are reported as counts and output-tree names, never paths.
 
     python scripts/regulation_scope.py
+    python scripts/regulation_scope.py --with-reader
 """
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 warnings.filterwarnings("ignore", message=".*Arrow output.*")
 
-from cellarium import factors, rigor  # noqa: E402
+from cellarium import differential, factors, rigor, tools  # noqa: E402
 
 WT = "wildtype/basal"
 TWO_OPERONS = "rrna_operon_knockout/minimal|rRNA_KO:2op"
@@ -33,6 +36,49 @@ LAW_DESIGNS = [WT, "condition/acetate", "condition/succinate", "condition/with_a
                "condition/glc_5mM", "condition/glc_20mM", "ppgpp_conc/basal|ppGpp:0.2x",
                "ppgpp_conc/basal|ppGpp:0.6x", "ppgpp_conc/basal|ppGpp:1.6x", "ppgpp_conc/basal|ppGpp:2.0x",
                TWO_OPERONS, "rrna_operon_knockout/minimal|rRNA_KO:4op", "rrna_operon_knockout/minimal|rRNA_KO:6op"]
+
+
+# (regulon, condition, reference): the July pass's gene-level comparisons. Nitrate is read against the anaerobic
+# reference, which isolates nitrate from the loss of oxygen, and against aerobic basal, which shows why that matters.
+READER_COMPARISONS = [
+    ("ara_arabinose", "condition/plus_arabinose", WT),
+    ("nar_nitrate", "condition/plus_nitrate", "condition/no_oxygen"),
+    ("fnr_anaerobic", "condition/plus_nitrate", "condition/no_oxygen"),
+    ("nar_nitrate", "condition/plus_nitrate", WT),
+]
+_UNREACHABLE_FIELDS = ("role", "n_reachable", "n_unreachable", "output_trees_not_mounted")
+
+
+def wants_reader(argv: list[str]) -> bool:
+    return "--with-reader" in argv
+
+
+def reader_rows() -> list[dict]:
+    """The gene-level rows through the simulator's reader: the regulon's FDR-significant movers, every regulon
+    protein's level in both arms, the run counts, and the runs the reader could not see (counts only)."""
+    rows = []
+    for regulon, cond, ref in READER_COMPARISONS:
+        row: dict = {"regulon": regulon, "condition": cond, "reference": ref}
+        r = tools.regulon_response(regulon, cond, ref)
+        if r.get("needs_raw") or "error" in r:
+            row.update(re_derived=False, why_not=str(r.get("message") or r.get("error"))[:300])
+            rows.append(row)
+            continue
+        row.update(re_derived=True, **{k: r.get(k) for k in ("verdict", "n_regulon_genes", "n_significant_in_regulon",
+                                                            "n_significant_total", "movers")})
+        lfc = differential.all_gene_lfc(cond, ref, kind="protein")
+        if "error" in lfc:
+            row["regulon_levels_error"] = str(lfc["error"])[:300]
+        else:
+            genes = {g.lower() for g in tools._REGULONS.get(regulon, [])}
+            row["regulon_levels"] = {v.get("symbol"): {k: v.get(k) for k in ("target", "reference", "log2fc")}
+                                     for v in (lfc.get("lfc") or {}).values()
+                                     if str(v.get("symbol", "")).lower() in genes}
+            row["n_target_runs"], row["n_reference_runs"] = lfc.get("n_target_runs"), lfc.get("n_reference_runs")
+            row["unreachable"] = [{k: u.get(k) for k in _UNREACHABLE_FIELDS}
+                                  for u in (lfc.get("_unreachable_runs") or [])]
+        rows.append(row)
+    return rows
 
 
 def effect(target: str, reference: str, channel: str) -> dict:
@@ -69,6 +115,8 @@ def main() -> int:
             e = effect(d, WT, ch)
             row[ch] = {k: e.get(k) for k in ("effect_pct", "welch_p", "n_target", "generations", "error") if k in e}
         out["synthetase_knockouts"].append(row)
+    if wants_reader(sys.argv[1:]):
+        out["gene_level"] = reader_rows()
     print(json.dumps(out, indent=2, default=str))
     return 0
 

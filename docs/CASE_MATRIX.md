@@ -24,6 +24,15 @@ Stats convention: `target vs reference | effect% | Welch t | n_seeds`. |t| ≥ 2
 > 6 operons against 2) and the carbon-source ordering (acetate −33%, succinate −24%). The 2.0× clamp lowers ribosomes
 > by 13%, the expected direction, but the 0.2× clamp lowers them too, by 29%. The rows below keep their original
 > numbers as the dated record they are.
+>
+> **Gene-level rows, the same day** (`scripts/regulation_scope.py --with-reader`, through the simulator's reader).
+> **OOS-7, arabinose, holds:** 0 of 9 ara genes pass FDR 0.10, with 2 arabinose runs against 17 basal runs; the araA,
+> araB and araD proteins sit at 8 to 10 copies against 34 to 35 on basal, not significantly. One figure is revised:
+> 306 of 3,329 proteins move, not 12; the July reference set is not recorded, and seventeen basal runs give small
+> shifts the power to reach significance. Four further basal runs sit outside the reader's mount and were left out,
+> named; before a reader fix the same day, one such run aborted the comparison. **OOS-6, nitrate, not re-derived:**
+> the anaerobic reference arm's raw output is not on this machine (8 runs, 9.8 GB on the public deposit). Against
+> aerobic basal alone, narG moves +2.04 log₂ (July: +2.15), which is the loss of oxygen, not nitrate.
 
 > **The one fact that organizes everything.** wcEcoli's metabolism runs a **homeostatic** FBA objective — keep
 > ~173 metabolite pools in range (soft kinetic targets), *minimize deviation*. There is **no biomass-maximization

@@ -433,13 +433,45 @@ def fba_essentiality(genes: list[str], sim_path: str = "cellarium") -> dict:
     return _invoke("fba_essentiality", OUT_ROOT / sim_path, [",".join(genes)])
 
 
+def _reachable_sides(target_roots, ref_roots) -> tuple[list[str], list[str], list[dict], dict | None]:
+    """Both sides of a set comparison through `_reachable`, with the evidential floor applied to what survives.
+
+    Returns (targets, references, omissions, refusal). A refusal is returned when either side keeps fewer than
+    `support.MIN_SEEDS` reachable runs, so a comparison never answers from one run because the others were
+    out of the mount. Shared by every reader that takes two run SETS: `gene_lfc` had this alone until
+    2026-11-24, when `differential` (behind `top_movers` and `regulon_response`) aborted the arabinose
+    re-derivation on one `wildtype/basal` seed under `runs_seed_aars/`.
+    """
+    from . import support
+    t_ok, t_miss = _reachable(target_roots, "target")
+    r_ok, r_miss = _reachable(ref_roots, "reference")
+    omitted = [x for x in (t_miss, r_miss) if x]
+    floor_n = getattr(support, "MIN_SEEDS", 2)
+    for side, reachable in (("target", t_ok), ("reference", r_ok)):
+        if len(reachable) < floor_n:
+            return t_ok, r_ok, omitted, {
+                "error": f"only {len(reachable)} {side} run(s) are reachable by the reader container, "
+                         f"below the evidential floor of {floor_n} seeds — refusing at this scope "
+                         "rather than answering from one run.",
+                "unreachable": omitted}
+    return t_ok, r_ok, omitted, None
+
+
+def _with_omissions(out, omitted: list[dict]):
+    if omitted and isinstance(out, dict):
+        out["_unreachable_runs"] = omitted   # the omission rides ON the payload, never as a side note
+    return out
+
+
 def reroute_diagnosis(gene: str, ko_roots: list[Path], wt_roots: list[Path]) -> dict:
     """Diagnose a viable metabolic KO: is its 'reroute' a mathematical artifact (enzyme FBA flux = 0 in the KO yet
     nonzero in WT, on a viable cell)? Seed-averaged over the gene's own reactions, computed in the container."""
     if WCECOLI_DOCKER:
-        k = ",".join(_container_path(Path(r)) for r in ko_roots)
-        w = ",".join(_container_path(Path(r)) for r in wt_roots)
-        return _run_cmd(_worker_cmd("reroute_diagnosis", [gene, k, w]), None)
+        k_ok, w_ok, omitted, refusal = _reachable_sides(ko_roots, wt_roots)
+        if refusal:
+            return refusal
+        out = _run_cmd(_worker_cmd("reroute_diagnosis", [gene, ",".join(k_ok), ",".join(w_ok)]), None)
+        return _with_omissions(out, omitted)
     k = ",".join(str(Path(r).resolve()) for r in ko_roots)
     w = ",".join(str(Path(r).resolve()) for r in wt_roots)
     return _run_cmd([PY, str(_WORKER), "reroute_diagnosis", gene, k, w], WCECOLI_DIR or None)
@@ -450,9 +482,12 @@ def differential(target_roots: list[Path], ref_roots: list[Path], kind: str = "p
     """Seed-aware per-species fold-change: ALL target runs vs ALL reference runs (count-floored, reproducibility
     reported), computed in the container."""
     if WCECOLI_DOCKER:
-        t = ",".join(_container_path(Path(r)) for r in target_roots)
-        r = ",".join(_container_path(Path(r)) for r in ref_roots)
-        return _run_cmd(_worker_cmd("differential", [t, r, kind, str(top), str(floor)]), None)
+        t_ok, r_ok, omitted, refusal = _reachable_sides(target_roots, ref_roots)
+        if refusal:
+            return refusal
+        out = _run_cmd(_worker_cmd("differential", [",".join(t_ok), ",".join(r_ok), kind, str(top), str(floor)]),
+                       None)
+        return _with_omissions(out, omitted)
     t = ",".join(str(Path(r).resolve()) for r in target_roots)
     r = ",".join(str(Path(r).resolve()) for r in ref_roots)
     return _run_cmd([PY, str(_WORKER), "differential", t, r, kind, str(top), str(floor)], WCECOLI_DIR or None)
@@ -462,21 +497,11 @@ def gene_lfc(target_roots: list[Path], ref_roots: list[Path], kind: str = "mrna"
     """All-gene seed-mean log2fc (SCI-2c): the FULL-distribution reader (every gene, not just the significant
     movers) for the sim-vs-RNA-seq concordance, computed in the container. Mirrors differential()."""
     if WCECOLI_DOCKER:
-        from . import support
-        t_ok, t_miss = _reachable(target_roots, "target")
-        r_ok, r_miss = _reachable(ref_roots, "reference")
-        omitted = [x for x in (t_miss, r_miss) if x]
-        floor_n = getattr(support, "MIN_SEEDS", 2)
-        for side, paths in (("target", t_ok), ("reference", r_ok)):
-            if len(paths) < floor_n:
-                return {"error": f"only {len(paths)} {side} run(s) are reachable by the reader container, "
-                                 f"below the evidential floor of {floor_n} seeds — refusing at this scope "
-                                 "rather than answering from one run.",
-                        "unreachable": omitted}
+        t_ok, r_ok, omitted, refusal = _reachable_sides(target_roots, ref_roots)
+        if refusal:
+            return refusal
         out = _run_cmd(_worker_cmd("gene_lfc", [",".join(t_ok), ",".join(r_ok), kind, str(floor)]), None)
-        if omitted and isinstance(out, dict):
-            out["_unreachable_runs"] = omitted   # the omission rides ON the payload, never as a side note
-        return out
+        return _with_omissions(out, omitted)
     t = ",".join(str(Path(r).resolve()) for r in target_roots)
     r = ",".join(str(Path(r).resolve()) for r in ref_roots)
     return _run_cmd([PY, str(_WORKER), "gene_lfc", t, r, kind, str(floor)], WCECOLI_DIR or None)
