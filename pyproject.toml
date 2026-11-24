@@ -97,6 +97,13 @@ extend-exclude = [
 select = ["E", "F", "W", "I"]
 ignore = ["E501", "E702", "E401", "E741"]
 
+[tool.ruff.lint.isort]
+# `audit` is evals/audit.py, which tests import with evals/ on sys.path. On a machine that also has a local,
+# gitignored `audit/` folder at the repo root, ruff calls it first-party; on CI, where that folder does not exist,
+# third-party. The two then sort the same import block differently, and CI failed on it on 2026-11-24
+# (tests/test_defect_audit.py). Pinning the classification makes the order the same on every machine.
+known-third-party = ["audit"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

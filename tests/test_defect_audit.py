@@ -27,8 +27,8 @@ for p in ("src", "evals"):
     sys.path.insert(0, str(REPO / p))
 
 import ablate  # noqa: E402
-
 import audit  # noqa: E402
+
 from cellarium import llm  # noqa: E402
 
 STORED_AUDIT = REPO / "evals" / "results" / "audited.json"
