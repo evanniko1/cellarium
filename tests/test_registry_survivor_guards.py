@@ -23,6 +23,9 @@ from cellarium import capability as C  # noqa: E402
 DECLARATION_ONLY = {
     "growth_under_phosphate_depletion", "growth_without_a_carbon_source", "operon_specific_rrna_knockout",
     "per_gene_trna_abundance", "response_to_the_glucose_concentration",
+    # G-1 (2026-11-24): what these two rest on is a fitted fold-change row in the knowledge base, not a source symbol
+    # to probe; tests/test_fitted_factor_induction.py re-reads those rows wherever the checkout is present.
+    "induction_by_a_fitted_transcription_factor", "arabinose_induction_of_the_ara_operon",
 }
 
 

@@ -30,6 +30,10 @@ SIMULATION_CONFIRMED = {
     "response_to_the_glucose_concentration": "the three corpus doses (2, 5 and 20 mM) give the same cell",
     "knockout_of_a_multi_transcription_unit_gene": "murA knockout runs: expression 1.6 against 1.5 in wild type",
     "ppgpp_stringent_response": "the 12 kinetic rows: the GrowthLimits ppGpp and RelA columns read 0.0 throughout",
+    "induction_by_a_fitted_transcription_factor": "Appendix J: in plus_nitrate against aerobic basal, narG +2.04 "
+                                                  "log2 (q 0.002) and narH +1.57 (q 0.01), the fitted induction",
+    # arabinose_induction_of_the_ara_operon is NOT here: the runs move araA, araB and araD the fitted way (8 to 10
+    # copies against 34 to 35), but 2 runs against 17 do not reach FDR 0.10, and a direction is not a confirmation.
 }
 
 

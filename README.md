@@ -117,7 +117,9 @@ brief, Cellarium mapped — provenance-controlled — **where the whole-cell mod
   arabinose responses read in July as missing on-switches are of this kind (re-derived 2026-11-24): NarL is fitted to
   `plus_nitrate`, which is aerobic glucose medium with nitrate, so narGHJI rises against the matched aerobic reference
   as its fold changes say, and the July comparison against the anaerobic reference measured oxygen, not nitrate;
-  AraC's fitted fold changes on araBAD are negative, in a medium that contains glucose.
+  AraC's fitted fold changes on araBAD are negative, in a medium that contains glucose. The gate now says so: a
+  question about an inducer acting through a fitted factor is answered labelled *calibrated, not predicted*, and one
+  about arabinose inducing araBAD is refused, naming the fitted repression.
 - **Boundaries, each traced to architecture.** The homeostatic FBA objective **under-calls essentiality**: the model
   calls 59 of the 400 Keio-essential genes lethal (fabI/murA/lpxC reroute to zero-flux viability). An earlier claim
   that the **stringent response is inverted** (synthetase knockouts collapsing ppGpp) was **withdrawn on

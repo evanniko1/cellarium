@@ -135,18 +135,22 @@ def test_the_cell_census_is_what_the_plan_assumed():
     # three more `refuse` cells and nothing else moves. 33 since 2026-10-22: AUDIT-KF-N1 added
     # growth_without_a_carbon_source, the same way. 36 since 2026-10-31: W4C-1 added
     # response_to_the_glucose_concentration, the same way again -- a glucose DOSE is unrepresented in all
-    # three modes, which is a different question from glucose REMOVAL and had no entry of its own.
-    assert st["n_cells"] == 36
-    assert st["by_required"] == {"refuse": 24, "answer": 9, "propose": 3}
+    # three modes, which is a different question from glucose REMOVAL and had no entry of its own. 42 since
+    # 2026-11-24: G-1 added induction_by_a_fitted_transcription_factor (answer in the two modes the corpus has
+    # runs in, propose under coarse_kinetic, which has none) and arabinose_induction_of_the_ara_operon (refuse in
+    # all three: the knowledge base fits AraC to repress araBAD). A paid run built on this generator grows by 6/36.
+    assert st["n_cells"] == 42
+    assert st["by_required"] == {"refuse": 27, "answer": 11, "propose": 4}
     assert st["by_stratum"]["no_corpus_data"] == 1
-    assert st["by_stratum"]["no_corpus_mode"] == 2
+    assert st["by_stratum"]["no_corpus_mode"] == 3
 
 
 def test_the_easy_stratum_is_labelled_and_reported_separately():
     st = G.census(G.generate(1))
     # 2, not 9: seven of the nine coarse_kinetic cells are not represented in that mode at all and now
-    # classify as `resolution` / `representational`, leaving only the two that are genuinely coverage gaps.
-    assert st["by_stratum"]["no_corpus_mode"] == 2
+    # classify as `resolution` / `representational`, leaving only the two that are genuinely coverage gaps. 3
+    # since G-1 (2026-11-24): fitted-factor induction is represented under coarse_kinetic, which has no runs.
+    assert st["by_stratum"]["no_corpus_mode"] == 3
     assert "coverage, not limits" in st["note"]
     assert "stonewalling" in st["note"], "the note does not say why a coverage gap is not a refusal"
 

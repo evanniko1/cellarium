@@ -110,6 +110,10 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     "carbon_source_removal": ("growth_without_a_carbon_source",),
     # W4C-1: and for its DOSE, which is a different question from its removal and was falling through.
     "carbon_source_concentration": ("response_to_the_glucose_concentration",),
+    # G-1: an inducer acting through a transcription factor the knowledge base fits. Answered, with the label that
+    # the response is the fit's input; for arabinose the fitted sign is a repression, so that one is refused.
+    "inducer_response": ("induction_by_a_fitted_transcription_factor",),
+    "arabinose_induction": ("arabinose_induction_of_the_ara_operon",),
 }
 
 
@@ -307,6 +311,13 @@ def decide(req: Requirement, mode: str | None = None) -> Decision:
             d.notes.append("no single elongation model represents every requirement at once")
         return d
 
+    # G-1: a represented mechanism whose response the knowledge-base fit sets is answered WITH that label, naming
+    # what the fit sets, so the number cannot be read as a prediction.
+    for k in keys:
+        cal = getattr(C._BY_KEY.get(k), "calibrated", "")
+        if cal:
+            d.notes.append(f"calibrated, not predicted ({k}): {cal}")
+
     # Represented. Is there anything to read?
     runs = modes_with_runs()
     if mode not in runs:
@@ -352,7 +363,10 @@ _PARSE_TOOL = {
                                                        "regulon response to it, depends on phosphate_depletion; "
                                                        "any question in which glucose or every carbon source "
                                                        "is absent from or removed from the medium depends on "
-                                                       "carbon_source_removal"},
+                                                       "carbon_source_removal; any question about an inducer "
+                                                       "switching on its operon through a transcription factor "
+                                                       "depends on inducer_response, and on arabinose_induction "
+                                                       "when the inducer is arabinose"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -376,7 +390,10 @@ _PARSE_SYSTEM = (
     "Likewise a question set after glucose is removed, or in a medium with no carbon source, depends on "
     "carbon_source_removal. Lowering glucose to a smaller but non-zero concentration is not removal -- "
     "it depends on carbon_source_concentration instead, and so does any question about a glucose dose, a "
-    "glucose ramp, or comparing two non-zero glucose concentrations."
+    "glucose ramp, or comparing two non-zero glucose concentrations. A question about an inducer switching on "
+    "its operon or regulon through a transcription factor (nitrate and narGHJI through NarL, indole and the mdt "
+    "genes through BaeR, succinate and dcuB through DcuR, arabinose and araBAD through AraC) depends on "
+    "inducer_response; when the inducer is arabinose it also depends on arabinose_induction."
 )
 
 

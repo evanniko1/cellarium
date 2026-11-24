@@ -78,18 +78,30 @@
    "development": true,
    "external_stress": true,
    "simulation_confirmed": false
+  },
+  "induction_by_a_fitted_transcription_factor": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "Appendix J: in plus_nitrate against aerobic basal, narG +2.04 log2 (q 0.002) and narH +1.57 (q 0.01), the fitted induction"
+  },
+  "arabinose_induction_of_the_ara_operon": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": false
   }
  },
  "counts": {
   "technical": 7,
   "development": 9,
   "external_stress": 9,
-  "simulation_confirmed": 6
+  "simulation_confirmed": 7
  },
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "40ea297",
+  "git_commit": "318bdc6",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

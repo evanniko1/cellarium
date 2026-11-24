@@ -940,6 +940,21 @@
    "strict": true,
    "evidence": "an amino-acid supplement is accepted and exchange fluxes are written; the uptake rates stay at their initial zeros"
   },
+  "arabinose_induction_of_the_ara_operon | coarse_kinetic": {
+   "loose": true,
+   "strict": true,
+   "evidence": "an arabinose medium is accepted (condition_defs.tsv) and araA, araB and araD are written per gene; their fold changes in that condition are fitted negative, so the reading is a fitted repression (G-1)"
+  },
+  "arabinose_induction_of_the_ara_operon | kinetic": {
+   "loose": true,
+   "strict": true,
+   "evidence": "an arabinose medium is accepted (condition_defs.tsv) and araA, araB and araD are written per gene; their fold changes in that condition are fitted negative, so the reading is a fitted repression (G-1)"
+  },
+  "arabinose_induction_of_the_ara_operon | steady_state": {
+   "loose": true,
+   "strict": true,
+   "evidence": "an arabinose medium is accepted (condition_defs.tsv) and araA, araB and araD are written per gene; their fold changes in that condition are fitted negative, so the reading is a fitted repression (G-1)"
+  },
   "codon_level_elongation | coarse_kinetic": {
    "loose": true,
    "strict": false,
@@ -1054,7 +1069,7 @@
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "40ea297",
+  "git_commit": "318bdc6",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

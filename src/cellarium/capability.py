@@ -338,6 +338,10 @@ class Capability:
     available_in: str = ""
     flag: str = ""
     detail: str = ""
+    # G-1 (2026-11-24). For a mechanism the model DOES compute, but whose response the knowledge-base fit sets: what
+    # the fit sets, so an answer carries "calibrated, not predicted" naming it. Empty for every other record. Not
+    # mode-keyed: the fit is upstream of elongation and the same under every model.
+    calibrated: str = ""
 
     @property
     def default_on(self) -> bool:
@@ -799,9 +803,51 @@ CAPABILITIES: tuple[Capability, ...] = (
                "delivered under every elongation model, but whether the cell can USE an amino acid it "
                "delivers is a separate capability — see amino_acid_uptake_from_the_medium",
     ),
+    # G-1 (2026-11-24). ParCa builds every condition in the knowledge base's condition table from its active
+    # transcription factors' fitted fold changes (fold_changes.tsv; each factor's condition in tf_condition.tsv), so
+    # an inducer's response through its factor, read in that factor's own condition, reproduces an input. The
+    # record HOLDS, because the model computes the response under every elongation model, and it says what is
+    # calibrated so that an answer carries the label. Read from the knowledge base on the campaign branch; the
+    # numbers are re-read by tests/test_fitted_factor_induction.py wherever the checkout is present. Declaration-only
+    # (no markers): a fitted table row is not a symbol to probe.
+    Capability(
+        key="induction_by_a_fitted_transcription_factor",
+        question="Does an inducer switch on its operon through its transcription factor: nitrate and narGHJI "
+                 "through NarL, indole and the mdt genes through BaeR, succinate and dcuB through DcuR?",
+        present=True,
+        holds_in=ELONGATION_MODES,
+        markers=(),
+        calibrated=("the knowledge-base fit sets the target genes' expression in each factor's own condition from "
+                    "the factor's fitted fold changes (fold_changes.tsv; the condition in tf_condition.tsv): NarL "
+                    "raises narG, narH, narI and narJ by +2.57 to +2.80 log2 in minimal_plus_nitrate, BaeR raises "
+                    "mdtA by +3.39 in minimal_plus_indole, and DcuR raises dcuB by +2.55 in minimal_succinate. A "
+                    "reading there reproduces those inputs rather than predicting them. Growth in the condition "
+                    "is simulated, against a doubling time the fit was also given (condition_defs.tsv)"),
+        detail="an inducer's effect on its operon through a transcription factor the knowledge base fits",
+    ),
+    # ...and for AraC the fitted sign is the opposite of the biology's, so the same question is refused.
+    Capability(
+        key="arabinose_induction_of_the_ara_operon",
+        question="Does arabinose switch on the araBAD operon through AraC?",
+        present=False,
+        holds_in=(),
+        markers=(),
+        instead={ALL_MODES: "AraC (its active form CPLX-172) is fitted to its own condition, "
+                 "minimal_plus_arabinose, which is glucose plus arabinose (condition_defs.tsv), with fold changes "
+                 "that REPRESS its targets: araA -0.70, araB -0.64, araD -0.35 log2 (fold_changes.tsv; araJ "
+                 "+0.37), and the arabinose transporters araE and araFGH have no AraC entry. ParCa builds the "
+                 "condition's expression from those numbers, so the model's arabinose response of araBAD is a "
+                 "fitted repression"},
+        consequence={ALL_MODES: "a reading of araBAD in plus_arabinose returns that fitted repression, opposite in "
+                     "sign to the induction the biology shows, so no reading of it says whether arabinose induces "
+                     "the operon (re-derived 2026-11-24: araA, araB and araD proteins at 8 to 10 copies against 34 "
+                     "to 35 on basal, with 2 runs against 17, not significant at FDR 0.10)"},
+        detail="arabinose induction of the araBAD operon through AraC",
+    ),
 )
 
 _BY_KEY = {c.key: c for c in CAPABILITIES}
+
 
 
 def get(key: str) -> Capability | None:

@@ -59,6 +59,8 @@ _AA_COARSE = "86 charging columns are written, all zeros"
 _PPGPP = ("ppGpp is written, held at a constant target; the RelA, SpoT and GrowthLimits ppGpp columns read zero")
 _UPTAKE = ("an amino-acid supplement is accepted and exchange fluxes are written; the uptake rates stay at their "
            "initial zeros")
+_ARABINOSE = ("an arabinose medium is accepted (condition_defs.tsv) and araA, araB and araD are written per gene; their "
+              "fold changes in that condition are fitted negative, so the reading is a fitted repression (G-1)")
 
 UNREPRESENTED: dict[tuple[str, str], Interface] = {
     ("per_isoacceptor_trna_charging", "steady_state"): Interface(True, True, True, _ISO_STEADY),
@@ -76,6 +78,8 @@ UNREPRESENTED: dict[tuple[str, str], Interface] = {
     ("ppgpp_stringent_response", "coarse_kinetic"): Interface(True, True, True, _PPGPP),
     ("amino_acid_uptake_from_the_medium", "kinetic"): Interface(True, True, True, _UPTAKE),
     ("amino_acid_uptake_from_the_medium", "coarse_kinetic"): Interface(True, True, True, _UPTAKE),
+    **{("arabinose_induction_of_the_ara_operon", m): Interface(True, True, True, _ARABINOSE)
+       for m in C.ELONGATION_MODES},
 }
 
 
