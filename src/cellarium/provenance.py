@@ -54,18 +54,35 @@ def tag(perturbation: str, condition: str | None = None) -> str:
 
 # --- H-3: per-run environment provenance (the reproducibility bundle) ---------------------------------------
 
-def _git_commit() -> str | None:
+GIT_TIMEOUT_S = 15
+
+
+def _git_commit_and_why() -> tuple[str | None, str | None]:
     """The repo's current short commit, run in the repo root (not the process CWD) so it's correct regardless of
-    where the app was launched. None when git is absent, this isn't a checkout, or the call errors/times out."""
+    where the app was launched, or None and WHY it is missing. The reason never carries git's own output, which can
+    name a local path, and the artefacts are public.
+
+    An absence with no reason reads like a run outside a checkout. It happened to the M1+M2 audit (2026-11-24): git
+    took longer than the old 3-second limit while the machine was loaded, and the artefact recorded None."""
     import subprocess
     from pathlib import Path
     try:
         root = Path(__file__).resolve().parents[2]
         r = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=str(root),
-                           capture_output=True, text=True, timeout=3, env=redact.child_env())
-        return (r.stdout.strip() or None) if r.returncode == 0 else None
-    except Exception:
-        return None
+                           capture_output=True, text=True, timeout=GIT_TIMEOUT_S, env=redact.child_env())
+    except subprocess.TimeoutExpired:
+        return None, f"git did not answer within {GIT_TIMEOUT_S} s"
+    except Exception as exc:                                   # noqa: BLE001 - recorded, never raised
+        return None, f"git could not run ({type(exc).__name__})"
+    if r.returncode != 0:
+        return None, f"git exited {r.returncode}"
+    out = (r.stdout or "").strip()
+    return (out, None) if out else (None, "git printed no commit")
+
+
+def _git_commit() -> str | None:
+    """The repo's current short commit, or None (see `_git_commit_and_why` for the reason)."""
+    return _git_commit_and_why()[0]
 
 
 CONTENT_HASH_CACHE = str(paths.cache("kb_content_hash.json"))
@@ -342,9 +359,13 @@ def code_environment(lock=None) -> dict:
     differs = None if pins is None else {
         p: {"locked": pins[_norm(p)], "installed": v} for p, v in packages.items()
         if _norm(p) in pins and pins[_norm(p)] != v}
-    return {"python": platform.python_version(), "in_a_venv": sys.prefix != sys.base_prefix,
-            "git_commit": _git_commit(), "packages": packages,
-            "lock_file": None if pins is None else "requirements.lock", "differs_from_lock": differs}
+    commit, why = _git_commit_and_why()
+    env = {"python": platform.python_version(), "in_a_venv": sys.prefix != sys.base_prefix,
+           "git_commit": commit, "packages": packages,
+           "lock_file": None if pins is None else "requirements.lock", "differs_from_lock": differs}
+    if why:
+        env["git_commit_unavailable"] = why
+    return env
 
 
 def run_environment() -> dict:

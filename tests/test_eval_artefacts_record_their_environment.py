@@ -118,3 +118,33 @@ def test_each_ab_arm_records_its_environment(monkeypatch, tmp_path):
     assert run_ab.main() == 0
     slot = json.loads(run_ab.LEDGER.read_text(encoding="utf-8"))["1.1"]["b"]
     assert slot["environment"]["packages"]["anthropic"] == _installed("anthropic")
+
+
+# --- the commit, or why there is none ------------------------------------------------------------------------------
+# FOUND 2026-11-24: the M1+M2 audit artefact records `git_commit: None`. git did not answer inside the 3-second
+# timeout while the test suite and a mutation pass loaded the machine, and the absence went into the artefact with no
+# reason, as if the run had been outside a checkout. (That audit ran at e74b965, the sweep's commit, from a clean tree.)
+
+def test_a_commit_the_lookup_could_not_get_says_why(monkeypatch):
+    import subprocess
+
+    def slow(*a, **kw):
+        raise subprocess.TimeoutExpired(cmd="git", timeout=kw.get("timeout"))
+    monkeypatch.setattr(subprocess, "run", slow)
+    env = provenance.code_environment()
+    assert env["git_commit"] is None
+    assert env["git_commit_unavailable"] == "git did not answer within 15 s"
+
+
+def test_a_failed_git_says_how_without_recording_what_it_printed(monkeypatch):
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(
+        a, 128, stdout="", stderr="fatal: not a git repository: C:/Users/someone/elsewhere"))
+    env = provenance.code_environment()
+    assert (env["git_commit"], env["git_commit_unavailable"]) == (None, "git exited 128")
+    assert "someone" not in json.dumps(env)
+
+
+def test_a_commit_that_was_read_needs_no_reason():
+    env = provenance.code_environment()
+    assert env["git_commit"] and "git_commit_unavailable" not in env
