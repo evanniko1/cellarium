@@ -189,10 +189,12 @@ def run(case_ids, out_path: str, *, client, oai, gpt_model="gpt-4o", claude="cla
         cap.add(*costs.record_cost(rec.get("llm")))
         return rec
 
+    skipped = 0
     with ThreadPoolExecutor(max_workers=workers) as ex:
         for fut in as_completed([ex.submit(_guarded, t) for t in tasks]):
             rec = fut.result()
             if rec is None:
+                skipped += 1
                 continue
             with lock:
                 results.append(rec)
@@ -200,7 +202,7 @@ def run(case_ids, out_path: str, *, client, oai, gpt_model="gpt-4o", claude="cla
             print(f"{rec['id']:4s} {rec['kind']:9s} rubric={rec.get('rubric_claude')}/{rec.get('rubric_gpt')} "
                   f"defects={rec.get('defects_claude')}/{rec.get('defects_gpt')} shared={rec.get('shared_quality')} "
                   f"{rec.get('error', '')}", flush=True)
-    stopper = brk if brk.tripped else cap if cap.tripped else None
+    stopper = brk if brk.tripped else cap if (cap.tripped and skipped) else None   # a stop is a record not run
     if stopper is not None:
         partial.write_text(json.dumps({**meta, "stopped_early": stopper.report(len(tasks)), "results": results},
                                       indent=2), encoding="utf-8")

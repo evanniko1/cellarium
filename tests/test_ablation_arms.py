@@ -407,3 +407,62 @@ def test_a_temperature_the_model_takes_is_kept(monkeypatch):
     monkeypatch.setenv("CELLARIUM_MODEL", "claude-haiku-4-5")      # a family that takes an explicit temperature
     code, seen = _plan_of(monkeypatch, "--temperature", "0.7")
     assert code == 0 and seen["t"] == 0.7
+
+
+def test_a_cap_that_trips_on_the_last_record_is_not_a_stop(sweep):
+    """The false stop found in evals/audit.py on 2026-11-24 shared this code: a cap that trips once the last record's
+    cost is counted skipped nothing, so the sweep is complete."""
+    tmp, calls = sweep
+    out = tmp / "ablation.json"
+    code = ablate.run(["1.1", "2.1", "3.1"], ["full"], 1, 0.7, str(out), "gpt-4o", "claude-opus-4-8", workers=1,
+                      max_usd=3.4)
+    assert code == 0 and out.exists() and len(calls) == 3
+
+
+# --- best-of-N: a draft that fails -------------------------------------------------------------------------------
+
+def _drafter(monkeypatch, fail):
+    n = {"calls": 0}
+
+    def fake(question, **kw):
+        n["calls"] += 1
+        observability.emit({"role": "proposer", "model": "claude-sonnet-5", "input_tokens": 600,
+                            "output_tokens": 400, "cache_read_tokens": 0, "cache_creation_tokens": 0,
+                            "latency_ms": 1, "cost_usd": 0.01})
+        if fail(n["calls"]):
+            raise ValueError("1 validation error for Rival: distinguishing_result Field required")
+        return _hyp(f"draft {n['calls']}")
+    monkeypatch.setattr(council, "deliberate", fake)
+    return n
+
+
+def test_a_draft_that_fails_is_spent_and_recorded_and_the_drawing_goes_on(monkeypatch):
+    """FOUND 2026-11-24 in the M1+M2 sweep: one of about 270 drafts came back with a rival missing its distinguishing
+    result, failed validation, and took its whole best-of-N record with it (case 2.2, rep 2). A failed draft is spent
+    compute: it counts toward the budget and the twelve, it is recorded, and the drawing goes on."""
+    n = _drafter(monkeypatch, lambda k: k == 2)
+    rec: dict = {}
+    h = ablate._best_of_n(rec, {"id": "1.1", "question": "q"}, 1.0, object(),
+                          {"unit": "tokens", "budgets": {"1.1": 3500.0}}, "mbr")
+    b = rec["best_of_n"]
+    assert (b["n_drafts"], b["n_failed"], n["calls"]) == (3, 1, 4)
+    assert b["spent"]["tokens"] == 4000.0 and "distinguishing_result" in b["failed"][0]
+    assert h is not None and len(rec["drafts"]) == 3
+
+
+def test_best_of_n_gives_up_after_twelve_attempts_when_every_draft_fails(monkeypatch):
+    n = _drafter(monkeypatch, lambda k: True)
+    with pytest.raises(RuntimeError, match="all 12 drafts failed"):
+        ablate._best_of_n({}, {"id": "1.1", "question": "q"}, 1.0, object(),
+                          {"unit": "tokens", "budgets": {"1.1": 3500.0}}, "mbr")
+    assert n["calls"] == ablate.N_MAX == 12
+
+
+def test_a_cap_that_trips_before_the_derived_arms_start_is_a_stop(sweep):
+    """The other side of the rule: the cap trips on the last `full` record, so the derived arms never start. They
+    are records that did not run, so the sweep stopped (exit 4) and keeps a partial it can resume from."""
+    tmp, calls = sweep
+    out = tmp / "ablation.json"
+    code = ablate.run(["1.1", "2.1"], ["proposer_bestofN", "full"], 1, 0.7, str(out), "gpt-4o", "claude-opus-4-8",
+                      workers=1, max_usd=2.4)                         # trips at $1.90, after the second `full`
+    assert code == 4 and not out.exists() and [c[0] for c in calls] == ["full", "full"]

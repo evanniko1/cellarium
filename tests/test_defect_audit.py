@@ -337,3 +337,19 @@ def test_the_confirmation_dry_run_prices_the_58_records_and_calls_nothing(monkey
     assert audit.main() == 0
     out = capsys.readouterr().out
     assert "58 records, 58 hypotheses to audit (Claude only)" in out and "dry run" in out
+
+
+def test_a_cap_that_trips_on_the_last_record_is_not_a_stop(monkeypatch, tmp_path):
+    """FOUND 2026-11-24 auditing three real records before the full M1+M2 audit: the cap's reserve for records in
+    flight exceeded what was left of the cap, so it tripped while the last records ran. Nothing was skipped, yet the
+    run reported itself stopped and kept only a partial file. A stop is a record that did not run."""
+    import costs
+    monkeypatch.setattr(costs, "estimate_audit", lambda *a, **kw: {"per_record": {"high": 0.5}})
+    monkeypatch.setattr(audit, "_one", lambda rec, *a: {"id": rec["id"], "config": "full", "rep": 0,
+                                                         "claude_defects": 8, "llm": {"cost_usd": 1.0}})
+    recs = [{"id": f"c{i}", "config": "full", "rep": 0, "hypothesis": {"claim": "x"}} for i in range(3)]
+    out = tmp_path / "audited.json"
+    code = audit.run(recs, str(out), client=object(), oai=None, gpt_model="gpt-4o",
+                     claude_auditor="claude-opus-4-8", workers=1, max_usd=3.4)     # trips at $2.90, after record 3
+    assert code == 0 and out.exists() and not out.with_name("audited.partial.json").exists()
+    assert len(json.loads(out.read_text(encoding="utf-8"))["results"]) == 3

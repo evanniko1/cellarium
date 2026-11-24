@@ -139,3 +139,15 @@ def test_the_paid_run_stops_on_an_outage(scored, monkeypatch):
     assert not out.exists()
     part = json.loads(out.with_name("trivial.partial.json").read_text(encoding="utf-8"))
     assert part["stopped_early"]["after_calls"] == 5 and all("error" in x for x in part["results"])
+
+
+def test_a_cap_that_trips_on_the_last_record_is_not_a_stop(monkeypatch, tmp_path):
+    """The cap trips once the third answer's cost is counted, and there is no fourth: nothing was skipped, so the
+    run is complete (the false stop found in evals/audit.py on 2026-11-24 shared this code)."""
+    import costs
+    monkeypatch.setattr(costs, "estimate_trivial", lambda *a, **kw: {"per_record": {"high": 0.5}})
+    monkeypatch.setattr(tb, "_score_one", lambda case, kind, *a: {"id": case["id"], "kind": kind,
+                                                                   "llm": {"cost_usd": 1.0}})
+    out = tmp_path / "trivial.json"
+    assert tb.run(["1.1"], str(out), client=object(), oai=None, workers=1, max_usd=3.4) == 0
+    assert len(json.loads(out.read_text(encoding="utf-8"))["results"]) == 3

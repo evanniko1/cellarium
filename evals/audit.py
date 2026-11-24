@@ -224,11 +224,13 @@ def run(recs: list, out_path: str, *, client, oai, gpt_model: str, claude_audito
             cap.add(*costs.record_cost(o.get("llm")))
         return o
 
+    skipped = 0
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futs = [ex.submit(_guarded, r) for r in recs]
         for i, f in enumerate(as_completed(futs), 1):
             o = f.result()
             if o is None:
+                skipped += 1
                 continue
             with lock:
                 audited.append(o)
@@ -236,7 +238,9 @@ def run(recs: list, out_path: str, *, client, oai, gpt_model: str, claude_audito
             print(f"[{i}/{len(futs)}] {o['id']:4s} {o['config']:13s} rep{o['rep']}: "
                   f"claude_defects={o.get('claude_defects')} gpt_defects={o.get('gpt_defects')} "
                   f"{o.get('error', '')}", flush=True)
-    stopper = brk if brk.tripped else cap if cap.tripped else None
+    # A cap that trips while the last records run has stopped nothing: a stop is a record that did not run (found
+    # 2026-11-24, when a three-record audit reported itself stopped with all three done). An outage still stops.
+    stopper = brk if brk.tripped else cap if (cap.tripped and skipped) else None
     if stopper is not None:
         partial.write_text(json.dumps({**meta, "stopped_early": stopper.report(len(recs)), "results": audited},
                                       indent=2), encoding="utf-8")

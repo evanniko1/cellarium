@@ -233,20 +233,28 @@ def _best_of_n(rec: dict, case: dict, temperature, client, derived: dict, primar
     if not budget:
         raise ValueError(f"no budget for case {case['id']}: no `full` record for it finished")
     unit = derived["unit"]
-    drafts, spent = [], dict.fromkeys(BUDGET_UNITS, 0.0)
-    while len(drafts) < N_MAX and (not drafts or spent[unit] < budget):
+    drafts, failed, spent = [], [], dict.fromkeys(BUDGET_UNITS, 0.0)
+    # A draft that fails (2026-11-24: one of ~270 had a rival without its distinguishing result and failed validation)
+    # is spent compute: it counts toward the budget and the N_MAX attempts, it is recorded, and the drawing goes on.
+    while len(drafts) + len(failed) < N_MAX and (not drafts or spent[unit] < budget):
         with observability.meter(this_thread=True) as m:
-            drafts.append(council.deliberate(case["question"], temperature=temperature, client=client,
-                                             verbose=False, use_skeptic=False, use_judge=False))
+            try:
+                drafts.append(council.deliberate(case["question"], temperature=temperature, client=client,
+                                                 verbose=False, use_skeptic=False, use_judge=False))
+            except Exception as exc:                                  # noqa: BLE001 - recorded, and counted
+                failed.append(f"{type(exc).__name__}: {exc}"[:300])
         s = m.summary()
         for u in BUDGET_UNITS:
             spent[u] += _spent(s, u)
+    if not drafts:
+        raise RuntimeError(f"all {len(failed)} drafts failed; the first: {failed[0]}")
     picks = {rule: select(drafts, rule) for rule in SELECTORS}
     dumps = [d.model_dump(by_alias=True, mode="json") for d in drafts]
     keep = picks[primary]
     rec["best_of_n"] = {"n_drafts": len(drafts), "n_max": N_MAX, "unit": unit, "budget": budget,
                         "spent": {u: round(v, 6) for u, v in spent.items()}, "budget_reached": spent[unit] >= budget,
-                        "scores": [draft_score(d) for d in dumps], "selected": picks, "primary": primary}
+                        "scores": [draft_score(d) for d in dumps], "selected": picks, "primary": primary,
+                        "n_failed": len(failed), "failed": failed}
     rec["drafts"] = dumps
     others = {f"select_{rule}": i for rule, i in picks.items() if rule != primary}
     others["first_draft"] = 0
@@ -453,13 +461,16 @@ def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader
         cap.add(*costs.record_cost(rec.get("llm"), rec.get("grading_llm")))
         return rec
 
+    skipped = 0
+
     def _pool(tasks, derived=None):
-        nonlocal done
+        nonlocal done, skipped
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futs = [ex.submit(_guarded, t, derived) for t in tasks]
             for fut in as_completed(futs):
                 rec = fut.result()
                 if rec is None:
+                    skipped += 1
                     continue
                 with lock:
                     results.append(rec)
@@ -483,7 +494,11 @@ def run(case_ids, configs, reps, temperature, out_path, gpt_model, claude_grader
             raise ValueError("the derived arms need finished `full` records: add `full` to --configs or pass "
                              "--derive-from with an artefact that has them")
         _pool(phase2, derive(full, [c["id"] for c in cases], budget_unit))
-    stopper = brk if brk.tripped else cap if cap.tripped else None
+    elif phase2:
+        skipped += len(phase2)                        # the derived arms never started
+    # A cap that trips while the last records run has stopped nothing: a stop is a record that did not run (found
+    # 2026-11-24 in evals/audit.py, which shares this code). An outage still stops, so its partial can resume.
+    stopper = brk if brk.tripped else cap if (cap.tripped and skipped) else None
     if stopper is not None:
         partial.write_text(json.dumps({**meta, "stopped_early": stopper.report(total), "results": results},
                                       indent=2), encoding="utf-8")
