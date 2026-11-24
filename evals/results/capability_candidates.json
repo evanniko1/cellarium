@@ -1,0 +1,160 @@
+{
+ "spec": "K-1",
+ "admitted": 0,
+ "source": "models/ecoli/processes/polypeptide_elongation.py",
+ "checkout_commit": "c2047dc9",
+ "model_classes": {
+  "steady_state": "SteadyStateElongationModel",
+  "kinetic": "KineticTrnaChargingModel",
+  "coarse_kinetic": "CoarseKineticTrnaChargingModel"
+ },
+ "score": {
+  "n_reference": 5,
+  "n_rediscovered": 2,
+  "rediscovered": [
+   "amino_acid_uptake_from_the_medium",
+   "per_isoacceptor_trna_charging"
+  ],
+  "missed": [
+   "codon_level_elongation",
+   "per_amino_acid_trna_charging",
+   "ppgpp_stringent_response"
+  ],
+  "n_candidates": 85,
+  "candidates_that_are_markers": 3
+ },
+ "by_modes": {
+  "kinetic": [
+   "K_M_amino_acid__per_L",
+   "K_M_amino_acids",
+   "K_M_trna__per_L",
+   "K_M_trnas",
+   "amino_acids",
+   "amino_acids_to_trnas",
+   "amp",
+   "atp",
+   "buffer",
+   "cell_amino_acid_saturation",
+   "cell_mass",
+   "charged_trnas",
+   "codons_kinetics_model",
+   "codons_to_amino_acids",
+   "codons_to_trnas",
+   "first",
+   "free_trnas",
+   "i_start_codon",
+   "is_map_substrate",
+   "k_cat__per_s",
+   "longer_sequences",
+   "map",
+   "max_attempts",
+   "met",
+   "molecules_input_size",
+   "n_codons",
+   "n_trnas",
+   "ppi",
+   "previous_rate",
+   "sequences_width",
+   "slice_amino_acids",
+   "slice_charged_trnas",
+   "slice_charging_counter",
+   "slice_codons_to_trnas_counter",
+   "slice_free_trnas",
+   "slice_reading_counter",
+   "trnas_to_amino_acid_indexes",
+   "trnas_to_amino_acids",
+   "trnas_to_codons"
+  ],
+  "steady_state": [
+   "aa_aas",
+   "aa_counts_for_translation",
+   "aa_environment",
+   "aa_enzymes",
+   "aa_exchange_rates",
+   "aa_exporters",
+   "aa_from_synthetase",
+   "aa_importers",
+   "aa_supply",
+   "aa_supply_scaling",
+   "amino_acid_export",
+   "amino_acid_import",
+   "amino_acid_synthesis",
+   "cellDensity",
+   "charged_trna",
+   "charged_trna_names",
+   "charging_molecule_names",
+   "charging_molecules",
+   "charging_molecules_not_aa",
+   "charging_params",
+   "charging_stoich_matrix",
+   "counts_to_molar",
+   "elong_rate_by_ppgpp",
+   "fraction_trna_charged_iso",
+   "get_pathway_enzyme_counts_per_aa",
+   "max_amino_acid_adjustment",
+   "max_time_step",
+   "ppgpp",
+   "ppgpp_params",
+   "ppgpp_reaction_metabolites",
+   "rela",
+   "spot",
+   "synthetase_names",
+   "time_step_increase",
+   "time_step_short_enough",
+   "trna_resolution_iso",
+   "uncharged_trna",
+   "uncharged_trna_to_charge"
+  ],
+  "kinetic+coarse_kinetic": [
+   "cell_density",
+   "monomer_weights_incorporated",
+   "n_avogadro",
+   "n_monomers",
+   "protein_sequences"
+  ],
+  "coarse_kinetic": [
+   "k_cats",
+   "not_curated",
+   "zero_charged_holder"
+  ]
+ },
+ "computed_utc": "2026-11-24T23:01:51Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "318bdc6",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
