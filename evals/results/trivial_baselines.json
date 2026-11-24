@@ -1,0 +1,2685 @@
+{
+  "kinds": [
+    "restated",
+    "hedge_all",
+    "empty"
+  ],
+  "case_ids": [
+    "1.1",
+    "3.1",
+    "1.2",
+    "4.1",
+    "4.2",
+    "5.1",
+    "6.1",
+    "6.2",
+    "2.1",
+    "2.2"
+  ],
+  "claude": "claude-opus-4-8",
+  "gpt": "gpt-4o",
+  "judge": "claude-opus-4-8",
+  "reference": {
+    "full": {
+      "rubric_claude": 6.0,
+      "defects_gpt": 3.8
+    },
+    "proposer_only": {
+      "rubric_claude": 6.0,
+      "defects_gpt": 4.77
+    },
+    "ab_cellwright_shared_quality": 0.4875,
+    "ab_council_shared_quality_absent": "the A/B's Council rows predate the shared judge (their criteria come from grade.llm_grade, which sees the structured hypothesis)"
+  },
+  "environment": {
+    "python": "3.12.8",
+    "in_a_venv": true,
+    "git_commit": "9844e19",
+    "packages": {
+      "anthropic": "0.116.0",
+      "openai": "3.8.0",
+      "pydantic": "2.13.4",
+      "numpy": "2.4.6",
+      "scipy": "1.18.0",
+      "duckdb": "2.0.0",
+      "pyarrow": "24.0.0",
+      "huggingface_hub": "1.23.0"
+    },
+    "lock_file": "requirements.lock",
+    "differs_from_lock": {
+      "numpy": {
+        "locked": "2.5.1",
+        "installed": "2.4.6"
+      },
+      "duckdb": {
+        "locked": "1.5.4",
+        "installed": "2.0.0"
+      }
+    }
+  },
+  "spent_usd": 1.751,
+  "results": [
+    {
+      "id": "1.1",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "claim field is empty; there is no stated hypothesis to evaluate."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "falsifier has empty target/reference/channel/decision_rule/refuting_result, so no result could ever refute it."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "h1 and h0 are blank; no testable alternative or null is specified."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "operational_defs is empty; 'same gene', 'same level', and measurement units are undefined."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "rivals list is empty; no competing explanation is offered for the falsifier to discriminate against."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "auxiliary_assumptions is empty; conditions (identical environment, cell-cycle stage, noise model) are unstated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "no candidate_designs provided, so feasibility within the whole-cell simulation cannot be assessed."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "predicted_effect is empty; no quantitative expectation or effect size is given."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "converged=true with rounds_used=1 and substantive_objections=0 despite a wholly empty hypothesis specification."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3599,
+        "output_tokens": 1375,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 21015,
+        "cost_usd": 0.044532,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "1.1",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The construct 'the outcome' and observable 'the observable' are placeholders \u2014 no actual gene, expression quantity, or metric is specified."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Measure 'its value across seeds' gives no statistic (mean, variance, CV) or units, so it cannot be computed."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, effect size, or noise model, so any nonzero difference triggers rejection \u2014 the falsifier can never fail."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question is about cell-to-cell expression variability among identical cells, but the design uses only a single wildtype 'perturbed vs reference' contrast that is never instantiated."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'chance' predicts 'no consistent difference across seeds,' which is identical to H0's refuting result, so it does not discriminate between hypotheses."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'another mechanism' is distinguished only by 'a different pattern of change,' an unspecified pattern that cannot separate it from H1."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The single candidate design contains only a 'wildtype' perturbation with no reference arm, yet the falsifier requires contrasting a perturbed design against a reference design."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Variability-between-identical-cells questions require a population/multi-lineage readout, but the design runs 1 generation with 8 seeds and no defined single-cell expression measurement channel."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Only auxiliary is 'the simulation represents the process'; the critical assumption that seed-to-seed variation in the simulator maps to biological cell-to-cell stochasticity is unstated."
+        }
+      ],
+      "shared_quality": 0.125,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 4,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5017,
+        "output_tokens": 1761,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 23764,
+        "cost_usd": 0.060322,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "1.1",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' combined with refuting_result 'none' means no result can ever refute the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so it is unfalsifiable."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H0 (stays the same) and H1 (includes 'stay the same') overlap, so the two hypotheses are not mutually exclusive."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "'Direct' and 'indirect' rivals share the identical distinguishing_result ('a change in either direction'), so no outcome can separate them."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "'No effect' rival's distinguishing_result ('no change, or a small one') overlaps the other rivals' admissible outcomes, leaving no clean discrimination."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Construct 'any effect' with measure 'any change in any direction, at any time' specifies no threshold, timepoint, or magnitude and is unmeasurable."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The sole auxiliary 'any outcome may occur' states no testable assumption (noise model, significance criterion, baseline variance)."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question concerns cell-to-cell variability among genetically identical cells, but design uses only aggregate observables and a steady-state single-generation run that cannot resolve single-cell expression distributions."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The falsifier's 'test' field is null and no actual statistical test or effect threshold is defined, so the decision rule cannot be executed."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "ppgpp_conc and ribosome_conc are listed as observables but the falsifier channel is only growth_rate, so other channels play no discriminating role."
+        }
+      ],
+      "shared_quality": 0.125,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5821,
+        "output_tokens": 1857,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25093,
+        "cost_usd": 0.065355,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "3.1",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the outcome'/'the observable' are placeholders with no named quantity, units, or measurement procedure."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, effect size, or test \u2014 any nonzero difference triggers rejection, so H0 can essentially never survive."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "falsifier.test is null, so no concrete statistical procedure exists to produce a 'no difference' refuting result."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'chance' is distinguished by 'no consistent difference across seeds', which is identical to the H0/refuting condition and does not separate chance from a real effect."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'another mechanism' predicts only 'a different pattern of change' with no specified pattern, so it cannot be discriminated from H1."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The question asks about variability among genetically identical cells, but the design compares a 'perturbed' vs 'reference' design \u2014 yet the only candidate design is a single wildtype/basal condition with no perturbation arm."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The claim reframes the broad question into whether a specific perturbation changes an outcome, narrowing 'do identical cells behave differently' to a two-design contrast."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Cell-to-cell behavioral variability requires a single-generation, single-condition replicate distribution; a steady_state elongation model with 1 generation cannot capture stochastic phenotypic divergence."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Sole auxiliary 'the simulation represents the process' omits critical assumptions: seed-to-seed variation reflects biological stochasticity, and 8 seeds suffice to estimate the variability distribution."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'behave differently' is never operationalized into a specific behavior/phenotype measure."
+        }
+      ],
+      "shared_quality": 0.125,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 4929,
+        "output_tokens": 1938,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 26452,
+        "cost_usd": 0.063782,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "3.1",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Claim is empty; no stated proposition to test, so nothing is defined or measurable."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Marked converged=true with substantive_objections=0 despite empty hypothesis, h1, h0, and falsifier."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has empty target/reference/channel/decision_rule/refuting_result, so no result could ever refute it."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals list is empty; no alternative explanations are specified to discriminate against."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No auxiliary assumptions stated, leaving all measurement and model preconditions implicit."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Behave differently' is undefined \u2014 no operational definition of which phenotype, observable, or metric counts."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "No predicted effect or operational definitions mean the broad question is neither scoped nor answerable as framed."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate designs provided, so feasibility within the whole-cell simulation's instrumentation cannot be met and is unspecified."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3544,
+        "output_tokens": 1268,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 19687,
+        "cost_usd": 0.041867,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "3.1",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' with refuting_result 'none' means no possible outcome can refute the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Predicted effect 'increase, decrease, or no change; transient or sustained' exhausts all possible outcomes, so the prediction is unfalsifiable."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational measure 'any change in any direction, at any time' specifies no threshold, magnitude, or time window and is unmeasurable as a decision criterion."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'direct' and 'indirect' both have the identical distinguishing_result 'a change in either direction', so no result can separate them."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival's result 'no change, or a small one' overlaps with the H0 outcome and the other rivals' allowed outcomes, giving no discrimination."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H0 (observables stay the same) is listed as a predicted-consistent outcome of H1, so H1 and H0 are not mutually exclusive."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Auxiliary assumption 'any outcome may occur' states nothing testable and omits the noise/variability model needed to call a change real."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks about cell-to-cell variability among genetically identical cells, but the single candidate design is wildtype-vs-wildtype with no mechanism isolating stochastic heterogeneity."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Design has only 8 seeds, 1 generation, steady_state elongation and no timeline, yet claims to detect transient effects 'at any time' across the cell cycle."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The sole falsifier channel is growth_rate, yet ppgpp_conc and ribosome_conc observables have no associated decision rule, so they cannot discriminate anything."
+        }
+      ],
+      "shared_quality": 0.25,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5766,
+        "output_tokens": 2009,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 26653,
+        "cost_usd": 0.069134,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "1.2",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the outcome'/'the observable' are placeholders with no named quantity; nothing is actually measurable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, noise model, or statistic, so any nonzero difference refutes H0 \u2014 it cannot fail to fire."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks WHAT makes genes differ in noise; hypothesis only tests whether a generic perturbation changes a generic observable, identifying no determinant of noise."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'another mechanism -> a different pattern of change' is undefined, so no result could distinguish it from the main claim."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'chance -> no consistent difference across seeds' coincides with H0's refuting result, so it does not discriminate from the null."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Claim/H1 assert a perturbation changes the outcome, but the only candidate design is 'wildtype/basal' with no perturbation and no reference arm."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Noise must be estimated across replicates, but a single wildtype design with 8 seeds and no comparator cannot yield a perturbed-vs-reference contrast."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Only auxiliary is 'the simulation represents the process'; no assumption specifying how gene-expression noise (e.g., CV, Fano) is computed or which genes are compared."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'noisier' is never operationalized into a variance/CV/Fano metric, so cross-gene noise comparison is unmeasurable."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "1 generation at steady_state with a single arm cannot support the claimed cross-design comparison the falsifier requires."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 4985,
+        "output_tokens": 1823,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 24342,
+        "cost_usd": 0.060968,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "1.2",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' combined with refuting_result 'none: every outcome matches' makes the hypothesis unfalsifiable by construction."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Claim explicitly admits increase, decrease, or no change as all consistent with the mechanism, so no observation could ever refute it."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'direct' and 'indirect' share the identical distinguishing_result ('a change in either direction'), so no outcome can tell them apart."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival ('no change, or a small one') overlaps with the others' allowed outcomes, so no result discriminates among rivals."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational definitions collapse all constructs to 'any effect' measured as 'any change in any direction, at any time' \u2014 no threshold, direction, or time window."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks what makes gene expression noisier (variance/noise across genes), but observables are growth_rate, ppgpp_conc, ribosome_conc with no measure of expression noise or any gene-level comparison."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier channel is growth_rate only, yet operational_defs and H1/H0 cover three observables; the stated test does not evaluate the full hypothesis."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Only auxiliary is 'any outcome may occur'; no auxiliaries defining noise metric, measurement precision, or baseline variability needed to interpret results."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Candidate design is a single wildtype/basal run with no perturbation arm, so the proposed perturbation vs reference comparison cannot be executed."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "falsifier.test is null and timeline is null while the hypothesis claims convergence with zero substantive objections, implying an unexecutable yet 'converged' design."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5801,
+        "output_tokens": 1984,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 26358,
+        "cost_usd": 0.068728,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "1.2",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Claim is empty: no stated hypothesis, so nothing is defined or measurable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has empty target/reference/channel/decision_rule/refuting_result, so no outcome can ever refute it."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "No rival hypotheses are listed, so no test can discriminate between competing explanations."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "H1 and H0 are empty, giving no contrast and no operationalised 'noisiness' construct to measure."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No auxiliary assumptions stated linking simulated observables to the noise claim."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate designs provided, so feasibility within the simulation cannot be assessed and no measurement instrument is specified."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Predicted effect is empty; the artifact addresses none of the broad causal question it claims to answer."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Marked converged with zero substantive objections despite every substantive field being empty."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3579,
+        "output_tokens": 1238,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 16077,
+        "cost_usd": 0.04132,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "4.1",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "\"the outcome\" / \"the observable\" are never defined; no named quantity (e.g., ribosome count, rRNA synthesis rate) is measured."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule \"reject H0 if the observable differs\" has no threshold, direction, or variance model, so any nonzero difference refutes H0 \u2014 it cannot genuinely fail."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals \"chance\" and \"another mechanism\" are generic placeholders with distinguishing results (\"a different pattern\") that do not specify any measurable criterion to separate them from H1."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The only candidate design is \"wildtype\" in \"basal\" condition \u2014 there is no perturbed vs reference contrast, yet the falsifier compares perturbed against reference designs."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks a mechanistic \"how does the cell decide\" but the hypothesis only tests whether an undefined observable differs, which cannot reveal the decision mechanism."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Sole auxiliary \"the simulation represents the process\" omits critical assumptions (medium composition, how medium is varied, ribosome readout mapping) needed for any test."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No medium variation is specified in the single basal design, so the question about ribosomes \"in a given medium\" cannot be probed across media."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The \"chance\" rival is distinguished by \"no consistent difference across seeds,\" which is identical to H0 \u2014 the rival collapses into the null rather than discriminating a mechanism."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 4,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5065,
+        "output_tokens": 1738,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 22421,
+        "cost_usd": 0.060242,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "4.1",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The central claim is empty \u2014 there is no stated hypothesis to test or measure."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "h1 and h0 are both empty, so there is no contrast between hypothesis and null to adjudicate."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier has no target, reference, channel, decision rule, or refuting result, so it can never produce a failing outcome."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "No operational definitions are provided; 'number of ribosomes' and 'decides' are left undefined and unmeasurable."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The rivals list is empty, so the design cannot discriminate the hypothesis from any alternative mechanism."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "No predicted effect (direction or magnitude) is specified, leaving nothing to compare against observation."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Auxiliary assumptions are empty, so critical conditions linking medium to ribosome count are left unstated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate designs are given, so feasibility within the whole-cell simulation cannot be assessed and is presumed unmet."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "With no claim articulated, the submission addresses none of the asked mechanistic question about how ribosome number is set."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Marked converged with zero substantive objections after one round despite every required field being empty."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3629,
+        "output_tokens": 1552,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 19919,
+        "cost_usd": 0.048575,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "4.1",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' combined with a refuting_result of 'none' means no observation can ever falsify the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so it is unfalsifiable by construction."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H0 is 'stay the same' yet the decision rule rejects H0 on ANY change including no change via 'small one' rivals, leaving the stay-same case claimed by both hypotheses."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'direct' and 'indirect' both have the identical distinguishing_result ('a change in either direction'), so no test separates them."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival's result ('no change, or a small one') overlaps the other rivals' admissible outcomes, so it cannot be discriminated either."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational constructs are all labelled 'any effect' with measure 'any change in any direction, at any time', providing no threshold, direction, or time window to measure."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The only auxiliary assumption is 'any outcome may occur', which states no quantitative baseline, noise model, or detection threshold needed to interpret a change."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The candidate design is wildtype at basal with no actual perturbation, yet the hypothesis concerns 'the perturbation', so the stated design cannot test the claim."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks for the decision mechanism setting ribosome number by medium, but the hypothesis and falsifier only examine growth_rate under a single basal condition with no medium variation."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Falsifier channel is growth_rate only while the mechanism invokes ppgpp_conc and ribosome_conc, which are never tested, so the design under-instruments the claim."
+        }
+      ],
+      "shared_quality": 0.125,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5851,
+        "output_tokens": 2027,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25341,
+        "cost_usd": 0.069567,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "4.2",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the outcome'/'the observable' are placeholders with no named quantity, units, or measurable biological variable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, effect size, or test, so any nonzero difference passes \u2014 the falsifier cannot genuinely fail."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Only one candidate design (wildtype/basal) is specified; there is no perturbed amino-acid-starvation arm to compare against the reference."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier contrasts 'perturbed design' vs 'reference design' but the design list contains a single wildtype basal arm, so no contrast exists."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'chance' and 'another mechanism' yield 'a different pattern of change' with no defined channel/signature, so no result can discriminate them from H1."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks what the cell does upon amino-acid depletion; hypothesis only asks whether an undefined observable differs, not identifying any specific response (e.g., stringent response, translation halt)."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No specification of how amino acids are depleted (which amino acids, timing, magnitude) \u2014 a critical auxiliary for operationalizing the starvation perturbation."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the simulation represents the process' is an untestable catch-all auxiliary rather than a concrete modeling assumption."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "1 generation at steady_state elongation may be too short to capture a dynamic starvation response, and no timeline is defined to observe it."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5041,
+        "output_tokens": 1804,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 24405,
+        "cost_usd": 0.060748,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "4.2",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Claim is empty; there is no stated hypothesis or measurable construct to evaluate."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "h1 and h0 are both empty, so there is no contrastive hypothesis pair despite 'converged: true'."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has empty target/reference/channel/decision_rule/refuting_result, so no result could ever refute the claim."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "No rival hypotheses are listed, so nothing is being discriminated against."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No auxiliary assumptions stated (e.g., which amino acid, starvation induction method, measurement timing)."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'suddenly runs out of amino acids' is undefined \u2014 no operational definition of depletion magnitude, rate, or which amino acids."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate designs provided, so feasibility within the whole-cell simulation cannot be assessed and no readout channel is specified."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "No predicted_effect given; the open-ended 'what does a cell do' question has no concrete predicted response to test."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Marked converged in 1 round with 0 substantive objections despite every scientific field being empty."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3614,
+        "output_tokens": 1525,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 19764,
+        "cost_usd": 0.04854,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "4.2",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' combined with a predicted effect covering increase/decrease/no change means no result can ever refute the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Refuting result explicitly states 'none: every outcome matches one of the predicted possibilities', an admission the hypothesis is unfalsifiable."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H1 allows rise/fall/stay-the-same while the decision rule rejects H0 on any change, yet 'stay the same' is also predicted by H1 \u2014 the hypothesis both includes and excludes no-change."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "'Direct' and 'indirect' rivals share the identical distinguishing result ('a change in either direction'), so no observation can tell them apart."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival's distinguishing result ('no change, or a small one') overlaps with the main hypothesis's permitted 'no change' outcome, providing no discrimination."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational definitions use construct 'any effect' with measure 'any change in any direction, at any time' \u2014 no threshold, direction, or time window makes this unmeasurable."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Auxiliary assumption 'any outcome may occur' substitutes for genuine assumptions (e.g., stringent-response model, ppGpp synthesis kinetics) needed to link amino acid starvation to observables."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The only candidate design is 'wildtype' at 'basal' with no amino-acid starvation perturbation and no timeline, so it cannot test the starvation question at all."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks what the cell does on sudden amino-acid depletion, but the design imposes no depletion and measures steady-state basal wildtype, addressing nothing about the dynamic response."
+        }
+      ],
+      "shared_quality": 0.125,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5836,
+        "output_tokens": 2026,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25514,
+        "cost_usd": 0.069733,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "5.1",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'The observable' and 'the outcome' are never defined; no concrete variable (e.g., viability, growth rate, biomass) is named or measured."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, effect size, or statistical criterion, so any nonzero difference confirms it \u2014 it cannot fail."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks WHICH genes are dispensable, but the hypothesis tests only a single unspecified 'perturbation' and never enumerates or screens any genes."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The only candidate design has perturbation 'wildtype' with no gene knockout, so there is no perturbed-vs-reference contrast to populate the falsifier."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'chance' and 'another mechanism' are generic and share the same vague channel; 'a different pattern of change' is undefined and does not distinguish any specific mechanism."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Gene essentiality requires knockouts across many genes and multiple generations, but the design has only wildtype, 1 generation, and no knockout, so it cannot detect lethality."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Sole auxiliary 'the simulation represents the process' omits critical assumptions: criterion for 'alive/dead', gene-removal mechanism, and growth-condition dependence of essentiality."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Measure: its value across seeds' specifies neither the quantity nor the summary statistic used to declare a difference."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 4929,
+        "output_tokens": 1732,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 23577,
+        "cost_usd": 0.059073,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "5.1",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 7,
+      "defect_list_claude": [
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks which genes are dispensable genome-wide, but the hypothesis is entirely empty and specifies no gene set, criterion, or scope."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Live without' is never operationalized (viability vs. growth vs. fitness; defined media; essentiality threshold), leaving the core construct unmeasurable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has empty target, channel, decision_rule, and refuting_result, so no result could ever refute the claim."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Marked converged=true with 0 substantive objections despite every substantive field (claim, h1, h0, defs, rivals, designs) being empty."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "No rival hypotheses are listed, so nothing distinguishes the claim from alternative explanations."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No auxiliary assumptions stated (e.g., media conditions, single vs. combinatorial knockouts, redundancy/epistasis), all critical to any essentiality determination."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate design is provided, so feasibility within the whole-cell simulation cannot be established."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3544,
+        "output_tokens": 1393,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 18295,
+        "cost_usd": 0.044578,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "5.1",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' combined with refuting_result 'none: every outcome matches one of the predicted possibilities' means no observation can ever refute the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so it is unfalsifiable."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'direct' and 'indirect' rivals both have the same distinguishing_result ('a change in either direction'), so no result can discriminate between them."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival's distinguishing_result ('no change, or a small one') overlaps with the other rivals' admitted outcomes, providing no separation."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The decision rule rejects H0 on 'any change', yet claim and auxiliary assumptions allow 'no change' as equally consistent \u2014 the same outcome both rejects and confirms."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Construct labelled 'any effect' with measure 'any change in any direction, at any time' specifies no threshold, direction, or time window and is operationally empty."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Auxiliary assumption 'any outcome may occur' is not a testable auxiliary and omits the actual gene(s) deleted, media, and essentiality criterion needed to interpret results."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks which genes are dispensable, but the single candidate design perturbs only 'wildtype' with no gene deletion, so no gene is ever tested for dispensability."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Gene essentiality typically requires a viability/survival readout across deletions, but the design provides only a single 1-generation steady-state wildtype run, which cannot assess whether any gene can be deleted."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5766,
+        "output_tokens": 2070,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 26576,
+        "cost_usd": 0.070575,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "6.1",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the outcome'/'the observable' are placeholders with no named quantity (e.g., growth rate, specific sugar uptake flux), so nothing is measurable."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The perturbation is undefined ('The perturbation in question') and the sole candidate design is 'wildtype' with empty params \u2014 no actual intervention is specified."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no effect-size threshold or noise model, so any nonzero seed-to-seed difference counts as refutation/support \u2014 the test is unfalsifiable as stated."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "The perturbed vs reference design are both unspecified, yet the only candidate_design is a single 'wildtype/basal' arm \u2014 there is no contrasting reference arm to compute a difference."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'chance' and 'another mechanism' are distinguished by 'no consistent difference' and 'a different pattern' with no defined pattern or statistic, so they cannot be discriminated from H1."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks HOW bacteria choose between two sugars (mechanism of diauxie/preference); hypothesis only tests whether an unnamed observable differs, revealing no choice mechanism."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "'The simulation represents the process' is the only auxiliary; critical assumptions (two sugars actually present, transport/regulatory machinery modeled, metric linked to sugar choice) are unstated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Sugar choice (diauxic switching/regulatory preference) is a dynamic phenomenon, but the design uses steady_state elongation over 1 generation, which cannot capture sequential sugar utilization."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "falsifier.test is null and no statistical procedure is given, so the stated decision rule cannot actually be executed."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 4,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5009,
+        "output_tokens": 2012,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25219,
+        "cost_usd": 0.065917,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "6.1",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction' plus refuting_result 'none: every outcome matches a predicted possibility' makes the hypothesis unfalsifiable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so no observation could contradict it."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "H0 ('stay the same') is a strict subset of H1 ('rise, fall or stay the same'), so the two hypotheses overlap and cannot be mutually tested."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'direct' and 'indirect' share the identical distinguishing_result ('a change in either direction'), so no result can tell them apart."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival's distinguishing_result ('no change, or a small one') overlaps with the other rivals' admissible outcomes, offering no discrimination."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Construct 'any effect' with measure 'any change in any direction, at any time' is undefined and unmeasurable (no threshold, magnitude, or time window)."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Auxiliary assumption 'any outcome may occur' states no constraint and omits necessary assumptions (e.g., diauxie conditions, two-sugar medium)."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks about choice between two sugars, but the only candidate design is a single wildtype basal condition with no two-sugar perturbation or regulatory comparison."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Falsifier 'test' is null and decision rule has no defined statistic/threshold over 8 seeds, so no actual test can be executed."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The sugar-choice mechanism is never operationalized by any perturbation that would engage catabolite repression or transporter regulation relevant to the question."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5816,
+        "output_tokens": 1951,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 23858,
+        "cost_usd": 0.067468,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "6.1",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The claim field is empty, so there is no stated hypothesis to test."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "h1 and h0 are both empty, yet the record is marked converged with zero substantive objections after one round."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has empty target, channel, decision_rule and refuting_result, so no observation could ever refute the hypothesis."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "No operational definitions provided, so 'choose' and 'two sugars' remain unmeasurable constructs."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals list is empty, so no alternative mechanism is distinguished from the main claim."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Auxiliary assumptions list is empty despite the question requiring assumptions about transport, regulation, and measurement conditions."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate designs are specified, so feasibility within the simulation cannot be assessed and no predicted effect is given."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "No predicted_effect or scoped claim is offered, so the broad question of sugar choice is left entirely unanswered."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3594,
+        "output_tokens": 1380,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 17357,
+        "cost_usd": 0.04451,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "6.2",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the outcome'/'the observable' are placeholders; no concrete quantity (e.g., per-cell lag-time distribution, fraction switched over time) is defined or measurable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, effect size, or statistical test, so any nonzero difference counts and the falsifier can never fail."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks about synchrony of per-cell switching timing, but the operational def measures a single aggregate 'observable across seeds' and never captures cell-to-cell timing dispersion."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'chance' and 'another mechanism' yield 'no consistent difference' and 'a different pattern' with no specified signatures, so no result could distinguish them from H1."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Only a single 'wildtype/basal' design is listed with no perturbed arm, yet the falsifier compares 'perturbed design' vs 'reference design' \u2014 the required comparison cannot be run."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Capturing diauxic-shift timing across a population requires multi-generation time-resolved dynamics, but the design specifies 1 generation and steady_state elongation, which cannot observe a switch event."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "'The simulation represents the process' omits critical auxiliaries: presence of two sugars, depletion of the preferred sugar, and a population large enough to assess cell-to-cell synchrony."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Predicted effect' is merely 'a change relative to the reference' with no direction or magnitude, making it unmeasurable."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5153,
+        "output_tokens": 1773,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 23982,
+        "cost_usd": 0.060368,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "6.2",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The claim is empty: no testable statement is asserted, so nothing can be measured or evaluated."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "h1 and h0 are both empty yet the hypothesis is marked converged=true with zero substantive objections, which is inconsistent with an unspecified hypothesis."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "operational_defs is empty: 'switch to the second sugar' and 'at the same time' are never operationalised into measurable quantities or thresholds."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "The falsifier has empty target, channel, decision_rule, and refuting_result, so no result could ever refute the hypothesis."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "rivals is empty: no alternative explanations are listed, so no design can discriminate the hypothesis from competitors."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "auxiliary_assumptions is empty despite needing assumptions about single-cell readout capability, timing resolution, and diauxic-shift conditions."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The question requires per-cell switching times, but no candidate_designs specify any instrument capable of single-cell resolution in a whole-cell simulation."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'at the same time' lacks any tolerance window or synchrony metric, making population synchrony unmeasurable."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "predicted_effect is empty, so no quantitative prediction addresses the asked question about population-wide switch synchrony."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3684,
+        "output_tokens": 1351,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 19216,
+        "cost_usd": 0.04436,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "6.2",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' plus a refuting_result of 'none' means no outcome can ever falsify the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so it is unfalsifiable by construction."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational definitions measure 'any change in any direction, at any time' with no threshold, effect size, or time window \u2014 not a measurable construct."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rivals 'direct' and 'indirect' both predict identical distinguishing_result ('a change in either direction'), so no data can separate them."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival ('no change, or a small one') overlaps with the other rivals' outcome space, giving no discriminating boundary."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks about synchrony of per-cell diauxic switching timing, but observables (growth_rate, ppgpp, ribosome) are population aggregates that never measure cell-to-cell switch-time variability."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Switch synchrony requires single-cell, time-resolved tracking across the diauxic transition, but the design uses a steady_state elongation model over a single generation \u2014 cannot observe the dynamic switch."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No design actually depletes the preferred sugar or supplies a second sugar; the only candidate is 'wildtype/basal', so the perturbation central to the question is never instantiated."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier channel is growth_rate and reference is wildtype/basal, yet the only candidate design IS wildtype/basal, leaving no perturbed-vs-reference contrast to evaluate."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Auxiliary assumption 'any outcome may occur' contradicts the existence of a falsifier, since nothing can then count as a refuting result."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5906,
+        "output_tokens": 2000,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25715,
+        "cost_usd": 0.069087,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "2.1",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'The outcome' / 'the observable' are never defined as any measurable quantity in the simulation."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' has no threshold, effect size, or variance criterion, so any nonzero difference counts as confirmation."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Only one candidate design ('wildtype', basal) is specified, yet the falsifier requires both a perturbed and a reference design to compare."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Antibiotic survival/persistence is a multi-generation phenotype, but the design runs 1 generation at steady_state, which cannot capture dormancy or post-exposure survival."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'another mechanism' is distinguished only by 'a different pattern of change', with no specified pattern, so it cannot be told apart from H1."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'chance' uses 'no consistent difference across seeds', the same signal as H0, providing no independent discrimination."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "Question asks about non-resistant survival (persistence/tolerance), but no antibiotic exposure, killing, or survival readout is operationalized at all."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "'The simulation represents the process' assumes the whole-cell model includes antibiotic action and tolerance mechanisms, an unstated and critical prerequisite."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The named perturbation is 'wildtype' with empty params, i.e., no actual perturbation is applied, so a perturbed-vs-reference contrast is impossible."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5025,
+        "output_tokens": 1803,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 22217,
+        "cost_usd": 0.061517,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "2.1",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 9,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The central claim is empty; there is no stated hypothesis to evaluate or operationalize."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "h1 and h0 are both empty, so no alternative vs. null contrast exists despite the object being framed as a testable hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has empty target, reference, channel, decision_rule, and refuting_result, so no outcome could ever refute the claim."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "operational_defs is empty; survival-without-resistance (persistence/tolerance) is never defined in measurable simulation terms."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "rivals list is empty, so no competing explanation (e.g., persistence vs. tolerance vs. undetected resistance) can be discriminated."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "auxiliary_assumptions is empty; preconditions linking the whole-cell simulation to antibiotic survival are left unstated."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "candidate_designs is empty, so there is no demonstrated feasible measurement within the whole-cell E. coli simulation."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "predicted_effect is empty, leaving the broad question with no specific, measurable prediction that addresses it."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "converged=true with substantive_objections=0 after a single round despite every required field being empty."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3604,
+        "output_tokens": 1490,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 18201,
+        "cost_usd": 0.04762,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "2.1",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' plus a refuting_result of 'none' means no observable outcome can ever refute the hypothesis."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so the prediction is unfalsifiable by construction."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational definitions measure 'any change in any direction, at any time' with no threshold, effect size, or time window, making them non-operational."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Both 'direct' and 'indirect' rivals share the identical distinguishing_result ('a change in either direction'), so no result can tell them apart."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival's result ('no change, or a small one') overlaps the other rivals' admissible outcomes, providing no discrimination."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier targets 'the perturbed design' vs wildtype reference, but the only candidate design is itself 'wildtype'/'basal', leaving nothing perturbed to compare."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "The sole auxiliary assumption 'any outcome may occur' states no testable precondition and omits any mechanism-linking assumption needed to connect perturbation to observables."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question concerns non-resistant antibiotic survival (e.g., persistence/tolerance), but the design includes no antibiotic exposure, survival readout, or tolerance/persister measure."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "ppGpp-driven persistence claims require dynamics over an antibiotic challenge, yet the design is 1 generation at steady_state with no timeline, unable to capture the proposed mechanism."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "The claim/mechanism ('depending on conditions, any outcome consistent') names no specific mechanism, so there is nothing concrete to measure or test."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5826,
+        "output_tokens": 2009,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25809,
+        "cost_usd": 0.069517,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "2.2",
+      "kind": "restated",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 1,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'the outcome'/'the observable' are placeholders with no named quantity, so nothing is actually measurable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if the observable differs' names no threshold, variance, or test statistic, so it can be declared either way at will."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'chance' is distinguished by 'no consistent difference across seeds', which is identical to the H0 refuting result and does not isolate a mechanism."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Rival 'another mechanism' predicts 'a different pattern of change' with no specified pattern, so it cannot be told apart from H1."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "The question concerns bet-hedging/population heterogeneity, but the only design is a single wildtype condition with no perturbation and no reference, so no contrast exists to test."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Falsifier references a 'perturbed design' vs 'reference design', yet the sole candidate design is 'wildtype' with no perturbation or comparator."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "1 generation with steady_state elongation cannot reveal slow-growth/'prepared' subpopulation dynamics or any benefit across an environmental change."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks about population-level benefit of heterogeneity across a change, but the design measures a single static observable with no environmental shift or population fitness metric."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No definition of population 'help'/fitness, no environmental-change event, and no mechanism for cell-to-cell variability are specified as required auxiliaries."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'The perturbation in question' is never identified, so the claim has no concrete intervention to evaluate."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 3,
+      "defects_gpt": 5,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5177,
+        "output_tokens": 1841,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 24297,
+        "cost_usd": 0.062258,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "2.2",
+      "kind": "hedge_all",
+      "free": {
+        "council_score": 16,
+        "council_score_max": 16,
+        "complete": true,
+        "structural_ok": true,
+        "feasible": true,
+        "ab_minimum_bar": true,
+        "ab_checks": {
+          "M1_named_observable": true,
+          "M1_observable_on_dial_label": true,
+          "M2_direction_stated": true,
+          "M2_baseline_named": true,
+          "M3_falsifier": true,
+          "M4_valid_design": true,
+          "has_two_rivals": true,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 10,
+      "defect_list_claude": [
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Decision rule 'reject H0 if any change in any direction is seen' combined with refuting_result 'none: every outcome matches one of the predicted possibilities' makes the hypothesis unfalsifiable."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "H1 ('rise, fall or stay the same') exhausts all logically possible outcomes, so no result can ever contradict it."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Operational definitions measure 'any change in any direction, at any time' with no threshold, effect size, or time window, so they are not measurable constructs."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "Both 'direct' and 'indirect' rivals predict the identical distinguishing_result ('a change in either direction'), so no observation can separate them."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "The 'no effect' rival ('no change, or a small one') overlaps with the other rivals' outcomes, providing no discriminating signal."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Claim says outcomes are 'consistent with the mechanism' yet no mechanism is specified; auxiliary assumption 'any outcome may occur' negates any predictive content."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The question asks whether slow growth / preparedness can benefit a population, but the design is a single basal wildtype with no bet-hedging, fluctuating environment, or heterogeneity to assess population-level benefit."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "Candidate design is wildtype at basal condition with no perturbation, yet the falsifier targets 'the perturbed design' against a wildtype reference \u2014 there is no actual perturbation to test."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "Assessing population benefit of slow/prepared cells requires environmental change and multi-generation fitness tracking, but the design runs 1 generation in steady state with no such auxiliary conditions stated."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "falsifier.test is null and no quantitative decision statistic is defined, contradicting the stated decision_rule that presupposes a measurable change criterion."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 5921,
+        "output_tokens": 1939,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 25154,
+        "cost_usd": 0.067971,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    },
+    {
+      "id": "2.2",
+      "kind": "empty",
+      "free": {
+        "council_score": 0,
+        "council_score_max": 16,
+        "complete": false,
+        "structural_ok": false,
+        "feasible": false,
+        "ab_minimum_bar": false,
+        "ab_checks": {
+          "M1_named_observable": false,
+          "M1_observable_on_dial_label": false,
+          "M2_direction_stated": false,
+          "M2_baseline_named": false,
+          "M3_falsifier": false,
+          "M4_valid_design": false,
+          "has_two_rivals": false,
+          "converged": true
+        }
+      },
+      "rubric_claude": 0,
+      "defects_claude": 8,
+      "defect_list_claude": [
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "Claim is empty; no testable proposition is stated at all."
+        },
+        {
+          "type": "internal_contradiction",
+          "issue": "Marked converged=true with zero substantive objections despite every field (h1, h0, falsifier, defs) being empty."
+        },
+        {
+          "type": "falsifier_cannot_fail",
+          "issue": "Falsifier has no target, channel, decision_rule, or refuting_result, so it can never trigger a refutation."
+        },
+        {
+          "type": "vague_or_unmeasurable_construct",
+          "issue": "'Grow slowly' and 'stay prepared' are undefined; no operational definitions or measurable thresholds provided."
+        },
+        {
+          "type": "rival_not_actually_discriminating",
+          "issue": "No rival hypotheses listed, so the design cannot discriminate the proposed mechanism from alternatives."
+        },
+        {
+          "type": "unstated_critical_auxiliary",
+          "issue": "No auxiliary assumptions stated (e.g., environmental fluctuation regime, fitness measure) required to make the bet-hedging claim meaningful."
+        },
+        {
+          "type": "answers_narrower_question_than_asked",
+          "issue": "The broad question about slow growth AND preparedness is left entirely unaddressed with no operationalization of either arm."
+        },
+        {
+          "type": "infeasible_or_instrument_exceeding_design",
+          "issue": "No candidate designs specified; feasibility within a whole-cell E. coli simulation cannot be assessed."
+        }
+      ],
+      "shared_quality": 0.0,
+      "shared_judged": true,
+      "shared_min_bar": false,
+      "rubric_gpt": 1,
+      "defects_gpt": 4,
+      "llm": {
+        "n_calls": 4,
+        "input_tokens": 3699,
+        "output_tokens": 1291,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 0,
+        "latency_ms": 15922,
+        "cost_usd": 0.042758,
+        "cost_partial": false,
+        "by_role": {
+          "grader": 1,
+          "auditor": 1,
+          "grader_gpt": 1,
+          "auditor_gpt": 1
+        },
+        "by_model": {
+          "claude-opus-4-8": 2,
+          "gpt-4o": 2
+        }
+      }
+    }
+  ]
+}

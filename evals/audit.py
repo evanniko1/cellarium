@@ -16,9 +16,13 @@ key, or (GPT) unparseable JSON. The stored Claude column has the shape that leav
 every other one is 7 to 10, never 1 to 6, while the GPT auditor never returned zero. The readable lists stop at
 about 2,700 characters, near what the old 1,024-token reply limit holds, so the likeliest cause is a list cut off
 at the limit. A reply cut off at its limit is now an error too, even when part of the list parsed, because a
-partial list undercounts. `MAX_TOKENS` is 4096. To confirm the stored zeros, re-audit just those 58 records:
+partial list undercounts. `MAX_TOKENS` is 4096. CONFIRMED 2026-11-24 by re-auditing just those 58 records:
 
-    python evals/audit.py --only-claude-zeros evals/results/audited.json --out evals/results/audited_zeros_reaudit.json
+    python evals/audit.py --only-claude-zeros evals/results/audited.json --auditors claude         --out evals/results/audited_zeros_reaudit.json
+
+All 58 replies were readable, each listing 8 to 12 defects, none zero. 43 of them ran longer than the old
+1,024-token limit (851 to 1,430 output tokens), which fits the cut-off explanation; the old auditor kept no stop
+reason, so for any one record it is inferred, not observed.
 
 VARIANTS. A record may carry other hypotheses to score beside the one it returned: `variants.all_rounds` (the
 Council's round-cap result when its early stop was logged, validation item 5(d)) or the drafts best-of-N did not

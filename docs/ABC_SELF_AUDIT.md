@@ -23,10 +23,10 @@ citing an R item by number.
 
 | Status | Items |
 |---|---|
-| MET, guarded by a test that was forced to fail | T.1, T.3, T.5, T.6, T.9 (gate), T.10, O.b.3, R.9, R.10 (gate), R.13 (gate) |
+| MET, guarded by a test that was forced to fail | T.1, T.3, T.5, T.6, T.9 (gate), T.10, O.b.3, R.9, R.10 (gate), R.13 |
 | MET, documented or by construction | T.2, T.4, O.h.1, O.h.2, R.1, R.2, R.3, R.5, R.6, R.7, R.8, R.11 |
-| PARTLY | T.7, T.8, R.4 |
-| NOT MET, open | O.c.1, O.i.1, R.12; and for the Council: R.10, R.13, O.b.2 |
+| PARTLY | T.7, T.8, R.4, O.b.2 (Council: its judges reject a hedge, its deterministic checks and defect count do not) |
+| NOT MET, open | O.c.1, O.i.1, R.12; and for the Council: R.10 |
 | OUT OF SCOPE, declared | T.9 for the Council: no oracle exists for an open-ended hypothesis |
 | NOT APPLICABLE, with the reason | O.a.1-2, O.b.1, O.d.1-2, O.e.1-3, O.f.1-2, O.g.1-3 |
 
@@ -51,16 +51,16 @@ citing an R item by number.
 |---|---|---|---|
 | O.a.1, O.a.2 | Whole-string matching: equivalent and redundant wording | N/A | The gate's outcome is a closed three-value verdict compared exactly; no free text is matched. |
 | O.b.1 | Substring matching: negation | N/A | No substring matching is used to score. |
-| O.b.2 | Prevent success by listing every possible answer | N/A for the gate; FAILED by the Council's deterministic checks, NOT TESTED for its judges | One verdict per gate item. For the Council, `evals/trivial_baselines.py` builds an answer that predicts every outcome at once: the Council's own score (`council._score`) gives it 16 of 16, its maximum, and the A/B's deterministic minimum bar passes it (`tests/test_trivial_baselines.py`). Whether the LLM judges and auditors also accept it is the paid half of that probe, prepared and not run. |
+| O.b.2 | Prevent success by listing every possible answer | N/A for the gate. For the Council: MET by its judges, FAILED by its deterministic checks and by the residual-defect count | One verdict per gate item. For the Council, `evals/trivial_baselines.py` builds an answer that predicts every outcome at once. The judges reject it (2026-11-24, `evals/results/trivial_baselines.json`, 10 cases): the six-point rubric gives it 0.3 of 6 (Claude) and 1.0 (GPT) against 6.0 for the Council's real answers, the A/B's shared judge 0.06 against 0.49 for Cellwright's answers, and it passes the minimum bar in none of the 10. The Council's own score (`council._score`) gives it 16 of 16, its maximum, and the A/B's deterministic minimum bar passes it (`tests/test_trivial_baselines.py`). The defect auditors count it like a real answer: 9.8 defects (Claude) and 4.0 (GPT) against 9.0 and 3.8 for the Council's, and under the GPT auditor it does as well as the Council's answer on 6 of the 10 cases. |
 | O.b.3 | Prevent success by guessing | MET, forced | On the same 216 records, always-refuse scores 0.556 (the best trivial strategy), always-answer 0.333, always-propose 0.111; the gate's 0.875 beats the best by 0.319 (`tests/test_gate_reliability.py`). |
-| O.c.1 | LLM-as-judge: accuracy and self-consistency validated | NOT MET | The ablation's Claude and GPT auditors do not agree (residual defects, r = -0.097 over 120 records; 0.063 over the 62 Claude audits that were readable). The Claude column's ninefold larger spread is not noise: 58 of its 120 audits are zeros in the shape of unreadable replies counted as no defects (`tests/test_defect_audit.py`), so that auditor has to be re-run before its agreement can be measured. No repetition-stability run and no human floor exist (validation item 6: paid runs, two human raters). |
+| O.c.1 | LLM-as-judge: accuracy and self-consistency validated | NOT MET | The ablation's Claude and GPT auditors barely agree on which answers have more defects: r = 0.12 over 120 records, measured after the 58 Claude audits stored as zeros were re-audited (2026-11-24, `evals/results/audited_zeros_reaudit.json`: 58 of 58 readable, 8 to 12 defects each, none zero). The zeros were unreadable replies counted as no defects (`tests/test_defect_audit.py`), not findings. The Claude auditor finds 7 to 12 defects in every answer, the GPT auditor 1 to 6. No repetition-stability run and no human floor exist (validation item 6: paid runs, two human raters). |
 | O.d.1, O.d.2 | Unit-test grading: tests verified; coverage reported | N/A as grading | No evaluation is scored by unit tests. The analogous question, whether the platform's own guard tests would notice a fault, is measured by mutation testing: threshold mutants (tier 0) and the registry operators of validation item 8. Of eleven pre-registered registry faults the suite caught nine and missed two (a record losing its source markers; a loosened dependency pin), each exactly as predicted; both now have a guard (`tests/test_registry_survivor_guards.py`), forced to fail with the fault applied. |
 | O.e.1-O.e.3 | Fuzz testing | N/A | No fuzzing is used to score. |
 | O.f.1, O.f.2 | End-to-end tests: branch coverage; non-determinism | N/A as grading | No evaluation is scored by an end-to-end test. |
 | O.g.1-O.g.3 | State-modification grading | N/A | No evaluation is scored by a final state. |
 | O.h.1 | Answer-parser assumptions stated | MET, documented | The parser emits a six-field requirement over a closed vocabulary; anything unrecognised becomes `other`, which routes to the ignorance rule rather than to a refusal (`gate.Requirement.normalised`); parser failures are counted. |
 | O.h.2 | A single answer cannot be reached by guessing | MET, with O.b.3 | Three verdicts; the best guessing strategy's score is reported beside the gate's. |
-| O.i.1 | Quality metrics track the reasoning, not the format | NOT MET | The Council's six-point quality rubric scores 6/6 in every arm: it measures schema compliance, not framing quality (PUB-A3). The residual-defect measure varies under the GPT auditor; the Claude auditor's stored column mixes 58 failures counted as zero with 62 readable audits and supports no comparison until re-audited (`tests/test_defect_audit.py`). |
+| O.i.1 | Quality metrics track the reasoning, not the format | NOT MET | The Council's six-point rubric scores 6 of 6 in every arm, so it cannot rank real answers (PUB-A3). It is not schema compliance alone: it gives a schema-complete restatement of the question 1.0 of 6 (Claude) and 3.3 (GPT) (R.13). The residual-defect count separates arms under the GPT auditor. Under the Claude auditor, with its 58 stored failures re-audited, every arm sits between 8.83 and 9.03 defects and none differs from `full` by more than the design could detect (minimum detectable effect about 1.0). Neither auditor's count tracks quality on its own: an empty answer gets 8.5 defects (Claude) and 4.2 (GPT), as many as a real one (R.13). The Claude auditor names all seven of its defect types in 29 of the 30 trivial answers and in 49 of the 58 real ones it re-audited, so its count mostly measures the size of the list of types it was given. A count compares real answers with each other and says nothing alone. |
 
 ## Reporting
 
@@ -78,7 +78,7 @@ citing an R item by number.
 | R.10 | Significance; confidence intervals | MET for the gate and the ablation; NOT for the A/B | Gate: clustered t(26) interval, half-width 0.126, about three times the naive one (forced). Ablation: paired MDE on t(9). The A/B (10 cases) is reported descriptively. |
 | R.11 | Guidance for reading results given the flaws | MET, documented | A "reading the number" and a "cannot tell you" paragraph per surface, below: per auditor and never pooled for the ablation; within a set and never across sets for selective answering; descriptively for the A/B. |
 | R.12 | Non-AI baselines, such as human experts | NOT MET | No surface has a human baseline; the human floor of validation item 6 needs two raters. |
-| R.13 | Results of trivial agents | MET for the gate; NOT for the Council | Gate: the three always-the-same-verdict strategies (forced). Council: the trivial answers are built (`evals/trivial_baselines.py`: the question restated as a claim, a hedge-everything answer, an empty one) and their free half is measured: the Council's own score gives the restated question 16 of 16, its maximum. Their scores from the judges and auditors are a paid run, prepared and not run. The proposer-only arm is a weaker system, not a trivial one. |
+| R.13 | Results of trivial agents | MET | Gate: the three always-the-same-verdict strategies (forced). Council (`evals/trivial_baselines.py`; `evals/results/trivial_baselines.json`, 2026-11-24, 10 cases): three answers built from the question alone (a restatement, a hedge-everything answer, an empty one), scored by every instrument that scores a Council answer. The judges reject all three: the six-point rubric gives them 0.0 to 1.0 of 6 (Claude) and 1.0 to 3.3 (GPT) against 6.0 for real answers; the shared judge 0.00 to 0.06 against 0.49; the minimum bar is passed 0 times in 30. The defect auditors do not: 8.5 to 9.8 defects (Claude) and 4.0 to 4.6 (GPT) against the Council's 9.0 and 3.8, and the empty answer does at least as well as the Council's on 7 of 10 cases under Claude and 4 of 10 under GPT. The Council's own score gives the restatement and the hedge 16 of 16. The proposer-only arm is a weaker system, not a trivial one. |
 
 ## What each surface measures, and how to read its numbers
 
@@ -135,17 +135,22 @@ present, not how good the framing is. It is not a headline (O.i.1).
 model families; a minimum detectable effect beside every null (`tests/test_ablation_mde.py`). The answer-key arm
 (`leaked`), the positive control, exists in code and has not run.
 
-**Reading a number.** Per auditor, never pooled, and not the Claude column at all until it is re-audited. The
-stored averages under the Claude auditor (`full` 3.37 residual defects, `proposer_only` 4.50) mix two kinds of
-record: 62 audits that found 7 to 10 defects, and 58 that recorded zero. No Claude audit found 1 to 6, none
-found more than 10, and the GPT auditor never recorded zero. Until 2026-11-24 the auditor counted a reply it
-could not read as an empty list, the best score this endpoint gives, and the readable lists stop near what its
-1,024-token reply limit holds, so the zeros are most likely lists cut off at the limit and counted as no
-defects (`tests/test_defect_audit.py`). Among the 62 readable audits the four arms sit between 8.35 and 8.53, and
-`full` against `proposer_only` is 8.42 against 8.44. What used to read as a noisy auditor is that mixture.
-Re-auditing the 58 zeroed records settles it (`evals/audit.py --only-claude-zeros`, a paid run). Under the GPT
-auditor, which has no zeros, removing the critique is detectable. A difference here is a statement about the
-auditor that scored it.
+**Reading a number.** Per auditor, never pooled. The stored Claude column (`evals/results/audited.json`) held 58
+zeros among 120 audits, while no other Claude audit found fewer than 7 defects and the GPT auditor never recorded
+zero. Until 2026-11-24 the auditor counted a reply it could not read as an empty list, the best score this
+endpoint gives. Re-auditing the 58 with the fixed auditor (`evals/results/audited_zeros_reaudit.json`) found 8 to
+12 defects in every one and no zero. 43 of the 58 replies run longer than the old 1,024-token reply limit, so
+lists cut off at the limit and counted as empty is the likely mechanism; that is inferred from the lengths, since
+the old auditor kept no stop reason. The stored "`full` 3.37 against `proposer_only` 4.50" was that mixture. With
+the zeros replaced, the four arms sit between 8.83 and 9.03 under the Claude auditor (case-clustered), and no arm
+differs from `full` by more than 0.17 against a minimum detectable effect near 1.0. The replaced column mixes two
+conditions, 62 originals that fit the old limit and 58 fresh draws, which can lean against `full` (the arm with
+the most fresh draws) by up to about 0.14; M1 re-runs the arms with the fixed auditor. Under the GPT auditor,
+removing the critique is detectable (`full` 3.8 against `proposer_only` 4.77). A count ranks real answers
+against each other and nothing more: an answer with nothing in it gets 8.5 defects from the Claude auditor and 4.2
+from the GPT one (R.13). The Claude auditor names all seven of its defect types in 29 of the 30 trivial answers
+and in 49 of the 58 real ones it re-audited: it fills the list of types it is given, which is why its counts
+cluster near 9 whatever it reads. A difference here is a statement about the auditor that scored it.
 
 **Debate telemetry (stored Council runs, `evals/results/council_telemetry.json`).** Of 43 substantive objections
 marked resolved, 2 were resolved with the claim, H1 and H0 word-for-word unchanged. Of 23 runs with a
@@ -155,7 +160,7 @@ upper bound on "nothing changed".
 
 **Cannot tell you.** Whether a hypothesis is true or new: no oracle exists, and T.9 is declared out of scope for
 this surface. Whether the roles beat the same budget spent on one proposer (validation item 3, a paid run).
-What a trivial answer scores (R.13). How a person would grade the same outputs (R.12).
+How a person would grade the same outputs (R.12).
 
 ### The Council-versus-Cellwright A/B (`evals/results/ab_ledger.json`)
 
@@ -192,8 +197,9 @@ by 0.25 or 0.09. And there is no human reference on any set (R.12).
 
 ## What this table changes
 
-Five items are open and cost something to close: O.c.1 and R.12 need human raters and paid judge runs; O.i.1
-retires the six-point rubric as a headline; R.13 for the Council needs
-one cheap trivial arm; O.b.2 for the Council is one probe. (T.6 was on this list until 2026-11-23, when remote
-reads were pinned.) None of them is a property the platform claims today,
+Three items are open and cost something to close: O.c.1 and R.12 need human raters and paid judge runs; O.i.1
+retires the six-point rubric as a headline and, since 2026-11-24, says a defect count cannot stand alone either.
+R.13 and O.b.2 for the Council were closed by the trivial-answer probe on 2026-11-24, O.b.2 only partly: the
+judges reject a hedge, the deterministic checks and the defect count do not. (T.6 was on this list until
+2026-11-23, when remote reads were pinned.) None of them is a property the platform claims today,
 and the paper should say so in these words rather than leave the rows blank.

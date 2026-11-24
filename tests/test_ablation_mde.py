@@ -19,7 +19,9 @@ defects, every other one 7 to 10, never 1 to 6; the auditor counted an unreadabl
 the readable lists stop near its 1,024-token reply limit (`tests/test_defect_audit.py`). The Claude-column
 numbers below are still what the stored artefact computes, and are pinned as such, but they describe a column
 of readable counts mixed with failures counted as zero, not a noisy judge, so "underpowered" there is a
-statement about a broken column. The GPT column has no zeros and is unaffected.)
+statement about a broken column. The GPT column has no zeros and is unaffected. Re-audited the same day: none
+of the 58 is zero (evals/results/audited_zeros_reaudit.json), and with them replaced the Claude per-case SD of
+the paired difference, full vs proposer_only, is 0.97, twice GPT's 0.48.)
 """
 
 from __future__ import annotations
@@ -84,8 +86,8 @@ def test_the_judges_rubric_is_not_detectable_under_either_auditor(defects):
 def test_the_two_auditors_differ_about_ninefold_in_noise(defects):
     """Why reporting one auditor alone is not neutral: per-case SD of the paired difference, full vs
     proposer_only, is 4.383 under Claude and 0.483 under GPT. The name predates 2026-11-24: most of the Claude
-    spread is records counted as zero defects that look like unreadable replies (see the module docstring), so
-    the ratio measures that failure, not a judge's noise."""
+    spread is records counted as zero defects that were unreadable replies (confirmed by re-audit, see the module
+    docstring), so the ratio measures that failure, not a judge's noise."""
     c = _mde(defects, "defects_claude", "proposer_only")["sd_diff"]
     g = _mde(defects, "defects_gpt", "proposer_only")["sd_diff"]
     assert c == pytest.approx(4.383, abs=2e-3) and g == pytest.approx(0.483, abs=2e-3)
