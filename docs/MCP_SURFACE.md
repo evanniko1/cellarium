@@ -99,10 +99,22 @@ That second rule is deliberate rather than lenient. The 0.0 within-family tRNA s
 was obtained by reading a value whose capability does not hold and reporting it with its scope attached; a
 surface that refused it outright would have made the finding unobtainable.
 
-**The mapping is incomplete by construction**, and that is said rather than hidden — the same limit the
-capability registry itself carries. It covers the tools whose output *is* a capability-scoped quantity, the
-channels that carry a dependency of their own, and the designs that do. A tool absent from it is not thereby
-declared safe; it is undeclared.
+**Every tool is declared, and the gate reads every argument** (P-2, 2026-11-24). Each of the 74 tools either
+reads simulated quantities (32 do) or says why it does not (42: inventory, files, the fit's provenance, another
+model's output, a proposal, literature). A tool that reads is checked on every design and channel it names,
+whatever the argument is called: until P-2 the gate looked in four argument names for a design and one for a
+channel, so a phosphate-depleted design refused through `design` passed through `design_b`, `reference`, a
+`designs` or `results` list, or a bare `condition`. A tool that does not read is never refused for the design it
+names (listing comparable designs used to be), and still carries the registry's sentence. A refusal names the
+designs that caused it, so a call over many designs can drop them and run.
+
+The capability mapping itself is still incomplete by construction — the same limit the registry carries: it
+covers the tools whose output *is* a capability-scoped quantity, the channels that carry a dependency of their
+own, and the designs that do. Replaying the 734 tool calls Cellwright made in 60 recorded sessions through the
+gate (`evals/raw_gate_replay.py`): 33 would be refused, 31 of them count-level reads of rRNA-operon designs
+(growth, ribosomes, ppGpp). The registry's operon record is about which operon was deleted, and the count
+effect is represented, so those 31 are refusals its own evidence does not support; narrowing that rule is an
+open decision.
 
 ---
 

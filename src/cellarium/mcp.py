@@ -466,9 +466,10 @@ _LOCAL = {"ask_cellwright": ask_cellwright, "convene_council": convene_council,
 #   * where it holds in some mode but not the one being read, the result is RETURNED WITH THE REGISTRY'S
 #     VERDICT ATTACHED, so the number cannot travel without the sentence that scopes it.
 #
-# THE TABLE IS INCOMPLETE BY CONSTRUCTION, and that is stated rather than hidden -- the same limit the
-# registry itself carries. It covers the tools whose output IS a capability-scoped quantity. A tool absent
-# from it is not thereby declared safe; it is undeclared, which is the honest word.
+# THE TOOL TABLE IS INCOMPLETE BY CONSTRUCTION, and that is stated rather than hidden -- the same limit the
+# registry itself carries. It covers the tools whose output IS a capability-scoped quantity. Since P-2
+# (2026-11-24) no tool is undeclared: each one either reads simulated quantities (`READS_SIMULATED_QUANTITIES`,
+# gated on every design and channel argument it takes) or says why it does not (`DOES_NOT_READ`).
 # ---------------------------------------------------------------------------------------------------------
 
 # tool -> the capabilities its output depends on
@@ -504,61 +505,133 @@ _MEDIUM_CAPABILITY: dict[str, tuple[str, ...]] = {
     "glucose_dose": ("response_to_the_glucose_concentration",),         # W4C-1
 }
 
+# P-2 (2026-11-24): EVERY tool declares whether its output depends on simulated quantities of the designs and
+# channels it names. Before this the table above was "incomplete by construction" and a tool absent from it was
+# "undeclared"; the gate also looked for a design in four argument names and a channel in one, so a phosphate-depleted
+# design refused through `design` passed through `design_b`, `reference`, `designs`, `results` or `condition`, while a
+# tool that reads nothing simulated (listing comparable designs, checking raw files) was refused for the design it
+# named. Now: a tool that READS is refused on every dead capability any of its design or channel arguments carries;
+# a tool that does not read is never refused for them, and still carries the registry's sentence as a note.
+READS_SIMULATED_QUANTITIES: frozenset[str] = frozenset({
+    "survey_corpus", "lethality_landscape", "trajectory", "compare_at_generation", "trna_families",
+    "selective_charging", "dilution_clock", "shift_response", "segment_means", "similar_designs", "differential",
+    "top_movers", "manipulation_check", "fit_relation", "regulon_response", "exchange_flux", "read_series",
+    "read_raw_series", "scan_series", "scan_overview", "variance_band", "chart", "read_species", "disconfirm",
+    "robustness_check", "bimodality", "viability", "reroute_diagnosis", "model_validation", "power_check",
+    "rnaseq_concordance",          # the simulated transcriptome, against RNA-seq
+    "screen_phenotype",            # the simulated proteome, against a misuse signature
+})
 
-def _design_tag_of(args: dict) -> str:
-    for key in ("design", "design_a", "design_or_id", "target"):
-        v = args.get(key)
-        if v and "/" in str(v):
-            return str(v).split("/", 1)[1]
-    return ""
+_PROPOSAL = "a proposal or its check: nothing in it has been run"
+_OTHER_MODEL = "another model's output (iML1515 FBA, an ML surrogate or a benchmark), not this simulator's"
+DOES_NOT_READ: dict[str, str] = {
+    "comparable_designs": "lists the designs that differ from one in a single factor; reads no simulated quantity",
+    "model_capabilities": "the capability registry itself",
+    "serialization_check": "whether simOut files hold what was written; no quantity is interpreted",
+    "experiment_integrity": "a design's declared configuration against its executed one",
+    "list_results": "the corpus index",
+    "design_space": "the runnable design space",
+    "raw_available": "which raw files are on local disk",
+    "download_raw": "fetches raw archives; returns what was fetched",
+    "list_species": "resolves model identifiers for a molecule kind",
+    "coverage_check": "how much of the corpus this session has read",
+    "system_resources": "this machine's free memory and disk",
+    "estimate_sim_resources": "a resource estimate for a proposed sweep",
+    "corpus_audit": "an inventory of the corpus",
+    "data_availability": "what data exists beyond the distilled shard",
+    "prune_candidates": "run directories that are redundant",
+    "provenance": "whether a condition was fitted; reads the fit, not its results",
+    "operon_mode_advice": "advice on a proposed run's configuration",
+    "mechanistic_scope": "whether a gene's function is represented; reads the model's structure, not results",
+    "deg_rate_provenance": "whether a degradation rate is fitted; reads the knowledge base",
+    "use_skill": "literature instructions",
+    "web_get": "a fetch from an allow-listed scientific host",
+    "screen_design": "a screen of a design's intent; nothing has been run",
+    "check_feasibility": _PROPOSAL, "vet_hypothesis": _PROPOSAL, "run_experiment": _PROPOSAL,
+    "propose_experiment": _PROPOSAL, "propose_experiments": _PROPOSAL, "revise_experiment": _PROPOSAL,
+    "propose_rebuild": _PROPOSAL, "design_panel": _PROPOSAL, "surface_panel": _PROPOSAL,
+    "generate_designs": _PROPOSAL,
+    "fba_growth": _OTHER_MODEL, "fba_gene_knockout": _OTHER_MODEL, "fba_flux": _OTHER_MODEL,
+    "fba_essentiality_panel": _OTHER_MODEL, "fba_synthetic_lethal": _OTHER_MODEL,
+    "fba_gene_deletion": _OTHER_MODEL, "fba_sensitivity": _OTHER_MODEL, "fba_qc": _OTHER_MODEL,
+    "viability_surrogate": _OTHER_MODEL, "metabolic_essentiality": _OTHER_MODEL,
+}
+
+# Where a design or a channel can arrive. A bare `condition` names a condition design.
+_DESIGN_ARGS = ("design", "design_a", "design_b", "design_or_id", "target", "reference")
+_DESIGN_LIST_ARGS = ("designs", "results")
+_CHANNEL_ARGS = ("channel", "x_channel", "y_channel")
+_CHANNEL_LIST_ARGS = ("channels",)
 
 
-def _perturbation_of(args: dict) -> str:
-    for key in ("design", "design_a", "design_or_id", "target"):
-        v = args.get(key)
-        if v and "/" in str(v):
-            return str(v).split("/", 1)[0]
-    return ""
+def _values(args: dict, single: tuple, many: tuple) -> list[str]:
+    out = [str(args[k]) for k in single if args.get(k)]
+    for k in many:
+        v = args.get(k)
+        out += [str(x) for x in (v if isinstance(v, (list, tuple)) else [v]) if x]
+    return out
 
 
-def _mode_of(args: dict) -> str:
-    """The elongation model this call will read, from the design label rather than from the corpus.
+def _designs_of(args: dict) -> list[str]:
+    out = _values(args, _DESIGN_ARGS, _DESIGN_LIST_ARGS)
+    cond = args.get("condition")
+    if cond and isinstance(cond, str):
+        out.append(cond if "/" in cond else f"condition/{cond}")
+    return out
+
+
+def _channels_of(args: dict) -> list[str]:
+    return _values(args, _CHANNEL_ARGS, _CHANNEL_LIST_ARGS)
+
+
+def _modes_of(args: dict) -> list[str]:
+    """Every elongation model this call reads, from the design labels rather than from the corpus, in order.
 
     `factors.parse` lifts the mode out of a design key's tag, so this needs no row read and works before any
-    dispatch -- which is what makes it usable as a PRE-check rather than a post-hoc annotation.
+    dispatch -- which is what makes it usable as a PRE-check rather than a post-hoc annotation. A call that reads
+    two designs in two modes reads both (P-2): checking only the first let a kinetic design in `design_b` be read
+    under the first design's steady state.
     """
     from . import capability as _cap
 
     explicit = args.get("elongation_model")
     if explicit:
-        return str(explicit)
-    for key in ("design", "design_a", "design_or_id", "target", "result_id"):
-        val = args.get(key)
-        if not val:
-            continue
+        return [str(explicit)]
+    modes: list[str] = []
+    for val in _designs_of(args) + ([str(args["result_id"])] if args.get("result_id") else []):
+        mode = _cap.DEFAULT_MODE
         try:
             from . import factors
-            mode = (factors.parse(str(val)) or {}).get("elongation_model")
-            if mode:
-                return str(mode)
+            mode = str((factors.parse(val) or {}).get("elongation_model") or _cap.DEFAULT_MODE)
         except Exception:                                        # noqa: BLE001 -- a label we cannot parse
             pass
-    return _cap.DEFAULT_MODE
+        if mode not in modes:
+            modes.append(mode)
+    return modes or [_cap.DEFAULT_MODE]
+
+
+def _mode_of(args: dict) -> str:
+    """The first mode this call reads (`_modes_of`); kept for callers that name one."""
+    return _modes_of(args)[0]
 
 
 def _required(name: str, args: dict) -> list[str]:
-    """Every capability this call's result depends on: from the tool, from the channel, from the design."""
+    """Every capability this call's result depends on: from the tool, from each channel, from each design."""
     keys: list[str] = list(_TOOL_CAPABILITY.get(name, ()))
-    for k in _CHANNEL_CAPABILITY.get(str(args.get("channel") or ""), ()):
-        if k not in keys:
-            keys.append(k)
-    for k in _PERTURBATION_CAPABILITY.get(_perturbation_of(args), ()):
-        if k not in keys:
-            keys.append(k)
-    tag = _design_tag_of(args)
-    for medium, caps in _MEDIUM_CAPABILITY.items():
-        if medium in tag:
-            keys += [k for k in caps if k not in keys]
+
+    def add(caps) -> None:
+        keys.extend(k for k in caps if k not in keys)
+
+    for ch in _channels_of(args):
+        add(_CHANNEL_CAPABILITY.get(ch, ()))
+    for d in _designs_of(args):
+        family, _, tag = d.partition("/")
+        if not tag:
+            continue
+        add(_PERTURBATION_CAPABILITY.get(family, ()))
+        for medium, caps in _MEDIUM_CAPABILITY.items():
+            if medium in tag:
+                add(caps)
     return keys
 
 
@@ -570,6 +643,8 @@ def capability_precheck(name: str, args: dict) -> dict | None:
     """
     from . import capability as _cap
 
+    if name not in READS_SIMULATED_QUANTITIES:
+        return None                    # P-2: it reads no simulated quantity, so no reading of one can mislead
     keys = _required(name, args)
     if not keys:
         return None
@@ -583,15 +658,20 @@ def capability_precheck(name: str, args: dict) -> dict | None:
             if (c := _cap._BY_KEY.get(k)) is not None and not c.holds_in]
     if dead:
         rows = [_cap.check(k, mode) for k in dead]
+        # P-2: name the designs that carry a dead capability, so a call over many designs can drop them and run,
+        # instead of being refused whole with nothing to say which one was the reason
+        carriers = [d for d in _designs_of(args) if set(_required("", {"design": d})) & set(dead)]
+        drop = (f"drop {', '.join(carriers)} and call again; or " if carriers else "")
         return {
             "refused_by": "cellarium-capability-gate",
             "tier": "not_representable_in_any_mode",
             "tool": name, "elongation_model": mode, "capabilities": dead,
+            **({"designs": carriers} if carriers else {}),
             "error": (f"'{name}' reports a quantity this simulator does not represent under ANY elongation "
                       f"model, so no reading of it means what its name says."),
             "why": [str(r.get("refusal") or "") for r in rows],
-            "what_you_can_do": ("ask the same question through ask_cellwright, which will say what the model "
-                                "does instead; or call model_capabilities for the full record."),
+            "what_you_can_do": (drop + "ask the same question through ask_cellwright, which will say what the "
+                                "model does instead; or call model_capabilities for the full record."),
         }
     return None
 
@@ -604,13 +684,17 @@ def capability_note(name: str, args: dict) -> dict | None:
     keys = _required(name, args)
     if not keys:
         return None
-    mode = _mode_of(args)
-    rows = [_cap.check(k, mode) for k in keys]
-    bad = [r for r in rows if r.get("can_answer") is False]
+    modes = _modes_of(args)
+    # a dependency fails when it fails in ANY mode the call reads; the row kept is the first failing one
+    bad = []
+    for k in keys:
+        failing = [r for r in (_cap.check(k, m) for m in modes) if r.get("can_answer") is False]
+        if failing:
+            bad.append(failing[0])
     if not bad:
         return None
     return {
-        "elongation_model": mode,
+        "elongation_model": modes[0] if len(modes) == 1 else ", ".join(modes),
         "does_not_hold": [r["capability"] for r in bad],
         "what_the_model_does_instead": [str(r.get("refusal") or "") for r in bad],
         "read_this_before_the_numbers": ("the values below are real output, but at least one capability this "

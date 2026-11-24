@@ -1,0 +1,150 @@
+{
+ "calls": 734,
+ "calls_to_tools_that_read": 400,
+ "refused": {
+  "before": 24,
+  "after": 33
+ },
+ "noted": {
+  "before": 0,
+  "after": 1
+ },
+ "changed": {
+  "newly_refused": 10,
+  "no_longer_refused": 1,
+  "newly_noted": 0,
+  "no_longer_noted": 0
+ },
+ "changed_by_tool": {
+  "newly_refused:chart": 6,
+  "newly_refused:fit_relation": 4,
+  "no_longer_refused:comparable_designs": 1
+ },
+ "refused_after_by_capability": {
+  "operon_specific_rrna_knockout": 31,
+  "growth_without_a_carbon_source": 2
+ },
+ "adjudicated": {
+  "date": "2026-11-24",
+  "newly_refused": {
+   "n": 10,
+   "rrna_operon_count_design_read_for_growth_ribosomes_or_ppgpp": {
+    "n": 8,
+    "verdict": "false refusal by the registry's own evidence",
+    "why": "the record is about WHICH operon was deleted (the variant reassigns every rRNA row to the mean over all seven, erasing identity but keeping the total), so a count-level reading is represented; A-1's positive control reproduces it. The rule that refuses it maps the whole design family to the operon-specific record and already refused the same reads through `design` and `target`; P-2 made it consistent. Narrowing it is decision Y11."
+   },
+   "growth_law_fit_including_condition_no_glucose": {
+    "n": 2,
+    "verdict": "correct refusal, too coarse before this change",
+    "why": "the no-carbon record: growth continues with no carbon uptake, so the point means nothing; the refusal now names the design so the fit can run without it"
+   }
+  },
+  "no_longer_refused": {
+   "n": 1,
+   "comparable_designs": "lists designs; reads no simulated quantity"
+  }
+ },
+ "session_ids": [
+  "adj_1786482303",
+  "probe_1786481377916",
+  "probe_1786481441161",
+  "probe_1786481475779",
+  "probe_1786481541453",
+  "probe_1786481601033",
+  "probe_1786481635336",
+  "probe_1786481687846",
+  "probe_1786481736412",
+  "probe_1786481780614",
+  "probe_1786481808882",
+  "probe_1786481886269",
+  "probe_1786481920675",
+  "probe_1786481976010",
+  "probe_1786482072561",
+  "probe_1786482151390",
+  "s_0sdoer82",
+  "s_3h8pppt0",
+  "s_3za8kask",
+  "s_4td8n3js",
+  "s_53cgykjj",
+  "s_ah487iwa",
+  "s_c88z2scd",
+  "s_eval_11_1",
+  "s_eval_1_1",
+  "s_eval_1_2",
+  "s_eval_2_1",
+  "s_eval_2_2",
+  "s_eval_3_1",
+  "s_eval_4_1",
+  "s_eval_4_2",
+  "s_eval_4_3",
+  "s_eval_4_4",
+  "s_eval_4_5",
+  "s_eval_4_6",
+  "s_eval_5_1",
+  "s_eval_5_2",
+  "s_eval_5_3",
+  "s_eval_5_4",
+  "s_eval_5_5",
+  "s_eval_5_6",
+  "s_eval_6_1",
+  "s_eval_6_2",
+  "s_eval_7_1",
+  "s_eval_7_2",
+  "s_eval_8_1",
+  "s_eval_9_1",
+  "s_gp6fk1wc",
+  "s_gxhsvjgw",
+  "s_io1thcrv",
+  "s_jzpyhkp7",
+  "s_kalnulhg",
+  "s_live29017",
+  "s_live68476",
+  "s_nfsmemrf",
+  "s_nitrate_control",
+  "s_ph4m0ih9",
+  "s_r5fasfpz",
+  "s_rrna_clash",
+  "s_vljk5hkz"
+ ],
+ "before_commit": "ed7d036",
+ "source": "every tool_use block in data/sessions.db, read-only. These are Cellwright's own calls, made after the question-level gate admitted each question; they never passed the raw-tool gate, and are replayed here as a direct client's calls would be",
+ "computed_utc": "2026-11-24T22:37:22Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "ed7d036",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
