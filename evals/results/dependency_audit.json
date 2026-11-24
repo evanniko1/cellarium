@@ -1,0 +1,234 @@
+{
+ "spec": "Ms-1",
+ "checkout_commit": "c2047dc9",
+ "n_references": 29,
+ "n_unique": 28,
+ "resolve_in_checkout": 28,
+ "resolve_at_commit": 21,
+ "missing": [],
+ "only_in_uncommitted_changes": [
+  "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
+  "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
+  "models/ecoli/processes/polypeptide_elongation.py::codons_kinetics_model",
+  "models/ecoli/processes/polypeptide_elongation.py::codons_to_trnas",
+  "models/ecoli/processes/polypeptide_elongation.py::trna_resolution_iso",
+  "models/ecoli/processes/polypeptide_elongation.py::zero_charged_holder",
+  "models/ecoli/sim/variants/graded_gene_knockout.py::graded_gene_knockout"
+ ],
+ "by_record": {
+  "per_isoacceptor_trna_charging": [
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
+    "checkout": true,
+    "commit": false
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::codons_to_trnas",
+    "checkout": true,
+    "commit": false
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::trna_resolution_iso",
+    "checkout": true,
+    "commit": false
+   }
+  ],
+  "codon_level_elongation": [
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
+    "checkout": true,
+    "commit": false
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::codons_kinetics_model",
+    "checkout": true,
+    "commit": false
+   }
+  ],
+  "operon_specific_rrna_knockout": [
+   {
+    "ref": "reconstruction/ecoli/dataclasses/process/transcription.py::balanced_rRNA_prob",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/sim/variants/rrna_operon_knockout.py::rrna_operon_knockout",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "per_gene_trna_abundance": [],
+  "growth_under_phosphate_depletion": [
+   {
+    "ref": "reconstruction/ecoli/flat/condition/media_recipes.tsv::minimal_minus_phosphate",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "response_to_the_glucose_concentration": [
+   {
+    "ref": "reconstruction/ecoli/dataclasses/state/external_state.py::IMPORT_CONSTRAINT_THRESHOLD",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/flat/condition/media_recipes.tsv::minimal_GLC_2mM",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "growth_without_a_carbon_source": [
+   {
+    "ref": "reconstruction/ecoli/flat/condition/media_recipes.tsv::minimal_no_glucose",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "knockout_of_a_multi_transcription_unit_gene": [
+   {
+    "ref": "models/ecoli/sim/variants/graded_gene_knockout.py::graded_gene_knockout",
+    "checkout": true,
+    "commit": null
+   }
+  ],
+  "per_amino_acid_trna_charging": [
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::SteadyStateElongationModel",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
+    "checkout": true,
+    "commit": false
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::zero_charged_holder",
+    "checkout": true,
+    "commit": false
+   }
+  ],
+  "ppgpp_stringent_response": [
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::ppgpp_params",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/metabolism.py::include_ppgpp",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/dataclasses/process/transcription.py::synth_prob_from_ppgpp",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/listeners/growth_limits.py::GrowthLimits",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "amino_acid_uptake_from_the_medium": [
+   {
+    "ref": "models/ecoli/processes/metabolism.py::aa_uptake_package",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::aa_exchange_rates",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "nutrient_shift_timelines": [
+   {
+    "ref": "wholecell/utils/make_media.py::make_timeline",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/metabolism.py::nutrientToDoublingTime",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "induction_by_a_fitted_transcription_factor": [
+   {
+    "ref": "reconstruction/ecoli/flat/fold_changes.tsv::narL",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/flat/condition/tf_condition.tsv::PHOSPHO-NARL",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/fit_sim_data_1.py::buildCombinedConditionCellSpecifications",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "arabinose_induction_of_the_ara_operon": [
+   {
+    "ref": "reconstruction/ecoli/flat/fold_changes.tsv::araC",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/flat/condition/tf_condition.tsv::CPLX-172",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/flat/condition/condition_defs.tsv::plus_arabinose",
+    "checkout": true,
+    "commit": true
+   }
+  ]
+ },
+ "no_dependency_reason": {
+  "per_gene_trna_abundance": "the per-gene counts are divided out of about 44 species measurements in the fit's inputs; no single symbol carries the division, so none is cited rather than a guess"
+ },
+ "computed_utc": "2026-11-24T23:10:17Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "318bdc6",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

@@ -848,6 +848,46 @@ CAPABILITIES: tuple[Capability, ...] = (
 
 _BY_KEY = {c.key: c for c in CAPABILITIES}
 
+# Ms-1 (2026-11-24): what each record depends on in the simulator, as `path::symbol` references into the checkout,
+# resolved by evals/dependency_audit.py in the checkout Cellarium runs against AND at its committed revision. No line
+# numbers: a cited range drifts with every edit above it (one record's `metabolism.py:171-176` holds at the committed
+# campaign branch and not in the audited checkout). A reference that resolves only in uncommitted changes is named by
+# the audit, which is how the registry shows that its kinetic-mode records describe code no public commit contains.
+_PE = "models/ecoli/processes/polypeptide_elongation.py"
+_MET = "models/ecoli/processes/metabolism.py"
+_TX = "reconstruction/ecoli/dataclasses/process/transcription.py"
+_FLAT = "reconstruction/ecoli/flat"
+DEPENDS_ON: dict[str, tuple[str, ...]] = {
+    "per_isoacceptor_trna_charging": (f"{_PE}::KineticTrnaChargingModel", f"{_PE}::codons_to_trnas",
+                                      f"{_PE}::trna_resolution_iso"),
+    "codon_level_elongation": (f"{_PE}::KineticTrnaChargingModel", f"{_PE}::codons_kinetics_model"),
+    "operon_specific_rrna_knockout": (f"{_TX}::balanced_rRNA_prob",
+                                      "models/ecoli/sim/variants/rrna_operon_knockout.py::rrna_operon_knockout"),
+    "per_gene_trna_abundance": (),
+    "growth_under_phosphate_depletion": (f"{_FLAT}/condition/media_recipes.tsv::minimal_minus_phosphate",),
+    "response_to_the_glucose_concentration": (
+        "reconstruction/ecoli/dataclasses/state/external_state.py::IMPORT_CONSTRAINT_THRESHOLD",
+        f"{_FLAT}/condition/media_recipes.tsv::minimal_GLC_2mM"),
+    "growth_without_a_carbon_source": (f"{_FLAT}/condition/media_recipes.tsv::minimal_no_glucose",),
+    "knockout_of_a_multi_transcription_unit_gene": (
+        "models/ecoli/sim/variants/graded_gene_knockout.py::graded_gene_knockout",),
+    "per_amino_acid_trna_charging": (f"{_PE}::SteadyStateElongationModel", f"{_PE}::CoarseKineticTrnaChargingModel",
+                                     f"{_PE}::zero_charged_holder"),
+    "ppgpp_stringent_response": (f"{_PE}::ppgpp_params", f"{_MET}::include_ppgpp", f"{_TX}::synth_prob_from_ppgpp",
+                                 "models/ecoli/listeners/growth_limits.py::GrowthLimits"),
+    "amino_acid_uptake_from_the_medium": (f"{_MET}::aa_uptake_package", f"{_PE}::aa_exchange_rates"),
+    "nutrient_shift_timelines": ("wholecell/utils/make_media.py::make_timeline", f"{_MET}::nutrientToDoublingTime"),
+    "induction_by_a_fitted_transcription_factor": (
+        f"{_FLAT}/fold_changes.tsv::narL", f"{_FLAT}/condition/tf_condition.tsv::PHOSPHO-NARL",
+        "reconstruction/ecoli/fit_sim_data_1.py::buildCombinedConditionCellSpecifications"),
+    "arabinose_induction_of_the_ara_operon": (f"{_FLAT}/fold_changes.tsv::araC",
+                                              f"{_FLAT}/condition/tf_condition.tsv::CPLX-172",
+                                              f"{_FLAT}/condition/condition_defs.tsv::plus_arabinose"),
+}
+NO_DEPENDENCY_REASON = {
+    "per_gene_trna_abundance": "the per-gene counts are divided out of about 44 species measurements in the fit's "
+                               "inputs; no single symbol carries the division, so none is cited rather than a guess",
+}
 
 
 def get(key: str) -> Capability | None:
