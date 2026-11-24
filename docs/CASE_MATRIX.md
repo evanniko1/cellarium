@@ -9,6 +9,22 @@ now `data/manifest/corpus-compact.parquet` and has grown since, so re-deriving a
 
 Stats convention: `target vs reference | effect% | Welch t | n_seeds`. |t| ≥ 2 = beyond replicate noise.
 
+> **⚠️ Correction, 2026-11-24.** Re-derived with `scripts/regulation_scope.py` over today's corpus and read rules
+> (reportable runs only, one generation depth, design labels resolved to what the knockout silences). Two findings
+> below do not survive. **S1 / F1, the stringent-response inversion:** of each synthetase knockout's eight runs, one
+> passes quality control today; the others crashed, never divided or carry implausible channel values, and the
+> −90% (|t| up to 47) came from them. In the one reportable first-generation run ppGpp moves −19% (argS), +2%
+> (alaS) and −20% (gltX), RelA −11% to −17%; with n = 1 there is no statistic. `KO:pheS` removes a whole operon
+> (thrS-infC-rpmI-rplT-pheMST-ihfA), not pheS alone. S1 is withdrawn as a finding; whether the model's stringent
+> response answers a synthetase shortfall is open, and the kinetic campaign's alaS designs test it. **CW3:** the design
+> silences gltX and spoT and leaves relA intact (`factors.identity`: misnamed), so its ppGpp +517% is ppGpp the
+> hydrolase can no longer degrade, not ppGpp made without synthetases; the "confirmed artifact" verdict is withdrawn.
+> Still holding, re-derived: the ribosome–growth law out of sample (R² 0.57 over 9 designs, was 0.66), the
+> ppGpp-clamp optimum (growth −23% at 0.2×, −22% at 2.0×, −7% mid-range), rRNA dosage (growth −20% and −35% at 4 and
+> 6 operons against 2) and the carbon-source ordering (acetate −33%, succinate −24%). The 2.0× clamp lowers ribosomes
+> by 13%, the expected direction, but the 0.2× clamp lowers them too, by 29%. The rows below keep their original
+> numbers as the dated record they are.
+
 > **The one fact that organizes everything.** wcEcoli's metabolism runs a **homeostatic** FBA objective — keep
 > ~173 metabolite pools in range (soft kinetic targets), *minimize deviation*. There is **no biomass-maximization
 > term** (`objectiveType = "homeostatic_kinetics_mixed"`; the biomass reaction exists only for the unused
@@ -64,7 +80,7 @@ Where a *blind, pre-registered* prediction (textbook biology) is refuted by the 
 
 | # | Finding | Blind prediction (biology) | Model result | Literature | Verdict |
 |---|---|---|---|---|---|
-| **F1** | **aaRS KO stringent response.** | argS KO → ppGpp **UP** 2–4× (uncharged tRNA activates RelA) | ppgpp_conc **6.45 vs 64.05 µM, −90%, t=−27.8** — ppGpp goes **DOWN** | textbook stringent; Choi & Covert 2023 (aaRS "catastrophic") | ✗ **model refuted** — falsifier fires |
+| **F1** | **aaRS KO stringent response.** ⚠️ *Withdrawn 2026-11-24: not reproduced by the reportable runs (correction at the top).* | argS KO → ppGpp **UP** 2–4× (uncharged tRNA activates RelA) | ppgpp_conc **6.45 vs 64.05 µM, −90%, t=−27.8** — ppGpp goes **DOWN** | textbook stringent; Choi & Covert 2023 (aaRS "catastrophic") | ✗ **model refuted** — falsifier fires |
 | F2 | **Mg limitation → ribosome content.** | minus_Mg → ribosome content **DOWN** | ribosome_conc **+2%, t=1.8 (ns)**; growth +5% (ns) — no coupling | Pontes 2016 | ✗ model boundary (Mg not coupled to ribosome regulation) |
 | F3 | **AMR-efflux regulon.** | stress → marA/soxS/rob → acrAB-tolC up | efflux genes flat (~1×) under every modeled condition; marA/soxS/rob not among the 23 modeled TFs | Alekshun & Levy 1997 | ✗ out of mechanistic scope (cannot produce the phenotype) |
 
@@ -160,7 +176,7 @@ literature search (done *through the chat*, not the app). Effect sizes are Cellw
 |---|---|---|---|---|---|
 | CW1 | with_aa → RNA mass **+208%**, growth +131%, ribosome +28%, ppGpp −66% (stringent inversion) | z=4.93, Welch t=47, n=8 | in-sample | ✅ validated | canonical — low priority |
 | CW2 | rRNA_KO 6op **viable** despite ribosome **−55%**; growth −38%; ppGpp does **not** spike | z=−3.3, div=1.0, n=4 | out-of-sample | ⚠️ needs sims | rRNA-operon-KO growth penalty (Asai 1999; Stevenson 2004) — does ppGpp rise? |
-| **CW3** | **relA+spoT+gltX triple KO → ppGpp +475%** despite KO of both synthases | z=5.4, **n=1** | out-of-sample | ❌ contradicts lit | **Svitil 1993: relA/spoT double = ppGpp-null.** Model predicts HIGH — anomaly (needs seeds) |
+| **CW3** | **relA+spoT+gltX triple KO → ppGpp +475%** despite KO of both synthases. ⚠️ *Misnamed design: relA is not silenced (correction at the top).* | z=5.4, **n=1** | out-of-sample | ❌ contradicts lit | **Svitil 1993: relA/spoT double = ppGpp-null.** Model predicts HIGH — anomaly (needs seeds) |
 | CW4 | no_oxygen → global regulators **−54%**, stringent −51%, but ppGpp **flat** | z=−4.9, Welch t=−45, n=8 | in-sample | ⚠️ questioned | does ppGpp rise under anaerobiosis? (if yes → model_UNDER_predicts) |
 | CW5 | lysS KO → ppGpp +136% but **CI95 ≈ mean** (seeds 101→289 nM); mechanistic prior (crash) vs viability conflict | Welch t=1.9 (ns), n=4 | out-of-sample | ❌ unreliable | aaRS graded-capacity vs full KO; stochastic bifurcation |
 
@@ -171,6 +187,8 @@ contradiction of a benchmark).
 ---
 
 ## 8. Round-2 deep analysis (Cellarium's own tools) — the stringent-response inversion (breakthrough candidate)
+
+> ⚠️ **Withdrawn 2026-11-24.** The numbers in this section came from runs that today's quality control excludes (crashed, undivided, implausible channel values); the reportable runs do not reproduce them. See the correction at the top.
 
 Prompted by the recurring ppGpp anomalies (F1 argS, CW3, CW4), I mapped the whole stringent axis across the aaRS
 knockouts with `disconfirm` (Cellarium's tool, not my stats) — ppgpp_conc, rela_conc, fraction_trna_charged,
@@ -228,13 +246,13 @@ right/wrong.
 
 | Finding | What biology says | Model | Verdict |
 |---|---|---|---|
-| **S1 stringent inversion** (aaRS KO → ppGpp) | aaRS loss → uncharged tRNA loads RelA at the ribosomal **A-site** → RelA **activates** → ppGpp **UP** (Traxler 2008, *Mol Microbiol*, 547 cites; Winther 2018 & Roghanian 2021, *Mol Cell* — the ribosome-coupled activation mechanism) | ppGpp −90%, RelA −97% (collapse) | ✗ **CONFIRMED failure.** Model lacks A-site RelA activation; treats RelA as expression-coupled, so it dilutes when translation stalls. **The breakthrough finding — decisively grounded.** |
-| **CW3 relA/spoT double** | the *relA spoT* double mutant is **ppGpp⁰ (null)** — no synthase, no ppGpp (Traxler 2008 used exactly this strain) | ppGpp +475% (triple KO, n=1) | ✗ **CONFIRMED artifact.** ppGpp cannot be made without relA/spoT; any rise is a bug. (n=1 → replicate.) |
+| **S1 stringent inversion** (aaRS KO → ppGpp) ⚠️ *withdrawn 2026-11-24* | aaRS loss → uncharged tRNA loads RelA at the ribosomal **A-site** → RelA **activates** → ppGpp **UP** (Traxler 2008, *Mol Microbiol*, 547 cites; Winther 2018 & Roghanian 2021, *Mol Cell* — the ribosome-coupled activation mechanism) | ppGpp −90%, RelA −97% (collapse) | ✗ **CONFIRMED failure.** Model lacks A-site RelA activation; treats RelA as expression-coupled, so it dilutes when translation stalls. **The breakthrough finding — decisively grounded.** |
+| **CW3 relA/spoT double** ⚠️ *misnamed design, verdict withdrawn 2026-11-24* | the *relA spoT* double mutant is **ppGpp⁰ (null)** — no synthase, no ppGpp (Traxler 2008 used exactly this strain) | ppGpp +475% (triple KO, n=1) | ✗ **CONFIRMED artifact.** ppGpp cannot be made without relA/spoT; any rise is a bug. (n=1 → replicate.) |
 | **CW4 anaerobic ppGpp** | anaerobiosis triggers the **FNR regulon**, not the stringent response; ppGpp is nutrient/AA-starvation-triggered (Bafna-Rührer 2024, *Microb Biotechnol*: stringent induction is transient, glucose-driven) | ppGpp flat; FNR regulon reproduced (C9) | ✓ **NOT a failure — model defensible.** Downgrades Cellwright's "regulatory disconnect"; the anaerobic signal is FNR, which the model gets right. |
 | **F2 Mg → ribosomes** | Mg limitation **reduces** ribosome content/synthesis (McCarthy 1962, *BBA*: 95% ribosome loss; Pontes 2016, *Mol Cell* 64:480–492: rRNA transcription 10× lower) | ribosome +2% (ns) | ✗ **CONFIRMED boundary.** Model doesn't couple media-Mg to ribosome regulation. |
 | **Essentiality** (fabI/murA/lpxC/glmS) | LpxC, MurA are established essential envelope-synthesis enzymes (Dewachter 2022, *Nat Commun*); FabI (sole enoyl-ACP reductase) and GlmS likewise | viable via reroute (fabI: 27 rxns at 0 flux, divides) | ✗ **CONFIRMED under-prediction.** Homeostatic FBA reroutes around essentials. |
 | **CW2/C6 rRNA dosage** | fewer rrn operons → lower growth (Levin 2017, *mBio*; Stevenson 2004, *AEM*) but the penalty is **moderate** and deletions are **viable** — 1 operon gives 56% of WT rRNA (Asai 1999, *J Bacteriol*) | −38% growth at 6op, viable, monotone | ✓ **CONFIRMED model-consistent (control).** Moderate penalty + viability match the literature. |
 
-**Net:** 3 confirmed model failures/boundaries (S1, CW3, F2), 1 confirmed under-prediction (essentiality), 1
+**Net (⚠️ superseded 2026-11-24: S1 and CW3 withdrawn, see the correction at the top; this correction does not touch F2, the essentiality under-prediction or the rRNA-dosage control, and of those only the rRNA dosage has been re-derived):** 3 confirmed model failures/boundaries (S1, CW3, F2), 1 confirmed under-prediction (essentiality), 1
 confirmed control (rRNA dosage), and 1 finding **honestly downgraded** (CW4 — the model is defensible). S1 is the
 report's headline; CW4's downgrade is itself a credibility signal (we didn't force every anomaly into a failure).
