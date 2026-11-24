@@ -113,11 +113,11 @@ brief, Cellarium mapped — provenance-controlled — **where the whole-cell mod
   *allocation optimum* (growth worst at both clamp extremes, Zhu & Dai 2019); the **nitrate respiratory hierarchy**
   — it *induces* the nitrate-respiration chain (nuo Complex I) **and** *represses* fermentation (frd/cyd), the
   full NarL switch, once the anaerobic shift is controlled (Goh 2005).
-- **Boundaries, each traced to architecture.** The **stringent-response sensing is inverted** — RelA is modelled as
-  expression-coupled, so amino-acid limitation *collapses* ppGpp instead of raising it (opposite of the A-site
-  mechanism, Winther/Roghanian/Gerdes 2018). The TRN misses **specific inducible catabolic on-switches**
+- **Boundaries, each traced to architecture.** The TRN misses **specific inducible catabolic on-switches**
   (arabinose→araBAD, nitrate→narGHJI). The homeostatic FBA objective **under-calls essentiality** (fabI/murA/lpxC
-  reroute to zero-flux viability).
+  reroute to zero-flux viability). An earlier claim that the **stringent response is inverted** (synthetase
+  knockouts collapsing ppGpp) was **withdrawn on 2026-11-24**: the runs that pass today's quality control do not
+  reproduce it (`scripts/regulation_scope.py`; the correction at the top of the case matrix).
 - **The showcase — a clash that led somewhere.** Cutting total rRNA synthesis capacity (to 74 / 46 / 16% of
   wild-type, by zeroing 2/4/6 of the seven operon rows) makes ribosomes and growth fall *together*
   (the *numbers* axis) — the opposite of Scott's second law, where impairing ribosome *efficiency* makes a cell
