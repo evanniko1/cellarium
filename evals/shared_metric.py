@@ -174,10 +174,20 @@ def grade(case: dict, candidate_answer: str, client, judge_model: str) -> dict:
         messages=[{"role": "user", "content": json.dumps(payload(case, candidate_answer))}],
     )
     out = dict(score_from([], []), comment="judge emitted no verdict", judged=False)
+    want = len(case["min_criteria"]) + len(case["stringent_criteria"])
     for block in resp.content:
         if getattr(block, "type", None) == "tool_use":
             g = dict(block.input)
-            out = dict(score_from(g.get("min_criteria"), g.get("stringent_criteria")),
-                       comment=g.get("comment", ""), judged=True)
+            got = score_from(g.get("min_criteria"), g.get("stringent_criteria"))
+            # A verdict cut off at the token limit, or one that dropped or invented criteria, is not scored: its
+            # quality_score would be a fraction of the wrong denominator (checked 2026-11-24: none of the 25
+            # stored A/B grades is affected).
+            if getattr(resp, "stop_reason", None) == "max_tokens":
+                out = dict(score_from([], []), comment="the judge's verdict was cut off at max_tokens", judged=False)
+            elif got["n_criteria"] != want:
+                out = dict(score_from([], []), judged=False,
+                           comment=f"the judge returned {got['n_criteria']} criteria; the case has {want}")
+            else:
+                out = dict(got, comment=g.get("comment", ""), judged=True)
             break
     return dict(out, graded_text=candidate_answer, judge_model=judge_model)

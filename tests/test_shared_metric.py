@@ -167,3 +167,24 @@ def test_every_replicate_gets_its_own_session_id():
     src = open(os.path.join(os.path.dirname(__file__), "..", "evals", "run_ab.py"), encoding="utf-8").read()
     assert 'f"_r{rep}" if rep else ""' in src, "the rep must be in the Arm A session id"
     assert "matched_framing=a.matched_framing, rep=rep" in src, "...and the sweep must actually pass it"
+
+
+# ---------------------------------------------------------------- a verdict that cannot be counted
+def _judge_returning(min_c, str_c, stop_reason="tool_use"):
+    block = type("B", (), {"type": "tool_use", "input": {"min_criteria": min_c, "stringent_criteria": str_c}})()
+    resp = type("R", (), {"content": [block], "stop_reason": stop_reason})()
+    return type("C", (), {"messages": type("M", (), {"create": staticmethod(lambda **k: resp)})()})()
+
+
+def test_a_verdict_cut_off_at_its_token_limit_is_not_scored():
+    """A cut-off verdict can hold fewer criteria than the case has, so its fraction has the wrong denominator."""
+    out = SM.grade(CASE, "an answer", _judge_returning(_verdicts(True, True), _verdicts(True), "max_tokens"), "judge")
+    assert out["judged"] is False and out["quality_score"] is None and "cut off" in out["comment"]
+
+
+def test_a_verdict_that_drops_a_criterion_is_not_scored():
+    """Two of two minimum criteria and the stringent one missing: 2/2 = 1.0 would be reported where the case has
+    three criteria."""
+    out = SM.grade(CASE, "an answer", _judge_returning(_verdicts(True, True), []), "judge")
+    assert out["judged"] is False and out["quality_score"] is None
+    assert out["comment"] == "the judge returned 2 criteria; the case has 3"
