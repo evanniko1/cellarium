@@ -66,6 +66,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import api_keys  # noqa: E402
 import cases as cases_mod  # noqa: E402
+import conformity  # noqa: E402
 import costs  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
@@ -359,11 +360,22 @@ def _one_cell(case, cfg, rep, temperature, client, oai, gpt_model, claude_grader
                     kw["objection_source"] = replay(plan)
                     rec["noise"] = {"donor": plan["donor"], "n_objections": plan["n"]}
                 stop, snaps = None, []
-                if log_stop and cfg == "full":
+                # Every record keeps each round's proposer text and objections (N-1, Appendix I.5's measure:
+                # an objection closed while the claim, H1 and H0 stayed the same). The full arm under log_stop
+                # also keeps the spend through each round.
+                record_round, rounds = conformity.round_recorder()
+                track_spend = log_stop and cfg == "full"
+
+                def on_round(info, m=gen):
+                    record_round(info)
+                    if track_spend:
+                        snaps.append(m.summary())
+                kw["on_round"] = on_round
+                if track_spend:
                     stop = {}
                     kw["log_stop"] = stop
-                    kw["on_round"] = lambda _info, m=gen: snaps.append(m.summary())  # spend through each round
                 h = council.deliberate(case["question"], temperature=temperature, client=client, verbose=False, **kw)
+                rec["rounds"] = rounds
                 if stop is not None:
                     rec["stop_log"] = {k: stop.get(k) for k in ("round", "branch", "quota_met", "stable", "rounds")}
                     rec["variants"] = {"all_rounds": h.model_dump(by_alias=True, mode="json")}
