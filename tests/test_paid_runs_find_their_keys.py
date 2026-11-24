@@ -61,9 +61,11 @@ def keychain(monkeypatch):
 
 
 def _clients_allowed(monkeypatch):
-    import openai
+    """Both clients as stand-ins. The `openai` package is a stand-in module too: CI does not install it, and the
+    first version of these tests imported the real one, so they passed here and failed there (2026-11-24)."""
+    import types
     monkeypatch.setattr(llm, "client", lambda **kw: "claude-client")
-    monkeypatch.setattr(openai, "OpenAI", lambda **kw: "openai-client", raising=False)
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(OpenAI=lambda **kw: "openai-client"))
 
 
 # --- the resolver ----------------------------------------------------------------------------------------------
