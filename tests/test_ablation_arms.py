@@ -369,3 +369,41 @@ def test_an_errored_record_in_the_partial_is_done_again(sweep, monkeypatch):
     assert ablate.run(["1.1"], ["full"], 1, 0.7, str(out), "gpt-4o", "claude-opus-4-8", workers=1) == 0
     assert [c[:2] for c in calls] == [("full", "1.1")]
     assert json.loads(out.read_text(encoding="utf-8"))["resumed_records"] == 0
+
+
+# --- the temperature the Council is actually sent ---------------------------------------------------------------
+# FOUND 2026-11-24, before M1+M2 spent anything: the ablation defaulted to --temperature 0.7, and the Council passes
+# an explicit value straight to the API. claude-sonnet-5, the Council's default model, refuses every value but 1.0
+# (checked live that day: 0.7 -> 400 "`temperature` is deprecated for this model"; 1.0 accepted), so every record of
+# the prepared sweep would have errored and the outage breaker would have stopped it.
+
+def _plan_of(monkeypatch, *argv):
+    import api_keys
+    seen: dict = {}
+    monkeypatch.setattr(api_keys, "require", lambda *p, **kw: None)
+    monkeypatch.setattr(ablate, "run", lambda ids, configs, reps, temperature, *a, **kw: seen.update(t=temperature) or 0)
+    monkeypatch.setattr(sys, "argv", ["ablate.py", "--configs", "full", "--no-rubric", *argv])
+    return ablate.main(), seen
+
+
+def test_by_default_the_sweep_runs_at_the_temperature_the_councils_model_takes(monkeypatch):
+    for var in ("CELLARIUM_MODEL", "CELLARIUM_PROPOSER_MODEL", "CELLARIUM_SKEPTIC_MODEL", "CELLARIUM_JUDGE_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    code, seen = _plan_of(monkeypatch)
+    assert code == 0 and seen["t"] == 1.0            # what claude-sonnet-5 accepts, and what the artefact records
+
+
+def test_a_temperature_the_councils_model_refuses_is_refused_before_anything_runs(monkeypatch, capsys):
+    for var in ("CELLARIUM_MODEL", "CELLARIUM_PROPOSER_MODEL", "CELLARIUM_SKEPTIC_MODEL", "CELLARIUM_JUDGE_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    with pytest.raises(SystemExit) as e:
+        _plan_of(monkeypatch, "--temperature", "0.7")
+    assert e.value.code == 2
+    err = capsys.readouterr().err
+    assert "claude-sonnet-5" in err and "0.7" in err
+
+
+def test_a_temperature_the_model_takes_is_kept(monkeypatch):
+    monkeypatch.setenv("CELLARIUM_MODEL", "claude-haiku-4-5")      # a family that takes an explicit temperature
+    code, seen = _plan_of(monkeypatch, "--temperature", "0.7")
+    assert code == 0 and seen["t"] == 0.7

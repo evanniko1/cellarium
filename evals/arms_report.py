@@ -16,6 +16,24 @@ comparisons the new arms exist for, each paired inside a record or a case:
 An audit that failed is left out of every mean and counted under `unreadable`, never scored as zero (the defect
 that made the stored Claude column unusable, see evals/audit.py). A variant audited as identical to another
 hypothesis takes that hypothesis's count (`same_as`).
+
+HOW EACH COMPARISON IS READ, fixed 2026-11-24 before the first sweep with these arms ran (validation items 3 and
+5(d)). Per auditor, never pooled, each difference beside its paired MDE; a difference smaller than its MDE is
+reported as undetected, never as equal.
+  best_of_n vs full  If `full` has fewer defects than `proposer_bestofN` by at least the MDE, the Council's roles
+                     add something its compute alone does not, under that auditor. If not, nothing here shows they
+                     do, and the architecture claim has to rest on the quarantine and the gate rather than on being
+                     multi-agent (item 3's falsifier).
+  leave-one-in       `skeptic_only` and `no_skeptic` (the judge's leave-one-in) against `proposer_only`: which role,
+                     alone, moves the count.
+  leaked vs full     What the answer key changes. A null means the auditor cannot see what the key adds.
+  noise vs full      If `noise_skeptic` is not worse than `full` by at least the MDE, the skeptic as implemented
+                     cannot be told from a revision prompt with more context (item 5(d)).
+  regret             Per stopping branch, below zero means running to the round cap would have returned fewer
+                     defects than stopping did.
+The count ranks real answers against each other and is not a quality level: an empty answer gets as many defects
+as a real one (evals/trivial_baselines.py, 2026-11-24). The Claude auditor names nearly all of its seven defect
+types in every answer it reads, so its column is expected to separate little.
 """
 from __future__ import annotations
 

@@ -43,9 +43,12 @@ nothing.
 
 CASES. By default the ten exploratory cases the stored ablation ran on (`EXPLORATORY_IDS`); the other fifteen in
 cases.py are held out for the confirmatory run, and naming one needs `--include-held-out`. Sampling temperature
-is pinned (names the variance source). Output: evals/results/ablation.json (or --out).
+is pinned (names the variance source): by default the Council's own, as its model takes it, and the artefact records
+the value sent. claude-sonnet-5, the Council's default model, takes only 1.0 (0.7 is refused with a 400, checked
+2026-11-24); a value one of the Council's models refuses is an error before anything runs. The stored 2026-07-11
+ablation ran at 0.7, when the model still took it. Output: evals/results/ablation.json (or --out).
 
-Run: python evals/ablate.py --reps 3 --temperature 0.7
+Run: python evals/ablate.py --reps 3
      python evals/ablate.py --configs full,proposer_only,proposer_bestofN --no-rubric --max-usd 20 --dry-run
 """
 from __future__ import annotations
@@ -66,7 +69,7 @@ import cases as cases_mod  # noqa: E402
 import costs  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 
-from cellarium import council, instrument, observability, outage, provenance  # noqa: E402
+from cellarium import council, instrument, llm, observability, outage, provenance  # noqa: E402
 
 CONFIGS = {
     "full":          dict(),                                        # proposer + skeptic + judge (the system)
@@ -512,7 +515,8 @@ def main():
     p.add_argument("--configs", default="full,no_skeptic,proposer_only,generic_judge",
                    help=f"comma-separated arms from {', '.join(ARMS)}")
     p.add_argument("--reps", type=int, default=3)
-    p.add_argument("--temperature", type=float, default=0.7)
+    p.add_argument("--temperature", type=float, default=None,
+                   help="the Council's sampling temperature; default: the Council's own, as its model takes it")
     p.add_argument("--gpt-model", default="gpt-4o")
     p.add_argument("--claude-grader", default="claude-opus-4-8")
     p.add_argument("--no-rubric", action="store_true", help="skip the six-criterion rubric (saturated, O.i.1)")
@@ -535,6 +539,15 @@ def main():
     unknown = [c for c in configs if c not in ARMS]
     if unknown:
         p.error(f"unknown arm(s) {unknown}; the arms are {list(ARMS)}")
+    models = council._default_models()
+    if a.temperature is None:
+        temperature = council._council_temperature(models["proposer"])
+    else:
+        refused = sorted({m for m in models.values() if llm.sendable_temperature(m, a.temperature) is None})
+        if refused:
+            p.error(f"{', '.join(refused)} will not take temperature {a.temperature} (it takes only "
+                    f"{llm._FORCED_TEMPERATURE}); omit --temperature to use the Council's own")
+        temperature = a.temperature
     est = costs.estimate_ablation(configs, len(ids), a.reps, log_stop=a.log_stop_rule, rubric=not a.no_rubric,
                                   gpt=True)        # the plan asked for, never the keys that happen to be present
     print(costs.render(est, title=f"ablation: {len(ids)} cases x {a.reps} reps"))
@@ -546,7 +559,7 @@ def main():
                 f"(~${a.workers * est['max_per_record_usd']:.2f}); raise it or lower --workers")
     api_keys.require(api_keys.ANTHROPIC, *([] if a.no_rubric else [api_keys.OPENAI]),
                      hint="The six-criterion rubric grades with GPT as well; to run without it, pass --no-rubric.")
-    return run(ids, configs, a.reps, a.temperature, a.out, a.gpt_model, a.claude_grader, a.workers,
+    return run(ids, configs, a.reps, temperature, a.out, a.gpt_model, a.claude_grader, a.workers,
                rubric=not a.no_rubric, log_stop=a.log_stop_rule, select_primary=a.select,
                budget_unit=a.budget_unit, max_usd=a.max_usd, derive_from=a.derive_from)
 
