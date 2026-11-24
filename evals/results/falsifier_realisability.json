@@ -1,0 +1,144 @@
+{
+ "spec": "F-1",
+ "source": "evals/results/ablation_m1m2.json",
+ "by_config": {
+  "full": {
+   "n": 30,
+   "realisable": 28,
+   "unrealisable": 0,
+   "insensitive": 2,
+   "no_falsifier": 0
+  },
+  "leaked": {
+   "n": 30,
+   "realisable": 29,
+   "unrealisable": 1,
+   "insensitive": 0,
+   "no_falsifier": 0
+  },
+  "no_skeptic": {
+   "n": 30,
+   "realisable": 28,
+   "unrealisable": 0,
+   "insensitive": 2,
+   "no_falsifier": 0
+  },
+  "noise_skeptic": {
+   "n": 30,
+   "realisable": 30,
+   "unrealisable": 0,
+   "insensitive": 0,
+   "no_falsifier": 0
+  },
+  "proposer_bestofN": {
+   "n": 29,
+   "realisable": 28,
+   "unrealisable": 1,
+   "insensitive": 0,
+   "no_falsifier": 0
+  },
+  "proposer_only": {
+   "n": 30,
+   "realisable": 29,
+   "unrealisable": 1,
+   "insensitive": 0,
+   "no_falsifier": 0
+  },
+  "skeptic_only": {
+   "n": 30,
+   "realisable": 30,
+   "unrealisable": 0,
+   "insensitive": 0,
+   "no_falsifier": 0
+  }
+ },
+ "not_realisable": [
+  {
+   "id": "4.2",
+   "config": "leaked",
+   "rep": 1,
+   "status": "unrealisable",
+   "reason": "ppgpp_conc needs ppgpp_stringent_response, which coarse_kinetic does not represent"
+  },
+  {
+   "id": "2.1",
+   "config": "proposer_only",
+   "rep": 0,
+   "status": "unrealisable",
+   "reason": "ppgpp_conc needs ppgpp_stringent_response, which kinetic does not represent"
+  },
+  {
+   "id": "2.2",
+   "config": "no_skeptic",
+   "rep": 1,
+   "status": "insensitive",
+   "reason": "division_rate saturates at 1.0 for any dividing run"
+  },
+  {
+   "id": "2.2",
+   "config": "no_skeptic",
+   "rep": 2,
+   "status": "insensitive",
+   "reason": "division_rate saturates at 1.0 for any dividing run"
+  },
+  {
+   "id": "2.2",
+   "config": "full",
+   "rep": 1,
+   "status": "insensitive",
+   "reason": "division_rate saturates at 1.0 for any dividing run"
+  },
+  {
+   "id": "2.2",
+   "config": "full",
+   "rep": 2,
+   "status": "insensitive",
+   "reason": "division_rate saturates at 1.0 for any dividing run"
+  },
+  {
+   "id": "4.2",
+   "config": "proposer_bestofN",
+   "rep": 1,
+   "status": "unrealisable",
+   "reason": "ppgpp_conc needs ppgpp_stringent_response, which kinetic does not represent"
+  }
+ ],
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "40ea297",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
