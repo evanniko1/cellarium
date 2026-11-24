@@ -27,12 +27,13 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.cellarium import agent, credentials  # noqa: E402
+from src.cellarium import credentials, llm, observability  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from run_discrimination_test import QUESTIONS  # noqa: E402
 
 MODELS = ("claude-sonnet-5", "claude-opus-4-8")
+MAX_TOKENS = 2048
 OUT = "data/ablation_ungrounded.json"
 
 PREAMBLE = (
@@ -41,23 +42,39 @@ PREAMBLE = (
 )
 
 
+def _text(resp) -> str:
+    return "".join(getattr(b, "text", "") for b in (getattr(resp, "content", None) or [])
+                   if getattr(b, "type", "") == "text").strip()
+
+
 def ungrounded_arm(model: str) -> list[dict]:
-    """The same question, the same model, no tools. Answers come from the weights alone."""
+    """The same question, the same model, NO harness: one plain call with no system prompt and no tools, so the
+    answer comes from the weights alone.
+
+    Until 2026-11-24 this went through `agent.converse(..., max_turns=1)`, which always sends Cellwright's system
+    prompt and its tools. The arm therefore saw the platform's instructions and ran at least one tool, and its one
+    turn cut most replies off before any answer ("stopped: reached max turns without a synthesis" on 7 of 9 for
+    claude-sonnet-5). tests/test_ungrounded_baseline.py pins this call's shape."""
+    client = llm.client(max_retries=4)
     out = []
     for q in QUESTIONS:
         t0 = time.time()
-        usage: dict = {}                   # KISS-2 Stage 0 — see run_discrimination_test.model_arm
         try:
-            answer = agent.converse([{"role": "user", "content": PREAMBLE + "\n\n" + q["ask"]}],
-                                    model=model, max_turns=1, verbose=False,
-                                    on_usage=lambda u, _u=usage: _u.update(u))
+            # metered like every other call site (observability.usage_record), so the record keeps the same
+            # summary the agent loop's on_usage gave: tokens, cache reads and writes, estimated USD
+            with observability.meter(this_thread=True) as m:
+                resp = client.messages.create(model=model, max_tokens=MAX_TOKENS,
+                                              messages=[{"role": "user", "content": PREAMBLE + "\n\n" + q["ask"]}])
+                observability.emit(observability.usage_record("ungrounded", model, resp,
+                                                              (time.time() - t0) * 1000))
+            answer = _text(resp)
         except Exception as exc:
             out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict="error",
                             correct=False, error=f"{type(exc).__name__}: {exc}", answer=""))
             print(f"  {q['id']:14s} ERROR {type(exc).__name__}: {exc}", flush=True)
             continue
         out.append(dict(id=q["id"], mode=q["mode"], required=q["required"], verdict="unscored",
-                        seconds=round(time.time() - t0, 1), usage=usage or None, answer=answer))
+                        seconds=round(time.time() - t0, 1), usage=m.summary(), answer=answer))
         print(f"  {q['id']:14s} answered in {round(time.time() - t0)}s, {len(answer.split())} words",
               flush=True)
     return out
@@ -65,7 +82,7 @@ def ungrounded_arm(model: str) -> list[dict]:
 
 def main():
     credentials.load_into_env()
-    data = {"note": "ungrounded ablation: same questions, same models, no tools of any kind",
+    data = {"note": "ungrounded ablation: same questions, same models; one plain call, no system prompt, no tools",
             "preamble": PREAMBLE, "questions": QUESTIONS, "arms": {}}
     for m in MODELS:
         print(f"\n{m} (ungrounded):", flush=True)

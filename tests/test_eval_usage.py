@@ -48,9 +48,28 @@ def test_the_grounded_runner_records_usage_per_question():
         "the record is built before the callback could fill it")
 
 
-def test_the_ungrounded_runner_records_usage_per_question():
-    src = (REPO / "scripts" / "run_ablation.py").read_text(encoding="utf-8")
-    assert "on_usage=" in src and "usage=usage or None" in src
+def test_the_ungrounded_runner_records_usage_per_question(monkeypatch):
+    """Run the arm on a stub that reports usage, and read what each record keeps. Until 2026-11-24 this asserted
+    two strings in the runner's source; the runner stopped going through `agent.converse` (spec Q-1), the
+    strings went, and so did the cache tokens and the cost, while a token count stayed. The record is the thing
+    to check, not the source that builds it."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("run_ablation", REPO / "scripts" / "run_ablation.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    usage = type("U", (), {"input_tokens": 1000, "output_tokens": 200, "cache_read_input_tokens": 0,
+                           "cache_creation_input_tokens": 0})()
+    block = type("B", (), {"type": "text", "text": "an answer"})()
+    resp = type("R", (), {"content": [block], "usage": usage, "model": "claude-sonnet-5", "_request_id": None})()
+    client = type("C", (), {"messages": type("M", (), {"create": lambda self, **kw: resp})()})()
+    monkeypatch.setattr(mod.llm, "client", lambda **k: client)
+    monkeypatch.setattr(mod, "QUESTIONS", [{"id": "q", "mode": "steady_state", "required": "refuse", "ask": "Q?"}])
+    (rec,) = mod.ungrounded_arm("claude-sonnet-5")
+    u = rec["usage"]
+    assert (u["n_calls"], u["input_tokens"], u["output_tokens"], u["cache_read_tokens"]) == (1, 1000, 200, 0)
+    assert u["cost_usd"] is not None and u["cost_usd"] > 0
 
 
 def test_the_usage_summary_carries_what_a_cost_model_needs():

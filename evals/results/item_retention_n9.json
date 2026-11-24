@@ -1,0 +1,187 @@
+{
+ "spec": "Q-1",
+ "finding": "The ungrounded arm has almost no answers to compare: it ran through the agent loop, so it saw Cellwright's system prompt and tools, and its single turn cut most replies off. The comparison is withdrawn; a valid one needs the fixed runner and judge (spec K-2).",
+ "models": {
+  "claude-sonnet-5": {
+   "items": [
+    {
+     "id": "codon",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "iso_coarse",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "reply"
+    },
+    {
+     "id": "iso_default",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "iso_kinetic",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "leub",
+     "grounded_correct": true,
+     "ungrounded_correct": false,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "mura",
+     "grounded_correct": true,
+     "ungrounded_correct": false,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "ppgpp_kinetic",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "reply"
+    },
+    {
+     "id": "rrna_operon",
+     "grounded_correct": false,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "rrna_total",
+     "grounded_correct": true,
+     "ungrounded_correct": false,
+     "ungrounded_reply": "harness_stop"
+    }
+   ],
+   "n": 9,
+   "ungrounded_no_answer": [
+    "codon",
+    "iso_default",
+    "iso_kinetic",
+    "leub",
+    "mura",
+    "rrna_operon",
+    "rrna_total"
+   ],
+   "lost_by_grounding": [],
+   "gained_by_grounding": [],
+   "comparable": 2
+  },
+  "claude-opus-4-8": {
+   "items": [
+    {
+     "id": "codon",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "tool_stub"
+    },
+    {
+     "id": "iso_coarse",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "harness_stop"
+    },
+    {
+     "id": "iso_default",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "tool_stub"
+    },
+    {
+     "id": "iso_kinetic",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "tool_stub"
+    },
+    {
+     "id": "leub",
+     "grounded_correct": true,
+     "ungrounded_correct": false,
+     "ungrounded_reply": "tool_stub"
+    },
+    {
+     "id": "mura",
+     "grounded_correct": true,
+     "ungrounded_correct": false,
+     "ungrounded_reply": "tool_stub"
+    },
+    {
+     "id": "ppgpp_kinetic",
+     "grounded_correct": true,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "reply"
+    },
+    {
+     "id": "rrna_operon",
+     "grounded_correct": false,
+     "ungrounded_correct": true,
+     "ungrounded_reply": "tool_stub"
+    },
+    {
+     "id": "rrna_total",
+     "grounded_correct": true,
+     "ungrounded_correct": false,
+     "ungrounded_reply": "tool_stub"
+    }
+   ],
+   "n": 9,
+   "ungrounded_no_answer": [
+    "codon",
+    "iso_coarse",
+    "iso_default",
+    "iso_kinetic",
+    "leub",
+    "mura",
+    "rrna_operon",
+    "rrna_total"
+   ],
+   "lost_by_grounding": [],
+   "gained_by_grounding": [],
+   "comparable": 1
+  }
+ },
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "40ea297",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
