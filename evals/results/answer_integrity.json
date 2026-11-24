@@ -1,0 +1,99 @@
+{
+ "answers": 60,
+ "claim_status": {
+  "own_run": 64,
+  "shared": 11,
+  "other_run_only": 13,
+  "unrouted": 52
+ },
+ "named": {
+  "actionable_claims": 11,
+  "named_misattributions": 0
+ },
+ "citations": {
+  "answers_citing": 10,
+  "cited": 22,
+  "unread": 2
+ },
+ "gate": {
+  "gated_replies": 0,
+  "gated_with_tool_calls": 0
+ },
+ "planted_swap": {
+  "exposed_answers": 11,
+  "all_claims": {
+   "swapped_claims": 62,
+   "own_run_before": 30,
+   "found_in_the_other_run_after": 28,
+   "neither_after": 1,
+   "still_own_run_after": 1
+  },
+  "actionable_claims": {
+   "swapped_claims": 6,
+   "own_run_before": 5,
+   "found_in_the_other_run_after": 4,
+   "neither_after": 1,
+   "still_own_run_after": 0
+  }
+ },
+ "adjudicated": {
+  "date": "2026-11-24",
+  "other_run_only_among_all_claims": {
+   "n": 13,
+   "the_answers_error": 0,
+   "the_pairings_error": {
+    "table_column": 7,
+    "sentence_comparing_two_runs": 3,
+    "graded_knockdown_read_as_full_knockout": 2,
+    "two_digit_number_matched_by_rounding": 1
+   }
+  },
+  "unread_citations": {
+   "n": 2,
+   "real_paper_cited_without_being_read": 2,
+   "not_a_real_paper": 0,
+   "how": "both PMIDs looked up on PubMed: each is the paper the answer describes"
+  },
+  "parser_errors_fixed_before_counting": "3 DOIs read with a trailing ')**' and 1 DOI the tool returned with its slash JSON-escaped were reported unread; both parses are fixed and tested"
+ },
+ "source": "the 60 sessions of evals/results/attribution_swap.json, from data/sessions.db, read-only",
+ "computed_utc": "2026-11-24T22:25:49Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "ed7d036",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

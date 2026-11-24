@@ -364,15 +364,17 @@ def enabled() -> bool:
     return os.environ.get("CELLARIUM_RECONCILE", "1").strip().lower() not in ("0", "false", "no")
 
 
-def check_and_annotate(prose: str) -> str:
+def check_and_annotate(prose: str, *, tool_texts: list[str] | None = None) -> str:
     """The one call `converse` makes. Returns the answer with a note appended when there is one to append —
     and returns the prose UNCHANGED on any internal failure, because a provenance check that can break the
     answer is worse than the absence it is guarding against.
 
-    TWO checks, appended independently. The provenance one asks *did this turn read what it is talking
+    THREE checks, appended independently. The provenance one asks *did this turn read what it is talking
     about*; the degradation one (PARCA-6's free prerequisite) asks *is the value it is talking about a fit at
-    all*. They are orthogonal — a claim can be perfectly grounded in a run the turn did read AND rest on a
-    degradation rate that is the population mean — so one firing must not suppress the other.
+    all*; the integrity one (S2-2, `integrity.py`), run when the caller hands over the conversation's tool
+    output, asks *does each number sit in the run it is credited to, and was each cited paper read*. They are
+    orthogonal — a claim can be perfectly grounded in a run the turn did read AND rest on a degradation rate
+    that is the population mean — so one firing must not suppress another.
     """
     if not enabled() or not prose:
         return prose
@@ -386,4 +388,10 @@ def check_and_annotate(prose: str) -> str:
         out += deg_claims.annotation(deg_claims.check(prose))
     except Exception:
         pass
+    if tool_texts is not None:
+        try:
+            from . import integrity
+            out += integrity.annotation(integrity.audit(prose, tool_texts, tool_calls=None))
+        except Exception:
+            pass
     return out

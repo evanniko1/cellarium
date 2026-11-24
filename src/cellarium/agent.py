@@ -229,6 +229,13 @@ _INPUT_FIELDS = {
 }
 
 
+def _tool_texts(messages: list) -> list[str]:
+    """S2-2: every tool result in the conversation as text, for the integrity check on the way out. The same scope
+    PLAT-1 uses (this conversation), and the same shape the recorded sessions are measured in."""
+    return [str(b.get("content")) for m in messages if m.get("role") == "user" and isinstance(m.get("content"), list)
+            for b in m["content"] if isinstance(b, dict) and b.get("type") == "tool_result"]
+
+
 def _to_dict(block):
     """Anthropic content blocks -> plain, INPUT-VALID JSON dicts (SQLite-serializable + re-sendable to the API)."""
     d = block if isinstance(block, dict) else (block.model_dump() if hasattr(block, "model_dump") else None)
@@ -649,7 +656,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
                 # PLAT-1: reconcile the assembled prose against what this turn actually read. ANNOTATES, never
                 # rewrites — and returns the text unchanged if the check itself fails.
                 said = reconcile.check_and_annotate(
-                    "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip())
+                    "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip(),
+                    tool_texts=_tool_texts(messages))
                 # AG-5: a turn CAN end with no tool call and no text — the model simply stops. Returning that
                 # empty string hands the caller "" as though it were an answer, and every surface then renders
                 # a blank reply: the app shows nothing, the eval scores a 0-character response, and neither can
@@ -705,8 +713,8 @@ def converse(messages: list, *, model: str | None = None, on_tool=None, on_text=
             messages.append({"role": "assistant", "content": [_to_dict(b) for b in resp.content]})
             # Same check on the forced-synthesis path, and it matters MORE here: this is the branch where the
             # model writes a conclusion with tools disabled and the budget spent.
-            return reconcile.check_and_annotate(text) or (f"(stopped: {stopped_by}; the final synthesis returned no "
-                                                           f"text [stop_reason={resp.stop_reason!r}])")
+            return reconcile.check_and_annotate(text, tool_texts=_tool_texts(messages)) or (
+                f"(stopped: {stopped_by}; the final synthesis returned no text [stop_reason={resp.stop_reason!r}])")
         except Exception as exc:
             return f"(stopped: {stopped_by}; the final synthesis raised {type(exc).__name__})"
     finally:

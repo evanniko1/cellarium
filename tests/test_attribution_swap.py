@@ -153,7 +153,9 @@ def test_json_cut_off_for_the_context_is_read_up_to_the_cut():
 
 def test_without_role_routing_the_flat_comparison_is_blind_again(monkeypatch):
     """Forced: the role rule is what does the work. Switched off, the comparison's two values belong to the pair,
-    and the swap the field check caught above goes unseen."""
-    monkeypatch.setattr(S, "_role_owns", lambda key, role: False)
+    and the swap the field check caught above goes unseen. The rule lives in `cellarium.integrity` since S2-2, so it
+    is switched off there: patching the name this module re-exports would leave `field_leaves` untouched."""
+    from cellarium import integrity
+    monkeypatch.setattr(integrity, "_role_owns", lambda key, role: False)
     r = S.measure([{"answer": ANSWER, "tool_texts": TOGETHER}])
     assert (r["field_routed"]["detected"], r["field_routed"]["shared_before"]) == (0, 2)

@@ -31,7 +31,6 @@ detection rate rather than hidden behind it.
 from __future__ import annotations
 
 import json
-import re
 import sqlite3
 import sys
 import time
@@ -41,44 +40,24 @@ REPO = Path(__file__).resolve().parents[1]
 DB = REPO / "data" / "sessions.db"
 OUT = REPO / "evals" / "results" / "attribution_swap.json"
 
-LABEL = re.compile(r"\b(?:gene_knockout|condition|wildtype|ppgpp_conc|nutrient_shift)/[A-Za-z0-9_:\-.]*[A-Za-z0-9_]"
-                   r"|\bKO:[A-Za-z0-9_]+")
-NUM = re.compile(r"(?<![A-Za-z0-9_:/.])[-+]?\d+(?:\.\d+)?%?(?![A-Za-z0-9_])")
-SENTENCE = re.compile(r"(?<=[.!?;\n])\s+")
-
-
-def _variants(tok: str) -> tuple[float, int, bool]:
-    pct = tok.endswith("%")
-    s = tok.rstrip("%").lstrip("+")
-    dec = len(s.split(".")[1]) if "." in s else 0
-    return float(s), dec, pct
-
-
-def number_in(tok: str, text: str) -> bool:
-    """Does `text` contain a number that rounds to `tok` at the answer's own precision (or its fraction, for %)?"""
-    x, dec, pct = _variants(tok)
-    for m in NUM.finditer(text):
-        try:
-            y = float(m.group(0).rstrip("%"))
-        except ValueError:
-            continue
-        if round(y, dec) == x or (pct and round(y * 100, dec) == x):
-            return True
-    return False
-
-
-def claims(answer: str) -> list[tuple[str, str]]:
-    """(label, number) pairs: each number with the nearest label before it in the same sentence."""
-    out = []
-    for sent in SENTENCE.split(answer):
-        last = None
-        for m in re.finditer(f"{LABEL.pattern}|{NUM.pattern}", sent):
-            tok = m.group(0)
-            if LABEL.fullmatch(tok):
-                last = tok
-            elif last is not None and len(tok.rstrip("%").lstrip("+-").replace(".", "")) >= 2:
-                out.append((last, tok))          # single digits are list markers and counts, not readings
-    return out
+# The field rule lives in the platform since S2-2 (2026-11-24), which runs it on every Cellwright answer; this
+# measurement imports it, so the rule measured here and the rule deployed there are one rule.
+sys.path.insert(0, str(REPO / "src"))
+from cellarium.integrity import (  # noqa: E402,F401  (re-exported: tests read them from here)
+    LABEL,
+    NUM,
+    SENTENCE,
+    _loads_or_none,
+    _role_owns,
+    _same_run,
+    _variants,
+    claims,
+    field_leaves,
+    field_routed_ok,
+    number_in,
+    repair_json,
+    shared_ok,
+)
 
 
 def records(tool_texts: list[str]) -> list[str]:
@@ -123,118 +102,6 @@ def routed_ok(label: str, num: str, recs: list[str]) -> bool:
 # `reference`/`target` inside `ranked` items) beside numbers that belong to the pair (log2fc, welch_t, pct); and
 # tool results cut off for the model's context, which parsed as nothing and so counted as one blob naming
 # every run.
-
-def repair_json(text):
-    """Parse JSON, or JSON cut off part-way: keep every complete member up to the last comma before the cut and close
-    whatever is still open. None when the text is not JSON at all."""
-    try:
-        return json.loads(text)
-    except (ValueError, TypeError):
-        pass
-    if not isinstance(text, str) or not text.lstrip().startswith(("{", "[")):
-        return None
-    stack, in_str, esc, cuts = [], False, False, []
-    for i, ch in enumerate(text):
-        if in_str:
-            if esc:
-                esc = False
-            elif ch == "\\":
-                esc = True
-            elif ch == '"':
-                in_str = False
-        elif ch == '"':
-            in_str = True
-        elif ch in "{[":
-            stack.append("}" if ch == "{" else "]")
-        elif ch in "}]":
-            if not stack:
-                break
-            stack.pop()
-            if not stack:                # a complete top-level value; json.loads failed on what follows it
-                return _loads_or_none(text[: i + 1])
-        elif ch == ",":
-            cuts.append((i, tuple(stack)))
-    # The last cut that parses: a truncation marker can itself hold a comma or a bracket.
-    for i, open_ in reversed(cuts[-200:]):
-        got = _loads_or_none(text[:i] + "".join(reversed(open_)))
-        if got is not None:
-            return got
-    return None
-
-
-def _loads_or_none(s):
-    try:
-        return json.loads(s)
-    except ValueError:
-        return None
-
-
-def _same_run(a: str, b: str) -> bool:
-    """`KO:argS` and `gene_knockout/KO:argS` name one run; `KO:arg` and `KO:argS` do not."""
-    return a == b or a.endswith("/" + b) or b.endswith("/" + a)
-
-
-def _role_owns(key: str, role: str) -> bool:
-    """Does a number stored under `key` belong to the run named in field `role`? `reference` owns `reference`,
-    `reference_mean` and `ref_mean`; `target` owns `target` and `target_mean`."""
-    k, r = key.lower(), role.lower()
-    head = k.split("_", 1)[0]
-    return k == r or k.startswith(r + "_") or (len(head) >= 3 and r.startswith(head))
-
-
-def field_leaves(tool_texts: list[str]) -> list[tuple[frozenset, str]]:
-    """(owner, number text) for every number in the tool results. The owner is the run the number belongs to: the
-    run its key names; else the run whose role field its key is named after; else every run the nearest naming
-    object names -- one run for a single-run object, the pair for a comparison's own statistics."""
-    out: list[tuple[frozenset, str]] = []
-
-    def owner(key, roles: dict) -> frozenset:
-        if key:
-            named = set(LABEL.findall(str(key)))
-            if len(named) == 1:
-                return frozenset(named)
-            hit = {lab for role, lab in roles.items() if _role_owns(str(key), role)}
-            if len(hit) == 1:
-                return frozenset(hit)
-        return frozenset(roles.values())
-
-    def walk(x, roles: dict, key=None):
-        if isinstance(x, dict):
-            own = {k: v.strip() for k, v in x.items() if isinstance(v, str) and LABEL.fullmatch(v.strip())}
-            scope = own or roles                  # the nearest object that names runs owns what is inside it
-            for k, v in x.items():
-                if k in own:
-                    continue
-                named = set(LABEL.findall(str(k)))
-                walk(v, {k: next(iter(named))} if len(named) == 1 else scope, k)
-        elif isinstance(x, list):
-            for v in x:
-                walk(v, roles, key)
-        elif isinstance(x, bool) or x is None:
-            return
-        elif isinstance(x, (int, float)):
-            out.append((owner(key, roles), repr(x)))
-        elif isinstance(x, str) and NUM.search(x):
-            named = set(LABEL.findall(x))
-            out.append((frozenset(named) if len(named) == 1 else owner(key, roles), x))
-
-    for t in tool_texts:
-        obj = repair_json(t)
-        if obj is not None:
-            walk(obj, {})
-        else:
-            out += [(frozenset(LABEL.findall(line)), line) for line in (t or "").splitlines() if NUM.search(line)]
-    return out
-
-
-def field_routed_ok(label: str, num: str, leaves) -> bool:
-    """The field rule: the number sits in a field that belongs to the run it is credited to, and to no other."""
-    return any(len(o) == 1 and _same_run(label, next(iter(o))) and number_in(num, text) for o, text in leaves)
-
-
-def shared_ok(label: str, num: str, leaves) -> bool:
-    """The number belongs to a comparison that includes the run: a swap of the pair cannot be seen in it."""
-    return any(len(o) > 1 and any(_same_run(label, x) for x in o) and number_in(num, text) for o, text in leaves)
 
 
 def swap(answer: str, a: str, b: str) -> str:

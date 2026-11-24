@@ -161,12 +161,13 @@ def test_whitespace_only_text_counts_as_no_answer(agent_mod):
 def test_both_exit_paths_guard_against_an_empty_answer():
     """The asymmetry IS the bug: one exit guarded and the other did not, for the same failure.
 
-    Read from the source rather than exercised, because the forced-synthesis path needs a budget-exhausting
-    conversation to reach. If a future refactor removes either guard, this fails and names which one.
+    The forced-synthesis guard used to be read from the source here too, on the view that reaching that path
+    needed a budget-exhausting conversation. A scripted client reaches it in three calls, and
+    `test_an_empty_synthesis_names_why_the_loop_ended_and_the_stop_reason` below exercises it: it fails if the
+    guard returns "". The source check went on 2026-11-24, when S2-2 re-wrapped that return line without changing
+    what it does and the string match broke. The normal exit's line is still checked here as well as exercised.
     """
     src = (ROOT / "src" / "cellarium" / "agent.py").read_text(encoding="utf-8")
-    assert 'or (f"(stopped: {stopped_by}; the final synthesis returned no "' in src, (
-        "the forced-synthesis exit lost its empty-answer guard")
     assert "return said or (" in src, (
         "the NORMAL exit lost its empty-answer guard — this is the AG-5 regression: a turn that ends with no "
         "text and no tool call would again return '' to the caller")
