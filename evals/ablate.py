@@ -74,10 +74,20 @@ def grade_claude(case, h, client, model="claude-opus-4-8") -> dict:
     resp = client.messages.create(model=model, max_tokens=1024, system=_SYS, tools=[tool],
                                   tool_choice={"type": "tool", "name": "grade"},
                                   messages=[{"role": "user", "content": json.dumps(_payload(case, h))}])
-    for b in resp.content:
-        if getattr(b, "type", None) == "tool_use":
-            return dict(b.input)
-    return {}
+    # An unreadable grade is an error, not a grade. This returned {} for a reply with no tool block until
+    # 2026-11-24, which `_score` reads as 0 of 6, and read a missing criterion as False. The defect auditor had the
+    # same hole the other way round (an empty list is its BEST score), and its stored Claude column shows it fired
+    # there; here the stored scores are 5 or 6 throughout, so this is preventive.
+    if getattr(resp, "stop_reason", None) == "max_tokens":
+        raise ValueError("the Claude grade was cut off at max_tokens=1024")
+    block = next((b for b in resp.content if getattr(b, "type", None) == "tool_use"), None)
+    if block is None:
+        raise ValueError(f"no grade tool block in the Claude reply (stop_reason={getattr(resp, 'stop_reason', None)})")
+    g = dict(block.input or {})
+    missing = [k for k in Q if k not in g]
+    if missing:
+        raise ValueError(f"the Claude grade is missing criteria: {', '.join(missing)}")
+    return g
 
 
 def grade_gpt(case, h, oai, model="gpt-4o") -> dict:

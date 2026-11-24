@@ -77,7 +77,9 @@ def paired_mde(per_case_a: dict, per_case_b: dict, alpha: float = 0.05, power: f
     Measured on the stored ablation, it separates the two auditors: under the Claude auditor every comparison
     is underpowered (MDE 3.5-4.4 defects against observed 1.1-1.5), while under the GPT auditor the skeptic
     and judge roles show differences larger than their MDE. The two auditors differ about 10x in per-case
-    noise, which is why reporting one of them alone is not neutral.
+    spread, which is why reporting one of them alone is not neutral. (2026-11-24: that spread is not noise. 58
+    of the 120 Claude audits are zeros in the shape of unreadable replies counted as no defects, see
+    `evals/audit.py`; the Claude-column MDEs describe that mixture, not a noisy judge.)
 
     Uses a t critical value on n-1 degrees of freedom, because with 10 paired cases the normal 2.80 would
     understate the MDE by ~11%. The SD is the observed SD of the paired differences, so the MDE describes what

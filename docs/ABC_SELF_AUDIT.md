@@ -53,7 +53,7 @@ citing an R item by number.
 | O.b.1 | Substring matching: negation | N/A | No substring matching is used to score. |
 | O.b.2 | Prevent success by listing every possible answer | N/A for the gate; NOT TESTED for the Council | One verdict per gate item. For the Council's judges, an answer that lists every possibility is a named probe (validation item 6) that has not run. |
 | O.b.3 | Prevent success by guessing | MET, forced | On the same 216 records, always-refuse scores 0.556 (the best trivial strategy), always-answer 0.333, always-propose 0.111; the gate's 0.875 beats the best by 0.319 (`tests/test_gate_reliability.py`). |
-| O.c.1 | LLM-as-judge: accuracy and self-consistency validated | NOT MET | The ablation's Claude and GPT judges disagree (residual defects, r = -0.097) and the Claude judge is about nine times noisier (`tests/test_ablation_mde.py`). No repetition-stability run and no human floor exist (validation item 6: paid runs, two human raters). |
+| O.c.1 | LLM-as-judge: accuracy and self-consistency validated | NOT MET | The ablation's Claude and GPT auditors do not agree (residual defects, r = -0.097 over 120 records; 0.063 over the 62 Claude audits that were readable). The Claude column's ninefold larger spread is not noise: 58 of its 120 audits are zeros in the shape of unreadable replies counted as no defects (`tests/test_defect_audit.py`), so that auditor has to be re-run before its agreement can be measured. No repetition-stability run and no human floor exist (validation item 6: paid runs, two human raters). |
 | O.d.1, O.d.2 | Unit-test grading: tests verified; coverage reported | N/A as grading | No evaluation is scored by unit tests. The analogous question, whether the platform's own guard tests would notice a fault, is measured by mutation testing: threshold mutants (tier 0) and the registry operators of validation item 8. Of eleven pre-registered registry faults the suite caught nine and missed two (a record losing its source markers; a loosened dependency pin), each exactly as predicted; both now have a guard (`tests/test_registry_survivor_guards.py`), forced to fail with the fault applied. |
 | O.e.1-O.e.3 | Fuzz testing | N/A | No fuzzing is used to score. |
 | O.f.1, O.f.2 | End-to-end tests: branch coverage; non-determinism | N/A as grading | No evaluation is scored by an end-to-end test. |
@@ -135,11 +135,17 @@ present, not how good the framing is. It is not a headline (O.i.1).
 model families; a minimum detectable effect beside every null (`tests/test_ablation_mde.py`). The answer-key arm
 (`leaked`), the positive control, exists in code and has not run.
 
-**Reading a number.** Per auditor, never pooled. Under the Claude auditor `full` leaves 3.37 residual defects
-on average and `proposer_only` 4.50, but that auditor is about nine times noisier than the GPT auditor and the
-two disagree case by case, so under it no difference between arms is detectable at n = 10. Under the GPT
-auditor, removing the critique is detectable. A difference here is a statement about the auditor that scored
-it.
+**Reading a number.** Per auditor, never pooled, and not the Claude column at all until it is re-audited. The
+stored averages under the Claude auditor (`full` 3.37 residual defects, `proposer_only` 4.50) mix two kinds of
+record: 62 audits that found 7 to 10 defects, and 58 that recorded zero. No Claude audit found 1 to 6, none
+found more than 10, and the GPT auditor never recorded zero. Until 2026-11-24 the auditor counted a reply it
+could not read as an empty list, the best score this endpoint gives, and the readable lists stop near what its
+1,024-token reply limit holds, so the zeros are most likely lists cut off at the limit and counted as no
+defects (`tests/test_defect_audit.py`). Among the 62 readable audits the four arms sit between 8.35 and 8.53, and
+`full` against `proposer_only` is 8.42 against 8.44. What used to read as a noisy auditor is that mixture.
+Re-auditing the 58 zeroed records settles it (`evals/audit.py --only-claude-zeros`, a paid run). Under the GPT
+auditor, which has no zeros, removing the critique is detectable. A difference here is a statement about the
+auditor that scored it.
 
 **Debate telemetry (stored Council runs, `evals/results/council_telemetry.json`).** Of 43 substantive objections
 marked resolved, 2 were resolved with the claim, H1 and H0 word-for-word unchanged. Of 23 runs with a
