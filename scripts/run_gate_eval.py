@@ -47,7 +47,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts"))
 
-from cellarium import gate, outage, provenance  # noqa: E402
+from cellarium import gate, observability, outage, provenance  # noqa: E402
 
 OUT_DIR = REPO / "evals" / "results"
 VERDICTS = ("answer", "propose", "refuse")
@@ -218,8 +218,12 @@ def _run_one(it: dict, model: str) -> dict:
 
 def _one(item: dict, model: str) -> dict:
     t0 = time.time()
-    req = gate.parse(item["ask"], model=model)
+    # S2-5: what each question cost, beside whether it was right. Questions run in worker threads, so the meter
+    # keeps only this thread's calls. None when no call was metered: unknown, never zero.
+    with observability.meter(this_thread=True) as m:
+        req = gate.parse(item["ask"], model=model)
     d = gate.decide(req, mode=item["mode"])
+    spend = m.summary()
     return {
         "id": item["id"], "capability": item["capability"], "mode": item["mode"],
         "framing": item["framing"], "kind": item["kind"],
@@ -236,11 +240,26 @@ def _one(item: dict, model: str) -> dict:
         "required_capabilities": list(d.required_capabilities),
         "blocking": list(d.blocking), "route": d.route,
         "seconds": round(time.time() - t0, 2),
+        "usd": spend["cost_usd"] if spend["n_calls"] and not spend["cost_partial"] else None,
         "ask": item["ask"],
         **({"required_judgement": item["required_judgement"],
             "correct_judgement": d.verdict == item["required_judgement"],
             "registry_can_express": item["registry_can_express"]} if "required_judgement" in item else {}),
     }
+
+
+def _cost(recs: list[dict]) -> dict:
+    """S2-5: the accuracy's price. Records carry `usd` from 2026-11-24; a run from before says it was not
+    metered, so a reader never takes a missing cost for a free one."""
+    usd = [r["usd"] for r in recs if r.get("usd") is not None]
+    if not usd:
+        return {"metered": False, "usd_per_question": None,
+                "note": "not metered: these records predate per-question metering or made no priced call"}
+    out = {"metered": True, "n_metered": len(usd), "usd_per_question": round(sum(usd) / len(usd), 6),
+           "usd_total": round(sum(usd), 6)}
+    if len(usd) < len(recs):
+        out["note"] = f"{len(recs) - len(usd)} of {len(recs)} records unmetered; the mean is over the metered ones"
+    return out
 
 
 def _report(recs: list[dict]) -> dict:
@@ -274,6 +293,7 @@ def _report(recs: list[dict]) -> dict:
                    "refuse -> answer. A wrong verdict on a propose-keyed item fell in neither. Kept so an "
                    "earlier citation can be reconciled; never a headline."},
         "parser_failures": sum(r["parser_failed"] for r in recs),
+        "cost": _cost(recs),
         "by_kind": {k: {"n": len(v), "accuracy": round(sum(x["correct"] for x in v) / len(v), 3)}
                     for k, v in sorted(by_kind.items())},
         "by_framing": {k: {"n": len(v), "accuracy": round(sum(x["correct"] for x in v) / len(v), 3)}

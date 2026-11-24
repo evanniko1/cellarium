@@ -20,6 +20,13 @@ try:
 except Exception:  # scipy optional
     pearsonr = wilcoxon = None
 
+# S2-3: the graders here apply the Council's OWN adequacy rubric (falsifiable, operationalised, discriminating,
+# specified -- the judge's condition A), and convergence and feasibility are the loop's own outcomes. So every
+# quality number this module reports is measured by the loop's criteria: a process measure, never a result. Results
+# come from the defect auditors, which sit outside the loop (evals/audit.py, evals/arms_report.py).
+IN_LOOP_BASIS = ("in-loop: graders applying the Council's own adequacy rubric, which its judge enforces; a process "
+                 "measure, not a result (the defect auditors are the outside measure)")
+
 Q = ["q1_falsifiable", "q2_operationalized", "q3_discriminating", "q4_quantitative", "q5_specified",
      "q6_consistent"]
 
@@ -134,16 +141,30 @@ def interrater(records):
     return out
 
 
-def main():
-    src = sys.argv[1] if len(sys.argv) > 1 else "evals/results/ablation.json"
-    d = json.loads(Path(src).read_text())
-    recs = [r for r in d["results"] if "error" not in r]
-    n_err = len(d["results"]) - len(recs)
+def cost(rs: list) -> dict:
+    """S2-5: what a config's records cost, beside their quality. evals/ablate.py meters each record into `llm`
+    (generation) and `grading_llm` (the rubric); records from before that carry neither, and their cost is
+    stated as unknown rather than left out, so a reader never takes a missing number for a free one."""
+    import costs
+
+    metered = [r for r in rs if r.get("llm") or r.get("grading_llm")]
+    if not metered:
+        return {"usd_per_record": None, "cost_note": "not metered: these records predate per-record metering"}
+    spent = [costs.record_cost(r.get("llm"), r.get("grading_llm")) for r in metered]
+    out = {"usd_per_record": round(sum(u for u, _ in spent) / len(spent), 4), "n_metered": len(metered)}
+    notes = ([f"{len(rs) - len(metered)} of {len(rs)} records unmetered; the mean is over the metered ones"]
+             if len(metered) < len(rs) else [])
+    notes += ["a call had no price, so this is a lower bound"] if any(p for _, p in spent) else []
+    return {**out, **({"cost_note": "; ".join(notes)} if notes else {})}
+
+
+def summarise(recs: list) -> dict:
+    """Per-config rubric quality, convergence, feasibility and rounds, each labelled with its in-loop basis, and
+    what the config cost (S2-5)."""
     by_cfg = defaultdict(list)
     for r in recs:
         by_cfg[r["config"]].append(r)
-
-    summary = {"source": src, "n_records": len(recs), "n_errors": n_err, "configs": {}}
+    summary: dict = {"configs": {}}
     q_full = None
     for cfg in ["full", "no_skeptic", "proposer_only", "generic_judge"]:
         rs = by_cfg.get(cfg)
@@ -154,15 +175,24 @@ def main():
         conv = wilson(sum(bool(r.get("converged")) for r in rs), len(rs))
         feas = wilson(sum(bool(r.get("feasible")) for r in rs), len(rs))
         rounds = round(float(np.mean([r.get("rounds_used", 0) for r in rs])), 2)
-        entry = {"n": len(rs), "quality_claude": qc, "quality_gpt": qg,
+        entry = {"n": len(rs), "quality_basis": IN_LOOP_BASIS, "quality_claude": qc, "quality_gpt": qg,
                  "convergence_rate": {"p": conv[0], "ci95": conv[1:]},
-                 "feasible_rate": {"p": feas[0], "ci95": feas[1:]}, "mean_rounds": rounds}
+                 "feasible_rate": {"p": feas[0], "ci95": feas[1:]}, "mean_rounds": rounds, **cost(rs)}
         if cfg == "full":
             q_full = qc
         elif q_full and qc:
             entry["vs_full_quality_claude"] = paired_vs_full(q_full["per_case"], qc["per_case"])
         summary["configs"][cfg] = entry
     summary["interrater_claude_vs_gpt"] = interrater(recs)
+    return summary
+
+
+def main():
+    src = sys.argv[1] if len(sys.argv) > 1 else "evals/results/ablation.json"
+    d = json.loads(Path(src).read_text())
+    recs = [r for r in d["results"] if "error" not in r]
+    n_err = len(d["results"]) - len(recs)
+    summary = {"source": src, "n_records": len(recs), "n_errors": n_err, **summarise(recs)}
 
     # --- residual-defect audit (the sensitive primary mechanism metric) ---
     aud_path = Path(src).with_name("audited.json")
