@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 warnings.filterwarnings("ignore", message=".*Arrow output.*")
 
-from cellarium import differential, factors, rigor, tools  # noqa: E402
+from cellarium import controls, differential, factors, rigor, tools  # noqa: E402
 
 WT = "wildtype/basal"
 TWO_OPERONS = "rrna_operon_knockout/minimal|rRNA_KO:2op"
@@ -91,7 +91,11 @@ def effect(target: str, reference: str, channel: str) -> dict:
 
 
 def main() -> int:
-    out: dict = {"ribosome_growth_law": {}, "ppgpp_clamps": [], "rrna_dosage": [], "carbon_sources": [],
+    # Controls first (A-1): a known result reproduced on each channel the rows below read, through the same
+    # function, before any of them is trusted. A channel without a control is reported as uncontrolled.
+    out: dict = {"controls": {ch: controls.check(ch) for ch in ("growth_rate", "ribosome_conc", "ppgpp_conc",
+                                                                "rela_conc")},
+                 "ribosome_growth_law": {}, "ppgpp_clamps": [], "rrna_dosage": [], "carbon_sources": [],
                  "synthetase_knockouts": []}
     law = rigor.fit_relation(LAW_DESIGNS, "growth_rate", "ribosome_conc")
     if "error" in law:
