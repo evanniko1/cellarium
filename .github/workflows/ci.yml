@@ -71,6 +71,15 @@ jobs:
       - name: Test — pytest
         run: pytest --junitxml=pytest-report.xml -o junit_family=xunit1
 
+      # The suite keeps the Hugging Face hub offline (tests/conftest.py: a hub call once held the local suite
+      # for over twenty minutes), so the one test that checks the LIVE well4cell release against the declared
+      # metadata patterns runs here, on its own, with the network. A hub fault skips it; a pattern that matches
+      # nothing fails it.
+      - name: Test — the live dataset release
+        env:
+          CELLARIUM_LIVE_HUB_TESTS: "1"
+        run: pytest tests/test_corpora.py -k live_release
+
       # A CI failure must name the failing TEST, not just "exit code 1". The job log needs a token to download,
       # so on a red run the only thing readable through the unauthenticated API is the annotation stream — this
       # turns each failing test into an annotation (+ a job summary). Runs only on failure; never masks it.

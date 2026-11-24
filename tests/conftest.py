@@ -50,6 +50,32 @@ def _load_env_before_anything_freezes_it() -> None:
 _load_env_before_anything_freezes_it()
 
 
+def _keep_the_hugging_face_hub_offline() -> None:
+    """No test reaches huggingface.co: the hub library is put in its own offline mode before anything imports it.
+
+    FOUND 2026-11-24: the full suite sat for over twenty minutes inside `test_tool_conformance.py`, in
+    `test_two_identical_calls_give_the_same_answer`, holding a connection to huggingface.co (3.165.148.5:443,
+    one of the hub's addresses). Since a666094 every hub read first resolves the commit it will read
+    (`corpora.resolve_commit`, `hf._resolve_revision`), and the conformance sweep calls the real tools, so the
+    suite's pass or hang depended on a server outside it, and two "identical" calls could read two different
+    heads. `HF_HUB_OFFLINE=1` makes the library refuse every request at once, which the code already reports
+    as "could not resolve the commit to read". It has to be set here, at import of this file: the library
+    reads it into a constant when it is first imported, which a session fixture would be too late for.
+    tests/test_suite_is_offline.py pins it, and the tests that exercise the hub paths use fakes.
+
+    The one test that checks the LIVE release on purpose (tests/test_corpora.py, `..._on_the_live_release`) runs
+    only with `CELLARIUM_LIVE_HUB_TESTS=1`, which leaves the hub online; CI runs it that way in a step of its own.
+    """
+    import os
+    if os.environ.get(LIVE_HUB_OPT_IN) == "1":
+        return
+    os.environ["HF_HUB_OFFLINE"] = "1"
+
+
+LIVE_HUB_OPT_IN = "CELLARIUM_LIVE_HUB_TESTS"
+_keep_the_hugging_face_hub_offline()
+
+
 def _put_src_on_the_path() -> None:
     """`src/` on sys.path, once, for every test module -- because 32 of them did not do it themselves.
 

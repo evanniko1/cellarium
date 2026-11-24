@@ -259,7 +259,14 @@ def test_sizes_are_binary_so_the_ui_and_the_paper_agree(tmp_path, monkeypatch):
 
 # --- the live tree, when there is a network ------------------------------------------------------
 
-@pytest.mark.skipif(not _online(), reason="no network: cannot check the live well4cell file tree")
+# The suite keeps the hub offline (tests/conftest.py), so this runs only when asked for; CI asks, in its own step.
+# The socket probe is evaluated only then, so an offline run touches no network even at collection.
+_LIVE = os.environ.get("CELLARIUM_LIVE_HUB_TESTS") == "1"
+
+
+@pytest.mark.skipif(not _LIVE, reason="the suite keeps the hub offline; set CELLARIUM_LIVE_HUB_TESTS=1 to check "
+                                      "the live well4cell file tree (CI does, in a step of its own)")
+@pytest.mark.skipif(_LIVE and not _online(), reason="no network: cannot check the live well4cell file tree")
 def test_every_declared_metadata_pattern_matches_something_on_the_live_release():
     """A pattern that matches nothing is a silent hole: the tier would fetch fewer files than intended and
     report success. Measured 2026-11-14: all eight patterns matched, 24 files, 12.03 MB.
