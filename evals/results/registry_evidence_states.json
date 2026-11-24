@@ -1,0 +1,127 @@
+{
+ "spec": "PX-2",
+ "states": [
+  "technical",
+  "development",
+  "external_stress",
+  "simulation_confirmed"
+ ],
+ "records": {
+  "per_isoacceptor_trna_charging": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": "Section 13: steady-state runs write 86 charging columns with at most 21 distinct values"
+  },
+  "codon_level_elongation": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": false
+  },
+  "operon_specific_rrna_knockout": {
+   "technical": false,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": false
+  },
+  "per_gene_trna_abundance": {
+   "technical": false,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": false
+  },
+  "growth_under_phosphate_depletion": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "Appendix B: 13 simulations; the phosphate pools never respond"
+  },
+  "response_to_the_glucose_concentration": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "the three corpus doses (2, 5 and 20 mM) give the same cell"
+  },
+  "growth_without_a_carbon_source": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "Appendix C: known-fault arm E2; biomass continues with no carbon uptake"
+  },
+  "knockout_of_a_multi_transcription_unit_gene": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": "murA knockout runs: expression 1.6 against 1.5 in wild type"
+  },
+  "per_amino_acid_trna_charging": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": false
+  },
+  "ppgpp_stringent_response": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": "the 12 kinetic rows: the GrowthLimits ppGpp and RelA columns read 0.0 throughout"
+  },
+  "amino_acid_uptake_from_the_medium": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": false
+  },
+  "nutrient_shift_timelines": {
+   "technical": true,
+   "development": true,
+   "external_stress": true,
+   "simulation_confirmed": false
+  }
+ },
+ "counts": {
+  "technical": 7,
+  "development": 9,
+  "external_stress": 9,
+  "simulation_confirmed": 6
+ },
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "40ea297",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
