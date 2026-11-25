@@ -139,8 +139,13 @@ def test_the_cell_census_is_what_the_plan_assumed():
     # 2026-11-24: G-1 added induction_by_a_fitted_transcription_factor (answer in the two modes the corpus has
     # runs in, propose under coarse_kinetic, which has none) and arabinose_induction_of_the_ara_operon (refuse in
     # all three: the knowledge base fits AraC to repress araBAD). A paid run built on this generator grows by 6/36.
-    assert st["n_cells"] == 42
-    assert st["by_required"] == {"refuse": 27, "answer": 11, "propose": 4}
+    # 48 since 2026-11-25: BV-G2 (essentiality_of_a_metabolic_gene) and BV-AN
+    # (anaerobic_respiration_induction_magnitude), each absent in all three modes, add six `refuse` cells and
+    # nothing else moves. A paid run built on this generator grows by 6/42.
+    # 51 since later that day: BV-OF (overflow_and_fermentation_products), absent in all three modes, adds three
+    # `refuse` cells. A paid run built on this generator grows by 3/48.
+    assert st["n_cells"] == 51
+    assert st["by_required"] == {"refuse": 36, "answer": 11, "propose": 4}
     assert st["by_stratum"]["no_corpus_data"] == 1
     assert st["by_stratum"]["no_corpus_mode"] == 3
 

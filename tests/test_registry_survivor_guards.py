@@ -26,6 +26,12 @@ DECLARATION_ONLY = {
     # G-1 (2026-11-24): what these two rest on is a fitted fold-change row in the knowledge base, not a source symbol
     # to probe; tests/test_fitted_factor_induction.py re-reads those rows wherever the checkout is present.
     "induction_by_a_fitted_transcription_factor", "arabinose_induction_of_the_ara_operon",
+    # BV-G2 and BV-AN (2026-11-25): one rests on the metabolic objective's design (no single marker says "reroutes"),
+    # the other on fitted fold-change rows; both cite what they rest on in capability.DEPENDS_ON (Ms-1), and their
+    # numbers are re-derived by evals/bv3_essentiality.py and evals/anaerobic_response.py.
+    "essentiality_of_a_metabolic_gene", "anaerobic_respiration_induction_magnitude",
+    # BV-OF (2026-11-25): rests on the same objective's design as BV-G2; re-derived by evals/bv6_overflow.py.
+    "overflow_and_fermentation_products",
 }
 
 

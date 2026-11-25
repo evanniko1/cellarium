@@ -34,6 +34,14 @@ SIMULATION_CONFIRMED = {
                                                   "log2 (q 0.002) and narH +1.57 (q 0.01), the fitted induction",
     # arabinose_induction_of_the_ara_operon is NOT here: the runs move araA, araB and araD the fitted way (8 to 10
     # copies against 34 to 35), but 2 runs against 17 do not reach FDR 0.10, and a direction is not a confirmation.
+    "anaerobic_respiration_induction_magnitude": "anaerobic_response.json: 8 no_oxygen runs against 17 basal, frdA "
+                                                 "+1.76 log2 (protein) where PRECISE-1K measures +3.21",
+    "overflow_and_fermentation_products": "bv6_overflow.json: 37 aerobic glucose runs from 0.53 to 0.92 per hour "
+                                          "excrete exactly 0 acetate; 8 no_oxygen runs excrete 0.0002 acetate per "
+                                          "glucose",
+    # essentiality_of_a_metabolic_gene is NOT here yet: BV-3's whole-cell calls are the model's flux-balance prior
+    # (the gene-scope cache), not runs. BV-12's knockouts of lysA, metF, serA and proC (essential in FEBA in all
+    # three carbon sources) are the simulations that confirm or refute it.
 }
 
 

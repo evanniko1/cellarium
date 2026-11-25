@@ -1242,8 +1242,9 @@ CASES = [
             "(IMPORT_CONSTRAINT_THRESHOLD, external_state.py)'",
             "data/manifest/*.parquet — 9 rows across condition IN (glc_2mM, glc_5mM, glc_20mM), 3 seeds, all "
             "qc='ok' and reportable; 9 of 9 within-seed pairs identical on all 11 of survey.CHANNELS",
-            "provenance.IN_SAMPLE_CONDITIONS contains all three doses — they are in-sample, so even a real "
-            "difference between them would not be an out-of-sample prediction (INV-9)",
+            "provenance.condition_fits() lists all three doses as fitted conditions (campaign 4bc5d952, doubling "
+            "time copied from basal) — they are in-sample, so even a real difference between them would not be "
+            "an out-of-sample prediction (INV-9)",
         ),
         "pair": "C8",
         "pair_differs_in": "observable",

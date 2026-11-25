@@ -103,11 +103,26 @@
      "slope_p_value": 0.001
     },
     "fit_out_of_sample_only": {
-     "n": 9,
-     "r_squared": 0.568,
-     "pearson_r": 0.754,
-     "slope_p_value": 0.019
-    }
+     "n": 7,
+     "r_squared": 0.623,
+     "pearson_r": 0.789,
+     "slope_p_value": 0.0348
+    },
+    "before_y10": {
+     "fit_all": {
+      "n": 14,
+      "r_squared": 0.608,
+      "pearson_r": 0.779,
+      "slope_p_value": 0.001
+     },
+     "fit_out_of_sample_only": {
+      "n": 9,
+      "r_squared": 0.568,
+      "pearson_r": 0.754,
+      "slope_p_value": 0.019
+     }
+    },
+    "y10_note": "re-derived 2026-11-25 under the quantity-aware in-sample tag: growth and composition are fitted for every condition, so the seven condition designs are in-sample and the out-of-sample fit is the seven perturbations"
    },
    "agreement": "agrees",
    "cell": "answered, agrees"
@@ -183,9 +198,11 @@
    "requirement": {
     "observable": "gene_knockout",
     "granularity": "per_gene",
-    "regulatory_dependencies": []
+    "regulatory_dependencies": [
+     "metabolic_gene_essentiality"
+    ]
    },
-   "verdict": "answer",
+   "verdict": "refuse",
    "biology": {
     "finding": "214 of 1,357 iML1515 metabolic genes are essential by the Keio collection",
     "source": "Baba et al. 2006",
@@ -197,7 +214,7 @@
     "recall": 0.005
    },
    "agreement": "misleads",
-   "cell": "answered, misleads"
+   "cell": "refused, would mislead"
   },
   {
    "id": "arabinose_induction",
@@ -236,12 +253,12 @@
     "doi": "10.1128/jb.174.4.1119-1123.1992"
    },
    "model": {
-    "narI": 2.3314,
-    "narX": -5.0686,
-    "narL": -0.2499,
-    "narJ": 2.5176,
     "narG": 2.0405,
-    "narH": 1.5674
+    "narH": 1.5674,
+    "narI": 2.3314,
+    "narJ": 2.5176,
+    "narL": -0.2499,
+    "narX": -0.1997
    },
    "agreement": "agrees, calibrated: NarL's fold changes are fitted (+2.57 to +2.80); the aerobic magnitude has no measurement here",
    "cell": "answered, agrees"
@@ -252,9 +269,11 @@
    "requirement": {
     "observable": "other",
     "granularity": "per_gene",
-    "regulatory_dependencies": []
+    "regulatory_dependencies": [
+     "anaerobic_respiration"
+    ]
    },
-   "verdict": "answer (no record covers it)",
+   "verdict": "refuse",
    "biology": {
     "finding": "yes: narG +3.98 and frdA +3.21 log2 anaerobic against aerobic glucose (PRECISE-1K); the nar transcript is repressed aerobically and induced anaerobically through FNR",
     "source": "Lamoureux et al. 2023 (PRECISE-1K); Li and DeMoss 1987",
@@ -281,21 +300,47 @@
     "narI": 0.8
    },
    "agreement": "misleads: the model raises narG +0.73 and frdA +1.76 log2 against measured +3.98 and +3.21, so a sixteen-fold induction of nitrate reductase reads as under two-fold; FNR's fitted fold changes at nar (+0.8 to +1.5) are far below the measured induction, and frdA has no FNR entry",
-   "cell": "answered, misleads"
+   "cell": "refused, would mislead"
+  },
+  {
+   "id": "acetate_overflow_on_glucose",
+   "question": "Does E. coli excrete acetate when it grows on glucose with oxygen, and more so the faster it grows?",
+   "requirement": {
+    "observable": "media_response",
+    "granularity": "aggregate",
+    "regulatory_dependencies": [
+     "overflow_metabolism"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "yes: aerobic acetate excretion on glucose rises with growth rate above a threshold (overflow metabolism)",
+    "source": "Basan et al. 2015",
+    "doi": "10.1038/nature15765"
+   },
+   "model": {
+    "aerobic_glucose_acetate_excretion": 0.0,
+    "aerobic_glucose_runs": 37,
+    "growth_range_per_h": [
+     0.5082,
+     0.9194
+    ]
+   },
+   "agreement": "misleads: the model excretes exactly 0 acetate in all 37 aerobic glucose runs from 0.53 to 0.92 per hour (BV-6), so no reading shows overflow or its rise with growth",
+   "cell": "refused, would mislead"
   }
  ],
  "tally": {
-  "refused, would mislead": 4,
+  "refused, would mislead": 7,
   "refused, would have agreed": 1,
-  "answered, agrees": 5,
-  "answered, misleads": 2
+  "answered, agrees": 5
  },
  "reading": "refused-would-mislead is the gate working; answered-misleads is a registry gap; refused-would-have-agreed is what refusing costs",
- "computed_utc": "2026-11-25T12:44:45Z",
+ "computed_utc": "2026-11-25T16:58:34Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "18c5412",
+  "git_commit": "3d9759a",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

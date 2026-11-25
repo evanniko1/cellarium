@@ -43,6 +43,7 @@ def _model_numbers() -> dict:
     reg = _load("regulation_scope.json") or {}
     ess = _load("bv3_essentiality.json") or {}
     ana = _load("anaerobic_response.json") or {}
+    ovf = _load("bv6_overflow.json") or {}
     eff = {(e.get("design"), e.get("channel")): e for sec in ("ppgpp_clamps", "rrna_dosage", "carbon_sources")
            for e in reg.get(sec, [])}
     nar = next((r for r in reg.get("gene_level", []) if r.get("regulon") == "nar_nitrate"
@@ -60,6 +61,14 @@ def _model_numbers() -> dict:
         "whole_cell_metabolic_essentiality": {k: wc.get(k) for k in ("tp", "fn", "recall")},
         "nar_aerobic_nitrate_vs_basal": {g: v.get("log2fc") for g, v in (nar.get("regulon_levels") or {}).items()},
         "anaerobic_vs_basal": ana_genes,
+        "overflow": {"aerobic_glucose_acetate_excretion": (ovf.get("fixed_medium_fit_acetate_vs_growth") or {})
+                     .get("constant_response"),
+                     "aerobic_glucose_runs": (ovf.get("fixed_medium_fit_acetate_vs_growth") or {}).get("n"),
+                     "growth_range_per_h": [min((d.get("growth_per_h") for d in (ovf.get("designs") or {}).values()
+                                                 if d.get("growth_per_h") is not None), default=None),
+                                            max((d.get("growth_per_h") for d in (ovf.get("designs") or {}).values()
+                                                 if d.get("growth_per_h") is not None), default=None)]}
+        if ovf else None,
         "_eff": {f"{k[0]}|{k[1]}": v.get("effect_pct") for k, v in eff.items()},
     }
 
@@ -134,7 +143,9 @@ QUESTIONS = [
                   "33%, about half the measured 60%"},
     {"id": "metabolic_gene_essentiality",
      "question": "Which metabolic genes are essential?",
-     "requirement": {"observable": "gene_knockout", "granularity": "per_gene", "regulatory_dependencies": []},
+     # BV-G2 (2026-11-25): the parser now attaches metabolic_gene_essentiality to this question (gate.py)
+     "requirement": {"observable": "gene_knockout", "granularity": "per_gene",
+                     "regulatory_dependencies": ["metabolic_gene_essentiality"]},
      "biology": {"finding": "214 of 1,357 iML1515 metabolic genes are essential by the Keio collection",
                  "source": "Baba et al. 2006", "doi": "10.1038/msb4100050"},
      "model_key": "whole_cell_metabolic_essentiality",
@@ -160,13 +171,27 @@ QUESTIONS = [
                   "measurement here"},
     {"id": "anaerobic_induction_nar_frd",
      "question": "Does removing oxygen switch on narGHJI and frdABCD?",
-     "requirement": {"observable": "other", "granularity": "per_gene", "regulatory_dependencies": []},
+     # BV-AN (2026-11-25): "switch on" asks how strongly; the parser now attaches anaerobic_respiration (gate.py)
+     "requirement": {"observable": "other", "granularity": "per_gene",
+                     "regulatory_dependencies": ["anaerobic_respiration"]},
      "biology": {"finding": "yes: narG +3.98 and frdA +3.21 log2 anaerobic against aerobic glucose (PRECISE-1K); "
                             "the nar transcript is repressed aerobically and induced anaerobically through FNR",
                  "source": "Lamoureux et al. 2023 (PRECISE-1K); Li and DeMoss 1987",
                  "doi": "10.1093/nar/gkad750"},
      "model_key": "anaerobic_vs_basal",
      "agreement": None},                 # judged from the stored numbers below
+    # BV-OF (2026-11-25): BV-6 found the model excretes no acetate at any growth rate; added with the record that
+    # now refuses it, so the record's effect is measured here like BV-G2's and BV-AN's
+    {"id": "acetate_overflow_on_glucose",
+     "question": "Does E. coli excrete acetate when it grows on glucose with oxygen, and more so the faster it grows?",
+     "requirement": {"observable": "media_response", "granularity": "aggregate",
+                     "regulatory_dependencies": ["overflow_metabolism"]},
+     "biology": {"finding": "yes: aerobic acetate excretion on glucose rises with growth rate above a threshold "
+                            "(overflow metabolism)",
+                 "source": "Basan et al. 2015", "doi": "10.1038/nature15765"},
+     "model_key": "overflow",
+     "agreement": "misleads: the model excretes exactly 0 acetate in all 37 aerobic glucose runs from 0.53 to 0.92 "
+                  "per hour (BV-6), so no reading shows overflow or its rise with growth"},
 ]
 
 

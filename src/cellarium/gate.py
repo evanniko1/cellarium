@@ -114,6 +114,11 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     # the response is the fit's input; for arabinose the fitted sign is a repression, so that one is refused.
     "inducer_response": ("induction_by_a_fitted_transcription_factor",),
     "arabinose_induction": ("arabinose_induction_of_the_ara_operon",),
+    # BV-G2 and BV-AN (2026-11-25): two questions BV-1 found answered and misleading against the organism.
+    "metabolic_gene_essentiality": ("essentiality_of_a_metabolic_gene",),
+    "anaerobic_respiration": ("anaerobic_respiration_induction_magnitude",),
+    # BV-OF (2026-11-25): BV-6 found overflow and fermentation absent.
+    "overflow_metabolism": ("overflow_and_fermentation_products",),
 }
 
 
@@ -366,7 +371,13 @@ _PARSE_TOOL = {
                                                        "carbon_source_removal; any question about an inducer "
                                                        "switching on its operon through a transcription factor "
                                                        "depends on inducer_response, and on arabinose_induction "
-                                                       "when the inducer is arabinose"},
+                                                       "when the inducer is arabinose; whether knocking out a "
+                                                       "metabolic gene stops growth depends on "
+                                                       "metabolic_gene_essentiality; how strongly loss of oxygen "
+                                                       "induces nitrate or fumarate reductase depends on "
+                                                       "anaerobic_respiration; whether the cell excretes acetate "
+                                                       "or fermentation products depends on "
+                                                       "overflow_metabolism"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -393,7 +404,12 @@ _PARSE_SYSTEM = (
     "glucose ramp, or comparing two non-zero glucose concentrations. A question about an inducer switching on "
     "its operon or regulon through a transcription factor (nitrate and narGHJI through NarL, indole and the mdt "
     "genes through BaeR, succinate and dcuB through DcuR, arabinose and araBAD through AraC) depends on "
-    "inducer_response; when the inducer is arabinose it also depends on arabinose_induction."
+    "inducer_response; when the inducer is arabinose it also depends on arabinose_induction. A question about "
+    "whether knocking out a metabolic gene (an enzyme) stops growth, or whether that gene is essential, depends on "
+    "metabolic_gene_essentiality. A question about how strongly the loss of oxygen induces anaerobic respiration "
+    "genes (nitrate reductase narGHJI, fumarate reductase frdABCD) depends on anaerobic_respiration. A question "
+    "about whether the cell excretes acetate (overflow metabolism), how acetate excretion changes with growth rate, "
+    "or which fermentation products it makes without oxygen, depends on overflow_metabolism."
 )
 
 

@@ -61,6 +61,12 @@ _UPTAKE = ("an amino-acid supplement is accepted and exchange fluxes are written
            "initial zeros")
 _ARABINOSE = ("an arabinose medium is accepted (condition_defs.tsv) and araA, araB and araD are written per gene; their "
               "fold changes in that condition are fitted negative, so the reading is a fitted repression (G-1)")
+_ESSENTIAL = ("any metabolic gene can be knocked out and growth is written; the homeostatic flux balance reroutes "
+              "around the missing enzyme, so the cell grows on (BV-G2)")
+_ANAEROBIC = ("an oxygen-free medium is accepted and narGHJI and frdABCD are written per gene; their rise is FNR's "
+              "small fitted fold change, an order of magnitude under the organism's (BV-AN)")
+_OVERFLOW = ("every design writes exchange fluxes, acetate's among them; the homeostatic flux balance excretes none "
+             "aerobically and almost no fermentation products anaerobically (BV-OF)")
 
 UNREPRESENTED: dict[tuple[str, str], Interface] = {
     ("per_isoacceptor_trna_charging", "steady_state"): Interface(True, True, True, _ISO_STEADY),
@@ -80,6 +86,10 @@ UNREPRESENTED: dict[tuple[str, str], Interface] = {
     ("amino_acid_uptake_from_the_medium", "coarse_kinetic"): Interface(True, True, True, _UPTAKE),
     **{("arabinose_induction_of_the_ara_operon", m): Interface(True, True, True, _ARABINOSE)
        for m in C.ELONGATION_MODES},
+    **{("essentiality_of_a_metabolic_gene", m): Interface(True, True, True, _ESSENTIAL) for m in C.ELONGATION_MODES},
+    **{("anaerobic_respiration_induction_magnitude", m): Interface(True, True, True, _ANAEROBIC)
+       for m in C.ELONGATION_MODES},
+    **{("overflow_and_fermentation_products", m): Interface(True, True, True, _OVERFLOW) for m in C.ELONGATION_MODES},
 }
 
 

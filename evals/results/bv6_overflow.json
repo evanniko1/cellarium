@@ -1,0 +1,1359 @@
+{
+ "spec": "BV-6",
+ "knowledge_base": "3b2f8ebd (the corpus fit), steady state",
+ "organism": "Basan et al. 2015 (doi:10.1038/nature15765): aerobic acetate excretion on glucose rises linearly with growth rate above a threshold; the model's basal growth on glucose is above it, so the organism excretes acetate there",
+ "sign_convention": "exchange flux: secretion positive, uptake negative (tools.exchange_flux)",
+ "in_sample": "perturbations are out of sample; exchange fluxes are emergent from the homeostatic FBA",
+ "fixed_medium_fit_acetate_vs_growth": {
+  "n": 37,
+  "slope": 0.0,
+  "r": null,
+  "p": null,
+  "constant_response": 0.0
+ },
+ "fixed_medium_fit_acetate_per_glucose_vs_growth": {
+  "n": 37,
+  "slope": 0.0,
+  "r": null,
+  "p": null,
+  "constant_response": 0.0
+ },
+ "designs": {
+  "wildtype/basal": {
+   "n_runs": 17,
+   "growth_per_h": 0.888,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -5.735606,
+    "sd": 0.362559
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.547086,
+    "sd": 0.351555
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.021831,
+    "sd": 0.028544
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.917093,
+    "sd": 0.440886
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "wildtype_2_5b60c6a8",
+     "growth_per_h": 1.0014,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.092413037071773,
+     "OXYGEN-MOLECULE[p]": -0.9161786321584171,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0005020682672568444,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.0469656818154647,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_4_2d52ea1e",
+     "growth_per_h": 0.9579,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.244865062143958,
+     "OXYGEN-MOLECULE[p]": -0.24645311756698715,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.09008188362479992,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.0213741321176957,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_7_86820dd5",
+     "growth_per_h": 0.8895,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.853640231392583,
+     "OXYGEN-MOLECULE[p]": -0.2445145798563466,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02829729369298076,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4478259619173766,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_6_3ac5fa94",
+     "growth_per_h": 0.9025,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.963451938070604,
+     "OXYGEN-MOLECULE[p]": -0.2117830937198111,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02395496087201671,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5013671606311985,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_0_2c545d0f",
+     "growth_per_h": 0.8774,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.684709154912473,
+     "OXYGEN-MOLECULE[p]": -0.861487963998767,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.498225253121476,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_3_3b0ea4a3",
+     "growth_per_h": 0.8263,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.6733428144328775,
+     "OXYGEN-MOLECULE[p]": -1.0922458883267803,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 2.4295188841519947e-05,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.558914531781343,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_0_d97e01ba",
+     "growth_per_h": 0.8196,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.388758208581427,
+     "OXYGEN-MOLECULE[p]": -0.2700987744335798,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.03171164079686183,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.6703415462339737,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_1_ad881a1e",
+     "growth_per_h": 0.9551,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.487792139040704,
+     "OXYGEN-MOLECULE[p]": -0.7081484177962243,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0030208988647559354,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.048737283180629,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_2_2527f03f",
+     "growth_per_h": 0.7456,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.092413037071773,
+     "OXYGEN-MOLECULE[p]": -0.9161786321584171,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0005020682672568444,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.0469656818154647,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_4_53ac740c",
+     "growth_per_h": 0.934,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.244865062143958,
+     "OXYGEN-MOLECULE[p]": -0.24645311756698715,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.09008188362479992,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.0213741321176957,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_5_01b29990",
+     "growth_per_h": 0.9232,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.558059735246159,
+     "OXYGEN-MOLECULE[p]": -0.2343719690412779,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.023829710932858218,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.3367129066941348,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_7_e1b5107d",
+     "growth_per_h": 0.8803,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.853640231392583,
+     "OXYGEN-MOLECULE[p]": -0.2445145798563466,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02829729369298076,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4478259619173766,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_6_8b54b495",
+     "growth_per_h": 0.9341,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.963451938070604,
+     "OXYGEN-MOLECULE[p]": -0.2117830937198111,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02395496087201671,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5013671606311985,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_0_4e59f02b",
+     "growth_per_h": 0.8139,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.684709154912473,
+     "OXYGEN-MOLECULE[p]": -0.861487963998767,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.498225253121476,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_3_79f2269a",
+     "growth_per_h": 0.9816,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.6733428144328775,
+     "OXYGEN-MOLECULE[p]": -1.0922458883267803,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 2.4295188841519947e-05,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.558914531781343,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_1_26d4ec15",
+     "growth_per_h": 0.811,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.487792139040704,
+     "OXYGEN-MOLECULE[p]": -0.7081484177962243,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0030208988647559354,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.048737283180629,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "wildtype_5_a44724e8",
+     "growth_per_h": 0.8424,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.558059735246159,
+     "OXYGEN-MOLECULE[p]": -0.2343719690412779,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.023829710932858218,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.3367129066941348,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "ppgpp_conc/basal|ppGpp:0.6x": {
+   "n_runs": 4,
+   "growth_per_h": 0.7393,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -4.855899,
+    "sd": 0.126882
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.919987,
+    "sd": 0.334076
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 4.9e-05,
+    "sd": 9.9e-05
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.730448,
+    "sd": 0.133915
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "ppgpp_conc_3_3d8eaabd",
+     "growth_per_h": 0.7442,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.907255692865685,
+     "OXYGEN-MOLECULE[p]": -1.0883715765240933,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.9033093872593798,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "ppgpp_conc_2_987ab94b",
+     "growth_per_h": 0.7207,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.681569579987183,
+     "OXYGEN-MOLECULE[p]": -1.0663124680540002,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.00019777210377666156,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.662601994973133,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "ppgpp_conc_0_4f5a662e",
+     "growth_per_h": 0.7455,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.855306529921868,
+     "OXYGEN-MOLECULE[p]": -1.1058049519866833,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.761012713578299,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "ppgpp_conc_1_ebd652c3",
+     "growth_per_h": 0.7468,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.979465209445136,
+     "OXYGEN-MOLECULE[p]": -0.41946041759202807,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5948692262280735,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "ppgpp_conc/basal|ppGpp:1.6x": {
+   "n_runs": 4,
+   "growth_per_h": 0.743,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -5.125172,
+    "sd": 0.491791
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.300898,
+    "sd": 0.45385
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.928729,
+    "sd": 0.392124
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "ppgpp_conc_1_3b7a5ef1",
+     "growth_per_h": 0.7406,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.9145066501939025,
+     "OXYGEN-MOLECULE[p]": -0.03889018336330617,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.360886452265706,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "ppgpp_conc_0_cea98ae8",
+     "growth_per_h": 0.8259,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.7594577747426685,
+     "OXYGEN-MOLECULE[p]": -0.08260701279467704,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.1100933948527776,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "ppgpp_conc_2_ce95c3ee",
+     "growth_per_h": 0.6392,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.605830870268099,
+     "OXYGEN-MOLECULE[p]": -0.10156084954215724,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.99694311337726,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "ppgpp_conc_3_e7932c74",
+     "growth_per_h": 0.7665,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.220891731608789,
+     "OXYGEN-MOLECULE[p]": -0.9805344383196435,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.246993437738678,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "rrna_operon_knockout/minimal|rRNA_KO:4op": {
+   "n_runs": 8,
+   "growth_per_h": 0.7637,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -4.321323,
+    "sd": 0.140586
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.654931,
+    "sd": 0.206733
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.000341,
+    "sd": 0.000505
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.461471,
+    "sd": 0.171704
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "rrna_operon_knockout_1_336ca5d2",
+     "growth_per_h": 0.8307,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.412702548739649,
+     "OXYGEN-MOLECULE[p]": -0.33216632024239595,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.1916589531513626,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_1_ce245731",
+     "growth_per_h": 0.6735,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.412702548739649,
+     "OXYGEN-MOLECULE[p]": -0.33216632024239595,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.1916589531513626,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_0_69e247d3",
+     "growth_per_h": 0.9173,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.477873877104717,
+     "OXYGEN-MOLECULE[p]": -0.6855205075887478,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5882685541733732,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_2_e2530022",
+     "growth_per_h": 0.6382,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.250194712102884,
+     "OXYGEN-MOLECULE[p]": -0.8309214455090331,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.00021994442080746517,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.578170308905004,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_2_edcac801",
+     "growth_per_h": 0.8651,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.250194712102884,
+     "OXYGEN-MOLECULE[p]": -0.8309214455090331,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.00021994442080746517,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.578170308905004,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_3_595a47f7",
+     "growth_per_h": 0.8868,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.1445228390894675,
+     "OXYGEN-MOLECULE[p]": -0.771116812404856,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0011438954348078284,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4877866818368517,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_3_0ea005a0",
+     "growth_per_h": 0.6238,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.1445228390894675,
+     "OXYGEN-MOLECULE[p]": -0.771116812404856,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0011438954348078284,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4877866818368517,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_0_0710240a",
+     "growth_per_h": 0.6744,
+     "ACET[p]": 0.0,
+     "GLC[p]": -4.477873877104717,
+     "OXYGEN-MOLECULE[p]": -0.6855205075887478,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5882685541733732,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "rrna_operon_knockout/minimal|rRNA_KO:6op": {
+   "n_runs": 4,
+   "growth_per_h": 0.5285,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -3.454525,
+    "sd": 0.222663
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.705468,
+    "sd": 0.23598
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.053594,
+    "sd": 0.107029
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.380482,
+    "sd": 0.362722
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "rrna_operon_knockout_0_53d9d00b",
+     "growth_per_h": 0.5638,
+     "ACET[p]": 0.0,
+     "GLC[p]": -3.723433071002328,
+     "OXYGEN-MOLECULE[p]": -0.8606675453921009,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 5.8112794776490275e-05,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4455942722002837,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_1_506f443f",
+     "growth_per_h": 0.54,
+     "ACET[p]": 0.0,
+     "GLC[p]": -3.4793216605940107,
+     "OXYGEN-MOLECULE[p]": -0.42871091641310605,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 7.731440398668739e-05,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 0.9237537211914801,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_2_94d8ad23",
+     "growth_per_h": 0.5016,
+     "ACET[p]": 0.0,
+     "GLC[p]": -3.1798466817954956,
+     "OXYGEN-MOLECULE[p]": -0.937988045955271,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.21413814550936155,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.8056156316718195,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "rrna_operon_knockout_3_0ea4c713",
+     "growth_per_h": 0.5085,
+     "ACET[p]": 0.0,
+     "GLC[p]": -3.4354994059263633,
+     "OXYGEN-MOLECULE[p]": -0.594507118771064,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.00010302260993214365,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.3469643056289549,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "condition/glc_5mM": {
+   "n_runs": 3,
+   "growth_per_h": 0.9194,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -6.064259,
+    "sd": 0.280499
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.24016,
+    "sd": 0.025591
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.027451,
+    "sd": 0.004688
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.542942,
+    "sd": 0.094446
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "condition_0_dd660c13",
+     "growth_per_h": 0.8714,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.741011769091449,
+     "OXYGEN-MOLECULE[p]": -0.2655934658892805,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.03118112612321698,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4378369023935178,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_2_a13db194",
+     "growth_per_h": 0.9417,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.24357341988702,
+     "OXYGEN-MOLECULE[p]": -0.2144139616133509,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02218865293383122,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.6206899230771714,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_1_b2624baf",
+     "growth_per_h": 0.945,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.208192155560957,
+     "OXYGEN-MOLECULE[p]": -0.2404715184265986,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0289846718073394,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5702994849109821,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "condition/glc_2mM": {
+   "n_runs": 3,
+   "growth_per_h": 0.9194,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -6.064259,
+    "sd": 0.280499
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.24016,
+    "sd": 0.025591
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.027451,
+    "sd": 0.004688
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.542942,
+    "sd": 0.094446
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "condition_2_9824d16e",
+     "growth_per_h": 0.9417,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.24357341988702,
+     "OXYGEN-MOLECULE[p]": -0.2144139616133509,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02218865293383122,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.6206899230771714,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_0_f2cc4f7a",
+     "growth_per_h": 0.8714,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.741011769091449,
+     "OXYGEN-MOLECULE[p]": -0.2655934658892805,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.03118112612321698,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4378369023935178,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_1_d494070e",
+     "growth_per_h": 0.945,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.208192155560957,
+     "OXYGEN-MOLECULE[p]": -0.2404715184265986,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0289846718073394,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5702994849109821,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  },
+  "condition/acetate": {
+   "n_runs": 13,
+   "growth_per_h": 0.604,
+   "ACET[p]": {
+    "mean": -14.168872,
+    "sd": 2.299555
+   },
+   "GLC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.572223,
+    "sd": 0.2278
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 8.673458,
+    "sd": 1.872065
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": -3.325282,
+    "sd": 0.582871
+   },
+   "acetate_per_glucose": null,
+   "direction": "taken up",
+   "runs": [
+    {
+     "id": "condition_0_e3c5e1f2",
+     "growth_per_h": 0.6452,
+     "ACET[p]": -14.358634491092525,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.4124237542353986,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 8.421795063984261,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.6279905073409564,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_3_7aa02ac6",
+     "growth_per_h": 0.7298,
+     "ACET[p]": -15.847922378829203,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.6616549535962675,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 10.21365962218266,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.325098455971613,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_3_d7def609",
+     "growth_per_h": 0.3929,
+     "ACET[p]": -15.847922378829203,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.6616549535962675,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 10.21365962218266,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.325098455971613,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_2_695dd27c",
+     "growth_per_h": 0.5385,
+     "ACET[p]": -12.233214639974062,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.47819058567566985,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 7.288018689111101,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.0954897365099714,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_1_7721d0eb",
+     "growth_per_h": 0.7412,
+     "ACET[p]": -16.23620131967334,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.9960658187798458,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 10.496794457618416,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.1546522054867276,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_2_0b4d967e",
+     "growth_per_h": 0.615,
+     "ACET[p]": -12.233214639974062,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.47819058567566985,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 7.288018689111101,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.0954897365099714,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_1_d9a89d46",
+     "growth_per_h": 0.7146,
+     "ACET[p]": -16.23620131967334,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.9960658187798458,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 10.496794457618416,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.1546522054867276,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_6_53ef7abb",
+     "growth_per_h": 0.4406,
+     "ACET[p]": -9.586086565436972,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.49327216114643935,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 4.875464619280663,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -2.360328668314313,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_7_20053926",
+     "growth_per_h": 0.7856,
+     "ACET[p]": -18.233913873252114,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.1873695378462748,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 11.762918794215748,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -4.959746524700589,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_4_6ad6e833",
+     "growth_per_h": 0.5692,
+     "ACET[p]": -13.156655907868814,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.4915184168224588,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 7.948598305190652,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.2607913443932186,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_0_80ddf81b",
+     "growth_per_h": 0.6279,
+     "ACET[p]": -14.358634491092525,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.4124237542353986,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 8.421795063984261,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.6279905073409564,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_4_2399aa1f",
+     "growth_per_h": 0.4993,
+     "ACET[p]": -13.156655907868814,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.4915184168224588,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 7.948598305190652,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -3.2607913443932186,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_5_9b82d097",
+     "growth_per_h": 0.5519,
+     "ACET[p]": -12.710077838260364,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -0.6785437961452192,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 7.378838178740114,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": -2.9805503703402842,
+     "acetate_per_glucose": null
+    }
+   ]
+  },
+  "condition/succinate": {
+   "n_runs": 3,
+   "growth_per_h": 0.6943,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -2.178538,
+    "sd": 1.288055
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 15.038259,
+    "sd": 2.310978
+   },
+   "SUC[p]": {
+    "mean": -10.543465,
+    "sd": 1.265832
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 0.631537,
+    "sd": 1.002029
+   },
+   "acetate_per_glucose": null,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "condition_1_5406c080",
+     "growth_per_h": 0.7442,
+     "ACET[p]": 0.0,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -1.531593028803625,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 16.09418993764043,
+     "SUC[p]": -11.140239896451968,
+     "CARBON-DIOXIDE[p]": -0.007322700110214294,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_2_ea1a6cd2",
+     "growth_per_h": 0.7082,
+     "ACET[p]": 0.0,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -3.661830462774368,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 16.632646207933462,
+     "SUC[p]": -11.40059676656625,
+     "CARBON-DIOXIDE[p]": 1.7864041951053486,
+     "acetate_per_glucose": null
+    },
+    {
+     "id": "condition_0_6ffeeb7f",
+     "growth_per_h": 0.6306,
+     "ACET[p]": 0.0,
+     "GLC[p]": 0.0,
+     "OXYGEN-MOLECULE[p]": -1.3421894776171361,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 12.387942141405198,
+     "SUC[p]": -9.089557624748227,
+     "CARBON-DIOXIDE[p]": 0.11553017512068492,
+     "acetate_per_glucose": null
+    }
+   ]
+  },
+  "condition/no_oxygen": {
+   "n_runs": 8,
+   "growth_per_h": 0.5082,
+   "ACET[p]": {
+    "mean": 0.000623,
+    "sd": 0.000569
+   },
+   "GLC[p]": {
+    "mean": -3.259085,
+    "sd": 0.520849
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.026044,
+    "sd": 0.011956
+   },
+   "SUC[p]": {
+    "mean": 0.260016,
+    "sd": 0.314579
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": -0.258972,
+    "sd": 0.28823
+   },
+   "acetate_per_glucose": 0.0002,
+   "direction": "secreted",
+   "runs": [
+    {
+     "id": "condition_3_b76c8c3a",
+     "growth_per_h": 0.5586,
+     "ACET[p]": 0.00011189384299107021,
+     "GLC[p]": -3.4290627530907,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02276881539883724,
+     "SUC[p]": 0.008995432844815325,
+     "CARBON-DIOXIDE[p]": -0.22049340885732205,
+     "acetate_per_glucose": 3.263102808200798e-05
+    },
+    {
+     "id": "condition_4_03066dac",
+     "growth_per_h": 0.452,
+     "ACET[p]": 8.536704081856076e-05,
+     "GLC[p]": -2.7531275554735797,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.01687306081610086,
+     "SUC[p]": 0.17647683162271793,
+     "CARBON-DIOXIDE[p]": -0.5957651326694748,
+     "acetate_per_glucose": 3.100729592017626e-05
+    },
+    {
+     "id": "condition_5_52a6efa8",
+     "growth_per_h": 0.4977,
+     "ACET[p]": 0.0011671430148848297,
+     "GLC[p]": -3.0336120673014952,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.01738116284697635,
+     "SUC[p]": 0.0072954915852484195,
+     "CARBON-DIOXIDE[p]": -0.33198511042231726,
+     "acetate_per_glucose": 0.000384737068877447
+    },
+    {
+     "id": "condition_1_d7fd3b45",
+     "growth_per_h": 0.5887,
+     "ACET[p]": 0.00010202571252967845,
+     "GLC[p]": -4.1197165076238225,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.05342140590563009,
+     "SUC[p]": 0.7210346744956365,
+     "CARBON-DIOXIDE[p]": 0.08291711898916816,
+     "acetate_per_glucose": 2.476522652490111e-05
+    },
+    {
+     "id": "condition_0_21bc7784",
+     "growth_per_h": 0.4725,
+     "ACET[p]": 0.0013654914058671612,
+     "GLC[p]": -2.8651499265785323,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02042154496134894,
+     "SUC[p]": 0.008580619377771635,
+     "CARBON-DIOXIDE[p]": -0.42829373525240383,
+     "acetate_per_glucose": 0.0004765863709958753
+    },
+    {
+     "id": "condition_6_2b75980d",
+     "growth_per_h": 0.4644,
+     "ACET[p]": 0.0010507941522821577,
+     "GLC[p]": -3.3554437779462263,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.0310114991309328,
+     "SUC[p]": 0.6790661930470885,
+     "CARBON-DIOXIDE[p]": 0.1095297159745229,
+     "acetate_per_glucose": 0.00031316100695488914
+    },
+    {
+     "id": "condition_7_aa1d4be7",
+     "growth_per_h": 0.462,
+     "ACET[p]": 9.93054398150328e-05,
+     "GLC[p]": -2.684651155400311,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.02109707040551229,
+     "SUC[p]": 0.008419401579199673,
+     "CARBON-DIOXIDE[p]": -0.6315376805065847,
+     "acetate_per_glucose": 3.699007210500139e-05
+    },
+    {
+     "id": "condition_2_051f6c36",
+     "growth_per_h": 0.5696,
+     "ACET[p]": 0.0010011029768563968,
+     "GLC[p]": -3.8319139238733606,
+     "OXYGEN-MOLECULE[p]": 0.0,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.025374468007364804,
+     "SUC[p]": 0.4702576936288003,
+     "CARBON-DIOXIDE[p]": -0.05614878939355406,
+     "acetate_per_glucose": 0.00026125403564505585
+    }
+   ]
+  },
+  "condition/minus_magnesium": {
+   "n_runs": 8,
+   "growth_per_h": 0.9004,
+   "ACET[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "GLC[p]": {
+    "mean": -5.943324,
+    "sd": 0.434475
+   },
+   "OXYGEN-MOLECULE[p]": {
+    "mean": -0.32846,
+    "sd": 0.269599
+   },
+   "ETOH[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "FORMATE[p]": {
+    "mean": 0.049819,
+    "sd": 0.061287
+   },
+   "SUC[p]": {
+    "mean": 0.0,
+    "sd": 0.0
+   },
+   "CARBON-DIOXIDE[p]": {
+    "mean": 1.626838,
+    "sd": 0.457318
+   },
+   "acetate_per_glucose": 0.0,
+   "direction": "zero",
+   "runs": [
+    {
+     "id": "condition_5_6d473a87",
+     "growth_per_h": 0.9149,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.07404844953138,
+     "OXYGEN-MOLECULE[p]": -0.9802469374641714,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.20112621110584297,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 2.6695793747009335,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_2_04861b41",
+     "growth_per_h": 0.9377,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.200245800333888,
+     "OXYGEN-MOLECULE[p]": -0.21735244039879573,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.022188652933831193,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.6050399343749313,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_0_a25bbbe9",
+     "growth_per_h": 0.8771,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.819635721587453,
+     "OXYGEN-MOLECULE[p]": -0.2698388439018753,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.031181126123216912,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.5299842402028319,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_6_29fa7463",
+     "growth_per_h": 0.9169,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.058983155184373,
+     "OXYGEN-MOLECULE[p]": -0.1061137620393573,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.022101286822681525,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.4491016558720906,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_7_e67a724c",
+     "growth_per_h": 1.0168,
+     "ACET[p]": 0.0,
+     "GLC[p]": -6.727678512509812,
+     "OXYGEN-MOLECULE[p]": -0.27774711284731957,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.031814766812157995,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.7903787710724817,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_3_ee897a91",
+     "growth_per_h": 0.8154,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.345403374953609,
+     "OXYGEN-MOLECULE[p]": -0.2914188255498439,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.03379450276406127,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.1961308896227965,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_1_77a8b6dc",
+     "growth_per_h": 0.8934,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.8560948955887335,
+     "OXYGEN-MOLECULE[p]": -0.24472213070126697,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.028984511286240626,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.451118091598645,
+     "acetate_per_glucose": 0.0
+    },
+    {
+     "id": "condition_4_8edb1a17",
+     "growth_per_h": 0.8308,
+     "ACET[p]": 0.0,
+     "GLC[p]": -5.464499137903067,
+     "OXYGEN-MOLECULE[p]": -0.24024126998069228,
+     "ETOH[p]": 0.0,
+     "FORMATE[p]": 0.027360016854672934,
+     "SUC[p]": 0.0,
+     "CARBON-DIOXIDE[p]": 1.3233734715790975,
+     "acetate_per_glucose": 0.0
+    }
+   ]
+  }
+ },
+ "unreachable": null,
+ "computed_utc": "2026-11-25T16:53:55Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "4cebb80",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

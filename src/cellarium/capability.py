@@ -844,7 +844,80 @@ CAPABILITIES: tuple[Capability, ...] = (
                      "to 35 on basal, with 2 runs against 17, not significant at FDR 0.10)"},
         detail="arabinose induction of the araBAD operon through AraC",
     ),
+    # BV-G2 (2026-11-25): BV-1 found the gate answering this and the answer misleading (BV-3: the whole-cell
+    # knockout calls 1 of 214 Keio-essential metabolic genes lethal where iML1515 flux balance calls 163).
+    Capability(
+        key="essentiality_of_a_metabolic_gene",
+        question="Is a metabolic gene essential: does knocking out its enzyme stop growth?",
+        present=False,
+        holds_in=(),        # the objective that reroutes is the same under every elongation model
+        markers=(),
+        instead={ALL_MODES: "metabolism solves a homeostatic flux balance (FluxBalanceAnalysisModel): it keeps about "
+                 "173 metabolite pools near their targets and minimises the deviation, with no growth-maximising "
+                 "objective, so a missing enzyme's flux is rerouted or its pool target relaxed and growth goes on"},
+        consequence={ALL_MODES: "on the 1,357 iML1515 metabolic genes Keio scores, the whole-cell knockout calls 1 "
+                     "of 214 essential genes lethal (MCC 0.04) where iML1515 flux balance calls 163 (MCC 0.78; "
+                     "evals/results/bv3_essentiality.json). Ask essentiality of the flux-balance cross-check "
+                     "(fba.fba_essentiality_panel), not of the whole-cell runs; machinery genes (ribosome, "
+                     "polymerase, synthetases) are the ones it does call lethal"},
+        detail="lethality of a metabolic-gene knockout",
+    ),
+    # BV-AN (2026-11-25): the second answered-and-misleads row of BV-1.
+    Capability(
+        key="anaerobic_respiration_induction_magnitude",
+        question="How strongly does the loss of oxygen induce anaerobic respiration: nitrate reductase (narGHJI) and "
+                 "fumarate reductase (frdABCD)?",
+        present=False,
+        holds_in=(),        # the magnitude is a fitted input, the same in every mode
+        markers=(),
+        instead={ALL_MODES: "no_oxygen is fitted with FNR, ArcA and CRP active; FNR's fold changes at narGHJI are "
+                 "+0.80 to +1.54 log2 and frdA has no FNR or ArcA entry (fold_changes.tsv), so the fit gives nar "
+                 "and frd a small rise"},
+        consequence={ALL_MODES: "the direction is right and the size is not: the model raises narG about +0.7 and "
+                     "frdA +1.8 log2 against aerobic glucose, where PRECISE-1K measures +3.98 and +3.21 (about "
+                     "sixteen-fold and nine-fold; evals/results/anaerobic_response.json). A reading reports an "
+                     "under-two-fold induction where the organism's is an order of magnitude larger"},
+        detail="the magnitude of anaerobic induction of nitrate and fumarate reductase",
+    ),
+    # BV-OF (2026-11-25): BV-6 read the exchange fluxes of 75 corpus runs. Overflow and fermentation are absent.
+    Capability(
+        key="overflow_and_fermentation_products",
+        question="Does the cell excrete acetate (overflow metabolism) or, without oxygen, fermentation products, and "
+                 "how does that change with growth rate?",
+        present=False,
+        holds_in=(),        # the flux balance is the same homeostatic objective under every elongation model
+        markers=(),
+        instead={ALL_MODES: "metabolism solves a homeostatic flux balance (FluxBalanceAnalysisModel) that keeps "
+                 "metabolite pools near their targets, with no growth-maximising objective and no proteome cost of "
+                 "respiration, so nothing pushes carbon out as acetate, and anaerobically the carbon goes to biomass "
+                 "and pools rather than to mixed-acid fermentation products"},
+        consequence={ALL_MODES: "acetate excretion is exactly 0 in every aerobic glucose design from 0.53 to 0.92 "
+                     "per hour (37 runs: basal, ppGpp clamps, rRNA operon removal, glucose doses), where the "
+                     "organism's acetate excretion rises with growth rate (Basan et al. 2015); anaerobically, per "
+                     "glucose taken up, the model excretes 0.0002 acetate, no ethanol, 0.008 formate and 0.08 "
+                     "succinate, where the organism's major products are acetate, ethanol and formate (Clark 1989). "
+                     "evals/results/bv6_overflow.json"},
+        detail="acetate overflow and mixed-acid fermentation products",
+    ),
 )
+
+# Y12 (2026-11-25): WHICH BUILD this registry describes. Its records were read from, and its corpus was produced by,
+# the campaign checkout as built into the per-user code image (campaign branch c2047dc9 plus uncommitted changes,
+# September 2026; each corpus row records the image digest it ran). Of that build, Cellarium's own parts are public
+# on the campaign branch since 8e7dd6c5; the kinetic tRNA-charging port is Stanford-derived and held local while its
+# licence request is pending, and ROUTE1's isoacceptor broadcast reads structures the port builds, so it is held with
+# it. A new user's clone resolves 26 of 33 dependency references (evals/results/dependency_audit_public.json); the
+# records below cannot be reproduced from public code until the port is published.
+BUILD = {
+    "corpus_build": "the per-user code image built from the campaign checkout (c2047dc9 plus uncommitted changes); "
+                    "each corpus row records its image digest",
+    "public_branch": "MohammedNagdi/wcEcoli feature/wcecoli-platform",
+    "public_commit": "8e7dd6c5",
+    "held_local": {"kinetic tRNA-charging port": "Stanford-derived; licence request pending",
+                   "ROUTE1 isoacceptor broadcast": "reads structures the port builds; held with it"},
+    "records_not_reproducible_from_public_code": ("per_isoacceptor_trna_charging", "codon_level_elongation",
+                                                  "per_amino_acid_trna_charging"),
+}
 
 _BY_KEY = {c.key: c for c in CAPABILITIES}
 
@@ -869,6 +942,12 @@ DEPENDS_ON: dict[str, tuple[str, ...]] = {
         "reconstruction/ecoli/dataclasses/state/external_state.py::IMPORT_CONSTRAINT_THRESHOLD",
         f"{_FLAT}/condition/media_recipes.tsv::minimal_GLC_2mM"),
     "growth_without_a_carbon_source": (f"{_FLAT}/condition/media_recipes.tsv::minimal_no_glucose",),
+    "essentiality_of_a_metabolic_gene": ("models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
+                                         "models/ecoli/processes/metabolism.py::homeostatic_objective"),
+    "anaerobic_respiration_induction_magnitude": (f"{_FLAT}/fold_changes.tsv::fnr",
+                                                  f"{_FLAT}/condition/condition_defs.tsv::no_oxygen"),
+    "overflow_and_fermentation_products": ("models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
+                                           "models/ecoli/processes/metabolism.py::homeostatic_objective"),
     "knockout_of_a_multi_transcription_unit_gene": (
         "models/ecoli/sim/variants/graded_gene_knockout.py::graded_gene_knockout",),
     "per_amino_acid_trna_charging": (f"{_PE}::SteadyStateElongationModel", f"{_PE}::CoarseKineticTrnaChargingModel",
