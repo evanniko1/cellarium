@@ -43,6 +43,13 @@ Stats convention: `target vs reference | effect% | Welch t | n_seeds`. |t| ≥ 2
 > and the carbon-source ordering follows the doubling times the fit is given (136 and 82 min against 44), so it is
 > calibrated. Before a reader fix the same day (`40ea297`), one basal run outside the reader's mount aborted the
 > arabinose comparison; four such runs are now left out and named.
+>
+> **Re-checked 2026-11-25** (`evals/results/regulation_scope.json`, `anaerobic_response.json`; Platform Map Appendix
+> M.1). The re-run reproduces every number above. Two additions. The model under-induces anaerobic respiration:
+> anaerobic against aerobic glucose, PRECISE-1K measures narG +3.98 and frdA +3.21 log₂, and the model gives narG
+> about +0.7 and frdA +1.8 (FNR's fitted fold changes at nar are +0.8 to +1.5; frdA has no FNR entry). And NarX's
+> apparent −5.07 log₂ in nitrate is the reader, not the cell: the protein count misses NarX inside its
+> phosphorylated, nitrate-bound complex, and its total rises about 0.36 log₂.
 
 > **The one fact that organizes everything.** wcEcoli's metabolism runs a **homeostatic** FBA objective — keep
 > ~173 metabolite pools in range (soft kinetic targets), *minimize deviation*. There is **no biomass-maximization

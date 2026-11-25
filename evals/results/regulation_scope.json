@@ -1,0 +1,651 @@
+{
+ "source": "scripts/regulation_scope.py --with-reader (reader image ${USER}-wcm-code:latest, the per-user code image), re-run 2026-11-25; identical to the 2026-11-24 run in every gene-level row and section",
+ "controls": {
+  "growth_rate": {
+   "channel": "growth_rate",
+   "target": "rrna_operon_knockout/minimal|rRNA_KO:6op",
+   "reference": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+   "expected": "down",
+   "anchor": "fewer rRNA operons, slower growth (Stevenson & Schmidt 2004)",
+   "observed_pct": -35.3,
+   "welch_p": 0.0,
+   "passed": true,
+   "reason": "",
+   "n_target": 4,
+   "n_reference": 4
+  },
+  "ribosome_conc": {
+   "channel": "ribosome_conc",
+   "target": "rrna_operon_knockout/minimal|rRNA_KO:6op",
+   "reference": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+   "expected": "down",
+   "anchor": "fewer rRNA operons, fewer ribosomes (Stevenson & Schmidt 2004)",
+   "observed_pct": -49.7,
+   "welch_p": 0.0,
+   "passed": true,
+   "reason": "",
+   "n_target": 4,
+   "n_reference": 4
+  },
+  "ppgpp_conc": {
+   "channel": "ppgpp_conc",
+   "target": "ppgpp_conc/basal|ppGpp:2.0x",
+   "reference": "ppgpp_conc/basal|ppGpp:0.2x",
+   "expected": "up",
+   "anchor": "the clamp sets ppGpp: a manipulation check on the channel",
+   "observed_pct": 900.0,
+   "welch_p": 0.0,
+   "passed": true,
+   "reason": "",
+   "n_target": 4,
+   "n_reference": 4
+  },
+  "rela_conc": {
+   "channel": "rela_conc",
+   "passed": null,
+   "reason": "no control is registered for rela_conc; a claim on it is uncontrolled"
+  }
+ },
+ "ribosome_growth_law": {
+  "fit_all": {
+   "n": 14,
+   "r_squared": 0.608,
+   "pearson_r": 0.779,
+   "slope_p_value": 0.001
+  },
+  "fit_out_of_sample_only": {
+   "n": 9,
+   "r_squared": 0.568,
+   "pearson_r": 0.754,
+   "slope_p_value": 0.019
+  }
+ },
+ "ppgpp_clamps": [
+  {
+   "target": "ppgpp_conc/basal|ppGpp:0.2x",
+   "reference": "wildtype/basal",
+   "channel": "growth_rate",
+   "effect_pct": -22.7,
+   "welch_p": 0.011,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:0.2x",
+   "reference": "wildtype/basal",
+   "channel": "ribosome_conc",
+   "effect_pct": -28.6,
+   "welch_p": 0.0001,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:0.6x",
+   "reference": "wildtype/basal",
+   "channel": "growth_rate",
+   "effect_pct": -7.5,
+   "welch_p": 0.0356,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:0.6x",
+   "reference": "wildtype/basal",
+   "channel": "ribosome_conc",
+   "effect_pct": 1.0,
+   "welch_p": 0.7556,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:1.6x",
+   "reference": "wildtype/basal",
+   "channel": "growth_rate",
+   "effect_pct": -7.0,
+   "welch_p": 0.2613,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:1.6x",
+   "reference": "wildtype/basal",
+   "channel": "ribosome_conc",
+   "effect_pct": -8.3,
+   "welch_p": 0.1053,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:2.0x",
+   "reference": "wildtype/basal",
+   "channel": "growth_rate",
+   "effect_pct": -21.5,
+   "welch_p": 0.0004,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "ppgpp_conc/basal|ppGpp:2.0x",
+   "reference": "wildtype/basal",
+   "channel": "ribosome_conc",
+   "effect_pct": -12.9,
+   "welch_p": 0.0012,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  }
+ ],
+ "rrna_dosage": [
+  {
+   "target": "rrna_operon_knockout/minimal|rRNA_KO:4op",
+   "reference": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+   "channel": "growth_rate",
+   "effect_pct": -20.1,
+   "welch_p": 0.0007,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "rrna_operon_knockout/minimal|rRNA_KO:4op",
+   "reference": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+   "channel": "ribosome_conc",
+   "effect_pct": -19.1,
+   "welch_p": 0.0,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "rrna_operon_knockout/minimal|rRNA_KO:6op",
+   "reference": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+   "channel": "growth_rate",
+   "effect_pct": -35.3,
+   "welch_p": 0.0,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  },
+  {
+   "target": "rrna_operon_knockout/minimal|rRNA_KO:6op",
+   "reference": "rrna_operon_knockout/minimal|rRNA_KO:2op",
+   "channel": "ribosome_conc",
+   "effect_pct": -49.7,
+   "welch_p": 0.0,
+   "n_target": 4,
+   "n_reference": 4,
+   "generations": 4
+  }
+ ],
+ "carbon_sources": [
+  {
+   "target": "condition/acetate",
+   "reference": "wildtype/basal",
+   "channel": "growth_rate",
+   "effect_pct": -33.4,
+   "welch_p": 0.0,
+   "n_target": 13,
+   "n_reference": 20,
+   "generations": 1
+  },
+  {
+   "target": "condition/succinate",
+   "reference": "wildtype/basal",
+   "channel": "growth_rate",
+   "effect_pct": -23.5,
+   "welch_p": 0.0095,
+   "n_target": 3,
+   "n_reference": 20,
+   "generations": 1
+  }
+ ],
+ "synthetase_knockouts": [
+  {
+   "design": "gene_knockout/KO:argS",
+   "label_integrity": "ok",
+   "true_label": "gene_KO:argS",
+   "ppgpp_conc": {
+    "effect_pct": -18.7,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "rela_conc": {
+    "effect_pct": -15.4,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "growth_rate": {
+    "effect_pct": -63.7,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   }
+  },
+  {
+   "design": "gene_knockout/KO:alaS",
+   "label_integrity": "ok",
+   "true_label": "gene_KO:alaS",
+   "ppgpp_conc": {
+    "effect_pct": 2.0,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "rela_conc": {
+    "effect_pct": -11.3,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "growth_rate": {
+    "effect_pct": -64.9,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   }
+  },
+  {
+   "design": "gene_knockout/KO:gltX",
+   "label_integrity": "ok",
+   "true_label": "gene_KO:gltX",
+   "ppgpp_conc": {
+    "effect_pct": -20.3,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "rela_conc": {
+    "effect_pct": -16.9,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "growth_rate": {
+    "effect_pct": -63.6,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   }
+  },
+  {
+   "design": "gene_knockout/KO:pheS",
+   "label_integrity": "operon_wide",
+   "true_label": "operon_KO:thrS-infC-rpmI-rplT-pheMST-ihfA",
+   "ppgpp_conc": {
+    "effect_pct": -40.7,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "rela_conc": {
+    "effect_pct": -9.1,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "growth_rate": {
+    "effect_pct": -61.9,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   }
+  },
+  {
+   "design": "multi_gene_knockout/KO:gltX+relA+spoT",
+   "label_integrity": "misnamed",
+   "true_label": "gene_KO:gltX+spoT(relA NOT silenced)",
+   "ppgpp_conc": {
+    "effect_pct": 517.4,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "rela_conc": {
+    "effect_pct": -7.0,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   },
+   "growth_rate": {
+    "effect_pct": -68.4,
+    "welch_p": null,
+    "n_target": 1,
+    "generations": 1
+   }
+  }
+ ],
+ "gene_level": [
+  {
+   "regulon": "ara_arabinose",
+   "condition": "condition/plus_arabinose",
+   "reference": "wildtype/basal",
+   "re_derived": true,
+   "verdict": "no significant regulon response",
+   "n_regulon_genes": 9,
+   "n_significant_in_regulon": 0,
+   "n_significant_total": 306,
+   "movers": [],
+   "regulon_levels": {
+    "araD": {
+     "target": 8.0,
+     "reference": 35.1,
+     "log2fc": -2.0044
+    },
+    "araC": {
+     "target": 56.2,
+     "reference": 86.7,
+     "log2fc": -0.6165
+    },
+    "araG": {
+     "target": 92.3,
+     "reference": 67.8,
+     "log2fc": 0.4389
+    },
+    "araF": {
+     "target": 86.2,
+     "reference": 75.8,
+     "log2fc": 0.1825
+    },
+    "araH": {
+     "target": 93.9,
+     "reference": 67.3,
+     "log2fc": 0.4746
+    },
+    "araA": {
+     "target": 9.5,
+     "reference": 33.8,
+     "log2fc": -1.7288
+    },
+    "araB": {
+     "target": 8.5,
+     "reference": 34.7,
+     "log2fc": -1.9097
+    }
+   },
+   "n_target_runs": 2,
+   "n_reference_runs": 17,
+   "unreachable": [
+    {
+     "role": "reference",
+     "n_reachable": 17,
+     "n_unreachable": 4,
+     "output_trees_not_mounted": [
+      "runs_seed_aars"
+     ]
+    }
+   ]
+  },
+  {
+   "regulon": "nar_nitrate",
+   "condition": "condition/plus_nitrate",
+   "reference": "condition/no_oxygen",
+   "re_derived": true,
+   "verdict": "no significant regulon response",
+   "n_regulon_genes": 10,
+   "n_significant_in_regulon": 0,
+   "n_significant_total": 1641,
+   "movers": [],
+   "regulon_levels": {
+    "narJ": {
+     "target": 29.0,
+     "reference": 8.5,
+     "log2fc": 1.66
+    },
+    "narL": {
+     "target": 474.3,
+     "reference": 158.6,
+     "log2fc": 1.5747
+    },
+    "narI": {
+     "target": 31.4,
+     "reference": 9.4,
+     "log2fc": 1.6439
+    },
+    "narG": {
+     "target": 27.0,
+     "reference": 9.6,
+     "log2fc": 1.3952
+    },
+    "narH": {
+     "target": 21.2,
+     "reference": 11.9,
+     "log2fc": 0.7759
+    }
+   },
+   "n_target_runs": 2,
+   "n_reference_runs": 8,
+   "unreachable": []
+  },
+  {
+   "regulon": "fnr_anaerobic",
+   "condition": "condition/plus_nitrate",
+   "reference": "condition/no_oxygen",
+   "re_derived": true,
+   "verdict": "repressed",
+   "n_regulon_genes": 12,
+   "n_significant_in_regulon": 9,
+   "n_significant_total": 1641,
+   "movers": [
+    {
+     "gene": "cydb",
+     "log2fc": -3.4,
+     "q": 0.0011
+    },
+    {
+     "gene": "ansb",
+     "log2fc": -3.11,
+     "q": null
+    },
+    {
+     "gene": "cyda",
+     "log2fc": -3.07,
+     "q": 0.0011
+    },
+    {
+     "gene": "frdd",
+     "log2fc": -2.67,
+     "q": 0.0029
+    },
+    {
+     "gene": "frdb",
+     "log2fc": -2.45,
+     "q": 0.0051
+    },
+    {
+     "gene": "frda",
+     "log2fc": -2.24,
+     "q": 0.0085
+    },
+    {
+     "gene": "frdc",
+     "log2fc": -2.07,
+     "q": 0.0027
+    },
+    {
+     "gene": "pflb",
+     "log2fc": -1.46,
+     "q": null
+    },
+    {
+     "gene": "foca",
+     "log2fc": -1.4,
+     "q": 0.0432
+    }
+   ],
+   "regulon_levels": {
+    "frdB": {
+     "target": 16.5,
+     "reference": 94.4,
+     "log2fc": -2.4471
+    },
+    "frdA": {
+     "target": 22.5,
+     "reference": 110.0,
+     "log2fc": -2.2397
+    },
+    "frdC": {
+     "target": 17.0,
+     "reference": 74.6,
+     "log2fc": -2.0697
+    },
+    "pflB": {
+     "target": 5647.0,
+     "reference": 15576.1,
+     "log2fc": -1.4636
+    },
+    "frdD": {
+     "target": 15.0,
+     "reference": 100.5,
+     "log2fc": -2.6654
+    },
+    "ansB": {
+     "target": 14.0,
+     "reference": 128.7,
+     "log2fc": -3.112
+    },
+    "dcuC": {
+     "target": 77.9,
+     "reference": 192.2,
+     "log2fc": -1.2931
+    },
+    "cydB": {
+     "target": 7.5,
+     "reference": 88.5,
+     "log2fc": -3.4022
+    },
+    "cydA": {
+     "target": 9.8,
+     "reference": 89.3,
+     "log2fc": -3.0653
+    },
+    "focA": {
+     "target": 94.0,
+     "reference": 249.4,
+     "log2fc": -1.3974
+    }
+   },
+   "n_target_runs": 2,
+   "n_reference_runs": 8,
+   "unreachable": []
+  },
+  {
+   "regulon": "nar_nitrate",
+   "condition": "condition/plus_nitrate",
+   "reference": "wildtype/basal",
+   "re_derived": true,
+   "verdict": "activated",
+   "n_regulon_genes": 10,
+   "n_significant_in_regulon": 3,
+   "n_significant_total": 319,
+   "movers": [
+    {
+     "gene": "narx",
+     "log2fc": -5.07,
+     "q": 0.0003
+    },
+    {
+     "gene": "narg",
+     "log2fc": 2.04,
+     "q": 0.0019
+    },
+    {
+     "gene": "narh",
+     "log2fc": 1.57,
+     "q": 0.0101
+    }
+   ],
+   "regulon_levels": {
+    "narI": {
+     "target": 31.4,
+     "reference": 5.4,
+     "log2fc": 2.3314
+    },
+    "narX": {
+     "target": 0.8,
+     "reference": 60.5,
+     "log2fc": -5.0686
+    },
+    "narL": {
+     "target": 474.3,
+     "reference": 564.2,
+     "log2fc": -0.2499
+    },
+    "narJ": {
+     "target": 29.0,
+     "reference": 4.2,
+     "log2fc": 2.5176
+    },
+    "narG": {
+     "target": 27.0,
+     "reference": 5.8,
+     "log2fc": 2.0405
+    },
+    "narH": {
+     "target": 21.2,
+     "reference": 6.5,
+     "log2fc": 1.5674
+    }
+   },
+   "n_target_runs": 2,
+   "n_reference_runs": 17,
+   "unreachable": [
+    {
+     "role": "reference",
+     "n_reachable": 17,
+     "n_unreachable": 4,
+     "output_trees_not_mounted": [
+      "runs_seed_aars"
+     ]
+    }
+   ]
+  }
+ ],
+ "computed_utc": "2026-11-25T12:35:48Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "18c5412",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}
