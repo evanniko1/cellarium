@@ -32,6 +32,10 @@ DECLARATION_ONLY = {
     "essentiality_of_a_metabolic_gene", "anaerobic_respiration_induction_magnitude",
     # BV-OF (2026-11-25): rests on the same objective's design as BV-G2; re-derived by evals/bv6_overflow.py.
     "overflow_and_fermentation_products",
+    # BV-EL (2026-11-25): rests on the steady-state elongation model's ppGpp relation; re-derived by bv7_elongation.py.
+    "elongation_rate_against_growth_rate",
+    # BV-CF (2026-11-25): the same objective's design as BV-G2 and BV-OF; re-derived by evals/bv11_fluxes.py.
+    "central_carbon_flux_split",
 }
 
 

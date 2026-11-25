@@ -74,15 +74,18 @@ def public(clone: Path) -> int:
     out = {"spec": "Y12, a new user's clone", "clone": "MohammedNagdi/wcEcoli feature/wcecoli-platform, fresh "
                                                       "anonymous clone",
            "public_commit": head.stdout.strip() or None,
-           "n_references": res["n_references"], "resolve_publicly": res["resolve_in_checkout"],
-           "missing_publicly": res["missing"],
+           # unique references on both sides: two records can cite one symbol, and until 2026-11-25 this line
+           # divided a unique count by the total (it read "26 of 33" for 26 of 32 unique)
+           "n_references": res["n_references"], "n_unique": res["n_unique"],
+           "resolve_publicly": res["resolve_in_checkout"], "missing_publicly": res["missing"],
            "records_resting_on_unpublished_code": {k: v for k, v in by.items() if v},
            "why": "the kinetic tRNA-charging port is Stanford-derived and its licence request is pending; ROUTE1's "
                   "isoacceptor broadcast reads structures the port builds, so it stays local with the port",
            "computed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "environment": provenance.code_environment()}
     PUBLIC_OUT.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
-    print(out["public_commit"], out["resolve_publicly"], "of", out["n_references"], out["records_resting_on_unpublished_code"])
+    print(out["public_commit"], out["resolve_publicly"], "of", out["n_unique"], "unique references",
+          out["records_resting_on_unpublished_code"])
     return 0
 
 

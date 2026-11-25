@@ -251,6 +251,22 @@ def protein_noise(host_run_roots: list[Path], k: int = 5) -> dict:
     return out
 
 
+def base_reaction_fluxes(host_run_roots: list[Path], reaction_ids: list[str]) -> dict:
+    """BV-11: named base reactions' fluxes (mmol/gDCW/h, wcEcoli's own conversion) per run, in one call."""
+    if WCECOLI_DOCKER:
+        ok, missed = _reachable(host_run_roots, "runs")
+        if not ok:
+            return {"error": "no run is reachable by the reader container", "_unreachable": missed}
+        out = _run_cmd(_worker_cmd("base_reaction_fluxes", [",".join(ok), ",".join(reaction_ids)]), None)
+    else:
+        roots = ",".join(str(Path(r).resolve()) for r in host_run_roots)
+        out = _run_cmd([PY, str(_WORKER), "base_reaction_fluxes", roots, ",".join(reaction_ids)], WCECOLI_DIR or None)
+        missed = None
+    if missed and isinstance(out, dict):
+        out["_unreachable"] = missed
+    return out
+
+
 def list_species(host_run_root: Path, kind: str, search: str = "") -> dict:
     return _invoke("list_species", host_run_root, [kind, search])
 

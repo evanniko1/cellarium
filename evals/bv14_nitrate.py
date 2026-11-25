@@ -49,6 +49,7 @@ def plan() -> int:
     runs += [{"id": f"bv14-basal-s{s}", "design": {"perturbation": "wildtype", "condition": "basal"}, "seed": s,
               "generations": 3, "group": "bv14_basal", "role": "run", "stage": 2} for s in range(2)]
     p = {"batch": "bv14", "sim_path": SIM_PATH, "parallel": 6, "min_free_gb": 40, "priority": -1, "gates": GATES,
+         "keep_raw": True,   # scored from raw protein counts after the runs finish; deposited after scoring
          "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
          "why_first": "the user asked for BV-12 to BV-14 to run on this machine; BV-14 is 12 runs, BV-12 126, so "
                       "BV-14 goes first and its result does not wait a day behind BV-12",

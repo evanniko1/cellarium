@@ -327,20 +327,71 @@
     ]
    },
    "agreement": "misleads: the model excretes exactly 0 acetate in all 37 aerobic glucose runs from 0.53 to 0.92 per hour (BV-6), so no reading shows overflow or its rise with growth",
-   "cell": "refused, would mislead"
+   "cell": "refused, would mislead",
+   "added_after": "BV-6"
+  },
+  {
+   "id": "elongation_rate_falls_with_growth",
+   "question": "Does the translation elongation rate fall as growth slows on poorer carbon sources?",
+   "requirement": {
+    "observable": "elongation",
+    "granularity": "aggregate",
+    "regulatory_dependencies": [
+     "elongation_growth_dependence"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "yes: the elongation rate decreases as growth slows, though an appreciable rate is maintained towards zero growth",
+    "source": "Dai et al. 2016",
+    "doi": "10.1038/nmicrobiol.2016.231"
+   },
+   "model": {
+    "wildtype/basal": [
+     0.888,
+     16.393
+    ],
+    "condition/acetate": [
+     0.604,
+     18.677
+    ],
+    "condition/succinate": [
+     0.6943,
+     18.283
+    ],
+    "condition/no_oxygen": [
+     0.5082,
+     20.125
+    ]
+   },
+   "agreement": "misleads: across media the model's elongation rate rises as growth slows (acetate 18.7, succinate 18.3, anaerobic 20.1 against glucose 16.4 aa/s; BV-7)",
+   "cell": "refused, would mislead",
+   "added_after": "BV-7"
   }
  ],
  "tally": {
-  "refused, would mislead": 7,
+  "refused, would mislead": 8,
   "refused, would have agreed": 1,
   "answered, agrees": 5
  },
+ "tally_original_twelve": {
+  "refused, would mislead": 6,
+  "refused, would have agreed": 1,
+  "answered, agrees": 5
+ },
+ "first_run_original_twelve": {
+  "refused, would mislead": 4,
+  "refused, would have agreed": 1,
+  "answered, agrees": 5,
+  "answered, misleads": 2
+ },
+ "reading_of_the_added": "questions written after BV-6 and BV-7 found the failure; the record that refuses them was built from the same finding, so they are a wiring check, not a test of the gate's judgment",
  "reading": "refused-would-mislead is the gate working; answered-misleads is a registry gap; refused-would-have-agreed is what refusing costs",
- "computed_utc": "2026-11-25T16:58:34Z",
+ "computed_utc": "2026-11-25T17:25:56Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "3d9759a",
+  "git_commit": "7da6b3d",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

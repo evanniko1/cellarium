@@ -1,10 +1,10 @@
 {
  "spec": "Ms-1",
- "checkout_commit": "c2047dc9",
- "n_references": 29,
- "n_unique": 28,
- "resolve_in_checkout": 28,
- "resolve_at_commit": 21,
+ "checkout_commit": "c2047dc9d",
+ "n_references": 39,
+ "n_unique": 33,
+ "resolve_in_checkout": 33,
+ "resolve_at_commit": 26,
  "missing": [],
  "only_in_uncommitted_changes": [
   "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
@@ -80,6 +80,66 @@
   "growth_without_a_carbon_source": [
    {
     "ref": "reconstruction/ecoli/flat/condition/media_recipes.tsv::minimal_no_glucose",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "essentiality_of_a_metabolic_gene": [
+   {
+    "ref": "models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/metabolism.py::homeostatic_objective",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "anaerobic_respiration_induction_magnitude": [
+   {
+    "ref": "reconstruction/ecoli/flat/fold_changes.tsv::fnr",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/flat/condition/condition_defs.tsv::no_oxygen",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "overflow_and_fermentation_products": [
+   {
+    "ref": "models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/metabolism.py::homeostatic_objective",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "elongation_rate_against_growth_rate": [
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::SteadyStateElongationModel",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/polypeptide_elongation.py::elong_rate_by_ppgpp",
+    "checkout": true,
+    "commit": true
+   }
+  ],
+  "central_carbon_flux_split": [
+   {
+    "ref": "models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "models/ecoli/processes/metabolism.py::homeostatic_objective",
     "checkout": true,
     "commit": true
    }
@@ -192,11 +252,11 @@
  "no_dependency_reason": {
   "per_gene_trna_abundance": "the per-gene counts are divided out of about 44 species measurements in the fit's inputs; no single symbol carries the division, so none is cited rather than a guess"
  },
- "computed_utc": "2026-11-24T23:10:17Z",
+ "computed_utc": "2026-11-25T17:26:46Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "318bdc6",
+  "git_commit": "7da6b3d",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

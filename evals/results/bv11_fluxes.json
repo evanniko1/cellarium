@@ -1,0 +1,240 @@
+{
+ "spec": "BV-11",
+ "data": "Toya et al. 2010 via wcEcoli validation/ecoli/flat/toya_2010_central_carbon_fluxes.tsv",
+ "design": "wildtype/basal",
+ "knowledge_base": "3b2f8ebd (the corpus fit), steady state",
+ "n_runs": 17,
+ "in_sample": "a control: the data are the model builders' own validation set (Macklin et al. 2020), not a fit input; fluxes are emergent from the homeostatic FBA",
+ "n_reactions_compared": 23,
+ "pearson_r": 0.737,
+ "pearson_p": 6.065838459901152e-05,
+ "spearman_rho": 0.642,
+ "n_within_2sd": 8,
+ "median_abs_log2_ratio": 2.392,
+ "reactions": [
+  {
+   "reaction": "TRANS-RXN-157",
+   "toya": 10.17,
+   "toya_sd": 2.16,
+   "model": 1.344,
+   "model_sd": 1.195,
+   "within_2sd": false
+  },
+  {
+   "reaction": "PGLUCISOM-RXN",
+   "toya": 6.04,
+   "toya_sd": 0.84,
+   "model": 3.38,
+   "model_sd": 0.883,
+   "within_2sd": false
+  },
+  {
+   "reaction": "6PFRUCTPHOS-RXN",
+   "toya": 8.06,
+   "toya_sd": 1.52,
+   "model": 1.5,
+   "model_sd": 0.188,
+   "within_2sd": false
+  },
+  {
+   "reaction": "F16ALDOLASE-RXN",
+   "toya": 8.06,
+   "toya_sd": 1.52,
+   "model": 1.322,
+   "model_sd": 0.183,
+   "within_2sd": false
+  },
+  {
+   "reaction": "TRIOSEPISOMERIZATION-RXN",
+   "toya": -8.06,
+   "toya_sd": 1.52,
+   "model": -3.929,
+   "model_sd": 0.31,
+   "within_2sd": false
+  },
+  {
+   "reaction": "GAPOXNPHOSPHN-RXN",
+   "toya": 16.89,
+   "toya_sd": 3.34,
+   "model": 8.337,
+   "model_sd": 0.462,
+   "within_2sd": false
+  },
+  {
+   "reaction": "2PGADEHYDRAT-RXN",
+   "toya": 15.85,
+   "toya_sd": 3.09,
+   "model": 8.322,
+   "model_sd": 0.459,
+   "within_2sd": false
+  },
+  {
+   "reaction": "PEPDEPHOS-RXN",
+   "toya": -1.97,
+   "toya_sd": 0.97,
+   "model": -1.53,
+   "model_sd": 1.367,
+   "within_2sd": true
+  },
+  {
+   "reaction": "PYRUVDEH-RXN",
+   "toya": 11.12,
+   "toya_sd": 1.94,
+   "model": 0.292,
+   "model_sd": 0.3,
+   "within_2sd": false
+  },
+  {
+   "reaction": "GLU6PDEHYDROG-RXN",
+   "toya": 3.98,
+   "toya_sd": 1.33,
+   "model": 2.303,
+   "model_sd": 0.99,
+   "within_2sd": true
+  },
+  {
+   "reaction": "RXN-9952",
+   "toya": 3.98,
+   "toya_sd": 1.33,
+   "model": 2.297,
+   "model_sd": 0.99,
+   "within_2sd": true
+  },
+  {
+   "reaction": "RIBULP3EPIM-RXN",
+   "toya": 2.09,
+   "toya_sd": 0.74,
+   "model": 0.781,
+   "model_sd": 0.655,
+   "within_2sd": true
+  },
+  {
+   "reaction": "RIB5PISOM-RXN",
+   "toya": -1.88,
+   "toya_sd": 0.59,
+   "model": -1.496,
+   "model_sd": 0.34,
+   "within_2sd": true
+  },
+  {
+   "reaction": "1TRANSKETO-RXN",
+   "toya": -1.2,
+   "toya_sd": 0.41,
+   "model": -0.56,
+   "model_sd": 0.327,
+   "within_2sd": true
+  },
+  {
+   "reaction": "TRANSALDOL-RXN",
+   "toya": 1.2,
+   "toya_sd": 0.41,
+   "model": -0.307,
+   "model_sd": 1.038,
+   "within_2sd": false
+  },
+  {
+   "reaction": "2TRANSKETO-RXN",
+   "toya": 0.89,
+   "toya_sd": 0.33,
+   "model": 0.272,
+   "model_sd": 0.318,
+   "within_2sd": true
+  },
+  {
+   "reaction": "CITSYN-RXN",
+   "toya": 5.46,
+   "toya_sd": 1.37,
+   "model": 0.54,
+   "model_sd": 0.473,
+   "within_2sd": false
+  },
+  {
+   "reaction": "ISOCITDEH-RXN",
+   "toya": 5.46,
+   "toya_sd": 1.37,
+   "model": 1.041,
+   "model_sd": 0.495,
+   "within_2sd": false
+  },
+  {
+   "reaction": "2OXOGLUTARATEDEH-RXN",
+   "toya": 4.62,
+   "toya_sd": 1.45,
+   "model": 0.0,
+   "model_sd": 0.0,
+   "within_2sd": false
+  },
+  {
+   "reaction": "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",
+   "toya": 4.62,
+   "toya_sd": 1.45,
+   "model": 0.213,
+   "model_sd": 0.238,
+   "within_2sd": false
+  },
+  {
+   "reaction": "FUMHYDR-RXN",
+   "toya": -4.62,
+   "toya_sd": 1.45,
+   "model": 3.04,
+   "model_sd": 2.002,
+   "within_2sd": false
+  },
+  {
+   "reaction": "MALATE-DEH-RXN",
+   "toya": 3.5,
+   "toya_sd": 0.78,
+   "model": -3.839,
+   "model_sd": 1.772,
+   "within_2sd": false
+  },
+  {
+   "reaction": "PEPCARBOX-RXN",
+   "toya": -3.34,
+   "toya_sd": 0.61,
+   "model": -3.668,
+   "model_sd": 0.543,
+   "within_2sd": true
+  }
+ ],
+ "unreachable": null,
+ "computed_utc": "2026-11-25T17:20:37Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "7da6b3d",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

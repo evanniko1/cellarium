@@ -44,6 +44,7 @@ def _model_numbers() -> dict:
     ess = _load("bv3_essentiality.json") or {}
     ana = _load("anaerobic_response.json") or {}
     ovf = _load("bv6_overflow.json") or {}
+    elo = _load("bv7_elongation.json") or {}
     eff = {(e.get("design"), e.get("channel")): e for sec in ("ppgpp_clamps", "rrna_dosage", "carbon_sources")
            for e in reg.get(sec, [])}
     nar = next((r for r in reg.get("gene_level", []) if r.get("regulon") == "nar_nitrate"
@@ -69,6 +70,10 @@ def _model_numbers() -> dict:
                                             max((d.get("growth_per_h") for d in (ovf.get("designs") or {}).values()
                                                  if d.get("growth_per_h") is not None), default=None)]}
         if ovf else None,
+        "elongation": ({d: (v.get("growth_per_h"), v.get("elongation_aa_per_s"))
+                        for d, v in (elo.get("designs") or {}).items()
+                        if d in ("wildtype/basal", "condition/acetate", "condition/succinate", "condition/no_oxygen")}
+                       if elo else None),
         "_eff": {f"{k[0]}|{k[1]}": v.get("effect_pct") for k, v in eff.items()},
     }
 
@@ -182,7 +187,7 @@ QUESTIONS = [
      "agreement": None},                 # judged from the stored numbers below
     # BV-OF (2026-11-25): BV-6 found the model excretes no acetate at any growth rate; added with the record that
     # now refuses it, so the record's effect is measured here like BV-G2's and BV-AN's
-    {"id": "acetate_overflow_on_glucose",
+    {"id": "acetate_overflow_on_glucose", "added_after": "BV-6",
      "question": "Does E. coli excrete acetate when it grows on glucose with oxygen, and more so the faster it grows?",
      "requirement": {"observable": "media_response", "granularity": "aggregate",
                      "regulatory_dependencies": ["overflow_metabolism"]},
@@ -192,6 +197,17 @@ QUESTIONS = [
      "model_key": "overflow",
      "agreement": "misleads: the model excretes exactly 0 acetate in all 37 aerobic glucose runs from 0.53 to 0.92 "
                   "per hour (BV-6), so no reading shows overflow or its rise with growth"},
+    # BV-EL (2026-11-25): BV-7 found the elongation rate rising as growth slows across media
+    {"id": "elongation_rate_falls_with_growth", "added_after": "BV-7",
+     "question": "Does the translation elongation rate fall as growth slows on poorer carbon sources?",
+     "requirement": {"observable": "elongation", "granularity": "aggregate",
+                     "regulatory_dependencies": ["elongation_growth_dependence"]},
+     "biology": {"finding": "yes: the elongation rate decreases as growth slows, though an appreciable rate is "
+                            "maintained towards zero growth",
+                 "source": "Dai et al. 2016", "doi": "10.1038/nmicrobiol.2016.231"},
+     "model_key": "elongation",
+     "agreement": "misleads: across media the model's elongation rate rises as growth slows (acetate 18.7, "
+                  "succinate 18.3, anaerobic 20.1 against glucose 16.4 aa/s; BV-7)"},
 ]
 
 
@@ -239,11 +255,21 @@ def main() -> int:
         model = q.get("model") or numbers.get(q.get("model_key"))
         rows.append({"id": q["id"], "question": q["question"], "requirement": q["requirement"], "verdict": v,
                      "biology": q["biology"], "model": model, "agreement": agreement,
-                     "cell": cell(v, agreement)})
-    tally = {}
+                     "cell": cell(v, agreement), **({"added_after": q["added_after"]} if q.get("added_after") else {})})
+    tally, tally_pre = {}, {}
     for r in rows:
         tally[r["cell"]] = tally.get(r["cell"], 0) + 1
+        if not r.get("added_after"):
+            tally_pre[r["cell"]] = tally_pre.get(r["cell"], 0) + 1
     out = {"spec": "BV-1", "rows": rows, "tally": tally,
+           # the test is the twelve questions chosen before any result; questions added after a test found a failure
+           # check only that the record built from that failure is wired, so they are counted apart
+           "tally_original_twelve": tally_pre,
+           "first_run_original_twelve": {"refused, would mislead": 4, "refused, would have agreed": 1,
+                                         "answered, agrees": 5, "answered, misleads": 2},
+           "reading_of_the_added": ("questions written after BV-6 and BV-7 found the failure; the record that refuses "
+                                    "them was built from the same finding, so they are a wiring check, not a test "
+                                    "of the gate's judgment"),
            "reading": "refused-would-mislead is the gate working; answered-misleads is a registry gap; "
                       "refused-would-have-agreed is what refusing costs",
            "computed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

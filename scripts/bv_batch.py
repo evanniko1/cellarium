@@ -77,13 +77,15 @@ def load_plans(paths: list[Path]) -> tuple[dict, list[RunSpec]]:
         plan, rs = load_plan(Path(path))
         if merged is None:
             merged = {**{k: v for k, v in plan.items() if k != "runs"}, "gates": dict(plan.get("gates", {})),
-                      "batches": [plan["batch"]]}
+                      "batches": [plan["batch"]], "keep_raw_by_batch": {}}
         else:
             for g, rule in plan.get("gates", {}).items():
                 if g in merged["gates"] and merged["gates"][g] != rule:
                     raise ValueError(f"plans disagree on the gate for group {g}")
                 merged["gates"][g] = rule
             merged["batches"].append(plan["batch"])
+        if plan.get("keep_raw"):
+            merged["keep_raw_by_batch"][plan["batch"]] = True
         for r in rs:
             if r.id in seen:
                 raise ValueError(f"run id {r.id} is in both {seen[r.id]} and {plan['batch']}")
@@ -115,7 +117,8 @@ def summarize(rec, qc_overall: str, qc_per: list) -> dict:
 def gate_result(spec: RunSpec, rule: dict | None) -> tuple[bool, str]:
     """A control passes when it is QC-clean and its generation-0 growth sits inside the group's reference range."""
     s = spec.summary
-    if spec.status != "done":
+    finished = spec.status in ("done", "adopted") or (spec.status == "exists" and spec.summary.get("qc"))
+    if not finished:                                   # adopted or exists: finished under a previous process
         return False, f"control did not finish: {spec.status} {spec.why}"
     if s.get("qc") != "ok":
         return False, f"control QC {s.get('qc')}"
@@ -137,7 +140,7 @@ class Batch:
     def __init__(self, plan: dict, runs: list[RunSpec], *, run_fn, read_fn, qc_fn, index_fn, deposit_fn,
                  existing_fn, free_gb_fn, ledger: Path, ledgers: dict | None = None, sleep=time.sleep,
                  poll_s: float = 30.0, busy_fn=None, root_fn=None, clock=time.time, on_disk_fn=None,
-                 deposit_elsewhere=()):
+                 deposit_elsewhere=(), keep_raw_batches=()):
         self.plan, self.runs = plan, runs
         self.run_fn, self.read_fn, self.qc_fn, self.index_fn = run_fn, read_fn, qc_fn, index_fn
         self.deposit_fn, self.existing_fn, self.free_gb_fn = deposit_fn, existing_fn, free_gb_fn
@@ -148,6 +151,8 @@ class Batch:
         self.clock = clock
         self.on_disk = on_disk_fn or (lambda root: Path(root).is_dir())
         self.deposit_elsewhere = set(deposit_elsewhere)   # ids another running depositor has already listed
+        # plans scored from raw output after their runs finish (BV-14): indexed, never deposited or reclaimed here
+        self.keep_raw = set(keep_raw_batches)
         self._waiting_since: dict[str, float] = {}
         self._own_running: dict = {}
         self.ledger, self.sleep, self.poll_s = ledger, sleep, poll_s
@@ -238,12 +243,17 @@ class Batch:
                 root = self.root_fn(spec) if self.root_fn else None
                 if root is not None and self.on_disk(root):
                     leftover.append((spec, root))
+                    if spec.role == "control":
+                        self._summarise_for_gate(spec, root)
         depositor = threading.Thread(target=self._deposit_worker, daemon=True)
         depositor.start()
         # indexed, but still on disk: a restart dropped the previous process's deposit queue. The deposit is
         # idempotent (already on the hub -> verify -> reclaim), and each of these may be the transit dir another
         # design is waiting for.
         for spec, root in leftover:
+            if spec.batch in self.keep_raw:
+                self.log("kept_local", spec, why="its plan is scored from raw output; deposit after scoring")
+                continue
             if spec.id in self.deposit_elsewhere:
                 self.log("deposit_left_elsewhere", spec, why="another depositor listed this run before the batch "
                                                              "started; two would race to reclaim it")
@@ -297,6 +307,17 @@ class Batch:
         return self.runs
 
     # ---- one run ---------------------------------------------------------------------------------------------
+    def _summarise_for_gate(self, spec: RunSpec, root) -> None:
+        """A control another process already finished and indexed: read it for the gate only (never re-indexed or
+        re-deposited here). A control no longer on disk cannot be read, and its group stays closed."""
+        try:
+            rec = self.read_fn(spec, root)
+            overall, per = self.qc_fn(rec)
+            spec.summary = summarize(rec, getattr(overall, "value", str(overall)), per)
+            self.log("control_read_for_gate", spec, qc=spec.summary.get("qc"))
+        except Exception as e:                                       # noqa: BLE001
+            self.log("read_failed", spec, why=f"{type(e).__name__}: {str(e)[:300]}")
+
     def _wait(self, spec: RunSpec, why: str) -> None:
         """Not launchable NOW: another process is writing the run, or its transit dir is another run's home that
         the deposit has not reclaimed yet. Look again next pass; give up, with the reason, after max_wait_s."""
@@ -351,6 +372,9 @@ class Batch:
         except Exception as e:                                       # noqa: BLE001
             self.log("index_failed", spec, why=f"{type(e).__name__}: {e}")
             return                                                   # never reclaim a run the manifest lacks
+        if spec.batch in self.keep_raw:
+            self.log("kept_local", spec, why="its plan is scored from raw output; deposit after scoring")
+            return
         self.deposits.put((spec, root))
 
     def _deposit_worker(self) -> None:
@@ -433,6 +457,12 @@ def _wire(plan: dict, repo: str, ledger: Path):
         model_dir = runner._model_output_dir(d, spec.seed, sp(spec))
         if any(_recently_written(p, WRITING_S) for p in {root, model_dir}):
             return {"where": "writing", "why": f"output under {rel} modified in the last {WRITING_S} s"}
+        # Seeds of one design share the variant's knowledge base file, which each run rewrites at its start and
+        # each generation re-reads: the runner's lock serialises them within ONE process only, so a seed another
+        # process is running (an orphan after a restart) makes the whole variant dir busy (the P1 race).
+        if _recently_written(model_dir.parent, WRITING_S):
+            return {"where": "writing", "why": f"another seed of {model_dir.parent.name} was written in the last "
+                                               f"{WRITING_S} s (the variant's shared knowledge base)"}
         last = root / f"generation_{spec.generations - 1:06d}"
         if last.exists() and any(last.glob("**/simOut")):
             return {"where": "disk_unindexed", "why": f"complete on disk at {rel}, not in the manifest"}
@@ -504,7 +534,8 @@ def main(argv=None) -> int:
                   f"{r.role:7s} {r.sim_path} {why}")
         return 0
     elsewhere = {x for x in a.deposit_elsewhere.split(",") if x}
-    runs = Batch(plan, runs, **wiring, ledgers=ledgers, deposit_elsewhere=elsewhere).run()
+    keep = {b for b in plan["batches"] if plan.get("keep_raw_by_batch", {}).get(b)}
+    runs = Batch(plan, runs, **wiring, ledgers=ledgers, deposit_elsewhere=elsewhere, keep_raw_batches=keep).run()
     print(json.dumps(_counts(runs)))
     return 0
 

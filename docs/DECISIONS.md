@@ -1099,7 +1099,7 @@ surfaces disagree. Replay of the stored calls: refused 24 -> 2 (`evals/results/r
 
 **Y12, what a new user gets.** Cellarium's own parts of the campaign branch were pushed (8e7dd6c5: the graded
 knockout variant, the starvation and anaerobic-nitrate conditions, the Docker fixes); the kinetic charging port is
-held, because its licence is pending. A fresh anonymous clone resolves 26 of 33 registry dependencies; the three
+held, because its licence is pending. A fresh anonymous clone resolves 27 of 33 unique registry dependencies (the six missing are all the held port's; first reported as 26 of 33, a unique count over the total); the three
 records resting on the held port are named in `capability.BUILD`
 (`evals/results/dependency_audit_public.json`).
 

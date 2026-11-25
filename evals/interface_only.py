@@ -67,6 +67,10 @@ _ANAEROBIC = ("an oxygen-free medium is accepted and narGHJI and frdABCD are wri
               "small fitted fold change, an order of magnitude under the organism's (BV-AN)")
 _OVERFLOW = ("every design writes exchange fluxes, acetate's among them; the homeostatic flux balance excretes none "
              "aerobically and almost no fermentation products anaerobically (BV-OF)")
+_ELONGATION = ("every design writes the ribosome listener's effective elongation rate; across media it rises as growth "
+               "slows, the opposite of the organism (BV-EL)")
+_FLUXES = ("every design writes the flux balance's reaction fluxes; the oxidative TCA cycle carries almost nothing and "
+           "its last steps run backwards (BV-CF)")
 
 UNREPRESENTED: dict[tuple[str, str], Interface] = {
     ("per_isoacceptor_trna_charging", "steady_state"): Interface(True, True, True, _ISO_STEADY),
@@ -90,6 +94,9 @@ UNREPRESENTED: dict[tuple[str, str], Interface] = {
     **{("anaerobic_respiration_induction_magnitude", m): Interface(True, True, True, _ANAEROBIC)
        for m in C.ELONGATION_MODES},
     **{("overflow_and_fermentation_products", m): Interface(True, True, True, _OVERFLOW) for m in C.ELONGATION_MODES},
+    **{("elongation_rate_against_growth_rate", m): Interface(True, True, True, _ELONGATION)
+       for m in C.ELONGATION_MODES},
+    **{("central_carbon_flux_split", m): Interface(True, True, True, _FLUXES) for m in C.ELONGATION_MODES},
 }
 
 

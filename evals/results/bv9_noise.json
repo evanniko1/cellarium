@@ -1,0 +1,5110 @@
+{
+ "spec": "BV-9",
+ "design": "wildtype/basal",
+ "knowledge_base": "3b2f8ebd (the corpus fit), steady state",
+ "n_runs": 17,
+ "n_snapshots": 205,
+ "k_per_generation": 5,
+ "organism": "Taniguchi et al. 2010 (doi:10.1126/science.1188308): gamma-distributed protein numbers; noise falls with the mean at low expression (CV2 ~ 1/mean, slope -1 in log-log) and is dominated by extrinsic noise at high expression (a floor)",
+ "in_sample": "emergent; seeds share every parameter, so cell-to-cell parameter variation is absent",
+ "reader_note": "protein counts as MonomerCounts records them; the five two-component sensors (BV-R1) are not corrected here, which does not move a scaling law over about 4,000 proteins",
+ "n_proteins": 4170,
+ "bins": [
+  {
+   "mean_range": [
+    1,
+    10
+   ],
+   "n_proteins": 541,
+   "median_cv2": 1.08603,
+   "median_cv2_times_mean": 4.655
+  },
+  {
+   "mean_range": [
+    10,
+    100
+   ],
+   "n_proteins": 1594,
+   "median_cv2": 0.71463,
+   "median_cv2_times_mean": 25.844
+  },
+  {
+   "mean_range": [
+    100,
+    1000
+   ],
+   "n_proteins": 1388,
+   "median_cv2": 0.14985,
+   "median_cv2_times_mean": 49.49
+  },
+  {
+   "mean_range": [
+    1000,
+    10000
+   ],
+   "n_proteins": 496,
+   "median_cv2": 0.08076,
+   "median_cv2_times_mean": 172.689
+  },
+  {
+   "mean_range": [
+    10000,
+    null
+   ],
+   "n_proteins": 115,
+   "median_cv2": 0.06242,
+   "median_cv2_times_mean": 1815.076
+  }
+ ],
+ "loglog_slope_low_1_to_100": -0.423,
+ "loglog_slope_high_above_1000": -0.12,
+ "floor_median_cv2_above_1000": 0.0758,
+ "taniguchi_per_gene": {
+  "organism_scaling": {
+   "n_proteins": 1018,
+   "bins": [
+    {
+     "mean_range": [
+      1,
+      10
+     ],
+     "n_proteins": 323,
+     "median_cv2": 0.372,
+     "median_cv2_times_mean": 1.487
+    },
+    {
+     "mean_range": [
+      10,
+      100
+     ],
+     "n_proteins": 421,
+     "median_cv2": 0.166,
+     "median_cv2_times_mean": 4.671
+    },
+    {
+     "mean_range": [
+      100,
+      1000
+     ],
+     "n_proteins": 134,
+     "median_cv2": 0.1465,
+     "median_cv2_times_mean": 38.629
+    },
+    {
+     "mean_range": [
+      1000,
+      10000
+     ],
+     "n_proteins": 15,
+     "median_cv2": 0.15,
+     "median_cv2_times_mean": 319.104
+    }
+   ],
+   "loglog_slope_low_1_to_100": -0.45,
+   "loglog_slope_high_above_1000": -0.176,
+   "floor_median_cv2_above_1000": 0.15
+  },
+  "n_joined": 708,
+  "spearman_cv2": 0.456,
+  "spearman_mean": 0.611,
+  "median_log2_cv2_model_over_organism": -0.552,
+  "pairs": [
+   {
+    "gene": "fruK",
+    "model_mean": 78.09,
+    "model_cv2": 0.4188,
+    "organism_mean": 40.817,
+    "organism_cv2": 0.157
+   },
+   {
+    "gene": "ubiE",
+    "model_mean": 403.91,
+    "model_cv2": 0.10381,
+    "organism_mean": 0.356,
+    "organism_cv2": 6.061
+   },
+   {
+    "gene": "fabF",
+    "model_mean": 1484.66,
+    "model_cv2": 0.09608,
+    "organism_mean": 73.676,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "pfkA",
+    "model_mean": 2816.09,
+    "model_cv2": 0.07218,
+    "organism_mean": 125.932,
+    "organism_cv2": 0.171
+   },
+   {
+    "gene": "pfkB",
+    "model_mean": 174.5,
+    "model_cv2": 0.6226,
+    "organism_mean": 36.614,
+    "organism_cv2": 0.134
+   },
+   {
+    "gene": "gnd",
+    "model_mean": 2910.11,
+    "model_cv2": 0.11802,
+    "organism_mean": 0.504,
+    "organism_cv2": 4.348
+   },
+   {
+    "gene": "bioF",
+    "model_mean": 163.48,
+    "model_cv2": 0.13936,
+    "organism_mean": 0.961,
+    "organism_cv2": 2.941
+   },
+   {
+    "gene": "ackA",
+    "model_mean": 2457.1,
+    "model_cv2": 0.08522,
+    "organism_mean": 201.673,
+    "organism_cv2": 0.109
+   },
+   {
+    "gene": "argE",
+    "model_mean": 657.85,
+    "model_cv2": 0.094,
+    "organism_mean": 12.742,
+    "organism_cv2": 0.202
+   },
+   {
+    "gene": "acnB",
+    "model_mean": 3106.73,
+    "model_cv2": 0.10394,
+    "organism_mean": 231.593,
+    "organism_cv2": 0.183
+   },
+   {
+    "gene": "cysM",
+    "model_mean": 842.17,
+    "model_cv2": 0.08975,
+    "organism_mean": 10.097,
+    "organism_cv2": 0.189
+   },
+   {
+    "gene": "fadE",
+    "model_mean": 26.37,
+    "model_cv2": 0.68047,
+    "organism_mean": 11.891,
+    "organism_cv2": 0.769
+   },
+   {
+    "gene": "adk",
+    "model_mean": 7192.2,
+    "model_cv2": 0.08458,
+    "organism_mean": 687.39,
+    "organism_cv2": 0.125
+   },
+   {
+    "gene": "purA",
+    "model_mean": 5817.48,
+    "model_cv2": 0.05902,
+    "organism_mean": 309.901,
+    "organism_cv2": 0.135
+   },
+   {
+    "gene": "glpD",
+    "model_mean": 10125.12,
+    "model_cv2": 0.05932,
+    "organism_mean": 70.686,
+    "organism_cv2": 0.154
+   },
+   {
+    "gene": "kbl",
+    "model_mean": 175.17,
+    "model_cv2": 0.70832,
+    "organism_mean": 23.183,
+    "organism_cv2": 0.227
+   },
+   {
+    "gene": "alr",
+    "model_mean": 96.4,
+    "model_cv2": 0.09975,
+    "organism_mean": 8.011,
+    "organism_cv2": 0.233
+   },
+   {
+    "gene": "dadX",
+    "model_mean": 101.85,
+    "model_cv2": 0.19069,
+    "organism_mean": 10.883,
+    "organism_cv2": 0.23
+   },
+   {
+    "gene": "alaS",
+    "model_mean": 1696.3,
+    "model_cv2": 0.08009,
+    "organism_mean": 86.147,
+    "organism_cv2": 0.127
+   },
+   {
+    "gene": "aldB",
+    "model_mean": 12.45,
+    "model_cv2": 4.44826,
+    "organism_mean": 11.944,
+    "organism_cv2": 0.282
+   },
+   {
+    "gene": "galM",
+    "model_mean": 947.8,
+    "model_cv2": 0.09235,
+    "organism_mean": 48.021,
+    "organism_cv2": 0.174
+   },
+   {
+    "gene": "uxaA",
+    "model_mean": 81.96,
+    "model_cv2": 0.45489,
+    "organism_mean": 2.327,
+    "organism_cv2": 0.719
+   },
+   {
+    "gene": "malQ",
+    "model_mean": 114.96,
+    "model_cv2": 0.37502,
+    "organism_mean": 15.864,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "glpC",
+    "model_mean": 129.9,
+    "model_cv2": 0.48634,
+    "organism_mean": 0.663,
+    "organism_cv2": 1.98
+   },
+   {
+    "gene": "ansA",
+    "model_mean": 530.58,
+    "model_cv2": 0.08658,
+    "organism_mean": 29.931,
+    "organism_cv2": 0.127
+   },
+   {
+    "gene": "appC",
+    "model_mean": 12.23,
+    "model_cv2": 0.39438,
+    "organism_mean": 3.091,
+    "organism_cv2": 0.562
+   },
+   {
+    "gene": "arcB",
+    "model_mean": 6.41,
+    "model_cv2": 7.60341,
+    "organism_mean": 55.757,
+    "organism_cv2": 0.093
+   },
+   {
+    "gene": "adiA",
+    "model_mean": 1.23,
+    "model_cv2": 1.17394,
+    "organism_mean": 2.804,
+    "organism_cv2": 0.418
+   },
+   {
+    "gene": "argG",
+    "model_mean": 5077.44,
+    "model_cv2": 0.08367,
+    "organism_mean": 38.07,
+    "organism_cv2": 0.177
+   },
+   {
+    "gene": "argT",
+    "model_mean": 1109.39,
+    "model_cv2": 0.10001,
+    "organism_mean": 1.631,
+    "organism_cv2": 0.99
+   },
+   {
+    "gene": "aroB",
+    "model_mean": 83.87,
+    "model_cv2": 0.07767,
+    "organism_mean": 31.075,
+    "organism_cv2": 0.124
+   },
+   {
+    "gene": "aroE",
+    "model_mean": 228.13,
+    "model_cv2": 0.09549,
+    "organism_mean": 13.721,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "artP",
+    "model_mean": 315.72,
+    "model_cv2": 0.2178,
+    "organism_mean": 35.802,
+    "organism_cv2": 0.182
+   },
+   {
+    "gene": "purB",
+    "model_mean": 2082.02,
+    "model_cv2": 0.0655,
+    "organism_mean": 100.924,
+    "organism_cv2": 0.144
+   },
+   {
+    "gene": "aspC",
+    "model_mean": 9728.26,
+    "model_cv2": 0.08509,
+    "organism_mean": 248.055,
+    "organism_cv2": 0.13
+   },
+   {
+    "gene": "aspA",
+    "model_mean": 179.76,
+    "model_cv2": 0.16042,
+    "organism_mean": 20.588,
+    "organism_cv2": 0.178
+   },
+   {
+    "gene": "metL",
+    "model_mean": 271.2,
+    "model_cv2": 0.17484,
+    "organism_mean": 45.356,
+    "organism_cv2": 0.128
+   },
+   {
+    "gene": "aspS",
+    "model_mean": 1204.48,
+    "model_cv2": 0.08596,
+    "organism_mean": 182.294,
+    "organism_cv2": 0.102
+   },
+   {
+    "gene": "atpA",
+    "model_mean": 4217.44,
+    "model_cv2": 0.06343,
+    "organism_mean": 369.139,
+    "organism_cv2": 0.145
+   },
+   {
+    "gene": "atpC",
+    "model_mean": 1853.65,
+    "model_cv2": 0.05481,
+    "organism_mean": 0.15,
+    "organism_cv2": 7.692
+   },
+   {
+    "gene": "atpD",
+    "model_mean": 5164.47,
+    "model_cv2": 0.05368,
+    "organism_mean": 685.856,
+    "organism_cv2": 0.117
+   },
+   {
+    "gene": "atpG",
+    "model_mean": 1898.14,
+    "model_cv2": 0.05571,
+    "organism_mean": 66.565,
+    "organism_cv2": 0.107
+   },
+   {
+    "gene": "atpH",
+    "model_mean": 1258.31,
+    "model_cv2": 0.06118,
+    "organism_mean": 91.026,
+    "organism_cv2": 0.111
+   },
+   {
+    "gene": "baeR",
+    "model_mean": 114.83,
+    "model_cv2": 0.23788,
+    "organism_mean": 12.299,
+    "organism_cv2": 0.11
+   },
+   {
+    "gene": "barA",
+    "model_mean": 48.44,
+    "model_cv2": 0.55123,
+    "organism_mean": 2.179,
+    "organism_cv2": 0.641
+   },
+   {
+    "gene": "basR",
+    "model_mean": 66.57,
+    "model_cv2": 0.46003,
+    "organism_mean": 65.397,
+    "organism_cv2": 0.106
+   },
+   {
+    "gene": "basS",
+    "model_mean": 40.02,
+    "model_cv2": 0.44057,
+    "organism_mean": 0.741,
+    "organism_cv2": 1.235
+   },
+   {
+    "gene": "birA",
+    "model_mean": 121.31,
+    "model_cv2": 0.14304,
+    "organism_mean": 9.329,
+    "organism_cv2": 0.194
+   },
+   {
+    "gene": "carA",
+    "model_mean": 2531.71,
+    "model_cv2": 0.0732,
+    "organism_mean": 477.221,
+    "organism_cv2": 0.227
+   },
+   {
+    "gene": "cheW",
+    "model_mean": 6072.27,
+    "model_cv2": 0.06999,
+    "organism_mean": 0.437,
+    "organism_cv2": 3.125
+   },
+   {
+    "gene": "cheY",
+    "model_mean": 2248.63,
+    "model_cv2": 0.09657,
+    "organism_mean": 11.765,
+    "organism_cv2": 1.307
+   },
+   {
+    "gene": "tyrA",
+    "model_mean": 339.07,
+    "model_cv2": 0.10806,
+    "organism_mean": 12.826,
+    "organism_cv2": 0.183
+   },
+   {
+    "gene": "ubiC",
+    "model_mean": 26.57,
+    "model_cv2": 0.14192,
+    "organism_mean": 5.586,
+    "organism_cv2": 0.243
+   },
+   {
+    "gene": "gltA",
+    "model_mean": 10431.05,
+    "model_cv2": 0.06588,
+    "organism_mean": 89.104,
+    "organism_cv2": 0.195
+   },
+   {
+    "gene": "hemF",
+    "model_mean": 13.88,
+    "model_cv2": 0.77047,
+    "organism_mean": 12.758,
+    "organism_cv2": 0.159
+   },
+   {
+    "gene": "corA",
+    "model_mean": 96.49,
+    "model_cv2": 0.08928,
+    "organism_mean": 30.977,
+    "organism_cv2": 0.104
+   },
+   {
+    "gene": "kdsB",
+    "model_mean": 611.63,
+    "model_cv2": 0.10439,
+    "organism_mean": 35.914,
+    "organism_cv2": 0.092
+   },
+   {
+    "gene": "cpxR",
+    "model_mean": 740.82,
+    "model_cv2": 0.09225,
+    "organism_mean": 33.164,
+    "organism_cv2": 0.204
+   },
+   {
+    "gene": "cydA",
+    "model_mean": 9.24,
+    "model_cv2": 2.1915,
+    "organism_mean": 485.087,
+    "organism_cv2": 0.533
+   },
+   {
+    "gene": "cydC",
+    "model_mean": 129.24,
+    "model_cv2": 0.31382,
+    "organism_mean": 16.468,
+    "organism_cv2": 0.109
+   },
+   {
+    "gene": "cydD",
+    "model_mean": 172.02,
+    "model_cv2": 0.25375,
+    "organism_mean": 15.779,
+    "organism_cv2": 0.161
+   },
+   {
+    "gene": "cyoC",
+    "model_mean": 1868.65,
+    "model_cv2": 0.07809,
+    "organism_mean": 46.768,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "cyoD",
+    "model_mean": 1923.78,
+    "model_cv2": 0.0771,
+    "organism_mean": 114.088,
+    "organism_cv2": 0.119
+   },
+   {
+    "gene": "cysN",
+    "model_mean": 1048.97,
+    "model_cv2": 0.0758,
+    "organism_mean": 3.897,
+    "organism_cv2": 0.901
+   },
+   {
+    "gene": "cysS",
+    "model_mean": 580.72,
+    "model_cv2": 0.18384,
+    "organism_mean": 80.0,
+    "organism_cv2": 0.14
+   },
+   {
+    "gene": "ddlA",
+    "model_mean": 421.56,
+    "model_cv2": 0.12886,
+    "organism_mean": 25.582,
+    "organism_cv2": 0.143
+   },
+   {
+    "gene": "dcd",
+    "model_mean": 207.02,
+    "model_cv2": 0.19584,
+    "organism_mean": 79.14,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "deoD",
+    "model_mean": 405.48,
+    "model_cv2": 0.86422,
+    "organism_mean": 375.177,
+    "organism_cv2": 0.106
+   },
+   {
+    "gene": "kdgK",
+    "model_mean": 559.85,
+    "model_cv2": 0.07901,
+    "organism_mean": 20.488,
+    "organism_cv2": 0.226
+   },
+   {
+    "gene": "ubiG",
+    "model_mean": 1764.37,
+    "model_cv2": 0.11085,
+    "organism_mean": 18.473,
+    "organism_cv2": 0.139
+   },
+   {
+    "gene": "lysA",
+    "model_mean": 547.65,
+    "model_cv2": 0.10455,
+    "organism_mean": 11.292,
+    "organism_cv2": 0.24
+   },
+   {
+    "gene": "dapF",
+    "model_mean": 186.01,
+    "model_cv2": 0.07776,
+    "organism_mean": 34.124,
+    "organism_cv2": 0.217
+   },
+   {
+    "gene": "dapA",
+    "model_mean": 1567.73,
+    "model_cv2": 0.07736,
+    "organism_mean": 1.106,
+    "organism_cv2": 0.82
+   },
+   {
+    "gene": "folA",
+    "model_mean": 529.06,
+    "model_cv2": 0.06456,
+    "organism_mean": 37.932,
+    "organism_cv2": 0.138
+   },
+   {
+    "gene": "dapB",
+    "model_mean": 1206.7,
+    "model_cv2": 0.10148,
+    "organism_mean": 50.366,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "ilvD",
+    "model_mean": 346.22,
+    "model_cv2": 0.17654,
+    "organism_mean": 17.82,
+    "organism_cv2": 0.199
+   },
+   {
+    "gene": "ribB",
+    "model_mean": 889.68,
+    "model_cv2": 0.08358,
+    "organism_mean": 178.463,
+    "organism_cv2": 0.124
+   },
+   {
+    "gene": "dsbA",
+    "model_mean": 1853.63,
+    "model_cv2": 0.07688,
+    "organism_mean": 8.972,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "cobT",
+    "model_mean": 45.0,
+    "model_cv2": 0.28971,
+    "organism_mean": 6.713,
+    "organism_cv2": 0.25
+   },
+   {
+    "gene": "dppA",
+    "model_mean": 3022.77,
+    "model_cv2": 0.05994,
+    "organism_mean": 0.294,
+    "organism_cv2": 3.546
+   },
+   {
+    "gene": "dsbC",
+    "model_mean": 1401.88,
+    "model_cv2": 0.24333,
+    "organism_mean": 1.016,
+    "organism_cv2": 0.823
+   },
+   {
+    "gene": "dsbG",
+    "model_mean": 474.83,
+    "model_cv2": 0.13893,
+    "organism_mean": 15.511,
+    "organism_cv2": 0.188
+   },
+   {
+    "gene": "dsdA",
+    "model_mean": 164.76,
+    "model_cv2": 0.59746,
+    "organism_mean": 1.887,
+    "organism_cv2": 0.743
+   },
+   {
+    "gene": "rfbD",
+    "model_mean": 391.73,
+    "model_cv2": 0.09431,
+    "organism_mean": 50.046,
+    "organism_cv2": 0.12
+   },
+   {
+    "gene": "tmk",
+    "model_mean": 1300.74,
+    "model_cv2": 0.07687,
+    "organism_mean": 13.506,
+    "organism_cv2": 0.117
+   },
+   {
+    "gene": "dut",
+    "model_mean": 1195.39,
+    "model_cv2": 0.10803,
+    "organism_mean": 119.921,
+    "organism_cv2": 0.119
+   },
+   {
+    "gene": "sucA",
+    "model_mean": 1760.6,
+    "model_cv2": 0.09127,
+    "organism_mean": 158.495,
+    "organism_cv2": 0.149
+   },
+   {
+    "gene": "aceE",
+    "model_mean": 3888.38,
+    "model_cv2": 0.08295,
+    "organism_mean": 843.19,
+    "organism_cv2": 1.117
+   },
+   {
+    "gene": "aceF",
+    "model_mean": 4097.02,
+    "model_cv2": 0.08041,
+    "organism_mean": 850.657,
+    "organism_cv2": 0.104
+   },
+   {
+    "gene": "lpd",
+    "model_mean": 9764.91,
+    "model_cv2": 0.07036,
+    "organism_mean": 485.277,
+    "organism_cv2": 0.224
+   },
+   {
+    "gene": "dfp",
+    "model_mean": 274.67,
+    "model_cv2": 0.07506,
+    "organism_mean": 17.072,
+    "organism_cv2": 0.885
+   },
+   {
+    "gene": "yaaA",
+    "model_mean": 542.04,
+    "model_cv2": 0.08534,
+    "organism_mean": 14.738,
+    "organism_cv2": 0.203
+   },
+   {
+    "gene": "yjiA",
+    "model_mean": 279.54,
+    "model_cv2": 0.36536,
+    "organism_mean": 26.227,
+    "organism_cv2": 0.228
+   },
+   {
+    "gene": "apaG",
+    "model_mean": 40.97,
+    "model_cv2": 0.09208,
+    "organism_mean": 0.82,
+    "organism_cv2": 1.389
+   },
+   {
+    "gene": "bglG",
+    "model_mean": 17.75,
+    "model_cv2": 3.31722,
+    "organism_mean": 1.333,
+    "organism_cv2": 1.235
+   },
+   {
+    "gene": "bolA",
+    "model_mean": 1281.76,
+    "model_cv2": 0.08192,
+    "organism_mean": 82.072,
+    "organism_cv2": 0.171
+   },
+   {
+    "gene": "cca",
+    "model_mean": 115.1,
+    "model_cv2": 0.19129,
+    "organism_mean": 13.597,
+    "organism_cv2": 0.176
+   },
+   {
+    "gene": "moeA",
+    "model_mean": 240.16,
+    "model_cv2": 0.17737,
+    "organism_mean": 22.914,
+    "organism_cv2": 0.163
+   },
+   {
+    "gene": "moeB",
+    "model_mean": 63.09,
+    "model_cv2": 0.1866,
+    "organism_mean": 1.41,
+    "organism_cv2": 0.631
+   },
+   {
+    "gene": "cirA",
+    "model_mean": 7905.57,
+    "model_cv2": 0.06247,
+    "organism_mean": 0.378,
+    "organism_cv2": 4.762
+   },
+   {
+    "gene": "clpA",
+    "model_mean": 797.2,
+    "model_cv2": 0.24607,
+    "organism_mean": 197.673,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "clpP",
+    "model_mean": 1187.15,
+    "model_cv2": 0.10643,
+    "organism_mean": 434.101,
+    "organism_cv2": 0.124
+   },
+   {
+    "gene": "dacA",
+    "model_mean": 989.89,
+    "model_cv2": 0.10125,
+    "organism_mean": 5.122,
+    "organism_cv2": 0.27
+   },
+   {
+    "gene": "dacB",
+    "model_mean": 124.47,
+    "model_cv2": 0.10138,
+    "organism_mean": 1.177,
+    "organism_cv2": 1.036
+   },
+   {
+    "gene": "dam",
+    "model_mean": 57.69,
+    "model_cv2": 0.14158,
+    "organism_mean": 8.907,
+    "organism_cv2": 0.167
+   },
+   {
+    "gene": "dcp",
+    "model_mean": 641.82,
+    "model_cv2": 0.12313,
+    "organism_mean": 32.605,
+    "organism_cv2": 0.139
+   },
+   {
+    "gene": "deaD",
+    "model_mean": 546.55,
+    "model_cv2": 0.17437,
+    "organism_mean": 72.605,
+    "organism_cv2": 0.147
+   },
+   {
+    "gene": "dedD",
+    "model_mean": 164.63,
+    "model_cv2": 0.14762,
+    "organism_mean": 0.69,
+    "organism_cv2": 1.096
+   },
+   {
+    "gene": "dnaB",
+    "model_mean": 1411.91,
+    "model_cv2": 0.06116,
+    "organism_mean": 34.033,
+    "organism_cv2": 0.159
+   },
+   {
+    "gene": "dnaE",
+    "model_mean": 564.07,
+    "model_cv2": 0.08821,
+    "organism_mean": 8.149,
+    "organism_cv2": 0.232
+   },
+   {
+    "gene": "dnaJ",
+    "model_mean": 543.47,
+    "model_cv2": 0.08677,
+    "organism_mean": 68.948,
+    "organism_cv2": 0.141
+   },
+   {
+    "gene": "dnaK",
+    "model_mean": 6498.99,
+    "model_cv2": 0.05736,
+    "organism_mean": 2435.911,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "dnaT",
+    "model_mean": 248.68,
+    "model_cv2": 0.17307,
+    "organism_mean": 15.416,
+    "organism_cv2": 0.189
+   },
+   {
+    "gene": "era",
+    "model_mean": 447.31,
+    "model_cv2": 0.07626,
+    "organism_mean": 0.779,
+    "organism_cv2": 1.399
+   },
+   {
+    "gene": "fhuA",
+    "model_mean": 1390.18,
+    "model_cv2": 0.06453,
+    "organism_mean": 3.905,
+    "organism_cv2": 0.264
+   },
+   {
+    "gene": "fimB",
+    "model_mean": 58.25,
+    "model_cv2": 0.91038,
+    "organism_mean": 3.274,
+    "organism_cv2": 0.338
+   },
+   {
+    "gene": "fimD",
+    "model_mean": 22.56,
+    "model_cv2": 0.25795,
+    "organism_mean": 0.387,
+    "organism_cv2": 4.098
+   },
+   {
+    "gene": "fimE",
+    "model_mean": 5.68,
+    "model_cv2": 1.90554,
+    "organism_mean": 0.414,
+    "organism_cv2": 4.132
+   },
+   {
+    "gene": "flhD",
+    "model_mean": 1807.91,
+    "model_cv2": 0.08902,
+    "organism_mean": 8.244,
+    "organism_cv2": 0.245
+   },
+   {
+    "gene": "mutM",
+    "model_mean": 27.7,
+    "model_cv2": 0.53058,
+    "organism_mean": 1.208,
+    "organism_cv2": 0.893
+   },
+   {
+    "gene": "frr",
+    "model_mean": 4809.16,
+    "model_cv2": 0.06306,
+    "organism_mean": 8.957,
+    "organism_cv2": 0.252
+   },
+   {
+    "gene": "ftsA",
+    "model_mean": 68.81,
+    "model_cv2": 0.35416,
+    "organism_mean": 58.922,
+    "organism_cv2": 0.105
+   },
+   {
+    "gene": "fucU",
+    "model_mean": 491.97,
+    "model_cv2": 0.26606,
+    "organism_mean": 5.008,
+    "organism_cv2": 0.394
+   },
+   {
+    "gene": "fusA",
+    "model_mean": 16634.53,
+    "model_cv2": 0.06018,
+    "organism_mean": 316.368,
+    "organism_cv2": 0.144
+   },
+   {
+    "gene": "ggt",
+    "model_mean": 52.89,
+    "model_cv2": 1.5761,
+    "organism_mean": 3.027,
+    "organism_cv2": 0.279
+   },
+   {
+    "gene": "gyrA",
+    "model_mean": 1059.91,
+    "model_cv2": 0.08133,
+    "organism_mean": 68.835,
+    "organism_cv2": 0.203
+   },
+   {
+    "gene": "gyrB",
+    "model_mean": 205.36,
+    "model_cv2": 0.21808,
+    "organism_mean": 147.49,
+    "organism_cv2": 0.171
+   },
+   {
+    "gene": "hemY",
+    "model_mean": 195.47,
+    "model_cv2": 0.0862,
+    "organism_mean": 1.869,
+    "organism_cv2": 0.509
+   },
+   {
+    "gene": "hflC",
+    "model_mean": 1303.56,
+    "model_cv2": 0.08156,
+    "organism_mean": 2.243,
+    "organism_cv2": 0.66
+   },
+   {
+    "gene": "hflK",
+    "model_mean": 1483.28,
+    "model_cv2": 0.07795,
+    "organism_mean": 67.602,
+    "organism_cv2": 0.138
+   },
+   {
+    "gene": "hfq",
+    "model_mean": 5130.32,
+    "model_cv2": 0.07182,
+    "organism_mean": 1513.053,
+    "organism_cv2": 0.15
+   },
+   {
+    "gene": "hipA",
+    "model_mean": 78.72,
+    "model_cv2": 0.24795,
+    "organism_mean": 4.308,
+    "organism_cv2": 0.3
+   },
+   {
+    "gene": "truA",
+    "model_mean": 136.16,
+    "model_cv2": 0.29888,
+    "organism_mean": 5.627,
+    "organism_cv2": 0.189
+   },
+   {
+    "gene": "hsdM",
+    "model_mean": 283.66,
+    "model_cv2": 0.37412,
+    "organism_mean": 13.165,
+    "organism_cv2": 0.176
+   },
+   {
+    "gene": "hsdS",
+    "model_mean": 185.73,
+    "model_cv2": 0.312,
+    "organism_mean": 2.123,
+    "organism_cv2": 0.531
+   },
+   {
+    "gene": "htpX",
+    "model_mean": 738.64,
+    "model_cv2": 0.08589,
+    "organism_mean": 22.639,
+    "organism_cv2": 0.164
+   },
+   {
+    "gene": "hupA",
+    "model_mean": 74783.26,
+    "model_cv2": 0.06435,
+    "organism_mean": 940.878,
+    "organism_cv2": 0.104
+   },
+   {
+    "gene": "hupB",
+    "model_mean": 31947.6,
+    "model_cv2": 0.06808,
+    "organism_mean": 1146.626,
+    "organism_cv2": 0.197
+   },
+   {
+    "gene": "hycA",
+    "model_mean": 9.67,
+    "model_cv2": 0.52983,
+    "organism_mean": 2.634,
+    "organism_cv2": 0.741
+   },
+   {
+    "gene": "hypA",
+    "model_mean": 33.72,
+    "model_cv2": 3.46134,
+    "organism_mean": 1.855,
+    "organism_cv2": 0.816
+   },
+   {
+    "gene": "hypB",
+    "model_mean": 50.77,
+    "model_cv2": 2.44634,
+    "organism_mean": 3.38,
+    "organism_cv2": 0.314
+   },
+   {
+    "gene": "hypC",
+    "model_mean": 49.54,
+    "model_cv2": 2.07164,
+    "organism_mean": 2.249,
+    "organism_cv2": 0.309
+   },
+   {
+    "gene": "hypD",
+    "model_mean": 37.73,
+    "model_cv2": 1.7075,
+    "organism_mean": 3.857,
+    "organism_cv2": 0.238
+   },
+   {
+    "gene": "hypE",
+    "model_mean": 27.6,
+    "model_cv2": 1.8844,
+    "organism_mean": 0.307,
+    "organism_cv2": 3.03
+   },
+   {
+    "gene": "infA",
+    "model_mean": 13628.51,
+    "model_cv2": 0.06876,
+    "organism_mean": 637.755,
+    "organism_cv2": 0.098
+   },
+   {
+    "gene": "intD",
+    "model_mean": 14.18,
+    "model_cv2": 0.16314,
+    "organism_mean": 1.77,
+    "organism_cv2": 4.348
+   },
+   {
+    "gene": "lepA",
+    "model_mean": 954.9,
+    "model_cv2": 0.07381,
+    "organism_mean": 64.087,
+    "organism_cv2": 0.109
+   },
+   {
+    "gene": "lon",
+    "model_mean": 732.06,
+    "model_cv2": 0.13563,
+    "organism_mean": 158.851,
+    "organism_cv2": 0.126
+   },
+   {
+    "gene": "map",
+    "model_mean": 3058.84,
+    "model_cv2": 0.08156,
+    "organism_mean": 124.971,
+    "organism_cv2": 0.097
+   },
+   {
+    "gene": "groS",
+    "model_mean": 6971.11,
+    "model_cv2": 0.07402,
+    "organism_mean": 2150.179,
+    "organism_cv2": 0.132
+   },
+   {
+    "gene": "mreB",
+    "model_mean": 1954.91,
+    "model_cv2": 0.05558,
+    "organism_mean": 210.659,
+    "organism_cv2": 0.184
+   },
+   {
+    "gene": "mrr",
+    "model_mean": 42.12,
+    "model_cv2": 0.76957,
+    "organism_mean": 4.264,
+    "organism_cv2": 0.241
+   },
+   {
+    "gene": "msbA",
+    "model_mean": 85.49,
+    "model_cv2": 0.21998,
+    "organism_mean": 24.296,
+    "organism_cv2": 0.093
+   },
+   {
+    "gene": "mukB",
+    "model_mean": 173.5,
+    "model_cv2": 0.13176,
+    "organism_mean": 37.896,
+    "organism_cv2": 0.145
+   },
+   {
+    "gene": "mutH",
+    "model_mean": 29.09,
+    "model_cv2": 0.98953,
+    "organism_mean": 1.131,
+    "organism_cv2": 0.816
+   },
+   {
+    "gene": "mutT",
+    "model_mean": 86.31,
+    "model_cv2": 0.29474,
+    "organism_mean": 3.868,
+    "organism_cv2": 0.307
+   },
+   {
+    "gene": "mutY",
+    "model_mean": 64.39,
+    "model_cv2": 0.44896,
+    "organism_mean": 7.027,
+    "organism_cv2": 0.18
+   },
+   {
+    "gene": "nfo",
+    "model_mean": 443.0,
+    "model_cv2": 0.19725,
+    "organism_mean": 15.691,
+    "organism_cv2": 0.165
+   },
+   {
+    "gene": "nlpA",
+    "model_mean": 941.96,
+    "model_cv2": 0.09746,
+    "organism_mean": 2.178,
+    "organism_cv2": 0.901
+   },
+   {
+    "gene": "nth",
+    "model_mean": 157.72,
+    "model_cv2": 0.16829,
+    "organism_mean": 6.104,
+    "organism_cv2": 0.219
+   },
+   {
+    "gene": "nusA",
+    "model_mean": 1474.68,
+    "model_cv2": 0.06683,
+    "organism_mean": 463.217,
+    "organism_cv2": 0.102
+   },
+   {
+    "gene": "ogt",
+    "model_mean": 31.6,
+    "model_cv2": 2.00332,
+    "organism_mean": 2.209,
+    "organism_cv2": 0.559
+   },
+   {
+    "gene": "ompC",
+    "model_mean": 1903.93,
+    "model_cv2": 0.13205,
+    "organism_mean": 0.824,
+    "organism_cv2": 1.294
+   },
+   {
+    "gene": "osmC",
+    "model_mean": 1674.4,
+    "model_cv2": 0.09697,
+    "organism_mean": 1.205,
+    "organism_cv2": 0.69
+   },
+   {
+    "gene": "parC",
+    "model_mean": 194.35,
+    "model_cv2": 0.07788,
+    "organism_mean": 25.585,
+    "organism_cv2": 0.156
+   },
+   {
+    "gene": "parE",
+    "model_mean": 333.54,
+    "model_cv2": 0.11856,
+    "organism_mean": 9.1,
+    "organism_cv2": 0.353
+   },
+   {
+    "gene": "pcnB",
+    "model_mean": 276.23,
+    "model_cv2": 0.09634,
+    "organism_mean": 26.676,
+    "organism_cv2": 0.209
+   },
+   {
+    "gene": "pepD",
+    "model_mean": 2368.99,
+    "model_cv2": 0.09413,
+    "organism_mean": 165.478,
+    "organism_cv2": 0.091
+   },
+   {
+    "gene": "pepN",
+    "model_mean": 902.96,
+    "model_cv2": 0.07616,
+    "organism_mean": 133.679,
+    "organism_cv2": 0.113
+   },
+   {
+    "gene": "pepP",
+    "model_mean": 436.61,
+    "model_cv2": 0.0927,
+    "organism_mean": 103.99,
+    "organism_cv2": 0.211
+   },
+   {
+    "gene": "pepQ",
+    "model_mean": 1248.57,
+    "model_cv2": 0.08026,
+    "organism_mean": 49.867,
+    "organism_cv2": 0.105
+   },
+   {
+    "gene": "phnJ",
+    "model_mean": 2.02,
+    "model_cv2": 1.11824,
+    "organism_mean": 18.514,
+    "organism_cv2": 0.293
+   },
+   {
+    "gene": "phnN",
+    "model_mean": 9.93,
+    "model_cv2": 0.49006,
+    "organism_mean": 8.846,
+    "organism_cv2": 0.266
+   },
+   {
+    "gene": "phnP",
+    "model_mean": 10.8,
+    "model_cv2": 0.57046,
+    "organism_mean": 4.826,
+    "organism_cv2": 0.3
+   },
+   {
+    "gene": "pldB",
+    "model_mean": 39.18,
+    "model_cv2": 0.25393,
+    "organism_mean": 8.065,
+    "organism_cv2": 0.541
+   },
+   {
+    "gene": "pnp",
+    "model_mean": 2951.65,
+    "model_cv2": 0.07177,
+    "organism_mean": 938.13,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "polA",
+    "model_mean": 461.2,
+    "model_cv2": 0.07401,
+    "organism_mean": 40.704,
+    "organism_cv2": 0.123
+   },
+   {
+    "gene": "mrcA",
+    "model_mean": 55.26,
+    "model_cv2": 0.18094,
+    "organism_mean": 1.429,
+    "organism_cv2": 0.775
+   },
+   {
+    "gene": "ppiB",
+    "model_mean": 11452.4,
+    "model_cv2": 0.06968,
+    "organism_mean": 384.865,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "prfA",
+    "model_mean": 210.26,
+    "model_cv2": 0.27131,
+    "organism_mean": 25.663,
+    "organism_cv2": 0.166
+   },
+   {
+    "gene": "pth",
+    "model_mean": 291.05,
+    "model_cv2": 0.14348,
+    "organism_mean": 15.983,
+    "organism_cv2": 0.211
+   },
+   {
+    "gene": "recB",
+    "model_mean": 6.52,
+    "model_cv2": 0.69355,
+    "organism_mean": 0.607,
+    "organism_cv2": 1.37
+   },
+   {
+    "gene": "recD",
+    "model_mean": 9.94,
+    "model_cv2": 0.74761,
+    "organism_mean": 4.761,
+    "organism_cv2": 0.223
+   },
+   {
+    "gene": "recE",
+    "model_mean": 20.96,
+    "model_cv2": 1.51806,
+    "organism_mean": 0.183,
+    "organism_cv2": 11.494
+   },
+   {
+    "gene": "recG",
+    "model_mean": 52.85,
+    "model_cv2": 0.11808,
+    "organism_mean": 6.894,
+    "organism_cv2": 0.231
+   },
+   {
+    "gene": "recJ",
+    "model_mean": 191.09,
+    "model_cv2": 0.39874,
+    "organism_mean": 4.998,
+    "organism_cv2": 0.234
+   },
+   {
+    "gene": "recN",
+    "model_mean": 8.93,
+    "model_cv2": 0.54448,
+    "organism_mean": 11.842,
+    "organism_cv2": 1.342
+   },
+   {
+    "gene": "recO",
+    "model_mean": 10.65,
+    "model_cv2": 0.30657,
+    "organism_mean": 0.286,
+    "organism_cv2": 6.25
+   },
+   {
+    "gene": "recQ",
+    "model_mean": 5.24,
+    "model_cv2": 0.46636,
+    "organism_mean": 1.937,
+    "organism_cv2": 0.59
+   },
+   {
+    "gene": "relB",
+    "model_mean": 655.48,
+    "model_cv2": 0.49614,
+    "organism_mean": 33.857,
+    "organism_cv2": 0.186
+   },
+   {
+    "gene": "rep",
+    "model_mean": 61.81,
+    "model_cv2": 0.0912,
+    "organism_mean": 3.292,
+    "organism_cv2": 0.289
+   },
+   {
+    "gene": "rfaD",
+    "model_mean": 1797.1,
+    "model_cv2": 0.06208,
+    "organism_mean": 147.463,
+    "organism_cv2": 0.129
+   },
+   {
+    "gene": "rhlB",
+    "model_mean": 1670.15,
+    "model_cv2": 0.06461,
+    "organism_mean": 41.154,
+    "organism_cv2": 0.151
+   },
+   {
+    "gene": "rho",
+    "model_mean": 3755.76,
+    "model_cv2": 0.06835,
+    "organism_mean": 2165.11,
+    "organism_cv2": 0.114
+   },
+   {
+    "gene": "rna",
+    "model_mean": 877.37,
+    "model_cv2": 0.07247,
+    "organism_mean": 1.475,
+    "organism_cv2": 0.484
+   },
+   {
+    "gene": "rnc",
+    "model_mean": 786.23,
+    "model_cv2": 0.07236,
+    "organism_mean": 69.417,
+    "organism_cv2": 0.186
+   },
+   {
+    "gene": "rnd",
+    "model_mean": 165.56,
+    "model_cv2": 0.12967,
+    "organism_mean": 5.04,
+    "organism_cv2": 0.217
+   },
+   {
+    "gene": "rnpA",
+    "model_mean": 267.76,
+    "model_cv2": 0.07925,
+    "organism_mean": 30.117,
+    "organism_cv2": 0.144
+   },
+   {
+    "gene": "rpoZ",
+    "model_mean": 3088.84,
+    "model_cv2": 0.08007,
+    "organism_mean": 658.288,
+    "organism_cv2": 0.121
+   },
+   {
+    "gene": "rpsE",
+    "model_mean": 30044.17,
+    "model_cv2": 0.06044,
+    "organism_mean": 1047.083,
+    "organism_cv2": 0.188
+   },
+   {
+    "gene": "ruvC",
+    "model_mean": 91.43,
+    "model_cv2": 0.09673,
+    "organism_mean": 4.108,
+    "organism_cv2": 0.239
+   },
+   {
+    "gene": "sbcB",
+    "model_mean": 168.32,
+    "model_cv2": 0.13639,
+    "organism_mean": 3.146,
+    "organism_cv2": 0.418
+   },
+   {
+    "gene": "sbcC",
+    "model_mean": 57.61,
+    "model_cv2": 0.4504,
+    "organism_mean": 3.02,
+    "organism_cv2": 0.447
+   },
+   {
+    "gene": "selB",
+    "model_mean": 215.12,
+    "model_cv2": 0.14704,
+    "organism_mean": 7.13,
+    "organism_cv2": 0.207
+   },
+   {
+    "gene": "sohB",
+    "model_mean": 458.73,
+    "model_cv2": 0.15242,
+    "organism_mean": 42.35,
+    "organism_cv2": 0.128
+   },
+   {
+    "gene": "sspA",
+    "model_mean": 1744.22,
+    "model_cv2": 0.09367,
+    "organism_mean": 240.998,
+    "organism_cv2": 0.138
+   },
+   {
+    "gene": "sspB",
+    "model_mean": 534.45,
+    "model_cv2": 0.0769,
+    "organism_mean": 45.473,
+    "organism_cv2": 0.111
+   },
+   {
+    "gene": "sulA",
+    "model_mean": 124.45,
+    "model_cv2": 0.60283,
+    "organism_mean": 1.571,
+    "organism_cv2": 1.111
+   },
+   {
+    "gene": "surA",
+    "model_mean": 842.29,
+    "model_cv2": 0.09879,
+    "organism_mean": 6.869,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "tig",
+    "model_mean": 13001.77,
+    "model_cv2": 0.06511,
+    "organism_mean": 729.704,
+    "organism_cv2": 0.122
+   },
+   {
+    "gene": "tolB",
+    "model_mean": 1189.36,
+    "model_cv2": 0.0828,
+    "organism_mean": 3.359,
+    "organism_cv2": 0.485
+   },
+   {
+    "gene": "topA",
+    "model_mean": 518.05,
+    "model_cv2": 0.07481,
+    "organism_mean": 60.165,
+    "organism_cv2": 0.093
+   },
+   {
+    "gene": "topB",
+    "model_mean": 153.16,
+    "model_cv2": 0.12539,
+    "organism_mean": 8.997,
+    "organism_cv2": 0.181
+   },
+   {
+    "gene": "trmA",
+    "model_mean": 395.33,
+    "model_cv2": 0.09482,
+    "organism_mean": 26.233,
+    "organism_cv2": 0.175
+   },
+   {
+    "gene": "tsf",
+    "model_mean": 8781.65,
+    "model_cv2": 0.0607,
+    "organism_mean": 726.726,
+    "organism_cv2": 0.143
+   },
+   {
+    "gene": "tufA",
+    "model_mean": 56916.95,
+    "model_cv2": 0.05947,
+    "organism_mean": 3350.186,
+    "organism_cv2": 0.147
+   },
+   {
+    "gene": "tufB",
+    "model_mean": 25096.53,
+    "model_cv2": 0.0577,
+    "organism_mean": 2202.788,
+    "organism_cv2": 0.176
+   },
+   {
+    "gene": "ung",
+    "model_mean": 345.89,
+    "model_cv2": 0.1527,
+    "organism_mean": 14.487,
+    "organism_cv2": 0.136
+   },
+   {
+    "gene": "uvrA",
+    "model_mean": 13.94,
+    "model_cv2": 0.42673,
+    "organism_mean": 4.904,
+    "organism_cv2": 0.416
+   },
+   {
+    "gene": "uvrB",
+    "model_mean": 8.36,
+    "model_cv2": 0.81991,
+    "organism_mean": 11.53,
+    "organism_cv2": 0.164
+   },
+   {
+    "gene": "uvrC",
+    "model_mean": 34.69,
+    "model_cv2": 0.41609,
+    "organism_mean": 9.982,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "uvrD",
+    "model_mean": 21.19,
+    "model_cv2": 0.41169,
+    "organism_mean": 20.437,
+    "organism_cv2": 0.113
+   },
+   {
+    "gene": "xthA",
+    "model_mean": 985.13,
+    "model_cv2": 0.08818,
+    "organism_mean": 6.681,
+    "organism_cv2": 0.229
+   },
+   {
+    "gene": "yaiA",
+    "model_mean": 160.52,
+    "model_cv2": 0.47965,
+    "organism_mean": 40.98,
+    "organism_cv2": 0.166
+   },
+   {
+    "gene": "yajC",
+    "model_mean": 4255.79,
+    "model_cv2": 0.06865,
+    "organism_mean": 1538.261,
+    "organism_cv2": 0.147
+   },
+   {
+    "gene": "ybaA",
+    "model_mean": 11.75,
+    "model_cv2": 0.50921,
+    "organism_mean": 1.058,
+    "organism_cv2": 1.689
+   },
+   {
+    "gene": "ybaB",
+    "model_mean": 5876.43,
+    "model_cv2": 0.08993,
+    "organism_mean": 91.551,
+    "organism_cv2": 0.181
+   },
+   {
+    "gene": "ybgC",
+    "model_mean": 150.27,
+    "model_cv2": 0.10374,
+    "organism_mean": 32.895,
+    "organism_cv2": 0.578
+   },
+   {
+    "gene": "cspD",
+    "model_mean": 5427.2,
+    "model_cv2": 0.07045,
+    "organism_mean": 53.579,
+    "organism_cv2": 0.19
+   },
+   {
+    "gene": "yceD",
+    "model_mean": 991.13,
+    "model_cv2": 0.0626,
+    "organism_mean": 42.904,
+    "organism_cv2": 0.104
+   },
+   {
+    "gene": "yciE",
+    "model_mean": 49.44,
+    "model_cv2": 2.27034,
+    "organism_mean": 4.107,
+    "organism_cv2": 0.943
+   },
+   {
+    "gene": "yciF",
+    "model_mean": 58.29,
+    "model_cv2": 2.05515,
+    "organism_mean": 62.672,
+    "organism_cv2": 0.323
+   },
+   {
+    "gene": "relE",
+    "model_mean": 146.15,
+    "model_cv2": 0.28292,
+    "organism_mean": 1.943,
+    "organism_cv2": 0.44
+   },
+   {
+    "gene": "ydjA",
+    "model_mean": 1069.07,
+    "model_cv2": 0.12629,
+    "organism_mean": 29.847,
+    "organism_cv2": 0.216
+   },
+   {
+    "gene": "yebB",
+    "model_mean": 3.87,
+    "model_cv2": 0.88497,
+    "organism_mean": 0.557,
+    "organism_cv2": 2.02
+   },
+   {
+    "gene": "yebC",
+    "model_mean": 1671.21,
+    "model_cv2": 0.08957,
+    "organism_mean": 162.088,
+    "organism_cv2": 0.121
+   },
+   {
+    "gene": "uvrY",
+    "model_mean": 18.67,
+    "model_cv2": 0.97984,
+    "organism_mean": 29.111,
+    "organism_cv2": 0.193
+   },
+   {
+    "gene": "rbfA",
+    "model_mean": 1083.22,
+    "model_cv2": 0.08506,
+    "organism_mean": 83.677,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "yibA",
+    "model_mean": 12.17,
+    "model_cv2": 0.6214,
+    "organism_mean": 6.123,
+    "organism_cv2": 0.481
+   },
+   {
+    "gene": "htrL",
+    "model_mean": 170.92,
+    "model_cv2": 0.14084,
+    "organism_mean": 11.33,
+    "organism_cv2": 0.168
+   },
+   {
+    "gene": "yigA",
+    "model_mean": 158.24,
+    "model_cv2": 0.06522,
+    "organism_mean": 8.241,
+    "organism_cv2": 0.306
+   },
+   {
+    "gene": "arpA",
+    "model_mean": 12.61,
+    "model_cv2": 0.646,
+    "organism_mean": 2.384,
+    "organism_cv2": 0.425
+   },
+   {
+    "gene": "alkA",
+    "model_mean": 34.43,
+    "model_cv2": 0.73347,
+    "organism_mean": 2.002,
+    "organism_cv2": 0.533
+   },
+   {
+    "gene": "ydiB",
+    "model_mean": 3.3,
+    "model_cv2": 3.13516,
+    "organism_mean": 0.364,
+    "organism_cv2": 6.494
+   },
+   {
+    "gene": "yggE",
+    "model_mean": 1244.48,
+    "model_cv2": 0.08723,
+    "organism_mean": 2.968,
+    "organism_cv2": 0.285
+   },
+   {
+    "gene": "fmt",
+    "model_mean": 887.02,
+    "model_cv2": 0.05489,
+    "organism_mean": 25.687,
+    "organism_cv2": 0.115
+   },
+   {
+    "gene": "mutL",
+    "model_mean": 92.85,
+    "model_cv2": 0.13144,
+    "organism_mean": 6.625,
+    "organism_cv2": 0.266
+   },
+   {
+    "gene": "yghA",
+    "model_mean": 54.11,
+    "model_cv2": 1.04909,
+    "organism_mean": 16.686,
+    "organism_cv2": 0.282
+   },
+   {
+    "gene": "lipA",
+    "model_mean": 429.48,
+    "model_cv2": 0.29767,
+    "organism_mean": 30.797,
+    "organism_cv2": 0.22
+   },
+   {
+    "gene": "ygfB",
+    "model_mean": 760.1,
+    "model_cv2": 0.08145,
+    "organism_mean": 42.661,
+    "organism_cv2": 0.139
+   },
+   {
+    "gene": "asmA",
+    "model_mean": 51.84,
+    "model_cv2": 0.11331,
+    "organism_mean": 1.707,
+    "organism_cv2": 0.427
+   },
+   {
+    "gene": "osmY",
+    "model_mean": 1494.43,
+    "model_cv2": 0.15241,
+    "organism_mean": 15.707,
+    "organism_cv2": 0.229
+   },
+   {
+    "gene": "fabR",
+    "model_mean": 249.39,
+    "model_cv2": 0.07927,
+    "organism_mean": 23.345,
+    "organism_cv2": 0.141
+   },
+   {
+    "gene": "hdeA",
+    "model_mean": 306.35,
+    "model_cv2": 0.14934,
+    "organism_mean": 21.035,
+    "organism_cv2": 0.271
+   },
+   {
+    "gene": "hdeB",
+    "model_mean": 293.82,
+    "model_cv2": 0.14823,
+    "organism_mean": 7.761,
+    "organism_cv2": 0.16
+   },
+   {
+    "gene": "yjgA",
+    "model_mean": 851.18,
+    "model_cv2": 0.09532,
+    "organism_mean": 52.659,
+    "organism_cv2": 0.124
+   },
+   {
+    "gene": "holC",
+    "model_mean": 65.66,
+    "model_cv2": 0.14083,
+    "organism_mean": 31.382,
+    "organism_cv2": 0.139
+   },
+   {
+    "gene": "holD",
+    "model_mean": 47.19,
+    "model_cv2": 0.10511,
+    "organism_mean": 10.181,
+    "organism_cv2": 0.17
+   },
+   {
+    "gene": "dps",
+    "model_mean": 2375.88,
+    "model_cv2": 0.37116,
+    "organism_mean": 8.687,
+    "organism_cv2": 0.088
+   },
+   {
+    "gene": "plsX",
+    "model_mean": 15.19,
+    "model_cv2": 0.14283,
+    "organism_mean": 18.22,
+    "organism_cv2": 0.108
+   },
+   {
+    "gene": "yceF",
+    "model_mean": 1231.44,
+    "model_cv2": 0.09846,
+    "organism_mean": 23.693,
+    "organism_cv2": 0.194
+   },
+   {
+    "gene": "def",
+    "model_mean": 1162.45,
+    "model_cv2": 0.06572,
+    "organism_mean": 52.034,
+    "organism_cv2": 0.137
+   },
+   {
+    "gene": "csrA",
+    "model_mean": 18246.91,
+    "model_cv2": 0.06715,
+    "organism_mean": 473.979,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "yigZ",
+    "model_mean": 44.8,
+    "model_cv2": 0.16291,
+    "organism_mean": 5.899,
+    "organism_cv2": 0.155
+   },
+   {
+    "gene": "prmA",
+    "model_mean": 294.09,
+    "model_cv2": 0.30189,
+    "organism_mean": 11.378,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "holB",
+    "model_mean": 419.18,
+    "model_cv2": 0.0746,
+    "organism_mean": 11.615,
+    "organism_cv2": 0.175
+   },
+   {
+    "gene": "gadE",
+    "model_mean": 7.14,
+    "model_cv2": 1.83199,
+    "organism_mean": 133.248,
+    "organism_cv2": 0.238
+   },
+   {
+    "gene": "lhr",
+    "model_mean": 19.71,
+    "model_cv2": 0.32982,
+    "organism_mean": 4.216,
+    "organism_cv2": 0.35
+   },
+   {
+    "gene": "pepT",
+    "model_mean": 272.6,
+    "model_cv2": 0.14471,
+    "organism_mean": 14.968,
+    "organism_cv2": 0.186
+   },
+   {
+    "gene": "fixB",
+    "model_mean": 4.83,
+    "model_cv2": 0.62727,
+    "organism_mean": 0.326,
+    "organism_cv2": 8.333
+   },
+   {
+    "gene": "fixC",
+    "model_mean": 3.44,
+    "model_cv2": 1.00623,
+    "organism_mean": 3.352,
+    "organism_cv2": 0.489
+   },
+   {
+    "gene": "ybiB",
+    "model_mean": 83.39,
+    "model_cv2": 0.5611,
+    "organism_mean": 51.812,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "ybeD",
+    "model_mean": 3240.36,
+    "model_cv2": 0.1001,
+    "organism_mean": 213.204,
+    "organism_cv2": 0.237
+   },
+   {
+    "gene": "moaD",
+    "model_mean": 300.08,
+    "model_cv2": 0.10316,
+    "organism_mean": 8.855,
+    "organism_cv2": 0.185
+   },
+   {
+    "gene": "moaE",
+    "model_mean": 265.91,
+    "model_cv2": 0.10113,
+    "organism_mean": 7.619,
+    "organism_cv2": 0.191
+   },
+   {
+    "gene": "ygiF",
+    "model_mean": 203.95,
+    "model_cv2": 0.15107,
+    "organism_mean": 20.325,
+    "organism_cv2": 0.159
+   },
+   {
+    "gene": "yciI",
+    "model_mean": 4359.73,
+    "model_cv2": 0.07395,
+    "organism_mean": 93.78,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "mfd",
+    "model_mean": 209.75,
+    "model_cv2": 0.14345,
+    "organism_mean": 10.744,
+    "organism_cv2": 0.172
+   },
+   {
+    "gene": "ydeI",
+    "model_mean": 43.49,
+    "model_cv2": 0.61695,
+    "organism_mean": 0.653,
+    "organism_cv2": 5.291
+   },
+   {
+    "gene": "ydeJ",
+    "model_mean": 41.69,
+    "model_cv2": 1.60811,
+    "organism_mean": 11.72,
+    "organism_cv2": 0.437
+   },
+   {
+    "gene": "yafC",
+    "model_mean": 123.96,
+    "model_cv2": 0.48857,
+    "organism_mean": 18.608,
+    "organism_cv2": 0.12
+   },
+   {
+    "gene": "yafD",
+    "model_mean": 169.74,
+    "model_cv2": 0.09742,
+    "organism_mean": 7.967,
+    "organism_cv2": 0.342
+   },
+   {
+    "gene": "cyaY",
+    "model_mean": 443.5,
+    "model_cv2": 0.13839,
+    "organism_mean": 52.261,
+    "organism_cv2": 0.123
+   },
+   {
+    "gene": "slyD",
+    "model_mean": 8651.92,
+    "model_cv2": 0.07386,
+    "organism_mean": 482.605,
+    "organism_cv2": 0.167
+   },
+   {
+    "gene": "moaC",
+    "model_mean": 502.71,
+    "model_cv2": 0.08835,
+    "organism_mean": 0.181,
+    "organism_cv2": 11.628
+   },
+   {
+    "gene": "yicH",
+    "model_mean": 55.22,
+    "model_cv2": 0.15473,
+    "organism_mean": 1.829,
+    "organism_cv2": 1.361
+   },
+   {
+    "gene": "yidH",
+    "model_mean": 43.69,
+    "model_cv2": 1.20569,
+    "organism_mean": 0.675,
+    "organism_cv2": 3.356
+   },
+   {
+    "gene": "yidR",
+    "model_mean": 118.0,
+    "model_cv2": 0.22338,
+    "organism_mean": 12.309,
+    "organism_cv2": 0.281
+   },
+   {
+    "gene": "yieF",
+    "model_mean": 291.19,
+    "model_cv2": 0.15554,
+    "organism_mean": 9.297,
+    "organism_cv2": 0.475
+   },
+   {
+    "gene": "phoH",
+    "model_mean": 471.75,
+    "model_cv2": 0.23398,
+    "organism_mean": 14.447,
+    "organism_cv2": 0.236
+   },
+   {
+    "gene": "nfrB",
+    "model_mean": 2.19,
+    "model_cv2": 2.1236,
+    "organism_mean": 2.786,
+    "organism_cv2": 0.643
+   },
+   {
+    "gene": "nfrA",
+    "model_mean": 8.44,
+    "model_cv2": 1.33355,
+    "organism_mean": 1.075,
+    "organism_cv2": 1.504
+   },
+   {
+    "gene": "pqqL",
+    "model_mean": 223.09,
+    "model_cv2": 0.18259,
+    "organism_mean": 0.851,
+    "organism_cv2": 1.07
+   },
+   {
+    "gene": "yadE",
+    "model_mean": 20.07,
+    "model_cv2": 0.67495,
+    "organism_mean": 1.944,
+    "organism_cv2": 0.454
+   },
+   {
+    "gene": "ybfF",
+    "model_mean": 264.12,
+    "model_cv2": 0.21479,
+    "organism_mean": 13.199,
+    "organism_cv2": 0.161
+   },
+   {
+    "gene": "smpB",
+    "model_mean": 3098.89,
+    "model_cv2": 0.07201,
+    "organism_mean": 14.608,
+    "organism_cv2": 0.143
+   },
+   {
+    "gene": "yfiF",
+    "model_mean": 733.38,
+    "model_cv2": 0.31362,
+    "organism_mean": 17.936,
+    "organism_cv2": 0.146
+   },
+   {
+    "gene": "lplA",
+    "model_mean": 113.17,
+    "model_cv2": 1.65404,
+    "organism_mean": 8.557,
+    "organism_cv2": 0.282
+   },
+   {
+    "gene": "hybD",
+    "model_mean": 7.15,
+    "model_cv2": 0.67005,
+    "organism_mean": 4.163,
+    "organism_cv2": 0.276
+   },
+   {
+    "gene": "yebE",
+    "model_mean": 59.39,
+    "model_cv2": 0.30863,
+    "organism_mean": 13.232,
+    "organism_cv2": 0.385
+   },
+   {
+    "gene": "yebG",
+    "model_mean": 110.84,
+    "model_cv2": 0.39989,
+    "organism_mean": 75.599,
+    "organism_cv2": 1.242
+   },
+   {
+    "gene": "aidB",
+    "model_mean": 9.54,
+    "model_cv2": 2.23839,
+    "organism_mean": 26.165,
+    "organism_cv2": 0.194
+   },
+   {
+    "gene": "mobB",
+    "model_mean": 67.32,
+    "model_cv2": 0.45607,
+    "organism_mean": 2.805,
+    "organism_cv2": 0.461
+   },
+   {
+    "gene": "mobA",
+    "model_mean": 51.54,
+    "model_cv2": 0.44113,
+    "organism_mean": 4.406,
+    "organism_cv2": 0.284
+   },
+   {
+    "gene": "yihD",
+    "model_mean": 1801.45,
+    "model_cv2": 0.14786,
+    "organism_mean": 32.459,
+    "organism_cv2": 0.221
+   },
+   {
+    "gene": "yihI",
+    "model_mean": 1938.65,
+    "model_cv2": 0.09017,
+    "organism_mean": 95.463,
+    "organism_cv2": 0.097
+   },
+   {
+    "gene": "yihQ",
+    "model_mean": 7.98,
+    "model_cv2": 4.04969,
+    "organism_mean": 0.297,
+    "organism_cv2": 11.628
+   },
+   {
+    "gene": "yihX",
+    "model_mean": 131.64,
+    "model_cv2": 0.26892,
+    "organism_mean": 31.3,
+    "organism_cv2": 0.129
+   },
+   {
+    "gene": "fdhD",
+    "model_mean": 76.87,
+    "model_cv2": 0.19574,
+    "organism_mean": 5.521,
+    "organism_cv2": 0.24
+   },
+   {
+    "gene": "frvX",
+    "model_mean": 3.05,
+    "model_cv2": 0.81188,
+    "organism_mean": 0.372,
+    "organism_cv2": 9.434
+   },
+   {
+    "gene": "yiiM",
+    "model_mean": 188.11,
+    "model_cv2": 0.23133,
+    "organism_mean": 10.19,
+    "organism_cv2": 0.272
+   },
+   {
+    "gene": "hslU",
+    "model_mean": 1117.84,
+    "model_cv2": 0.08055,
+    "organism_mean": 150.698,
+    "organism_cv2": 0.167
+   },
+   {
+    "gene": "tehB",
+    "model_mean": 376.59,
+    "model_cv2": 0.51692,
+    "organism_mean": 11.537,
+    "organism_cv2": 0.242
+   },
+   {
+    "gene": "pflD",
+    "model_mean": 30.41,
+    "model_cv2": 1.33416,
+    "organism_mean": 2.462,
+    "organism_cv2": 0.571
+   },
+   {
+    "gene": "nfi",
+    "model_mean": 62.15,
+    "model_cv2": 0.12962,
+    "organism_mean": 5.986,
+    "organism_cv2": 0.476
+   },
+   {
+    "gene": "yjaG",
+    "model_mean": 682.33,
+    "model_cv2": 0.10019,
+    "organism_mean": 31.944,
+    "organism_cv2": 0.158
+   },
+   {
+    "gene": "pepE",
+    "model_mean": 33.89,
+    "model_cv2": 3.37407,
+    "organism_mean": 3.964,
+    "organism_cv2": 0.42
+   },
+   {
+    "gene": "yjbJ",
+    "model_mean": 84.03,
+    "model_cv2": 0.30318,
+    "organism_mean": 150.506,
+    "organism_cv2": 0.177
+   },
+   {
+    "gene": "yjbQ",
+    "model_mean": 185.71,
+    "model_cv2": 0.08812,
+    "organism_mean": 42.617,
+    "organism_cv2": 0.181
+   },
+   {
+    "gene": "yibL",
+    "model_mean": 1380.46,
+    "model_cv2": 0.10503,
+    "organism_mean": 38.285,
+    "organism_cv2": 0.117
+   },
+   {
+    "gene": "htrE",
+    "model_mean": 3.56,
+    "model_cv2": 0.54448,
+    "organism_mean": 1.275,
+    "organism_cv2": 0.733
+   },
+   {
+    "gene": "wbbK",
+    "model_mean": 124.58,
+    "model_cv2": 0.16013,
+    "organism_mean": 64.301,
+    "organism_cv2": 0.14
+   },
+   {
+    "gene": "yehL",
+    "model_mean": 32.47,
+    "model_cv2": 2.90565,
+    "organism_mean": 1.142,
+    "organism_cv2": 0.881
+   },
+   {
+    "gene": "mlrA",
+    "model_mean": 72.95,
+    "model_cv2": 0.21802,
+    "organism_mean": 13.345,
+    "organism_cv2": 0.203
+   },
+   {
+    "gene": "pbpG",
+    "model_mean": 301.23,
+    "model_cv2": 0.12476,
+    "organism_mean": 1.067,
+    "organism_cv2": 0.862
+   },
+   {
+    "gene": "yohF",
+    "model_mean": 13.45,
+    "model_cv2": 1.21592,
+    "organism_mean": 18.245,
+    "organism_cv2": 0.236
+   },
+   {
+    "gene": "yejL",
+    "model_mean": 3882.76,
+    "model_cv2": 0.10783,
+    "organism_mean": 94.827,
+    "organism_cv2": 0.194
+   },
+   {
+    "gene": "rsuA",
+    "model_mean": 933.08,
+    "model_cv2": 0.07872,
+    "organism_mean": 28.718,
+    "organism_cv2": 0.178
+   },
+   {
+    "gene": "feoA",
+    "model_mean": 427.88,
+    "model_cv2": 0.19966,
+    "organism_mean": 150.981,
+    "organism_cv2": 0.12
+   },
+   {
+    "gene": "hofB",
+    "model_mean": 16.23,
+    "model_cv2": 0.84211,
+    "organism_mean": 0.774,
+    "organism_cv2": 4.167
+   },
+   {
+    "gene": "prfC",
+    "model_mean": 571.38,
+    "model_cv2": 0.11932,
+    "organism_mean": 33.96,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "ychJ",
+    "model_mean": 226.92,
+    "model_cv2": 0.10221,
+    "organism_mean": 12.163,
+    "organism_cv2": 0.187
+   },
+   {
+    "gene": "ucpA",
+    "model_mean": 195.42,
+    "model_cv2": 0.18744,
+    "organism_mean": 8.279,
+    "organism_cv2": 0.307
+   },
+   {
+    "gene": "mukF",
+    "model_mean": 161.76,
+    "model_cv2": 0.08811,
+    "organism_mean": 11.0,
+    "organism_cv2": 0.152
+   },
+   {
+    "gene": "yjjI",
+    "model_mean": 7.78,
+    "model_cv2": 2.18923,
+    "organism_mean": 3.044,
+    "organism_cv2": 0.398
+   },
+   {
+    "gene": "cspE",
+    "model_mean": 157456.81,
+    "model_cv2": 0.08101,
+    "organism_mean": 3057.05,
+    "organism_cv2": 0.173
+   },
+   {
+    "gene": "yajG",
+    "model_mean": 4197.16,
+    "model_cv2": 0.0699,
+    "organism_mean": 9.556,
+    "organism_cv2": 0.135
+   },
+   {
+    "gene": "seqA",
+    "model_mean": 1373.84,
+    "model_cv2": 0.06983,
+    "organism_mean": 49.983,
+    "organism_cv2": 0.113
+   },
+   {
+    "gene": "cspB",
+    "model_mean": 38.0,
+    "model_cv2": 1.04399,
+    "organism_mean": 53.435,
+    "organism_cv2": 0.15
+   },
+   {
+    "gene": "cspC",
+    "model_mean": 34040.19,
+    "model_cv2": 0.06321,
+    "organism_mean": 7890.539,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "yhiI",
+    "model_mean": 68.36,
+    "model_cv2": 0.46632,
+    "organism_mean": 0.612,
+    "organism_cv2": 3.39
+   },
+   {
+    "gene": "arsC",
+    "model_mean": 26.57,
+    "model_cv2": 3.80033,
+    "organism_mean": 15.129,
+    "organism_cv2": 0.227
+   },
+   {
+    "gene": "yiaF",
+    "model_mean": 983.93,
+    "model_cv2": 0.09685,
+    "organism_mean": 0.202,
+    "organism_cv2": 9.901
+   },
+   {
+    "gene": "sgbH",
+    "model_mean": 5.08,
+    "model_cv2": 2.69982,
+    "organism_mean": 7.154,
+    "organism_cv2": 0.321
+   },
+   {
+    "gene": "yiaV",
+    "model_mean": 1.9,
+    "model_cv2": 0.76937,
+    "organism_mean": 2.289,
+    "organism_cv2": 0.425
+   },
+   {
+    "gene": "yibN",
+    "model_mean": 2157.13,
+    "model_cv2": 0.08137,
+    "organism_mean": 12.9,
+    "organism_cv2": 0.171
+   },
+   {
+    "gene": "ycfH",
+    "model_mean": 2262.94,
+    "model_cv2": 0.07611,
+    "organism_mean": 7.146,
+    "organism_cv2": 0.213
+   },
+   {
+    "gene": "pepB",
+    "model_mean": 397.19,
+    "model_cv2": 0.23833,
+    "organism_mean": 49.951,
+    "organism_cv2": 0.127
+   },
+   {
+    "gene": "yacG",
+    "model_mean": 909.61,
+    "model_cv2": 0.22529,
+    "organism_mean": 21.952,
+    "organism_cv2": 0.128
+   },
+   {
+    "gene": "yaeH",
+    "model_mean": 1692.29,
+    "model_cv2": 0.1107,
+    "organism_mean": 150.126,
+    "organism_cv2": 0.132
+   },
+   {
+    "gene": "ydfG",
+    "model_mean": 2079.39,
+    "model_cv2": 0.10238,
+    "organism_mean": 126.723,
+    "organism_cv2": 0.14
+   },
+   {
+    "gene": "ppiC",
+    "model_mean": 2803.62,
+    "model_cv2": 0.11063,
+    "organism_mean": 7.764,
+    "organism_cv2": 0.272
+   },
+   {
+    "gene": "prkB",
+    "model_mean": 193.18,
+    "model_cv2": 0.1898,
+    "organism_mean": 10.524,
+    "organism_cv2": 0.205
+   },
+   {
+    "gene": "yhfG",
+    "model_mean": 108.23,
+    "model_cv2": 0.35017,
+    "organism_mean": 30.78,
+    "organism_cv2": 0.089
+   },
+   {
+    "gene": "ybaK",
+    "model_mean": 837.11,
+    "model_cv2": 0.22254,
+    "organism_mean": 27.612,
+    "organism_cv2": 0.183
+   },
+   {
+    "gene": "yacL",
+    "model_mean": 320.93,
+    "model_cv2": 0.22382,
+    "organism_mean": 3.867,
+    "organism_cv2": 0.257
+   },
+   {
+    "gene": "ycaK",
+    "model_mean": 6.35,
+    "model_cv2": 0.56454,
+    "organism_mean": 0.721,
+    "organism_cv2": 4.566
+   },
+   {
+    "gene": "yccJ",
+    "model_mean": 812.95,
+    "model_cv2": 0.17864,
+    "organism_mean": 108.101,
+    "organism_cv2": 0.173
+   },
+   {
+    "gene": "yedJ",
+    "model_mean": 31.01,
+    "model_cv2": 0.19723,
+    "organism_mean": 1.016,
+    "organism_cv2": 0.8
+   },
+   {
+    "gene": "yhbY",
+    "model_mean": 5785.6,
+    "model_cv2": 0.0603,
+    "organism_mean": 136.661,
+    "organism_cv2": 0.146
+   },
+   {
+    "gene": "ybeL",
+    "model_mean": 415.02,
+    "model_cv2": 0.12596,
+    "organism_mean": 68.529,
+    "organism_cv2": 0.108
+   },
+   {
+    "gene": "yciN",
+    "model_mean": 1203.27,
+    "model_cv2": 0.13732,
+    "organism_mean": 88.954,
+    "organism_cv2": 0.16
+   },
+   {
+    "gene": "ybaE",
+    "model_mean": 22.44,
+    "model_cv2": 0.35076,
+    "organism_mean": 3.347,
+    "organism_cv2": 0.456
+   },
+   {
+    "gene": "eno",
+    "model_mean": 12592.72,
+    "model_cv2": 0.07522,
+    "organism_mean": 567.312,
+    "organism_cv2": 0.109
+   },
+   {
+    "gene": "fabI",
+    "model_mean": 10294.55,
+    "model_cv2": 0.07148,
+    "organism_mean": 342.234,
+    "organism_cv2": 0.116
+   },
+   {
+    "gene": "entE",
+    "model_mean": 2327.01,
+    "model_cv2": 0.07011,
+    "organism_mean": 33.049,
+    "organism_cv2": 0.181
+   },
+   {
+    "gene": "entF",
+    "model_mean": 885.52,
+    "model_cv2": 0.09565,
+    "organism_mean": 32.275,
+    "organism_cv2": 0.12
+   },
+   {
+    "gene": "eutB",
+    "model_mean": 96.76,
+    "model_cv2": 0.1585,
+    "organism_mean": 6.341,
+    "organism_cv2": 0.274
+   },
+   {
+    "gene": "evgS",
+    "model_mean": 46.58,
+    "model_cv2": 0.5981,
+    "organism_mean": 5.08,
+    "organism_cv2": 5.0
+   },
+   {
+    "gene": "fabA",
+    "model_mean": 5119.04,
+    "model_cv2": 0.07846,
+    "organism_mean": 610.512,
+    "organism_cv2": 0.137
+   },
+   {
+    "gene": "fabB",
+    "model_mean": 2392.9,
+    "model_cv2": 0.07228,
+    "organism_mean": 162.983,
+    "organism_cv2": 0.158
+   },
+   {
+    "gene": "fabH",
+    "model_mean": 697.37,
+    "model_cv2": 0.08724,
+    "organism_mean": 84.754,
+    "organism_cv2": 0.108
+   },
+   {
+    "gene": "fabZ",
+    "model_mean": 10501.7,
+    "model_cv2": 0.06722,
+    "organism_mean": 169.29,
+    "organism_cv2": 0.154
+   },
+   {
+    "gene": "fadA",
+    "model_mean": 44.54,
+    "model_cv2": 0.68895,
+    "organism_mean": 2.905,
+    "organism_cv2": 0.563
+   },
+   {
+    "gene": "fadB",
+    "model_mean": 46.58,
+    "model_cv2": 0.67429,
+    "organism_mean": 2.077,
+    "organism_cv2": 0.897
+   },
+   {
+    "gene": "fdnG",
+    "model_mean": 0.05,
+    "model_cv2": 19.59559,
+    "organism_mean": 0.209,
+    "organism_cv2": 5.464
+   },
+   {
+    "gene": "fepB",
+    "model_mean": 1191.8,
+    "model_cv2": 0.10379,
+    "organism_mean": 8.456,
+    "organism_cv2": 0.342
+   },
+   {
+    "gene": "purL",
+    "model_mean": 757.38,
+    "model_cv2": 0.08785,
+    "organism_mean": 39.44,
+    "organism_cv2": 0.149
+   },
+   {
+    "gene": "fhuC",
+    "model_mean": 110.5,
+    "model_cv2": 0.24011,
+    "organism_mean": 11.085,
+    "organism_cv2": 0.126
+   },
+   {
+    "gene": "fldA",
+    "model_mean": 5645.99,
+    "model_cv2": 0.06539,
+    "organism_mean": 355.062,
+    "organism_cv2": 0.139
+   },
+   {
+    "gene": "fliN",
+    "model_mean": 849.12,
+    "model_cv2": 0.12461,
+    "organism_mean": 0.153,
+    "organism_cv2": 11.364
+   },
+   {
+    "gene": "folC",
+    "model_mean": 295.18,
+    "model_cv2": 0.14453,
+    "organism_mean": 15.213,
+    "organism_cv2": 0.163
+   },
+   {
+    "gene": "ispA",
+    "model_mean": 393.91,
+    "model_cv2": 0.09927,
+    "organism_mean": 22.682,
+    "organism_cv2": 0.144
+   },
+   {
+    "gene": "frwB",
+    "model_mean": 1.87,
+    "model_cv2": 0.95419,
+    "organism_mean": 5.587,
+    "organism_cv2": 0.482
+   },
+   {
+    "gene": "ftsX",
+    "model_mean": 118.41,
+    "model_cv2": 0.18741,
+    "organism_mean": 28.608,
+    "organism_cv2": 0.127
+   },
+   {
+    "gene": "fucK",
+    "model_mean": 13.19,
+    "model_cv2": 0.50241,
+    "organism_mean": 11.823,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "fumC",
+    "model_mean": 198.16,
+    "model_cv2": 0.29454,
+    "organism_mean": 20.83,
+    "organism_cv2": 0.216
+   },
+   {
+    "gene": "yaeR",
+    "model_mean": 124.26,
+    "model_cv2": 0.43322,
+    "organism_mean": 30.764,
+    "organism_cv2": 0.144
+   },
+   {
+    "gene": "yaeQ",
+    "model_mean": 141.13,
+    "model_cv2": 0.23206,
+    "organism_mean": 8.473,
+    "organism_cv2": 0.187
+   },
+   {
+    "gene": "yafV",
+    "model_mean": 52.88,
+    "model_cv2": 0.22631,
+    "organism_mean": 22.611,
+    "organism_cv2": 0.171
+   },
+   {
+    "gene": "dinJ",
+    "model_mean": 347.19,
+    "model_cv2": 0.23744,
+    "organism_mean": 55.045,
+    "organism_cv2": 0.18
+   },
+   {
+    "gene": "yafO",
+    "model_mean": 61.74,
+    "model_cv2": 1.79424,
+    "organism_mean": 2.34,
+    "organism_cv2": 0.485
+   },
+   {
+    "gene": "yaiI",
+    "model_mean": 158.0,
+    "model_cv2": 0.10134,
+    "organism_mean": 3.5,
+    "organism_cv2": 0.926
+   },
+   {
+    "gene": "yajQ",
+    "model_mean": 5449.74,
+    "model_cv2": 0.06861,
+    "organism_mean": 128.245,
+    "organism_cv2": 0.134
+   },
+   {
+    "gene": "ybaZ",
+    "model_mean": 226.94,
+    "model_cv2": 0.2162,
+    "organism_mean": 4.021,
+    "organism_cv2": 0.296
+   },
+   {
+    "gene": "ybaP",
+    "model_mean": 35.01,
+    "model_cv2": 0.33375,
+    "organism_mean": 8.2,
+    "organism_cv2": 0.183
+   },
+   {
+    "gene": "ybbO",
+    "model_mean": 300.07,
+    "model_cv2": 0.12972,
+    "organism_mean": 28.971,
+    "organism_cv2": 0.152
+   },
+   {
+    "gene": "allC",
+    "model_mean": 53.51,
+    "model_cv2": 0.93204,
+    "organism_mean": 1.03,
+    "organism_cv2": 0.862
+   },
+   {
+    "gene": "cusS",
+    "model_mean": 84.0,
+    "model_cv2": 0.51058,
+    "organism_mean": 2.136,
+    "organism_cv2": 1.183
+   },
+   {
+    "gene": "ybdG",
+    "model_mean": 161.24,
+    "model_cv2": 0.33005,
+    "organism_mean": 9.066,
+    "organism_cv2": 0.265
+   },
+   {
+    "gene": "ybdF",
+    "model_mean": 109.1,
+    "model_cv2": 0.67043,
+    "organism_mean": 5.995,
+    "organism_cv2": 0.235
+   },
+   {
+    "gene": "ybdK",
+    "model_mean": 69.73,
+    "model_cv2": 0.35302,
+    "organism_mean": 11.685,
+    "organism_cv2": 0.174
+   },
+   {
+    "gene": "ybdN",
+    "model_mean": 14.98,
+    "model_cv2": 3.07091,
+    "organism_mean": 1.991,
+    "organism_cv2": 0.531
+   },
+   {
+    "gene": "rnk",
+    "model_mean": 944.27,
+    "model_cv2": 0.22507,
+    "organism_mean": 4.373,
+    "organism_cv2": 0.31
+   },
+   {
+    "gene": "citG",
+    "model_mean": 2.4,
+    "model_cv2": 0.67933,
+    "organism_mean": 0.455,
+    "organism_cv2": 1.111
+   },
+   {
+    "gene": "gltI",
+    "model_mean": 2212.26,
+    "model_cv2": 0.08689,
+    "organism_mean": 0.207,
+    "organism_cv2": 4.717
+   },
+   {
+    "gene": "ybeX",
+    "model_mean": 511.46,
+    "model_cv2": 0.09429,
+    "organism_mean": 43.68,
+    "organism_cv2": 0.129
+   },
+   {
+    "gene": "ybeY",
+    "model_mean": 734.38,
+    "model_cv2": 0.09091,
+    "organism_mean": 20.673,
+    "organism_cv2": 0.237
+   },
+   {
+    "gene": "ybeZ",
+    "model_mean": 1020.41,
+    "model_cv2": 0.10243,
+    "organism_mean": 56.629,
+    "organism_cv2": 0.194
+   },
+   {
+    "gene": "nei",
+    "model_mean": 291.41,
+    "model_cv2": 0.16883,
+    "organism_mean": 0.885,
+    "organism_cv2": 1.111
+   },
+   {
+    "gene": "ybiT",
+    "model_mean": 770.16,
+    "model_cv2": 0.10874,
+    "organism_mean": 25.551,
+    "organism_cv2": 0.125
+   },
+   {
+    "gene": "ybjP",
+    "model_mean": 1305.5,
+    "model_cv2": 0.09637,
+    "organism_mean": 0.922,
+    "organism_cv2": 2.95
+   },
+   {
+    "gene": "ybjX",
+    "model_mean": 192.69,
+    "model_cv2": 0.49189,
+    "organism_mean": 9.267,
+    "organism_cv2": 0.188
+   },
+   {
+    "gene": "ftsK",
+    "model_mean": 7.73,
+    "model_cv2": 0.60207,
+    "organism_mean": 4.585,
+    "organism_cv2": 0.164
+   },
+   {
+    "gene": "lolA",
+    "model_mean": 258.25,
+    "model_cv2": 0.10881,
+    "organism_mean": 2.87,
+    "organism_cv2": 0.264
+   },
+   {
+    "gene": "ycaO",
+    "model_mean": 335.78,
+    "model_cv2": 0.12363,
+    "organism_mean": 0.325,
+    "organism_cv2": 8.333
+   },
+   {
+    "gene": "pqiB",
+    "model_mean": 44.73,
+    "model_cv2": 0.54683,
+    "organism_mean": 0.756,
+    "organism_cv2": 5.714
+   },
+   {
+    "gene": "cspG",
+    "model_mean": 164.14,
+    "model_cv2": 0.20369,
+    "organism_mean": 0.06,
+    "organism_cv2": 37.037
+   },
+   {
+    "gene": "pgaA",
+    "model_mean": 16.23,
+    "model_cv2": 0.4849,
+    "organism_mean": 1.314,
+    "organism_cv2": 1.026
+   },
+   {
+    "gene": "csgG",
+    "model_mean": 157.85,
+    "model_cv2": 0.28871,
+    "organism_mean": 2.845,
+    "organism_cv2": 0.662
+   },
+   {
+    "gene": "nagZ",
+    "model_mean": 192.88,
+    "model_cv2": 0.39345,
+    "organism_mean": 5.274,
+    "organism_cv2": 0.287
+   },
+   {
+    "gene": "ycfP",
+    "model_mean": 680.81,
+    "model_cv2": 0.26216,
+    "organism_mean": 51.647,
+    "organism_cv2": 0.155
+   },
+   {
+    "gene": "ycgV",
+    "model_mean": 0.72,
+    "model_cv2": 1.79776,
+    "organism_mean": 0.341,
+    "organism_cv2": 8.772
+   },
+   {
+    "gene": "ymjA",
+    "model_mean": 299.79,
+    "model_cv2": 0.24879,
+    "organism_mean": 39.293,
+    "organism_cv2": 0.182
+   },
+   {
+    "gene": "ycjX",
+    "model_mean": 4.08,
+    "model_cv2": 0.96026,
+    "organism_mean": 5.889,
+    "organism_cv2": 0.244
+   },
+   {
+    "gene": "ydaW",
+    "model_mean": 12.27,
+    "model_cv2": 1.39056,
+    "organism_mean": 1.778,
+    "organism_cv2": 0.901
+   },
+   {
+    "gene": "ydbK",
+    "model_mean": 181.98,
+    "model_cv2": 0.28324,
+    "organism_mean": 14.723,
+    "organism_cv2": 0.187
+   },
+   {
+    "gene": "hslJ",
+    "model_mean": 370.02,
+    "model_cv2": 0.12811,
+    "organism_mean": 2.78,
+    "organism_cv2": 0.22
+   },
+   {
+    "gene": "paaF",
+    "model_mean": 7.67,
+    "model_cv2": 0.52797,
+    "organism_mean": 0.699,
+    "organism_cv2": 1.815
+   },
+   {
+    "gene": "hrpA",
+    "model_mean": 150.78,
+    "model_cv2": 0.61135,
+    "organism_mean": 10.191,
+    "organism_cv2": 0.207
+   },
+   {
+    "gene": "ydcI",
+    "model_mean": 627.92,
+    "model_cv2": 0.0878,
+    "organism_mean": 1.772,
+    "organism_cv2": 0.678
+   },
+   {
+    "gene": "rspA",
+    "model_mean": 14.57,
+    "model_cv2": 0.75049,
+    "organism_mean": 0.223,
+    "organism_cv2": 4.184
+   },
+   {
+    "gene": "rsxC",
+    "model_mean": 98.7,
+    "model_cv2": 0.21873,
+    "organism_mean": 8.534,
+    "organism_cv2": 0.141
+   },
+   {
+    "gene": "ydiJ",
+    "model_mean": 1336.66,
+    "model_cv2": 0.10687,
+    "organism_mean": 6.558,
+    "organism_cv2": 0.372
+   },
+   {
+    "gene": "spy",
+    "model_mean": 74.6,
+    "model_cv2": 0.48979,
+    "organism_mean": 0.158,
+    "organism_cv2": 8.0
+   },
+   {
+    "gene": "yecM",
+    "model_mean": 204.27,
+    "model_cv2": 0.16142,
+    "organism_mean": 9.311,
+    "organism_cv2": 0.228
+   },
+   {
+    "gene": "flu",
+    "model_mean": 263.42,
+    "model_cv2": 1.23348,
+    "organism_mean": 2.273,
+    "organism_cv2": 0.157
+   },
+   {
+    "gene": "yeeR",
+    "model_mean": 22.11,
+    "model_cv2": 0.92259,
+    "organism_mean": 1.753,
+    "organism_cv2": 2.632
+   },
+   {
+    "gene": "galF",
+    "model_mean": 1293.34,
+    "model_cv2": 0.07503,
+    "organism_mean": 231.012,
+    "organism_cv2": 0.289
+   },
+   {
+    "gene": "yegH",
+    "model_mean": 87.58,
+    "model_cv2": 0.21057,
+    "organism_mean": 6.66,
+    "organism_cv2": 0.298
+   },
+   {
+    "gene": "gatZ",
+    "model_mean": 7678.43,
+    "model_cv2": 0.06904,
+    "organism_mean": 289.881,
+    "organism_cv2": 0.313
+   },
+   {
+    "gene": "yegU",
+    "model_mean": 42.91,
+    "model_cv2": 0.51075,
+    "organism_mean": 0.621,
+    "organism_cv2": 4.762
+   },
+   {
+    "gene": "elaB",
+    "model_mean": 2647.22,
+    "model_cv2": 0.09708,
+    "organism_mean": 390.765,
+    "organism_cv2": 0.647
+   },
+   {
+    "gene": "elaA",
+    "model_mean": 256.43,
+    "model_cv2": 0.23741,
+    "organism_mean": 2.175,
+    "organism_cv2": 0.447
+   },
+   {
+    "gene": "yfcE",
+    "model_mean": 528.67,
+    "model_cv2": 0.09442,
+    "organism_mean": 41.285,
+    "organism_cv2": 0.196
+   },
+   {
+    "gene": "yfcF",
+    "model_mean": 210.0,
+    "model_cv2": 0.13806,
+    "organism_mean": 36.765,
+    "organism_cv2": 0.253
+   },
+   {
+    "gene": "oxc",
+    "model_mean": 2.63,
+    "model_cv2": 1.19927,
+    "organism_mean": 2.869,
+    "organism_cv2": 0.595
+   },
+   {
+    "gene": "yfeR",
+    "model_mean": 49.79,
+    "model_cv2": 0.78478,
+    "organism_mean": 2.465,
+    "organism_cv2": 0.347
+   },
+   {
+    "gene": "ygaP",
+    "model_mean": 93.6,
+    "model_cv2": 0.26735,
+    "organism_mean": 76.627,
+    "organism_cv2": 0.133
+   },
+   {
+    "gene": "nrdH",
+    "model_mean": 1993.08,
+    "model_cv2": 0.06088,
+    "organism_mean": 72.6,
+    "organism_cv2": 0.524
+   },
+   {
+    "gene": "yqaB",
+    "model_mean": 158.28,
+    "model_cv2": 0.10007,
+    "organism_mean": 14.264,
+    "organism_cv2": 0.168
+   },
+   {
+    "gene": "mltB",
+    "model_mean": 185.81,
+    "model_cv2": 0.31517,
+    "organism_mean": 0.157,
+    "organism_cv2": 8.0
+   },
+   {
+    "gene": "hycI",
+    "model_mean": 9.59,
+    "model_cv2": 0.31327,
+    "organism_mean": 11.311,
+    "organism_cv2": 0.217
+   },
+   {
+    "gene": "ygcW",
+    "model_mean": 1.69,
+    "model_cv2": 0.98432,
+    "organism_mean": 0.371,
+    "organism_cv2": 3.058
+   },
+   {
+    "gene": "ygcE",
+    "model_mean": 6.98,
+    "model_cv2": 1.97457,
+    "organism_mean": 1.077,
+    "organism_cv2": 1.081
+   },
+   {
+    "gene": "syd",
+    "model_mean": 579.42,
+    "model_cv2": 0.11702,
+    "organism_mean": 11.303,
+    "organism_cv2": 0.168
+   },
+   {
+    "gene": "mltA",
+    "model_mean": 94.78,
+    "model_cv2": 0.11104,
+    "organism_mean": 1.732,
+    "organism_cv2": 0.438
+   },
+   {
+    "gene": "kduI",
+    "model_mean": 27.62,
+    "model_cv2": 2.42981,
+    "organism_mean": 1.355,
+    "organism_cv2": 1.227
+   },
+   {
+    "gene": "yqeF",
+    "model_mean": 125.47,
+    "model_cv2": 0.09093,
+    "organism_mean": 9.613,
+    "organism_cv2": 0.249
+   },
+   {
+    "gene": "ygeV",
+    "model_mean": 25.3,
+    "model_cv2": 2.1849,
+    "organism_mean": 1.041,
+    "organism_cv2": 1.471
+   },
+   {
+    "gene": "hyuA",
+    "model_mean": 7.68,
+    "model_cv2": 1.47309,
+    "organism_mean": 0.859,
+    "organism_cv2": 1.852
+   },
+   {
+    "gene": "yqeA",
+    "model_mean": 27.83,
+    "model_cv2": 3.21631,
+    "organism_mean": 4.488,
+    "organism_cv2": 1.709
+   },
+   {
+    "gene": "yqeB",
+    "model_mean": 29.75,
+    "model_cv2": 1.38784,
+    "organism_mean": 1.281,
+    "organism_cv2": 1.29
+   },
+   {
+    "gene": "ygfT",
+    "model_mean": 16.6,
+    "model_cv2": 1.45578,
+    "organism_mean": 0.572,
+    "organism_cv2": 6.667
+   },
+   {
+    "gene": "yqgE",
+    "model_mean": 668.41,
+    "model_cv2": 0.08022,
+    "organism_mean": 25.114,
+    "organism_cv2": 0.186
+   },
+   {
+    "gene": "yqgF",
+    "model_mean": 316.92,
+    "model_cv2": 0.07087,
+    "organism_mean": 12.473,
+    "organism_cv2": 0.22
+   },
+   {
+    "gene": "yggS",
+    "model_mean": 374.26,
+    "model_cv2": 0.12282,
+    "organism_mean": 19.544,
+    "organism_cv2": 0.195
+   },
+   {
+    "gene": "yggX",
+    "model_mean": 1701.25,
+    "model_cv2": 0.14779,
+    "organism_mean": 187.667,
+    "organism_cv2": 0.1
+   },
+   {
+    "gene": "yqhD",
+    "model_mean": 447.25,
+    "model_cv2": 0.16044,
+    "organism_mean": 5.143,
+    "organism_cv2": 0.604
+   },
+   {
+    "gene": "ygjH",
+    "model_mean": 25.52,
+    "model_cv2": 1.27528,
+    "organism_mean": 0.964,
+    "organism_cv2": 1.681
+   },
+   {
+    "gene": "yqjD",
+    "model_mean": 2204.37,
+    "model_cv2": 0.14027,
+    "organism_mean": 424.162,
+    "organism_cv2": 0.473
+   },
+   {
+    "gene": "yqjG",
+    "model_mean": 136.31,
+    "model_cv2": 0.20101,
+    "organism_mean": 3.062,
+    "organism_cv2": 3.279
+   },
+   {
+    "gene": "yhaJ",
+    "model_mean": 137.94,
+    "model_cv2": 0.13294,
+    "organism_mean": 29.924,
+    "organism_cv2": 0.152
+   },
+   {
+    "gene": "yraN",
+    "model_mean": 31.54,
+    "model_cv2": 0.14079,
+    "organism_mean": 0.838,
+    "organism_cv2": 1.923
+   },
+   {
+    "gene": "yhcC",
+    "model_mean": 5.88,
+    "model_cv2": 2.0715,
+    "organism_mean": 0.233,
+    "organism_cv2": 11.765
+   },
+   {
+    "gene": "yhcO",
+    "model_mean": 112.23,
+    "model_cv2": 0.33516,
+    "organism_mean": 14.881,
+    "organism_cv2": 0.2
+   },
+   {
+    "gene": "tldD",
+    "model_mean": 392.61,
+    "model_cv2": 0.0652,
+    "organism_mean": 89.684,
+    "organism_cv2": 0.07
+   },
+   {
+    "gene": "yrdA",
+    "model_mean": 950.84,
+    "model_cv2": 0.09985,
+    "organism_mean": 98.71,
+    "organism_cv2": 0.091
+   },
+   {
+    "gene": "fkpA",
+    "model_mean": 4289.38,
+    "model_cv2": 0.07962,
+    "organism_mean": 3.937,
+    "organism_cv2": 0.271
+   },
+   {
+    "gene": "yheT",
+    "model_mean": 57.84,
+    "model_cv2": 0.1459,
+    "organism_mean": 0.882,
+    "organism_cv2": 2.778
+   },
+   {
+    "gene": "yrfG",
+    "model_mean": 156.68,
+    "model_cv2": 0.202,
+    "organism_mean": 16.216,
+    "organism_cv2": 0.287
+   },
+   {
+    "gene": "dcrB",
+    "model_mean": 1490.89,
+    "model_cv2": 0.08469,
+    "organism_mean": 5.115,
+    "organism_cv2": 0.259
+   },
+   {
+    "gene": "yjdI",
+    "model_mean": 57.35,
+    "model_cv2": 0.42558,
+    "organism_mean": 8.059,
+    "organism_cv2": 0.261
+   },
+   {
+    "gene": "yjdJ",
+    "model_mean": 33.05,
+    "model_cv2": 0.79211,
+    "organism_mean": 99.536,
+    "organism_cv2": 0.135
+   },
+   {
+    "gene": "fklB",
+    "model_mean": 2997.68,
+    "model_cv2": 0.08507,
+    "organism_mean": 121.387,
+    "organism_cv2": 0.145
+   },
+   {
+    "gene": "ytfE",
+    "model_mean": 22.24,
+    "model_cv2": 1.18878,
+    "organism_mean": 5.519,
+    "organism_cv2": 0.41
+   },
+   {
+    "gene": "ytfP",
+    "model_mean": 1035.8,
+    "model_cv2": 0.07613,
+    "organism_mean": 29.45,
+    "organism_cv2": 0.105
+   },
+   {
+    "gene": "yjgL",
+    "model_mean": 17.56,
+    "model_cv2": 2.20035,
+    "organism_mean": 2.163,
+    "organism_cv2": 0.554
+   },
+   {
+    "gene": "yjgR",
+    "model_mean": 61.36,
+    "model_cv2": 0.62417,
+    "organism_mean": 12.358,
+    "organism_cv2": 0.214
+   },
+   {
+    "gene": "yjhG",
+    "model_mean": 9.53,
+    "model_cv2": 0.60953,
+    "organism_mean": 0.948,
+    "organism_cv2": 1.613
+   },
+   {
+    "gene": "yjhH",
+    "model_mean": 23.75,
+    "model_cv2": 0.60157,
+    "organism_mean": 7.966,
+    "organism_cv2": 0.309
+   },
+   {
+    "gene": "yjhI",
+    "model_mean": 25.89,
+    "model_cv2": 0.74688,
+    "organism_mean": 0.185,
+    "organism_cv2": 4.878
+   },
+   {
+    "gene": "sgcE",
+    "model_mean": 45.48,
+    "model_cv2": 0.72459,
+    "organism_mean": 0.732,
+    "organism_cv2": 1.883
+   },
+   {
+    "gene": "yjhP",
+    "model_mean": 15.75,
+    "model_cv2": 3.70384,
+    "organism_mean": 1.357,
+    "organism_cv2": 2.439
+   },
+   {
+    "gene": "yjiN",
+    "model_mean": 35.75,
+    "model_cv2": 0.80458,
+    "organism_mean": 8.578,
+    "organism_cv2": 0.166
+   },
+   {
+    "gene": "yjiT",
+    "model_mean": 113.97,
+    "model_cv2": 0.23554,
+    "organism_mean": 1.883,
+    "organism_cv2": 1.031
+   },
+   {
+    "gene": "fhuF",
+    "model_mean": 3203.67,
+    "model_cv2": 0.0535,
+    "organism_mean": 21.407,
+    "organism_cv2": 0.199
+   },
+   {
+    "gene": "yjjU",
+    "model_mean": 37.02,
+    "model_cv2": 0.40297,
+    "organism_mean": 6.447,
+    "organism_cv2": 0.421
+   },
+   {
+    "gene": "yjjV",
+    "model_mean": 15.32,
+    "model_cv2": 0.32592,
+    "organism_mean": 7.973,
+    "organism_cv2": 0.286
+   },
+   {
+    "gene": "glf",
+    "model_mean": 418.23,
+    "model_cv2": 0.1017,
+    "organism_mean": 192.91,
+    "organism_cv2": 0.132
+   },
+   {
+    "gene": "gapA",
+    "model_mean": 92636.26,
+    "model_cv2": 0.05981,
+    "organism_mean": 2380.382,
+    "organism_cv2": 0.15
+   },
+   {
+    "gene": "gatA",
+    "model_mean": 5523.56,
+    "model_cv2": 0.06728,
+    "organism_mean": 38.544,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "gatB",
+    "model_mean": 5071.8,
+    "model_cv2": 0.06825,
+    "organism_mean": 26.326,
+    "organism_cv2": 0.173
+   },
+   {
+    "gene": "gcvP",
+    "model_mean": 401.78,
+    "model_cv2": 0.28466,
+    "organism_mean": 89.275,
+    "organism_cv2": 0.201
+   },
+   {
+    "gene": "gcvT",
+    "model_mean": 475.98,
+    "model_cv2": 0.18681,
+    "organism_mean": 40.084,
+    "organism_cv2": 0.211
+   },
+   {
+    "gene": "glnD",
+    "model_mean": 112.95,
+    "model_cv2": 0.10459,
+    "organism_mean": 7.718,
+    "organism_cv2": 0.256
+   },
+   {
+    "gene": "glnE",
+    "model_mean": 61.4,
+    "model_cv2": 0.18881,
+    "organism_mean": 12.918,
+    "organism_cv2": 0.152
+   },
+   {
+    "gene": "glnS",
+    "model_mean": 1444.99,
+    "model_cv2": 0.10574,
+    "organism_mean": 67.294,
+    "organism_cv2": 0.1
+   },
+   {
+    "gene": "zwf",
+    "model_mean": 2506.01,
+    "model_cv2": 0.09593,
+    "organism_mean": 113.158,
+    "organism_cv2": 0.195
+   },
+   {
+    "gene": "glgC",
+    "model_mean": 464.08,
+    "model_cv2": 0.11839,
+    "organism_mean": 1.458,
+    "organism_cv2": 0.82
+   },
+   {
+    "gene": "idnO",
+    "model_mean": 14.67,
+    "model_cv2": 0.83207,
+    "organism_mean": 3.147,
+    "organism_cv2": 1.351
+   },
+   {
+    "gene": "gltB",
+    "model_mean": 2546.68,
+    "model_cv2": 0.06285,
+    "organism_mean": 174.805,
+    "organism_cv2": 0.108
+   },
+   {
+    "gene": "gltD",
+    "model_mean": 2795.46,
+    "model_cv2": 0.0578,
+    "organism_mean": 277.748,
+    "organism_cv2": 0.24
+   },
+   {
+    "gene": "gor",
+    "model_mean": 557.05,
+    "model_cv2": 0.10159,
+    "organism_mean": 1.478,
+    "organism_cv2": 1.163
+   },
+   {
+    "gene": "gshA",
+    "model_mean": 455.46,
+    "model_cv2": 0.07904,
+    "organism_mean": 24.934,
+    "organism_cv2": 0.125
+   },
+   {
+    "gene": "gadA",
+    "model_mean": 35.38,
+    "model_cv2": 0.61989,
+    "organism_mean": 674.735,
+    "organism_cv2": 0.362
+   },
+   {
+    "gene": "murI",
+    "model_mean": 229.28,
+    "model_cv2": 0.20642,
+    "organism_mean": 13.395,
+    "organism_cv2": 0.169
+   },
+   {
+    "gene": "proA",
+    "model_mean": 632.96,
+    "model_cv2": 0.10256,
+    "organism_mean": 50.991,
+    "organism_cv2": 0.143
+   },
+   {
+    "gene": "glxK",
+    "model_mean": 5.16,
+    "model_cv2": 0.53512,
+    "organism_mean": 4.205,
+    "organism_cv2": 0.38
+   },
+   {
+    "gene": "gpsA",
+    "model_mean": 802.81,
+    "model_cv2": 0.06716,
+    "organism_mean": 26.034,
+    "organism_cv2": 0.134
+   },
+   {
+    "gene": "gldA",
+    "model_mean": 23.39,
+    "model_cv2": 2.22792,
+    "organism_mean": 10.768,
+    "organism_cv2": 0.31
+   },
+   {
+    "gene": "plsB",
+    "model_mean": 326.99,
+    "model_cv2": 0.08958,
+    "organism_mean": 41.199,
+    "organism_cv2": 0.159
+   },
+   {
+    "gene": "glgP",
+    "model_mean": 296.67,
+    "model_cv2": 0.12201,
+    "organism_mean": 57.187,
+    "organism_cv2": 0.102
+   },
+   {
+    "gene": "gcl",
+    "model_mean": 2.62,
+    "model_cv2": 1.67831,
+    "organism_mean": 1.181,
+    "organism_cv2": 2.222
+   },
+   {
+    "gene": "glyA",
+    "model_mean": 15735.96,
+    "model_cv2": 0.07262,
+    "organism_mean": 1640.447,
+    "organism_cv2": 0.105
+   },
+   {
+    "gene": "gloA",
+    "model_mean": 4028.11,
+    "model_cv2": 0.09756,
+    "organism_mean": 98.724,
+    "organism_cv2": 0.108
+   },
+   {
+    "gene": "gloB",
+    "model_mean": 531.45,
+    "model_cv2": 0.12116,
+    "organism_mean": 7.29,
+    "organism_cv2": 0.313
+   },
+   {
+    "gene": "guaC",
+    "model_mean": 1768.42,
+    "model_cv2": 0.1261,
+    "organism_mean": 67.478,
+    "organism_cv2": 0.14
+   },
+   {
+    "gene": "guaA",
+    "model_mean": 2303.8,
+    "model_cv2": 0.07587,
+    "organism_mean": 335.577,
+    "organism_cv2": 6.452
+   },
+   {
+    "gene": "gpmA",
+    "model_mean": 31068.7,
+    "model_cv2": 0.06168,
+    "organism_mean": 760.082,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "gmk",
+    "model_mean": 746.81,
+    "model_cv2": 0.06228,
+    "organism_mean": 39.269,
+    "organism_cv2": 0.105
+   },
+   {
+    "gene": "cyoE",
+    "model_mean": 511.55,
+    "model_cv2": 0.08512,
+    "organism_mean": 6.786,
+    "organism_cv2": 0.324
+   },
+   {
+    "gene": "hemN",
+    "model_mean": 209.67,
+    "model_cv2": 0.13563,
+    "organism_mean": 10.046,
+    "organism_cv2": 0.188
+   },
+   {
+    "gene": "hemX",
+    "model_mean": 250.53,
+    "model_cv2": 0.08244,
+    "organism_mean": 5.416,
+    "organism_cv2": 0.332
+   },
+   {
+    "gene": "hisJ",
+    "model_mean": 4197.9,
+    "model_cv2": 0.07166,
+    "organism_mean": 2.428,
+    "organism_cv2": 0.349
+   },
+   {
+    "gene": "hisS",
+    "model_mean": 869.6,
+    "model_cv2": 0.06838,
+    "organism_mean": 75.695,
+    "organism_cv2": 0.1
+   },
+   {
+    "gene": "hisI",
+    "model_mean": 923.7,
+    "model_cv2": 0.126,
+    "organism_mean": 0.714,
+    "organism_cv2": 1.724
+   },
+   {
+    "gene": "hisC",
+    "model_mean": 541.97,
+    "model_cv2": 0.10568,
+    "organism_mean": 20.736,
+    "organism_cv2": 0.167
+   },
+   {
+    "gene": "acpS",
+    "model_mean": 232.93,
+    "model_cv2": 0.12903,
+    "organism_mean": 11.815,
+    "organism_cv2": 0.175
+   },
+   {
+    "gene": "hycE",
+    "model_mean": 12.33,
+    "model_cv2": 0.36767,
+    "organism_mean": 1.628,
+    "organism_cv2": 1.087
+   },
+   {
+    "gene": "katG",
+    "model_mean": 790.6,
+    "model_cv2": 0.16213,
+    "organism_mean": 16.233,
+    "organism_cv2": 0.21
+   },
+   {
+    "gene": "katE",
+    "model_mean": 42.18,
+    "model_cv2": 0.51003,
+    "organism_mean": 149.12,
+    "organism_cv2": 0.138
+   },
+   {
+    "gene": "ileS",
+    "model_mean": 1128.33,
+    "model_cv2": 0.10676,
+    "organism_mean": 64.061,
+    "organism_cv2": 0.123
+   },
+   {
+    "gene": "ppa",
+    "model_mean": 18232.42,
+    "model_cv2": 0.07031,
+    "organism_mean": 397.635,
+    "organism_cv2": 0.128
+   },
+   {
+    "gene": "kch",
+    "model_mean": 68.17,
+    "model_cv2": 0.5785,
+    "organism_mean": 29.372,
+    "organism_cv2": 0.173
+   },
+   {
+    "gene": "garL",
+    "model_mean": 16.02,
+    "model_cv2": 2.51676,
+    "organism_mean": 1.704,
+    "organism_cv2": 0.837
+   },
+   {
+    "gene": "kdsA",
+    "model_mean": 2320.31,
+    "model_cv2": 0.0902,
+    "organism_mean": 94.955,
+    "organism_cv2": 0.138
+   },
+   {
+    "gene": "kdpD",
+    "model_mean": 22.47,
+    "model_cv2": 0.90479,
+    "organism_mean": 8.768,
+    "organism_cv2": 0.394
+   },
+   {
+    "gene": "kdpE",
+    "model_mean": 36.16,
+    "model_cv2": 0.98076,
+    "organism_mean": 5.556,
+    "organism_cv2": 0.284
+   },
+   {
+    "gene": "kefC",
+    "model_mean": 30.81,
+    "model_cv2": 0.96778,
+    "organism_mean": 3.107,
+    "organism_cv2": 0.254
+   },
+   {
+    "gene": "aldA",
+    "model_mean": 1062.95,
+    "model_cv2": 0.12639,
+    "organism_mean": 125.054,
+    "organism_cv2": 0.195
+   },
+   {
+    "gene": "ilvB",
+    "model_mean": 1057.78,
+    "model_cv2": 0.10824,
+    "organism_mean": 14.499,
+    "organism_cv2": 0.165
+   },
+   {
+    "gene": "ldcC",
+    "model_mean": 18.29,
+    "model_cv2": 0.62213,
+    "organism_mean": 8.881,
+    "organism_cv2": 0.314
+   },
+   {
+    "gene": "leuS",
+    "model_mean": 1480.08,
+    "model_cv2": 0.07653,
+    "organism_mean": 96.516,
+    "organism_cv2": 0.111
+   },
+   {
+    "gene": "lpxB",
+    "model_mean": 554.43,
+    "model_cv2": 0.07642,
+    "organism_mean": 13.028,
+    "organism_cv2": 0.133
+   },
+   {
+    "gene": "livJ",
+    "model_mean": 6132.58,
+    "model_cv2": 0.07513,
+    "organism_mean": 8.034,
+    "organism_cv2": 0.167
+   },
+   {
+    "gene": "cadA",
+    "model_mean": 1.59,
+    "model_cv2": 0.56132,
+    "organism_mean": 4.161,
+    "organism_cv2": 0.113
+   },
+   {
+    "gene": "lysS",
+    "model_mean": 2922.38,
+    "model_cv2": 0.07883,
+    "organism_mean": 118.608,
+    "organism_cv2": 0.162
+   },
+   {
+    "gene": "lysU",
+    "model_mean": 356.41,
+    "model_cv2": 0.34334,
+    "organism_mean": 26.853,
+    "organism_cv2": 1.399
+   },
+   {
+    "gene": "malP",
+    "model_mean": 313.07,
+    "model_cv2": 0.45843,
+    "organism_mean": 8.255,
+    "organism_cv2": 0.223
+   },
+   {
+    "gene": "malK",
+    "model_mean": 156.3,
+    "model_cv2": 0.13065,
+    "organism_mean": 96.891,
+    "organism_cv2": 0.157
+   },
+   {
+    "gene": "fabD",
+    "model_mean": 2100.88,
+    "model_cv2": 0.0646,
+    "organism_mean": 5.316,
+    "organism_cv2": 0.253
+   },
+   {
+    "gene": "glcB",
+    "model_mean": 125.18,
+    "model_cv2": 0.59367,
+    "organism_mean": 17.56,
+    "organism_cv2": 0.255
+   },
+   {
+    "gene": "manA",
+    "model_mean": 846.82,
+    "model_cv2": 0.10177,
+    "organism_mean": 22.119,
+    "organism_cv2": 0.149
+   },
+   {
+    "gene": "manX",
+    "model_mean": 2137.23,
+    "model_cv2": 0.07077,
+    "organism_mean": 57.951,
+    "organism_cv2": 0.186
+   },
+   {
+    "gene": "manY",
+    "model_mean": 1906.93,
+    "model_cv2": 0.07212,
+    "organism_mean": 197.264,
+    "organism_cv2": 0.113
+   },
+   {
+    "gene": "mdlA",
+    "model_mean": 7.39,
+    "model_cv2": 2.00858,
+    "organism_mean": 1.871,
+    "organism_cv2": 1.235
+   },
+   {
+    "gene": "mdlB",
+    "model_mean": 9.02,
+    "model_cv2": 1.73731,
+    "organism_mean": 5.423,
+    "organism_cv2": 0.177
+   },
+   {
+    "gene": "menD",
+    "model_mean": 395.3,
+    "model_cv2": 0.08871,
+    "organism_mean": 9.335,
+    "organism_cv2": 0.173
+   },
+   {
+    "gene": "metG",
+    "model_mean": 1852.42,
+    "model_cv2": 0.08913,
+    "organism_mean": 79.581,
+    "organism_cv2": 0.139
+   },
+   {
+    "gene": "mgtA",
+    "model_mean": 23.06,
+    "model_cv2": 0.23275,
+    "organism_mean": 15.669,
+    "organism_cv2": 0.262
+   },
+   {
+    "gene": "mhpE",
+    "model_mean": 9.83,
+    "model_cv2": 0.72255,
+    "organism_mean": 1.758,
+    "organism_cv2": 1.342
+   },
+   {
+    "gene": "mhpF",
+    "model_mean": 10.38,
+    "model_cv2": 0.67774,
+    "organism_mean": 18.658,
+    "organism_cv2": 0.292
+   },
+   {
+    "gene": "dnaX",
+    "model_mean": 78.4,
+    "model_cv2": 0.11303,
+    "organism_mean": 14.346,
+    "organism_cv2": 0.164
+   },
+   {
+    "gene": "flhC",
+    "model_mean": 1632.53,
+    "model_cv2": 0.08917,
+    "organism_mean": 1.058,
+    "organism_cv2": 1.274
+   },
+   {
+    "gene": "pldA",
+    "model_mean": 269.46,
+    "model_cv2": 0.12097,
+    "organism_mean": 2.796,
+    "organism_cv2": 0.428
+   },
+   {
+    "gene": "clpB",
+    "model_mean": 515.94,
+    "model_cv2": 0.1291,
+    "organism_mean": 115.102,
+    "organism_cv2": 0.172
+   },
+   {
+    "gene": "mrcB",
+    "model_mean": 99.6,
+    "model_cv2": 0.24398,
+    "organism_mean": 0.945,
+    "organism_cv2": 1.538
+   },
+   {
+    "gene": "mcrB",
+    "model_mean": 90.63,
+    "model_cv2": 0.28572,
+    "organism_mean": 3.296,
+    "organism_cv2": 0.647
+   },
+   {
+    "gene": "cobB",
+    "model_mean": 354.2,
+    "model_cv2": 0.27579,
+    "organism_mean": 25.486,
+    "organism_cv2": 0.168
+   },
+   {
+    "gene": "glcF",
+    "model_mean": 72.75,
+    "model_cv2": 0.81838,
+    "organism_mean": 1.413,
+    "organism_cv2": 1.626
+   },
+   {
+    "gene": "lpxM",
+    "model_mean": 227.74,
+    "model_cv2": 0.1063,
+    "organism_mean": 24.963,
+    "organism_cv2": 0.088
+   },
+   {
+    "gene": "murG",
+    "model_mean": 99.36,
+    "model_cv2": 0.24769,
+    "organism_mean": 12.39,
+    "organism_cv2": 0.093
+   },
+   {
+    "gene": "amiB",
+    "model_mean": 217.72,
+    "model_cv2": 0.11193,
+    "organism_mean": 0.371,
+    "organism_cv2": 1.681
+   },
+   {
+    "gene": "nadE",
+    "model_mean": 2968.65,
+    "model_cv2": 0.124,
+    "organism_mean": 30.911,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "ndh",
+    "model_mean": 864.15,
+    "model_cv2": 0.09455,
+    "organism_mean": 58.781,
+    "organism_cv2": 0.196
+   },
+   {
+    "gene": "glmU",
+    "model_mean": 611.22,
+    "model_cv2": 0.08928,
+    "organism_mean": 42.07,
+    "organism_cv2": 0.246
+   },
+   {
+    "gene": "napD",
+    "model_mean": 11.23,
+    "model_cv2": 10.2071,
+    "organism_mean": 1.045,
+    "organism_cv2": 0.851
+   },
+   {
+    "gene": "menB",
+    "model_mean": 2167.02,
+    "model_cv2": 0.08852,
+    "organism_mean": 22.182,
+    "organism_cv2": 0.141
+   },
+   {
+    "gene": "narG",
+    "model_mean": 5.92,
+    "model_cv2": 0.48402,
+    "organism_mean": 2.978,
+    "organism_cv2": 0.447
+   },
+   {
+    "gene": "narH",
+    "model_mean": 5.45,
+    "model_cv2": 0.65989,
+    "organism_mean": 1.101,
+    "organism_cv2": 3.226
+   },
+   {
+    "gene": "narJ",
+    "model_mean": 4.55,
+    "model_cv2": 0.71865,
+    "organism_mean": 5.44,
+    "organism_cv2": 0.196
+   },
+   {
+    "gene": "narW",
+    "model_mean": 4.78,
+    "model_cv2": 0.77843,
+    "organism_mean": 2.926,
+    "organism_cv2": 0.568
+   },
+   {
+    "gene": "narZ",
+    "model_mean": 4.41,
+    "model_cv2": 0.84104,
+    "organism_mean": 0.987,
+    "organism_cv2": 1.639
+   },
+   {
+    "gene": "pncB",
+    "model_mean": 782.31,
+    "model_cv2": 0.08153,
+    "organism_mean": 27.614,
+    "organism_cv2": 0.182
+   },
+   {
+    "gene": "nikC",
+    "model_mean": 8.87,
+    "model_cv2": 4.16552,
+    "organism_mean": 1.086,
+    "organism_cv2": 1.642
+   },
+   {
+    "gene": "nikD",
+    "model_mean": 8.25,
+    "model_cv2": 5.29733,
+    "organism_mean": 3.175,
+    "organism_cv2": 0.608
+   },
+   {
+    "gene": "nikE",
+    "model_mean": 9.01,
+    "model_cv2": 4.1029,
+    "organism_mean": 3.69,
+    "organism_cv2": 0.305
+   },
+   {
+    "gene": "nrdA",
+    "model_mean": 1106.16,
+    "model_cv2": 0.08014,
+    "organism_mean": 251.1,
+    "organism_cv2": 0.265
+   },
+   {
+    "gene": "ndk",
+    "model_mean": 7661.0,
+    "model_cv2": 0.08188,
+    "organism_mean": 178.237,
+    "organism_cv2": 0.137
+   },
+   {
+    "gene": "nuoA",
+    "model_mean": 372.44,
+    "model_cv2": 0.16581,
+    "organism_mean": 109.877,
+    "organism_cv2": 0.08
+   },
+   {
+    "gene": "nuoB",
+    "model_mean": 345.89,
+    "model_cv2": 0.16383,
+    "organism_mean": 46.786,
+    "organism_cv2": 0.161
+   },
+   {
+    "gene": "nuoC",
+    "model_mean": 264.08,
+    "model_cv2": 0.21722,
+    "organism_mean": 32.453,
+    "organism_cv2": 0.112
+   },
+   {
+    "gene": "nuoE",
+    "model_mean": 373.92,
+    "model_cv2": 0.15372,
+    "organism_mean": 70.378,
+    "organism_cv2": 0.087
+   },
+   {
+    "gene": "nuoF",
+    "model_mean": 229.25,
+    "model_cv2": 0.19825,
+    "organism_mean": 9.227,
+    "organism_cv2": 0.459
+   },
+   {
+    "gene": "nuoG",
+    "model_mean": 198.89,
+    "model_cv2": 0.21933,
+    "organism_mean": 39.583,
+    "organism_cv2": 0.088
+   },
+   {
+    "gene": "metB",
+    "model_mean": 81.55,
+    "model_cv2": 0.19807,
+    "organism_mean": 21.535,
+    "organism_cv2": 0.292
+   },
+   {
+    "gene": "menC",
+    "model_mean": 493.24,
+    "model_cv2": 0.09335,
+    "organism_mean": 3.981,
+    "organism_cv2": 0.273
+   },
+   {
+    "gene": "ubiH",
+    "model_mean": 143.97,
+    "model_cv2": 0.07754,
+    "organism_mean": 12.71,
+    "organism_cv2": 0.135
+   },
+   {
+    "gene": "ompR",
+    "model_mean": 627.96,
+    "model_cv2": 0.09089,
+    "organism_mean": 80.769,
+    "organism_cv2": 0.137
+   },
+   {
+    "gene": "speC",
+    "model_mean": 170.47,
+    "model_cv2": 0.23659,
+    "organism_mean": 3.562,
+    "organism_cv2": 0.245
+   },
+   {
+    "gene": "panC",
+    "model_mean": 1341.81,
+    "model_cv2": 0.08581,
+    "organism_mean": 53.307,
+    "organism_cv2": 0.117
+   },
+   {
+    "gene": "melR",
+    "model_mean": 90.1,
+    "model_cv2": 0.71397,
+    "organism_mean": 0.672,
+    "organism_cv2": 3.846
+   },
+   {
+    "gene": "oxyR",
+    "model_mean": 1322.35,
+    "model_cv2": 0.08794,
+    "organism_mean": 79.076,
+    "organism_cv2": 0.131
+   },
+   {
+    "gene": "cysB",
+    "model_mean": 1166.27,
+    "model_cv2": 0.12026,
+    "organism_mean": 46.069,
+    "organism_cv2": 0.114
+   },
+   {
+    "gene": "asnC",
+    "model_mean": 10.59,
+    "model_cv2": 9.31962,
+    "organism_mean": 78.409,
+    "organism_cv2": 0.093
+   },
+   {
+    "gene": "fur",
+    "model_mean": 3934.95,
+    "model_cv2": 0.06448,
+    "organism_mean": 193.209,
+    "organism_cv2": 0.095
+   },
+   {
+    "gene": "nagC",
+    "model_mean": 373.09,
+    "model_cv2": 0.10177,
+    "organism_mean": 37.702,
+    "organism_cv2": 0.123
+   },
+   {
+    "gene": "tyrR",
+    "model_mean": 41.72,
+    "model_cv2": 1.00956,
+    "organism_mean": 10.341,
+    "organism_cv2": 0.166
+   },
+   {
+    "gene": "wrbA",
+    "model_mean": 1057.87,
+    "model_cv2": 0.16265,
+    "organism_mean": 219.007,
+    "organism_cv2": 0.225
+   },
+   {
+    "gene": "csgD",
+    "model_mean": 179.07,
+    "model_cv2": 0.35785,
+    "organism_mean": 23.322,
+    "organism_cv2": 0.252
+   },
+   {
+    "gene": "fadR",
+    "model_mean": 507.81,
+    "model_cv2": 0.10187,
+    "organism_mean": 28.758,
+    "organism_cv2": 0.122
+   },
+   {
+    "gene": "sdiA",
+    "model_mean": 125.94,
+    "model_cv2": 0.45342,
+    "organism_mean": 11.684,
+    "organism_cv2": 0.133
+   },
+   {
+    "gene": "cspA",
+    "model_mean": 1618.48,
+    "model_cv2": 0.11046,
+    "organism_mean": 714.6,
+    "organism_cv2": 0.243
+   },
+   {
+    "gene": "dnaA",
+    "model_mean": 127.18,
+    "model_cv2": 0.14408,
+    "organism_mean": 27.88,
+    "organism_cv2": 0.177
+   },
+   {
+    "gene": "metJ",
+    "model_mean": 241.91,
+    "model_cv2": 1.81121,
+    "organism_mean": 96.378,
+    "organism_cv2": 0.422
+   },
+   {
+    "gene": "rob",
+    "model_mean": 787.76,
+    "model_cv2": 0.08272,
+    "organism_mean": 0.273,
+    "organism_cv2": 5.0
+   },
+   {
+    "gene": "pdxH",
+    "model_mean": 784.42,
+    "model_cv2": 0.12475,
+    "organism_mean": 25.51,
+    "organism_cv2": 0.213
+   },
+   {
+    "gene": "ppc",
+    "model_mean": 4235.56,
+    "model_cv2": 0.06925,
+    "organism_mean": 14.585,
+    "organism_cv2": 2.353
+   },
+   {
+    "gene": "pgk",
+    "model_mean": 15170.74,
+    "model_cv2": 0.06181,
+    "organism_mean": 564.396,
+    "organism_cv2": 0.151
+   },
+   {
+    "gene": "pgi",
+    "model_mean": 3271.07,
+    "model_cv2": 0.05889,
+    "organism_mean": 168.502,
+    "organism_cv2": 0.138
+   },
+   {
+    "gene": "edd",
+    "model_mean": 38.12,
+    "model_cv2": 0.48294,
+    "organism_mean": 16.906,
+    "organism_cv2": 0.209
+   },
+   {
+    "gene": "phnD",
+    "model_mean": 1.0,
+    "model_cv2": 2.00488,
+    "organism_mean": 4.146,
+    "organism_cv2": 0.403
+   },
+   {
+    "gene": "phnK",
+    "model_mean": 2.02,
+    "model_cv2": 0.5441,
+    "organism_mean": 16.648,
+    "organism_cv2": 0.344
+   },
+   {
+    "gene": "phoQ",
+    "model_mean": 38.4,
+    "model_cv2": 0.37728,
+    "organism_mean": 7.058,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "phoR",
+    "model_mean": 1.88,
+    "model_cv2": 8.35826,
+    "organism_mean": 10.944,
+    "organism_cv2": 0.154
+   },
+   {
+    "gene": "pta",
+    "model_mean": 1071.69,
+    "model_cv2": 0.07432,
+    "organism_mean": 62.472,
+    "organism_cv2": 0.127
+   },
+   {
+    "gene": "pgsA",
+    "model_mean": 289.84,
+    "model_cv2": 0.06913,
+    "organism_mean": 25.135,
+    "organism_cv2": 0.177
+   },
+   {
+    "gene": "pssA",
+    "model_mean": 272.88,
+    "model_cv2": 0.10792,
+    "organism_mean": 94.049,
+    "organism_cv2": 0.146
+   },
+   {
+    "gene": "pgm",
+    "model_mean": 982.83,
+    "model_cv2": 0.06478,
+    "organism_mean": 98.608,
+    "organism_cv2": 0.09
+   },
+   {
+    "gene": "pykF",
+    "model_mean": 7107.71,
+    "model_cv2": 0.07215,
+    "organism_mean": 0.152,
+    "organism_cv2": 10.101
+   },
+   {
+    "gene": "pykA",
+    "model_mean": 1578.62,
+    "model_cv2": 0.10793,
+    "organism_mean": 118.856,
+    "organism_cv2": 0.096
+   },
+   {
+    "gene": "deoB",
+    "model_mean": 150.19,
+    "model_cv2": 0.86631,
+    "organism_mean": 186.799,
+    "organism_cv2": 0.129
+   },
+   {
+    "gene": "ppk",
+    "model_mean": 149.65,
+    "model_cv2": 0.24727,
+    "organism_mean": 27.721,
+    "organism_cv2": 0.207
+   },
+   {
+    "gene": "gpp",
+    "model_mean": 106.42,
+    "model_cv2": 0.08814,
+    "organism_mean": 28.837,
+    "organism_cv2": 0.094
+   },
+   {
+    "gene": "tdcD",
+    "model_mean": 28.13,
+    "model_cv2": 1.26768,
+    "organism_mean": 0.222,
+    "organism_cv2": 6.061
+   },
+   {
+    "gene": "glnL",
+    "model_mean": 47.09,
+    "model_cv2": 0.20299,
+    "organism_mean": 27.489,
+    "organism_cv2": 0.227
+   },
+   {
+    "gene": "glnB",
+    "model_mean": 2007.16,
+    "model_cv2": 0.09191,
+    "organism_mean": 83.224,
+    "organism_cv2": 0.11
+   },
+   {
+    "gene": "hemH",
+    "model_mean": 85.54,
+    "model_cv2": 0.22349,
+    "organism_mean": 0.502,
+    "organism_cv2": 2.755
+   },
+   {
+    "gene": "serC",
+    "model_mean": 8705.99,
+    "model_cv2": 0.06299,
+    "organism_mean": 187.766,
+    "organism_cv2": 0.155
+   },
+   {
+    "gene": "pstB",
+    "model_mean": 392.18,
+    "model_cv2": 0.16981,
+    "organism_mean": 214.905,
+    "organism_cv2": 0.147
+   },
+   {
+    "gene": "pstC",
+    "model_mean": 39.21,
+    "model_cv2": 0.39912,
+    "organism_mean": 175.447,
+    "organism_cv2": 0.125
+   },
+   {
+    "gene": "pstS",
+    "model_mean": 265.48,
+    "model_cv2": 0.16724,
+    "organism_mean": 38.587,
+    "organism_cv2": 0.113
+   },
+   {
+    "gene": "putA",
+    "model_mean": 15.94,
+    "model_cv2": 1.08757,
+    "organism_mean": 12.847,
+    "organism_cv2": 0.259
+   },
+   {
+    "gene": "putP",
+    "model_mean": 61.9,
+    "model_cv2": 0.27893,
+    "organism_mean": 32.437,
+    "organism_cv2": 0.126
+   },
+   {
+    "gene": "pflB",
+    "model_mean": 6564.05,
+    "model_cv2": 0.06788,
+    "organism_mean": 238.944,
+    "organism_cv2": 0.24
+   },
+   {
+    "gene": "nadC",
+    "model_mean": 819.8,
+    "model_cv2": 0.0729,
+    "organism_mean": 39.117,
+    "organism_cv2": 0.105
+   },
+   {
+    "gene": "rbsB",
+    "model_mean": 260.48,
+    "model_cv2": 0.25774,
+    "organism_mean": 0.22,
+    "organism_cv2": 15.625
+   },
+   {
+    "gene": "rcsB",
+    "model_mean": 551.72,
+    "model_cv2": 0.16286,
+    "organism_mean": 368.665,
+    "organism_cv2": 0.111
+   },
+   {
+    "gene": "rcsC",
+    "model_mean": 39.42,
+    "model_cv2": 0.13477,
+    "organism_mean": 8.874,
+    "organism_cv2": 0.245
+   },
+   {
+    "gene": "trxA",
+    "model_mean": 10717.77,
+    "model_cv2": 0.06524,
+    "organism_mean": 375.299,
+    "organism_cv2": 0.155
+   },
+   {
+    "gene": "rpiB",
+    "model_mean": 13.33,
+    "model_cv2": 2.77089,
+    "organism_mean": 6.254,
+    "organism_cv2": 0.311
+   },
+   {
+    "gene": "ribF",
+    "model_mean": 183.05,
+    "model_cv2": 0.12799,
+    "organism_mean": 13.22,
+    "organism_cv2": 0.148
+   },
+   {
+    "gene": "nrdD",
+    "model_mean": 25.31,
+    "model_cv2": 0.997,
+    "organism_mean": 5.183,
+    "organism_cv2": 0.363
+   },
+   {
+    "gene": "araB",
+    "model_mean": 22.19,
+    "model_cv2": 7.39831,
+    "organism_mean": 1.594,
+    "organism_cv2": 1.739
+   },
+   {
+    "gene": "nrdG",
+    "model_mean": 26.08,
+    "model_cv2": 0.87712,
+    "organism_mean": 1.941,
+    "organism_cv2": 0.503
+   },
+   {
+    "gene": "rpoB",
+    "model_mean": 4668.64,
+    "model_cv2": 0.07035,
+    "organism_mean": 516.058,
+    "organism_cv2": 0.166
+   },
+   {
+    "gene": "rpoN",
+    "model_mean": 195.96,
+    "model_cv2": 0.10029,
+    "organism_mean": 42.382,
+    "organism_cv2": 0.154
+   },
+   {
+    "gene": "metK",
+    "model_mean": 5209.68,
+    "model_cv2": 0.06282,
+    "organism_mean": 347.042,
+    "organism_cv2": 0.127
+   },
+   {
+    "gene": "sapA",
+    "model_mean": 123.93,
+    "model_cv2": 0.25536,
+    "organism_mean": 3.547,
+    "organism_cv2": 0.354
+   },
+   {
+    "gene": "sapF",
+    "model_mean": 92.34,
+    "model_cv2": 0.27798,
+    "organism_mean": 7.617,
+    "organism_cv2": 0.186
+   },
+   {
+    "gene": "secA",
+    "model_mean": 1319.38,
+    "model_cv2": 0.09745,
+    "organism_mean": 71.319,
+    "organism_cv2": 0.111
+   },
+   {
+    "gene": "secB",
+    "model_mean": 4857.61,
+    "model_cv2": 0.08519,
+    "organism_mean": 672.937,
+    "organism_cv2": 0.159
+   },
+   {
+    "gene": "serS",
+    "model_mean": 3495.8,
+    "model_cv2": 0.0947,
+    "organism_mean": 168.148,
+    "organism_cv2": 0.152
+   },
+   {
+    "gene": "speD",
+    "model_mean": 2012.64,
+    "model_cv2": 0.11294,
+    "organism_mean": 48.701,
+    "organism_cv2": 0.226
+   },
+   {
+    "gene": "spoT",
+    "model_mean": 37.39,
+    "model_cv2": 0.09192,
+    "organism_mean": 29.004,
+    "organism_cv2": 0.108
+   },
+   {
+    "gene": "astC",
+    "model_mean": 19.09,
+    "model_cv2": 0.57796,
+    "organism_mean": 19.916,
+    "organism_cv2": 0.426
+   },
+   {
+    "gene": "gabD",
+    "model_mean": 75.13,
+    "model_cv2": 0.29116,
+    "organism_mean": 35.302,
+    "organism_cv2": 0.193
+   },
+   {
+    "gene": "gatY",
+    "model_mean": 6129.88,
+    "model_cv2": 0.07475,
+    "organism_mean": 58.535,
+    "organism_cv2": 0.242
+   },
+   {
+    "gene": "tar",
+    "model_mean": 2530.39,
+    "model_cv2": 0.09258,
+    "organism_mean": 0.334,
+    "organism_cv2": 5.405
+   },
+   {
+    "gene": "ilvA",
+    "model_mean": 233.12,
+    "model_cv2": 0.16194,
+    "organism_mean": 10.817,
+    "organism_cv2": 0.25
+   },
+   {
+    "gene": "thrS",
+    "model_mean": 3540.25,
+    "model_cv2": 0.07597,
+    "organism_mean": 783.577,
+    "organism_cv2": 0.169
+   },
+   {
+    "gene": "thyA",
+    "model_mean": 979.69,
+    "model_cv2": 0.08698,
+    "organism_mean": 46.834,
+    "organism_cv2": 0.181
+   },
+   {
+    "gene": "torA",
+    "model_mean": 13.49,
+    "model_cv2": 1.84016,
+    "organism_mean": 0.811,
+    "organism_cv2": 1.639
+   },
+   {
+    "gene": "torS",
+    "model_mean": 11.44,
+    "model_cv2": 2.87711,
+    "organism_mean": 2.764,
+    "organism_cv2": 0.22
+   },
+   {
+    "gene": "tpiA",
+    "model_mean": 9199.57,
+    "model_cv2": 0.06444,
+    "organism_mean": 767.928,
+    "organism_cv2": 0.128
+   },
+   {
+    "gene": "tktA",
+    "model_mean": 2792.8,
+    "model_cv2": 0.11679,
+    "organism_mean": 290.091,
+    "organism_cv2": 0.195
+   },
+   {
+    "gene": "tktB",
+    "model_mean": 644.92,
+    "model_cv2": 0.23386,
+    "organism_mean": 77.395,
+    "organism_cv2": 0.213
+   },
+   {
+    "gene": "treA",
+    "model_mean": 28.45,
+    "model_cv2": 0.70068,
+    "organism_mean": 2.07,
+    "organism_cv2": 0.405
+   },
+   {
+    "gene": "otsA",
+    "model_mean": 311.45,
+    "model_cv2": 0.15796,
+    "organism_mean": 43.825,
+    "organism_cv2": 0.192
+   },
+   {
+    "gene": "trpS",
+    "model_mean": 1701.34,
+    "model_cv2": 0.14878,
+    "organism_mean": 125.146,
+    "organism_cv2": 0.097
+   },
+   {
+    "gene": "tnaA",
+    "model_mean": 40.44,
+    "model_cv2": 0.61045,
+    "organism_mean": 351.358,
+    "organism_cv2": 0.155
+   },
+   {
+    "gene": "ubiX",
+    "model_mean": 60.53,
+    "model_cv2": 0.39023,
+    "organism_mean": 36.02,
+    "organism_cv2": 0.2
+   },
+   {
+    "gene": "murF",
+    "model_mean": 236.04,
+    "model_cv2": 0.09275,
+    "organism_mean": 19.117,
+    "organism_cv2": 0.136
+   },
+   {
+    "gene": "murE",
+    "model_mean": 165.2,
+    "model_cv2": 0.13453,
+    "organism_mean": 31.722,
+    "organism_cv2": 0.101
+   },
+   {
+    "gene": "lpxD",
+    "model_mean": 2889.89,
+    "model_cv2": 0.06734,
+    "organism_mean": 96.296,
+    "organism_cv2": 0.103
+   },
+   {
+    "gene": "murA",
+    "model_mean": 976.39,
+    "model_cv2": 0.09416,
+    "organism_mean": 50.691,
+    "organism_cv2": 0.168
+   },
+   {
+    "gene": "murB",
+    "model_mean": 139.95,
+    "model_cv2": 0.12368,
+    "organism_mean": 18.166,
+    "organism_cv2": 0.141
+   },
+   {
+    "gene": "ugpB",
+    "model_mean": 154.57,
+    "model_cv2": 0.45701,
+    "organism_mean": 0.661,
+    "organism_cv2": 1.88
+   },
+   {
+    "gene": "pyrH",
+    "model_mean": 1379.01,
+    "model_cv2": 0.11544,
+    "organism_mean": 136.925,
+    "organism_cv2": 0.227
+   },
+   {
+    "gene": "hemE",
+    "model_mean": 404.93,
+    "model_cv2": 0.09432,
+    "organism_mean": 40.279,
+    "organism_cv2": 0.128
+   },
+   {
+    "gene": "uup",
+    "model_mean": 148.78,
+    "model_cv2": 0.12918,
+    "organism_mean": 14.02,
+    "organism_cv2": 0.184
+   },
+   {
+    "gene": "valS",
+    "model_mean": 1674.83,
+    "model_cv2": 0.09861,
+    "organism_mean": 103.936,
+    "organism_cv2": 0.084
+   },
+   {
+    "gene": "yadG",
+    "model_mean": 244.17,
+    "model_cv2": 0.16873,
+    "organism_mean": 11.416,
+    "organism_cv2": 0.234
+   },
+   {
+    "gene": "ybhF",
+    "model_mean": 24.49,
+    "model_cv2": 0.21431,
+    "organism_mean": 1.038,
+    "organism_cv2": 1.274
+   },
+   {
+    "gene": "ddpA",
+    "model_mean": 17.22,
+    "model_cv2": 1.46113,
+    "organism_mean": 14.0,
+    "organism_cv2": 0.305
+   },
+   {
+    "gene": "zntA",
+    "model_mean": 96.24,
+    "model_cv2": 0.82212,
+    "organism_mean": 5.889,
+    "organism_cv2": 0.371
+   },
+   {
+    "gene": "yphE",
+    "model_mean": 11.61,
+    "model_cv2": 3.4863,
+    "organism_mean": 1.44,
+    "organism_cv2": 2.985
+   }
+  ]
+ },
+ "unreachable": null,
+ "computed_utc": "2026-11-25T17:22:49Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "7da6b3d",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

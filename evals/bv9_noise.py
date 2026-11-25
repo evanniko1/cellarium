@@ -11,10 +11,16 @@ would remove the noise being measured. Seeds share every parameter, so the cell-
 extrinsic noise is absent unless the model generates it: the question is whether a floor appears at all, and at
 what level. Compared as a scaling law, not gene by gene.
 
-    WCECOLI_DOCKER=<code image> python evals/bv9_noise.py      # writes evals/results/bv9_noise.json
+Taniguchi's per-gene table ships with the model checkout (validation/ecoli/flat/taniguichi2010_table_6.tsv: mean
+protein number and noise, CV2, for 1,018 genes), so the organism is scored by the same scaling function, and the
+genes both measure are compared one by one.
+
+    WCECOLI_DOCKER=<code image> python evals/bv9_noise.py --wcecoli <checkout>      # writes bv9_noise.json
 """
 from __future__ import annotations
 
+import argparse
+import csv
 import json
 import math
 import statistics
@@ -57,7 +63,27 @@ def scaling(mean: list[float], cv2: list[float]) -> dict:
             if any(m >= 1000 for m, _ in pts) else None}
 
 
-def main() -> int:
+TANIGUCHI = "validation/ecoli/flat/taniguichi2010_table_6.tsv"
+
+
+def taniguchi(path: Path) -> dict[str, tuple[float, float]]:
+    """gene symbol -> (mean protein number, noise CV2), from the checkout's copy of the paper's Table S6."""
+    out = {}
+    with open(path, encoding="utf-8", errors="replace", newline="") as f:
+        for row in csv.DictReader(f, delimiter="\t"):
+            try:
+                out[row["Gene_Name"].strip()] = (float(row["Mean_Protein"]), float(row["Noise_Protein"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    return out
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--wcecoli", type=Path)
+    a = ap.parse_args(argv)
+    from scipy import stats
+
     from cellarium import provenance, reader
     runs = B6._runs([DESIGN])[DESIGN]
     got = reader.protein_noise([r["root"] for r in runs], K)
@@ -65,6 +91,28 @@ def main() -> int:
         print(json.dumps(got)[:500])
         return 2
     res = scaling(got["mean"], got["cv2"])
+    per_gene = None
+    if a.wcecoli:
+        org = taniguchi(a.wcecoli / TANIGUCHI)
+        sym_of = {m: sym for sym, m in json.loads((REPO / "data" / "cache" / "gene_map.json")
+                                                 .read_text(encoding="utf-8")).items()}
+        pairs = []
+        for mid, m, c in zip(got["ids"], got["mean"], got["cv2"]):
+            sym = sym_of.get(mid)
+            if sym in org and m and c and m > 0 and c > 0 and org[sym][1] > 0:
+                pairs.append({"gene": sym, "model_mean": round(m, 2), "model_cv2": round(c, 5),
+                              "organism_mean": org[sym][0], "organism_cv2": org[sym][1]})
+        per_gene = {"organism_scaling": scaling([v[0] for v in org.values()], [v[1] for v in org.values()]),
+                    "n_joined": len(pairs),
+                    "spearman_cv2": round(float(stats.spearmanr([q["model_cv2"] for q in pairs],
+                                                                [q["organism_cv2"] for q in pairs]).statistic), 3)
+                    if len(pairs) > 2 else None,
+                    "spearman_mean": round(float(stats.spearmanr([q["model_mean"] for q in pairs],
+                                                                 [q["organism_mean"] for q in pairs]).statistic), 3)
+                    if len(pairs) > 2 else None,
+                    "median_log2_cv2_model_over_organism": round(statistics.median(
+                        math.log2(q["model_cv2"] / q["organism_cv2"]) for q in pairs), 3) if pairs else None,
+                    "pairs": pairs}
     out = {"spec": "BV-9", "design": DESIGN, "knowledge_base": f"{B6.KB} (the corpus fit), steady state",
            "n_runs": len(runs), "n_snapshots": got["n_snapshots"], "k_per_generation": got["k_per_generation"],
            "organism": ("Taniguchi et al. 2010 (doi:10.1126/science.1188308): gamma-distributed protein numbers; noise "
@@ -73,12 +121,14 @@ def main() -> int:
            "in_sample": "emergent; seeds share every parameter, so cell-to-cell parameter variation is absent",
            "reader_note": ("protein counts as MonomerCounts records them; the five two-component sensors (BV-R1) are "
                            "not corrected here, which does not move a scaling law over about 4,000 proteins"),
-           **res, "unreachable": got.get("_unreachable"),
+           **res, "taniguchi_per_gene": per_gene, "unreachable": got.get("_unreachable"),
            "computed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
            "environment": provenance.code_environment()}
     OUT.write_text(json.dumps(out, indent=1, default=float) + "\n", encoding="utf-8")
     print(json.dumps({k: out[k] for k in ("n_runs", "n_snapshots", "n_proteins", "bins", "loglog_slope_low_1_to_100",
                                           "loglog_slope_high_above_1000", "floor_median_cv2_above_1000")}, indent=1))
+    if per_gene:
+        print(json.dumps({k: v for k, v in per_gene.items() if k != "pairs"}, indent=1))
     return 0
 
 

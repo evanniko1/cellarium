@@ -194,6 +194,12 @@ READ_SITE_REGISTRY: dict[str, dict] = {
         "why": ("picks the QC-clean runs of one design whose raw output is on this machine, to read a protein "
                 "through the reader before and after the BV-R1 correction. It filters on qc itself and reads no "
                 "channel from the rows; the numbers come from the reader")},
+    "evals/bv6_overflow.py::_runs": {
+        "kind": "purpose_shaped",
+        "why": ("the biological tests BV-6, 7, 9, 10 and 11 select the QC-clean steady-state runs of the corpus fit "
+                "for named designs, with raw output on this machine, through survey.analysis_rows (the analysis "
+                "boundary, so its QC, dedup and reportable rules apply), and take each run's growth_rate from the "
+                "row as the x-axis; the quantities tested come from the reader. Not a lookup: it reads a channel")},
     "scripts/ab_score.py::main": {
         "kind": "lookup",
         "why": ("asks whether a gene has any runs at all before scoring a question, via the tool form; a "

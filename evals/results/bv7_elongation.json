@@ -1,0 +1,617 @@
+{
+ "spec": "BV-7",
+ "knowledge_base": "3b2f8ebd (the corpus fit), steady state",
+ "organism": "Dai et al. 2016 (doi:10.1038/nmicrobiol.2016.231): the elongation rate decreases as growth slows (Michaelis-Menten in the translational apparatus) but an appreciable rate is maintained towards zero growth, with a drastic fall in the active-ribosome fraction",
+ "in_sample": "perturbations are out of sample; the conditions are fitted for growth and composition, and the model's elongation rate per medium may itself be an input (checked separately)",
+ "fits": {
+  "fixed_medium": {
+   "n": 37,
+   "slope": 1.0062834227007469,
+   "r": 0.06912000896506819,
+   "p": 0.6843776045441412,
+   "intercept_at_zero_growth": 14.794,
+   "growth_range_per_h": [
+    0.502,
+    1.001
+   ]
+  },
+  "by_medium": {
+   "n": 38,
+   "slope": -5.163668283405826,
+   "r": -0.6379766932764895,
+   "p": 1.642127878856613e-05,
+   "intercept_at_zero_growth": 21.897,
+   "growth_range_per_h": [
+    0.393,
+    1.017
+   ]
+  },
+  "all": {
+   "n": 75,
+   "slope": -4.937421669130111,
+   "r": -0.375320370247398,
+   "p": 0.0009067682703297388,
+   "intercept_at_zero_growth": 20.63
+  }
+ },
+ "designs": {
+  "wildtype/basal": {
+   "n_runs": 17,
+   "growth_per_h": 0.888,
+   "elongation_aa_per_s": 16.393,
+   "elongation_sd": 0.752,
+   "runs": [
+    {
+     "id": "wildtype_0_4e59f02b",
+     "growth_per_h": 0.8139,
+     "elongation_aa_per_s": 16.486,
+     "ribosome_conc": 20.27795076184008
+    },
+    {
+     "id": "wildtype_7_e1b5107d",
+     "growth_per_h": 0.8803,
+     "elongation_aa_per_s": 16.638,
+     "ribosome_conc": 21.578548288574574
+    },
+    {
+     "id": "wildtype_2_2527f03f",
+     "growth_per_h": 0.7456,
+     "elongation_aa_per_s": 16.104,
+     "ribosome_conc": 20.153138059550532
+    },
+    {
+     "id": "wildtype_4_53ac740c",
+     "growth_per_h": 0.934,
+     "elongation_aa_per_s": 16.736,
+     "ribosome_conc": 21.489685118899818
+    },
+    {
+     "id": "wildtype_5_01b29990",
+     "growth_per_h": 0.9232,
+     "elongation_aa_per_s": 16.628,
+     "ribosome_conc": 21.567557601942475
+    },
+    {
+     "id": "wildtype_0_2c545d0f",
+     "growth_per_h": 0.8774,
+     "elongation_aa_per_s": 16.486,
+     "ribosome_conc": 20.27795076184008
+    },
+    {
+     "id": "wildtype_3_3b0ea4a3",
+     "growth_per_h": 0.8263,
+     "elongation_aa_per_s": 14.919,
+     "ribosome_conc": 21.616321336226363
+    },
+    {
+     "id": "wildtype_3_79f2269a",
+     "growth_per_h": 0.9816,
+     "elongation_aa_per_s": 14.919,
+     "ribosome_conc": 21.616321336226363
+    },
+    {
+     "id": "wildtype_4_2d52ea1e",
+     "growth_per_h": 0.9579,
+     "elongation_aa_per_s": 16.736,
+     "ribosome_conc": 21.489685118899818
+    },
+    {
+     "id": "wildtype_7_86820dd5",
+     "growth_per_h": 0.8895,
+     "elongation_aa_per_s": 16.638,
+     "ribosome_conc": 21.578548288574574
+    },
+    {
+     "id": "wildtype_2_5b60c6a8",
+     "growth_per_h": 1.0014,
+     "elongation_aa_per_s": 16.104,
+     "ribosome_conc": 20.153138059550532
+    },
+    {
+     "id": "wildtype_6_8b54b495",
+     "growth_per_h": 0.9341,
+     "elongation_aa_per_s": 17.126,
+     "ribosome_conc": 21.687917589004503
+    },
+    {
+     "id": "wildtype_6_3ac5fa94",
+     "growth_per_h": 0.9025,
+     "elongation_aa_per_s": 17.126,
+     "ribosome_conc": 21.687917589004503
+    },
+    {
+     "id": "wildtype_0_d97e01ba",
+     "growth_per_h": 0.8196,
+     "elongation_aa_per_s": 17.874,
+     "ribosome_conc": 21.819613876182913
+    },
+    {
+     "id": "wildtype_1_ad881a1e",
+     "growth_per_h": 0.9551,
+     "elongation_aa_per_s": 15.766,
+     "ribosome_conc": 20.657440436486358
+    },
+    {
+     "id": "wildtype_1_26d4ec15",
+     "growth_per_h": 0.811,
+     "elongation_aa_per_s": 15.766,
+     "ribosome_conc": 20.657440436486358
+    },
+    {
+     "id": "wildtype_5_a44724e8",
+     "growth_per_h": 0.8424,
+     "elongation_aa_per_s": 16.628,
+     "ribosome_conc": 21.567557601942475
+    }
+   ]
+  },
+  "ppgpp_conc/basal|ppGpp:0.6x": {
+   "n_runs": 4,
+   "growth_per_h": 0.7393,
+   "elongation_aa_per_s": 10.575,
+   "elongation_sd": 0.285,
+   "runs": [
+    {
+     "id": "ppgpp_conc_2_987ab94b",
+     "growth_per_h": 0.7207,
+     "elongation_aa_per_s": 10.82,
+     "ribosome_conc": 19.76433282662649
+    },
+    {
+     "id": "ppgpp_conc_3_3d8eaabd",
+     "growth_per_h": 0.7442,
+     "elongation_aa_per_s": 10.811,
+     "ribosome_conc": 21.924570344769318
+    },
+    {
+     "id": "ppgpp_conc_0_4f5a662e",
+     "growth_per_h": 0.7455,
+     "elongation_aa_per_s": 10.255,
+     "ribosome_conc": 21.597389481880448
+    },
+    {
+     "id": "ppgpp_conc_1_ebd652c3",
+     "growth_per_h": 0.7468,
+     "elongation_aa_per_s": 10.416,
+     "ribosome_conc": 20.231729995392502
+    }
+   ]
+  },
+  "ppgpp_conc/basal|ppGpp:1.6x": {
+   "n_runs": 4,
+   "growth_per_h": 0.743,
+   "elongation_aa_per_s": 14.88,
+   "elongation_sd": 0.132,
+   "runs": [
+    {
+     "id": "ppgpp_conc_3_e7932c74",
+     "growth_per_h": 0.7665,
+     "elongation_aa_per_s": 14.956,
+     "ribosome_conc": 19.49690528010242
+    },
+    {
+     "id": "ppgpp_conc_2_ce95c3ee",
+     "growth_per_h": 0.6392,
+     "elongation_aa_per_s": 14.696,
+     "ribosome_conc": 16.691385320958126
+    },
+    {
+     "id": "ppgpp_conc_1_3b7a5ef1",
+     "growth_per_h": 0.7406,
+     "elongation_aa_per_s": 14.875,
+     "ribosome_conc": 19.877723042637005
+    },
+    {
+     "id": "ppgpp_conc_0_cea98ae8",
+     "growth_per_h": 0.8259,
+     "elongation_aa_per_s": 14.993,
+     "ribosome_conc": 19.739706672938986
+    }
+   ]
+  },
+  "rrna_operon_knockout/minimal|rRNA_KO:4op": {
+   "n_runs": 8,
+   "growth_per_h": 0.7637,
+   "elongation_aa_per_s": 15.861,
+   "elongation_sd": 0.448,
+   "runs": [
+    {
+     "id": "rrna_operon_knockout_3_0ea005a0",
+     "growth_per_h": 0.6238,
+     "elongation_aa_per_s": 15.191,
+     "ribosome_conc": 15.24742023549057
+    },
+    {
+     "id": "rrna_operon_knockout_0_69e247d3",
+     "growth_per_h": 0.9173,
+     "elongation_aa_per_s": 16.223,
+     "ribosome_conc": 15.735205274547303
+    },
+    {
+     "id": "rrna_operon_knockout_2_e2530022",
+     "growth_per_h": 0.6382,
+     "elongation_aa_per_s": 15.82,
+     "ribosome_conc": 15.150451890623424
+    },
+    {
+     "id": "rrna_operon_knockout_2_edcac801",
+     "growth_per_h": 0.8651,
+     "elongation_aa_per_s": 15.82,
+     "ribosome_conc": 15.150451890623424
+    },
+    {
+     "id": "rrna_operon_knockout_3_595a47f7",
+     "growth_per_h": 0.8868,
+     "elongation_aa_per_s": 15.191,
+     "ribosome_conc": 15.24742023549057
+    },
+    {
+     "id": "rrna_operon_knockout_1_ce245731",
+     "growth_per_h": 0.6735,
+     "elongation_aa_per_s": 16.209,
+     "ribosome_conc": 15.437071860599659
+    },
+    {
+     "id": "rrna_operon_knockout_0_0710240a",
+     "growth_per_h": 0.6744,
+     "elongation_aa_per_s": 16.223,
+     "ribosome_conc": 15.735205274547303
+    },
+    {
+     "id": "rrna_operon_knockout_1_336ca5d2",
+     "growth_per_h": 0.8307,
+     "elongation_aa_per_s": 16.209,
+     "ribosome_conc": 15.437071860599659
+    }
+   ]
+  },
+  "rrna_operon_knockout/minimal|rRNA_KO:6op": {
+   "n_runs": 4,
+   "growth_per_h": 0.5285,
+   "elongation_aa_per_s": 17.355,
+   "elongation_sd": 1.148,
+   "runs": [
+    {
+     "id": "rrna_operon_knockout_2_94d8ad23",
+     "growth_per_h": 0.5016,
+     "elongation_aa_per_s": 16.445,
+     "ribosome_conc": 8.879646218958184
+    },
+    {
+     "id": "rrna_operon_knockout_1_506f443f",
+     "growth_per_h": 0.54,
+     "elongation_aa_per_s": 18.136,
+     "ribosome_conc": 10.12966722266314
+    },
+    {
+     "id": "rrna_operon_knockout_0_53d9d00b",
+     "growth_per_h": 0.5638,
+     "elongation_aa_per_s": 18.538,
+     "ribosome_conc": 10.264625300118908
+    },
+    {
+     "id": "rrna_operon_knockout_3_0ea4c713",
+     "growth_per_h": 0.5085,
+     "elongation_aa_per_s": 16.3,
+     "ribosome_conc": 8.978032057143986
+    }
+   ]
+  },
+  "condition/glc_5mM": {
+   "n_runs": 3,
+   "growth_per_h": 0.9194,
+   "elongation_aa_per_s": 16.854,
+   "elongation_sd": 0.676,
+   "runs": [
+    {
+     "id": "condition_2_a13db194",
+     "growth_per_h": 0.9417,
+     "elongation_aa_per_s": 17.617,
+     "ribosome_conc": 22.000015105469974
+    },
+    {
+     "id": "condition_0_dd660c13",
+     "growth_per_h": 0.8714,
+     "elongation_aa_per_s": 16.327,
+     "ribosome_conc": 21.2999169161717
+    },
+    {
+     "id": "condition_1_b2624baf",
+     "growth_per_h": 0.945,
+     "elongation_aa_per_s": 16.619,
+     "ribosome_conc": 21.786867090831826
+    }
+   ]
+  },
+  "condition/glc_2mM": {
+   "n_runs": 3,
+   "growth_per_h": 0.9194,
+   "elongation_aa_per_s": 16.854,
+   "elongation_sd": 0.676,
+   "runs": [
+    {
+     "id": "condition_0_f2cc4f7a",
+     "growth_per_h": 0.8714,
+     "elongation_aa_per_s": 16.327,
+     "ribosome_conc": 21.2999169161717
+    },
+    {
+     "id": "condition_2_9824d16e",
+     "growth_per_h": 0.9417,
+     "elongation_aa_per_s": 17.617,
+     "ribosome_conc": 22.000015105469974
+    },
+    {
+     "id": "condition_1_d494070e",
+     "growth_per_h": 0.945,
+     "elongation_aa_per_s": 16.619,
+     "ribosome_conc": 21.786867090831826
+    }
+   ]
+  },
+  "condition/acetate": {
+   "n_runs": 13,
+   "growth_per_h": 0.604,
+   "elongation_aa_per_s": 18.677,
+   "elongation_sd": 1.065,
+   "runs": [
+    {
+     "id": "condition_0_80ddf81b",
+     "growth_per_h": 0.6279,
+     "elongation_aa_per_s": 19.519,
+     "ribosome_conc": 17.221894413157962
+    },
+    {
+     "id": "condition_4_2399aa1f",
+     "growth_per_h": 0.4993,
+     "elongation_aa_per_s": 18.278,
+     "ribosome_conc": 16.419001435540153
+    },
+    {
+     "id": "condition_1_d9a89d46",
+     "growth_per_h": 0.7146,
+     "elongation_aa_per_s": 19.496,
+     "ribosome_conc": 16.5128585805717
+    },
+    {
+     "id": "condition_6_53ef7abb",
+     "growth_per_h": 0.4406,
+     "elongation_aa_per_s": 17.712,
+     "ribosome_conc": 15.709822424364678
+    },
+    {
+     "id": "condition_7_20053926",
+     "growth_per_h": 0.7856,
+     "elongation_aa_per_s": 19.014,
+     "ribosome_conc": 17.536149576428212
+    },
+    {
+     "id": "condition_1_7721d0eb",
+     "growth_per_h": 0.7412,
+     "elongation_aa_per_s": 19.496,
+     "ribosome_conc": 16.5128585805717
+    },
+    {
+     "id": "condition_2_695dd27c",
+     "growth_per_h": 0.5385,
+     "elongation_aa_per_s": 16.903,
+     "ribosome_conc": 15.958810608238437
+    },
+    {
+     "id": "condition_0_e3c5e1f2",
+     "growth_per_h": 0.6452,
+     "elongation_aa_per_s": 19.519,
+     "ribosome_conc": 17.221894413157962
+    },
+    {
+     "id": "condition_3_7aa02ac6",
+     "growth_per_h": 0.7298,
+     "elongation_aa_per_s": 19.845,
+     "ribosome_conc": 15.901991915735971
+    },
+    {
+     "id": "condition_3_d7def609",
+     "growth_per_h": 0.3929,
+     "elongation_aa_per_s": 19.845,
+     "ribosome_conc": 15.901991915735971
+    },
+    {
+     "id": "condition_4_6ad6e833",
+     "growth_per_h": 0.5692,
+     "elongation_aa_per_s": 18.278,
+     "ribosome_conc": 16.419001435540153
+    },
+    {
+     "id": "condition_2_0b4d967e",
+     "growth_per_h": 0.615,
+     "elongation_aa_per_s": 16.903,
+     "ribosome_conc": 15.958810608238437
+    },
+    {
+     "id": "condition_5_9b82d097",
+     "growth_per_h": 0.5519,
+     "elongation_aa_per_s": 17.998,
+     "ribosome_conc": 17.311185145613766
+    }
+   ]
+  },
+  "condition/succinate": {
+   "n_runs": 3,
+   "growth_per_h": 0.6943,
+   "elongation_aa_per_s": 18.283,
+   "elongation_sd": 0.249,
+   "runs": [
+    {
+     "id": "condition_0_6ffeeb7f",
+     "growth_per_h": 0.6306,
+     "elongation_aa_per_s": 18.308,
+     "ribosome_conc": 18.47964591749936
+    },
+    {
+     "id": "condition_1_5406c080",
+     "growth_per_h": 0.7442,
+     "elongation_aa_per_s": 18.022,
+     "ribosome_conc": 19.02374928288437
+    },
+    {
+     "id": "condition_2_ea1a6cd2",
+     "growth_per_h": 0.7082,
+     "elongation_aa_per_s": 18.518,
+     "ribosome_conc": 19.068404331101256
+    }
+   ]
+  },
+  "condition/no_oxygen": {
+   "n_runs": 8,
+   "growth_per_h": 0.5082,
+   "elongation_aa_per_s": 20.125,
+   "elongation_sd": 0.711,
+   "runs": [
+    {
+     "id": "condition_2_051f6c36",
+     "growth_per_h": 0.5696,
+     "elongation_aa_per_s": 21.208,
+     "ribosome_conc": 10.866845939005936
+    },
+    {
+     "id": "condition_6_2b75980d",
+     "growth_per_h": 0.4644,
+     "elongation_aa_per_s": 18.993,
+     "ribosome_conc": 12.665501655115598
+    },
+    {
+     "id": "condition_7_aa1d4be7",
+     "growth_per_h": 0.462,
+     "elongation_aa_per_s": 19.785,
+     "ribosome_conc": 10.862643944628202
+    },
+    {
+     "id": "condition_4_03066dac",
+     "growth_per_h": 0.452,
+     "elongation_aa_per_s": 20.257,
+     "ribosome_conc": 10.577344385010669
+    },
+    {
+     "id": "condition_5_52a6efa8",
+     "growth_per_h": 0.4977,
+     "elongation_aa_per_s": 20.542,
+     "ribosome_conc": 12.871263417972074
+    },
+    {
+     "id": "condition_0_21bc7784",
+     "growth_per_h": 0.4725,
+     "elongation_aa_per_s": 19.361,
+     "ribosome_conc": 13.865301271166308
+    },
+    {
+     "id": "condition_3_b76c8c3a",
+     "growth_per_h": 0.5586,
+     "elongation_aa_per_s": 20.502,
+     "ribosome_conc": 13.08377782001758
+    },
+    {
+     "id": "condition_1_d7fd3b45",
+     "growth_per_h": 0.5887,
+     "elongation_aa_per_s": 20.354,
+     "ribosome_conc": 12.250385088243384
+    }
+   ]
+  },
+  "condition/minus_magnesium": {
+   "n_runs": 8,
+   "growth_per_h": 0.9004,
+   "elongation_aa_per_s": 16.791,
+   "elongation_sd": 0.775,
+   "runs": [
+    {
+     "id": "condition_6_29fa7463",
+     "growth_per_h": 0.9169,
+     "elongation_aa_per_s": 17.477,
+     "ribosome_conc": 21.840467869397393
+    },
+    {
+     "id": "condition_7_e67a724c",
+     "growth_per_h": 1.0168,
+     "elongation_aa_per_s": 18.148,
+     "ribosome_conc": 22.013264903116674
+    },
+    {
+     "id": "condition_0_a25bbbe9",
+     "growth_per_h": 0.8771,
+     "elongation_aa_per_s": 16.43,
+     "ribosome_conc": 21.303345771362284
+    },
+    {
+     "id": "condition_3_ee897a91",
+     "growth_per_h": 0.8154,
+     "elongation_aa_per_s": 16.545,
+     "ribosome_conc": 21.14554465011747
+    },
+    {
+     "id": "condition_5_6d473a87",
+     "growth_per_h": 0.9149,
+     "elongation_aa_per_s": 16.683,
+     "ribosome_conc": 21.4932800033238
+    },
+    {
+     "id": "condition_2_04861b41",
+     "growth_per_h": 0.9377,
+     "elongation_aa_per_s": 17.202,
+     "ribosome_conc": 21.87434616171124
+    },
+    {
+     "id": "condition_1_77a8b6dc",
+     "growth_per_h": 0.8934,
+     "elongation_aa_per_s": 15.842,
+     "ribosome_conc": 21.549905739836312
+    },
+    {
+     "id": "condition_4_8edb1a17",
+     "growth_per_h": 0.8308,
+     "elongation_aa_per_s": 16.002,
+     "ribosome_conc": 21.26128288951043
+    }
+   ]
+  }
+ },
+ "unreachable": null,
+ "computed_utc": "2026-11-25T17:12:57Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "7da6b3d",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

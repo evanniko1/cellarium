@@ -485,6 +485,43 @@ def mode_protein_noise(roots_csv, k="5"):
             "mean": [_finite(x) for x in mean], "cv2": [_finite(x) for x in cv2]}
 
 
+def mode_base_reaction_fluxes(roots_csv, ids_csv):
+    """BV-11: named base reactions' fluxes in mmol per g dry weight per hour, converted exactly as wcEcoli's own
+    validation does (models/ecoli/analysis/multigen/centralCarbonMetabolismScatter.py): FBAResults
+    base_reaction_fluxes (mmol/L/s) divided by dryMass/cellMass x cell_density, times 3600; a generation's mean over
+    time, then the mean over the run's generations. The cell density is read from the run's own knowledge base."""
+    import pickle
+    want = [x for x in ids_csv.split(",") if x]
+    out = {}
+    density = {}
+    for root in [r for r in roots_csv.split(",") if r]:
+        try:
+            kb = _find_kb(root)
+            if kb not in density:
+                with open(kb, "rb") as f:
+                    sd = pickle.load(f)
+                import wholecell.utils.units as _u
+                density[kb] = float(sd.constants.cell_density.asNumber(_u.g / _u.L))
+            rho = density[kb]
+            per_gen = {r: [] for r in want}
+            for so in _gens(root):
+                ids = list(_attr(so, "FBAResults", "base_reaction_ids"))
+                flux = np.asarray(_col(so, "FBAResults", "base_reaction_fluxes"), dtype=float)
+                cell = np.asarray(_col(so, "Mass", "cellMass"), dtype=float).ravel()
+                dry = np.asarray(_col(so, "Mass", "dryMass"), dtype=float).ravel()
+                k = min(flux.shape[0], len(cell), len(dry))
+                coef = dry[:k] / cell[:k] * rho
+                conv = flux[:k, :] / coef[:, None] * 3600.0
+                idx = {r: i for i, r in enumerate(ids)}
+                for r in want:
+                    if r in idx:
+                        per_gen[r].append(float(np.nanmean(conv[:, idx[r]])))
+            out[root] = {r: (_finite(float(np.mean(v))) if v else None) for r, v in per_gen.items()}
+        except Exception as e:                              # noqa: BLE001
+            out[root] = {"error": f"{type(e).__name__}: {str(e)[:200]}"}
+    return out
+
+
 def _load_panel():
     """The resolved pathway panel {pathway: [monomer_id]}, mounted alongside this worker. Absent -> no pathways."""
     p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_pathway_resolved.json")
@@ -1968,6 +2005,8 @@ if __name__ == "__main__":
         out = mode_initiation_mass(run_root)
     elif mode == "protein_noise":
         out = mode_protein_noise(run_root, sys.argv[3] if len(sys.argv) > 3 else "5")
+    elif mode == "base_reaction_fluxes":
+        out = mode_base_reaction_fluxes(run_root, sys.argv[3])
     elif mode == "deg_rate_nested_cv":
         out = mode_deg_rate_nested_cv(run_root, sys.argv[3] if len(sys.argv) > 3 else "hierarchical",
                                       sys.argv[4] if len(sys.argv) > 4 else "10",

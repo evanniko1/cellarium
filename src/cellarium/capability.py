@@ -899,6 +899,44 @@ CAPABILITIES: tuple[Capability, ...] = (
                      "evals/results/bv6_overflow.json"},
         detail="acetate overflow and mixed-acid fermentation products",
     ),
+    # BV-EL (2026-11-25): BV-7 read the ribosome listener's effective elongation rate in 75 corpus runs.
+    Capability(
+        key="elongation_rate_against_growth_rate",
+        question="How does the translation elongation rate change with growth rate, between growth conditions or as "
+                 "growth slows?",
+        present=False,
+        holds_in=(),        # measured wrong in steady state; the kinetic modes have no runs across media to show it
+        markers=(),
+        instead={ALL_MODES: "the steady-state model sets the elongation rate from ppGpp through a fitted relation "
+                 "(SteadyStateElongationModel.elongation_rate, elong_rate_by_ppgpp), capped at the basal rate, and "
+                 "tRNA charging limits the realised rate; the model's ppGpp is lower in acetate, succinate and "
+                 "anaerobiosis than in glucose (44, 48 and 30 against 60 micromolar at one generation), so its "
+                 "elongation is faster there; the kinetic modes have no runs across media"},
+        consequence={ALL_MODES: "across media the realised rate rises as growth slows (acetate 18.7, succinate 18.3, "
+                     "anaerobic 20.1 against glucose 16.4 aa/s; slope -5.2 aa/s per h^-1, p 2e-5), where the organism's "
+                     "elongation rate decreases as growth slows (Dai et al. 2016); at a fixed medium it does not track "
+                     "growth (slope +1.0, p 0.68). evals/results/bv7_elongation.json"},
+        detail="the translation elongation rate's dependence on growth rate",
+    ),
+    # BV-CF (2026-11-25): BV-11 reproduced the model builders' own flux validation (Toya et al. 2010).
+    Capability(
+        key="central_carbon_flux_split",
+        question="How is carbon split between glycolysis, the pentose phosphate pathway and the TCA cycle, and how "
+                 "much flux runs through the TCA cycle?",
+        present=False,
+        holds_in=(),        # the same homeostatic flux balance in every mode
+        markers=(),
+        instead={ALL_MODES: "metabolism solves a homeostatic flux balance (FluxBalanceAnalysisModel) with no "
+                 "growth-maximising objective and no energy demand that requires respiration, so the oxidative TCA "
+                 "cycle carries almost nothing and its last steps run backwards"},
+        consequence={ALL_MODES: "against 13C flux analysis on glucose (Toya et al. 2010, via wcEcoli's validation "
+                     "data), 17 basal runs: glycolysis and the pentose phosphate pathway run the right way at about "
+                     "half the measured flux, but citrate synthase carries 0.54 against 5.46, 2-oxoglutarate "
+                     "dehydrogenase 0 against 4.62 and pyruvate dehydrogenase 0.29 against 11.1 mmol/gDCW/h, and "
+                     "fumarase and malate dehydrogenase run in reverse; Pearson 0.74 over 23 reactions hides this. "
+                     "evals/results/bv11_fluxes.json"},
+        detail="the split of central-carbon flux, the TCA cycle above all",
+    ),
 )
 
 # Y12 (2026-11-25): WHICH BUILD this registry describes. Its records were read from, and its corpus was produced by,
@@ -906,7 +944,7 @@ CAPABILITIES: tuple[Capability, ...] = (
 # September 2026; each corpus row records the image digest it ran). Of that build, Cellarium's own parts are public
 # on the campaign branch since 8e7dd6c5; the kinetic tRNA-charging port is Stanford-derived and held local while its
 # licence request is pending, and ROUTE1's isoacceptor broadcast reads structures the port builds, so it is held with
-# it. A new user's clone resolves 26 of 33 dependency references (evals/results/dependency_audit_public.json); the
+# it. A new user's clone resolves 27 of 33 unique dependency references (evals/results/dependency_audit_public.json); the
 # records below cannot be reproduced from public code until the port is published.
 BUILD = {
     "corpus_build": "the per-user code image built from the campaign checkout (c2047dc9 plus uncommitted changes); "
@@ -948,6 +986,9 @@ DEPENDS_ON: dict[str, tuple[str, ...]] = {
                                                   f"{_FLAT}/condition/condition_defs.tsv::no_oxygen"),
     "overflow_and_fermentation_products": ("models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
                                            "models/ecoli/processes/metabolism.py::homeostatic_objective"),
+    "elongation_rate_against_growth_rate": (f"{_PE}::SteadyStateElongationModel", f"{_PE}::elong_rate_by_ppgpp"),
+    "central_carbon_flux_split": ("models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
+                                  "models/ecoli/processes/metabolism.py::homeostatic_objective"),
     "knockout_of_a_multi_transcription_unit_gene": (
         "models/ecoli/sim/variants/graded_gene_knockout.py::graded_gene_knockout",),
     "per_amino_acid_trna_charging": (f"{_PE}::SteadyStateElongationModel", f"{_PE}::CoarseKineticTrnaChargingModel",

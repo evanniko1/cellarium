@@ -125,12 +125,15 @@ brief, Cellarium mapped — provenance-controlled — **where the whole-cell mod
   that the **stringent response is inverted** (synthetase knockouts collapsing ppGpp) was **withdrawn on
   2026-11-24**: the runs that pass today's quality control do not reproduce it (`scripts/regulation_scope.py`; the
   correction at the top of the case matrix).
-- **Against the organism** (Platform Map Appendix M; `evals/bv*.py`). Of twelve questions with a published
-  measurement, the gate refused four whose numbers would have misled and answered two that mislead, both now named
-  as registry gaps: metabolic essentiality (the whole-cell model calls 1 of the 214 Keio-essential metabolic genes
-  lethal, where iML1515 flux balance calls 163) and anaerobic respiration (nitrate reductase rises under two-fold in
-  the model, sixteen-fold in PRECISE-1K). Across about 3,000 genes the model's expression changes track RNA-seq above
-  chance (Pearson 0.29 and 0.21 for acetate and anaerobiosis) but compressed six- to tenfold.
+- **Against the organism** (Platform Map Appendix M; `evals/bv*.py`). Of thirteen questions with a published
+  measurement, the gate refuses all seven whose numbers would mislead and answers five, all of which agree. Three of
+  the seven were answered until 2026-11-25 and are now registry records: metabolic essentiality (the whole-cell model
+  calls 1 of the 214 Keio-essential metabolic genes lethal, where iML1515 flux balance calls 163), anaerobic
+  respiration (nitrate reductase rises under two-fold in the model, sixteen-fold in PRECISE-1K), and overflow and
+  fermentation (the model excretes no acetate at any growth rate and almost no fermentation products without oxygen).
+  The three share one cause: the homeostatic flux balance has no growth objective. Across about 3,000 genes the
+  model's expression changes track RNA-seq above chance (Pearson 0.29 and 0.21 for acetate and anaerobiosis) but
+  compressed six- to tenfold.
 - **The showcase — a clash that led somewhere.** Cutting total rRNA synthesis capacity (to 74 / 46 / 16% of
   wild-type, by zeroing 2/4/6 of the seven operon rows) makes ribosomes and growth fall *together*
   (the *numbers* axis) — the opposite of Scott's second law, where impairing ribosome *efficiency* makes a cell

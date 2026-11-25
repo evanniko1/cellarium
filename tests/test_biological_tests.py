@@ -21,6 +21,7 @@ import bv2_figure as B2  # noqa: E402
 import bv3_essentiality as B3  # noqa: E402
 import bv6_overflow  # noqa: E402,F401
 import bv8_half_lives  # noqa: E402,F401
+import bv11_fluxes  # noqa: E402,F401
 
 RES = REPO / "evals" / "results"
 
@@ -40,13 +41,21 @@ def test_the_gate_still_gives_the_stored_verdicts():
 def test_the_bv1_tally_is_the_one_read_by_hand():
     # 2026-11-25: the two answered-and-misleading rows of the first run (4/1/5/2) became registry records
     # (BV-G2 essentiality, BV-AN anaerobic magnitude), and the gate now refuses both. Later the same day BV-6 found
-    # overflow absent; its question joined with the record that refuses it (BV-OF): 13 questions, 7/1/5/0.
+    # overflow absent; its question joined with the record that refuses it (BV-OF): 13 questions, 7/1/5/0. BV-7 then
+    # found the elongation rate rising as growth slows (BV-EL): 14 questions, 8/1/5/0.
     d = _j("bv1_gate_vs_biology.json")
-    assert d["tally"] == {"refused, would mislead": 7, "refused, would have agreed": 1, "answered, agrees": 5}
+    assert d["tally"] == {"refused, would mislead": 8, "refused, would have agreed": 1, "answered, agrees": 5}
+    # the test proper is the original twelve; the two questions added after BV-6 and BV-7 are a wiring check
+    assert d["tally_original_twelve"] == {"refused, would mislead": 6, "refused, would have agreed": 1,
+                                          "answered, agrees": 5}
+    assert d["first_run_original_twelve"]["answered, misleads"] == 2
+    assert {r["id"] for r in d["rows"] if r.get("added_after")} == {"acetate_overflow_on_glucose",
+                                                                    "elongation_rate_falls_with_growth"}
     cells = {r["id"]: r["cell"] for r in d["rows"]}
     assert cells["metabolic_gene_essentiality"] == "refused, would mislead"
     assert cells["anaerobic_induction_nar_frd"] == "refused, would mislead"
     assert cells["acetate_overflow_on_glucose"] == "refused, would mislead"
+    assert cells["elongation_rate_falls_with_growth"] == "refused, would mislead"
     assert cells["arabinose_induction"] == "refused, would mislead"
     assert cells["growth_across_saturating_glucose_doses"] == "refused, would have agreed"
 
@@ -61,7 +70,8 @@ def test_the_cells_follow_from_verdict_and_agreement():
 
 def test_without_the_new_records_the_misleading_questions_would_be_answered():
     # forced: the same requirements without the BV-G2 and BV-AN tokens are the first run's two registry gaps
-    for qid in ("metabolic_gene_essentiality", "anaerobic_induction_nar_frd", "acetate_overflow_on_glucose"):
+    for qid in ("metabolic_gene_essentiality", "anaerobic_induction_nar_frd", "acetate_overflow_on_glucose",
+                "elongation_rate_falls_with_growth"):
         q = next(q for q in B1.QUESTIONS if q["id"] == qid)
         bare = {**q["requirement"], "regulatory_dependencies": []}
         assert B1._verdict(bare).startswith("answer"), qid
@@ -210,7 +220,9 @@ def test_the_two_component_correction_moves_only_the_sensors_it_should():
 
 def test_a_new_users_clone_resolves_everything_but_the_held_port():
     d = _j("dependency_audit_public.json")
-    assert d["public_commit"].startswith("8e7dd6c") and (d["resolve_publicly"], d["n_references"]) == (26, 33)
+    # unique references (27 of 33 since BV-OF and BV-EL); the first version divided a unique count by the total
+    assert d["public_commit"].startswith("8e7dd6c") and (d["resolve_publicly"], d["n_unique"]) == (27, 33)
+    assert len(d["missing_publicly"]) == d["n_unique"] - d["resolve_publicly"] == 6
     assert set(d["records_resting_on_unpublished_code"]) == {"per_isoacceptor_trna_charging",
                                                              "codon_level_elongation",
                                                              "per_amino_acid_trna_charging"}
@@ -268,3 +280,50 @@ def test_a_constant_response_has_no_p_value():
     assert B6._ols([0.5, 0.7, 0.9], [0.0, 0.0, 0.0])["p"] is None
     f = B6._ols([0.5, 0.7, 0.9], [0.0, 1.0, 2.1])                                       # forced: a real slope
     assert f["slope"] > 4 and f["p"] is not None and f["p"] < 0.05
+
+
+# ---- BV-11: the Toya parser (the data ship with the model checkout, which CI does not have) ------------------------
+
+def test_the_toya_table_parses_with_its_units_and_standard_deviations(tmp_path):
+    import bv11_fluxes as B11
+    f = tmp_path / "toya.tsv"
+    f.write_text('"reactionID"\t"flux (units.mmol / units.g / units.h)"\t'
+                 '"flux standard deviation (units.mmol / units.g / units.h)"\n'
+                 '"TRANS-RXN-157"\t10.17\t2.16\n"PGLUCISOM-RXN"\t6.04\t0.84\n', encoding="utf-8")
+    assert B11.toya(f) == {"TRANS-RXN-157": (10.17, 2.16), "PGLUCISOM-RXN": (6.04, 0.84)}
+
+
+# ---- BV-7, BV-9, BV-10, BV-11: stored readings ----------------------------------------------------------------------
+
+def test_the_elongation_rate_rises_as_growth_slows_across_media():
+    d = _j("bv7_elongation.json")
+    f = d["fits"]
+    assert f["by_medium"]["slope"] < -4 and f["by_medium"]["p"] < 1e-3          # the wrong direction (BV-EL)
+    assert f["fixed_medium"]["p"] > 0.5                                           # and no growth dependence at all
+    rate = {k: v["elongation_aa_per_s"] for k, v in d["designs"].items()}
+    assert rate["condition/acetate"] > rate["wildtype/basal"] and rate["condition/no_oxygen"] > rate["wildtype/basal"]
+
+
+def test_the_initiation_threshold_is_built_in_and_lowered_by_rule_in_slow_media():
+    d = _j("bv10_initiation.json")
+    a = d["across_designs"]
+    assert a["designs_at_975_fg"] == 8
+    assert set(a["designs_with_a_lowered_threshold"]) == {"condition/acetate", "condition/no_oxygen",
+                                                          "condition/succinate"}
+    assert d["designs"]["wildtype/basal"]["mass_per_origin_fg_median"] == 975.1
+
+
+def test_the_noise_floor_is_half_the_organisms():
+    d = _j("bv9_noise.json")
+    org = d["taniguchi_per_gene"]["organism_scaling"]
+    assert d["floor_median_cv2_above_1000"] < 0.6 * org["floor_median_cv2_above_1000"]
+    assert d["taniguchi_per_gene"]["n_joined"] == 708 and d["taniguchi_per_gene"]["spearman_cv2"] == 0.456
+
+
+def test_the_flux_control_correlates_while_the_tca_cycle_is_off():
+    d = _j("bv11_fluxes.json")
+    assert (d["n_reactions_compared"], d["pearson_r"]) == (23, 0.737)
+    rx = {r["reaction"]: r for r in d["reactions"]}
+    assert rx["2OXOGLUTARATEDEH-RXN"]["model"] == 0.0 and rx["2OXOGLUTARATEDEH-RXN"]["toya"] == 4.62
+    assert rx["FUMHYDR-RXN"]["model"] * rx["FUMHYDR-RXN"]["toya"] < 0              # runs in reverse
+    assert rx["MALATE-DEH-RXN"]["model"] * rx["MALATE-DEH-RXN"]["toya"] < 0

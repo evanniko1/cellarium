@@ -1,0 +1,179 @@
+{
+ "spec": "BV-10",
+ "knowledge_base": "3b2f8ebd (the corpus fit), steady state",
+ "organism": "Si et al. 2017 (doi:10.1016/j.cub.2017.03.022): initiation mass per origin is invariant across growth conditions",
+ "in_sample": "built in: the threshold is a parameter (975 fg), lowered by rule for slow-growing conditions",
+ "across_designs": {
+  "n_designs": 11,
+  "cv_of_design_medians": 0.226,
+  "designs_at_975_fg": 8,
+  "designs_with_a_lowered_threshold": [
+   "condition/acetate",
+   "condition/no_oxygen",
+   "condition/succinate"
+  ],
+  "lowered_threshold_fg": {
+   "condition/acetate": [
+    423.4
+   ],
+   "condition/succinate": [
+    734.6
+   ],
+   "condition/no_oxygen": [
+    590.0
+   ]
+  }
+ },
+ "designs": {
+  "wildtype/basal": {
+   "n_runs": 17,
+   "n_initiations": 41,
+   "growth_per_h": 0.888,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.001,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "ppgpp_conc/basal|ppGpp:0.6x": {
+   "n_runs": 4,
+   "n_initiations": 16,
+   "growth_per_h": 0.7393,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "ppgpp_conc/basal|ppGpp:1.6x": {
+   "n_runs": 4,
+   "n_initiations": 15,
+   "growth_per_h": 0.743,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "rrna_operon_knockout/minimal|rRNA_KO:4op": {
+   "n_runs": 8,
+   "n_initiations": 24,
+   "growth_per_h": 0.7637,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "rrna_operon_knockout/minimal|rRNA_KO:6op": {
+   "n_runs": 4,
+   "n_initiations": 12,
+   "growth_per_h": 0.5285,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "condition/glc_5mM": {
+   "n_runs": 3,
+   "n_initiations": 3,
+   "growth_per_h": 0.9194,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "condition/glc_2mM": {
+   "n_runs": 3,
+   "n_initiations": 3,
+   "growth_per_h": 0.9194,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  },
+  "condition/acetate": {
+   "n_runs": 13,
+   "n_initiations": 18,
+   "growth_per_h": 0.604,
+   "mass_per_origin_fg_median": 423.4,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    423.4
+   ]
+  },
+  "condition/succinate": {
+   "n_runs": 3,
+   "n_initiations": 5,
+   "growth_per_h": 0.6943,
+   "mass_per_origin_fg_median": 734.7,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    734.6
+   ]
+  },
+  "condition/no_oxygen": {
+   "n_runs": 8,
+   "n_initiations": 9,
+   "growth_per_h": 0.5082,
+   "mass_per_origin_fg_median": 590.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    590.0
+   ]
+  },
+  "condition/minus_magnesium": {
+   "n_runs": 8,
+   "n_initiations": 8,
+   "growth_per_h": 0.9004,
+   "mass_per_origin_fg_median": 975.1,
+   "mass_per_origin_fg_cv": 0.0,
+   "critical_mass_fg_used": [
+    975.0
+   ]
+  }
+ },
+ "unreachable": null,
+ "computed_utc": "2026-11-25T17:14:19Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "7da6b3d",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

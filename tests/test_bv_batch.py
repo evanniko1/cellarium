@@ -341,3 +341,63 @@ def test_a_run_another_depositor_has_queued_is_left_to_it(tmp_path):
     b.run()
     assert fake.deposited == ["fbp-s0"]
     assert any(e["event"] == "deposit_left_elsewhere" and e["id"] == "pgi-s0" for e in _events(tmp_path))
+
+
+def test_an_adopted_control_opens_its_group_like_a_finished_one(tmp_path):
+    # a restart leaves a control running; the new process adopts it when it finishes. The gate read only "done",
+    # so an adopted control would have closed its group and skipped every later run
+    fake = Fake()
+    state = {"n": 0}
+
+    def existing(spec):
+        if spec.id != "wt-s0":
+            return ""
+        state["n"] += 1
+        return {"where": "writing", "why": "in flight"} if state["n"] < 3 else \
+            {"where": "disk_unindexed", "why": "complete on disk"}
+    fake.existing_fn = existing
+    b = _batch(tmp_path, [_r("wt-s0", role="control"), _r("fbp-s0", stage=2)], fake)
+    b.gates = GATE
+    out = {s.id: s for s in b.run()}
+    assert out["wt-s0"].status == "adopted" and out["fbp-s0"].status == "done"
+
+
+def test_a_plan_that_keeps_its_raw_output_is_indexed_but_not_deposited(tmp_path):
+    # BV-14 is scored from raw protein counts after its runs finish; depositing reclaims (deletes) the raw output
+    fake = Fake(existing={"old-s0"})
+    specs = [_r("no3-s0", group="anaerobic", cond="no_oxygen_plus_nitrate"), _r("old-s0", group="anaerobic")]
+    b = _batch(tmp_path, specs, fake, on_disk_fn=lambda root: True, keep_raw_batches={"t"})
+    for sp in b.runs:
+        sp.batch = "t"
+    out = {s.id: s for s in b.run()}
+    assert out["no3-s0"].status == "done" and "no3-s0" in fake.indexed
+    assert fake.deposited == []                       # neither the new run nor the leftover is deposited
+    ev = _events(tmp_path)
+    assert any(x["event"] == "kept_local" and x["id"] == "no3-s0" for x in ev)
+
+
+def test_keep_raw_is_recorded_for_the_first_plan_as_well_as_later_ones(tmp_path):
+    a = _plan_file(tmp_path, "bv14", [_r("no3-s0", group="anaerobic", cond="no_oxygen_plus_nitrate")], keep_raw=True)
+    b = _plan_file(tmp_path, "bv12", [_r("fbp-s0")])
+    plan, _ = B.load_plans([a, b])
+    assert plan["keep_raw_by_batch"] == {"bv14": True}
+    plan2, _ = B.load_plans([b, a])
+    assert plan2["keep_raw_by_batch"] == {"bv14": True}
+
+
+def test_a_control_another_process_already_indexed_is_read_for_the_gate_not_skipped(tmp_path):
+    # 2026-11-25: after a restart the basal control "existed" (indexed by the previous process), the gate read only
+    # finished or adopted controls, and closed the group: both main runs were skipped
+    fake = Fake(existing={"wt-s0"})
+    b = _batch(tmp_path, [_r("wt-s0", role="control"), _r("fbp-s0", stage=2)], fake, on_disk_fn=lambda root: True)
+    b.gates = GATE
+    out = {s.id: s for s in b.run()}
+    assert out["fbp-s0"].status == "done" and out["wt-s0"].summary.get("qc") == "ok"
+    assert "wt-s0" not in fake.indexed                 # read for the gate only: never indexed twice
+    # forced: a control that exists but is no longer on disk cannot be read, and its group stays closed
+    fake2 = Fake(existing={"wt-s0"})
+    b2 = _batch(tmp_path / "x", [_r("wt-s0", role="control"), _r("fbp-s0", stage=2)], fake2,
+                on_disk_fn=lambda root: False)
+    b2.gates = GATE
+    out2 = {s.id: s for s in b2.run()}
+    assert out2["fbp-s0"].status == "skipped"

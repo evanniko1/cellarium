@@ -144,8 +144,10 @@ def test_the_cell_census_is_what_the_plan_assumed():
     # nothing else moves. A paid run built on this generator grows by 6/42.
     # 51 since later that day: BV-OF (overflow_and_fermentation_products), absent in all three modes, adds three
     # `refuse` cells. A paid run built on this generator grows by 3/48.
-    assert st["n_cells"] == 51
-    assert st["by_required"] == {"refuse": 36, "answer": 11, "propose": 4}
+    # 54 since BV-EL (elongation_rate_against_growth_rate) the same evening: three more `refuse` cells, 3/51.
+    # 57 since BV-CF (central_carbon_flux_split): three more, 3/54.
+    assert st["n_cells"] == 57
+    assert st["by_required"] == {"refuse": 42, "answer": 11, "propose": 4}
     assert st["by_stratum"]["no_corpus_data"] == 1
     assert st["by_stratum"]["no_corpus_mode"] == 3
 

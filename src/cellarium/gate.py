@@ -119,6 +119,10 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     "anaerobic_respiration": ("anaerobic_respiration_induction_magnitude",),
     # BV-OF (2026-11-25): BV-6 found overflow and fermentation absent.
     "overflow_metabolism": ("overflow_and_fermentation_products",),
+    # BV-EL (2026-11-25): BV-7 found the elongation rate rising as growth slows across media.
+    "elongation_growth_dependence": ("elongation_rate_against_growth_rate",),
+    # BV-CF (2026-11-25): BV-11 found the oxidative TCA cycle nearly off and its last steps reversed.
+    "central_carbon_fluxes": ("central_carbon_flux_split",),
 }
 
 
@@ -377,7 +381,11 @@ _PARSE_TOOL = {
                                                        "induces nitrate or fumarate reductase depends on "
                                                        "anaerobic_respiration; whether the cell excretes acetate "
                                                        "or fermentation products depends on "
-                                                       "overflow_metabolism"},
+                                                       "overflow_metabolism; how the translation elongation rate "
+                                                       "changes with growth rate depends on "
+                                                       "elongation_growth_dependence; how carbon flux is split "
+                                                       "between glycolysis, the pentose phosphate pathway and the "
+                                                       "TCA cycle depends on central_carbon_fluxes"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -409,7 +417,11 @@ _PARSE_SYSTEM = (
     "metabolic_gene_essentiality. A question about how strongly the loss of oxygen induces anaerobic respiration "
     "genes (nitrate reductase narGHJI, fumarate reductase frdABCD) depends on anaerobic_respiration. A question "
     "about whether the cell excretes acetate (overflow metabolism), how acetate excretion changes with growth rate, "
-    "or which fermentation products it makes without oxygen, depends on overflow_metabolism."
+    "or which fermentation products it makes without oxygen, depends on overflow_metabolism. A question about how the "
+    "translation (ribosome) elongation rate changes with growth rate, between growth conditions or as growth slows, "
+    "depends on elongation_growth_dependence. A question about central-carbon fluxes (how carbon is split between "
+    "glycolysis, the pentose phosphate pathway and the TCA cycle, or how much flux runs through the TCA cycle) "
+    "depends on central_carbon_fluxes."
 )
 
 

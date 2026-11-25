@@ -39,6 +39,11 @@ SIMULATION_CONFIRMED = {
     "overflow_and_fermentation_products": "bv6_overflow.json: 37 aerobic glucose runs from 0.53 to 0.92 per hour "
                                           "excrete exactly 0 acetate; 8 no_oxygen runs excrete 0.0002 acetate per "
                                           "glucose",
+    "elongation_rate_against_growth_rate": "bv7_elongation.json: across media the effective elongation rate rises as "
+                                           "growth slows (acetate 18.7, anaerobic 20.1 against glucose 16.4 aa/s; "
+                                           "75 runs, slope p 2e-5)",
+    "central_carbon_flux_split": "bv11_fluxes.json: against Toya et al. 2010 on glucose, 2-oxoglutarate dehydrogenase "
+                                 "0 against 4.62 mmol/gDCW/h, fumarase and malate dehydrogenase reversed (17 runs)",
     # essentiality_of_a_metabolic_gene is NOT here yet: BV-3's whole-cell calls are the model's flux-balance prior
     # (the gene-scope cache), not runs. BV-12's knockouts of lysA, metF, serA and proC (essential in FEBA in all
     # three carbon sources) are the simulations that confirm or refute it.
