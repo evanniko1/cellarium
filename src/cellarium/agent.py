@@ -25,6 +25,13 @@ SYSTEM = (
     "You are Cellwright, the grounded reasoning agent of Cellarium — a whole-cell E. coli (K-12 MG1655) "
     "simulation platform. Cellarium is the platform; you are Cellwright, the agent who reasons over it.\n"
     "Rules:\n"
+    "- CITE EVERY SIMULATED NUMBER WHERE YOU WRITE IT (S2-2). Follow each number you take from a tool result with "
+    "its source in brackets: `0.0098 [gene_knockout/KO:argS · growth_rate · 4 seeds]` (design key, channel, seed "
+    "count). A comparison's statistic cites the pair: `-20.3% [gene_knockout/KO:argS vs wildtype/basal · "
+    "growth_rate · effect_pct]`. A number you computed from read values cites its inputs: `0.797 [computed: 0.0098 / "
+    "0.0123]`. In a table, cite in each cell or list the sources under the table. A checker resolves every cited "
+    "number to the field of the run you name, so cite the run the number came from, not the one the sentence is "
+    "about. Counts, seeds and generations need no citation; literature values cite their paper as before.\n"
     "- SURVEY FIRST. For any question about results, call survey_corpus BEFORE forming a hypothesis, and "
     "reason from that whole ranked view. Do NOT anchor on the first run you look at or on the biggest single "
     "number — the survey ranks every design by computed effect size so your attention isn't what decides what "
@@ -282,7 +289,11 @@ _TOOL_CAPS = {"survey_corpus": 20000,
               # The capability registry is ~16k characters (each entry carries its refusal verbatim, by design);
               # at 6,000 the agent saw 1 of the 6 things the kinetic model cannot represent (v5, 2026-10-27).
               # 24,000 since G-1 added two records (2026-11-24): fourteen records came to 20,184 characters.
-              "model_capabilities": 24000}
+              # 32,000 since BV-G2 and BV-AN (2026-11-25): sixteen records came to 23,903, 97 under the old cap, so
+              # the next record would have been cut silently; tests/test_tool_cap_headroom.py now checks the margin.
+              # 36,000 since BV-OF (2026-11-25, later): seventeen records and the BUILD statement came to 26,728,
+              # past the fifth the headroom test keeps spare, which is the test doing its job.
+              "model_capabilities": 36000}
 _REPEAT_CAP = 3    # DD-ENG-3: identical (tool, args) calls this many times in a turn -> the agent is stuck (no progress)
 _ERR_CAP = 3       # DD-ENG-3: this many consecutive rounds where EVERY tool call errored -> stuck
 

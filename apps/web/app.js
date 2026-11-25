@@ -60,7 +60,10 @@ function inlineMd(t) {
   return esc(t).replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>")   // non-greedy + allow nested * so **bold *italic* bold** renders
     .replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g, "$1<em>$2</em>")
-    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+    // S2-2: a cited number's source, `[design · channel · n seeds]` or `[computed: ...]`, as a small chip
+    .replace(/\[((?:[a-z_]+\/[^\]·|<]+?(?:\s+vs\.?\s+[a-z_]+\/[^\]·|<]+?)?\s*[·|][^\]<]+)|(?:computed:[^\]<]+))\]/g,
+      '<span class="cite" title="source of the number before it">$1</span>');
 }
 function md(src) {
   const lines = String(src).replace(/\r\n/g, "\n").split("\n"); let out = "", i = 0;
@@ -1431,8 +1434,11 @@ function resRow(r) {
     `<span class="r-primary">${esc(primaryLabel(r))}</span>` +
     `<span class="r-sub">${esc(sub)}</span>` +
     `<span class="r-tags"><span class="tag ${qcBad ? "qc-bad" : "qc-ok"}">${esc(r.qc || "ok")}</span>` +
-    `<span class="tag ${r.provenance === "out_of_sample" ? "oos" : ""}">${esc((r.provenance || "").replace("_", "-") || "—")}</span></span>` +
+    `<span class="tag ${r.provenance === "out_of_sample" ? "oos" : ""}">${esc((r.provenance || "").replace("_", "-") || "—")}</span>` +
+    (r.label_integrity ? `<span class="tag lbl" title="${esc(r.true_label || "")}">${esc(r.label_integrity.replace(/_/g, " "))}</span>` : "") +
+    `</span>` +
     `<span class="r-chev">›</span>`));
+  if (r.true_label) d.appendChild(el("div", "r-true", `What this run is: <b>${esc(r.true_label.replace(/^media:/, ""))}</b>`));
   const box = el("div", "avail", `<div class="empty" style="padding:0">Loading availability…</div>`);
   d.appendChild(box);
   d.addEventListener("toggle", async () => {

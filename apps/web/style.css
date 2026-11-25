@@ -805,3 +805,9 @@ progress.op-bar::-moz-progress-bar{background:var(--clay); border-radius:99px}
 .pal-dots{display:flex; gap:3px}
 .pal-dot{width:11px; height:11px; border-radius:50%; border:1px solid var(--overlay)}
 .pal-name{font-size:10.5px; color:var(--ink-2); font-weight:600}
+
+/* J-2b: a design whose name says something its medium or knockout does not */
+.res .tag.lbl{background:var(--amber-tint); color:var(--amber)}
+.res .r-true{padding:6px 12px 0; font-size:12.5px}
+/* S2-2: the source written with a simulated number */
+.cite{display:inline-block; margin-left:3px; padding:0 6px; border-radius:6px; font-size:11px; line-height:1.6; background:var(--blue-tint); color:var(--blue); font-family:var(--mono, ui-monospace, monospace); vertical-align:baseline}

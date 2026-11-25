@@ -368,6 +368,7 @@ def model_capabilities(capability: str | None = None, mode: str | None = None) -
               for c in cap.missing(m)]
     return {
         "elongation_model": m,
+        "build": cap.BUILD,             # Y12: which build these records describe, and what is not public
         "this_view_is_conditional_on_the_elongation_model": (
             "Every answer below is scoped to the elongation model named above and CANNOT be carried across "
             "modes. `GrowthLimits/fraction_trna_charged` is 86 columns wide under all three and means three "

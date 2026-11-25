@@ -215,7 +215,11 @@ def test_the_harness_caps_are_declared_per_tool_and_the_default_is_not_silently_
     """The caps are a context-budget decision, so they are visible and bounded rather than tuned per incident."""
     assert agent._TOOL_CAP == 6000
     assert set(agent._TOOL_CAPS) == {"survey_corpus", "model_capabilities"}
-    assert all(6000 < v <= 25000 for v in agent._TOOL_CAPS.values()), agent._TOOL_CAPS
+    # 32,000 since BV-G2 and BV-AN (2026-11-25): sixteen registry records came to 23,903 of model_capabilities'
+    # 24,000, so the next record would have been cut silently; tests/test_tool_cap_headroom.py keeps a fifth spare.
+    # 32,000 characters is about 8k tokens. Raised once, deliberately, and recorded here. 36,000 (about 9k tokens)
+    # since BV-OF the same day: seventeen records and the BUILD statement came to 26,728, past the headroom margin.
+    assert all(6000 < v <= 36000 for v in agent._TOOL_CAPS.values()), agent._TOOL_CAPS
 
 
 def test_every_tool_with_a_raised_cap_still_fits_it(calls):

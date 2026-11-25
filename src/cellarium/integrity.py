@@ -245,6 +245,88 @@ def audit_numbers(answer: str, tool_texts: list[str]) -> dict:
                                                                      "unrouted")}}
 
 
+# --- S2-2 structured provenance: a number written with its source ---------------------------------------------
+# Cellwright writes each simulated number with its source, `0.0098 [gene_knockout/KO:argS · growth_rate · 4 seeds]`;
+# a comparison's statistic cites the pair, `[target vs reference · channel · effect_pct]`; a number the agent computed
+# cites its inputs, `[computed: 0.0098 / 0.0123]`. Then every cited number resolves to a field of its own run, and a
+# swap is caught whatever the sentence says, where the prose rule above can pair only 11 of 140 claims.
+# Up to six plain words may sit between a number and its bracket ("0.797 of the wild type [computed: ...]"); a word
+# never contains a digit, so a bracket attaches to the nearest number before it, never to an earlier one.
+CITE = re.compile(r"(?<![A-Za-z0-9_:/.])(?P<num>[-+]?\d+(?:\.\d+)?)(?P<pct>%)?(?:[ \t]+[A-Za-zµ/,'()-]+){0,6}?[ \t]*"
+                  r"\[(?P<body>[^\[\]\n]{3,240})\]")
+_CITE_SEP = re.compile(r"\s*[·|]\s*")
+_CODE = re.compile(r"`[^`]*`")
+
+
+def citations(answer: str) -> list[dict]:
+    """Every number written with a source, in order: {number, designs, channel, detail} or {number, computed}."""
+    out = []
+    for m in CITE.finditer(answer or ""):
+        num = m.group("num") + (m.group("pct") or "")
+        body = m.group("body").strip()
+        if body.lower().startswith("computed"):
+            out.append({"number": num, "computed": body.split(":", 1)[-1].strip(), "span": m.span()})
+            continue
+        parts = _CITE_SEP.split(body)
+        designs = [d.strip() for d in re.split(r"\s+vs\.?\s+", parts[0]) if d.strip()]
+        if len(parts) < 2 or not designs or any("/" not in d for d in designs):
+            continue                            # a footnote or a bracketed aside, not a citation
+        out.append({"number": num, "designs": designs, "channel": parts[1], "detail": parts[2:], "span": m.span()})
+    return out
+
+
+def _cited_status(c: dict, leaves) -> tuple[str, list[str]]:
+    if "computed" in c:
+        return "computed", []
+    num, designs = c["number"], c["designs"]
+    if len(designs) == 1:
+        status, found_in = classify(designs[0], num, leaves)
+        if status == "own_run" or status == "shared":
+            return "matches", []
+        return ("mismatched", found_in) if status == "other_run_only" else ("unresolved", [])
+    # A comparison's percentage is usually written with its direction in words ("20.33% slower" for -20.33), so it
+    # matches on magnitude. LIMIT: whether the word agrees with the sign is not checked.
+    mag = num.lstrip("+-")
+    if any(len(o) > 1 and all(any(_same_run(d, x) for x in o) for d in designs)
+           and (number_in(num, text) or number_in(mag, text.replace("-", "")))
+           for o, text in leaves):
+        return "matches", []
+    return "unresolved", []
+
+
+def audit_cited(answer: str, tool_texts: list[str]) -> dict:
+    """The cited numbers, each resolved to its source; and, when the answer uses the format, the numbers that carry
+    none. An answer with no citation at all is reported as not using the format rather than flagged number by
+    number: the old answers would otherwise read as nothing but faults."""
+    leaves = field_leaves(tool_texts)
+    cited = citations(answer)
+    rows = []
+    for c in cited:
+        status, found_in = _cited_status(c, leaves)
+        rows.append({"number": c["number"], "source": " vs ".join(c.get("designs") or []) or "computed",
+                     "channel": c.get("channel"), "status": status, **({"found_in": found_in} if found_in else {})})
+    unsourced = []
+    if cited:
+        text = answer or ""
+        # Not prose readings: the cited numbers themselves (number and bracket), code spans, design labels, table
+        # rows (a table cites in a claims block or per cell), and numbers under three significant digits (counts,
+        # seeds, generations, list markers).
+        skip = [c["span"] for c in cited] + [m.span() for m in _CODE.finditer(text)] \
+            + [m.span() for m in _DESIGN.finditer(text)] + [m.span() for m in re.finditer(r"\[[^\[\]\n]*\]", text)]
+        offset = 0
+        for line in text.splitlines(keepends=True):
+            if line.lstrip().startswith("|"):
+                skip.append((offset, offset + len(line)))
+            offset += len(line)
+        for m in NUM.finditer(text):
+            if _significant(m.group(0)) < 3 or any(a <= m.start() < b for a, b in skip):
+                continue
+            unsourced.append(m.group(0))
+    return {"format_used": bool(cited), "cited": rows, "unsourced": unsourced,
+            "counts": {s: sum(r["status"] == s for r in rows) for s in ("matches", "mismatched", "unresolved",
+                                                                       "computed")}}
+
+
 # The heads `gate.render` writes for the two verdicts that stop an investigation. A test renders both through the
 # gate itself, so a change to the wording there fails here rather than silently disarming the check.
 GATE_HEADS = ("This model cannot represent what the question asks.",
@@ -295,9 +377,13 @@ def audit(answer: str, tool_texts: list[str] | None, *, tool_calls: int | None) 
                 "why": "no tool output to read: this check reports that it could not run, never that the answer "
                        "passed"}
     nums, cites = audit_numbers(answer, tool_texts), audit_citations(answer, tool_texts)
+    cited = audit_cited(answer, tool_texts)
     verdict = audit_verdict(answer, tool_calls)
-    faults = bool(nums["misattributed"] or cites["unread"] or verdict["respected"] is False)
-    return {"verdict": "faults" if faults else "clean", "numbers": nums, "citations": cites, "gate": verdict}
+    bad_cited = [c for c in cited["cited"] if c["status"] in ("mismatched", "unresolved")]
+    faults = bool(nums["misattributed"] or cites["unread"] or verdict["respected"] is False or bad_cited
+                  or cited["unsourced"])
+    return {"verdict": "faults" if faults else "clean", "numbers": nums, "citations": cites, "cited": cited,
+            "gate": verdict}
 
 
 def annotation(result: dict) -> str:
@@ -311,6 +397,16 @@ def annotation(result: dict) -> str:
     for c in result["numbers"]["misattributed"][:8]:
         lines.append(f"- {c['number']} is credited to `{c['label']}`, but the tool output holds it only in a field "
                      f"of {', '.join(f'`{x}`' for x in c['found_in'])}.")
+    cited = result.get("cited") or {}
+    for c in [c for c in cited.get("cited") or [] if c["status"] == "mismatched"][:8]:
+        lines.append(f"- {c['number']} is cited to `{c['source']}`, but the tool output holds it only in a field of "
+                     f"{', '.join(f'`{x}`' for x in c['found_in'])}.")
+    for c in [c for c in cited.get("cited") or [] if c["status"] == "unresolved"][:8]:
+        lines.append(f"- {c['number']} is cited to `{c['source']}` ({c['channel']}), but no tool output of this turn "
+                     f"holds it for that run.")
+    if cited.get("unsourced"):
+        lines.append(f"- {len(cited['unsourced'])} number(s) carry no source: "
+                     + ", ".join(cited["unsourced"][:8]) + ".")
     for c in result["citations"]["unread"][:8]:
         lines.append(f"- `{c}` is cited, but no tool call in this conversation returned it.")
     if result["gate"]["respected"] is False:

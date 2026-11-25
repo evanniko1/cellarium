@@ -1042,3 +1042,89 @@ ABSENCE, not a finding of zero."* Classify accordingly:
 translation, which is worse biology than a shifted ppGpp basis, and the correction matches v3.0.1. It is
 retained as the worked example of a *model correction whose blast radius exceeded its subject* — a
 phosphonate pseudogene that moves the stringent response — alongside the tRNA charging port.
+
+## D12 — Every simulated number carries its source (S2-2) — ACCEPTED 2026-11-25, code only
+
+**Problem.** The integrity check (`integrity.audit`) could pair a number in Cellwright's prose with a run only when
+the sentence named exactly one run: 11 of 140 claims in the stored answers. A sentence comparing basal (0.0123)
+with KO:argS (0.0098) passed with the two numbers swapped.
+
+**Decision.** Cellwright writes each number it takes from a tool result with its source, in brackets, where it
+writes the number:
+
+| kind | format | resolved by |
+|---|---|---|
+| a reading | `0.0098 [gene_knockout/KO:argS · growth_rate · 4 seeds]` | the named design's own run fields (`classify`): `matches`, `mismatched` (found only in another run: a swap), `unresolved` |
+| a comparison's statistic | `-20.3% [gene_knockout/KO:argS vs wildtype/basal · growth_rate · effect_pct]` | a tool output naming both designs that contains the number; matched on magnitude, because the direction is usually written in words |
+| a computed number | `0.797 [computed: 0.0098 / 0.0123]` | recorded as computed; its inputs are themselves cited |
+
+Counts, seeds and generations need no citation; literature values cite their paper. In a table, each cell cites,
+or the sources are listed under it. Implementation: `integrity.CITE`, `citations`, `_cited_status`,
+`audit_cited` (in `audit` as "cited"); the rule is the first in `agent.SYSTEM`; the interface renders a citation
+as a chip (`apps/web/app.js` inlineMd, `.cite`). Tests: `tests/test_cited_numbers.py` (including that the
+prompt's own examples parse and resolve).
+
+**Why this format.** The source is attached to the number, not to the sentence, so a swap is caught whatever the
+prose says; the bracket names a design key and a channel, which are exactly what the run fields are keyed by, so
+resolution is a lookup, not an inference. **Alternatives rejected:** footnotes (the number and its source drift
+apart in editing); a structured JSON answer (unreadable as prose, and the interface and every eval that parses
+answers would change twice); checking prose with an LLM (a model judging a model's numbers is the failure this
+check exists to catch).
+
+**Limits, stated.** Whether a comparison's word ("slower") agrees with its sign is not checked. An answer that
+does not use the format is reported as `format_used: false`, not flagged number by number. Up to six plain words
+may sit between a number and its bracket.
+
+**Not yet validated (S2-2b, paid, your approval).** Whether both models actually comply, and whether answer quality
+holds with 10-20% more output tokens. It rides along with K-2 at the freeze (D13), on the grounded arm's answers.
+
+## D13 — Decisions of 2026-11-25: what is in sample, what MCP answers, what a new user gets, when K-2 runs
+
+**Y10, in sample.** A condition the knowledge base's table holds is fitted by ParCa (growth and composition for
+every row; expression of the active factors' targets), so those quantities are in sample; everything else in that
+condition is emergent; perturbations are out of sample. Who decided to fit it is recorded
+(`data/parca/condition_fits.json`, `scripts/condition_fits.py`): acetate and succinate were fitted by the base
+simulator (upstream CovertLab commit 03b327f7, PR #895, 2020-06-08), so they were in sample before the campaign
+existed; the campaign's own conditions (glc_* 2026-03-20, the 13 media 2026-04-15, starvation and anaerobic
+nitrate committed publicly 2026-11-25) are attributed to the campaign and are out of sample for any run before
+their fit date. *Why:* the old tag called acetate and succinate predictions, which inflated the growth law's
+out-of-sample fit from the seven perturbations to nine. Implementation: `provenance.classify/tag(quantity, gene,
+run_date)`; `rigor.fit_relation` counts a point in sample only if both channels are.
+
+**Y11, MCP answers what Cellwright knows.** A client connecting over MCP must not get a different answer from the one
+Cellwright gives. For a design the registry marks note-only (an operon-specific rRNA knockout), the raw tools
+return the reading with the registry's note on how to read it, rather than refusing (`mcp._PERTURBATION_NOTE_ONLY`,
+`how_to_read_this_design`). *Why:* Cellwright reads these designs with the note; refusing them over MCP made the two
+surfaces disagree. Replay of the stored calls: refused 24 -> 2 (`evals/results/raw_gate_replay.json`).
+
+**Y12, what a new user gets.** Cellarium's own parts of the campaign branch were pushed (8e7dd6c5: the graded
+knockout variant, the starvation and anaerobic-nitrate conditions, the Docker fixes); the kinetic charging port is
+held, because its licence is pending. A fresh anonymous clone resolves 26 of 33 registry dependencies; the three
+records resting on the held port are named in `capability.BUILD`
+(`evals/results/dependency_audit_public.json`).
+
+**K-2 runs once, at the freeze.** K-2 measures what grounding changes, and the grounded arm is Cellarium itself
+(registry, gate, tools, instructions, corpus, reader), which changed today in five places. A number measured now
+would describe a system that will not exist at submission. Everything is built now (items, keys, freeze manifest,
+a stubbed dry run, the cost estimate) and the paid run happens once against a recorded freeze (one tagged commit,
+the registry hash, the corpus snapshot, model IDs and temperatures, the judge's prompt hash). Full spec: Platform Map v68,
+Appendix M (K-2).
+
+**Issue 3, the smaller results.** (a) *True labels:* one function, `labels.describe`, names every design on every
+surface with its medium and a hazard class where the name misleads (`plus_nitrate` is aerobic glucose with nitrate,
+not nitrate respiration); *why one function:* three surfaces had three phrasings, and the dataset's labels must say
+the same. Publishing the relabelled dataset is a release decision, prepared locally. (b) *Falsifier designs:*
+Council's falsifiers are checked against the hypothesis's own candidate designs when proposed, never against the
+corpus, so the Council stays blind; a placeholder knockout tag is repaired only when exactly one candidate names a
+gene, otherwise sent back. *Why so narrow:* a wider repair turned `condition/rich_amino_acids` into acetate. (c)
+*Two-component sensors:* the reader adds back the sensor monomers wcEcoli's listener drops from phosphorylated
+complexes, and says how much it added; *why in the reader, not the model:* the corpus already exists, and the fix
+must apply to every run ever made.
+
+**The BV-14 refit.** A knowledge-base edit is a new fit, recorded as one: `data/parca/fits.json` lists every fit
+with its inputs (file SHA-256), why, whose decision, and its difference from the public branch; runs on it carry
+its `kb_sha256` and are never pooled with the corpus fit.
+
+**The transit-dir refusal.** `runner._evacuate` now refuses a design whose transit dir is another design's run
+root (a plain knockout's), where it used to let the run proceed and wcEcoli delete the occupant. Found by the
+BV-12 batch before any run was lost; the batch waits for the occupant's deposit instead.
