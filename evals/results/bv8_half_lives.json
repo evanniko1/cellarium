@@ -1,0 +1,132 @@
+{
+ "spec": "BV-8",
+ "knowledge_base": "3b2f8ebd (the corpus fit)",
+ "in_sample": "calibration by construction: the inputs are Chen et al. 2015 and, where Chen lacks a gene, Bernstein et al. 2002's M9 column; the test is what ParCa does to them",
+ "source_table": "reconstruction/ecoli/scripts/rna_half_lives/data/3181Table5.csv (in the model checkout; Bernstein et al. 2002 Supporting Table 5)",
+ "organism_bernstein_2002": {
+  "m9": {
+   "n": 3826,
+   "share_3_to_8_min": 0.767,
+   "median_min": 5.4,
+   "q1_min": 4.0,
+   "q3_min": 6.8
+  },
+  "lb": {
+   "n": 2265,
+   "share_3_to_8_min": 0.737,
+   "median_min": 4.7,
+   "q1_min": 3.5,
+   "q3_min": 6.3
+  }
+ },
+ "model_final_half_lives": {
+  "n": 3133,
+  "share_3_to_8_min": 0.619,
+  "median_min": 5.19,
+  "q1_min": 3.2,
+  "q3_min": 6.26,
+  "share_3_to_8_min_expression_weighted": 0.522
+ },
+ "model_by_class": {
+  "fit": {
+   "n": 2279,
+   "share_3_to_8_min": 0.586,
+   "median_min": 4.6,
+   "q1_min": 2.4,
+   "q3_min": 6.16,
+   "pct_of_mrna_expression": 87.913
+  },
+  "floor": {
+   "n": 245,
+   "share_3_to_8_min": 0.0,
+   "median_min": 91.2,
+   "q1_min": 91.2,
+   "q3_min": 91.2,
+   "pct_of_mrna_expression": 4.589
+  },
+  "ceiling": {
+   "n": 7,
+   "share_3_to_8_min": 0.0,
+   "median_min": 0.4,
+   "q1_min": 0.4,
+   "q3_min": 0.4,
+   "pct_of_mrna_expression": 0.016
+  },
+  "imputed": {
+   "n": 602,
+   "share_3_to_8_min": 1.0,
+   "median_min": 5.19,
+   "q1_min": 5.19,
+   "q3_min": 5.19,
+   "pct_of_mrna_expression": 7.482
+  }
+ },
+ "knowledge_base_inputs": {
+  "n_mrna_cistrons": 4346,
+  "measured": 3246,
+  "imputed": 1100,
+  "measured_distribution": {
+   "n": 3246,
+   "share_3_to_8_min": 0.642,
+   "median_min": 4.9,
+   "q1_min": 3.1,
+   "q3_min": 6.6
+  }
+ },
+ "per_gene_monocistronic_fit_units": {
+  "input_from_bernstein": {
+   "n": 614,
+   "spearman_model_vs_bernstein_m9": 0.946,
+   "median_log2_model_over_bernstein": 0.0,
+   "median_abs_log2_final_over_input": 0.0
+  },
+  "input_from_chen": {
+   "n": 381,
+   "spearman_model_vs_bernstein_m9": 0.094,
+   "median_log2_model_over_bernstein": -0.943,
+   "median_abs_log2_final_over_input": 0.0
+  }
+ },
+ "imputation_constant_min": 5.190693,
+ "rate_floor_as_half_life_min": 91.2,
+ "rate_ceiling_as_half_life_min": 0.4,
+ "computed_utc": "2026-11-25T16:41:29Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "977d744",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

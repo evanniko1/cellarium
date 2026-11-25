@@ -1,0 +1,526 @@
+{
+ "spec": "BV-12 pilot panel, pre-registered before any run",
+ "feba_sha256": "d0ad9db34d966ab05ca50eb37a5d1f5b0e8a46d0697e6552db7e9ad585d14798",
+ "experiments": {
+  "glucose": [
+   "set1IT003 D-Glucose (C)",
+   "set1IT004 D-Glucose (C)"
+  ],
+  "acetate": [
+   "set1IT027 acetate (C)",
+   "set1IT028 acetate (C)"
+  ],
+  "succinate": [
+   "set1IT039 succinate (C)",
+   "set1IT040 succinate (C)"
+  ]
+ },
+ "thresholds": {
+  "strong": -1.0,
+  "clear": -0.5,
+  "neutral": 0.3
+ },
+ "patterns": {
+  "carbon_specific": 6,
+  "glucose_specific": 4,
+  "defective_everywhere": 4,
+  "neutral": 6
+ },
+ "model_condition": {
+  "glucose": [
+   "basal",
+   "minimal"
+  ],
+  "acetate": [
+   "acetate",
+   "minimal_acetate"
+  ],
+  "succinate": [
+   "succinate",
+   "minimal_succinate"
+  ]
+ },
+ "panel": [
+  {
+   "symbol": "fbp",
+   "bnumber": "b4232",
+   "ko_index": 2232,
+   "glucose": -0.118,
+   "acetate": -5.041,
+   "succinate": -5.2,
+   "pattern": "carbon_specific",
+   "effect": 5.082
+  },
+  {
+   "symbol": "sucC",
+   "bnumber": "b0728",
+   "ko_index": 3087,
+   "glucose": -0.004,
+   "acetate": -4.838,
+   "succinate": -0.788,
+   "pattern": "carbon_specific",
+   "effect": 4.835
+  },
+  {
+   "symbol": "ppsA",
+   "bnumber": "b1702",
+   "ko_index": 2705,
+   "glucose": -0.021,
+   "acetate": -4.427,
+   "succinate": -0.357,
+   "pattern": "carbon_specific",
+   "effect": 4.406
+  },
+  {
+   "symbol": "dctA",
+   "bnumber": "b3528",
+   "ko_index": 1518,
+   "glucose": 0.191,
+   "acetate": 0.314,
+   "succinate": -3.7,
+   "pattern": "carbon_specific",
+   "effect": 3.89
+  },
+  {
+   "symbol": "sucD",
+   "bnumber": "b0729",
+   "ko_index": 3088,
+   "glucose": -0.296,
+   "acetate": -4.133,
+   "succinate": -0.819,
+   "pattern": "carbon_specific",
+   "effect": 3.837
+  },
+  {
+   "symbol": "cyaA",
+   "bnumber": "b3806",
+   "ko_index": 1428,
+   "glucose": 0.433,
+   "acetate": -1.964,
+   "succinate": -3.327,
+   "pattern": "carbon_specific",
+   "effect": 3.761
+  },
+  {
+   "symbol": "kgtP",
+   "bnumber": "b2587",
+   "ko_index": 844,
+   "glucose": 0.053,
+   "acetate": 0.285,
+   "succinate": -3.141,
+   "pattern": "carbon_specific",
+   "effect": 3.194
+  },
+  {
+   "symbol": "maeA",
+   "bnumber": "b1479",
+   "ko_index": 498,
+   "glucose": 0.043,
+   "acetate": -0.37,
+   "succinate": -2.992,
+   "pattern": "carbon_specific",
+   "effect": 3.035
+  },
+  {
+   "symbol": "ppc",
+   "bnumber": "b3956",
+   "ko_index": 2093,
+   "glucose": -3.369,
+   "acetate": -0.072,
+   "succinate": 0.464,
+   "pattern": "glucose_specific",
+   "effect": 3.296
+  },
+  {
+   "symbol": "pgi",
+   "bnumber": "b4025",
+   "ko_index": 1984,
+   "glucose": -1.635,
+   "acetate": 0.625,
+   "succinate": 1.578,
+   "pattern": "glucose_specific",
+   "effect": 2.26
+  },
+  {
+   "symbol": "lysA",
+   "bnumber": "b2838",
+   "ko_index": 2720,
+   "glucose": -4.799,
+   "acetate": -5.098,
+   "succinate": -4.728,
+   "pattern": "defective_everywhere",
+   "effect": 4.728
+  },
+  {
+   "symbol": "metF",
+   "bnumber": "b3941",
+   "ko_index": 2747,
+   "glucose": -4.745,
+   "acetate": -5.293,
+   "succinate": -4.652,
+   "pattern": "defective_everywhere",
+   "effect": 4.652
+  },
+  {
+   "symbol": "serA",
+   "bnumber": "b2913",
+   "ko_index": 1703,
+   "glucose": -4.963,
+   "acetate": -4.692,
+   "succinate": -4.553,
+   "pattern": "defective_everywhere",
+   "effect": 4.553
+  },
+  {
+   "symbol": "proC",
+   "bnumber": "b0386",
+   "ko_index": 2275,
+   "glucose": -4.527,
+   "acetate": -5.051,
+   "succinate": -4.839,
+   "pattern": "defective_everywhere",
+   "effect": 4.527
+  },
+  {
+   "symbol": "fdhF",
+   "bnumber": "b4079",
+   "ko_index": 2696,
+   "glucose": 0.009,
+   "acetate": -0.002,
+   "succinate": 0.01,
+   "pattern": "neutral",
+   "effect": -0.01
+  },
+  {
+   "symbol": "yghA",
+   "bnumber": "b3003",
+   "ko_index": 1324,
+   "glucose": -0.018,
+   "acetate": 0.006,
+   "succinate": -0.001,
+   "pattern": "neutral",
+   "effect": -0.018
+  },
+  {
+   "symbol": "fadE",
+   "bnumber": "b0221",
+   "ko_index": 2535,
+   "glucose": 0.014,
+   "acetate": -0.033,
+   "succinate": 0.016,
+   "pattern": "neutral",
+   "effect": -0.033
+  },
+  {
+   "symbol": "treA",
+   "bnumber": "b1197",
+   "ko_index": 2865,
+   "glucose": 0.004,
+   "acetate": 0.038,
+   "succinate": 0.036,
+   "pattern": "neutral",
+   "effect": -0.038
+  },
+  {
+   "symbol": "pdeL",
+   "bnumber": "b0315",
+   "ko_index": 156,
+   "glucose": 0.0,
+   "acetate": -0.032,
+   "succinate": 0.039,
+   "pattern": "neutral",
+   "effect": -0.039
+  },
+  {
+   "symbol": "dgcJ",
+   "bnumber": "b1786",
+   "ko_index": 602,
+   "glucose": 0.04,
+   "acetate": -0.015,
+   "succinate": -0.018,
+   "pattern": "neutral",
+   "effect": -0.04
+  }
+ ],
+ "pool_sizes": {
+  "carbon_specific": 32,
+  "glucose_specific": 2,
+  "defective_everywhere": 35,
+  "neutral": 280
+ },
+ "taken": {
+  "carbon_specific": 8,
+  "glucose_specific": 4,
+  "defective_everywhere": 4,
+  "neutral": 6
+ },
+ "excluded_by_reason": {
+  "not metabolic": 1231,
+  "not alone on one transcription unit": 677,
+  "no knockout index in the model": 84,
+  "machinery": 3
+ },
+ "existing_runs": {
+  "knockouts": {
+   "fbp": {
+    "glucose": []
+   },
+   "sucC": {
+    "glucose": []
+   },
+   "ppsA": {
+    "glucose": []
+   },
+   "dctA": {
+    "glucose": []
+   },
+   "sucD": {
+    "glucose": []
+   },
+   "cyaA": {
+    "glucose": []
+   },
+   "kgtP": {
+    "glucose": []
+   },
+   "maeA": {
+    "glucose": []
+   },
+   "ppc": {
+    "glucose": []
+   },
+   "pgi": {
+    "glucose": [
+     [
+      0,
+      4
+     ],
+     [
+      1,
+      4
+     ],
+     [
+      2,
+      4
+     ],
+     [
+      3,
+      4
+     ],
+     [
+      4,
+      8
+     ],
+     [
+      5,
+      8
+     ],
+     [
+      6,
+      8
+     ],
+     [
+      7,
+      8
+     ]
+    ]
+   },
+   "lysA": {
+    "glucose": []
+   },
+   "metF": {
+    "glucose": []
+   },
+   "serA": {
+    "glucose": []
+   },
+   "proC": {
+    "glucose": []
+   },
+   "fdhF": {
+    "glucose": []
+   },
+   "yghA": {
+    "glucose": []
+   },
+   "fadE": {
+    "glucose": []
+   },
+   "treA": {
+    "glucose": []
+   },
+   "pdeL": {
+    "glucose": []
+   },
+   "dgcJ": {
+    "glucose": []
+   }
+  },
+  "controls": {
+   "acetate": [
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     7,
+     1
+    ]
+   ],
+   "succinate": [
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "glucose": [
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     3
+    ],
+    [
+     0,
+     4
+    ],
+    [
+     0,
+     7
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     4
+    ],
+    [
+     1,
+     7
+    ],
+    [
+     2,
+     1
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     2,
+     4
+    ],
+    [
+     2,
+     7
+    ],
+    [
+     3,
+     1
+    ],
+    [
+     3,
+     3
+    ],
+    [
+     3,
+     4
+    ],
+    [
+     3,
+     7
+    ],
+    [
+     4,
+     1
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     6,
+     1
+    ],
+    [
+     7,
+     1
+    ],
+    [
+     8,
+     1
+    ],
+    [
+     9,
+     1
+    ],
+    [
+     10,
+     1
+    ],
+    [
+     11,
+     1
+    ],
+    [
+     12,
+     1
+    ],
+    [
+     13,
+     1
+    ],
+    [
+     14,
+     1
+    ],
+    [
+     15,
+     1
+    ]
+   ]
+  },
+  "note": "(seed, generations) pairs on the steady-state model with no timeline"
+ },
+ "computed_utc": "2026-11-25T14:36:59Z"
+}
