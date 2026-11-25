@@ -1,0 +1,333 @@
+{
+ "spec": "BV-1",
+ "rows": [
+  {
+   "id": "isoacceptor_charging_under_starvation",
+   "question": "Under leucine starvation, are the leucine tRNA isoacceptors charged to different extents?",
+   "requirement": {
+    "observable": "trna_charging",
+    "granularity": "per_isoacceptor",
+    "regulatory_dependencies": [
+     "amino_acid_starvation"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "selective charging: during starvation some isoacceptors of the starved family stay charged and others fall",
+    "source": "Dittmar et al. 2005",
+    "doi": "10.1038/sj.embor.7400341"
+   },
+   "model": "the default model writes one value per amino-acid family to every isoacceptor (at most 21 distinct values across 86 columns), so the within-family spread is exactly zero; the kinetic model resolves isoacceptors but has no ppGpp (Platform Map section 13)",
+   "agreement": "misleads",
+   "cell": "refused, would mislead"
+  },
+  {
+   "id": "pho_regulon_under_phosphate_limitation",
+   "question": "Does phosphate limitation switch on the Pho regulon (pstSCAB, phoA)?",
+   "requirement": {
+    "observable": "other",
+    "granularity": "per_gene",
+    "regulatory_dependencies": [
+     "phosphate_depletion"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "Pi limitation activates PhoR/PhoB and induces the Pho regulon",
+    "source": "Hsieh and Wanner 2010",
+    "doi": "10.1016/j.mib.2010.01.014"
+   },
+   "model": "removing phosphate leaves the phosphate pools unchanged, PhoB is never phosphorylated and is not a fitted factor, so no Pho gene moves (Appendix B, 13 simulations)",
+   "agreement": "misleads",
+   "cell": "refused, would mislead"
+  },
+  {
+   "id": "growth_after_carbon_removal",
+   "question": "Does the cell keep growing after glucose, its only carbon source, is removed?",
+   "requirement": {
+    "observable": "other",
+    "granularity": "aggregate",
+    "regulatory_dependencies": [
+     "carbon_source_removal"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "no: biomass cannot be made without a carbon source",
+    "source": "mass conservation",
+    "doi": null
+   },
+   "model": "biomass keeps rising 3.6-fold with almost no carbon taken up; carbon is not conserved (Appendix C)",
+   "agreement": "misleads",
+   "cell": "refused, would mislead"
+  },
+  {
+   "id": "growth_across_saturating_glucose_doses",
+   "question": "Does growth rate differ between 2, 5 and 20 mM glucose?",
+   "requirement": {
+    "observable": "other",
+    "granularity": "aggregate",
+    "regulatory_dependencies": [
+     "carbon_source_concentration"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "no: the half-saturation constant for glucose is 40 to 88 micrograms per litre (about 0.2 to 0.5 micromolar), so all three doses saturate growth",
+    "source": "Senn et al. 1994",
+    "doi": "10.1016/0304-4165(94)90072-8"
+   },
+   "model": "the three doses give the same cell: uptake is a binary switch above 1e-5 mM (registry record W4C-1)",
+   "agreement": "agrees",
+   "cell": "refused, would have agreed"
+  },
+  {
+   "id": "ribosome_growth_law",
+   "question": "Across perturbations, does ribosome content rise with growth rate?",
+   "requirement": {
+    "observable": "rrna_transcription",
+    "granularity": "aggregate",
+    "regulatory_dependencies": []
+   },
+   "verdict": "answer (no record covers it)",
+   "biology": {
+    "finding": "yes: the ribosomal fraction rises linearly with growth rate across nutrient conditions",
+    "source": "Scott et al. 2010",
+    "doi": "10.1126/science.1192588"
+   },
+   "model": {
+    "fit_all": {
+     "n": 14,
+     "r_squared": 0.608,
+     "pearson_r": 0.779,
+     "slope_p_value": 0.001
+    },
+    "fit_out_of_sample_only": {
+     "n": 9,
+     "r_squared": 0.568,
+     "pearson_r": 0.754,
+     "slope_p_value": 0.019
+    }
+   },
+   "agreement": "agrees",
+   "cell": "answered, agrees"
+  },
+  {
+   "id": "ppgpp_optimum",
+   "question": "Is growth slower when ppGpp is held both below and above its normal level?",
+   "requirement": {
+    "observable": "ppgpp",
+    "granularity": "aggregate",
+    "regulatory_dependencies": []
+   },
+   "verdict": "answer",
+   "biology": {
+    "finding": "yes: raising and lowering (p)ppGpp both suppress growth",
+    "source": "Zhu and Dai 2019",
+    "doi": "10.1093/nar/gkz211"
+   },
+   "model": [
+    -22.7,
+    -7.5,
+    -7.0,
+    -21.5
+   ],
+   "agreement": "agrees",
+   "cell": "answered, agrees"
+  },
+  {
+   "id": "rrna_operon_dosage",
+   "question": "Does losing rRNA operons slow growth?",
+   "requirement": {
+    "observable": "rrna_transcription",
+    "granularity": "aggregate",
+    "regulatory_dependencies": []
+   },
+   "verdict": "answer (no record covers it)",
+   "biology": {
+    "finding": "yes, moderately, once at least two operons are deleted; one operon makes as much as 56% of wild-type rRNA",
+    "source": "Asai et al. 1999",
+    "doi": "10.1128/JB.181.12.3803-3809.1999"
+   },
+   "model": [
+    -20.1,
+    -35.3
+   ],
+   "agreement": "agrees",
+   "cell": "answered, agrees"
+  },
+  {
+   "id": "carbon_source_growth",
+   "question": "Does E. coli grow more slowly on acetate than on glucose?",
+   "requirement": {
+    "observable": "media_response",
+    "granularity": "aggregate",
+    "regulatory_dependencies": []
+   },
+   "verdict": "answer",
+   "biology": {
+    "finding": "yes: 0.257 against 0.649 per hour in PRECISE-1K's matched samples, 60% slower",
+    "source": "Lamoureux et al. 2023 (PRECISE-1K)",
+    "doi": "10.1093/nar/gkad750"
+   },
+   "model": [
+    -33.4,
+    -23.5
+   ],
+   "agreement": "agrees, calibrated: the fit is given each condition's doubling time; the model's slowdown is 33%, about half the measured 60%",
+   "cell": "answered, agrees"
+  },
+  {
+   "id": "metabolic_gene_essentiality",
+   "question": "Which metabolic genes are essential?",
+   "requirement": {
+    "observable": "gene_knockout",
+    "granularity": "per_gene",
+    "regulatory_dependencies": []
+   },
+   "verdict": "answer",
+   "biology": {
+    "finding": "214 of 1,357 iML1515 metabolic genes are essential by the Keio collection",
+    "source": "Baba et al. 2006",
+    "doi": "10.1038/msb4100050"
+   },
+   "model": {
+    "tp": 1,
+    "fn": 213,
+    "recall": 0.005
+   },
+   "agreement": "misleads",
+   "cell": "answered, misleads"
+  },
+  {
+   "id": "arabinose_induction",
+   "question": "Does arabinose switch on araBAD?",
+   "requirement": {
+    "observable": "other",
+    "granularity": "per_gene",
+    "regulatory_dependencies": [
+     "arabinose_induction"
+    ]
+   },
+   "verdict": "refuse",
+   "biology": {
+    "finding": "yes: AraC activates araBAD when arabinose binds it",
+    "source": "Schleif 2010",
+    "doi": "10.1111/j.1574-6976.2010.00226.x"
+   },
+   "model": "AraC is fitted to repress araA, araB and araD (-0.70, -0.64, -0.35 log2) in a medium that keeps glucose; the runs move them down (8 to 10 copies against 34 to 35), not significantly",
+   "agreement": "misleads",
+   "cell": "refused, would mislead"
+  },
+  {
+   "id": "nitrate_induction_aerobic",
+   "question": "Does nitrate raise narGHJI in aerobic glucose medium?",
+   "requirement": {
+    "observable": "other",
+    "granularity": "per_gene",
+    "regulatory_dependencies": [
+     "inducer_response"
+    ]
+   },
+   "verdict": "answer (calibrated)",
+   "biology": {
+    "finding": "yes, from a low aerobic baseline: NarL stimulates nar transcription aerobically and anaerobically, without FNR; under anaerobiosis nitrate raises narGHJI 3.2 to 3.7 log2",
+    "source": "Walker and DeMoss 1992; PRECISE-1K no3_anaero vs wt_glc_anaero",
+    "doi": "10.1128/jb.174.4.1119-1123.1992"
+   },
+   "model": {
+    "narI": 2.3314,
+    "narX": -5.0686,
+    "narL": -0.2499,
+    "narJ": 2.5176,
+    "narG": 2.0405,
+    "narH": 1.5674
+   },
+   "agreement": "agrees, calibrated: NarL's fold changes are fitted (+2.57 to +2.80); the aerobic magnitude has no measurement here",
+   "cell": "answered, agrees"
+  },
+  {
+   "id": "anaerobic_induction_nar_frd",
+   "question": "Does removing oxygen switch on narGHJI and frdABCD?",
+   "requirement": {
+    "observable": "other",
+    "granularity": "per_gene",
+    "regulatory_dependencies": []
+   },
+   "verdict": "answer (no record covers it)",
+   "biology": {
+    "finding": "yes: narG +3.98 and frdA +3.21 log2 anaerobic against aerobic glucose (PRECISE-1K); the nar transcript is repressed aerobically and induced anaerobically through FNR",
+    "source": "Lamoureux et al. 2023 (PRECISE-1K); Li and DeMoss 1987",
+    "doi": "10.1093/nar/gkad750"
+   },
+   "model": {
+    "grcA": 4.338,
+    "nuoA": -1.672,
+    "nuoB": -1.826,
+    "nuoE": -1.715,
+    "nuoF": -1.787,
+    "nuoG": -1.927,
+    "frdA": 1.757,
+    "frdB": 1.651,
+    "frdC": 1.747,
+    "frdD": 1.649,
+    "cydA": 2.984,
+    "cydB": 3.184,
+    "narX": -1.746,
+    "narL": -1.825,
+    "narG": 0.727,
+    "narH": 0.872,
+    "narJ": 1.017,
+    "narI": 0.8
+   },
+   "agreement": "misleads: the model raises narG +0.73 and frdA +1.76 log2 against measured +3.98 and +3.21, so a sixteen-fold induction of nitrate reductase reads as under two-fold; FNR's fitted fold changes at nar (+0.8 to +1.5) are far below the measured induction, and frdA has no FNR entry",
+   "cell": "answered, misleads"
+  }
+ ],
+ "tally": {
+  "refused, would mislead": 4,
+  "refused, would have agreed": 1,
+  "answered, agrees": 5,
+  "answered, misleads": 2
+ },
+ "reading": "refused-would-mislead is the gate working; answered-misleads is a registry gap; refused-would-have-agreed is what refusing costs",
+ "computed_utc": "2026-11-25T12:44:45Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "18c5412",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

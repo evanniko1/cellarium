@@ -1,0 +1,145 @@
+{
+ "spec": "BV-4",
+ "data": "PRECISE-1K (Lamoureux et al. 2023, doi:10.1093/nar/gkad750), snapshot f6307411d59e640d",
+ "rows": [
+  {
+   "design": "condition/acetate",
+   "precise1k_contrast": {
+    "column": "condition",
+    "cond_A": "wt_glc",
+    "cond_B": "wt_ac"
+   },
+   "count_floor": 20.0,
+   "n_genes": 75,
+   "join_qc": {
+    "n_sim": 75,
+    "n_ref": 4344,
+    "n_joined": 75,
+    "n_sim_only": 0,
+    "n_ref_only": 4269
+   },
+   "pearson_r": 0.122,
+   "spearman_rho": -0.095,
+   "deming_slope": 0.095,
+   "deming_intercept": 0.204,
+   "sign_concordance": 0.529,
+   "n_ref_significant": 34,
+   "null_pearson_r": 0.017,
+   "null_pearson_sd": 0.136,
+   "null_permutations": 25,
+   "verdict": "DIVERGENT (model-limit)",
+   "note": "log2FC concordance of the sim vs a DESeq2 reference for a matched contrast. Read pearson_r AGAINST null_pearson_r (a high r is nearly free from the shared housekeeping backbone); a Deming slope far from 1 means the sim compresses/inflates the dynamic range. Each strong divergent gene is a model-limit hypothesis (attribute to a named parameter), unless it is a data artifact (short-gene zero, a total-mRNA-shift contrast needing spike-in normalization)."
+  },
+  {
+   "design": "condition/acetate",
+   "precise1k_contrast": {
+    "column": "condition",
+    "cond_A": "wt_glc",
+    "cond_B": "wt_ac"
+   },
+   "count_floor": 0.05,
+   "n_genes": 3006,
+   "join_qc": {
+    "n_sim": 3039,
+    "n_ref": 4344,
+    "n_joined": 3006,
+    "n_sim_only": 33,
+    "n_ref_only": 1338
+   },
+   "pearson_r": 0.286,
+   "spearman_rho": 0.295,
+   "deming_slope": 0.169,
+   "deming_intercept": -0.186,
+   "sign_concordance": 0.698,
+   "n_ref_significant": 645,
+   "null_pearson_r": -0.001,
+   "null_pearson_sd": 0.02,
+   "null_permutations": 25,
+   "verdict": "DIVERGENT (model-limit)",
+   "note": "log2FC concordance of the sim vs a DESeq2 reference for a matched contrast. Read pearson_r AGAINST null_pearson_r (a high r is nearly free from the shared housekeeping backbone); a Deming slope far from 1 means the sim compresses/inflates the dynamic range. Each strong divergent gene is a model-limit hypothesis (attribute to a named parameter), unless it is a data artifact (short-gene zero, a total-mRNA-shift contrast needing spike-in normalization)."
+  },
+  {
+   "design": "condition/no_oxygen",
+   "precise1k_contrast": {
+    "column": "condition",
+    "cond_A": "wt_glc",
+    "cond_B": "wt_glc_anaero"
+   },
+   "count_floor": 20.0,
+   "n_genes": 76,
+   "join_qc": {
+    "n_sim": 76,
+    "n_ref": 4343,
+    "n_joined": 76,
+    "n_sim_only": 0,
+    "n_ref_only": 4267
+   },
+   "pearson_r": -0.094,
+   "spearman_rho": -0.027,
+   "deming_slope": -9.47,
+   "deming_intercept": -5.91,
+   "sign_concordance": 0.5,
+   "n_ref_significant": 18,
+   "null_pearson_r": 0.022,
+   "null_pearson_sd": 0.105,
+   "null_permutations": 25,
+   "verdict": "DIVERGENT (model-limit)",
+   "note": "log2FC concordance of the sim vs a DESeq2 reference for a matched contrast. Read pearson_r AGAINST null_pearson_r (a high r is nearly free from the shared housekeeping backbone); a Deming slope far from 1 means the sim compresses/inflates the dynamic range. Each strong divergent gene is a model-limit hypothesis (attribute to a named parameter), unless it is a data artifact (short-gene zero, a total-mRNA-shift contrast needing spike-in normalization)."
+  },
+  {
+   "design": "condition/no_oxygen",
+   "precise1k_contrast": {
+    "column": "condition",
+    "cond_A": "wt_glc",
+    "cond_B": "wt_glc_anaero"
+   },
+   "count_floor": 0.05,
+   "n_genes": 3065,
+   "join_qc": {
+    "n_sim": 3097,
+    "n_ref": 4343,
+    "n_joined": 3065,
+    "n_sim_only": 32,
+    "n_ref_only": 1278
+   },
+   "pearson_r": 0.205,
+   "spearman_rho": 0.227,
+   "deming_slope": 0.099,
+   "deming_intercept": -0.115,
+   "sign_concordance": 0.654,
+   "n_ref_significant": 633,
+   "null_pearson_r": 0.004,
+   "null_pearson_sd": 0.018,
+   "null_permutations": 25,
+   "verdict": "DIVERGENT (model-limit)",
+   "note": "log2FC concordance of the sim vs a DESeq2 reference for a matched contrast. Read pearson_r AGAINST null_pearson_r (a high r is nearly free from the shared housekeeping backbone); a Deming slope far from 1 means the sim compresses/inflates the dynamic range. Each strong divergent gene is a model-limit hypothesis (attribute to a named parameter), unless it is a data artifact (short-gene zero, a total-mRNA-shift contrast needing spike-in normalization)."
+  }
+ ],
+ "computed_utc": "2026-11-25T12:50:21Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": true,
+  "git_commit": "18c5412",
+  "packages": {
+   "anthropic": "0.116.0",
+   "openai": "3.8.0",
+   "pydantic": "2.13.4",
+   "numpy": "2.4.6",
+   "scipy": "1.18.0",
+   "duckdb": "2.0.0",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "1.23.0"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "2.4.6"
+   },
+   "duckdb": {
+    "locked": "1.5.4",
+    "installed": "2.0.0"
+   }
+  }
+ }
+}

@@ -1,0 +1,80 @@
+{
+ "spec": "BV-3",
+ "on_iml1515_metabolic_genes": {
+  "n_genes": 1357,
+  "iml1515_fba": {
+   "n": 1357,
+   "tp": 163,
+   "tn": 1118,
+   "fp": 25,
+   "fn": 51,
+   "recall": 0.762,
+   "precision": 0.867,
+   "mcc": 0.78
+  },
+  "whole_cell_prior": {
+   "n": 1357,
+   "tp": 1,
+   "tn": 1142,
+   "fp": 1,
+   "fn": 213,
+   "recall": 0.005,
+   "precision": 0.5,
+   "mcc": 0.036
+  },
+  "n_without_a_whole_cell_call": 0
+ },
+ "whole_cell_on_the_genome": {
+  "n_genes": 4724,
+  "n_benchmark_essential": 400,
+  "agreement_counts": {
+   "consistent_viable": 4283,
+   "model_UNDER_predicts": 341,
+   "model_OVER_predicts": 19,
+   "unclear": 22,
+   "consistent_lethal": 59
+  },
+  "essentiality_recall": 0.147
+ },
+ "labels": "Keio collection (Baba et al. 2006, doi:10.1038/msb4100050), BW25113",
+ "fba_provenance": {
+  "model": "iML1515",
+  "model_sha256": "9c772d44ca43350e40dc7ee86c7aa148796856be1eea45e5406c6df8f7dcde28",
+  "cobra_version": "0.31.1",
+  "solver": "optlang.glpk_interface",
+  "objective": "BIOMASS_Ec_iML1515_core_75p37M",
+  "medium": {
+   "EX_glc__D_e": 10.0,
+   "EX_o2_e": 20.0
+  },
+  "essential_frac": 0.01,
+  "caveat": "FBA is an independent cross-check, NOT ground truth \u2014 no kinetics/regulation/concentrations."
+ },
+ "computed_utc": "2026-11-25T12:38:25Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": true,
+  "git_commit": "18c5412",
+  "packages": {
+   "anthropic": "0.116.0",
+   "openai": "3.8.0",
+   "pydantic": "2.13.4",
+   "numpy": "2.4.6",
+   "scipy": "1.18.0",
+   "duckdb": "2.0.0",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "1.23.0"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "2.4.6"
+   },
+   "duckdb": {
+    "locked": "1.5.4",
+    "installed": "2.0.0"
+   }
+  }
+ }
+}
