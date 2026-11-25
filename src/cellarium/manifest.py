@@ -359,6 +359,8 @@ IDENTITY_AXES = {
     "timeline": "the media-shift trajectory. An upshift and a downshift are opposite experiments (DUP-1)",
     "elongation_model": "changes what a channel MEANS, not just its value — see the docstring below",
     "params.target_genes": "which gene(s) are knocked out; the identity of a knockout",
+    "params.initial_condition": "the fitted physiology a run starts in (runSim --initial-condition). A knockout "
+                                "in fitted acetate is not the same knockout started glucose-fitted (BV-12)",
     "params.level": "the graded-knockout DOSE (GRADED-1). 0.05 and 0.50 expression are different experiments",
     "params.multiplier": "the ppGpp concentration multiplier — a dose by another name",
     "params.num_operons_to_delete": "how many rRNA operons; the dose of an rRNA knockout",
@@ -395,6 +397,8 @@ def identity_probes() -> list[tuple]:
         ("timeline", ko(), ko(timeline="0 minimal, 1200 minimal_acetate")),
         ("elongation_model", ko(), ko(elongation_model="kinetic")),
         ("params.target_genes", ko(), ko(condition="KO:thrC", params={"target_genes": ["thrC"]})),
+        ("params.initial_condition", ko(timeline="0 minimal_minus_oxygen"),
+         ko(timeline="0 minimal_minus_oxygen", params={"initial_condition": "no_oxygen"})),
         ("params.level", Design(perturbation="graded_gene_knockout", condition="KO:leuB",
                                 params={"target_genes": ["leuB"], "variant_index": 18183, "level": 3}),
          Design(perturbation="graded_gene_knockout", condition="KO:leuB",
@@ -440,6 +444,18 @@ def _design_tag(design: Design) -> str:
     an 86-wide column of the same name. That pooling is the entire reason this axis exists."""
     from . import factors
     genes = list((design.params or {}).get("target_genes") or [])
+    # A knockout written the generate.py way carries its genes only in `condition='KO:<genes>'`. Without reading
+    # them here it fell to the `base` branch below, which DROPS the timeline: BV-12's fitted-acetate and glucose
+    # knockouts of one gene would have shared one label (found 2026-11-25, before any such row was indexed;
+    # every indexed knockout-with-timeline row came through target_genes and already carries `#tl:`).
+    if "gene_knockout" in design.perturbation and not genes and design.timeline:
+        from . import model
+        genes = model.knockout_genes(f"{design.perturbation}/{design.condition or ''}")
+    # The fitted physiology the run starts in (runSim --initial-condition, BV-12): a knockout in fitted acetate is a
+    # different experiment from the same knockout and timeline started glucose-fitted. Appended only when set, so
+    # no existing label changes.
+    ic = (design.params or {}).get("initial_condition")
+    ic_tag = f"#ic:{ic}" if ic else ""
     if "gene_knockout" in design.perturbation and genes:
         tag = "KO:" + "+".join(genes)
         if design.condition and design.condition not in ("basal", "KO:" + "+".join(genes)):
@@ -453,9 +469,12 @@ def _design_tag(design: Design) -> str:
         # averaged as seeds of one design. `runner._dir_discriminator` already separates them on DISK (its
         # docstring records the incident where they destroyed each other's output); this separates them in
         # IDENTITY, which is what every analysis keys on. Same 6-hex sha1, so key and directory agree.
-        return (tag + _expr_suffix(design) + factors.tl_tag_suffix(design.timeline)
+        return (tag + _expr_suffix(design) + factors.tl_tag_suffix(design.timeline) + ic_tag
                 + mode_tag_suffix(design.elongation_model))
     base = design.condition or design.timeline or "basal"
+    if ic_tag:
+        # a control started in a fitted condition: its medium (timeline) and physiology are both its identity
+        base += (factors.tl_tag_suffix(design.timeline) if design.condition else "") + ic_tag
     # TARGET TRANSCRIPTION FACTORS. Found by the identity-axis guard the moment it was written, and LATENT
     # rather than live: `launch._match_key` already treats `target_tfs` as part of a design's semantic identity
     # and `biosecurity.screen` reads it as a target, but `_design_tag` did not, so the two identity functions

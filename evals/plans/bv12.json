@@ -1,0 +1,2080 @@
+{
+ "batch": "bv12",
+ "sim_path": "cellarium",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "gates": {
+  "acetate": {
+   "growth_rate": [
+    0.0001,
+    0.00023
+   ]
+  },
+  "succinate": {
+   "growth_rate": [
+    0.00014,
+    0.00024
+   ]
+  }
+ },
+ "glucose_controls": "existing wildtype/basal seeds 0 and 1 (4 generations, knowledge base 3b2f8ebd...)",
+ "design_sha256": "98bcdb9490881f0eceaecf962ed370c50aa9c8e956beed9d6ecf8854beaf4038",
+ "runs": [
+  {
+   "id": "wt-acetate-validity",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "acetate",
+    "timeline": "0 minimal_acetate",
+    "params": {
+     "initial_condition": "acetate"
+    }
+   },
+   "seed": 100,
+   "generations": 1,
+   "group": "acetate",
+   "role": "control",
+   "stage": 1
+  },
+  {
+   "id": "wt-acetate-s0",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "acetate",
+    "timeline": "0 minimal_acetate",
+    "params": {
+     "initial_condition": "acetate"
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "wt-acetate-s1",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "acetate",
+    "timeline": "0 minimal_acetate",
+    "params": {
+     "initial_condition": "acetate"
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "wt-succinate-validity",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "succinate",
+    "timeline": "0 minimal_succinate",
+    "params": {
+     "initial_condition": "succinate"
+    }
+   },
+   "seed": 100,
+   "generations": 1,
+   "group": "succinate",
+   "role": "control",
+   "stage": 1
+  },
+  {
+   "id": "wt-succinate-s0",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "succinate",
+    "timeline": "0 minimal_succinate",
+    "params": {
+     "initial_condition": "succinate"
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "wt-succinate-s1",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "succinate",
+    "timeline": "0 minimal_succinate",
+    "params": {
+     "initial_condition": "succinate"
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fbp-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fbp",
+    "params": {
+     "variant_index": 2232
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "fbp-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fbp",
+    "params": {
+     "variant_index": 2232
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "fbp-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fbp",
+    "params": {
+     "variant_index": 2232,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fbp-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fbp",
+    "params": {
+     "variant_index": 2232,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fbp-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fbp",
+    "params": {
+     "variant_index": 2232,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fbp-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fbp",
+    "params": {
+     "variant_index": 2232,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucC-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucC",
+    "params": {
+     "variant_index": 3087
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "sucC-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucC",
+    "params": {
+     "variant_index": 3087
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "sucC-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucC",
+    "params": {
+     "variant_index": 3087,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucC-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucC",
+    "params": {
+     "variant_index": 3087,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucC-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucC",
+    "params": {
+     "variant_index": 3087,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucC-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucC",
+    "params": {
+     "variant_index": 3087,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppsA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppsA",
+    "params": {
+     "variant_index": 2705
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "ppsA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppsA",
+    "params": {
+     "variant_index": 2705
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "ppsA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppsA",
+    "params": {
+     "variant_index": 2705,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppsA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppsA",
+    "params": {
+     "variant_index": 2705,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppsA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppsA",
+    "params": {
+     "variant_index": 2705,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppsA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppsA",
+    "params": {
+     "variant_index": 2705,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dctA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dctA",
+    "params": {
+     "variant_index": 1518
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "dctA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dctA",
+    "params": {
+     "variant_index": 1518
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "dctA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dctA",
+    "params": {
+     "variant_index": 1518,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dctA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dctA",
+    "params": {
+     "variant_index": 1518,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dctA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dctA",
+    "params": {
+     "variant_index": 1518,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dctA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dctA",
+    "params": {
+     "variant_index": 1518,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucD-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucD",
+    "params": {
+     "variant_index": 3088
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "sucD-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucD",
+    "params": {
+     "variant_index": 3088
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "sucD-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucD",
+    "params": {
+     "variant_index": 3088,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucD-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucD",
+    "params": {
+     "variant_index": 3088,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucD-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucD",
+    "params": {
+     "variant_index": 3088,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "sucD-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:sucD",
+    "params": {
+     "variant_index": 3088,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "cyaA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:cyaA",
+    "params": {
+     "variant_index": 1428
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "cyaA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:cyaA",
+    "params": {
+     "variant_index": 1428
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "cyaA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:cyaA",
+    "params": {
+     "variant_index": 1428,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "cyaA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:cyaA",
+    "params": {
+     "variant_index": 1428,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "cyaA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:cyaA",
+    "params": {
+     "variant_index": 1428,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "cyaA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:cyaA",
+    "params": {
+     "variant_index": 1428,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "kgtP-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:kgtP",
+    "params": {
+     "variant_index": 844
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "kgtP-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:kgtP",
+    "params": {
+     "variant_index": 844
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "kgtP-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:kgtP",
+    "params": {
+     "variant_index": 844,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "kgtP-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:kgtP",
+    "params": {
+     "variant_index": 844,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "kgtP-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:kgtP",
+    "params": {
+     "variant_index": 844,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "kgtP-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:kgtP",
+    "params": {
+     "variant_index": 844,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "maeA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:maeA",
+    "params": {
+     "variant_index": 498
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "maeA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:maeA",
+    "params": {
+     "variant_index": 498
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "maeA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:maeA",
+    "params": {
+     "variant_index": 498,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "maeA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:maeA",
+    "params": {
+     "variant_index": 498,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "maeA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:maeA",
+    "params": {
+     "variant_index": 498,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "maeA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:maeA",
+    "params": {
+     "variant_index": 498,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppc-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppc",
+    "params": {
+     "variant_index": 2093
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "ppc-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppc",
+    "params": {
+     "variant_index": 2093
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "ppc-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppc",
+    "params": {
+     "variant_index": 2093,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppc-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppc",
+    "params": {
+     "variant_index": 2093,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppc-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppc",
+    "params": {
+     "variant_index": 2093,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "ppc-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:ppc",
+    "params": {
+     "variant_index": 2093,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pgi-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pgi",
+    "params": {
+     "variant_index": 1984
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "pgi-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pgi",
+    "params": {
+     "variant_index": 1984
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "pgi-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pgi",
+    "params": {
+     "variant_index": 1984,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pgi-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pgi",
+    "params": {
+     "variant_index": 1984,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pgi-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pgi",
+    "params": {
+     "variant_index": 1984,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pgi-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pgi",
+    "params": {
+     "variant_index": 1984,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "lysA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:lysA",
+    "params": {
+     "variant_index": 2720
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "lysA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:lysA",
+    "params": {
+     "variant_index": 2720
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "lysA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:lysA",
+    "params": {
+     "variant_index": 2720,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "lysA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:lysA",
+    "params": {
+     "variant_index": 2720,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "lysA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:lysA",
+    "params": {
+     "variant_index": 2720,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "lysA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:lysA",
+    "params": {
+     "variant_index": 2720,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "metF-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:metF",
+    "params": {
+     "variant_index": 2747
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "metF-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:metF",
+    "params": {
+     "variant_index": 2747
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "metF-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:metF",
+    "params": {
+     "variant_index": 2747,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "metF-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:metF",
+    "params": {
+     "variant_index": 2747,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "metF-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:metF",
+    "params": {
+     "variant_index": 2747,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "metF-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:metF",
+    "params": {
+     "variant_index": 2747,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "serA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:serA",
+    "params": {
+     "variant_index": 1703
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "serA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:serA",
+    "params": {
+     "variant_index": 1703
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "serA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:serA",
+    "params": {
+     "variant_index": 1703,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "serA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:serA",
+    "params": {
+     "variant_index": 1703,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "serA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:serA",
+    "params": {
+     "variant_index": 1703,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "serA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:serA",
+    "params": {
+     "variant_index": 1703,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "proC-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:proC",
+    "params": {
+     "variant_index": 2275
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "proC-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:proC",
+    "params": {
+     "variant_index": 2275
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "proC-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:proC",
+    "params": {
+     "variant_index": 2275,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "proC-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:proC",
+    "params": {
+     "variant_index": 2275,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "proC-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:proC",
+    "params": {
+     "variant_index": 2275,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "proC-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:proC",
+    "params": {
+     "variant_index": 2275,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fdhF-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fdhF",
+    "params": {
+     "variant_index": 2696
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "fdhF-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fdhF",
+    "params": {
+     "variant_index": 2696
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "fdhF-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fdhF",
+    "params": {
+     "variant_index": 2696,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fdhF-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fdhF",
+    "params": {
+     "variant_index": 2696,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fdhF-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fdhF",
+    "params": {
+     "variant_index": 2696,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fdhF-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fdhF",
+    "params": {
+     "variant_index": 2696,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "yghA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:yghA",
+    "params": {
+     "variant_index": 1324
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "yghA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:yghA",
+    "params": {
+     "variant_index": 1324
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "yghA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:yghA",
+    "params": {
+     "variant_index": 1324,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "yghA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:yghA",
+    "params": {
+     "variant_index": 1324,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "yghA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:yghA",
+    "params": {
+     "variant_index": 1324,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "yghA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:yghA",
+    "params": {
+     "variant_index": 1324,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fadE-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fadE",
+    "params": {
+     "variant_index": 2535
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "fadE-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fadE",
+    "params": {
+     "variant_index": 2535
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "fadE-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fadE",
+    "params": {
+     "variant_index": 2535,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fadE-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fadE",
+    "params": {
+     "variant_index": 2535,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fadE-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fadE",
+    "params": {
+     "variant_index": 2535,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "fadE-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:fadE",
+    "params": {
+     "variant_index": 2535,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "treA-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:treA",
+    "params": {
+     "variant_index": 2865
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "treA-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:treA",
+    "params": {
+     "variant_index": 2865
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "treA-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:treA",
+    "params": {
+     "variant_index": 2865,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "treA-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:treA",
+    "params": {
+     "variant_index": 2865,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "treA-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:treA",
+    "params": {
+     "variant_index": 2865,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "treA-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:treA",
+    "params": {
+     "variant_index": 2865,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pdeL-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pdeL",
+    "params": {
+     "variant_index": 156
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "pdeL-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pdeL",
+    "params": {
+     "variant_index": 156
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "pdeL-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pdeL",
+    "params": {
+     "variant_index": 156,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pdeL-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pdeL",
+    "params": {
+     "variant_index": 156,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pdeL-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pdeL",
+    "params": {
+     "variant_index": 156,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "pdeL-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:pdeL",
+    "params": {
+     "variant_index": 156,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dgcJ-glucose-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dgcJ",
+    "params": {
+     "variant_index": 602
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "dgcJ-glucose-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dgcJ",
+    "params": {
+     "variant_index": 602
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "dgcJ-acetate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dgcJ",
+    "params": {
+     "variant_index": 602,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dgcJ-acetate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dgcJ",
+    "params": {
+     "variant_index": 602,
+     "initial_condition": "acetate"
+    },
+    "timeline": "0 minimal_acetate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "acetate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dgcJ-succinate-s0",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dgcJ",
+    "params": {
+     "variant_index": 602,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "dgcJ-succinate-s1",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "KO:dgcJ",
+    "params": {
+     "variant_index": 602,
+     "initial_condition": "succinate"
+    },
+    "timeline": "0 minimal_succinate"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "succinate",
+   "role": "run",
+   "stage": 2
+  }
+ ]
+}

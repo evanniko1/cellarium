@@ -1,0 +1,196 @@
+{
+ "batch": "bv14",
+ "sim_path": "bv14_no3_anaerobic",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": -1,
+ "gates": {
+  "bv14_basal": {
+   "growth_rate": [
+    0.000186,
+    0.000306
+   ]
+  },
+  "bv14_anaerobic": {
+   "growth_rate": [
+    0.000113,
+    0.00018
+   ]
+  }
+ },
+ "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
+ "why_first": "the user asked for BV-12 to BV-14 to run on this machine; BV-14 is 12 runs, BV-12 126, so BV-14 goes first and its result does not wait a day behind BV-12",
+ "runs": [
+  {
+   "id": "bv14-ctl-basal",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal"
+   },
+   "seed": 100,
+   "generations": 1,
+   "group": "bv14_basal",
+   "role": "control",
+   "stage": 1
+  },
+  {
+   "id": "bv14-ctl-anaerobic",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "params": {
+     "variant_index": 7
+    }
+   },
+   "seed": 100,
+   "generations": 1,
+   "group": "bv14_anaerobic",
+   "role": "control",
+   "stage": 1
+  },
+  {
+   "id": "bv14-no_oxygen-s0",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "params": {
+     "variant_index": 7
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen-s1",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "params": {
+     "variant_index": 7
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen-s2",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "params": {
+     "variant_index": 7
+    }
+   },
+   "seed": 2,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen-s3",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "params": {
+     "variant_index": 7
+    }
+   },
+   "seed": 3,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen_plus_nitrate-s0",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen_plus_nitrate",
+    "params": {
+     "variant_index": 24
+    }
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen_plus_nitrate-s1",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen_plus_nitrate",
+    "params": {
+     "variant_index": 24
+    }
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen_plus_nitrate-s2",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen_plus_nitrate",
+    "params": {
+     "variant_index": 24
+    }
+   },
+   "seed": 2,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-no_oxygen_plus_nitrate-s3",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen_plus_nitrate",
+    "params": {
+     "variant_index": 24
+    }
+   },
+   "seed": 3,
+   "generations": 3,
+   "group": "bv14_anaerobic",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-basal-s0",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "bv14_basal",
+   "role": "run",
+   "stage": 2
+  },
+  {
+   "id": "bv14-basal-s1",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "bv14_basal",
+   "role": "run",
+   "stage": 2
+  }
+ ]
+}

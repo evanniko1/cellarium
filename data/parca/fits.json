@@ -1,0 +1,102 @@
+{
+ "spec": "the ParCa fits available, joined to runs by kb_sha256",
+ "deposit_note": "no knowledge base is on the Hugging Face corpus: a deposited run is re-readable for its stored channels, but a read that needs the fit (the two-component sensor correction, BV-R1) needs the fit on the reading machine; publishing fits is held for the user (WAITING_ON_YOU)",
+ "fits": [
+  {
+   "basis": "the code image's default ParCa (operons on); the knowledge base of most of the corpus",
+   "built": "2026-07-08 (parca_ts)",
+   "decided_by": "the campaign's first corpus build",
+   "kb_sha256": "3b2f8ebd2d6fc0f75d36aa73984af759837cba1b1c44bedac9961cf8bad3bed2",
+   "sim_path": "cellarium",
+   "file_on_this_machine": true,
+   "manifest_rows": 287,
+   "elongation_models": [
+    "steady_state"
+   ],
+   "deposited_to_hf": false,
+   "kb_bytes": 69442337,
+   "file_mtime_utc": "2026-07-08T02:02:20Z"
+  },
+  {
+   "basis": "built 2026-08-06 (parca_ts), reconstruction_sha 14c6d826; carries steady-state and kinetic rows; the file is not on this machine",
+   "kb_sha256": "5f19d040944a65abf1d9e0bfb05b7def19afc653ddc598bf4b97fed2f228c171",
+   "sim_path": null,
+   "file_on_this_machine": false,
+   "manifest_rows": 50,
+   "elongation_models": [
+    "kinetic",
+    "steady_state"
+   ],
+   "deposited_to_hf": false
+  },
+  {
+   "basis": "not recorded: a second knowledge base mixed into wildtype/basal and condition/with_aa, seen in the corpus from 2026-07-29 with no parca_ts (docs/DECISIONS.md I2); the file is not on this machine",
+   "kb_sha256": "0d861f80c7a3089b94d54193429c1777af703c8486ef0499d58eec8acf789e6c",
+   "sim_path": null,
+   "file_on_this_machine": false,
+   "manifest_rows": 40,
+   "elongation_models": [
+    "steady_state"
+   ],
+   "deposited_to_hf": false
+  },
+  {
+   "basis": "refit2, PARCA-3: the default fit with the coverage filter (BACKLOG PARCA-3)",
+   "built": "2026-08-09",
+   "kb_sha256": "4965d61971ecf3a816033af8e1a57cda3b4cf35eda2575d74159d93c7bc0d37b",
+   "sim_path": "refit2",
+   "file_on_this_machine": true,
+   "manifest_rows": 0,
+   "elongation_models": [],
+   "deposited_to_hf": false,
+   "kb_bytes": 69444963,
+   "file_mtime_utc": "2026-08-09T16:19:02Z"
+  },
+  {
+   "basis": "BV-14 refit: the code image's flat tree with two files overridden (runner.parca_rebuild flat_overrides, which mounts only the named files)",
+   "image": "${USER}-wcm-code:latest",
+   "built": "2026-11-25, 9.8 min",
+   "purpose": "BV-14: anaerobic nitrate respiration against PRECISE-1K (Platform Map M.6)",
+   "decided_by": "the user, 2026-11-25 (BV-12 to BV-14: 'Run them on this machine, 6 in parallel')",
+   "flat_overrides": {
+    "condition/condition_defs.tsv": "6985c6a8af2e29989a448203fb8f85f2a9ce7094b6279e402d0bc8152e1afa96",
+    "condition/media_recipes.tsv": "fcc6ae551335c8a68b83c753d3fec14af1a84a689369b8ebc0cdbe01a68f7935"
+   },
+   "overrides_from": "model_overlay/files/reconstruction/ecoli/flat/condition/ (identical to the campaign checkout's working tree)",
+   "conditions_added": [
+    "no_oxygen_plus_nitrate"
+   ],
+   "conditions_added_against": "the code image's own condition_defs.tsv (24 rows; the override has 25)",
+   "against_the_corpus_fit": "the corpus fit 3b2f8ebd has 21 ordered conditions (read from its pickle, 2026-11-25); this fit has 25, the same 21 at indices 0-20, then minus_leu, minus_thr, minus_arg (from the image's own table) and no_oxygen_plus_nitrate at 24. It was built from the current image, so anything else that image changed since July is in it too: its validity controls test that basal and anaerobic growth stay inside the corpus fit's range",
+   "condition_indices": {
+    "basal": 0,
+    "no_oxygen": 7,
+    "plus_nitrate": 17,
+    "no_oxygen_plus_nitrate": 24
+   },
+   "differs_from_public_branch": "the public campaign branch at 8e7dd6c5 carries the same no_oxygen_plus_nitrate row and medium; its condition_defs.tsv also has plus_cytidine, added there by a commit the local checkout lacks, so it hashes 33b5e1dc..., not 6985c6a8..., and every condition index after plus_cytidine's position is one higher on the public branch. Runs on this fit compute their condition index by name from this fit's own table",
+   "doubling_time": "82 min, derived: PRECISE-1K no3_anaero 0.35/h against aerobic glucose 0.649/h, scaled to the 44-min basal (data/parca/condition_fits.json)",
+   "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
+   "sim_path": "bv14_no3_anaerobic",
+   "file_on_this_machine": true,
+   "manifest_rows": 0,
+   "elongation_models": [],
+   "deposited_to_hf": false,
+   "kb_bytes": 90535236,
+   "file_mtime_utc": "2026-11-25T14:59:53Z"
+  },
+  {
+   "basis": "refit1, PARCA-3: the default fit with G0-10634_RNA retyped from mRNA to pseudo (BACKLOG PARCA-3)",
+   "built": "2026-08-08",
+   "kb_sha256": "e491a580477486d733c7cc9beaf308affcec567fdfe18f242a69af778fd4ab7f",
+   "sim_path": "refit1",
+   "file_on_this_machine": true,
+   "manifest_rows": 0,
+   "elongation_models": [],
+   "deposited_to_hf": false,
+   "kb_bytes": 69440328,
+   "file_mtime_utc": "2026-08-08T20:44:01Z"
+  }
+ ],
+ "computed_utc": "2026-11-25T16:23:27Z"
+}

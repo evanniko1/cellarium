@@ -2221,5 +2221,159 @@
   "ts": 1792092303.327938,
   "host": "vmsi|Windows",
   "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 25.71110596259435,
+  "ts": 1795620188.688069,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.451840403,
+  "ts": 1795620188.8687866,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 26.25634583632151,
+  "ts": 1795620221.4024615,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 1.379432722,
+  "ts": 1795620221.4280334,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.51255693965488,
+  "ts": 1795621258.2834632,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.6929169103333334,
+  "ts": 1795621258.3264809,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.694268545839522,
+  "ts": 1795621290.9900496,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.683025216,
+  "ts": 1795621291.0629067,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.88597690264384,
+  "ts": 1795621325.4955444,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.6683717143333333,
+  "ts": 1795621325.5399878,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.903340462843579,
+  "ts": 1795621328.6289062,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.691820263,
+  "ts": 1795621328.6778605,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.829004930125343,
+  "ts": 1795622874.6979582,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.6867417326666666,
+  "ts": 1795622874.7643456,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.869940430588192,
+  "ts": 1795622917.377765,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.7074709406666666,
+  "ts": 1795622917.4439354,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.156800391938951,
+  "ts": 1795623815.2465515,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.6812505083333332,
+  "ts": 1795623815.317835,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 13.990169537067414,
+  "ts": 1795623853.4555347,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.7093951743333333,
+  "ts": 1795623853.5121174,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "min_per_generation",
+  "value": 14.145922672748567,
+  "ts": 1795623883.8771918,
+  "host": "vmsi|Windows",
+  "arrested": false
+ },
+ {
+  "kind": "gb_per_generation",
+  "value": 0.7093869186666667,
+  "ts": 1795623883.9454587,
+  "host": "vmsi|Windows",
+  "arrested": false
  }
 ]

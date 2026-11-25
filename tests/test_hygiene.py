@@ -280,7 +280,13 @@ def test_the_bespoke_projections_are_named_rather_than_filed_under_primitive():
     have made the gap disappear into a category that means "cannot be fixed".
     """
     bespoke = hygiene.registry_reconciliation()["direct_by_kind"]["bespoke_projection"]
-    assert set(bespoke) == {"src/cellarium/miase.py::_rows", "src/cellarium/similarity.py::_sim_rows"}, bespoke
+    # 2026-11-25: the biological-test batch driver and BV-12's pre-registration read run paths and arms over every
+    # row as existence checks (never re-run what exists); both are presence checks, declared here by name.
+    # Later the same day: J-2b's release candidate lists the well4cell index's conditions, and the ParCa fits
+    # registry counts rows per knowledge base; both are counts by key that read no channel.
+    assert set(bespoke) == {"src/cellarium/miase.py::_rows", "src/cellarium/similarity.py::_sim_rows",
+                            "scripts/bv_batch.py::_wire", "evals/bv12_feba.py::existing_runs",
+                            "scripts/well4cell_condition_labels.py::main", "scripts/parca_fits.py::_manifest_rows"}, bespoke
     for name in bespoke:
         assert "columns=" in hygiene.DIRECT_READ_REGISTRY[name]["why"], (
             "a bespoke projection should record what would let it stop being one")

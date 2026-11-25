@@ -26,3 +26,4 @@
 "minimal_GLC_20mM"	"MIX0-57-GLC-20mM"	1.0	""	0	[]	[]	[]	[]
 "minimal_GLC_5mM"	"MIX0-57-GLC-5mM"	1.0	""	0	[]	[]	[]	[]
 "minimal_GLC_2mM"	"MIX0-57-GLC-2mM"	1.0	""	0	[]	[]	[]	[]
+"minimal_minus_oxygen_plus_nitrate"	"MIX0-57"	1.0	""	0	["OXYGEN-MOLECULE", "4FE-4S", "NITRATE"]	[-Infinity, Infinity, Infinity]	[]	[]

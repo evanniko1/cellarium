@@ -116,6 +116,11 @@ def _variant_args(design: Design) -> list[str]:
     args = ["--variant", _variant_type(design), idx, idx]
     if design.timeline:
         args += ["--timeline", design.timeline]
+    # BV-12: the fitted physiology the cell starts in (a SIM option, campaign branch 1bdefb75). With a timeline
+    # holding that condition's medium, a knockout runs in steady-state acetate rather than glucose-fitted.
+    ic = (design.params or {}).get("initial_condition")
+    if ic:
+        args += ["--initial-condition", str(ic)]
     return args + _elongation_args(design)
 
 
@@ -225,7 +230,14 @@ def _evacuate(model_dir: Path, run_root: Path, sim_path: str) -> dict | None:
     seed = int(model_dir.name)
     dest = _run_subpath(other, seed, sim_path)
     if dest == model_dir:
-        return None
+        # The occupant LIVES here (a plain knockout's run root is the transit dir) and this design does not
+        # (model_dir != run_root above), so it is another design. There is nowhere to move it, and running would
+        # let wcEcoli rmtree it. Returning None here let BV-12's acetate knockouts delete the glucose knockout of
+        # the same gene and seed; refuse instead, and leave the occupant where it is.
+        return {"evacuated": False,
+                "why": (f"{model_dir} is the home of another design's run ({other.perturbation} {other.condition}, "
+                        f"seed {seed}); running this design there would delete it. Deposit and reclaim it, or "
+                        f"move it deliberately, first")}
     dest.mkdir(parents=True, exist_ok=True)
     moved = []
     for child in list(model_dir.iterdir()):
@@ -726,7 +738,7 @@ def retype_rnas(body: str, retypes: dict) -> tuple[str, list[dict]]:
 
 
 def parca_rebuild(sim_path: str, retype_cistrons: dict | None = None, operons: str = "on",
-                  cpus: int | None = None) -> dict:
+                  cpus: int | None = None, flat_overrides: dict | None = None) -> dict:
     """Build a knowledge base at `sim_path`, optionally with `reconstruction/ecoli/flat/` edits applied.
 
     This is the executable half of PARCA-3: a rebuild that Cellwright can PROPOSE and a human approves, rather
@@ -736,17 +748,35 @@ def parca_rebuild(sim_path: str, retype_cistrons: dict | None = None, operons: s
 
     Edits are applied by mounting a patched copy over the image's file for the life of the container. Nothing
     on the host checkout is touched, so a failed rebuild leaves no partially-edited reconstruction behind.
+
+    `flat_overrides` maps a path under `reconstruction/ecoli/flat/` to a host file mounted over it, e.g. an
+    edited condition table for a new fitted condition (BV-14). Only those files are mounted: mounting the whole
+    checkout's overlays also mounts `variants/__init__.py`, which can name variants the image lacks (the first
+    BV-14 refit died at import on that). Each mounted file's SHA-256 is returned, because the image digest
+    cannot see a bind mount (PROV-3).
     """
+    import hashlib
     import tempfile
+    overrides: dict[str, str] = {}
+    override_mounts: list[str] = []
+    for rel, host in (flat_overrides or {}).items():
+        rel_p = Path(rel)
+        if rel_p.is_absolute() or ".." in rel_p.parts:
+            raise ValueError(f"flat override {rel!r} must be a path inside reconstruction/ecoli/flat/")
+        host_p = Path(host)
+        if not host_p.is_file():
+            raise FileNotFoundError(f"flat override source {host_p} does not exist")
+        overrides[rel_p.as_posix()] = hashlib.sha256(host_p.read_bytes()).hexdigest()
+        override_mounts += ["-v", f"{host_p.as_posix()}:/wcEcoli/reconstruction/ecoli/flat/{rel_p.as_posix()}:ro"]
     patch_dir = None
     changed: list[dict] = []
-    mounts: list[str] = []
+    mounts: list[str] = list(override_mounts)
     if retype_cistrons:
         body, changed = retype_rnas(read_flat_file("rnas.tsv"), retype_cistrons)
         patch_dir = Path(tempfile.mkdtemp(prefix="cellarium_parca_"))
         (patch_dir / "rnas.tsv").write_text(body, encoding="utf-8", newline="\n")
-        mounts = ["-v", "%s:/wcEcoli/reconstruction/ecoli/flat/rnas.tsv:ro"
-                  % (patch_dir / "rnas.tsv").as_posix()]
+        mounts += ["-v", "%s:/wcEcoli/reconstruction/ecoli/flat/rnas.tsv:ro"
+                   % (patch_dir / "rnas.tsv").as_posix()]
     n = cpus or os.cpu_count() or 1
     prev = getattr(_EXEC_LOCAL, "mounts", None)
     _EXEC_LOCAL.mounts = mounts
@@ -758,7 +788,7 @@ def parca_rebuild(sim_path: str, retype_cistrons: dict | None = None, operons: s
             shutil.rmtree(patch_dir, ignore_errors=True)
     from . import provenance
     prov = provenance.kb_provenance(sim_path)
-    return {"sim_path": sim_path, "operons": operons, "retyped": changed,
+    return {"sim_path": sim_path, "operons": operons, "retyped": changed, "flat_overrides": overrides,
             "kb_sha256": prov.get("kb_sha256"), "kb_content_sha256": prov.get("kb_content_sha256"),
             "parca_ts": prov.get("parca_ts"), "kb_bytes": prov.get("kb_bytes")}
 
@@ -803,6 +833,11 @@ def _dir_discriminator(design: Design) -> str:
         suffix += "__tl" + hashlib.sha1(design.timeline.encode()).hexdigest()[:6]
     if design.elongation_model != DEFAULT_MODE:
         suffix += "__el" + design.elongation_model
+    # The fitted physiology is a third axis of the same collision: one knockout and one timeline started in two
+    # different fitted conditions are different experiments that the model would write to one directory.
+    ic = (design.params or {}).get("initial_condition")
+    if ic:
+        suffix += "__ic" + str(ic)
     return suffix
 
 

@@ -1,0 +1,35 @@
+{
+ "batch": "bv12",
+ "sim_path": "cellarium",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": -1,
+ "amends": "evals/plans/bv12.json (pre-registered, design_sha256 98bcdb94...)",
+ "why": "BV-12's glucose knockouts run 3 generations, and the corpus fit's wildtype/basal exists at depths 1, 4 and 7 only. The survey reads a run's LAST generation, so a knockout at depth 3 has no depth-matched reference (tests/test_generation_depth.py fails on the live corpus). Two depth-3 wildtype/basal seeds are added; seeds 16 and 17 because 0 to 15 are taken at other depths and a seed directory holds one depth. The panel, the knockouts and the scoring are unchanged.",
+ "runs": [
+  {
+   "id": "wt-glucose-depth3-s16",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal"
+   },
+   "seed": 16,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "wt-glucose-depth3-s17",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal"
+   },
+   "seed": 17,
+   "generations": 3,
+   "group": "glucose",
+   "role": "run",
+   "stage": 1
+  }
+ ]
+}

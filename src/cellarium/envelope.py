@@ -83,6 +83,13 @@ def media_with_a_doubling_time() -> set[str] | None:
 
 
 @functools.lru_cache(maxsize=1)
+def known_conditions() -> set[str] | None:
+    """The model's fitted conditions, which an `initial_condition` may name: the `condition` column of
+    `condition_defs.tsv`. ParCa builds a cell specification for every row (BV-12)."""
+    return _tsv(_MEDIA_TABLES / "condition_defs.tsv", "condition")
+
+
+@functools.lru_cache(maxsize=1)
 def media_recipes() -> set[str] | None:
     """Every composed medium the model can MAKE — a superset of the ones it can time the cell cycle in."""
     return _tsv(_MEDIA_TABLES / "media_recipes.tsv", "media id")
@@ -154,6 +161,20 @@ def check(design: Design) -> EnvelopeVerdict:
                 f"time for {medium} and a ParCa rebuild, which is a new comparability arm.",
             )
 
+    # An initial condition selects the fitted physiology the cell starts in (runSim --initial-condition; the
+    # timeline still sets the medium). It must be one of the model's fitted conditions, or the firetask raises
+    # inside the container before simulating.
+    ic = (design.params or {}).get("initial_condition")
+    if ic:
+        conds = known_conditions()
+        if conds is not None and ic not in conds:
+            return EnvelopeVerdict(
+                False,
+                f"'{ic}' is not an initial condition this model has: an initial condition must be a fitted row of "
+                f"condition_defs.tsv, which ParCa built a cell specification for.",
+                "Use one of: " + ", ".join(sorted(conds)) + ".",
+            )
+
     # The load-bearing check: a timeline that switches carbon source.
     if design.timeline:
         steps = _parse_timeline(design.timeline)
@@ -189,8 +210,15 @@ def check(design: Design) -> EnvelopeVerdict:
         # FIRST event (at t=0) moves a glucose-fitted cell into acetate is a switch too. Measured in the large
         # campaign's release: `wildtype` + "0 minimal_acetate" divides at 2,805 s, then 800 s, and birth mass
         # falls 354 -> 202 -> 146 fg, while the fitted acetate condition divides at 4,776-6,662 s.
-        start = (design.condition if design.perturbation == "condition" and design.condition in STATIC_ONLY_CARBON
-                 else "glucose")
+        # An initial condition (BV-12) fits the cell to that condition, so a timeline holding its own medium from
+        # t=0 is no switch: `gene_knockout` + initial_condition 'acetate' + "0 minimal_acetate" is a knockout in
+        # steady-state acetate. A medium different from the physiology's is still a switch.
+        if design.perturbation == "condition" and design.condition in STATIC_ONLY_CARBON:
+            start = design.condition
+        elif ic:
+            start = ic if ic in STATIC_ONLY_CARBON else "glucose"
+        else:
+            start = "glucose"
         sources = [start] + [carbon_source(m) for _, m in steps]
         switch = next((i for i in range(1, len(sources))
                        if sources[i] != sources[i - 1] and sources[i] in STATIC_ONLY_CARBON), None)

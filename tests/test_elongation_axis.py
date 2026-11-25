@@ -316,3 +316,28 @@ def test_the_registry_never_claims_a_corpus_mode_it_cannot_verify():
         assert not res["declared_modes_with_no_runs"]
     else:
         assert res["note"].startswith("UNVERIFIED"), res["note"]
+
+
+def test_a_design_whose_transit_dir_holds_another_designs_home_is_refused_not_run(tmp_path, monkeypatch):
+    """The hazard the docstring above names and the separate run roots did NOT close: a plain knockout's run root
+    IS the model's transit dir, so the next suffixed design of the same gene and seed (kinetic, a timeline, an
+    initial condition) writes into it. `_evacuate` found the occupant's home equal to the transit dir and let the
+    run proceed, and wcEcoli rmtree's the output dir before writing: the plain knockout's raw output would be
+    deleted. BV-12 (2026-11-25) queued exactly this: KO:<gene> in glucose, then the same gene in acetate with
+    initial_condition. Now it is refused, loudly, and the occupant is untouched."""
+    monkeypatch.setattr(runner, "OUT_ROOT", tmp_path)
+    monkeypatch.setenv("CELLARIUM_OUT", str(tmp_path))
+    plain = Design(perturbation="gene_knockout", condition="KO:ppsA", params={"variant_index": 2705})
+    acetate = Design(perturbation="gene_knockout", condition="KO:ppsA", timeline="0 minimal_acetate",
+                     params={"variant_index": 2705, "initial_condition": "acetate"})
+    home = runner._run_subpath(plain, 0, "cellarium")
+    assert home == runner._model_output_dir(acetate, 0, "cellarium")          # the shared transit dir
+    home.mkdir(parents=True)
+    (home / "design.json").write_text(plain.model_dump_json(), encoding="utf-8")
+    (home / "generation_000000").mkdir()
+    ev = runner._evacuate(runner._model_output_dir(acetate, 0, "cellarium"),
+                          runner._run_subpath(acetate, 0, "cellarium"), "cellarium")
+    assert ev is not None and ev["evacuated"] is False and "would delete" in ev["why"]
+    assert (home / "generation_000000").is_dir() and (home / "design.json").is_file()
+    # forced: re-running the plain knockout itself is the idempotent case and is still allowed
+    assert runner._evacuate(home, home, "cellarium") is None

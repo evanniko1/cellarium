@@ -92,6 +92,8 @@ MISSING_COLUMNS = {
 #                                  comparison the corpus exists to support.
 #   --multi-ko-indices I...        the gene set of a multi-KO design.
 #   --timeline ...                 the media schedule, i.e. also the design.
+#   --initial-condition COND       the fitted physiology a design starts in (BV-12, 2026-11-25), carried in the
+#                                  design's `#ic:` tag; it split the main arm on the day the first such rows landed.
 #
 # What survives is the GLOBAL flag set -- the elongation flags and anything added later -- which is precisely
 # what the column was added to protect. `--timeline` is consumed to the next `--` because `last_argv()` joins
@@ -101,6 +103,7 @@ _ARGV_NOT_ARM = re.compile(
     r"|\s--generations\s+\S+"
     r"|\s--variant(?:\s+\S+){3}"
     r"|\s--multi-ko-indices(?:\s+\d+)+"
+    r"|\s--initial-condition\s+\S+"
     r"|\s--timeline\s+.*?(?=\s--|$)")
 
 

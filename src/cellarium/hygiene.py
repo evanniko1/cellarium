@@ -189,6 +189,11 @@ READ_SITE_REGISTRY: dict[str, dict] = {
                 "plausible argument for each. It reads no channel and reports no number about the biology; the "
                 "rows only supply names. A filtered set is the right one here precisely because the sweep "
                 "should exercise the tools on the designs an analysis would actually reach")},
+    "evals/bv_r1_two_component.py::_roots": {
+        "kind": "lookup",
+        "why": ("picks the QC-clean runs of one design whose raw output is on this machine, to read a protein "
+                "through the reader before and after the BV-R1 correction. It filters on qc itself and reads no "
+                "channel from the rows; the numbers come from the reader")},
     "scripts/ab_score.py::main": {
         "kind": "lookup",
         "why": ("asks whether a gene has any runs at all before scoring a question, via the tool form; a "
@@ -245,6 +250,28 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
     "src/cellarium/manifest.py::backfill_timeline_identity": {"kind": "maintenance", "why": "a backfill must see rows a purpose would filter out, or it skips them silently"},
 
     # --- AGGREGATES: the count happens in SQL. Materialising every row in Python to count it would be worse.
+    "scripts/bv_batch.py::_wire": {
+        "kind": "bespoke_projection",
+        "why": ("the biological-test batch driver's existence check (the user's rule: never re-run a run that "
+                "exists): simout_path, generations and qc over EVERY row, crashed ones included, because a crashed "
+                "run on disk is not 'absent'. No purpose projects simout_path for all rows, and it computes nothing. Candidate "
+                "for a columns= argument on rows()")},
+    "scripts/well4cell_condition_labels.py::main": {
+        "kind": "bespoke_projection",
+        "why": ("J-2b's dataset release candidate lists the DISTINCT conditions of the well4cell index (the published "
+                "dataset's own parquet, not the Cellarium manifest) to label each one. It reads one column of a "
+                "different store, so no manifest purpose covers it; a columns= reader over the dataset's index would let it stop "
+                "being one")},
+    "scripts/parca_fits.py::_manifest_rows": {
+        "kind": "bespoke_projection",
+        "why": ("the ParCa fits registry counts the runs made on each knowledge base: kb_sha256 and "
+                "elongation_model over EVERY row, crashed ones included, because a crashed run still used the fit. "
+                "A count by key; it reads no channel. Candidate for a columns= argument on rows()")},
+    "evals/bv12_feba.py::existing_runs": {
+        "kind": "bespoke_projection",
+        "why": ("BV-12's pre-registration records which (gene, carbon source) arms already have runs, so none is "
+                "re-run: design, timeline, seed, generations and arm over every row. A presence check; it reads no "
+                "channel. Candidate for a columns= argument on rows()")},
     "src/cellarium/manifest.py::count_runs": {"kind": "aggregate", "why": "COUNT(*) in SQL; pulling every row into Python to count them would be strictly worse"},
     "src/cellarium/manifest.py::corpus_elongation_modes": {"kind": "aggregate", "why": "GROUP BY over the elongation column; an aggregate, not a row read"},
     "src/cellarium/operons.py::_measure_corpus": {"kind": "aggregate", "why": "GROUP BY operons in SQL; materialising every row to count them would be worse"},

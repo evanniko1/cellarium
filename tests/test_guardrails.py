@@ -214,11 +214,17 @@ def test_viability_truncation_and_crash_override():
 
 
 def test_provenance_distinguishes_fitted_from_derived_conditions():
+    # Y10 (2026-11-25): ParCa fits EVERY condition-table row (composition to its doubling time, its factors'
+    # targets to their fold changes), so minus_magnesium and plus_indole are fitted too — minus_magnesium to a
+    # placeholder copied from basal, which is why its ribosomes match basal's (the old "H2 boundary"). What stays
+    # out-of-sample is a perturbation, or a quantity the fit does not set.
     from cellarium import provenance
-    assert provenance.tag("condition", "no_oxygen") == "in_sample"       # measured/TF-fitted (H1)
+    assert provenance.tag("condition", "no_oxygen") == "in_sample"       # base model, FNR/ArcA/CRP fitted (H1)
     assert provenance.tag("condition", "with_aa") == "in_sample"
-    assert provenance.tag("condition", "minus_magnesium") == "out_of_sample"  # derived, not fitted (H2 boundary)
-    assert provenance.tag("condition", "plus_indole") == "out_of_sample"
+    assert provenance.tag("condition", "minus_magnesium") == "in_sample"
+    assert provenance.classify("condition", "minus_magnesium")["doubling_basis"] == "placeholder"
+    assert provenance.tag("condition", "plus_indole") == "in_sample"
+    assert provenance.tag("condition", "plus_indole", quantity="expression", gene="lacZ") == "out_of_sample"
     assert provenance.tag("gene_knockout", "KO:fabI") == "out_of_sample"
     assert provenance.tag("wildtype", "basal") == "in_sample"
 
@@ -297,12 +303,26 @@ def test_the_media_gate_is_read_from_the_model_tables_not_a_hand_list():
 def test_every_timeline_in_the_corpus_still_passes():
     """The gate must not refuse a design the corpus already ran — an envelope narrower than reality forbids
     valid work silently, which is the failure the metabolism-lever near-miss taught."""
+    import re
+
     from cellarium import store
-    timelines = {r.get("timeline") for r in store.list_results() if r.get("timeline")}
-    assert timelines, "no timeline rows in the corpus to check against"
-    for tl in timelines:
-        v = envelope.check(Design(perturbation="timeline", timeline=tl))
-        assert v.in_envelope, f"{tl}: {v.reason}"
+    # Checked as the design that ran: since 2026-11-25 a run can start in a fitted condition other than basal
+    # (runSim --initial-condition, recorded in runsim_argv), and "0 minimal_acetate" from a cell fitted to acetate is
+    # no carbon switch, while the same timeline from a glucose-fitted cell is one.
+    started_in = {}
+    for r in survey.analysis_rows()[0]:
+        m = re.search(r"--initial-condition (\S+)", r.get("runsim_argv") or "")
+        if m:
+            started_in[r["id"]] = m.group(1)
+    designs = {(r.get("timeline"), started_in.get(r.get("id"))) for r in store.list_results() if r.get("timeline")}
+    assert designs, "no timeline rows in the corpus to check against"
+    for tl, ic in designs:
+        v = envelope.check(Design(perturbation="timeline", timeline=tl,
+                                  params={"initial_condition": ic} if ic else {}))
+        assert v.in_envelope, f"{tl} (initial condition {ic}): {v.reason}"
+    # forced: the acetate control's timeline from a glucose-fitted cell is the switch the envelope refuses
+    if ("0 minimal_acetate", "acetate") in designs:
+        assert not envelope.check(Design(perturbation="timeline", timeline="0 minimal_acetate")).in_envelope
 
 
 def test_an_unreadable_media_table_does_not_refuse_everything(monkeypatch):

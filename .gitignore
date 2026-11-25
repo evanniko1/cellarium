@@ -139,3 +139,7 @@ VALIDATION_LAYER_SPEC.md
 # it from the dataset it names, and well4cell's tier alone is 12 MB of someone else's CC-BY data that we
 # should point at rather than re-host.
 data/corpora/
+
+# Downloaded reference datasets for the biological tests (FEBA, proteomics, half-lives, fluxes). Each is fetched
+# by the step its eval script documents, hashed in the eval's artefact, and not redistributed here.
+data/reference/
