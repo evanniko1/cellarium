@@ -1,55 +1,91 @@
-"""Provenance guardrail — is a corpus quantity IN-SAMPLE (fitted) or OUT-OF-SAMPLE (predicted)?
+"""Provenance guardrail — is a corpus quantity IN-SAMPLE (fitted) or OUT-OF-SAMPLE (predicted), and who fitted it?
 
-The H1/H2 pair proved why this matters: H1 (anaerobic regulon) *looked* like a triumphant confirmation but is
-in-sample — ParCa fits condition-specific expression, so the model was calibrated to match it; agreement is
-consistency, not predictive validation. H2 (Mg->ribosome) is out-of-sample — the fit never targeted it, so its
-failure is a genuine, informative model boundary. Without this tag an agent (or reader) over-credits in-sample
-agreement. Coarse per-design classification by perturbation type; see docs/CORPUS_OBSERVATIONS.md §6.1/§F.
+ParCa builds a cell specification for EVERY row of the knowledge base's condition table
+(fit_sim_data_1.buildCombinedConditionCellSpecifications): composition is fitted to the row's doubling time, and
+the expression of every target of the row's active and inactive transcription factors is set from their fitted
+fold changes. So the tag depends on the QUANTITY (Y10, 2026-11-25):
+
+  growth and composition    in-sample for every condition in the table (`GROWTH_COMPOSITION`);
+  a fitted factor's target  in-sample in that condition (expression of `fitted_targets`);
+  anything else             emergent from the fitted state: out-of-sample;
+  a perturbation            (knockout, ppGpp clamp, rRNA dosage, shift, ...) out-of-sample.
+
+Each condition's fit carries its basis, from `data/parca/condition_fits.json` (scripts/condition_fits.py): whether
+the upstream simulator ships it ("base", e.g. acetate and succinate, CovertLab PR #895) or the campaign added it
+("campaign", with the commit and date), and whether its doubling time is the base model's, a placeholder copied from
+another condition, or derived from data. A campaign condition is in-sample only from the date the campaign decided
+to fit it; a run before that date is out-of-sample.
+
+The earlier rule (six conditions in-sample, the rest "network-derived") rested on a wrong premise: it tagged acetate
+out-of-sample though the base model fits it, and read minus_magnesium's unchanged ribosomes as a model boundary
+(H2) when the campaign had fitted that condition to basal's 44 minutes with no factor active.
 """
 
 from __future__ import annotations
 
+import functools
+import json
+from pathlib import Path
+
 from . import paths, redact
 
-# IN-SAMPLE = a condition the model was actually fit to. wcEcoli's fit uses measured RNA-seq for a small set of
-# media (M9 Glucose +/-AAs, N-/P-limited, glycerol) plus the modeled-TF regulons (e.g. FNR/ArcA -> anaerobic).
-# CRITICAL (audit M4): most named `condition`s are NOT fit to measured data — their expression is network-DERIVED
-# from the media definition, so they are OUT-of-sample (e.g. minus_magnesium: H2's Mg->ribosome boundary). The
-# old rule tagged every `condition` in-sample and OVER-credited these. We classify conservatively — in-sample only
-# for the clearly-fitted conditions; when unsure, out-of-sample (under-crediting is the safe error here).
-# M-4: this set is the SOURCE OF TRUTH for the in/out-of-sample tag, so it is PINNED by a test
-# (test_provenance.test_in_sample_set_is_pinned) — any edit here must consciously update that test with a
-# justification, so the fit set can't SILENTLY DRIFT out of sync with what ParCa actually fits. The authoritative
-# set is the media wcEcoli's ParCa calibrates measured RNA-seq against (M9 glucose at the fitted concentrations,
-# ±amino acids, anaerobic via the FNR/ArcA regulon); it's deliberately CONSERVATIVE — a condition whose expression
-# is network-derived rather than fit to data stays OUT-of-sample (under-crediting is the safe error). If the model's
-# fit set changes, re-derive from its condition definitions and update both this set and the pinning test.
-IN_SAMPLE_CONDITIONS = {"basal", "glc_20mM", "glc_5mM", "glc_2mM", "with_aa", "no_oxygen"}
+FITS_PATH = Path(__file__).resolve().parents[2] / "data" / "parca" / "condition_fits.json"
+# Quantities the fit sets for every condition: growth and the composition fitted to the doubling time.
+GROWTH_COMPOSITION = {None, "growth", "composition", "growth_rate", "division_rate", "doubling_time",
+                      "median_division_time_sec", "cell_mass", "dry_mass", "protein_mass", "rna_mass", "dna_mass",
+                      "smallmolecule_mass", "ribosome_conc", "rnap_conc"}
+EXPRESSION = {"expression", "mrna", "protein"}
 
-_IN_NOTE = ("A ParCa-fitted condition (measured RNA-seq or a modeled-TF regulon) — the model was calibrated to "
-            "match this. Agreement with data/literature is CONSISTENCY, not predictive validation.")
-_OUT_NOTE = ("The fit did not target this (a perturbation, or a stress/media condition whose expression is network-"
-             "DERIVED, not fit to measured data — e.g. the Mg->ribosome boundary). A genuine model prediction; "
-             "predictive validation AND informative failure live here.")
+_IN_NOTE = ("Fitted: ParCa set this quantity for this condition (composition to its doubling time, or a fitted "
+            "factor's fold change). Agreement with data is CONSISTENCY, not prediction.")
+_OUT_NOTE = ("Not fitted: a perturbation, or a quantity emergent from the fitted state. A genuine model prediction; "
+             "validation and informative failure live here.")
 
 
-def _is_in_sample(perturbation: str, condition: str | None) -> bool:
-    # A wildtype OR `condition` run is in-sample ONLY when its CONDITION is one the fit actually targeted (M-3):
-    # `wildtype` in an unfitted medium (e.g. wildtype/acetate) is a genuine out-of-sample prediction, NOT in-sample
-    # by virtue of being 'wildtype'. condition defaults to 'basal' (the canonical wildtype/basal baseline).
-    if perturbation in ("wildtype", "condition"):
-        return (condition or "basal") in IN_SAMPLE_CONDITIONS
-    return False  # gene_knockout / ppgpp_conc / timeline / objective-weight / ... are perturbations the fit didn't target
+@functools.lru_cache(maxsize=1)
+def condition_fits() -> dict:
+    """{condition: fit record} from data/parca/condition_fits.json; {} if the record is missing."""
+    try:
+        return json.loads(FITS_PATH.read_text(encoding="utf-8"))["conditions"]
+    except Exception:                                                     # noqa: BLE001
+        return {}
 
 
-def classify(perturbation: str, condition: str | None = None) -> dict:
-    in_sample = _is_in_sample(perturbation, condition)
-    return {"provenance": "in_sample" if in_sample else "out_of_sample", "note": _IN_NOTE if in_sample else _OUT_NOTE}
+def _verdict(perturbation, condition, quantity=None, gene=None, run_date=None) -> tuple[bool, str, dict]:
+    if perturbation not in ("wildtype", "condition"):
+        return False, "a perturbation the fit did not target", {}
+    cond = condition or "basal"
+    fit = condition_fits().get(cond)
+    if fit is None:
+        return False, f"'{cond}' is not a condition the knowledge base fits", {}
+    if run_date and fit.get("fitted_by") == "campaign" and fit.get("date") and str(run_date) < fit["date"]:
+        return False, (f"run on {run_date}, before the campaign decided to fit '{cond}' ({fit['date']}, "
+                       f"{fit.get('commit')})"), fit
+    if quantity in GROWTH_COMPOSITION:
+        return True, "growth and composition are fitted for every condition", fit
+    if quantity in EXPRESSION and gene:
+        if gene in set(fit.get("fitted_targets") or []):
+            return True, f"{gene} is a target of a factor this condition fits ({', '.join(fit.get('tf_genes') or [])})", fit
+        return False, f"{gene} is not a target of a factor this condition fits: its change is emergent", fit
+    return False, f"'{quantity}' is emergent from the fitted state", fit
 
 
-def tag(perturbation: str, condition: str | None = None) -> str:
-    """Just the label, for annotating list rows."""
-    return "in_sample" if _is_in_sample(perturbation, condition) else "out_of_sample"
+def classify(perturbation: str, condition: str | None = None, quantity: str | None = None,
+             gene: str | None = None, run_date: str | None = None) -> dict:
+    ok, why, fit = _verdict(perturbation, condition, quantity, gene, run_date)
+    out = {"provenance": "in_sample" if ok else "out_of_sample", "why": why, "note": _IN_NOTE if ok else _OUT_NOTE}
+    if fit:
+        out.update({"fitted_by": fit.get("fitted_by"), "fit_commit": fit.get("commit"), "fit_date": fit.get("date"),
+                    "doubling_min": fit.get("doubling_min"), "doubling_basis": fit.get("doubling_basis"),
+                    "doubling_source": fit.get("doubling_source"),
+                    "n_fitted_targets": len(fit.get("fitted_targets") or [])})
+    return out
+
+
+def tag(perturbation: str, condition: str | None = None, quantity: str | None = None, gene: str | None = None,
+        run_date: str | None = None) -> str:
+    """Just the label, for annotating list rows. Without a quantity it is the design-level tag (growth/composition)."""
+    return "in_sample" if _verdict(perturbation, condition, quantity, gene, run_date)[0] else "out_of_sample"
 
 
 # --- H-3: per-run environment provenance (the reproducibility bundle) ---------------------------------------

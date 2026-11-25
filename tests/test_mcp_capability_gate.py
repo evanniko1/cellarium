@@ -61,23 +61,50 @@ def test_an_unparseable_label_falls_back_to_the_default_rather_than_failing():
 # ---------------------------------------------------------------------------------------------------------
 
 def test_a_capability_absent_in_every_mode_is_refused():
-    """The rRNA operon case: the variant's dose survives and the operon identity does not, in all three
-    elongation models. No reading of that output means what its name says, so there is nothing to annotate."""
-    r = mcp.capability_precheck("differential", {"target": "rrna_operon_knockout/minimal|rRNA_KO:4op"})
+    """The no-carbon case: with no glucose the network takes up no carbon and growth continues, in every elongation
+    model, so no reading of growth there means what its name says. (Until Y11, 2026-11-25, the exemplar was the
+    rRNA-operon design; that record now travels as a note, see below.)"""
+    r = mcp.capability_precheck("differential", {"target": "condition/no_glucose"})
     assert r is not None, "a design whose capability holds in no mode was allowed through"
     assert r["tier"] == "not_representable_in_any_mode"
     assert r["refused_by"] == "cellarium-capability-gate"
-    assert "operon_specific_rrna_knockout" in r["capabilities"]
-    assert any("synth_prob_from_ppgpp" in w or "MEAN" in w for w in r["why"]), \
+    assert "growth_without_a_carbon_source" in r["capabilities"]
+    assert any("takes up no" in w for w in r["why"]), \
         "the refusal does not carry the mechanism, which is what makes it source-derived"
 
 
 def test_the_emptiness_of_holds_in_is_the_condition_not_presence():
     """Pins the fix to a real bug. The first version also required `present`, which excluded the strongest
     case: a capability declared absent from the checkout has `present=False`, and that is more absent."""
-    cap = capability._BY_KEY["operon_specific_rrna_knockout"]
+    cap = capability._BY_KEY["growth_without_a_carbon_source"]
     assert cap.present is False and cap.holds_in == (), "fixture assumption"
-    assert mcp.capability_precheck("differential", {"target": "rrna_operon_knockout/x"}) is not None
+    assert mcp.capability_precheck("differential", {"target": "condition/no_glucose"}) is not None
+
+
+def test_an_rrna_operon_design_is_read_with_its_scope_attached_not_refused():
+    """Y11 (2026-11-25): the operon record is about WHICH operon was deleted; the variant keeps the dose. A direct
+    client asking for growth under four operons removed gets the number Cellwright would give, with the record's
+    reading attached, instead of a refusal Cellwright's own answer contradicts."""
+    args = {"design": "rrna_operon_knockout/minimal|rRNA_KO:4op", "channel": "growth_rate"}
+    assert mcp.capability_precheck("read_series", args) is None
+    note = mcp.capability_note("read_series", args)
+    assert "operon_specific_rrna_knockout" in note["does_not_hold"]
+    assert any("DOSE survives" in h and "IDENTITY does not" in h for h in note["how_to_read_this_design"])
+
+
+def test_cellwright_and_the_raw_surface_agree_on_the_count_level_rrna_question():
+    """The same question through both surfaces. The question-level gate admits the count-level dose question (the
+    registry has no record against it: BV-1's rrna_operon_dosage row), and the raw gate no longer refuses its read."""
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "bv1_gate_vs_biology", Path(__file__).resolve().parents[1] / "evals" / "bv1_gate_vs_biology.py")
+    B1 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(B1)
+    q = next(q for q in B1.QUESTIONS if q["id"] == "rrna_operon_dosage")
+    assert B1._verdict(q["requirement"]).startswith("answer")
+    assert mcp.capability_precheck("read_series", {"design": "rrna_operon_knockout/minimal|rRNA_KO:4op",
+                                                   "channel": "growth_rate"}) is None
 
 
 def test_a_capability_absent_only_in_the_read_mode_is_annotated_not_refused():
@@ -144,7 +171,7 @@ def test_the_raw_tool_path_consults_the_gate(monkeypatch):
     import cellarium.tools as tools_mod
     monkeypatch.setattr(tools_mod, "dispatch", _boom)
 
-    out = mcp.call("differential", {"target": "rrna_operon_knockout/minimal|rRNA_KO:4op"})
+    out = mcp.call("differential", {"target": "condition/no_glucose"})
     assert "dispatched" not in seen, "the tool ran despite a capability absent in every mode"
     assert out.get("refused_by") == "cellarium-capability-gate"
 

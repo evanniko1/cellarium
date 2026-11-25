@@ -490,7 +490,15 @@ _CHANNEL_CAPABILITY: dict[str, tuple[str, ...]] = {
 # ...and so can the DESIGN being read, whatever tool is reading it and whatever channel. The two capabilities
 # that hold in no mode at all are of this kind: they are about how a design must be INTERPRETED rather than
 # about any one tool's output, which is why no entry in `_TOOL_CAPABILITY` reaches them.
-_PERTURBATION_CAPABILITY: dict[str, tuple[str, ...]] = {
+_PERTURBATION_CAPABILITY: dict[str, tuple[str, ...]] = {}
+
+# Y11 (2026-11-25): a design family whose record says how the DESIGN must be read, not that the quantity is missing.
+# Its sentence travels with every read as a note and never refuses. rRNA-operon designs are graded reductions of
+# TOTAL rRNA capacity (the record keeps the dose and erases which operon), so growth, ribosomes and ppGpp under them
+# are represented, and Cellwright answers count-level questions from the same runs. Refusing here gave a direct
+# client a different answer from Cellwright's to one question; an operon-SPECIFIC question is still refused, at the
+# question-level gate, where the question (not the design) says which operon it is about.
+_PERTURBATION_NOTE_ONLY: dict[str, tuple[str, ...]] = {
     "rrna_operon_knockout": ("operon_specific_rrna_knockout",),
 }
 
@@ -615,8 +623,9 @@ def _mode_of(args: dict) -> str:
     return _modes_of(args)[0]
 
 
-def _required(name: str, args: dict) -> list[str]:
-    """Every capability this call's result depends on: from the tool, from each channel, from each design."""
+def _required(name: str, args: dict, include_notes: bool = False) -> list[str]:
+    """Every capability this call's result depends on: from the tool, from each channel, from each design.
+    `include_notes` adds the note-only design records (Y11), which annotate a read and never refuse it."""
     keys: list[str] = list(_TOOL_CAPABILITY.get(name, ()))
 
     def add(caps) -> None:
@@ -629,6 +638,8 @@ def _required(name: str, args: dict) -> list[str]:
         if not tag:
             continue
         add(_PERTURBATION_CAPABILITY.get(family, ()))
+        if include_notes:
+            add(_PERTURBATION_NOTE_ONLY.get(family, ()))
         for medium, caps in _MEDIUM_CAPABILITY.items():
             if medium in tag:
                 add(caps)
@@ -681,10 +692,11 @@ def capability_note(name: str, args: dict) -> dict | None:
     the sentence that scopes it. None when every required capability holds in the mode being read."""
     from . import capability as _cap
 
-    keys = _required(name, args)
+    keys = _required(name, args, include_notes=True)
     if not keys:
         return None
     modes = _modes_of(args)
+    note_only = {k for d in _designs_of(args) for k in _PERTURBATION_NOTE_ONLY.get(d.partition("/")[0], ())}
     # a dependency fails when it fails in ANY mode the call reads; the row kept is the first failing one
     bad = []
     for k in keys:
@@ -693,8 +705,14 @@ def capability_note(name: str, args: dict) -> dict | None:
             bad.append(failing[0])
     if not bad:
         return None
+    how_to_read = []
+    for k in sorted(note_only & {r["capability"] for r in bad}):
+        c = _cap._BY_KEY.get(k)
+        cons = getattr(c, "consequence", {}) or {}
+        how_to_read.append(str(next(iter(cons.values()), "")))
     return {
         "elongation_model": modes[0] if len(modes) == 1 else ", ".join(modes),
+        **({"how_to_read_this_design": how_to_read} if how_to_read else {}),
         "does_not_hold": [r["capability"] for r in bad],
         "what_the_model_does_instead": [str(r.get("refusal") or "") for r in bad],
         "read_this_before_the_numbers": ("the values below are real output, but at least one capability this "

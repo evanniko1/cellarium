@@ -47,6 +47,18 @@ ADJUDICATED = {
             "why": "the no-carbon record: growth continues with no carbon uptake, so the point means nothing; the "
                    "refusal now names the design so the fit can run without it"}},
     "no_longer_refused": {"n": 1, "comparable_designs": "lists designs; reads no simulated quantity"},
+    # Y11 (2026-11-25): the operon record became a note on rRNA-operon designs. Against ed7d036 the replay now reads
+    # 24 refusals -> 2. The 31 reading calls on rRNA-operon designs were read again: their 33 channel reads are
+    # growth (15), ppGpp (6), ribosomes (5), RNA mass (2) and the per-protein differential's default (5), all dose-level,
+    # none naming an operon; Cellwright answered each after the question gate admitted it. So all 31 now return
+    # their value with the record's reading attached: 23 that ed7d036 also refused (no_longer_refused) and the 8
+    # P-2 had newly refused (newly_noted). The 2 no-glucose growth-law fits stay refused.
+    "y11": {"date": "2026-11-25", "refused_after_p2": 33, "refused_after_y11": 2,
+            "rrna_reads_now_noted": 31, "of_which_refused_at_ed7d036": 23, "of_which_newly_refused_by_p2": 8,
+            "channels": {"growth_rate": 15, "ppgpp_conc": 6, "ribosome_conc": 5, "rna_mass": 2,
+                         "per-protein differential (tool default)": 5},
+            "verdict": "the refusals were false by the registry's own record (it keeps the dose and erases only "
+                       "which operon); an operon-specific question stays refused at the question gate"},
 }
 
 

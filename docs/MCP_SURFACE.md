@@ -93,7 +93,10 @@ silently — the raw tools dispatched directly and the registry was never consul
 - a capability that holds in **no** elongation model **refuses the call**, naming the mechanism — there is no
   reading of that output which means what its name says, in any configuration;
 - a capability that holds in some mode but not the one being read **returns the value with the registry's
-  verdict attached**, so the number cannot travel without the sentence that scopes it.
+  verdict attached**, so the number cannot travel without the sentence that scopes it;
+- a design whose record says how the design must be read, rather than that its quantity is missing, **returns the
+  value with that reading attached**: an rRNA-operon design is a dose of total rRNA capacity, not a deletion of a
+  particular operon (decision Y11, 2026-11-25).
 
 That second rule is deliberate rather than lenient. The 0.0 within-family tRNA spread this project rests on
 was obtained by reading a value whose capability does not hold and reporting it with its scope attached; a
@@ -111,10 +114,14 @@ designs that caused it, so a call over many designs can drop them and run.
 The capability mapping itself is still incomplete by construction — the same limit the registry carries: it
 covers the tools whose output *is* a capability-scoped quantity, the channels that carry a dependency of their
 own, and the designs that do. Replaying the 734 tool calls Cellwright made in 60 recorded sessions through the
-gate (`evals/raw_gate_replay.py`): 33 would be refused, 31 of them count-level reads of rRNA-operon designs
-(growth, ribosomes, ppGpp). The registry's operon record is about which operon was deleted, and the count
-effect is represented, so those 31 are refusals its own evidence does not support; narrowing that rule is an
-open decision.
+gate (`evals/raw_gate_replay.py`): after P-2, 33 would have been refused, 31 of them count-level reads of
+rRNA-operon designs (growth, ribosomes, ppGpp). The registry's operon record is about which operon was deleted;
+the variant keeps the dose, so the count effect is represented and those 31 were refusals its own evidence does not
+support. Since 2026-11-25 (decision Y11) an rRNA-operon design is read, not refused: the value returns with the
+record's reading attached (`how_to_read_this_design`: the dose survives, operon identity does not), which is the
+answer Cellwright gives to the same question from the same runs. A question about one specific operon is still
+refused, at the question-level gate, where the question rather than the design says which operon it means. Two
+refusals remain in the replay, both growth-law fits that include `condition/no_glucose`.
 
 ---
 

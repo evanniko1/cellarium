@@ -191,8 +191,11 @@ def fit_relation(designs: list, x_channel: str, y_channel: str) -> dict:
         pert, _, cond = str(d).partition("/")
         x, y = mean_for(d, x_channel), mean_for(d, y_channel)
         if x is not None and y is not None:
+            # Y10: in-sample only when the fit sets BOTH quantities for this design (a condition fits growth and
+            # composition; a perturbation fits neither).
+            both = all(provenance.tag(pert, cond or None, quantity=ch) == "in_sample" for ch in (x_channel, y_channel))
             pts.append({"design": d, "x": round(x, 6), "y": round(y, 6),
-                        "provenance": provenance.tag(pert, cond or None)})
+                        "provenance": "in_sample" if both else "out_of_sample"})
     if len(pts) < 3:
         return {"error": f"need >=3 designs carrying both '{x_channel}' and '{y_channel}'; got {len(pts)}",
                 "points": pts}

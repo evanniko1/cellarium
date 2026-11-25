@@ -3,25 +3,29 @@
  "calls_to_tools_that_read": 400,
  "refused": {
   "before": 24,
-  "after": 33
+  "after": 2
  },
  "noted": {
   "before": 0,
-  "after": 1
+  "after": 32
  },
  "changed": {
-  "newly_refused": 10,
-  "no_longer_refused": 1,
-  "newly_noted": 0,
+  "newly_refused": 2,
+  "no_longer_refused": 24,
+  "newly_noted": 8,
   "no_longer_noted": 0
  },
  "changed_by_tool": {
-  "newly_refused:chart": 6,
-  "newly_refused:fit_relation": 4,
-  "no_longer_refused:comparable_designs": 1
+  "no_longer_refused:differential": 4,
+  "newly_noted:chart": 6,
+  "no_longer_refused:disconfirm": 12,
+  "no_longer_refused:top_movers": 1,
+  "newly_noted:fit_relation": 2,
+  "newly_refused:fit_relation": 2,
+  "no_longer_refused:comparable_designs": 1,
+  "no_longer_refused:trajectory": 6
  },
  "refused_after_by_capability": {
-  "operon_specific_rrna_knockout": 31,
   "growth_without_a_carbon_source": 2
  },
  "adjudicated": {
@@ -42,6 +46,22 @@
   "no_longer_refused": {
    "n": 1,
    "comparable_designs": "lists designs; reads no simulated quantity"
+  },
+  "y11": {
+   "date": "2026-11-25",
+   "refused_after_p2": 33,
+   "refused_after_y11": 2,
+   "rrna_reads_now_noted": 31,
+   "of_which_refused_at_ed7d036": 23,
+   "of_which_newly_refused_by_p2": 8,
+   "channels": {
+    "growth_rate": 15,
+    "ppgpp_conc": 6,
+    "ribosome_conc": 5,
+    "rna_mass": 2,
+    "per-protein differential (tool default)": 5
+   },
+   "verdict": "the refusals were false by the registry's own record (it keeps the dose and erases only which operon); an operon-specific question stays refused at the question gate"
   }
  },
  "session_ids": [
@@ -108,11 +128,11 @@
  ],
  "before_commit": "ed7d036",
  "source": "every tool_use block in data/sessions.db, read-only. These are Cellwright's own calls, made after the question-level gate admitted each question; they never passed the raw-tool gate, and are replayed here as a direct client's calls would be",
- "computed_utc": "2026-11-24T22:37:22Z",
+ "computed_utc": "2026-11-25T15:07:28Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "ed7d036",
+  "git_commit": "977d744",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

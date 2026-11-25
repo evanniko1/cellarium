@@ -1,0 +1,70 @@
+{
+ "spec": "Y12, a new user's clone",
+ "clone": "MohammedNagdi/wcEcoli feature/wcecoli-platform, fresh anonymous clone",
+ "public_commit": "8e7dd6c Cellarium's own parts: graded-knockout variant, starvation and anaerobic-nitrate conditions, Docker fixes",
+ "n_references": 33,
+ "resolve_publicly": 26,
+ "missing_publicly": [
+  "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
+  "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
+  "models/ecoli/processes/polypeptide_elongation.py::codons_kinetics_model",
+  "models/ecoli/processes/polypeptide_elongation.py::codons_to_trnas",
+  "models/ecoli/processes/polypeptide_elongation.py::trna_resolution_iso",
+  "models/ecoli/processes/polypeptide_elongation.py::zero_charged_holder"
+ ],
+ "records_resting_on_unpublished_code": {
+  "per_isoacceptor_trna_charging": [
+   "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
+   "models/ecoli/processes/polypeptide_elongation.py::codons_to_trnas",
+   "models/ecoli/processes/polypeptide_elongation.py::trna_resolution_iso"
+  ],
+  "codon_level_elongation": [
+   "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
+   "models/ecoli/processes/polypeptide_elongation.py::codons_kinetics_model"
+  ],
+  "per_amino_acid_trna_charging": [
+   "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
+   "models/ecoli/processes/polypeptide_elongation.py::zero_charged_holder"
+  ]
+ },
+ "why": "the kinetic tRNA-charging port is Stanford-derived and its licence request is pending; ROUTE1's isoacceptor broadcast reads structures the port builds, so it stays local with the port",
+ "computed_utc": "2026-11-25T15:55:57Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "977d744",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

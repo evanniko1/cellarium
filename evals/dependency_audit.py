@@ -61,7 +61,34 @@ def audit(checkout: Path) -> dict:
             "no_dependency_reason": C.NO_DEPENDENCY_REASON}
 
 
+PUBLIC_OUT = OUT.with_name("dependency_audit_public.json")
+
+
+def public(clone: Path) -> int:
+    """Y12: the same resolution in a FRESH CLONE of the public campaign branch, i.e. what a new user gets. Which
+    records rest on code no public commit carries, named by record."""
+    from cellarium import provenance
+    head = subprocess.run(["git", "-C", str(clone), "log", "-1", "--format=%h %s"], capture_output=True, text=True)
+    res = audit(clone)
+    by = {k: sorted(x["ref"] for x in v if not x["checkout"]) for k, v in res["by_record"].items()}
+    out = {"spec": "Y12, a new user's clone", "clone": "MohammedNagdi/wcEcoli feature/wcecoli-platform, fresh "
+                                                      "anonymous clone",
+           "public_commit": head.stdout.strip() or None,
+           "n_references": res["n_references"], "resolve_publicly": res["resolve_in_checkout"],
+           "missing_publicly": res["missing"],
+           "records_resting_on_unpublished_code": {k: v for k, v in by.items() if v},
+           "why": "the kinetic tRNA-charging port is Stanford-derived and its licence request is pending; ROUTE1's "
+                  "isoacceptor broadcast reads structures the port builds, so it stays local with the port",
+           "computed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+           "environment": provenance.code_environment()}
+    PUBLIC_OUT.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
+    print(out["public_commit"], out["resolve_publicly"], "of", out["n_references"], out["records_resting_on_unpublished_code"])
+    return 0
+
+
 def main() -> int:
+    if len(sys.argv) > 2 and sys.argv[1] == "--public":
+        return public(Path(sys.argv[2]))
     root = os.environ.get("WCECOLI_DIR")
     if not (root and Path(root).is_dir()):
         print("WCECOLI_DIR is not set to a model checkout; nothing can be resolved, and nothing is written.",

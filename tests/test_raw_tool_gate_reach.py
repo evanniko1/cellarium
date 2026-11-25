@@ -109,12 +109,17 @@ def _replay():
 def test_the_replayed_counts_are_the_ones_that_were_read_by_hand():
     d = _replay()
     assert (d["calls"], d["calls_to_tools_that_read"]) == (734, 400)
-    assert d["refused"] == {"before": 24, "after": 33}
-    assert d["changed"] == {"newly_refused": 10, "no_longer_refused": 1, "newly_noted": 0, "no_longer_noted": 0}
-    assert d["refused_after_by_capability"] == {"operon_specific_rrna_knockout": 31,
-                                                "growth_without_a_carbon_source": 2}
+    # P-2 + Y11 against ed7d036 (2026-11-25). After P-2 alone the gate refused 33 (31 rRNA-operon reads + 2
+    # no-glucose fits, the counts read by hand on 2026-11-24); Y11 made the operon record a note, so the 31 now
+    # return their values with it attached and only the no-glucose fits are refused.
+    assert d["refused"] == {"before": 24, "after": 2}
+    assert d["changed"] == {"newly_refused": 2, "no_longer_refused": 24, "newly_noted": 8, "no_longer_noted": 0}
+    assert d["refused_after_by_capability"] == {"growth_without_a_carbon_source": 2}
+    y11 = d["adjudicated"]["y11"]
+    assert (y11["refused_after_p2"], y11["refused_after_y11"], y11["rrna_reads_now_noted"]) == (33, 2, 31)
+    assert y11["of_which_refused_at_ed7d036"] + y11["of_which_newly_refused_by_p2"] == y11["rrna_reads_now_noted"]
+    assert sum(y11["channels"].values()) == 33          # 33 channel reads over the 31 calls (two fits read x and y)
     adj = d["adjudicated"]["newly_refused"]
-    assert adj["n"] == d["changed"]["newly_refused"]
     assert sum(v["n"] for k, v in adj.items() if k != "n") == adj["n"]
 
 
