@@ -185,6 +185,72 @@ def read_species(host_run_root: Path, kind: str, species_id: str) -> dict:
     return _invoke("species", host_run_root, [kind, species_id])
 
 
+def species_per_run(host_run_roots: list[Path], kind: str, species_ids: list[str]) -> dict:
+    """Several species for several runs in one container call (`mode_species` per pair, last generation). Runs the
+    reader mount cannot see are named in `_unreachable`, never silently dropped."""
+    if WCECOLI_DOCKER:
+        ok, missed = _reachable(host_run_roots, "runs")
+        if not ok:
+            return {"error": "no run is reachable by the reader container", "_unreachable": missed}
+        out = _run_cmd(_worker_cmd("species_per_run", [",".join(ok), kind, ",".join(species_ids)]), None)
+    else:
+        roots = ",".join(str(Path(r).resolve()) for r in host_run_roots)
+        out = _run_cmd([PY, str(_WORKER), "species_per_run", roots, kind, ",".join(species_ids)],
+                       WCECOLI_DIR or None)
+        missed = None
+    if missed and isinstance(out, dict):
+        out["_unreachable"] = missed
+    return out
+
+
+def channels_per_run(host_run_roots: list[Path], names: list[str]) -> dict:
+    """Named summary channels for several runs in one container call (`mode_run`, last generation)."""
+    if WCECOLI_DOCKER:
+        ok, missed = _reachable(host_run_roots, "runs")
+        if not ok:
+            return {"error": "no run is reachable by the reader container", "_unreachable": missed}
+        out = _run_cmd(_worker_cmd("channels_per_run", [",".join(ok), ",".join(names)]), None)
+    else:
+        roots = ",".join(str(Path(r).resolve()) for r in host_run_roots)
+        out = _run_cmd([PY, str(_WORKER), "channels_per_run", roots, ",".join(names)], WCECOLI_DIR or None)
+        missed = None
+    if missed and isinstance(out, dict):
+        out["_unreachable"] = missed
+    return out
+
+
+def initiation_mass(host_run_roots: list[Path]) -> dict:
+    """BV-10: every replication initiation of each run (mass per origin before it, the critical mass used)."""
+    if WCECOLI_DOCKER:
+        ok, missed = _reachable(host_run_roots, "runs")
+        if not ok:
+            return {"error": "no run is reachable by the reader container", "_unreachable": missed}
+        out = _run_cmd(_worker_cmd("initiation_mass", [",".join(ok)]), None)
+    else:
+        roots = ",".join(str(Path(r).resolve()) for r in host_run_roots)
+        out = _run_cmd([PY, str(_WORKER), "initiation_mass", roots], WCECOLI_DIR or None)
+        missed = None
+    if missed and isinstance(out, dict):
+        out["_unreachable"] = missed
+    return out
+
+
+def protein_noise(host_run_roots: list[Path], k: int = 5) -> dict:
+    """BV-9: per-protein mean and CV2 over snapshot cells (k phases per generation), pooled over the runs given."""
+    if WCECOLI_DOCKER:
+        ok, missed = _reachable(host_run_roots, "runs")
+        if not ok:
+            return {"error": "no run is reachable by the reader container", "_unreachable": missed}
+        out = _run_cmd(_worker_cmd("protein_noise", [",".join(ok), str(k)]), None)
+    else:
+        roots = ",".join(str(Path(r).resolve()) for r in host_run_roots)
+        out = _run_cmd([PY, str(_WORKER), "protein_noise", roots, str(k)], WCECOLI_DIR or None)
+        missed = None
+    if missed and isinstance(out, dict):
+        out["_unreachable"] = missed
+    return out
+
+
 def list_species(host_run_root: Path, kind: str, search: str = "") -> dict:
     return _invoke("list_species", host_run_root, [kind, search])
 
@@ -228,6 +294,12 @@ def deg_rate_provenance(sim_path: str = "cellarium", per_unit: bool = False) -> 
     Heavy (unpickles sim_data); cache it.
     """
     return _invoke("deg_rate_provenance", OUT_ROOT / sim_path, ["1"] if per_unit else None)
+
+
+def deg_rate_units(sim_path: str = "cellarium") -> dict:
+    """BV-8: every mRNA unit's final half-life with its class (fit, floor, ceiling, imputed) and every mRNA
+    cistron's input half-life, with gene symbols. Heavy (unpickles sim_data twice)."""
+    return _invoke("deg_rate_units", OUT_ROOT / sim_path)
 
 
 DEG_RATE_VARIANTS = ("baseline", "ridge", "per_unit_bound", "hierarchical")

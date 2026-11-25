@@ -71,9 +71,10 @@ def reader_rows() -> list[dict]:
             row["regulon_levels_error"] = str(lfc["error"])[:300]
         else:
             genes = {g.lower() for g in tools._REGULONS.get(regulon, [])}
-            row["regulon_levels"] = {v.get("symbol"): {k: v.get(k) for k in ("target", "reference", "log2fc")}
-                                     for v in (lfc.get("lfc") or {}).values()
-                                     if str(v.get("symbol", "")).lower() in genes}
+            # sorted by gene, so two runs of the same reader diff only where a value changed
+            row["regulon_levels"] = dict(sorted(
+                (v.get("symbol"), {k: v.get(k) for k in ("target", "reference", "log2fc")})
+                for v in (lfc.get("lfc") or {}).values() if str(v.get("symbol", "")).lower() in genes))
             row["n_target_runs"], row["n_reference_runs"] = lfc.get("n_target_runs"), lfc.get("n_reference_runs")
             row["unreachable"] = [{k: u.get(k) for k in _UNREACHABLE_FIELDS}
                                   for u in (lfc.get("_unreachable_runs") or [])]

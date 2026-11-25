@@ -76,6 +76,10 @@ def dial_labels() -> dict:
         "perturbations": {p: _PERTURBATION_NOTES.get(p, "") for p in sorted(envelope.VALIDATED_PERTURBATIONS)},
         "reference_design": REFERENCE_DESIGN,
         "static_only_carbon": sorted(envelope.STATIC_ONLY_CARBON),  # cannot be a mid-run switch target
+        # J-2b: what each condition IS (its medium from the knowledge base's own tables, and the reading its name
+        # invites that the medium rules out), so a hypothesis about `plus_nitrate` is not one about nitrate
+        # respiration. Metadata only: no condition's reading is here.
+        "conditions": _condition_vocabulary(),
         "falsification": {
             "call": "disconfirm(target, reference, channel)",
             "returns": "welch_t (>=2 => beyond replicate noise; the significance test), effect_pct, z_vs_corpus_spread (descriptive positioning, NOT significance), per-seed spread",
@@ -94,6 +98,17 @@ def dial_labels() -> dict:
                  "design. Whether a gene's KO is mechanistically simulated is NOT knowable here — that is "
                  "checked downstream during testing."),
     }
+
+
+def _condition_vocabulary() -> dict:
+    """{condition: {medium, not}} from the fit record; condition paths only, so no result-bearing module loads."""
+    from . import labels, provenance
+    out = {}
+    for cond, fit in provenance.condition_fits().items():
+        medium = fit.get("medium") or {}
+        hz = [h["reading_ruled_out"] for h in labels.condition_hazards(medium) if h.get("reading_ruled_out")]
+        out[cond] = {"medium": medium.get("description", ""), **({"not": hz} if hz else {})}
+    return out
 
 
 def channel_names() -> list[str]:

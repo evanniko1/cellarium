@@ -24,6 +24,7 @@
   "cydA": -3.065,
   "cydB": -3.402,
   "yeaR": 3.25,
+  "narX": 1.546,
   "narL": 1.575
  },
  "no_oxygen_vs_basal_protein": {
@@ -117,11 +118,11 @@
    "modified_in_working_tree": false
   }
  },
- "computed_utc": "2026-11-25T13:04:45Z",
+ "computed_utc": "2026-11-25T16:13:33Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": true,
-  "git_commit": "18c5412",
+  "git_commit": "977d744",
   "packages": {
    "anthropic": "0.116.0",
    "openai": "3.8.0",

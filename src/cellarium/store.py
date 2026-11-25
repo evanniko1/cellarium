@@ -74,8 +74,23 @@ def list_results(include_dropped: bool = False) -> list[dict]:
         for q in manifest.dropped_rows():
             if q.get("id") not in seen:
                 rows.append({c: q.get(c) for c in cols if c not in ("provenance", "dropped", "dropped_reason")})
+    verdicts: dict = {}
     for r in rows:  # tag each result in-sample (fitted) vs out-of-sample (predicted)
         r["provenance"] = provenance.tag(r.get("perturbation"), r.get("condition"))
+        # J-2b: what the design IS, when its name says otherwise (a medium that rules out the reading its name
+        # invites, a knockout that silences something else). Once per design; the UI shows it beside the name.
+        if r.get("perturbation") == "condition" and r.get("condition"):
+            key = f"condition/{r['condition']}"
+            if key not in verdicts:
+                from . import factors
+                try:
+                    i = factors.identity(key)
+                    verdicts[key] = (i.get("label_integrity"), i.get("true_label"))
+                except Exception:                                         # noqa: BLE001  a label never blocks a list
+                    verdicts[key] = (None, None)
+            integ, true = verdicts[key]
+            if integ and integ != "ok":
+                r["label_integrity"], r["true_label"] = integ, true
         t = by_id.get(r.get("id"))
         r["dropped"] = bool(t)
         if t:

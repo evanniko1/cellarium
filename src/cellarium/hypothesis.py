@@ -73,6 +73,8 @@ class Hypothesis(BaseModel):
     auxiliary_assumptions: list[str] = Field(default_factory=list)  # the Duhem-Quine belt, made explicit
     candidate_designs: list[Design] = Field(default_factory=list)   # already envelope/biosecurity-checked
     residual_ambiguities: list[str] = Field(default_factory=list)   # empty on clean convergence
+    # D-1b: falsifier labels repaired to the one proposed design of their family (council.falsifier_label_issues)
+    falsifier_repairs: list[str] = Field(default_factory=list)
     converged: bool = True                                          # False => returned at the round cap, best-effort
     rounds_used: int = 0                                            # debate rounds actually run (for the ablations)
     substantive_objections: int = 0                                # cumulative substantive objections the skeptic raised

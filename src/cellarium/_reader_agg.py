@@ -40,3 +40,57 @@ def gene_lfc_map(t_runs: list, r_runs: list, floor: float) -> dict:
                   "target": round(tm, 1), "reference": round(rm, 1),
                   "n_target": len(tvals), "n_reference": len(rvals)}
     return out
+
+
+# ---- BV-R1: the two-component gap in wcEcoli's MonomerCounts listener -------------------------------------------
+# `two_component_system.stoich_matrix_monomers()` keeps a complex's subunits only when they are in the system's
+# own molecule list, which lacks the sensor monomers. The listener therefore removes a phosphorylated sensor
+# complex and adds no protein back: 7 of 18 complexes in the shipped knowledge base (DcuS, NarX, PhoQ, PhoR,
+# ArcB), each in exactly the condition that activates it. The equilibrium and complexation decompositions drop
+# nothing (measured 2026-11-25). These two pure functions restore the dropped subunits from the bulk counts.
+
+def tcs_dropped_subunits(complex_to_monomer: dict, tcs_molecule_names) -> dict:
+    """{complex: {monomer: stoich}} for the subunits the listener's two-component matrix leaves out."""
+    names = set(tcs_molecule_names)
+    out = {}
+    for cplx, subunits in complex_to_monomer.items():
+        lost = {m: float(v) for m, v in subunits.items() if m not in names}
+        if lost:
+            out[cplx] = lost
+    return out
+
+
+def add_tcs_correction(monomer_means: dict, bulk_means: dict, dropped: dict) -> tuple[dict, dict]:
+    """Monomer means with each dropped subunit added back (bulk count of its complex x stoichiometry).
+    Returns (corrected means, the amount added per monomer, only where something was added)."""
+    added: dict = {}
+    for cplx, subunits in dropped.items():
+        n = float(bulk_means.get(cplx) or 0.0)
+        if n <= 0:
+            continue
+        for m, v in subunits.items():
+            added[m] = added.get(m, 0.0) + n * v
+    corrected = dict(monomer_means)
+    for m, extra in added.items():
+        corrected[m] = float(corrected.get(m) or 0.0) + extra
+    return corrected, added
+
+
+def align_subunits(dropped: dict, monomer_ids) -> dict:
+    """Rename each dropped subunit to the monomer id the listener actually carries, when only its compartment
+    differs. Measured 2026-11-25: the two-component map names DCUS-MONOMER[i] while the bulk species and
+    MonomerCounts carry DCUS-MONOMER[c], so an exact-id match missed every DcuS copy. An exact id is kept; a base id
+    with more than one compartment present is left as it is rather than guessed."""
+    ids = list(monomer_ids)
+    present = set(ids)
+    by_base: dict = {}
+    for i in ids:
+        by_base.setdefault(str(i).split("[")[0], []).append(i)
+    out = {}
+    for cplx, subunits in dropped.items():
+        row = {}
+        for m, v in subunits.items():
+            cands = by_base.get(str(m).split("[")[0], [])
+            row[m if m in present or len(cands) != 1 else cands[0]] = v
+        out[cplx] = row
+    return out

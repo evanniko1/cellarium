@@ -289,6 +289,17 @@ def identity(design_key: str) -> dict:
         out["notes"].append("not an operon deletion: the rebalance erases operon identity but preserves the dose")
     else:
         out["canonical_id"] = f"{f['family']}#{f['factor']}:{f['level_raw']}" if f["factor"] else f"{f['family']}"
+        # J-2b (2026-11-25): a condition's label names what was added; its medium can rule out the reading the name
+        # invites (`plus_nitrate` keeps oxygen: aerobic growth with nitrate present, not nitrate respiration).
+        # Conditions were marked "ok" here without being looked at; now the medium decides.
+        if f["family"] == "condition":
+            from . import labels
+            d = labels.describe(design_key)
+            hz = [h for h in d.get("hazards") or [] if h.get("class") != "unverified"]
+            if hz:
+                out["label_integrity"] = hz[0]["class"]
+                out["medium"] = (d.get("medium") or {}).get("description")
+                out["notes"].extend(h["reading_ruled_out"] for h in hz if h.get("reading_ruled_out"))
 
     # The elongation model is part of the canonical EXPERIMENT, not a label variant of it. Without this,
     # `dedupe` gives a kinetic and a steady-state knockout of one gene the SAME canonical_id, and integrity
@@ -302,9 +313,14 @@ def identity(design_key: str) -> dict:
     return out
 
 
+CONDITION_HAZARDS = ("acceptor_added_under_oxygen", "carbon_source_added_beside_glucose", "no_carbon_source")
+
+
 def true_label(design_key: str, ident: dict | None = None) -> str:
     """A name that says what the design actually does. Short enough to render; detail lives in the fields."""
     i = ident or identity(design_key)
+    if i.get("label_integrity") in CONDITION_HAZARDS and i.get("medium"):
+        return f"media:{i['medium']}"                     # J-2b: what the medium is, not what its name suggests
     f_factor, genes = i.get("factor"), i.get("genes") or []
     if f_factor == "gene_KO":
         integ = i.get("label_integrity")

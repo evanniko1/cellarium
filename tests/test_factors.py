@@ -140,7 +140,9 @@ def test_every_corpus_design_parses_and_gets_a_verdict():
     for k in sorted({survey.design_key(r) for r in rows}):
         i = F.identity(k)
         assert i["family"] and i["true_label"]
-        assert i["label_integrity"] in ("ok", "operon_wide", "misnamed", "relabel_required", "no_design_possible")
+        # J-2b (2026-11-25): a condition whose medium rules out what its name suggests carries that as its verdict
+        assert i["label_integrity"] in ("ok", "operon_wide", "misnamed", "relabel_required", "no_design_possible",
+                                        *F.CONDITION_HAZARDS)
 
 
 def test_the_rrna_denominator_matches_the_models_own_operon_list():

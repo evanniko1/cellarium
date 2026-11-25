@@ -40,7 +40,7 @@ except Exception:  # fallback keeps the worker self-contained if the sibling mod
 # H-6: the pure numeric aggregation lives host-side in _reader_agg (numpy-only, no wholecell) so it's unit-testable
 # off the sim; here it's a sibling import (the worker dir is on sys.path, set above). Runs only in the container —
 # the host never imports this module (the wholecell import above fails first).
-from _reader_agg import gene_lfc_map  # noqa: E402
+from _reader_agg import add_tcs_correction, align_subunits, gene_lfc_map, tcs_dropped_subunits  # noqa: E402
 
 SUMMARY_CHANNELS = {
     "growth_rate": ("Mass", "instantaneous_growth_rate"),
@@ -384,12 +384,105 @@ def mode_species(run_root, kind, species_id):
     sid = _resolve(ids, species_id)
     if sid is None:
         return {"error": f"'{species_id}' not found in {kind}", "n_ids": len(ids)}
-    s = _col(so, table, column)[:, ids.index(sid)]
+    s = np.asarray(_col(so, table, column)[:, ids.index(sid)], dtype=float)
+    corr = {}
+    if kind == "protein":
+        dropped = align_subunits(_tcs_dropped(run_root) or {}, ids)
+        names = None
+        for cplx, subunits in dropped.items():
+            if sid in subunits:
+                if names is None:
+                    names = _attr(so, "BulkMolecules", "objectNames")
+                    bulk = np.asarray(_col(so, "BulkMolecules", "counts"), dtype=float)
+                if cplx in names:
+                    add = bulk[:, names.index(cplx)] * subunits[sid]
+                    s = s + add
+                    corr[cplx] = _finite(add.mean())
     t = _col(so, "Main", "time").ravel()
     return {"species_id": sid, "kind": kind, "n_points": int(s.size),
+            **({"two_component_correction": corr} if corr else {}),
             "mean": _finite(np.nanmean(s)), "min": _finite(np.nanmin(s)), "max": _finite(np.nanmax(s)),
             "first": _finite(s[0]), "last": _finite(s[-1]),
             "series": _downsample(t, s)}  # [t_sec, value] pairs (~16) for dynamics
+
+
+def mode_species_per_run(roots_csv, kind, ids_csv):
+    """BV-6/BV-11: several species for several runs in ONE container call, each read exactly as `mode_species`
+    reads it (the last generation), so a batch can never disagree with a single read."""
+    out = {}
+    for root in [r for r in roots_csv.split(",") if r]:
+        out[root] = {}
+        for sid in [x for x in ids_csv.split(",") if x]:
+            r = mode_species(root, kind, sid)
+            out[root][sid] = {k: r[k] for k in ("species_id", "mean", "min", "max", "last", "n_points", "error")
+                              if k in r}
+    return out
+
+
+def mode_channels_per_run(roots_csv, names_csv):
+    """BV-7: named summary channels (last generation, as `mode_run` computes them) for several runs in ONE call."""
+    names = [n for n in names_csv.split(",") if n]
+    out = {}
+    for root in [r for r in roots_csv.split(",") if r]:
+        try:
+            ch = mode_run(root).get("channels") or {}
+            out[root] = {n: ch.get(n) for n in names}
+        except Exception as e:                              # noqa: BLE001  one unreadable run is named, not fatal
+            out[root] = {"error": f"{type(e).__name__}: {str(e)[:200]}"}
+    return out
+
+
+def mode_initiation_mass(roots_csv):
+    """BV-10: every replication initiation in every generation of each run: the cell mass per origin just before
+    the origin count rises, and the critical mass the model used then (ReplicationData/criticalInitiationMass)."""
+    out = {}
+    for root in [r for r in roots_csv.split(",") if r]:
+        events = []
+        try:
+            for g, so in enumerate(_gens(root)):
+                n = np.asarray(_col(so, "ReplicationData", "numberOfOric"), dtype=float).ravel()
+                m = np.asarray(_col(so, "Mass", "cellMass"), dtype=float).ravel()
+                crit = np.asarray(_col(so, "ReplicationData", "criticalInitiationMass"), dtype=float).ravel()
+                k = min(len(n), len(m), len(crit))
+                for i in range(1, k):
+                    if np.isfinite(n[i]) and np.isfinite(n[i - 1]) and n[i] > n[i - 1] and n[i - 1] > 0:
+                        events.append({"generation": g, "step": i, "origins_before": int(n[i - 1]),
+                                       "mass_per_origin_fg": _finite(m[i - 1] / n[i - 1]),
+                                       "critical_mass_fg": _finite(crit[i])})
+            out[root] = {"events": events}
+        except Exception as e:                              # noqa: BLE001
+            out[root] = {"error": f"{type(e).__name__}: {str(e)[:200]}", "events": events}
+    return out
+
+
+def mode_protein_noise(roots_csv, k="5"):
+    """BV-9: cell-to-cell protein noise. Each generation of each run is sampled at k evenly spaced cell-cycle phases
+    (snapshots, as a microscope sees an asynchronous population; a time-averaged mean would remove the noise being
+    measured). Per protein, the snapshots of all runs given are pooled: mean, CV2 (variance / mean^2), n."""
+    k = max(2, int(k))
+    s1 = s2 = None
+    n = 0
+    ids = None
+    for root in [r for r in roots_csv.split(",") if r]:
+        for so in _gens(root):
+            counts = np.asarray(_col(so, "MonomerCounts", "monomerCounts"), dtype=float)
+            if ids is None:
+                ids = _attr(so, "MonomerCounts", "monomerIds")
+                s1 = np.zeros(counts.shape[1])
+                s2 = np.zeros(counts.shape[1])
+            idx = np.unique(np.linspace(0, counts.shape[0] - 1, k).round().astype(int))
+            snap = counts[idx, :]
+            s1 += snap.sum(axis=0)
+            s2 += (snap ** 2).sum(axis=0)
+            n += snap.shape[0]
+    if not n:
+        return {"error": "no simOut to sample: none of the runs given has a readable generation"}
+    mean = s1 / n
+    var = np.maximum(s2 / n - mean ** 2, 0.0) * n / max(n - 1, 1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cv2 = np.where(mean > 0, var / mean ** 2, np.nan)
+    return {"n_snapshots": int(n), "k_per_generation": k, "ids": list(ids),
+            "mean": [_finite(x) for x in mean], "cv2": [_finite(x) for x in cv2]}
 
 
 def _load_panel():
@@ -853,8 +946,57 @@ def mode_variant_map(root):
     return {"conditions": conditions, "n_genes": len(rna_ids), "genes": genes}
 
 
+_TCS_CACHE = {}
+# BV-R1: monomers the two-component correction changed in the last protein read, {monomer: max added count}.
+TCS_CORRECTED = {}
+
+
+def _find_kb(start):
+    """The run's knowledge base: kb/simData.cPickle at the sim_path root above a run root."""
+    d = str(start).rstrip("/\\")
+    for _ in range(6):
+        cand = os.path.join(d, "kb", "simData.cPickle")
+        if os.path.exists(cand):
+            return cand
+        d = os.path.dirname(d)
+    return None
+
+
+def _tcs_dropped(run_root):
+    """{complex: {monomer: stoich}} the MonomerCounts listener drops (BV-R1), from the run's own knowledge base."""
+    import pickle
+    kb = _find_kb(run_root)
+    if kb is None:
+        return None
+    if kb not in _TCS_CACHE:
+        with open(kb, "rb") as f:
+            sd = pickle.load(f)
+        tcs = sd.process.two_component_system
+        _TCS_CACHE[kb] = tcs_dropped_subunits(tcs.complex_to_monomer, [str(x) for x in tcs.molecule_names])
+    return _TCS_CACHE[kb]
+
+
+def _tcs_correct(so, run_root, means_by_id):
+    """MonomerCounts means with the two-component subunits the listener drops added back from BulkMolecules."""
+    dropped = _tcs_dropped(run_root)
+    if not dropped:
+        return means_by_id
+    names = _attr(so, "BulkMolecules", "objectNames")
+    idx = {n: i for i, n in enumerate(names)}
+    cols = [c for c in dropped if c in idx]
+    if not cols:
+        return means_by_id
+    counts = np.asarray(_col(so, "BulkMolecules", "counts"), dtype=float)
+    bulk = {c: float(counts[:, idx[c]].mean()) for c in cols}
+    corrected, added = add_tcs_correction(means_by_id, bulk, align_subunits(dropped, means_by_id))
+    for m, v in added.items():
+        TCS_CORRECTED[m] = max(TCS_CORRECTED.get(m, 0.0), v)
+    return corrected
+
+
 def _run_species_means(run_roots, table, column, idattr):
-    """Per-species mean count for each run (last generation) -> list of {id: mean_count}, one per replicate."""
+    """Per-species mean count for each run (last generation) -> list of {id: mean_count}, one per replicate.
+    Protein counts carry the BV-R1 two-component correction."""
     per_run = []
     for root in run_roots:
         gs = _gens(root)
@@ -862,8 +1004,18 @@ def _run_species_means(run_roots, table, column, idattr):
             continue
         ids = _attr(gs[-1], table, idattr)
         means = np.asarray(_col(gs[-1], table, column), dtype=float).mean(axis=0)
-        per_run.append(dict(zip(ids, means)))
+        row = dict(zip(ids, means))
+        if table == "MonomerCounts":
+            row = _tcs_correct(gs[-1], root, row)
+        per_run.append(row)
     return per_run
+
+
+def _tcs_note():
+    return ({"two_component_correction": {m: round(v, 1) for m, v in sorted(TCS_CORRECTED.items())},
+             "two_component_correction_why": "wcEcoli's MonomerCounts listener drops the monomers of phosphorylated "
+                                              "two-component sensor complexes; added back from the bulk counts "
+                                              "(BV-R1)"} if TCS_CORRECTED else {})
 
 
 def mode_differential(target_csv, ref_csv, kind, top, floor):
@@ -932,6 +1084,7 @@ def mode_differential(target_csv, ref_csv, kind, top, floor):
              "smallest_q": min((r.get("q", 1.0) for r in recs), default=None),
              "bh_p_needed_for_first_discovery": (0.10 / len(recs)) if recs else None}
     return {"kind": kind, "n_compared": len(recs), "n_significant_fdr10": len(sig), "count_floor": floor,
+            **_tcs_note(),
             "n_target_runs": len(t_runs), "up": up, "down": down,
             "mid_rank_sample": [clean(r) for r in mid],
             "power": power,
@@ -949,7 +1102,7 @@ def mode_gene_lfc(target_csv, ref_csv, kind, floor):
     if not t_runs or not r_runs:
         return {"error": "missing simOut (target or reference)"}
     lfc = gene_lfc_map(t_runs, r_runs, floor)   # H-6: pure aggregation lives host-side in _reader_agg (testable)
-    return {"kind": kind, "n_genes": len(lfc), "count_floor": floor,
+    return {"kind": kind, "n_genes": len(lfc), "count_floor": floor, **_tcs_note(),
             "n_target_runs": len(t_runs), "n_reference_runs": len(r_runs), "lfc": lfc}
 
 
@@ -1092,6 +1245,52 @@ def mode_deg_rate_provenance(root, per_unit="0"):
                  "three classes as the same kind of float, so any claim resting on one of these transcripts "
                  "rests on a constraint or a population mean, not on a measurement of that transcript."),
     }
+
+
+def mode_deg_rate_units(root):
+    """BV-8: every mRNA unit's FINAL half-life with its class, and every mRNA cistron's INPUT half-life (the flat
+    file's value, measured or the imputation constant), with gene symbols, so the knowledge base's half-lives can
+    be compared with a measured distribution and with their own inputs. The class of each unit is taken from
+    `mode_deg_rate_provenance` itself, so the two can never classify a unit differently."""
+    import pickle
+    prov = mode_deg_rate_provenance(root, per_unit="1")
+    if "error" in prov:
+        return prov
+    import numpy as np
+    import wholecell.utils.units as _u
+    with open(os.path.join(root, "kb", "simData.cPickle"), "rb") as f:
+        sd = pickle.load(f)
+    t = sd.process.transcription
+    rna, gd = t.rna_data, sd.process.replication.gene_data
+    sym = {str(gd["cistron_id"][k]): str(gd["symbol"][k]) for k in range(len(gd))}
+    dr = np.asarray(rna["deg_rate"].asNumber(1 / _u.s), dtype=float)
+    is_m = np.asarray(rna["is_mRNA"], dtype=bool)
+    ids = [str(x) for x in rna["id"]]
+    exp = np.asarray(t.rna_expression["basal"], dtype=float)
+    tot = float(exp[is_m].sum()) or 1.0
+    not_fit = prov.get("units_not_a_fit", {})
+    cls = {}
+    for name in ("floor", "ceiling", "imputed"):
+        for i in (not_fit.get(name) or {}):
+            cls[i] = name
+    tu_cistrons: dict[int, list[str]] = {}
+    cistrons = []
+    b = np.asarray(t.cistron_data["deg_rate"].asNumber(1 / _u.s), dtype=float)
+    c_is_m = np.asarray(t.cistron_data["is_mRNA"], dtype=bool)
+    imputed_rate = float(np.log(2) / t.average_mRNA_cistron_half_life.asNumber(_u.s))
+    for c_idx, c_id in enumerate(t.cistron_data["id"]):
+        c_id = str(c_id)
+        for tu in t.cistron_id_to_rna_indexes(c_id):
+            tu_cistrons.setdefault(int(tu), []).append(sym.get(c_id, c_id))
+        if c_is_m[c_idx]:
+            cistrons.append({"symbol": sym.get(c_id, c_id), "input_half_life_min": round(float(np.log(2) / b[c_idx] / 60.0), 4),
+                             "measured": bool(abs(b[c_idx] - imputed_rate) > 1e-18)})
+    units = [{"id": ids[i], "half_life_min": round(float(np.log(2) / dr[i] / 60.0), 4), "class": cls.get(ids[i], "fit"),
+              "pct_of_mrna_expression": round(100.0 * float(exp[i]) / tot, 6), "cistrons": tu_cistrons.get(i, [])}
+             for i in np.where(is_m)[0]]
+    return {"units": units, "cistrons": cistrons, "imputation_constant_min": prov.get("imputation_constant_min"),
+            "rate_floor_as_half_life_min": prov.get("rate_floor_as_half_life_min"),
+            "rate_ceiling_as_half_life_min": prov.get("rate_ceiling_as_half_life_min")}
 
 
 # =============================================================================================================
@@ -1759,6 +1958,16 @@ if __name__ == "__main__":
         out = mode_gene_lfc(sys.argv[2], sys.argv[3], sys.argv[4], float(sys.argv[5]))
     elif mode == "deg_rate_provenance":
         out = mode_deg_rate_provenance(run_root, sys.argv[3] if len(sys.argv) > 3 else "0")
+    elif mode == "deg_rate_units":
+        out = mode_deg_rate_units(run_root)
+    elif mode == "species_per_run":
+        out = mode_species_per_run(run_root, sys.argv[3], sys.argv[4])
+    elif mode == "channels_per_run":
+        out = mode_channels_per_run(run_root, sys.argv[3])
+    elif mode == "initiation_mass":
+        out = mode_initiation_mass(run_root)
+    elif mode == "protein_noise":
+        out = mode_protein_noise(run_root, sys.argv[3] if len(sys.argv) > 3 else "5")
     elif mode == "deg_rate_nested_cv":
         out = mode_deg_rate_nested_cv(run_root, sys.argv[3] if len(sys.argv) > 3 else "hierarchical",
                                       sys.argv[4] if len(sys.argv) > 4 else "10",

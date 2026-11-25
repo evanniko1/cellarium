@@ -123,43 +123,17 @@ CORPUS_DESIGNS_2026_11_24 = (
 
 # Each corpus condition's medium, from the knowledge base: the carbon sources present, whether oxygen is present, and
 # what the recipe adds to its base medium (MIX0-57 is glucose minimal medium with oxygen).
-MEDIA: dict[str, dict] = {
-    "acetate": {"carbon": ("ACET",), "oxygen": True, "added": ()},                 # MIX0-58
-    "succinate": {"carbon": ("SUC",), "oxygen": True, "added": ()},                # MIX0-844
-    "glc_20mM": {"carbon": ("GLC",), "oxygen": True, "added": ()},
-    "glc_5mM": {"carbon": ("GLC",), "oxygen": True, "added": ()},
-    "glc_2mM": {"carbon": ("GLC",), "oxygen": True, "added": ()},
-    "minus_magnesium": {"carbon": ("GLC",), "oxygen": True, "added": ()},
-    "minus_phosphate": {"carbon": ("GLC",), "oxygen": True, "added": ()},
-    "no_oxygen": {"carbon": ("GLC",), "oxygen": False, "added": ()},
-    "with_aa": {"carbon": ("GLC",), "oxygen": True, "added": ("amino acids",)},  # + 5X_supplement_EZ
-    "plus_arabinose": {"carbon": ("GLC", "ARABINOSE"), "oxygen": True, "added": ("ARABINOSE",)},
-    "plus_indole": {"carbon": ("GLC",), "oxygen": True, "added": ("INDOLE",)},
-    "plus_nitrate": {"carbon": ("GLC",), "oxygen": True, "added": ("NITRATE",)},
-}
-ELECTRON_ACCEPTORS = {"NITRATE": "nitrate", "NITRITE": "nitrite", "TRIMETHYLAMINE-N-O": "TMAO", "DMSO": "DMSO"}
-CARBON_SOURCES = {"ARABINOSE": "arabinose", "ACET": "acetate", "SUC": "succinate", "FUM": "fumarate",
-                  "MAL": "malate", "GLYCEROL": "glycerol", "LACTOSE": "lactose"}
+# J-2b (2026-11-25): the media and the condition rules now live in the platform (cellarium.labels), read from the
+# knowledge base's own tables for every condition (data/parca/condition_fits.json), not from a hand-entered table of
+# the twelve corpus conditions. This catalogue uses them, so it and every surface say the same thing.
+from cellarium import labels as _labels  # noqa: E402
 
 
 def condition_hazards(condition: str) -> list[dict]:
     """The readings a condition's label invites and its medium rules out; [] when there are none to find."""
-    med = MEDIA.get(condition)
-    if med is None:
-        return [{"class": "unverified", "reading_ruled_out": "no medium on record to compare"}]
-    out = []
-    for a in med["added"]:
-        if a in ELECTRON_ACCEPTORS and med["oxygen"]:
-            name = ELECTRON_ACCEPTORS[a]
-            out.append({"class": "acceptor_added_under_oxygen",
-                        "reading_ruled_out": f"not {name} respiration: the medium keeps oxygen, the preferred "
-                                             f"acceptor, so the run is aerobic growth with {name} present"})
-        if a in CARBON_SOURCES and "GLC" in med["carbon"]:
-            name = CARBON_SOURCES[a]
-            out.append({"class": "carbon_source_added_beside_glucose",
-                        "reading_ruled_out": f"not growth on {name}: the medium keeps glucose, so the run grows "
-                                             f"on glucose with {name} present"})
-    return out
+    from cellarium import provenance
+    fit = provenance.condition_fits().get(condition)
+    return _labels.condition_hazards(fit.get("medium") if fit else None)
 
 
 def classify(design: str) -> list[dict]:

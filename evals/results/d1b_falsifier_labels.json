@@ -1,0 +1,81 @@
+{
+ "spec": "D-1b",
+ "source": "evals/results/ablation_m1m2.json (the hypotheses D-1 ranked)",
+ "tally": {
+  "hypotheses_with_a_falsifier": 209,
+  "labels_repaired": 0,
+  "labels_objected": 120,
+  "clean": 109,
+  "would_be_sent_back": 100,
+  "no_falsifier": 1
+ },
+ "examples": {
+  "repaired": [],
+  "objection": [
+   {
+    "question": "3.1",
+    "detail": "falsifier reference 'wildtype/basal_control_small_n' is not a design this hypothesis proposes (2 proposed wildtype designs, so which one is meant is the proposer's to say); name one of: rrna_operon_knockout/KO:rrnA+rrnB+rrnC+rrnD, rrna_oper"
+   },
+   {
+    "question": "3.1",
+    "detail": "falsifier reference 'wildtype/basal_doubleseeds' is not a design this hypothesis proposes (2 proposed wildtype designs, so which one is meant is the proposer's to say); name one of: gene_knockout/KO:relA, gene_knockout/basal, wildtype/basal"
+   },
+   {
+    "question": "3.1",
+    "detail": "falsifier target 'wildtype/basal_8seeds' is not a design this hypothesis proposes (2 proposed wildtype designs, so which one is meant is the proposer's to say); name one of: rrna_operon_knockout/KO:rrnA, rrna_operon_knockout/basal, wildtype"
+   },
+   {
+    "question": "1.1",
+    "detail": "falsifier target 'rela_knockout_vs_rrna/relA_knockout' is not a design this hypothesis proposes (no proposed design of that family); name one of: gene_knockout/KO:relA, gene_knockout/basal, rrna_operon_knockout/KO:rrnA+rrnB+rrnC+rrnD+rrnE+r"
+   },
+   {
+    "question": "3.1",
+    "detail": "falsifier reference 'wildtype/basal_single_seed_baseline' is not a design this hypothesis proposes (2 proposed wildtype designs, so which one is meant is the proposer's to say); name one of: gene_knockout/KO:relA, gene_knockout/basal, wildt"
+   },
+   {
+    "question": "1.2",
+    "detail": "falsifier target 'rrna_operon_knockout/basal' is not a design this hypothesis proposes (no proposed design of that family); name one of: gene_knockout/KO:relA, gene_knockout/basal, wildtype/basal"
+   }
+  ]
+ },
+ "note": "recorded emits, checked after the fact; in a live debate an objection goes back to the proposer and the round cannot converge until the label names a proposed design",
+ "computed_utc": "2026-11-25T15:17:49Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "977d744",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

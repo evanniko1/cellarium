@@ -1,0 +1,133 @@
+{
+ "spec": "BV-R1",
+ "reference": "wildtype/basal",
+ "rows": [
+  {
+   "protein": "NarX",
+   "monomer": "NARX-MONOMER[i]",
+   "design": "condition/plus_nitrate",
+   "activated_by": "nitrate (NarX binds nitrate and autophosphorylates)",
+   "n_target_runs": 2,
+   "n_reference_runs": 17,
+   "target_mean_before": 0.8,
+   "target_mean_after": 52.6,
+   "reference_mean_before": 60.5,
+   "reference_mean_after": 60.5,
+   "log2fc_before": -5.07,
+   "log2fc_after": -0.2,
+   "organism": {
+    "gene": "narX",
+    "contrast": "anaerobic nitrate against anaerobic glucose (the organism has no aerobic nitrate samples)",
+    "log2fc": -0.11,
+    "padj": 0.752
+   }
+  },
+  {
+   "protein": "PhoR",
+   "monomer": "PHOR-MONOMER[i]",
+   "design": "condition/minus_phosphate",
+   "activated_by": "phosphate limitation",
+   "n_target_runs": 0,
+   "n_reference_runs": 17,
+   "target_mean_before": null,
+   "target_mean_after": null,
+   "reference_mean_before": 0.4,
+   "reference_mean_after": 0.4,
+   "log2fc_before": null,
+   "log2fc_after": null,
+   "why_missing": "no QC-clean run of condition/minus_phosphate with raw output on this machine",
+   "organism": null
+  },
+  {
+   "protein": "ArcB",
+   "monomer": "ARCB-MONOMER[i]",
+   "design": "condition/no_oxygen",
+   "activated_by": "anaerobiosis",
+   "n_target_runs": 8,
+   "n_reference_runs": 17,
+   "target_mean_before": 14.7,
+   "target_mean_after": 14.7,
+   "reference_mean_before": 1.1,
+   "reference_mean_after": 1.1,
+   "log2fc_before": 2.9,
+   "log2fc_after": 2.9,
+   "organism": {
+    "gene": "arcB",
+    "contrast": "anaerobic against aerobic glucose",
+    "log2fc": 0.66,
+    "padj": 0.0
+   }
+  },
+  {
+   "protein": "DcuS",
+   "monomer": "DCUS-MONOMER[i]",
+   "design": "condition/succinate",
+   "activated_by": "C4-dicarboxylates (succinate)",
+   "n_target_runs": 3,
+   "n_reference_runs": 17,
+   "target_mean_before": 0.0,
+   "target_mean_after": 31.6,
+   "reference_mean_before": 15.7,
+   "reference_mean_after": 15.7,
+   "log2fc_before": -4.04,
+   "log2fc_after": 0.96,
+   "organism": null
+  },
+  {
+   "protein": "PhoQ",
+   "monomer": "PHOQ-MONOMER[i]",
+   "design": "condition/minus_magnesium",
+   "activated_by": "low magnesium",
+   "n_target_runs": 8,
+   "n_reference_runs": 17,
+   "target_mean_before": 38.8,
+   "target_mean_after": 42.2,
+   "reference_mean_before": 31.3,
+   "reference_mean_after": 34.5,
+   "log2fc_before": 0.3,
+   "log2fc_after": 0.28,
+   "organism": null
+  }
+ ],
+ "listener_gap": "two_component_system.stoich_matrix_monomers keeps a subunit only if it is in the system's molecule list; 7 of 18 complexes lose their sensor monomers (DcuS, NarX, PhoQ, PhoR, ArcB). Equilibrium (39) and complexation (1,131) lose none.",
+ "computed_utc": "2026-11-25T15:42:48Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "977d744",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ },
+ "organism_source": "PRECISE-1K (Lamoureux et al. 2023, doi:10.1093/nar/gkad750), RNA, DESeq2 unshrunk"
+}

@@ -487,6 +487,69 @@ def _to_design(d: dict) -> Design | None:
         return None
 
 
+def _design_label(d: dict) -> str:
+    """The 'perturbation/condition' label a falsifier uses for a candidate design (a timeline names it when the
+    design has no condition), the same shape the instrument and the corpus use."""
+    if d.get("perturbation") == "timeline" and d.get("timeline"):
+        return f"timeline/{d['timeline']}"
+    return f"{d.get('perturbation')}/{d.get('condition') or d.get('timeline') or 'basal'}"
+
+
+# A knockout label whose tag is one of these names no gene at all; anything else (e.g. `relA_shift`) is the
+# proposer's prose, which this code does not interpret.
+_PLACEHOLDER_TAGS = {"", "basal", "minimal", "control", "wildtype", "default"}
+
+
+def falsifier_label_issues(cand: dict) -> tuple[list[str], list[str]]:
+    """D-1b: check, and where unambiguous repair, the falsifier's target and reference labels against the
+    hypothesis's own candidate designs (and the instrument's reference design). Returns (repairs, issues); repairs
+    are applied to `cand` in place. Uses no corpus data, so the Council stays blind to results.
+
+    A label that names a usable candidate passes. One repair is safe and is made: a knockout label that names no gene
+    (D-1 found `gene_knockout/basal`) beside exactly one proposed knockout means that knockout. Anything else is an
+    issue, raised as a deterministic objection. A family match is not enough: on the recorded hypotheses it would
+    have turned `condition/rich_amino_acids` into `condition/acetate`, the only condition proposed, which is the
+    Council's question answered by this code."""
+    f = cand.get("falsifier") if isinstance(cand.get("falsifier"), dict) else None
+    if not f:
+        return [], []
+    designs = [d for d in (cand.get("candidate_designs") or []) if isinstance(d, dict)]
+
+    def names_gene(d: dict) -> bool:          # a knockout design is a design only once it names what it knocks out
+        if "knockout" not in str(d.get("perturbation")):
+            return True
+        p = d.get("params") if isinstance(d.get("params"), dict) else {}
+        from . import model
+        return bool(model.knockout_genes(_design_label(d)) or p.get("target_genes") or p.get("ko_indices"))
+
+    usable = [d for d in designs if names_gene(d) and instrument.check_design(d).get("usable")]
+    valid = {_design_label(d) for d in usable} | {instrument.REFERENCE_DESIGN}
+    for d in usable:                         # a knockout proposed with its genes in params is also `KO:<genes>`
+        genes = (d.get("params") or {}).get("target_genes") if isinstance(d.get("params"), dict) else None
+        if genes:
+            valid.add(f"{d.get('perturbation')}/KO:{'+'.join(str(g) for g in genes)}")
+    repairs, issues = [], []
+    for role in ("target", "reference"):
+        lab = str(f.get(role) or "").strip()
+        if not lab or lab in valid:
+            continue
+        family, _, tag = lab.partition("/")
+        same = [d for d in usable if d.get("perturbation") == family]
+        placeholder = "knockout" in family and tag.strip().lower() in _PLACEHOLDER_TAGS
+        if placeholder and len(same) == 1:
+            f[role] = _design_label(same[0])
+            repairs.append(f"falsifier {role} '{lab}' named no proposed design; repaired to '{f[role]}', the only "
+                           f"{family} design proposed")
+        else:
+            why = ("no proposed design of that family" if not same else
+                   f"{len(same)} proposed {family} designs, so which one is meant is the proposer's to say"
+                   if len(same) > 1 else f"the one proposed {family} design is {_design_label(same[0])!r}, which "
+                   f"this label does not name")
+            issues.append(f"falsifier {role} '{lab}' is not a design this hypothesis proposes ({why}); name one of: "
+                          + ", ".join(sorted(valid)))
+    return repairs, issues
+
+
 def _complete(cand: dict) -> bool:
     """A structurally usable candidate — used to guard against degenerate/truncated emits and to score 'best'."""
     if not cand:
@@ -911,8 +974,11 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                 "blocked_domains_requested": list(lib.get("blocked_domains_requested") or []),
                 "audit": seen, "brief_discarded_for_breach": bool(brief) and not seen["clean"]}
 
+    repairs_made: list[str] = []   # D-1b: falsifier labels this code repaired, kept on the hypothesis
+
     def _done(h: Hypothesis) -> Hypothesis:
         h.external_reads = external_reads
+        h.falsifier_repairs = list(repairs_made)
         return h
 
     answered: list[tuple[str, str]] = []
@@ -943,7 +1009,9 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
         if not _complete(cand) and _complete(previous_candidate or {}):
             cand = previous_candidate  # guard: never regress to a degenerate/truncated emit
         previous_candidate = cand
-        feasible_code = _feasible(cand)
+        label_repairs, label_issues = falsifier_label_issues(cand)       # D-1b: deterministic, blind to results
+        repairs_made.extend(r for r in label_repairs if r not in repairs_made)
+        feasible_code = _feasible(cand) and not label_issues
         if verbose:
             print(f"  · round {rnd + 1}: proposer -> {cand.get('claim', '')[:90]}")
 
@@ -974,6 +1042,17 @@ def deliberate(question: str, *, max_rounds: int = 4, quota: int = 3,
                                "severity": o.get("severity"), "issue": o.get("issue"), "resolved_round": None})
         else:
             objections = []
+        # D-1b: a falsifier label that names no proposed design is an objection the proposer must answer, whatever
+        # the skeptic said. Resolved deterministically the first round the labels check out.
+        for o in ledger:
+            if o.get("deterministic") and o["resolved_round"] is None and not label_issues:
+                o["resolved_round"] = rnd + 1
+        for k, issue in enumerate(label_issues):
+            o = {"type": "undefined_term", "severity": "substantive", "issue": issue, "deterministic": True,
+                 "id": f"r{rnd + 1}.d{k + 1}"}
+            objections.append(o)
+            ledger.append({"id": o["id"], "round": rnd + 1, "type": o["type"], "severity": o["severity"],
+                           "issue": issue, "resolved_round": None, "deterministic": True})
         substantive = [o for o in objections if o.get("severity") == "substantive"]
         total_substantive += len(substantive)
         if verbose:
