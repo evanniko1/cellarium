@@ -801,7 +801,34 @@ CAPABILITIES: tuple[Capability, ...] = (
         markers=("make_timeline", "nutrient_to_doubling_time"),
         detail="declared media timelines, including single-amino-acid dropouts (EXT-1). NB the shift is "
                "delivered under every elongation model, but whether the cell can USE an amino acid it "
-               "delivers is a separate capability — see amino_acid_uptake_from_the_medium",
+               "delivers is a separate capability — see amino_acid_uptake_from_the_medium; and a shift between "
+               "media with different doubling times moves the replication threshold at once — see "
+               "replication_initiation_after_a_nutrient_shift",
+    ),
+    # CRIT (2026-11-26). The replication threshold follows the MEDIUM, not the cell. The envelope refuses LAUNCHING a
+    # shift that moves it (envelope.threshold_step); this record refuses READING one, and refuses the question.
+    Capability(
+        key="replication_initiation_after_a_nutrient_shift",
+        question="When does the cell initiate chromosome replication and divide, and how big is it at birth, after "
+                 "the medium changes to one with a different growth rate: oxygen or glucose removed, a poorer or "
+                 "richer carbon source?",
+        present=False,
+        holds_in=(),
+        markers=(),
+        instead={ALL_MODES: "the critical initiation mass is not a property of the cell: chromosome replication "
+                 "re-reads it at every step from the tabulated doubling time of the CURRENT medium (975 fg at 44 "
+                 "minutes or faster, 734.6 at 82, 590.0 at 100, 423.4 at 136), so it jumps the moment the medium "
+                 "changes while the cell's mass and machinery are still the old medium's. After a downshift the cell "
+                 "is suddenly above the new threshold, initiates at once and divides early; after an upshift it must "
+                 "first grow to the higher one"},
+        consequence={ALL_MODES: "division timing, birth size, the number of origins and the dosage of genes near "
+                     "the origin are artefacts for the generations after such a shift. In well4cell rc2, "
+                     "glucose-fitted cells moved into acetate mid-run divide at a median 2,251 s, 17% of them within "
+                     "10 minutes, against 4,343 s for cells fitted to acetate; moved into no oxygen, at 2,238 s "
+                     "against 4,627 s. The organism does the opposite after a downshift: ppGpp pauses initiation. "
+                     "Runs that start fitted to their medium are unaffected, because both readings then agree"},
+        detail="replication initiation, division timing and birth size after a nutrient shift that changes the "
+               "growth rate",
     ),
     # G-1 (2026-11-24). ParCa builds every condition in the knowledge base's condition table from its active
     # transcription factors' fitted fold changes (fold_changes.tsv, then fold_changes_nca.tsv, whose value replaces
@@ -950,7 +977,7 @@ CAPABILITIES: tuple[Capability, ...] = (
 # September 2026; each corpus row records the image digest it ran). Of that build, Cellarium's own parts are public
 # on the campaign branch since 8e7dd6c5; the kinetic tRNA-charging port is Stanford-derived and held local while its
 # licence request is pending, and ROUTE1's isoacceptor broadcast reads structures the port builds, so it is held with
-# it. A new user's clone resolves 29 of 35 unique dependency references (evals/results/dependency_audit_public.json); the
+# it. A new user's clone resolves 32 of 38 unique dependency references (evals/results/dependency_audit_public.json); the
 # records below cannot be reproduced from public code until the port is published.
 BUILD = {
     "corpus_build": "the per-user code image built from the campaign checkout (c2047dc9 plus uncommitted changes); "
@@ -1004,6 +1031,11 @@ DEPENDS_ON: dict[str, tuple[str, ...]] = {
                                  "models/ecoli/listeners/growth_limits.py::GrowthLimits"),
     "amino_acid_uptake_from_the_medium": (f"{_MET}::aa_uptake_package", f"{_PE}::aa_exchange_rates"),
     "nutrient_shift_timelines": ("wholecell/utils/make_media.py::make_timeline", f"{_MET}::nutrientToDoublingTime"),
+    # CRIT: the per-step lookup, the function it calls, and the table it reads
+    "replication_initiation_after_a_nutrient_shift": (
+        "models/ecoli/processes/chromosome_replication.py::nutrientToDoublingTime",
+        "reconstruction/ecoli/dataclasses/growth_rate_dependent_parameters.py::get_dna_critical_mass",
+        "reconstruction/ecoli/simulation_data.py::nutrient_to_doubling_time"),
     "induction_by_a_fitted_transcription_factor": (
         f"{_FLAT}/fold_changes.tsv::narL", f"{_FLAT}/fold_changes_nca.tsv::narL",
         f"{_FLAT}/condition/tf_condition.tsv::PHOSPHO-NARL",

@@ -60,7 +60,14 @@ _PERTURBATION_NOTES = {
     "condition": "a static fitted media condition (e.g. basal, acetate)",
     "tf_activity": "clamp a transcription factor's activity",
     "ppgpp_conc": "clamp ppGpp concentration to a multiple of basal",
-    "timeline": "media-shift events over time (aa/ion/oxygen shift — NOT a carbon-source switch, and NOT a glucose dose: uptake is a binary switch, so every glucose concentration gives the same cell)",
+    # CRIT (2026-11-26): "oxygen shift" was listed here, and the envelope now refuses it — the replication threshold
+    # follows the medium's doubling time, so a shift between media of different doubling times is refused unless the
+    # cell starts fitted to the new medium (params.initial_condition). The vocabulary must not invite it.
+    "timeline": "media-shift events over time between media of the same doubling time (amino-acid shifts and "
+                "dropouts, calcium or magnesium removal) — NOT oxygen or glucose removal, NOT a carbon-source switch (the "
+                "replication threshold jumps and the cell divides early: start the cell fitted to the new medium "
+                "with params.initial_condition instead), and NOT a glucose dose: uptake is a binary switch, so every "
+                "glucose concentration gives the same cell",
     "amino_acid_shift": "add/remove an amino acid mid-run",
     "rrna_operon_knockout": "delete rRNA operons (ribosome capacity)",
     "new_gene": "introduce a heterologous gene",

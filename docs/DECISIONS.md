@@ -1268,3 +1268,68 @@ not the set probability, decides.
 **Decision rules.** D1: phi, the share of BV-14's nar attenuation the fit clamp restores; predicted about 0.1, and
 phi >= 0.5 would make occupancy the main cause. D2: NarL's nar effect with FNR off minus with FNR at the fit;
 predicted about +0.9, supported at >= 0.5 with z >= 2, rejected below 0.25.
+
+## D17 — The envelope refuses a shift that moves the replication threshold (CRIT) — 2026-11-26
+
+**In one line.** The model reads its replication threshold from the current medium at every step, so a shift between
+media with different doubling times makes the cell initiate and divide early. Cellarium now refuses to launch, read or
+answer such a shift unless the cell starts fitted to the medium it runs in.
+
+**Decided by the user** (2026-11-26): "Close the envelope gap for now."
+
+**The defect.** `chromosome_replication.py` reads the critical initiation mass twice. At startup it uses the doubling
+time of the condition the cell was fitted for. At every step it uses the doubling time of the current medium
+(`nutrient_to_doubling_time[current_media_id]`), which replaces the startup value before it is used. The threshold is
+975 fg at 25 or 44 minutes, 734.6 at 82, 590.0 at 100 and 423.4 at 136, the same in all five knowledge bases on disk.
+A diagnostic run shows the mechanism:
+
+- **The run.** Corpus fit, seed 0, oxygen removed at 600 s.
+- **At the shift.** The threshold drops from 975 to 590 fg in that step. The cell's mass per origin goes from 0.73 to 1.21 times the threshold, and both origins fire at once.
+- **The control.** The same cell had not reached the threshold even by 1,500 s.
+
+In well4cell rc2:
+
+- Glucose-fitted cells moved into acetate mid-run divide at a median 2,251 s, 17% within 10 minutes, against 4,343 s for cells fitted to acetate.
+- Moved into no oxygen, they divide at 2,238 s against 4,627 s.
+- Both are faster than unshifted glucose cells (2,879 s).
+
+Real cells hold their pre-shift division rate for about an hour after a downshift and pause initiation through ppGpp.
+The code is byte-identical in Covert lab wcEcoli master and the same in vEcoli master, and it has been there since the
+media-timeline feature of April 2019. The existing carbon-switch refusal was this defect seen from one side.
+
+**What changed.**
+
+- `envelope.threshold_step` refuses any timeline event that moves the threshold, upshifts included.
+  - Two doubling times share a threshold exactly when they are equal or both at most 44 minutes.
+  - A tf_activity variant with a timeline is refused, because its fitted condition cannot be read from the design.
+- The registry record `replication_initiation_after_a_nutrient_shift` holds in no mode. Its question is refused through
+  a new gate dependency, `cell_cycle_after_a_shift`. The read-side gate refuses reading a design whose tag carries a
+  crossing timeline.
+- The dependency audit gains three references, and its public half now reads the branch through the GitHub API. That
+  reading reproduced the 2026-11-25 clone's 29 of 35 before the references were added, and gives 32 of 38 now.
+
+**Rationale.** Refusing is free and local, and reversible once the model is fixed. Leaving the gap open lets the
+Council, Cellwright or any public user produce a run that completes normally and is wrong, which is this project's
+worst failure mode.
+
+**Intuition.** The threshold should belong to the cell, but it belongs to the medium's label. So the label can change
+faster than any cell could.
+
+**Limitations.**
+
+- **One table, five fits.** The envelope reads the overlay's condition table, but runs read their arm's knowledge base.
+  The five on disk were measured, and they differ only for phosphate starvation (44 minutes in the three older fits,
+  100 in the others). The rule judges every view, but a sixth fit would need measuring again; a test pins the overlay
+  table so a change is caught.
+- **Hashed timelines.** A knockout's label carries its timeline as a hash, so the read-side gate cannot check it. The
+  corpus holds no such crossing design.
+- **Known-fault scripts.** The E2 glucose-removal arm and the phosphate-removal arm of the known-fault scripts are now
+  refused at launch, as the E1 arm already was. Their recorded results stand.
+
+**Checked.**
+
+- **Every mutation fails tests.** Breaking the threshold comparison fails 8 tests, dropping the older-fit view 2, and
+  breaking the read gate or the tf_activity refusal 1 each.
+- **Committed plans.** Every design in the four committed plans (154 runs) passes.
+- **Corpus timelines.** Every corpus timeline passes. Fixed on the way: the corpus-timeline test now reads the fitted
+  condition from a run's label when its argv is not indexed, which is how BV-12's three dead knockouts had failed it.

@@ -79,6 +79,12 @@
    "external_stress": true,
    "simulation_confirmed": false
   },
+  "replication_initiation_after_a_nutrient_shift": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "well4cell rc2 index (same replication code as the corpus): glucose-fitted cells moved into acetate mid-run divide at a median 2,251 s (2,928 cells, 17% within 10 minutes) against 4,343 s for cells fitted to acetate (32); into no oxygen, 2,238 s (2,758) against 4,627 s (64)"
+  },
   "induction_by_a_fitted_transcription_factor": {
    "technical": false,
    "development": false,
@@ -90,18 +96,48 @@
    "development": false,
    "external_stress": false,
    "simulation_confirmed": false
+  },
+  "essentiality_of_a_metabolic_gene": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": false
+  },
+  "anaerobic_respiration_induction_magnitude": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "anaerobic_response.json: 8 no_oxygen runs against 17 basal, frdA +1.76 log2 (protein) where PRECISE-1K measures +3.21"
+  },
+  "overflow_and_fermentation_products": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "bv6_overflow.json: 37 aerobic glucose runs from 0.53 to 0.92 per hour excrete exactly 0 acetate; 8 no_oxygen runs excrete 0.0002 acetate per glucose"
+  },
+  "elongation_rate_against_growth_rate": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "bv7_elongation.json: across media the effective elongation rate rises as growth slows (acetate 18.7, anaerobic 20.1 against glucose 16.4 aa/s; 75 runs, slope p 2e-5)"
+  },
+  "central_carbon_flux_split": {
+   "technical": false,
+   "development": false,
+   "external_stress": false,
+   "simulation_confirmed": "bv11_fluxes.json: against Toya et al. 2010 on glucose, 2-oxoglutarate dehydrogenase 0 against 4.62 mmol/gDCW/h, fumarase and malate dehydrogenase reversed (17 runs)"
   }
  },
  "counts": {
   "technical": 7,
   "development": 9,
   "external_stress": 9,
-  "simulation_confirmed": 7
+  "simulation_confirmed": 12
  },
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "318bdc6",
+  "git_commit": "89abc5d",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

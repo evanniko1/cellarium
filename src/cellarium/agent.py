@@ -294,7 +294,8 @@ _TOOL_CAPS = {"survey_corpus": 20000,
               # 36,000 since BV-OF (2026-11-25, later): seventeen records and the BUILD statement came to 26,728,
               # past the fifth the headroom test keeps spare, which is the test doing its job.
               # 40,000 since BV-EL the same evening: eighteen records came to 28,905.
-              "model_capabilities": 40000}
+              # 44,000 since CRIT (2026-11-26): twenty records came to 34,215, past the fifth the headroom test keeps.
+              "model_capabilities": 44000}
 _REPEAT_CAP = 3    # DD-ENG-3: identical (tool, args) calls this many times in a turn -> the agent is stuck (no progress)
 _ERR_CAP = 3       # DD-ENG-3: this many consecutive rounds where EVERY tool call errored -> stuck
 

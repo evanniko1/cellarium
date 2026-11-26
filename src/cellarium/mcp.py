@@ -643,6 +643,11 @@ def _required(name: str, args: dict, include_notes: bool = False) -> list[str]:
         for medium, caps in _MEDIUM_CAPABILITY.items():
             if medium in tag:
                 add(caps)
+        # CRIT (2026-11-26): a shift across a replication-threshold step, read from the tag's own timeline and fitted
+        # condition by the same rule the envelope launches by, so the two gates cannot disagree about a design
+        from . import envelope
+        if envelope.threshold_moves_in_tag(family, tag):
+            add(("replication_initiation_after_a_nutrient_shift",))
     return keys
 
 

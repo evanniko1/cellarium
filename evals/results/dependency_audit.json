@@ -1,10 +1,10 @@
 {
  "spec": "Ms-1",
  "checkout_commit": "c2047dc9d",
- "n_references": 41,
- "n_unique": 35,
- "resolve_in_checkout": 35,
- "resolve_at_commit": 28,
+ "n_references": 44,
+ "n_unique": 38,
+ "resolve_in_checkout": 38,
+ "resolve_at_commit": 31,
  "missing": [],
  "only_in_uncommitted_changes": [
   "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
@@ -219,6 +219,23 @@
     "commit": true
    }
   ],
+  "replication_initiation_after_a_nutrient_shift": [
+   {
+    "ref": "models/ecoli/processes/chromosome_replication.py::nutrientToDoublingTime",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/dataclasses/growth_rate_dependent_parameters.py::get_dna_critical_mass",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/simulation_data.py::nutrient_to_doubling_time",
+    "checkout": true,
+    "commit": true
+   }
+  ],
   "induction_by_a_fitted_transcription_factor": [
    {
     "ref": "reconstruction/ecoli/flat/fold_changes.tsv::narL",
@@ -262,11 +279,11 @@
  "no_dependency_reason": {
   "per_gene_trna_abundance": "the per-gene counts are divided out of about 44 species measurements in the fit's inputs; no single symbol carries the division, so none is cited rather than a guess"
  },
- "computed_utc": "2026-11-26T15:50:46Z",
+ "computed_utc": "2026-11-26T21:30:24Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "e5fbad5",
+  "git_commit": "89abc5d",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

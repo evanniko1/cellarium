@@ -36,6 +36,9 @@ DECLARATION_ONLY = {
     "elongation_rate_against_growth_rate",
     # BV-CF (2026-11-25): the same objective's design as BV-G2 and BV-OF; re-derived by evals/bv11_fluxes.py.
     "central_carbon_flux_split",
+    # CRIT (2026-11-26): an ABSENT mechanism, so there is no symbol that evidences it; what the model does instead is
+    # cited in capability.DEPENDS_ON, and the envelope's rule is pinned by tests/test_replication_threshold.py.
+    "replication_initiation_after_a_nutrient_shift",
 }
 
 

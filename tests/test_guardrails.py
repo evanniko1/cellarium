@@ -314,6 +314,14 @@ def test_every_timeline_in_the_corpus_still_passes():
         m = re.search(r"--initial-condition (\S+)", r.get("runsim_argv") or "")
         if m:
             started_in[r["id"]] = m.group(1)
+    # A run that never became reportable (BV-12's lysA, proC and serA knockouts in fitted acetate died) is absent from
+    # analysis_rows, and list_results carries no argv; its LABEL carries the fitted condition as `#ic:`, so read it
+    # there. Reading only the argv checked those three as glucose-fitted acetate switches and failed on rows that ran
+    # exactly as designed.
+    for r in store.list_results():
+        m = re.search(r"#ic:([A-Za-z0-9_]+)", r.get("label") or "")
+        if m:
+            started_in.setdefault(r["id"], m.group(1))
     designs = {(r.get("timeline"), started_in.get(r.get("id"))) for r in store.list_results() if r.get("timeline")}
     assert designs, "no timeline rows in the corpus to check against"
     for tl, ic in designs:

@@ -71,6 +71,9 @@ _ELONGATION = ("every design writes the ribosome listener's effective elongation
                "slows, the opposite of the organism (BV-EL)")
 _FLUXES = ("every design writes the flux balance's reaction fluxes; the oxidative TCA cycle carries almost nothing and "
            "its last steps run backwards (BV-CF)")
+_REPLICATION = ("the simulator accepts any media timeline, and the replication listener writes the threshold, the "
+                "number of origins and the division time; the threshold is re-read from the current medium at every "
+                "step, so it jumps at the shift and the cell divides early after a downshift (CRIT)")
 
 UNREPRESENTED: dict[tuple[str, str], Interface] = {
     ("per_isoacceptor_trna_charging", "steady_state"): Interface(True, True, True, _ISO_STEADY),
@@ -97,6 +100,8 @@ UNREPRESENTED: dict[tuple[str, str], Interface] = {
     **{("elongation_rate_against_growth_rate", m): Interface(True, True, True, _ELONGATION)
        for m in C.ELONGATION_MODES},
     **{("central_carbon_flux_split", m): Interface(True, True, True, _FLUXES) for m in C.ELONGATION_MODES},
+    **{("replication_initiation_after_a_nutrient_shift", m): Interface(True, True, True, _REPLICATION)
+       for m in C.ELONGATION_MODES},
 }
 
 

@@ -123,6 +123,9 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     "elongation_growth_dependence": ("elongation_rate_against_growth_rate",),
     # BV-CF (2026-11-25): BV-11 found the oxidative TCA cycle nearly off and its last steps reversed.
     "central_carbon_fluxes": ("central_carbon_flux_split",),
+    # CRIT (2026-11-26): the replication threshold follows the medium, so it jumps at a shift. A question about the cell
+    # cycle AFTER a shift rides on that whatever quantity it names; the same question in a constant medium does not.
+    "cell_cycle_after_a_shift": ("replication_initiation_after_a_nutrient_shift",),
 }
 
 
@@ -385,7 +388,11 @@ _PARSE_TOOL = {
                                                        "changes with growth rate depends on "
                                                        "elongation_growth_dependence; how carbon flux is split "
                                                        "between glycolysis, the pentose phosphate pathway and the "
-                                                       "TCA cycle depends on central_carbon_fluxes"},
+                                                       "TCA cycle depends on central_carbon_fluxes; when the cell "
+                                                       "initiates replication or divides, or its size at birth, "
+                                                       "AFTER the medium changes during the run (oxygen or glucose "
+                                                       "removed or added, a different carbon source) depends on "
+                                                       "cell_cycle_after_a_shift"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -421,7 +428,10 @@ _PARSE_SYSTEM = (
     "translation (ribosome) elongation rate changes with growth rate, between growth conditions or as growth slows, "
     "depends on elongation_growth_dependence. A question about central-carbon fluxes (how carbon is split between "
     "glycolysis, the pentose phosphate pathway and the TCA cycle, or how much flux runs through the TCA cycle) "
-    "depends on central_carbon_fluxes."
+    "depends on central_carbon_fluxes. A question about when the cell initiates chromosome replication or divides, "
+    "how long its cell cycle takes or how big it is at birth, AFTER the medium changes during the run (oxygen or "
+    "glucose removed or added, a switch to another carbon source) depends on cell_cycle_after_a_shift; the same "
+    "question asked in a medium that stays constant does not."
 )
 
 

@@ -5,7 +5,8 @@ A reference `path::symbol` resolves when the file exists and the symbol occurs i
 twice: in the working tree Cellarium runs against, and at the checkout's HEAD commit. A reference that resolves in the
 working tree and not at HEAD lives only in uncommitted changes, and is listed by name.
 
-    python evals/dependency_audit.py    # needs the checkout (WCECOLI_DIR); writes dependency_audit.json
+    python evals/dependency_audit.py                # needs the checkout (WCECOLI_DIR); writes dependency_audit.json
+    python evals/dependency_audit.py --public-api   # the public branch through the GitHub API; writes ..._public.json
 """
 from __future__ import annotations
 
@@ -43,14 +44,33 @@ def _committed(checkout: Path, path: str) -> str | None:
     return r.stdout if r.returncode == 0 else None
 
 
+def _github(repo: str, ref: str, path: str) -> str | None:
+    """A file of `repo` at `ref`, read through the GitHub API; None ONLY when GitHub says it does not exist.
+
+    Any other failure raises: a network error counted as "does not resolve" would undercount what a new user gets,
+    which is the could-not-read-reported-as-absent defect this audit exists to catch."""
+    r = subprocess.run(["gh", "api", "-H", "Accept: application/vnd.github.raw", f"repos/{repo}/contents/{path}?ref={ref}"],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    if r.returncode == 0:
+        return r.stdout
+    if "HTTP 404" in (r.stderr or ""):
+        return None
+    raise RuntimeError(f"gh api failed for {repo}@{ref}:{path}: {(r.stderr or '').strip()[:300]}")
+
+
 def audit(checkout: Path) -> dict:
+    return _audit(lambda p: _working(checkout, p), lambda p: _committed(checkout, p))
+
+
+def _audit(work_text, head_text) -> dict:
+    """The resolution, given how to read a file in the working tree and at the commit."""
     refs = [r for refs in C.DEPENDS_ON.values() for r in refs]
     unique = sorted(set(refs))
     work, head = {}, {}
     for r in unique:
         path, symbol = r.split("::")
-        work[r] = resolves(_working(checkout, path), symbol)
-        head[r] = resolves(_committed(checkout, path), symbol)
+        work[r] = resolves(work_text(path), symbol)
+        head[r] = resolves(head_text(path), symbol)
     return {"n_references": len(refs), "n_unique": len(unique),
             "resolve_in_checkout": sum(bool(v) for v in work.values()),
             "resolve_at_commit": sum(bool(v) for v in head.values()),
@@ -64,16 +84,35 @@ def audit(checkout: Path) -> dict:
 PUBLIC_OUT = OUT.with_name("dependency_audit_public.json")
 
 
-def public(clone: Path) -> int:
+PUBLIC_REPO, PUBLIC_BRANCH = "MohammedNagdi/wcEcoli", "feature/wcecoli-platform"
+
+
+def public(clone: Path | None) -> int:
     """Y12: the same resolution in a FRESH CLONE of the public campaign branch, i.e. what a new user gets. Which
-    records rest on code no public commit carries, named by record."""
+    records rest on code no public commit carries, named by record.
+
+    With `clone=None` the files are read through the GitHub API at the branch head instead (`--public-api`): a fresh
+    clone's working tree IS its head, so the two give one answer, and nothing is downloaded to disk. Validated
+    2026-11-26: the API reading reproduced the 2026-11-25 clone's 29 of 35 before three references were added."""
     from cellarium import provenance
-    head = subprocess.run(["git", "-C", str(clone), "log", "-1", "--format=%h %s"], capture_output=True, text=True)
-    res = audit(clone)
+    if clone is None:
+        commit = subprocess.run(["gh", "api", f"repos/{PUBLIC_REPO}/commits/{PUBLIC_BRANCH}", "--jq",
+                                 '.sha[0:7] + " " + (.commit.message | split("\\n")[0])'],
+                                capture_output=True, text=True, encoding="utf-8", timeout=120)
+        if commit.returncode != 0:
+            raise RuntimeError(f"cannot read the public branch head: {commit.stderr.strip()[:300]}")
+        sha = commit.stdout.split()[0]
+        head_line = commit.stdout.strip()
+        res = _audit(lambda p: _github(PUBLIC_REPO, sha, p), lambda p: _github(PUBLIC_REPO, sha, p))
+        how = f"{PUBLIC_REPO} {PUBLIC_BRANCH}, read through the GitHub API at the branch head (no clone)"
+    else:
+        head_line = subprocess.run(["git", "-C", str(clone), "log", "-1", "--format=%h %s"], capture_output=True,
+                                   text=True).stdout.strip()
+        res = audit(clone)
+        how = f"{PUBLIC_REPO} {PUBLIC_BRANCH}, fresh anonymous clone"
     by = {k: sorted(x["ref"] for x in v if not x["checkout"]) for k, v in res["by_record"].items()}
-    out = {"spec": "Y12, a new user's clone", "clone": "MohammedNagdi/wcEcoli feature/wcecoli-platform, fresh "
-                                                      "anonymous clone",
-           "public_commit": head.stdout.strip() or None,
+    out = {"spec": "Y12, a new user's clone", "clone": how,
+           "public_commit": head_line or None,
            # unique references on both sides: two records can cite one symbol, and until 2026-11-25 this line
            # divided a unique count by the total (it read "26 of 33" for 26 of 32 unique)
            "n_references": res["n_references"], "n_unique": res["n_unique"],
@@ -92,6 +131,8 @@ def public(clone: Path) -> int:
 def main() -> int:
     if len(sys.argv) > 2 and sys.argv[1] == "--public":
         return public(Path(sys.argv[2]))
+    if len(sys.argv) > 1 and sys.argv[1] == "--public-api":
+        return public(None)
     root = os.environ.get("WCECOLI_DIR")
     if not (root and Path(root).is_dir()):
         print("WCECOLI_DIR is not set to a model checkout; nothing can be resolved, and nothing is written.",

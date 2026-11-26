@@ -44,6 +44,11 @@ SIMULATION_CONFIRMED = {
                                            "75 runs, slope p 2e-5)",
     "central_carbon_flux_split": "bv11_fluxes.json: against Toya et al. 2010 on glucose, 2-oxoglutarate dehydrogenase "
                                  "0 against 4.62 mmol/gDCW/h, fumarase and malate dehydrogenase reversed (17 runs)",
+    "replication_initiation_after_a_nutrient_shift": "well4cell rc2 index (same replication code as the corpus): "
+                                                     "glucose-fitted cells moved into acetate mid-run divide at a "
+                                                     "median 2,251 s (2,928 cells, 17% within 10 minutes) against "
+                                                     "4,343 s for cells fitted to acetate (32); into no oxygen, "
+                                                     "2,238 s (2,758) against 4,627 s (64)",
     # essentiality_of_a_metabolic_gene is NOT here yet: BV-3's whole-cell calls are the model's flux-balance prior
     # (the gene-scope cache), not runs. BV-12's knockouts of lysA, metF, serA and proC (essential in FEBA in all
     # three carbon sources) are the simulations that confirm or refute it.

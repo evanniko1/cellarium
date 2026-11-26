@@ -229,8 +229,9 @@ def test_the_two_component_correction_moves_only_the_sensors_it_should():
 def test_a_new_users_clone_resolves_everything_but_the_held_port():
     d = _j("dependency_audit_public.json")
     # unique references (27 of 33 since BV-OF and BV-EL; 29 of 35 since the two fold_changes_nca.tsv references,
-    # 2026-11-26); the first version divided a unique count by the total
-    assert d["public_commit"].startswith("8e7dd6c") and (d["resolve_publicly"], d["n_unique"]) == (29, 35)
+    # 2026-11-26; 32 of 38 since CRIT's three, read through the GitHub API, which reproduced the clone's 29 of 35 first);
+    # the first version divided a unique count by the total
+    assert d["public_commit"].startswith("8e7dd6c") and (d["resolve_publicly"], d["n_unique"]) == (32, 38)
     assert len(d["missing_publicly"]) == d["n_unique"] - d["resolve_publicly"] == 6
     assert set(d["records_resting_on_unpublished_code"]) == {"per_isoacceptor_trna_charging",
                                                              "codon_level_elongation",

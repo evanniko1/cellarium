@@ -10,6 +10,11 @@ malate), mid-simulation or at t=0: those alternative carbon sources exist only a
 upstream, never as a dynamic shift target. Forcing one desynchronises the replication-division cycle and
 returns mechanistically invalid generations. We catch that here, before running, and point to the
 in-envelope alternative.
+
+That failure is one face of a general one (CRIT, 2026-11-26): the model reads its replication threshold from the
+CURRENT medium's doubling time at every step, so ANY shift between media with different doubling times moves the
+threshold at once — oxygen or glucose removal, nitrate under anaerobiosis, an upshift. `threshold_step` refuses them
+all unless the cell starts fitted to the medium it runs in.
 """
 
 from __future__ import annotations
@@ -128,6 +133,154 @@ def _parse_timeline(events: str) -> list[tuple[float, str]]:
     return out
 
 
+# ---- CRIT (2026-11-26): a shift may not move the replication threshold ----------------------------------------------
+# `chromosome_replication.py` reads the critical initiation mass twice: at startup from the doubling time the cell was
+# FITTED for (`condition_to_doubling_time[sim_data.condition]`), then at EVERY step from the doubling time of the
+# CURRENT medium (`nutrient_to_doubling_time[current_media_id]`), which replaces the startup value before it is used.
+# So a timeline that moves the cell into a medium with another doubling time moves the threshold at once, while the
+# cell's mass and machinery are still the old medium's. After a downshift the cell suddenly sits above the new
+# threshold, initiates and divides early: in well4cell rc2, glucose-fitted cells moved into acetate mid-run divide at a
+# median 2,251 s (17% within 10 minutes) against 4,343 s for cells fitted to acetate, and moved into no oxygen at
+# 2,238 s against 4,627 s. The organism does the opposite: a downshift pauses initiation through ppGpp. The carbon rule
+# in `check` is this defect seen from one side (its cells that "shrink generation after generation" are the early
+# divisions); this is the general form, so it also covers oxygen and glucose removal, nitrate under anaerobiosis, and
+# upshifts, where the threshold jumps the other way and the cell must grow to it first.
+#
+# Measured in all five knowledge bases on disk (get_dna_critical_mass, 2026-11-26: cellarium 3b2f8ebd, refit1 e491a580,
+# refit2 4965d619, BV-14 9055ee3b, kinetic port 5f19d040): 975 fg at 25 and 44 min (the cap), 734.6 fg at 82, 590.0 at
+# 100 and 423.4 at 136. The threshold never rises with the doubling time and is flat at
+# the cap, so two doubling times give one threshold exactly when they are equal or both at most 44 min. A future medium
+# between 44 and 82 min counts as off the cap, which can only refuse a design that was fine, never admit a jump.
+CAP_DOUBLING_TIME_MIN = 44.0
+THRESHOLD_FG = {25.0: 975.0, 44.0: 975.0, 82.0: 734.6, 100.0: 590.0, 136.0: 423.4}
+
+# The envelope reads ONE condition table, the overlay, but a run reads the knowledge base of its arm, and the arms do
+# not all agree. Measured 2026-11-26 across the five on disk: the three fitted before Arm B's phosphate calibration
+# (cellarium kb 3b2f8ebd, refit1 e491a580, refit2 4965d619) time phosphate starvation at 44 min; the overlay, the BV-14
+# fit (9055ee3b) and the kinetic port's fit (5f19d040) at 100. Every medium a fit has agrees otherwise. The envelope cannot know which arm a design will run on, so a
+# shift must leave the threshold where it was in EVERY view. A view overrides a condition ROW, so the condition and its
+# medium move together, as they do in a knowledge base.
+DOUBLING_TIME_VIEWS: dict[str, dict[str, float]] = {
+    "the overlay condition table": {},
+    "the fits made before the phosphate calibration (cellarium, refit1, refit2)": {"minus_phosphate": 44.0},
+}
+
+
+@functools.lru_cache(maxsize=1)
+def condition_rows() -> tuple[tuple[str, str, float, bool], ...] | None:
+    """(condition, medium, doubling time in min, has genotype perturbations) for each row of the overlay's
+    `condition_defs.tsv`, or None when it cannot be read — not checkable, so never a refusal."""
+    try:
+        text = (_MEDIA_TABLES / "condition_defs.tsv").read_text(encoding="utf-8")
+        lines = [ln for ln in text.splitlines() if not ln.lstrip().startswith("#")]
+        out = []
+        for r in csv.DictReader(io.StringIO("\n".join(lines)), delimiter="\t"):
+            cond, medium = (r.get("condition") or "").strip(), (r.get("nutrients") or "").strip()
+            perturbed = (r.get("genotype perturbations") or "").strip() not in ("", "{}")
+            if cond and medium:
+                out.append((cond, medium, float(r["doubling time (units.min)"]), perturbed))
+        return tuple(out) or None
+    except Exception:                                                     # noqa: BLE001
+        return None
+
+
+def _doubling_times(view: dict[str, float]) -> tuple[dict[str, float], dict[str, float]] | None:
+    """(condition -> doubling time, medium -> doubling time) as the model builds them, under one view.
+
+    The medium table takes only rows without genotype perturbations, as `simulation_data.py` does (it raises if two
+    such rows give one medium different doubling times, so the first is as good as any)."""
+    rows = condition_rows()
+    if rows is None:
+        return None
+    by_condition: dict[str, float] = {}
+    by_medium: dict[str, float] = {}
+    for cond, medium, tau, perturbed in rows:
+        tau = view.get(cond, tau)
+        by_condition[cond] = tau
+        if not perturbed:
+            by_medium.setdefault(medium, tau)
+    return by_condition, by_medium
+
+
+def same_threshold(a: float, b: float) -> bool:
+    """Whether two doubling times give one critical initiation mass (see CAP_DOUBLING_TIME_MIN)."""
+    return a == b or (a <= CAP_DOUBLING_TIME_MIN and b <= CAP_DOUBLING_TIME_MIN)
+
+
+def fitted_condition(design: Design) -> str | None:
+    """The condition the cell is FITTED for, which the startup threshold is read from.
+
+    `--initial-condition` is applied after the variant (the simulation firetask sets `sim_data.condition` from it), so it
+    wins; then the `condition` variant's own condition; otherwise basal. None for a tf_activity variant: its condition is
+    a TF condition, and which one depends on the knowledge base's sorted TF list, which the envelope cannot read."""
+    ic = (design.params or {}).get("initial_condition")
+    if ic:
+        return str(ic)
+    if design.perturbation == "condition" and design.condition:
+        return design.condition
+    if design.perturbation == "tf_activity":
+        return None
+    return "basal"
+
+
+@dataclass
+class ThresholdStep:
+    """The first timeline event that moves the replication threshold."""
+    view: str
+    at: float           # seconds
+    medium: str
+    before: str         # the condition or medium the threshold was read from before the event
+    tau_before: float
+    tau_after: float
+
+
+def threshold_step(design: Design) -> ThresholdStep | None:
+    """The first timeline event that moves the replication threshold in any view, or None.
+
+    None also when there is no timeline, when the fitted condition is unknown (refused separately, or by the variant),
+    and when the condition table cannot be read (not checkable)."""
+    steps = _parse_timeline(design.timeline or "")
+    start = fitted_condition(design)
+    if not steps or start is None:
+        return None
+    for name, view in DOUBLING_TIME_VIEWS.items():
+        tables = _doubling_times(view)
+        if tables is None:
+            return None
+        by_condition, by_medium = tables
+        before, tau = start, by_condition.get(start)
+        if tau is None:
+            continue
+        for at, medium in steps:
+            new = by_medium.get(medium)
+            if new is None:
+                break            # a medium with no doubling time is refused by the media check in `check`
+            if not same_threshold(tau, new):
+                return ThresholdStep(name, at, medium, before, tau, new)
+            before, tau = medium, new
+    return None
+
+
+def threshold_moves_in_tag(family: str, tag: str) -> bool:
+    """Whether a design named by its label tag shifts the medium across a threshold step. For the read-side gate.
+
+    Only a tag that CARRIES its timeline can be checked: a pure shift is labelled by its events
+    (`timeline/0 minimal, 1200 minimal_minus_oxygen`, with `#ic:<condition>` when it starts fitted). A knockout's
+    `#tl:` is a 6-hex hash of its timeline, which cannot be read back, so such a tag returns False. The corpus holds no
+    knockout that crosses a step (2026-11-26), and the envelope refuses launching one."""
+    head, *rest = (tag or "").split("#")
+    if not _parse_timeline(head):
+        return False
+    fields = dict(p.split(":", 1) for p in rest if ":" in p)
+    params = {"initial_condition": fields["ic"]} if fields.get("ic") else {}
+    return threshold_step(Design(perturbation=family, timeline=head, params=params)) is not None
+
+
+def _fitted_for(medium: str) -> str | None:
+    """The condition whose cell is fitted to `medium` — what a design should start in to run there."""
+    return next((c for c, m, _, perturbed in condition_rows() or () if m == medium and not perturbed), None)
+
+
 def check(design: Design) -> EnvelopeVerdict:
     """Return whether the design is inside the model's validated envelope."""
     # The elongation model is checked FIRST and refused loudly, because this is the only feasibility gate in
@@ -233,6 +386,47 @@ def check(design: Design) -> EnvelopeVerdict:
                 f"place, so the cells do not reach a steady state (they shrink generation after generation).",
                 f"Run the static '{alt}' condition (perturbation='condition', condition='{alt}') with replicate "
                 f"seeds instead of a glucose->{alt} shift.",
+            )
+
+        # CRIT: the general form of the rule above. A tf_activity variant first, because its fitted condition, and so
+        # the threshold the cell starts from, cannot be read from the design.
+        if design.perturbation == "tf_activity":
+            return EnvelopeVerdict(
+                False,
+                "A tf_activity variant fits the cell to its transcription factor's own condition, whose doubling time "
+                "cannot be read from the design (the variant index runs over the knowledge base's sorted TF list). The "
+                "model reads its replication threshold from that doubling time at startup and from the current medium "
+                "at every step, so a timeline on top can move the threshold at its first event and make the cell "
+                "initiate and divide early.",
+                "Run the TF variant without a timeline, or run the shift on a fitted condition (perturbation="
+                "'condition', or params.initial_condition) without the TF variant.",
+            )
+        step = threshold_step(design)
+        if step is not None:
+            when = "at t=0" if step.at == 0 else f"at {step.at:g} s"
+            fg_before, fg_after = THRESHOLD_FG.get(step.tau_before), THRESHOLD_FG.get(step.tau_after)
+            jump = (f" ({fg_before:g} to {fg_after:g} fg)" if fg_before and fg_after else "")
+            down = step.tau_after > step.tau_before
+            direction = "drops" if down else "rises"
+            effect = ("After a downshift like this the cell initiates and divides early where the organism pauses "
+                      "initiation (well4cell rc2: glucose-fitted cells moved into no oxygen mid-run divide at a median "
+                      "2,238 s, against 4,627 s for cells fitted to it)" if down else
+                      "After an upshift like this the cell must first grow to the higher threshold, so its next "
+                      "initiation waits on the model's bookkeeping rather than on the cell")
+            where = "" if step.view == next(iter(DOUBLING_TIME_VIEWS)) else f", as {step.view} time them"
+            fitted = _fitted_for(step.medium)
+            start_there = (f"Start the cell fitted to {step.medium}: perturbation='condition', condition='{fitted}' "
+                           f"with replicate seeds, or, for a genotype, params.initial_condition='{fitted}' with the "
+                           f"timeline '0 {step.medium}'. " if fitted else "Run in a fitted condition instead. ")
+            return EnvelopeVerdict(
+                False,
+                f"This timeline moves the cell {when} from {step.before} ({step.tau_before:g}-minute doubling time) into "
+                f"{step.medium} ({step.tau_after:g} minutes){where}. The model re-reads its replication threshold, the "
+                f"critical initiation mass, from the current medium at every step, so the threshold {direction} at "
+                f"once{jump} while the cell's mass and machinery are still the old medium's. {effect}, so division "
+                f"timing, birth size and gene dosage after the shift are artefacts.",
+                start_there + "A shift between media with different doubling times is outside the envelope until the "
+                "model's threshold follows the cell rather than the medium (CRIT).",
             )
 
     return EnvelopeVerdict(True, "Inside the model's validated perturbation envelope.")

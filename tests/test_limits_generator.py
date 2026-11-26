@@ -146,8 +146,10 @@ def test_the_cell_census_is_what_the_plan_assumed():
     # `refuse` cells. A paid run built on this generator grows by 3/48.
     # 54 since BV-EL (elongation_rate_against_growth_rate) the same evening: three more `refuse` cells, 3/51.
     # 57 since BV-CF (central_carbon_flux_split): three more, 3/54.
-    assert st["n_cells"] == 57
-    assert st["by_required"] == {"refuse": 42, "answer": 11, "propose": 4}
+    # 60 since CRIT (replication_initiation_after_a_nutrient_shift, 2026-11-26): absent in all three modes, three more
+    # `refuse` cells and nothing else moves, 3/57.
+    assert st["n_cells"] == 60
+    assert st["by_required"] == {"refuse": 45, "answer": 11, "propose": 4}
     assert st["by_stratum"]["no_corpus_data"] == 1
     assert st["by_stratum"]["no_corpus_mode"] == 3
 
