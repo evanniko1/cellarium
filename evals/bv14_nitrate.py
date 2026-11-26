@@ -64,6 +64,7 @@ def plan() -> int:
                            "each control's growth within 1.5-fold of its own fit's fitted rate (a sanity check). The "
                            "first gates: basal [1.86e-4, 3.06e-4], anaerobic [1.13e-4, 1.80e-4]; the anaerobic control "
                            "grew at 1.07e-4/s."),
+         "gates_amendment_decision": "kept by the user, 2026-11-26",
          "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
          "why_first": "the user asked for BV-12 to BV-14 to run on this machine; BV-14 is 12 runs, BV-12 126, so "
                       "BV-14 goes first and its result does not wait a day behind BV-12",

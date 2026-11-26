@@ -1128,3 +1128,21 @@ its `kb_sha256` and are never pooled with the corpus fit.
 **The transit-dir refusal.** `runner._evacuate` now refuses a design whose transit dir is another design's run
 root (a plain knockout's), where it used to let the run proceed and wcEcoli delete the occupant. Found by the
 BV-12 batch before any run was lost; the batch waits for the occupant's deposit instead.
+
+## D14 — BV-14's validity gate, amended after its first evaluation — KEPT 2026-11-26
+
+**What happened.** BV-14 runs on a refit (kb `9055ee3b`) that adds the anaerobic-nitrate condition. Its validity
+controls were gated on the corpus fit's own runs (basal [1.86e-4, 3.06e-4], anaerobic [1.13e-4, 1.80e-4] per second).
+The anaerobic control grew at 1.07e-4/s and closed its group.
+
+**Why the gate was wrong, not the refit.** The refit is a fresh ParCa from the current tree, and a fresh build is a
+different model from the corpus fit beyond the added condition ([KB_DIVERGENCE.md](KB_DIVERGENCE.md): amino-acid
+kinetics moved up to 52%). The gate compared it with the wrong model.
+
+**The amendment.** Each control must grow within 1.5-fold of its own fit's fitted growth (the condition's doubling
+time): a sanity check that catches a broken refit, not a different one. The controls sit at 1.02x (basal) and 0.93x
+(anaerobic); the corpus fit's own anaerobic runs sit at 1.22x theirs.
+
+**Decision.** Changed after seeing the result, so recorded as such (the plan's `gates_amended`, the ledger) and put to
+the user, who kept it on 2026-11-26. **Consequence, stated wherever BV-14 is reported:** BV-14 measures the fresh
+build's nitrate response, not the corpus fit's; its rows sit in their own arm and are never pooled with the corpus.
