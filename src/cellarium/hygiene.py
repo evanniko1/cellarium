@@ -273,6 +273,12 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
         "why": ("the ParCa fits registry counts the runs made on each knowledge base: kb_sha256 and "
                 "elongation_model over EVERY row, crashed ones included, because a crashed run still used the fit. "
                 "A count by key; it reads no channel. Candidate for a columns= argument on rows()")},
+    "evals/bv12_feba.py::_scored_rows": {
+        "kind": "bespoke_projection",
+        "why": ("BV-12's pre-registered score reads each knockout run's growth at generation 2 from its per-generation "
+                "record, over every corpus-fit row that is not an integrity failure: the analysis boundary drops "
+                "translation-collapsed knockouts (lysA, serA, proC) as non-reportable, and their collapse IS the fitness "
+                "phenotype. Candidate for a columns= argument on rows() with a qc set")},
     "evals/bv12_feba.py::existing_runs": {
         "kind": "bespoke_projection",
         "why": ("BV-12's pre-registration records which (gene, carbon source) arms already have runs, so none is "

@@ -286,7 +286,9 @@ def test_the_bespoke_projections_are_named_rather_than_filed_under_primitive():
     # registry counts rows per knowledge base; both are counts by key that read no channel.
     assert set(bespoke) == {"src/cellarium/miase.py::_rows", "src/cellarium/similarity.py::_sim_rows",
                             "scripts/bv_batch.py::_wire", "evals/bv12_feba.py::existing_runs",
-                            "scripts/well4cell_condition_labels.py::main", "scripts/parca_fits.py::_manifest_rows"}, bespoke
+                            "scripts/well4cell_condition_labels.py::main", "scripts/parca_fits.py::_manifest_rows",
+                            # 2026-11-26: BV-12's score keeps the phenotype QC rows the boundary drops
+                            "evals/bv12_feba.py::_scored_rows"}, bespoke
     for name in bespoke:
         assert "columns=" in hygiene.DIRECT_READ_REGISTRY[name]["why"], (
             "a bespoke projection should record what would let it stop being one")

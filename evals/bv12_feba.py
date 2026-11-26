@@ -287,6 +287,106 @@ def cmd_plan(a) -> int:
     return 0
 
 
+SCORE_OUT = RES / "bv12_score.json"
+
+
+INTEGRITY_FAILURES = {"crashed", "empty", "degenerate", "truncated", "over_replicated", "implausible_channel"}
+CORPUS_KB = "3b2f8ebd"      # the corpus fit every BV-12 run uses (sim_path cellarium)
+GEN = 2          # the generation every run is read at: the last of a 3-generation run, depth-matched for longer ones
+
+
+def _scored_rows() -> dict:
+    """{run path: (growth at generation GEN, qc)} for the corpus fit's rows. Read directly, not through the analysis
+    boundary: a knockout whose translation collapsed (lysA, serA, proC) is non-reportable there, and its collapse IS
+    the fitness phenotype. Integrity failures are excluded; phenotype QC statuses are kept. Growth is the run's own
+    per-generation record at generation GEN, so a 4- or 8-generation run (the pilot's pgi) is depth-matched."""
+    import duckdb
+    m = (REPO / "data" / "manifest").as_posix()
+    out = {}
+    for path, kb, qc, per in duckdb.connect().sql(
+            f"SELECT simout_path, kb_sha256, qc, per_generation FROM read_parquet('{m}/*.parquet', "
+            f"union_by_name=true)").fetchall():
+        kept = select_row(path, kb, qc, per)
+        if kept:
+            out[str(path).replace("\\", "/")] = kept
+    return out
+
+
+def select_row(path, kb, qc, per) -> tuple | None:
+    """The scoring rule for one manifest row: the corpus fit only, no integrity failure, and a generation-GEN growth
+    in the row's own per-generation record. A phenotype QC status (translation_collapse) is kept: it is the effect."""
+    if not path or not str(kb or "").startswith(CORPUS_KB) or qc in INTEGRITY_FAILURES:
+        return None
+    gens = json.loads(per) if isinstance(per, str) else (per or [])
+    g = gens[GEN].get("growth") if len(gens) > GEN and isinstance(gens[GEN], dict) else None
+    return (g, qc) if g is not None else None
+
+
+def cmd_score(a) -> int:
+    """The pre-registered score: per carbon source, the Spearman correlation between the whole-cell model's knockout
+    growth effect (knockout growth over wild-type growth, both at generation 2) and FEBA fitness over the panel,
+    beside iML1515's on the same genes; then the median over carbon sources (PRAXIS's metric)."""
+    import statistics
+
+    from cellarium import provenance, runner
+    from cellarium.generate import Design
+    design = json.loads(DESIGN_OUT.read_text(encoding="utf-8"))
+    iml = json.loads(FBA_OUT.read_text(encoding="utf-8"))
+    plan = json.loads(PLAN_OUT.read_text(encoding="utf-8"))
+    amend = json.loads((PLAN_OUT.parent / "bv12_amend1.json").read_text(encoding="utf-8"))
+    rows = _scored_rows()
+    out_root = runner._out_root("cellarium").parent
+
+    def growth(d: dict, seeds) -> list[float]:
+        got = []
+        for seed in seeds:
+            rel = runner._run_subpath(Design(**d), seed, "cellarium").relative_to(out_root).as_posix()
+            got += [g for k, (g, _q) in rows.items() if k.endswith(rel)]
+        return got
+    seeds = sorted({r["seed"] for r in plan["runs"] if r["role"] == "run"})
+    per = {}
+    for carbon in ("glucose", "acetate", "succinate"):
+        if carbon == "glucose":       # the depth-3 references (bv12_amend1) and the 4-generation seeds 0 and 1, at GEN
+            wt = growth({"perturbation": "wildtype", "condition": "basal"}, [r["seed"] for r in amend["runs"]] + seeds)
+        else:
+            wt = growth(_wt_design(carbon), seeds)
+        genes = []
+        for g in design["panel"]:
+            ko = growth(_ko_design(g, carbon), seeds)
+            if not ko or not wt:
+                continue
+            ratio = statistics.fmean(ko) / statistics.fmean(wt)
+            iml_ratio = (iml["per_condition"].get(carbon, {}).get("panel_growth_ratio") or {}).get(g["bnumber"])
+            qcs = sorted({q for k, (_g, q) in rows.items() if any(k.endswith(runner._run_subpath(
+                Design(**_ko_design(g, carbon)), sd, "cellarium").relative_to(out_root).as_posix()) for sd in seeds)})
+            genes.append({"symbol": g["symbol"], "pattern": g["pattern"], "feba": g[carbon], "n_seeds": len(ko),
+                          "whole_cell_ratio": round(ratio, 4), "iml1515_ratio": iml_ratio, "qc": qcs})
+        both = [x for x in genes if x["iml1515_ratio"] is not None]
+        per[carbon] = {"n_wt_seeds": len(wt), "n_genes": len(genes),
+                       "spearman_whole_cell": spearman([x["whole_cell_ratio"] for x in genes],
+                                                       [x["feba"] for x in genes]),
+                       "spearman_iml1515_same_genes": spearman([x["iml1515_ratio"] for x in both],
+                                                               [x["feba"] for x in both]),
+                       "genes": genes}
+
+    def median(key):
+        vals = sorted(v[key] for v in per.values() if v[key] is not None)
+        return vals[len(vals) // 2] if vals else None
+    out = {"spec": "BV-12 score, as pre-registered", "read_at_generation": GEN,
+           "phenotype_qc_kept": "translation_collapse and other non-integrity statuses are the phenotype, kept",
+           "metric": "per-condition Spearman over the panel; median over carbon sources (PRAXIS-VirtualCell's metric)",
+           "per_condition": per, "median_whole_cell": median("spearman_whole_cell"),
+           "median_iml1515_same_genes": median("spearman_iml1515_same_genes"),
+           "complete": all(v["n_genes"] == len(design["panel"]) for v in per.values()),
+           "computed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+           "environment": provenance.code_environment()}
+    SCORE_OUT.write_text(json.dumps(out, indent=1) + "\n", encoding="utf-8")
+    print(json.dumps({c: {k: v[k] for k in ("n_wt_seeds", "n_genes", "spearman_whole_cell",
+                                            "spearman_iml1515_same_genes")} for c, v in per.items()}))
+    print("median", out["median_whole_cell"], "vs iML1515", out["median_iml1515_same_genes"], "complete", out["complete"])
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -294,8 +394,9 @@ def main(argv=None) -> int:
         s = sub.add_parser(name)
         s.add_argument("--feba", required=True)
     sub.add_parser("plan")
+    sub.add_parser("score")
     a = ap.parse_args(argv)
-    return {"select": cmd_select, "fba": cmd_fba, "plan": cmd_plan}[a.cmd](a)
+    return {"select": cmd_select, "fba": cmd_fba, "plan": cmd_plan, "score": cmd_score}[a.cmd](a)
 
 
 if __name__ == "__main__":

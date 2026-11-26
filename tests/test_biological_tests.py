@@ -22,6 +22,7 @@ import bv3_essentiality as B3  # noqa: E402
 import bv6_overflow  # noqa: E402,F401
 import bv8_half_lives  # noqa: E402,F401
 import bv11_fluxes  # noqa: E402,F401
+import bv12_feba  # noqa: E402,F401
 
 RES = REPO / "evals" / "results"
 
@@ -340,3 +341,17 @@ def test_protein_changes_agree_with_the_proteome_only_where_the_fit_set_them():
     assert (fc["not_fitted"]["n_genes"], fc["not_fitted"]["spearman_rho"]) == (1995, 0.006)
     s = rows[("condition/succinate", 20.0)]["fold_change_concordance"]
     assert s["fitted"]["pearson_r"] > 5 * s["not_fitted"]["pearson_r"]
+
+
+# ---- BV-12: the scoring rule ---------------------------------------------------------------------------------------
+
+def test_the_bv12_score_keeps_a_collapsed_knockout_and_reads_generation_two():
+    import bv12_feba as B12
+    gens = json.dumps([{"growth": 2.4e-4}, {"growth": 2.5e-4}, {"growth": 0.35e-4}, {"growth": 0.30e-4}])
+    # translation collapse is the fitness phenotype (lysA, serA, proC): kept, and read at generation 2, not the last
+    assert B12.select_row("runs/cellarium/gene_knockout_002720/000000", "3b2f8ebd" + "0" * 56,
+                          "translation_collapse", gens) == (0.35e-4, "translation_collapse")
+    # forced: an integrity failure, another fit, or a run too short to have generation 2 is not scored
+    assert B12.select_row("p", "3b2f8ebd" + "0" * 56, "crashed", gens) is None
+    assert B12.select_row("p", "9055ee3b" + "0" * 56, "ok", gens) is None
+    assert B12.select_row("p", "3b2f8ebd" + "0" * 56, "ok", json.dumps([{"growth": 1.0}, {"growth": 1.0}])) is None
