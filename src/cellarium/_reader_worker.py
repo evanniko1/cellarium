@@ -43,6 +43,7 @@ except Exception:  # fallback keeps the worker self-contained if the sibling mod
 from _reader_agg import (  # noqa: E402
     add_tcs_correction,
     align_subunits,
+    bound_fractions,
     gene_lfc_map,
     named_time_means,
     tcs_dropped_subunits,
@@ -463,6 +464,8 @@ def mode_synthesis_per_run(roots_csv, tus_csv, tfs_csv):
                 act = r.readColumn("actual_rna_synth_prob", tu_idx, squeeze=False) if tu_idx else []
                 tgt = r.readColumn("target_rna_synth_prob", tu_idx, squeeze=False) if tu_idx else []
                 pb = r.readColumn("pPromoterBound", tf_idx, squeeze=False) if tf_idx else []
+                nab = r.readColumn("nActualBound", tf_idx, squeeze=False) if tf_idx else []
+                nav = r.readColumn("n_available_promoters", tf_idx, squeeze=False) if tf_idx else []
             finally:
                 r.close()
             got_tus = [t for t in tus if t in rna_ids]
@@ -472,6 +475,9 @@ def mode_synthesis_per_run(roots_csv, tus_csv, tfs_csv):
             p = named_time_means(got_tfs, pb, got_tfs) if got_tfs else {"means": {}}
             out[root] = {"actual_synth_prob": a["means"], "target_synth_prob": t_["means"],
                          "p_promoter_bound": p["means"],
+                         # BV-14d: the fraction of each factor's promoters actually bound, which a clamp sets
+                         # the probability of but cannot force when the factor's free active pool runs short
+                         "bound_fraction": bound_fractions(got_tfs, nab, nav) if got_tfs else {},
                          "dry_mass_fg": _finite(np.nanmean(_col(so, "Mass", "dryMass"))),
                          "missing": [x for x in tus if x not in rna_ids] + [x for x in tfs if x not in tf_ids]}
         except Exception as e:                              # noqa: BLE001  one unreadable run is named, not fatal

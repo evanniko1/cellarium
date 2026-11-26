@@ -476,3 +476,24 @@ def test_runs_sharing_a_variant_dir_are_not_launched_side_by_side(tmp_path):
     b.run()
     assert peak["cyaA"] == 1                                    # never two cyaA runs at once
     assert order.index("dctA-acetate-s0") < order.index("cyaA-succinate-s0")   # the free slot went to another gene
+
+
+def test_a_control_whose_clamp_did_not_hold_closes_its_group():
+    """BV-14d: a clamped control passes only if each clamped factor's promoters were bound at the set fraction. The
+    clamp sets a probability; binding is capped by the factor's free active molecules, so a clamp can be in force
+    and still not held. FORCED: unread occupancy fails the gate instead of passing it."""
+    done = {"qc": "ok", "generations": [{"division_time_sec": 4000.0}], "growth_rate_series": [[10.0, 1.2e-4]]}
+    c = B.RunSpec(id="ctl", design={}, seed=310, generations=1, group="g", role="control", status="done",
+                  summary=done)
+    rule = {"growth_rate": [7.7e-5, 1.73e-4], "occupancy": {"FNR-4FE-4S-CPLX": [0.73, 0.83]}}
+    ok, why = B.gate_result(c, rule, occupancy=lambda spec: {"FNR-4FE-4S-CPLX": 0.78})
+    assert ok, why
+    ok, why = B.gate_result(c, rule, occupancy=lambda spec: {"FNR-4FE-4S-CPLX": 0.61})
+    assert not ok and "FNR-4FE-4S-CPLX" in why and "0.61" in why
+    ok, why = B.gate_result(c, rule, occupancy=lambda spec: None)
+    assert not ok and "unread" in why
+    ok, why = B.gate_result(c, rule)                          # no reader wired: cannot pass an occupancy gate
+    assert not ok
+    # a perturbation's control (FNR held off) is gated on its clamp alone, with no growth range
+    off = {"occupancy": {"FNR-4FE-4S-CPLX": [0.0, 0.0]}}
+    assert B.gate_result(c, off, occupancy=lambda spec: {"FNR-4FE-4S-CPLX": 0.0})[0]

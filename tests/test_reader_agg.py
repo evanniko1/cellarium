@@ -135,3 +135,15 @@ def test_named_time_means_reads_named_columns_and_names_what_it_could_not_find()
     assert out["missing"] == ["TU_NOT_THERE"]
     none = _reader_agg.named_time_means(ids, m, ["X", "Y"])
     assert none == {"means": {}, "missing": ["X", "Y"]}
+
+
+def test_bound_fraction_is_the_time_mean_of_bound_over_available_promoters():
+    """BV-14d's clamp check: the fraction of a factor's promoters actually bound, per timestep, averaged. A step
+    with no available promoter is skipped (no ratio), never counted as 0. FORCED: a factor that ran out of active
+    molecules binds fewer than its probability asks, and the fraction says so."""
+    import pytest
+    n_actual = [[60, 0, 5], [70, 0, 0]]
+    n_available = [[75, 10, 0], [80, 12, 0]]
+    out = _reader_agg.bound_fractions(["NARL", "FNR", "EMPTY"], n_actual, n_available)
+    assert out["NARL"] == pytest.approx((60 / 75 + 70 / 80) / 2) and out["FNR"] == 0.0
+    assert out["EMPTY"] is None                      # never available: no fraction, not a zero

@@ -838,7 +838,52 @@ def _dir_discriminator(design: Design) -> str:
     ic = (design.params or {}).get("initial_condition")
     if ic:
         suffix += "__ic" + str(ic)
+    # BV-14d: a clamp of factors' promoter occupancy is a fourth axis. The 6-hex sha1 of the label's `#occ:` tag,
+    # so the directory and the identity agree and the same clamp written in another order is the same directory.
+    occ = _occupancy_tag(design)
+    if occ:
+        suffix += "__occ" + hashlib.sha1(occ.encode()).hexdigest()[:6]
     return suffix
+
+
+def _occupancy_tag(design: Design) -> str:
+    from .manifest import occupancy_tag
+    return occupancy_tag(design)
+
+
+# BV-14d: the patched TF-binding process, a Cellarium file (the model's own plus the clamp), mounted over the
+# image's copy for a clamped design only; every other run keeps the image's file.
+_TF_BINDING_PATCH = Path(__file__).resolve().parents[2] / "model_patches" / "processes" / "tf_binding.py"
+_TF_BINDING_IN_IMAGE = "/wcEcoli/models/ecoli/processes/tf_binding.py"
+
+
+def _occupancy_clamp(design: Design) -> dict:
+    """The design's clamp, validated: {factor id: "fit" or a probability in [0, 1]}; {} when it has none."""
+    clamp = (design.params or {}).get("tf_occupancy_clamp") or {}
+    for tf, v in clamp.items():
+        if v == "fit":
+            continue
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0.0 <= float(v) <= 1.0:
+            raise ValueError(f"tf_occupancy_clamp[{tf!r}] must be \"fit\" or a probability in [0, 1], not {v!r}")
+    return dict(clamp)
+
+
+def _design_env(design: Design) -> dict | None:
+    """The container environment a design needs: the graded knockout's target, the occupancy clamp, or None."""
+    env = dict(_graded_ko_env(design) or {})
+    clamp = _occupancy_clamp(design)
+    if clamp:
+        env["CELLARIUM_TF_OCCUPANCY_CLAMP"] = json.dumps(clamp, sort_keys=True)
+    return env or None
+
+
+def _design_mounts(design: Design) -> list[str]:
+    """Per-design file mounts: the patched TF-binding process for a clamped design, nothing otherwise."""
+    if not _occupancy_clamp(design):
+        return []
+    if not _TF_BINDING_PATCH.is_file():
+        raise FileNotFoundError(f"the occupancy clamp needs {_TF_BINDING_PATCH}, which is missing")
+    return ["-v", f"{_TF_BINDING_PATCH.as_posix()}:{_TF_BINDING_IN_IMAGE}:ro"]
 
 
 def _needs_distinct_dir(design: Design) -> bool:
@@ -883,7 +928,9 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         if evac and not evac.get("evacuated"):
             raise RuntimeError(
                 f"Refusing to run: {evac['why']}. Running would overwrite it. Move or delete it deliberately.")
-        _set_exec_env(_graded_ko_env(design))   # raises if a graded design cannot be fully specified
+        _set_exec_env(_design_env(design))      # raises if a graded design or a clamp cannot be fully specified
+        prev_mounts = getattr(_EXEC_LOCAL, "mounts", None)
+        _EXEC_LOCAL.mounts = _design_mounts(design)      # the patched TF-binding process, for a clamp only
         _EXEC_LOCAL.log_path = log_path
         _EXEC_LOCAL.wall_limit_s = wall_limit_s(generations)
         try:
@@ -891,6 +938,7 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
                    "--generations", str(generations), *_variant_args(design)])
         finally:
             _set_exec_env(None)
+            _EXEC_LOCAL.mounts = prev_mounts
             _EXEC_LOCAL.log_path = None
             _EXEC_LOCAL.wall_limit_s = None
         # IMMEDIATELY after the run and INSIDE the lock, because the model keeps ONE metadata.json per sim_path

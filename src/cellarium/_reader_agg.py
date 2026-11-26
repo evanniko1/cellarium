@@ -42,6 +42,20 @@ def gene_lfc_map(t_runs: list, r_runs: list, floor: float) -> dict:
     return out
 
 
+def bound_fractions(names, n_actual, n_available) -> dict:
+    """Per factor, the time-mean fraction of its available promoters actually bound (nActualBound over
+    n_available_promoters, RnaSynthProb), skipping steps with none available; None when it never had one. BV-14d
+    reads it to test a clamp: binding is capped by the factor's free active molecules, so a clamp can be set and
+    still not held."""
+    a = np.asarray(n_actual, dtype=float).reshape(-1, len(names))
+    n = np.asarray(n_available, dtype=float).reshape(-1, len(names))
+    out = {}
+    for k, name in enumerate(names):
+        ok = n[:, k] > 0
+        out[name] = float(np.mean(a[ok, k] / n[ok, k])) if ok.any() else None
+    return out
+
+
 def named_time_means(ids, matrix, names) -> dict:
     """The time-mean of the named columns of a (time x id) listener matrix, as {"means", "missing"}. A name the
     listener does not carry is listed in `missing`, never returned as a mean of 0.0 (BV-14's synthesis reader)."""

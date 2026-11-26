@@ -114,8 +114,11 @@ def summarize(rec, qc_overall: str, qc_per: list) -> dict:
             "note": rec.note}
 
 
-def gate_result(spec: RunSpec, rule: dict | None) -> tuple[bool, str]:
-    """A control passes when it is QC-clean and its generation-0 growth sits inside the group's reference range."""
+def gate_result(spec: RunSpec, rule: dict | None, occupancy=None) -> tuple[bool, str]:
+    """A control passes when it is QC-clean, its generation-0 growth sits inside the group's reference range (when
+    one is declared), and (BV-14d) each clamped factor's promoters were bound at the set fraction. `occupancy(spec)`
+    returns {factor: bound fraction} read from the control's raw output; a clamp sets a probability, and binding is
+    capped by the factor's free active molecules, so a clamp in force can still fail to hold."""
     s = spec.summary
     finished = spec.status in ("done", "adopted") or (spec.status == "exists" and spec.summary.get("qc"))
     if not finished:                                   # adopted or exists: finished under a previous process
@@ -124,16 +127,29 @@ def gate_result(spec: RunSpec, rule: dict | None) -> tuple[bool, str]:
         return False, f"control QC {s.get('qc')}"
     if not rule:
         return True, "no reference range declared"
-    lo, hi = rule["growth_rate"]
-    series = s.get("growth_rate_series") or []
-    g0 = (s.get("generations") or [{}])[0]
-    t_div = g0.get("division_time_sec")
-    vals = [v for t, v in series if v is not None and (t_div is None or t <= t_div)]
-    mu = sum(vals) / len(vals) if vals else s.get("channels", {}).get("growth_rate")
-    if mu is None:
-        return False, "no growth rate to check"
-    ok = lo <= mu <= hi
-    return ok, f"generation-0 growth {mu:.3g}/s against the reference [{lo:.3g}, {hi:.3g}]"
+    checks = []
+    if "growth_rate" in rule:
+        lo, hi = rule["growth_rate"]
+        series = s.get("growth_rate_series") or []
+        g0 = (s.get("generations") or [{}])[0]
+        t_div = g0.get("division_time_sec")
+        vals = [v for t, v in series if v is not None and (t_div is None or t <= t_div)]
+        mu = sum(vals) / len(vals) if vals else s.get("channels", {}).get("growth_rate")
+        if mu is None:
+            return False, "no growth rate to check"
+        checks.append(f"generation-0 growth {mu:.3g}/s against the reference [{lo:.3g}, {hi:.3g}]")
+        if not lo <= mu <= hi:
+            return False, checks[-1]
+    if rule.get("occupancy"):
+        got = occupancy(spec) if occupancy else None
+        if not isinstance(got, dict):
+            return False, f"the clamped factors' occupancy was unread ({got!r}), so the clamp is unverified"
+        for tf, (lo, hi) in rule["occupancy"].items():
+            v = got.get(tf)
+            checks.append(f"{tf} bound fraction {v if v is None else round(v, 3)} against [{lo}, {hi}]")
+            if v is None or not lo <= v <= hi:
+                return False, checks[-1]
+    return True, "; ".join(checks) or "no reference range declared"
 
 
 class Batch:
@@ -141,7 +157,7 @@ class Batch:
                  existing_fn, free_gb_fn, ledger: Path, ledgers: dict | None = None, sleep=time.sleep,
                  poll_s: float = 30.0, busy_fn=None, root_fn=None, clock=time.time, on_disk_fn=None,
                  deposit_elsewhere=(), keep_raw_batches=(), recorded_summaries=None, crash_index_fn=None,
-                 variant_key_fn=None):
+                 variant_key_fn=None, occupancy_fn=None):
         self.plan, self.runs = plan, runs
         self.run_fn, self.read_fn, self.qc_fn, self.index_fn = run_fn, read_fn, qc_fn, index_fn
         self.deposit_fn, self.existing_fn, self.free_gb_fn = deposit_fn, existing_fn, free_gb_fn
@@ -161,6 +177,7 @@ class Batch:
         # the model variant dir a run writes into; the runner serialises a variant's runs on a lock, so two of this
         # process's runs of one variant side by side would park a slot: the second waits in the queue instead
         self.variant_key_fn = variant_key_fn
+        self.occupancy_fn = occupancy_fn          # BV-14d: a clamped control's bound fractions, for its gate
         self._waiting_since: dict[str, float] = {}
         self._own_running: dict = {}
         self.ledger, self.sleep, self.poll_s = ledger, sleep, poll_s
@@ -209,7 +226,7 @@ class Batch:
             return True
         if any(c.status in ("pending", "running") for c in ctl):
             return None
-        results = [gate_result(c, self.gates.get(group)) for c in ctl]
+        results = [gate_result(c, self.gates.get(group), occupancy=self.occupancy_fn) for c in ctl]
         ok = all(r[0] for r in results)
         self.gate_open[group] = ok
         self.log("gate", None, group=group, open=ok, checks=[r[1] for r in results])
@@ -513,6 +530,17 @@ def _wire(plan: dict, repo: str, ledger: Path):
                                                 f"holds another run until that run is deposited and reclaimed"}
         return ""
 
+    def occupancy_fn(spec):
+        """BV-14d: the bound fraction of each factor the control's group gate names, from its raw output."""
+        from cellarium import reader
+        tfs = list((((plan.get("gates") or {}).get(spec.group) or {}).get("occupancy")) or {})
+        if not tfs:
+            return {}
+        root = runner._run_subpath(design(spec), spec.seed, sp(spec))
+        got = reader.synthesis_per_run([root], [], tfs)
+        r = got.get(reader._container_path(root)) if isinstance(got, dict) else None
+        return None if not isinstance(r, dict) or r.get("error") else r.get("bound_fraction")
+
     def free_gb_fn():
         return shutil.disk_usage(str(out_root)).free / 1e9
 
@@ -541,7 +569,7 @@ def _wire(plan: dict, repo: str, ledger: Path):
 
     return dict(run_fn=run_fn, read_fn=read_fn, qc_fn=qc.check_result, index_fn=index_fn, deposit_fn=deposit_fn,
                 existing_fn=existing_fn, free_gb_fn=free_gb_fn, ledger=ledger, busy_fn=busy_fn, root_fn=root_fn,
-                crash_index_fn=crash_index_fn, variant_key_fn=variant_key_fn)
+                crash_index_fn=crash_index_fn, variant_key_fn=variant_key_fn, occupancy_fn=occupancy_fn)
 
 
 WRITING_S = 600        # output modified this recently belongs to a run some process is still writing

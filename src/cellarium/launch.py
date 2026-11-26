@@ -338,7 +338,8 @@ def _match_key(perturbation, condition, timeline, params, elongation_model=None)
     Hypothesis surface then shows a falsifier as executed when it never ran."""
     p = params or {}
     genes = tuple(sorted(str(g).lower() for g in (p.get("target_genes") or ([p["gene"]] if p.get("gene") else []))))
-    ident = {k: p[k] for k in ("multiplier", "num_operons_to_delete", "direction", "target_tfs") if k in p}
+    ident = {k: p[k] for k in ("multiplier", "num_operons_to_delete", "direction", "target_tfs",
+                               "tf_occupancy_clamp") if k in p}
     return (perturbation or "wildtype", condition or None, timeline or None, genes,
             json.dumps(ident, sort_keys=True, default=str), elongation_model or DEFAULT_MODE)
 

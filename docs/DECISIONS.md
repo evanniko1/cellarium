@@ -1222,3 +1222,49 @@ fit's 0.78), against PRECISE-1K's +3.98 and +3.21. So the model's nitrate-reduct
 fourfold where the organism's rises sixteen-fold: the record's refusal of the magnitude stands, and its text now gives
 the transcription figure beside the protein one (its protein, few copies per cell, reads under twofold within a
 generation).
+
+## D16 — BV-14d pre-registered: occupancy-clamped runs, and why the fit's NarL effect shrinks — 2026-11-26
+
+**In one line.** Before running anything, the model's own equations put most of BV-14's attenuation in how the
+simulation combines factors at one promoter, not in occupancy; BV-14d tests both, with every run checked before it
+counts.
+
+**Decided by the user** (2026-11-26): "Go for the BV-14d occupancy-clamped runs. Make sure that test failures and
+defective runs are discarded."
+
+**The pre-analysis (analytic, from the model's code; scratch, numbers in the plan).** With ppGpp regulation on, a
+promoter's synthesis probability is `basal(ppGpp) x (1 + sum(delta x bound))`, renormalised over every transcription
+unit (`transcript_initiation.py`). Evaluated with expected occupancies:
+
+| Scenario | nar, nitrate against anaerobic (log2) | frd |
+|---|---|---|
+| the fit's own target (`rna_synth_prob`) | +1.29 | &minus;1.07 |
+| the fit's occupancies and ppGpp, the simulation's equations | +0.48 | &minus;0.23 |
+| the runs' occupancies and ppGpp (BV-14 as run; observed +0.25, &minus;0.47) | +0.45 | &minus;0.30 |
+| FNR and NarL held at the fit's occupancy (BV-14d, F arms) | +0.55 | &minus;0.32 |
+| FNR held off, NarL at the fit's (BV-14d, O arms) | +1.45 | &minus;1.13 |
+
+So the fit's targets are out of reach of the simulation's equations even under the fit's own assumptions. The
+encoded effects at narGHJI are FNR +3.24 and NarL +1.81 inside one multiplier: NarL's was fitted on aerobic nitrate,
+where FNR is off and it gives the full 2.6-fold; under anaerobiosis FNR's term dilutes it to 1.45-fold, while ParCa
+built the combined condition's target by multiplying fold changes (2.45-fold). Occupancy (FNR 0.99 in the runs
+against the fit's 0.78) is worth about +0.1, and the runs' ppGpp (anaerobic 62, nitrate 40 uM, where the fit assumed
+105 and 93) about +0.16.
+
+**The experiment** (`evals/plans/bv14d.json`, design_sha256 f3144ef9..., committed before any run): on the BV-14
+refit, FNR at the fit's 0.781 or held off (the fnr-mutant state Walker and DeMoss 1992 measured), by NarL off
+(anaerobic) or at the fit's 0.877 (nitrate); 3 seeds x 3 generations per cell, and two 1-generation controls that
+gate their groups on growth and on the clamp holding. The clamp is a patched `tf_binding.py`
+(`model_patches/processes/tf_binding.py`: the model's own file plus an override read from the environment, inert
+without it), mounted only for a design carrying `params.tf_occupancy_clamp`, which is an identity axis (its own label
+`#occ:`, run directory and launch key), so clamped runs can never pool with BV-14's.
+
+**Which runs count.** A run is discarded, listed with its reasons and never averaged, when it fails QC or leaves a
+generation undivided, when a clamped factor's achieved bound fraction is more than 0.05 off its target (any binding
+at all for a factor held off), or, in the fit arms, when it grows outside 1.5-fold of the fitted rate. Binding is
+capped by a factor's free active molecules, so a clamp can be in force and still not hold; the achieved fraction,
+not the set probability, decides.
+
+**Decision rules.** D1: phi, the share of BV-14's nar attenuation the fit clamp restores; predicted about 0.1, and
+phi >= 0.5 would make occupancy the main cause. D2: NarL's nar effect with FNR off minus with FNR at the fit;
+predicted about +0.9, supported at >= 0.5 with z >= 2, rejected below 0.25.

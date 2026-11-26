@@ -366,6 +366,8 @@ IDENTITY_AXES = {
     "params.num_operons_to_delete": "how many rRNA operons; the dose of an rRNA knockout",
     "params.direction": "the sign of a perturbation (up/down), which is the experiment",
     "params.target_tfs": "which transcription factors a TF perturbation addresses",
+    "params.tf_occupancy_clamp": "factors whose promoter occupancy is held at a set value (BV-14d): the same "
+                                 "condition with FNR held at the fit's 0.78, or held off, is a different experiment",
 }
 
 NOT_IDENTITY_AXES = {
@@ -418,6 +420,10 @@ def identity_probes() -> list[tuple]:
         ("params.target_tfs", Design(perturbation="tf_perturbation", condition="basal",
                                      params={"target_tfs": ["fur"]}),
          Design(perturbation="tf_perturbation", condition="basal", params={"target_tfs": ["crp"]})),
+        ("params.tf_occupancy_clamp",
+         Design(perturbation="condition", condition="no_oxygen_plus_nitrate", params={"variant_index": 24}),
+         Design(perturbation="condition", condition="no_oxygen_plus_nitrate",
+                params={"variant_index": 24, "tf_occupancy_clamp": {"FNR-4FE-4S-CPLX": "fit"}})),
     ]
     missing = set(IDENTITY_AXES) - {p[0] for p in probes}
     if missing:
@@ -470,7 +476,7 @@ def _design_tag(design: Design) -> str:
         # docstring records the incident where they destroyed each other's output); this separates them in
         # IDENTITY, which is what every analysis keys on. Same 6-hex sha1, so key and directory agree.
         return (tag + _expr_suffix(design) + factors.tl_tag_suffix(design.timeline) + ic_tag
-                + mode_tag_suffix(design.elongation_model))
+                + occupancy_tag(design) + mode_tag_suffix(design.elongation_model))
     base = design.condition or design.timeline or "basal"
     if ic_tag:
         # a control started in a fitted condition: its medium (timeline) and physiology are both its identity
@@ -482,7 +488,21 @@ def _design_tag(design: Design) -> str:
     # quiet axis, instead of discovering it the way the other three were found: after a campaign had already
     # pooled two different experiments under one label.
     tfs = sorted(str(t) for t in ((design.params or {}).get("target_tfs") or []))
-    return base + ("#tf:" + "+".join(tfs) if tfs else "") + mode_tag_suffix(design.elongation_model)
+    return (base + ("#tf:" + "+".join(tfs) if tfs else "") + occupancy_tag(design)
+            + mode_tag_suffix(design.elongation_model))
+
+
+def occupancy_tag(design: Design) -> str:
+    """`#occ:<tf>=<value>+...` for a design whose factors' promoter occupancy is clamped (BV-14d), sorted so equal
+    clamps always label alike; '' otherwise, so no existing label changes. A value is "fit" (the run's own fit's
+    occupancy for its condition) or a number."""
+    clamp = (design.params or {}).get("tf_occupancy_clamp") or {}
+    if not clamp:
+        return ""
+
+    def fmt(v):
+        return f"{float(v):g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else str(v)
+    return "#occ:" + "+".join(f"{tf}={fmt(v)}" for tf, v in sorted(clamp.items()))
 
 
 def build_record(run_root: Path, design: Design, seed: int) -> SimResult:
