@@ -327,3 +327,16 @@ def test_the_flux_control_correlates_while_the_tca_cycle_is_off():
     assert rx["2OXOGLUTARATEDEH-RXN"]["model"] == 0.0 and rx["2OXOGLUTARATEDEH-RXN"]["toya"] == 4.62
     assert rx["FUMHYDR-RXN"]["model"] * rx["FUMHYDR-RXN"]["toya"] < 0              # runs in reverse
     assert rx["MALATE-DEH-RXN"]["model"] * rx["MALATE-DEH-RXN"]["toya"] < 0
+
+
+def test_protein_changes_agree_with_the_proteome_only_where_the_fit_set_them():
+    d = _j("bv5_proteome.json")
+    assert d["table"]["sha256"].startswith("c7c7f918") and d["table"]["bytes"] == 16460041
+    rows = {(r["design"], r["count_floor"]): r for r in d["rows"]}
+    a = rows[("condition/acetate", 20.0)]
+    assert a["absolute_spearman"]["glucose"] == {"n": 2124, "rho": 0.727}
+    fc = a["fold_change_concordance"]
+    assert (fc["fitted"]["n_genes"], fc["fitted"]["pearson_r"]) == (128, 0.271)
+    assert (fc["not_fitted"]["n_genes"], fc["not_fitted"]["spearman_rho"]) == (1995, 0.006)
+    s = rows[("condition/succinate", 20.0)]["fold_change_concordance"]
+    assert s["fitted"]["pearson_r"] > 5 * s["not_fitted"]["pearson_r"]

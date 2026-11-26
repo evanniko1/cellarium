@@ -401,3 +401,78 @@ def test_a_control_another_process_already_indexed_is_read_for_the_gate_not_skip
     b2.gates = GATE
     out2 = {s.id: s for s in b2.run()}
     assert out2["fbp-s0"].status == "skipped"
+
+
+def test_a_reclaimed_control_is_gated_on_the_summary_its_ledger_recorded(tmp_path):
+    # 2026-11-26: BV-12's acetate and succinate controls were indexed, deposited and reclaimed before any process
+    # reached their gate; after a restart they "existed" but were gone from disk, and both groups closed unchecked.
+    # The ledger recorded each control's summary when it finished: the gate reads it from there.
+    fake = Fake(existing={"wt-s0"})
+    good = B.summarize(_rec(1.6e-4), "ok", [SimpleNamespace(value="ok")])
+    b = _batch(tmp_path, [_r("wt-s0", role="control"), _r("fbp-s0", stage=2)], fake, on_disk_fn=lambda root: False,
+               recorded_summaries={"wt-s0": good})
+    b.gates = GATE
+    out = {s.id: s for s in b.run()}
+    assert out["fbp-s0"].status == "done"
+    # forced: a recorded summary outside the reference closes the group
+    bad = B.summarize(_rec(0.5e-4), "ok", [SimpleNamespace(value="ok")])
+    b2 = _batch(tmp_path / "x", [_r("wt-s0", role="control"), _r("fbp-s0", stage=2)], Fake(existing={"wt-s0"}),
+                on_disk_fn=lambda root: False, recorded_summaries={"wt-s0": bad})
+    b2.gates = GATE
+    assert {s.id: s for s in b2.run()}["fbp-s0"].status == "skipped"
+
+
+def test_recorded_summaries_come_from_the_last_finished_or_adopted_event(tmp_path):
+    led = tmp_path / "l.jsonl"
+    led.write_text("\n".join(json.dumps(x) for x in [
+        {"event": "finished", "id": "wt-s0", "summary": {"qc": "ok", "n": 1}},
+        {"event": "adopted", "id": "wt-s0", "summary": {"qc": "ok", "n": 2}},
+        {"event": "indexed", "id": "wt-s0"},
+        {"event": "finished", "id": "other", "summary": {"qc": "crashed"}}]) + "\n", encoding="utf-8")
+    got = B.recorded_summaries([led])
+    assert got["wt-s0"]["n"] == 2 and got["other"]["qc"] == "crashed"
+
+
+def test_a_crashed_run_is_recorded_in_the_manifest_as_a_crash_not_only_in_the_ledger(tmp_path):
+    # serA-glucose-s1 (2026-11-25) crashed in generation 2; the batch logged it and indexed nothing, so the crash was
+    # invisible to the manifest (corpus_integrity listed it as an unindexed design on disk)
+    fake = Fake()
+    crashes = []
+
+    def run_fn(spec):
+        raise RuntimeError("model crashed")
+    fake.run_fn = run_fn
+    b = _batch(tmp_path, [_r("serA-s1")], fake, crash_index_fn=lambda spec, exc: crashes.append((spec.id, str(exc))))
+    out = {s.id: s for s in b.run()}
+    assert out["serA-s1"].status == "failed" and crashes == [("serA-s1", "model crashed")]
+    assert any(e["event"] == "crash_indexed" for e in _events(tmp_path))
+
+
+def test_runs_sharing_a_variant_dir_are_not_launched_side_by_side(tmp_path):
+    # the runner serialises a variant's seeds on a lock, so a second run of the same variant launched beside the first
+    # parks a slot; BV-12's queue put each gene's acetate and succinate runs next to each other and halved throughput
+    fake = Fake()
+    order = []
+    lock = threading.Lock()
+    active = {"cyaA": 0}
+    peak = {"cyaA": 0}
+    orig = fake.run_fn
+
+    def run_fn(spec):
+        gene = spec.id.split("-")[0]
+        with lock:
+            order.append(spec.id)
+            active[gene] = active.get(gene, 0) + 1
+            peak[gene] = max(peak.get(gene, 0), active[gene])
+        import time as _t
+        _t.sleep(0.05)
+        with lock:
+            active[gene] -= 1
+        return orig(spec)
+    fake.run_fn = run_fn
+    specs = [_r("cyaA-acetate-s0", cond="KO:cyaA"), _r("cyaA-succinate-s0", cond="KO:cyaA2"),
+             _r("dctA-acetate-s0", cond="KO:dctA")]
+    b = _batch(tmp_path, specs, fake, parallel=3, variant_key_fn=lambda spec: spec.id.split("-")[0])
+    b.run()
+    assert peak["cyaA"] == 1                                    # never two cyaA runs at once
+    assert order.index("dctA-acetate-s0") < order.index("cyaA-succinate-s0")   # the free slot went to another gene

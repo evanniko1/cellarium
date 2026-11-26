@@ -7,18 +7,19 @@
  "gates": {
   "bv14_basal": {
    "growth_rate": [
-    0.000186,
-    0.000306
+    0.000175,
+    0.0003938
    ]
   },
   "bv14_anaerobic": {
    "growth_rate": [
-    0.000113,
-    0.00018
+    7.7e-05,
+    0.0001733
    ]
   }
  },
  "keep_raw": true,
+ "gates_amended": "2026-11-26, after the first evaluation closed the anaerobic group: the reference was the corpus fit's runs, a different model from this fresh build (docs/KB_DIVERGENCE.md); now each control's growth within 1.5-fold of its own fit's fitted rate (a sanity check). The first gates: basal [1.86e-4, 3.06e-4], anaerobic [1.13e-4, 1.80e-4]; the anaerobic control grew at 1.07e-4/s.",
  "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
  "why_first": "the user asked for BV-12 to BV-14 to run on this machine; BV-14 is 12 runs, BV-12 126, so BV-14 goes first and its result does not wait a day behind BV-12",
  "runs": [

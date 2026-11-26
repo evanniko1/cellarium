@@ -1,0 +1,248 @@
+{
+ "spec": "BV-5",
+ "organism": "Schmidt et al. 2016 (doi:10.1038/nbt.3418), Supplementary Table S6, copies per cell, strain BW25113",
+ "table": {
+  "file": "data/reference/schmidt2016/41587_2016_BFnbt3418_MOESM18_ESM.xlsx",
+  "sha256": "c7c7f91849a98207a97d947a1605514269ec1c1ee253ed9cd1e3325cbcbed99f",
+  "bytes": 16460041
+ },
+ "model": "corpus fit 3b2f8ebd, steady state, protein means through the reader (sensor-corrected)",
+ "in_sample": "acetate and succinate are base-fitted conditions: growth and composition are fitted, and their active factors' targets (the 'fitted' split) are calibration; absolute abundance on glucose is calibration (synthesis is set from measured expression)",
+ "rows": [
+  {
+   "design": "condition/acetate",
+   "count_floor": 20.0,
+   "n_target_runs": 13,
+   "n_reference_runs": 18,
+   "absolute_spearman": {
+    "glucose": {
+     "n": 2124,
+     "rho": 0.727
+    },
+    "Acetate": {
+     "n": 2124,
+     "rho": 0.672
+    }
+   },
+   "fold_change_concordance": {
+    "all": {
+     "n_genes": 2123,
+     "pearson_r": 0.129,
+     "spearman_rho": 0.06,
+     "sign_concordance": 0.796,
+     "null_pearson_r": 0.007,
+     "null_pearson_sd": 0.019,
+     "deming_slope": 0.111,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "fitted": {
+     "n_genes": 128,
+     "pearson_r": 0.271,
+     "spearman_rho": 0.353,
+     "sign_concordance": 0.66,
+     "null_pearson_r": 0.02,
+     "null_pearson_sd": 0.095,
+     "deming_slope": 0.266,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "not_fitted": {
+     "n_genes": 1995,
+     "pearson_r": 0.054,
+     "spearman_rho": 0.006,
+     "sign_concordance": 0.807,
+     "null_pearson_r": -0.004,
+     "null_pearson_sd": 0.025,
+     "deming_slope": 0.038,
+     "verdict": "DIVERGENT (model-limit)"
+    }
+   },
+   "n_fitted_genes_in_condition": 216
+  },
+  {
+   "design": "condition/acetate",
+   "count_floor": 0.05,
+   "n_target_runs": 13,
+   "n_reference_runs": 18,
+   "absolute_spearman": {
+    "glucose": {
+     "n": 2262,
+     "rho": 0.739
+    },
+    "Acetate": {
+     "n": 2262,
+     "rho": 0.688
+    }
+   },
+   "fold_change_concordance": {
+    "all": {
+     "n_genes": 2261,
+     "pearson_r": 0.115,
+     "spearman_rho": 0.05,
+     "sign_concordance": 0.784,
+     "null_pearson_r": -0.0,
+     "null_pearson_sd": 0.016,
+     "deming_slope": 0.096,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "fitted": {
+     "n_genes": 138,
+     "pearson_r": 0.267,
+     "spearman_rho": 0.339,
+     "sign_concordance": 0.643,
+     "null_pearson_r": 0.005,
+     "null_pearson_sd": 0.07,
+     "deming_slope": 0.263,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "not_fitted": {
+     "n_genes": 2123,
+     "pearson_r": 0.049,
+     "spearman_rho": -0.006,
+     "sign_concordance": 0.794,
+     "null_pearson_r": 0.001,
+     "null_pearson_sd": 0.023,
+     "deming_slope": 0.034,
+     "verdict": "DIVERGENT (model-limit)"
+    }
+   },
+   "n_fitted_genes_in_condition": 216
+  },
+  {
+   "design": "condition/succinate",
+   "count_floor": 20.0,
+   "n_target_runs": 3,
+   "n_reference_runs": 18,
+   "absolute_spearman": {
+    "glucose": {
+     "n": 2129,
+     "rho": 0.727
+    },
+    "Succinate": {
+     "n": 2129,
+     "rho": 0.692
+    }
+   },
+   "fold_change_concordance": {
+    "all": {
+     "n_genes": 2128,
+     "pearson_r": 0.118,
+     "spearman_rho": 0.073,
+     "sign_concordance": 0.684,
+     "null_pearson_r": 0.005,
+     "null_pearson_sd": 0.023,
+     "deming_slope": 0.09,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "fitted": {
+     "n_genes": 132,
+     "pearson_r": 0.294,
+     "spearman_rho": 0.319,
+     "sign_concordance": 0.698,
+     "null_pearson_r": -0.008,
+     "null_pearson_sd": 0.065,
+     "deming_slope": 0.377,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "not_fitted": {
+     "n_genes": 1996,
+     "pearson_r": 0.041,
+     "spearman_rho": 0.03,
+     "sign_concordance": 0.683,
+     "null_pearson_r": -0.007,
+     "null_pearson_sd": 0.021,
+     "deming_slope": 0.026,
+     "verdict": "DIVERGENT (model-limit)"
+    }
+   },
+   "n_fitted_genes_in_condition": 224
+  },
+  {
+   "design": "condition/succinate",
+   "count_floor": 0.05,
+   "n_target_runs": 3,
+   "n_reference_runs": 18,
+   "absolute_spearman": {
+    "glucose": {
+     "n": 2262,
+     "rho": 0.739
+    },
+    "Succinate": {
+     "n": 2262,
+     "rho": 0.705
+    }
+   },
+   "fold_change_concordance": {
+    "all": {
+     "n_genes": 2260,
+     "pearson_r": 0.125,
+     "spearman_rho": 0.085,
+     "sign_concordance": 0.675,
+     "null_pearson_r": 0.001,
+     "null_pearson_sd": 0.026,
+     "deming_slope": 0.087,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "fitted": {
+     "n_genes": 142,
+     "pearson_r": 0.277,
+     "spearman_rho": 0.294,
+     "sign_concordance": 0.679,
+     "null_pearson_r": 0.007,
+     "null_pearson_sd": 0.065,
+     "deming_slope": 0.369,
+     "verdict": "DIVERGENT (model-limit)"
+    },
+    "not_fitted": {
+     "n_genes": 2118,
+     "pearson_r": 0.062,
+     "spearman_rho": 0.044,
+     "sign_concordance": 0.675,
+     "null_pearson_r": -0.002,
+     "null_pearson_sd": 0.019,
+     "deming_slope": 0.035,
+     "verdict": "DIVERGENT (model-limit)"
+    }
+   },
+   "n_fitted_genes_in_condition": 224
+  }
+ ],
+ "computed_utc": "2026-11-25T17:59:59Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "822290d",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

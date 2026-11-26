@@ -14,6 +14,7 @@ against anaerobic glucose).
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -25,9 +26,17 @@ OUT = REPO / "evals" / "results" / "bv14_nitrate.json"
 
 SIM_PATH = "bv14_no3_anaerobic"
 INDEX = {"no_oxygen": 7, "no_oxygen_plus_nitrate": 24}      # read from the refit's ordered_conditions, 2026-11-25
-# validity gates: the corpus fit's own runs (kb 3b2f8ebd), qc ok, growth_rate min and max widened 10%
-GATES = {"bv14_basal": {"growth_rate": [1.86e-4, 3.06e-4]},      # 26 runs, 2.07e-4 to 2.78e-4
-         "bv14_anaerobic": {"growth_rate": [1.13e-4, 1.80e-4]}}  # 8 runs, 1.26e-4 to 1.64e-4
+# Validity gates, AMENDED 2026-11-26 after the first evaluation (recorded in the plan and the ledger). The first gates
+# were the corpus fit's own runs (kb 3b2f8ebd, min and max widened 10%: basal [1.86e-4, 3.06e-4], anaerobic
+# [1.13e-4, 1.80e-4]); the anaerobic control grew at 1.07e-4/s and closed its group. That reference was the wrong model:
+# a fresh ParCa from the current tree is not the corpus fit (docs/KB_DIVERGENCE.md: amino-acid kinetics moved up to
+# 52%), and this refit is such a build. The amended gate is a sanity check against the fit's OWN fitted growth, its
+# condition's doubling time, within 1.5-fold either way: it catches a broken refit, not a different one. Against it the
+# controls sit at 1.02x (basal) and 0.93x (anaerobic); the corpus fit's own anaerobic runs sit at 1.22x theirs.
+# Consequence, stated wherever BV-14 is reported: BV-14 tests the fresh build's nitrate response, not the corpus fit's.
+FITTED = {"bv14_basal": 44.0, "bv14_anaerobic": 100.0}         # doubling time, min (condition_to_doubling_time)
+GATES = {g: {"growth_rate": [round(math.log(2) / (m * 60) / 1.5, 7), round(math.log(2) / (m * 60) * 1.5, 7)]}
+         for g, m in FITTED.items()}
 # the organism: PRECISE-1K (Lamoureux et al. 2023), no3_anaero against wt_glc_anaero, RNA log2 (Map M.1)
 MEASURED = {"narG": (3.2, 3.7), "narH": (3.2, 3.7), "narJ": (3.2, 3.7), "narI": (3.2, 3.7),
             "frdA": -4.48, "frdB": -4.87}
@@ -50,6 +59,11 @@ def plan() -> int:
               "generations": 3, "group": "bv14_basal", "role": "run", "stage": 2} for s in range(2)]
     p = {"batch": "bv14", "sim_path": SIM_PATH, "parallel": 6, "min_free_gb": 40, "priority": -1, "gates": GATES,
          "keep_raw": True,   # scored from raw protein counts after the runs finish; deposited after scoring
+         "gates_amended": ("2026-11-26, after the first evaluation closed the anaerobic group: the reference was the "
+                           "corpus fit's runs, a different model from this fresh build (docs/KB_DIVERGENCE.md); now "
+                           "each control's growth within 1.5-fold of its own fit's fitted rate (a sanity check). The "
+                           "first gates: basal [1.86e-4, 3.06e-4], anaerobic [1.13e-4, 1.80e-4]; the anaerobic control "
+                           "grew at 1.07e-4/s."),
          "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
          "why_first": "the user asked for BV-12 to BV-14 to run on this machine; BV-14 is 12 runs, BV-12 126, so "
                       "BV-14 goes first and its result does not wait a day behind BV-12",

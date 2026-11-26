@@ -140,7 +140,8 @@ class Batch:
     def __init__(self, plan: dict, runs: list[RunSpec], *, run_fn, read_fn, qc_fn, index_fn, deposit_fn,
                  existing_fn, free_gb_fn, ledger: Path, ledgers: dict | None = None, sleep=time.sleep,
                  poll_s: float = 30.0, busy_fn=None, root_fn=None, clock=time.time, on_disk_fn=None,
-                 deposit_elsewhere=(), keep_raw_batches=()):
+                 deposit_elsewhere=(), keep_raw_batches=(), recorded_summaries=None, crash_index_fn=None,
+                 variant_key_fn=None):
         self.plan, self.runs = plan, runs
         self.run_fn, self.read_fn, self.qc_fn, self.index_fn = run_fn, read_fn, qc_fn, index_fn
         self.deposit_fn, self.existing_fn, self.free_gb_fn = deposit_fn, existing_fn, free_gb_fn
@@ -153,6 +154,13 @@ class Batch:
         self.deposit_elsewhere = set(deposit_elsewhere)   # ids another running depositor has already listed
         # plans scored from raw output after their runs finish (BV-14): indexed, never deposited or reclaimed here
         self.keep_raw = set(keep_raw_batches)
+        # each run's summary as its plan's ledger recorded it when it finished: a control indexed, deposited and
+        # reclaimed by an earlier process is gated on this (it cannot be re-read)
+        self.recorded = dict(recorded_summaries or {})
+        self.crash_index_fn = crash_index_fn       # a crashed run becomes a manifest crash row (manifest._crash_row)
+        # the model variant dir a run writes into; the runner serialises a variant's runs on a lock, so two of this
+        # process's runs of one variant side by side would park a slot: the second waits in the queue instead
+        self.variant_key_fn = variant_key_fn
         self._waiting_since: dict[str, float] = {}
         self._own_running: dict = {}
         self.ledger, self.sleep, self.poll_s = ledger, sleep, poll_s
@@ -245,6 +253,10 @@ class Batch:
                     leftover.append((spec, root))
                     if spec.role == "control":
                         self._summarise_for_gate(spec, root)
+                elif spec.role == "control" and self.recorded.get(spec.id):
+                    spec.summary = self.recorded[spec.id]
+                    self.log("control_gated_on_its_ledger", spec, qc=spec.summary.get("qc"),
+                             why="indexed and reclaimed earlier; its summary as recorded when it finished")
         depositor = threading.Thread(target=self._deposit_worker, daemon=True)
         depositor.start()
         # indexed, but still on disk: a restart dropped the previous process's deposit queue. The deposit is
@@ -268,11 +280,14 @@ class Batch:
         with ThreadPoolExecutor(max_workers=self.parallel) as ex:
             while True:
                 capacity = self.parallel - max(0, int(self.busy_fn() or 0))
+                busy_variants = ({self.variant_key_fn(r) for r in running.values()} if self.variant_key_fn else set())
                 for spec in order:
                     if len(running) >= capacity:
                         break
                     if not self._launchable(spec):
                         continue
+                    if self.variant_key_fn and self.variant_key_fn(spec) in busy_variants:
+                        continue                                     # its variant is running here; next gene first
                     # existence is checked again when the run comes up: another process may have finished it,
                     # or may be writing it right now, since the batch started
                     e = self._existing(spec)
@@ -293,6 +308,8 @@ class Batch:
                     spec.status = "running"
                     self.log("launched", spec, design=spec.design, generations=spec.generations)
                     running[ex.submit(self._one, spec)] = spec
+                    if self.variant_key_fn:
+                        busy_variants.add(self.variant_key_fn(spec))
                 if not running:
                     if all(r.status != "pending" for r in order):
                         break
@@ -337,6 +354,12 @@ class Batch:
             spec.status, spec.why = "failed", f"{type(e).__name__}: {str(e)[:300]}"
             self.log("run_failed", spec, why=spec.why)
             self.blocked_designs.add(design_key(spec))
+            if self.crash_index_fn:
+                try:
+                    self.crash_index_fn(spec, e)
+                    self.log("crash_indexed", spec)
+                except Exception as e2:                              # noqa: BLE001
+                    self.log("crash_index_failed", spec, why=f"{type(e2).__name__}: {e2}")
             return
         self._after(spec, root, status="done", event="finished")
 
@@ -389,6 +412,23 @@ class Batch:
                          why=row.get("why"))
             except Exception as e:                                   # noqa: BLE001
                 self.log("deposit_failed", spec, why=f"{type(e).__name__}: {e}")
+
+
+def recorded_summaries(ledgers) -> dict:
+    """{run id: the summary of its LAST finished or adopted event} over the given ledgers."""
+    out = {}
+    for path in ledgers:
+        path = Path(path)
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                e = json.loads(line)
+            except ValueError:
+                continue
+            if e.get("event") in ("finished", "adopted") and e.get("id") and e.get("summary"):
+                out[e["id"]] = e["summary"]
+    return out
 
 
 def _counts(runs: list[RunSpec]) -> dict:
@@ -492,8 +532,16 @@ def _wire(plan: dict, repo: str, ledger: Path):
     def root_fn(spec):
         return runner._run_subpath(design(spec), spec.seed, sp(spec))
 
+    def variant_key_fn(spec):
+        return str(runner._model_output_dir(design(spec), spec.seed, sp(spec)).parent)
+
+    def crash_index_fn(spec, exc):
+        row = manifest._crash_row(design(spec), spec.seed, spec.generations, exc, sp(spec))
+        manifest.append_shard([row], name=f"{spec.batch or plan['batch']}-{spec.id}-crash")
+
     return dict(run_fn=run_fn, read_fn=read_fn, qc_fn=qc.check_result, index_fn=index_fn, deposit_fn=deposit_fn,
-                existing_fn=existing_fn, free_gb_fn=free_gb_fn, ledger=ledger, busy_fn=busy_fn, root_fn=root_fn)
+                existing_fn=existing_fn, free_gb_fn=free_gb_fn, ledger=ledger, busy_fn=busy_fn, root_fn=root_fn,
+                crash_index_fn=crash_index_fn, variant_key_fn=variant_key_fn)
 
 
 WRITING_S = 600        # output modified this recently belongs to a run some process is still writing
@@ -535,7 +583,8 @@ def main(argv=None) -> int:
         return 0
     elsewhere = {x for x in a.deposit_elsewhere.split(",") if x}
     keep = {b for b in plan["batches"] if plan.get("keep_raw_by_batch", {}).get(b)}
-    runs = Batch(plan, runs, **wiring, ledgers=ledgers, deposit_elsewhere=elsewhere, keep_raw_batches=keep).run()
+    runs = Batch(plan, runs, **wiring, ledgers=ledgers, deposit_elsewhere=elsewhere, keep_raw_batches=keep,
+                 recorded_summaries=recorded_summaries(sorted(set(ledgers.values())))).run()
     print(json.dumps(_counts(runs)))
     return 0
 
