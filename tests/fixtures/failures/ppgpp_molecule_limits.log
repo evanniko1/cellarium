@@ -1,0 +1,24 @@
+21304.00     56.98        1.024        1.000
+============================================================
+VARIANT 2275 (gene_knockout_002275) FAILED -- skipping to next variant
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 258, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulationDaughter.py", line 107, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 365, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 397, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 466, in _evolveState
+    process.evolveState()
+  File "/wcEcoli/models/ecoli/processes/polypeptide_elongation.py", line 483, in evolveState
+    net_charged, self.aa_count_diff = self.elongation_model.evolve(
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/wcEcoli/models/ecoli/processes/polypeptide_elongation.py", line 1260, in evolve
+    delta_metabolites, ppgpp_syn, ppgpp_deg, rela_syn, spot_syn, spot_deg, spot_deg_inhibited = ppgpp_metabolite_changes(
+                                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/wcEcoli/models/ecoli/processes/polypeptide_elongation.py", line 1507, in ppgpp_metabolite_changes
+    raise ValueError('Failed to meet molecule limits with ppGpp reactions.')
+ValueError: Failed to meet molecule limits with ppGpp reactions.
+============================================================

@@ -139,6 +139,17 @@ KNOWN: dict[str, Signature] = {
         "itself was not traced in a Cellarium run.",
         "runs/leu_arm.log + runs/arg_arm.log — 10 tracebacks, KO:leuB and KO:argG auxotroph arms; "
         "runs_validation/cellarium/gene_knockout_001818 (E3, 3 of 4 seeds)"),
+    "ValueError@models/ecoli/processes/polypeptide_elongation.py:ppgpp_metabolite_changes": Signature(
+        "ppGpp step ran past its molecule limits", "ran_out", True,
+        "The ppGpp synthesis and degradation step (RelA, SpoT) could not be scaled to keep every molecule it uses "
+        "non-negative, and raised. First seen 2026-11-26 in a proline auxotroph starving in fitted acetate (no "
+        "proline): protein mass stopped rising (a protein fold change of 1.00 to 1.02 per generation while small "
+        "molecules doubled), birth dry mass fell from 104 to 80 to 56 fg over two divisions, and the crash came "
+        "at about 21,300 s in the third generation; the wild-type control in the same condition (fitted acetate, "
+        "seed 0) completed. So this is the cell failing to sustain itself, as with 'molecule pool exhausted'. It "
+        "does not show which pool ran out first, and it is WHERE the run failed, not why.",
+        "runs/cellarium/gene_knockout_002275__tl175649__icacetate/000000/sim.log — BV-12, KO:proC in fitted "
+        "acetate, seed 0"),
     "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve": Signature(
         "FBA solver failed (GLPK)", "solver", False,
         "The metabolism LP failed after the retry ladder ran out; `detail.glpk` carries the solver status. "

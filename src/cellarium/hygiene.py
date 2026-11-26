@@ -268,6 +268,12 @@ DIRECT_READ_REGISTRY: dict[str, dict] = {
                 "dataset's own parquet, not the Cellarium manifest) to label each one. It reads one column of a "
                 "different store, so no manifest purpose covers it; a columns= reader over the dataset's index would let it stop "
                 "being one")},
+    "evals/crit_threshold.py::_well4cell": {
+        "kind": "aggregate",
+        "why": ("CRIT's evidence (D17): median division time and the share of early divisions by birth medium, fitted "
+                "condition and kind of shift, as a GROUP BY over the well4cell rc2 index. That is the published "
+                "dataset's own parquet, not the Cellarium manifest, so no manifest purpose covers it. It counts and "
+                "takes medians in SQL and reads no Cellarium run")},
     "scripts/parca_fits.py::_manifest_rows": {
         "kind": "bespoke_projection",
         "why": ("the ParCa fits registry counts the runs made on each knowledge base: kb_sha256 and "

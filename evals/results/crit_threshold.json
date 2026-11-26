@@ -1,0 +1,371 @@
+{
+ "spec": "CRIT, 2026-11-26: the replication threshold jumps at a medium shift",
+ "timeline": "0 minimal, 600 minimal_minus_oxygen",
+ "length_s": 1500,
+ "trace": {
+  "steady_state": {
+   "knowledge_base": "runs/cellarium/kb",
+   "flags": [],
+   "steps": 1501,
+   "t_end_s": 1500.0,
+   "rows": [
+    {
+     "t_s": 594.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.733,
+     "n_oric": 2,
+     "cell_mass_fg": 1429.7
+    },
+    {
+     "t_s": 595.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.733,
+     "n_oric": 2,
+     "cell_mass_fg": 1430.0
+    },
+    {
+     "t_s": 596.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.733,
+     "n_oric": 2,
+     "cell_mass_fg": 1430.4
+    },
+    {
+     "t_s": 597.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.734,
+     "n_oric": 2,
+     "cell_mass_fg": 1430.8
+    },
+    {
+     "t_s": 598.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.734,
+     "n_oric": 2,
+     "cell_mass_fg": 1431.2
+    },
+    {
+     "t_s": 599.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.734,
+     "n_oric": 2,
+     "cell_mass_fg": 1431.5
+    },
+    {
+     "t_s": 600.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 1.213,
+     "n_oric": 4,
+     "cell_mass_fg": 1432.0
+    },
+    {
+     "t_s": 601.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.607,
+     "n_oric": 4,
+     "cell_mass_fg": 1432.4
+    },
+    {
+     "t_s": 602.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.607,
+     "n_oric": 4,
+     "cell_mass_fg": 1432.8
+    },
+    {
+     "t_s": 603.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.607,
+     "n_oric": 4,
+     "cell_mass_fg": 1433.2
+    },
+    {
+     "t_s": 604.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.607,
+     "n_oric": 4,
+     "cell_mass_fg": 1433.6
+    },
+    {
+     "t_s": 605.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.607,
+     "n_oric": 4,
+     "cell_mass_fg": 1434.0
+    },
+    {
+     "t_s": 606.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.608,
+     "n_oric": 4,
+     "cell_mass_fg": 1434.4
+    },
+    {
+     "t_s": 1500.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.754,
+     "n_oric": 4,
+     "cell_mass_fg": 1780.1
+    }
+   ],
+   "max_ratio_before_shift": 0.734,
+   "thresholds_seen_fg": [
+    590.0,
+    975.0
+   ],
+   "initiations": [
+    600.0
+   ]
+  },
+  "kinetic": {
+   "knowledge_base": "runs_kinetic_seeds/cellarium/kb",
+   "flags": [
+    "--kinetic-trna-charging"
+   ],
+   "steps": 1501,
+   "t_end_s": 1500.0,
+   "rows": [
+    {
+     "t_s": 594.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.756,
+     "n_oric": 2,
+     "cell_mass_fg": 1475.4
+    },
+    {
+     "t_s": 595.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.757,
+     "n_oric": 2,
+     "cell_mass_fg": 1475.8
+    },
+    {
+     "t_s": 596.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.757,
+     "n_oric": 2,
+     "cell_mass_fg": 1476.2
+    },
+    {
+     "t_s": 597.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.757,
+     "n_oric": 2,
+     "cell_mass_fg": 1476.6
+    },
+    {
+     "t_s": 598.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.757,
+     "n_oric": 2,
+     "cell_mass_fg": 1477.0
+    },
+    {
+     "t_s": 599.0,
+     "threshold_fg": 975.0,
+     "mass_per_oric_over_threshold": 0.757,
+     "n_oric": 2,
+     "cell_mass_fg": 1477.3
+    },
+    {
+     "t_s": 600.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 1.252,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.5
+    },
+    {
+     "t_s": 601.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.625,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.4
+    },
+    {
+     "t_s": 602.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.625,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.4
+    },
+    {
+     "t_s": 603.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.625,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.3
+    },
+    {
+     "t_s": 604.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.625,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.3
+    },
+    {
+     "t_s": 605.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.625,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.3
+    },
+    {
+     "t_s": 606.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.625,
+     "n_oric": 4,
+     "cell_mass_fg": 1474.2
+    },
+    {
+     "t_s": 1500.0,
+     "threshold_fg": 590.0,
+     "mass_per_oric_over_threshold": 0.692,
+     "n_oric": 4,
+     "cell_mass_fg": 1632.7
+    }
+   ],
+   "max_ratio_before_shift": 0.757,
+   "thresholds_seen_fg": [
+    590.0,
+    975.0
+   ],
+   "initiations": [
+    600.0
+   ]
+  }
+ },
+ "well4cell": {
+  "release": "1.0.0-rc2",
+  "rows": [
+   {
+    "medium_at_birth": "minimal",
+    "fitted_for": "minimal",
+    "shift": "mid_run",
+    "cells": 3148,
+    "median_division_s": 2778.0,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal",
+    "fitted_for": "minimal",
+    "shift": "none",
+    "cells": 26280,
+    "median_division_s": 2879.0,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal",
+    "fitted_for": "minimal",
+    "shift": "t0",
+    "cells": 2774,
+    "median_division_s": 2854.0,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal_acetate",
+    "fitted_for": "minimal",
+    "shift": "mid_run",
+    "cells": 2928,
+    "median_division_s": 2251.0,
+    "pct_all_cells_within_10_min": 17.0
+   },
+   {
+    "medium_at_birth": "minimal_acetate",
+    "fitted_for": "minimal",
+    "shift": "t0",
+    "cells": 24244,
+    "median_division_s": 2547.0,
+    "pct_all_cells_within_10_min": 12.4
+   },
+   {
+    "medium_at_birth": "minimal_acetate",
+    "fitted_for": "minimal_acetate",
+    "shift": "none",
+    "cells": 32,
+    "median_division_s": 4342.5,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal_minus_oxygen",
+    "fitted_for": "minimal",
+    "shift": "mid_run",
+    "cells": 2758,
+    "median_division_s": 2238.0,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal_minus_oxygen",
+    "fitted_for": "minimal",
+    "shift": "t0",
+    "cells": 64,
+    "median_division_s": 2925.5,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal_minus_oxygen",
+    "fitted_for": "minimal_minus_oxygen",
+    "shift": "none",
+    "cells": 64,
+    "median_division_s": 4627.0,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal_succinate",
+    "fitted_for": "minimal",
+    "shift": "t0",
+    "cells": 23879,
+    "median_division_s": 2759.0,
+    "pct_all_cells_within_10_min": 0.0
+   },
+   {
+    "medium_at_birth": "minimal_succinate",
+    "fitted_for": "minimal_succinate",
+    "shift": "none",
+    "cells": 32,
+    "median_division_s": 3090.5,
+    "pct_all_cells_within_10_min": 0.0
+   }
+  ],
+  "note": "median over cells that divided; the percentage over all cells in the group"
+ },
+ "well4cell_recomputed": true,
+ "computed_utc": "2026-11-26T22:11:37Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": false,
+  "git_commit": "f130770",
+  "packages": {
+   "anthropic": "0.92.0",
+   "openai": "0.28.0",
+   "pydantic": "2.10.6",
+   "numpy": "1.26.4",
+   "scipy": "1.15.1",
+   "duckdb": "1.5.4",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "0.30.2"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "anthropic": {
+    "locked": "0.116.0",
+    "installed": "0.92.0"
+   },
+   "pydantic": {
+    "locked": "2.13.4",
+    "installed": "2.10.6"
+   },
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "1.26.4"
+   },
+   "scipy": {
+    "locked": "1.18.0",
+    "installed": "1.15.1"
+   },
+   "huggingface_hub": {
+    "locked": "1.23.0",
+    "installed": "0.30.2"
+   }
+  }
+ }
+}

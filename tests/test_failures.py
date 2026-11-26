@@ -65,6 +65,15 @@ def test_the_equilibrium_attributeerror_is_named_as_a_failed_solve():
     assert i.named and i.signature.category == "numerical" and i.signature.result is False
 
 
+def test_the_ppgpp_molecule_limit_failure_is_a_cell_running_out():
+    """BV-12's proline auxotroph in fitted acetate, 2026-11-26: protein stopped, birth mass fell 104 -> 80 -> 56 fg,
+    and the ppGpp step raised in the third generation, while the wild-type control in the same condition finished."""
+    i = F.identify(log_text=_fx("ppgpp_molecule_limits.log"))
+    assert i.key == "ValueError@models/ecoli/processes/polypeptide_elongation.py:ppgpp_metabolite_changes"
+    assert i.named and i.signature.category == "ran_out" and i.signature.result is True
+    assert "WHERE the run failed, not why" in i.signature.meaning
+
+
 def test_every_known_traceback_identity_has_a_fixture():
     """A name must cite the evidence that defined it. Refusals and absences are read from notes, not logs."""
     seen = {F.identify(log_text=p.read_text(encoding="utf-8")).key for p in FIX.glob("*.log")}
