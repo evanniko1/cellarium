@@ -258,17 +258,51 @@ def _cistron_symbol_map() -> dict[str, str]:
         return {}
 
 
-def _design_run_roots(label: str) -> list[Path]:
-    """All local run roots for a design label 'perturbation/condition' (one per seed)."""
-    from . import store
+def _design_run_roots(label: str, arm=None, depth: int | None = None) -> list[Path]:
+    """All local run roots for a design label 'perturbation/condition' (one per seed), crashed runs included, from
+    ONE comparability arm (knowledge base, operon build, elongation model): `arm` if named, else the default arm
+    `survey.analysis_rows` takes. Until 2026-11-26 this read `store.list_results`, which carries no arm: once the
+    BV-14 refit's runs were indexed, `condition/no_oxygen` resolved to 8 corpus-fit roots and 5 refit roots, and
+    every comparison by design label averaged two fitted models as one. A comparison of two designs should call
+    `_pair_run_roots`, which pins the arm they share. `depth` keeps only runs of that many generations (a run
+    reports its last generation, so depth selects which generation is measured).
 
-    roots = []
+    The rows are still `store.list_results` (a lookup: every row, crashed included); each id's arm and depth come
+    from `corpus_schema._rows`, the manifest read that carries the arm keys `list_results` does not project (the
+    pattern of `manifest`'s D11 check)."""
+    from . import corpus_schema, store
+
+    extra = {rid: {"kb_sha256": kb, "operons": op, "elongation_model": el, "generations": gens}
+             for (kb, op, el, rid, _ts, _rep, gens, *_rest) in corpus_schema._rows()}
+    rows = []
     for r in store.list_results():
-        if survey.design_key(r) == label:
-            p = store.simout_path(r["id"])
-            if p and Path(p).exists():
-                roots.append(Path(p))
+        x = dict(extra.get(r.get("id"), {}))
+        if x.get("elongation_model") is None:
+            x.pop("elongation_model", None)          # keep list_results' resolved value for a pre-column shard
+        rows.append({**r, **x})
+    counts: dict = {}
+    for r in rows:                                   # the default arm is chosen as analysis_rows chooses it
+        if r.get("reportable"):
+            counts[corpus_schema.arm_of(r)] = counts.get(corpus_schema.arm_of(r), 0) + 1
+    chosen = survey._resolve_arm(arm, counts)
+    roots = []
+    for r in rows:
+        if corpus_schema.arm_of(r) != chosen or survey.design_key(r) != label:
+            continue
+        if depth is not None and survey.depth(r) != depth:
+            continue
+        p = store.simout_path(r["id"])
+        if p and Path(p).exists():
+            roots.append(Path(p))
     return roots
+
+
+def _pair_run_roots(target: str, reference: str, depth: int | None = None
+                    ) -> tuple[list[Path], list[Path], tuple | None]:
+    """A comparison's run roots, both from the arm the two designs share (`survey.arm_for`), or from the default
+    arm when they share more than one or none; never a pool of arms. Returns (target roots, reference roots, arm)."""
+    arm = survey.arm_for(target, reference)
+    return _design_run_roots(target, arm, depth), _design_run_roots(reference, arm, depth), arm
 
 
 def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", top: int = 12) -> dict:
@@ -276,7 +310,7 @@ def top_movers(target: str, reference: str = REFERENCE, kind: str = "protein", t
     reference design — count-floored and reproducibility-flagged (hardened against single-run stochastic noise)."""
     from . import reader
 
-    t_roots, r_roots = _design_run_roots(target), _design_run_roots(reference)
+    t_roots, r_roots, _arm = _pair_run_roots(target, reference)
     if not t_roots:
         return {"error": f"no local runs for design '{target}'."}
     if not r_roots:
@@ -319,18 +353,26 @@ def all_gene_lfc(target: str, reference: str = REFERENCE, kind: str = "mrna",
     """
     from . import reader
 
-    t_roots, r_roots = _design_run_roots(target), _design_run_roots(reference)
+    t_roots, r_roots, _arm = _pair_run_roots(target, reference)
     if not t_roots:
         return {"error": f"no local runs for design '{target}'."}
     if not r_roots:
         return {"error": f"no local runs for reference '{reference}'."}
-    out = reader.gene_lfc(t_roots, r_roots, kind, floor=count_floor)
-    if isinstance(out, dict) and isinstance(out.get("lfc"), dict):
-        # annotate per-kind by the id space the worker returns: mRNA ids are cistron_ids (cistron->symbol map),
-        # protein ids are monomer_ids (the monomer reverse map). Using the wrong one annotates every gene as None.
+    return annotate_lfc(reader.gene_lfc(t_roots, r_roots, kind, floor=count_floor), kind)
+
+
+def annotate_lfc(out: dict, kind: str, annot: dict | None = None) -> dict:
+    """`reader.gene_lfc`'s output with each id's gene symbol added, returned as a new dict.
+
+    Annotated per kind by the id space the worker returns: mRNA ids are cistron_ids (cistron->symbol map), protein
+    ids are monomer_ids (the monomer reverse map); the wrong map annotates every gene as None. A caller that reads
+    explicit run roots (BV-14 reads a refit's runs, which the design label would not pick) must call this too: its
+    first scoring joined bare monomer ids to b-numbers, matched nothing, and reported INDETERMINATE."""
+    if not (isinstance(out, dict) and isinstance(out.get("lfc"), dict)):
+        return out
+    if annot is None:
         annot = _cistron_symbol_map() if kind == "mrna" else _reverse_gene_map()
-        out["lfc"] = {gid: {**v, "symbol": annot.get(gid)} for gid, v in out["lfc"].items()}
-    return out
+    return {**out, "lfc": {gid: {**v, "symbol": annot.get(gid)} for gid, v in out["lfc"].items()}}
 
 
 def manipulation_check(target: str, reference: str = REFERENCE) -> dict:

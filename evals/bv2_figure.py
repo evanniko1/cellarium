@@ -43,7 +43,10 @@ def data() -> dict:
                    ("succinate, growth vs glucose (%)", pct(82.0), carbon[1], None)],
         "expr": [("narG, nitrate vs aerobic glucose", kb["narL"]["narG"], nar["narG"]["log2fc"], None),
                  ("narG, anaerobic vs aerobic", kb["fnr"]["narG"], no2["narG"], meas["anaerobic_vs_aerobic_glucose"]["narG"]),
-                 ("frdA, anaerobic vs aerobic", 0.0, no2["frdA"], meas["anaerobic_vs_aerobic_glucose"]["frdA"]),
+                 # FNR's input at frdA is the NCA table's +1.12 (it was drawn as 0.0, "no FNR entry", from
+                 # fold_changes.tsv alone until 2026-11-26, D15)
+                 ("frdA, anaerobic vs aerobic", kb["fnr"]["frdA"], no2["frdA"],
+                  meas["anaerobic_vs_aerobic_glucose"]["frdA"]),
                  ("araB, arabinose vs basal", -0.64, ara["araB"]["log2fc"], "up")],
     }
 

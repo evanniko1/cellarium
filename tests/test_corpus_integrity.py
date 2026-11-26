@@ -370,3 +370,68 @@ def test_the_medium_refusal_is_NOT_an_arm_key_and_the_reason_is_recorded():
     assert "condition" not in corpus_schema.ARM_KEYS
     assert "condition" in corpus_schema.NOT_ARM_KEYS
     assert corpus_schema.MEDIUM_KEYS == ("base", "timeline_id")
+
+
+def _arm_row(rid, pert, cond, kb, reportable=True):
+    return {"id": rid, "label": f"{pert}·{cond}", "perturbation": pert, "condition": cond, "timeline": None,
+            "seed": 0, "qc": "ok" if reportable else "crashed", "reportable": reportable, "pathways": "{}",
+            "simout_path": rid, "generations": 1, "kb_sha256": kb, "operons": "on",
+            "elongation_model": "steady_state"}
+
+
+def _stub_corpus(monkeypatch, tmp_path, rows):
+    """The three sources the resolvers read, from one list of rows: `store.list_results` (no arm keys, as it
+    projects), `corpus_schema._rows` (the arm keys and depth per id) and `survey._deduped_rows` (for arm_for)."""
+    from cellarium import corpus_schema, store, survey
+    arm_keys = ("kb_sha256", "operons", "generations")
+    monkeypatch.setattr(store, "list_results",
+                        lambda include_dropped=False: [{k: v for k, v in r.items() if k not in arm_keys}
+                                                       for r in rows])
+    monkeypatch.setattr(corpus_schema, "_rows", lambda con=None: [
+        (r["kb_sha256"], r["operons"], r["elongation_model"], r["id"], 0.0, r["reportable"], r["generations"],
+         r["perturbation"], None) for r in rows])
+    monkeypatch.setattr(survey, "_deduped_rows", lambda channels: [dict(r) for r in rows])
+    for r in rows:
+        (tmp_path / r["id"]).mkdir()
+    monkeypatch.setattr(store, "simout_path", lambda rid: str(tmp_path / rid))
+
+
+def test_a_design_resolves_within_one_arm_and_a_pair_within_the_arm_both_share(monkeypatch, tmp_path):
+    """2026-11-26: once BV-14's refit runs were indexed, `condition/no_oxygen` resolved to 8 corpus-fit roots and 5
+    refit roots, and every comparison tool that resolves runs by design label averaged two fitted models as one. A
+    design now resolves within one arm (the default arm `analysis_rows` takes, crashed rows still included, as a
+    lookup must), and a comparison pins the arm its two designs share (`survey.arm_for`)."""
+    from cellarium import differential
+    corpus, refit = "3b2f8ebd" + "0" * 56, "9055ee3b" + "0" * 56
+    rows = [_arm_row(f"c-anaer-{i}", "condition", "no_oxygen", corpus) for i in range(4)]
+    rows += [_arm_row(f"c-basal-{i}", "wildtype", "basal", corpus) for i in range(4)]
+    rows += [_arm_row("c-anaer-crashed", "condition", "no_oxygen", corpus, reportable=False)]
+    rows += [_arm_row(f"r-anaer-{i}", "condition", "no_oxygen", refit) for i in range(2)]
+    rows += [_arm_row(f"r-nitrate-{i}", "condition", "no_oxygen_plus_nitrate", refit) for i in range(2)]
+    _stub_corpus(monkeypatch, tmp_path, rows)
+
+    def names(roots):
+        return sorted(p.name for p in roots)
+
+    assert names(differential._design_run_roots("condition/no_oxygen")) == [
+        "c-anaer-0", "c-anaer-1", "c-anaer-2", "c-anaer-3", "c-anaer-crashed"]
+    # forced: the refit's runs, which every comparison pooled in until 2026-11-26, come only by naming their arm
+    assert names(differential._design_run_roots("condition/no_oxygen", "9055ee3b")) == ["r-anaer-0", "r-anaer-1"]
+    # nitrate lives only on the refit, so its reference is read from the refit too, not from the corpus fit
+    t, r, _arm = differential._pair_run_roots("condition/no_oxygen_plus_nitrate", "condition/no_oxygen")
+    assert names(t) == ["r-nitrate-0", "r-nitrate-1"] and names(r) == ["r-anaer-0", "r-anaer-1"]
+    # two designs that are both in two arms: the default arm, never a pool of both
+    t, r, _arm = differential._pair_run_roots("condition/no_oxygen", "wildtype/basal")
+    assert all(n.startswith("c-") for n in names(t)) and names(r) == ["c-basal-0", "c-basal-1", "c-basal-2",
+                                                                       "c-basal-3"]
+
+
+def test_a_design_resolves_at_one_depth_when_asked(monkeypatch, tmp_path):
+    """A run reports its LAST generation (survey.depth), so a depth-1 run and a depth-4 run of one design measure
+    different generations; a comparison that matches depth asks for one."""
+    from cellarium import differential
+    kb = "3b2f8ebd" + "0" * 56
+    rows = [dict(_arm_row(f"b{g}-{i}", "wildtype", "basal", kb), generations=g) for g in (1, 4) for i in range(2)]
+    _stub_corpus(monkeypatch, tmp_path, rows)
+    assert sorted(p.name for p in differential._design_run_roots("wildtype/basal", depth=1)) == ["b1-0", "b1-1"]
+    assert len(differential._design_run_roots("wildtype/basal")) == 4          # forced: no depth, every depth

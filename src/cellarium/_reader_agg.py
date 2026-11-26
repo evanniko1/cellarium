@@ -42,6 +42,17 @@ def gene_lfc_map(t_runs: list, r_runs: list, floor: float) -> dict:
     return out
 
 
+def named_time_means(ids, matrix, names) -> dict:
+    """The time-mean of the named columns of a (time x id) listener matrix, as {"means", "missing"}. A name the
+    listener does not carry is listed in `missing`, never returned as a mean of 0.0 (BV-14's synthesis reader)."""
+    ids = [str(i) for i in ids]
+    a = np.asarray(matrix, dtype=float)
+    if a.ndim == 1:
+        a = a.reshape(-1, len(ids))
+    means = {n: float(np.mean(a[:, ids.index(n)])) for n in names if n in ids}
+    return {"means": means, "missing": [n for n in names if n not in ids]}
+
+
 # ---- BV-R1: the two-component gap in wcEcoli's MonomerCounts listener -------------------------------------------
 # `two_component_system.stoich_matrix_monomers()` keeps a complex's subunits only when they are in the system's
 # own molecule list, which lacks the sensor monomers. The listener therefore removes a phosphorylated sensor

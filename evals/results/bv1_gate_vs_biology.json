@@ -260,7 +260,7 @@
     "narL": -0.2499,
     "narX": -0.1997
    },
-   "agreement": "agrees, calibrated: NarL's fold changes are fitted (+2.57 to +2.80); the aerobic magnitude has no measurement here",
+   "agreement": "agrees, calibrated: NarL's fold changes are fitted (+0.58 to +1.75); the aerobic magnitude has no measurement here",
    "cell": "answered, agrees"
   },
   {
@@ -299,7 +299,7 @@
     "narJ": 1.017,
     "narI": 0.8
    },
-   "agreement": "misleads: the model raises narG +0.73 and frdA +1.76 log2 against measured +3.98 and +3.21, so a sixteen-fold induction of nitrate reductase reads as under two-fold; FNR's fitted fold changes at nar (+0.8 to +1.5) are far below the measured induction, and frdA has no FNR entry",
+   "agreement": "misleads: the model raises narG +0.73 and frdA +1.76 log2 against measured +3.98 and +3.21, so a sixteen-fold induction of nitrate reductase reads as under two-fold in protein (about fourfold in transcription); the fold changes the fit uses for FNR (+0.52 to +0.80 at nar, +0.68 to +1.43 at frd) are far below the measured induction",
    "cell": "refused, would mislead"
   },
   {
@@ -387,11 +387,11 @@
  },
  "reading_of_the_added": "questions written after BV-6 and BV-7 found the failure; the record that refuses them was built from the same finding, so they are a wiring check, not a test of the gate's judgment",
  "reading": "refused-would-mislead is the gate working; answered-misleads is a registry gap; refused-would-have-agreed is what refusing costs",
- "computed_utc": "2026-11-25T17:25:56Z",
+ "computed_utc": "2026-11-26T16:58:01Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "7da6b3d",
+  "git_commit": "e5fbad5",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

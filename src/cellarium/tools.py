@@ -1520,8 +1520,7 @@ def reroute_diagnosis(gene: str, target: str, reference: str = "wildtype/basal")
     from . import differential as _d
     from . import reader
 
-    ko = _d._design_run_roots(target)
-    wt = _d._design_run_roots(reference)
+    ko, wt, _arm = _d._pair_run_roots(target, reference)          # one arm, never a pool of fits
     if not ko:
         return {"error": f"no local runs for target '{target}'."}
     if not wt:

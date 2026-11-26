@@ -172,7 +172,8 @@ QUESTIONS = [
                  "source": "Walker and DeMoss 1992; PRECISE-1K no3_anaero vs wt_glc_anaero",
                  "doi": "10.1128/jb.174.4.1119-1123.1992"},
      "model_key": "nar_aerobic_nitrate_vs_basal",
-     "agreement": "agrees, calibrated: NarL's fold changes are fitted (+2.57 to +2.80); the aerobic magnitude has no "
+     # the fold changes the fit uses (fold_changes_nca.tsv replacing fold_changes.tsv's +2.57 to +2.80; 2026-11-26)
+     "agreement": "agrees, calibrated: NarL's fold changes are fitted (+0.58 to +1.75); the aerobic magnitude has no "
                   "measurement here"},
     {"id": "anaerobic_induction_nar_frd",
      "question": "Does removing oxygen switch on narGHJI and frdABCD?",
@@ -230,9 +231,12 @@ def _anaerobic_judgement(numbers: dict) -> str | None:
     if nar is None or frd is None:
         return None
     if frd < 2.0 or nar < 2.0:
+        # FNR's numbers are the ones the fit uses (fold_changes_nca.tsv replacing fold_changes.tsv; corrected
+        # 2026-11-26, D15: this line said +0.8 to +1.5 and "frdA has no FNR entry")
         return (f"misleads: the model raises narG {nar:+.2f} and frdA {frd:+.2f} log2 against measured +3.98 and "
-                "+3.21, so a sixteen-fold induction of nitrate reductase reads as under two-fold; FNR's fitted fold "
-                "changes at nar (+0.8 to +1.5) are far below the measured induction, and frdA has no FNR entry")
+                "+3.21, so a sixteen-fold induction of nitrate reductase reads as under two-fold in protein (about "
+                "fourfold in transcription); the fold changes the fit uses for FNR (+0.52 to +0.80 at nar, +0.68 "
+                "to +1.43 at frd) are far below the measured induction")
     return f"agrees: narG {nar:+.2f}, frdA {frd:+.2f} against +3.98, +3.21"
 
 

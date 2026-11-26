@@ -219,6 +219,30 @@ def channels_per_run(host_run_roots: list[Path], names: list[str]) -> dict:
     return out
 
 
+def synthesis_per_run(host_run_roots: list[Path], tus: list[str], tfs: list[str]) -> dict:
+    """BV-14: per run (last generation), the time-mean actual and target synthesis probability of named
+    transcription units, the promoter occupancy of named TFs, and the mean dry mass, in one container call."""
+    if WCECOLI_DOCKER:
+        ok, missed = _reachable(host_run_roots, "runs")
+        if not ok:
+            return {"error": "no run is reachable by the reader container", "_unreachable": missed}
+        out = _run_cmd(_worker_cmd("synthesis_per_run", [",".join(ok), ",".join(tus), ",".join(tfs)]), None)
+    else:
+        roots = ",".join(str(Path(r).resolve()) for r in host_run_roots)
+        out = _run_cmd([PY, str(_WORKER), "synthesis_per_run", roots, ",".join(tus), ",".join(tfs)],
+                       WCECOLI_DIR or None)
+        missed = None
+    if missed and isinstance(out, dict):
+        out["_unreachable"] = missed
+    return out
+
+
+def fit_synthesis(host_run_root: Path, conditions: list[str], tus: list[str], tfs: list[str]) -> dict:
+    """BV-14: from the run's own knowledge base, each condition's fitted synthesis probability of named transcription
+    units and the promoter occupancy the fit assumed for named TFs (what the fit asked for, not what a run did)."""
+    return _invoke("fit_synthesis", host_run_root, [",".join(conditions), ",".join(tus), ",".join(tfs)])
+
+
 def initiation_mass(host_run_roots: list[Path]) -> dict:
     """BV-10: every replication initiation of each run (mass per origin before it, the critical mass used)."""
     if WCECOLI_DOCKER:

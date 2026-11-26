@@ -122,3 +122,16 @@ def test_no_threshold_in_sci2_is_declared_without_an_executable_reference():
     dead = sorted(f"{t['name']} (sci2.py:{t['assign_line']})" for t in declared
                   if not _executably_referenced(mt, t["name"], t["assign_line"]))
     assert dead == []
+
+
+def test_named_time_means_reads_named_columns_and_names_what_it_could_not_find():
+    """BV-14's synthesis reader: the time-mean of named columns of a (time x id) listener matrix. FORCED: an id the
+    listener never had is named in `missing`, never returned as a 0.0 mean (the silent-absence class)."""
+    ids = ["TU00044[c]", "TU0-45225[c]", "TU00046[c]"]
+    m = [[1e-6, 2e-5, 3e-6], [3e-6, 4e-5, 5e-6]]
+    out = _reader_agg.named_time_means(ids, m, ["TU0-45225[c]", "TU00044[c]", "TU_NOT_THERE"])
+    import pytest
+    assert out["means"] == pytest.approx({"TU0-45225[c]": 3e-5, "TU00044[c]": 2e-6}, rel=1e-12)
+    assert out["missing"] == ["TU_NOT_THERE"]
+    none = _reader_agg.named_time_means(ids, m, ["X", "Y"])
+    assert none == {"means": {}, "missing": ["X", "Y"]}

@@ -113,13 +113,111 @@ def _roots(name: str) -> list:
     return out
 
 
+def _join(lfc: dict, bmap: dict, org: dict) -> tuple[dict, dict]:
+    """(model log2 fold changes keyed by b-number, the named nar/frd genes side by side) from a symbol-annotated
+    `lfc` (differential.annotate_lfc). Refuses a join that matched no gene: the first scoring (2026-11-26) passed the
+    reader's bare monomer ids, joined nothing, and the concordance reported INDETERMINATE instead of failing."""
+    sim, named = {}, {}
+    for v in lfc.values():
+        sym = v.get("symbol")
+        if not sym or v.get("log2fc") is None:
+            continue
+        b = bmap.get(sym, sym)
+        sim[b] = v["log2fc"]
+        if sym in GENES:
+            named[sym] = {"model": round(v["log2fc"], 3), "organism": round(org[b], 3) if b in org else None,
+                          "model_target": v.get("target"), "model_reference": v.get("reference")}
+    if not set(sim) & set(org):
+        raise ValueError(f"the model's {len(lfc)} ids joined no gene of the organism's {len(org)} "
+                         f"({len(sim)} carried a symbol); annotate them first (differential.annotate_lfc)")
+    return sim, named
+
+
+def _compare_arms(t_vals: list, r_vals: list, pseudocount: float = 0.0) -> dict:
+    """Two arms' per-seed values side by side: the log2 ratio of the arm means (with `pseudocount`, 1.0 for counts
+    as reader.gene_lfc uses) and Welch's t across seeds. Seeds are not biological replicates; the t says whether the
+    seeds' spread could hide the difference, not that the organism would show it. One seed per arm reports no t."""
+    t_vals, r_vals = [float(x) for x in t_vals], [float(x) for x in r_vals]
+    mt, mr = sum(t_vals) / len(t_vals), sum(r_vals) / len(r_vals)
+    tstat = p = None
+    if len(t_vals) > 1 and len(r_vals) > 1:
+        from scipy import stats
+        w = stats.ttest_ind(t_vals, r_vals, equal_var=False)
+        tstat, p = round(float(w.statistic), 3), round(float(w.pvalue), 4)
+    return {"target": [float(f"{x:.4g}") for x in t_vals], "reference": [float(f"{x:.4g}") for x in r_vals],
+            "n": [len(t_vals), len(r_vals)],
+            "log2_ratio": round(math.log2((mt + pseudocount) / (mr + pseudocount)), 3), "welch_t": tstat, "p": p}
+
+
+# Post-hoc diagnostic (added 2026-11-26, after the pre-registered readout): transcription units and factors, ids read
+# from the refit's sim_data (TU00044 narGHJI, TU0-45225 frdABCD, TU00046 nirBDC, narK alone).
+DIAG_TUS = {"narGHJI": "TU00044[c]", "frdABCD": "TU0-45225[c]", "nirBDC": "TU00046[c]", "narK": "EG10642_RNA[c]"}
+DIAG_TFS = ("PHOSPHO-NARL", "FNR-4FE-4S-CPLX", "PHOSPHO-ARCA", "CPLX0-226", "PHOSPHO-DCUR")
+DIAG_GENES = ("narG", "narH", "narJ", "narI", "frdA", "frdB", "frdC", "frdD", "nirB", "narK")
+
+
+def diagnose() -> dict:
+    """Post hoc, beside (never instead of) the pre-registered readout. The pre-registered protein readout came back
+    opposite in sign to the organism at nar and frd. The model transcribes these operons rarely (narG protein rose at
+    all in 4 of 12 generations per arm), so a per-cell protein mean over four seeds records when bursts fell. This
+    reads, per arm and seed (last generation): the named proteins, each operon's synthesis probability (the function
+    of the TF-bound state that the bursts sample), each factor's promoter occupancy, and the dry mass."""
+    from cellarium import differential, reader
+    mono = {}
+    for m, sym in differential._reverse_gene_map().items():
+        if sym in DIAG_GENES:
+            mono[sym] = m
+    arms = {}
+    for name in ("basal", "no_oxygen", "no_oxygen_plus_nitrate"):
+        roots = _roots(name)
+        sp = reader.species_per_run(roots, "protein", [mono[g] for g in DIAG_GENES if g in mono])
+        sy = reader.synthesis_per_run(roots, list(DIAG_TUS.values()), list(DIAG_TFS))
+        for res in (sp, sy):
+            if not isinstance(res, dict) or res.get("error") or res.get("_unreachable"):
+                raise SystemExit(f"diagnose {name}: {str(res)[:300]}")
+        rows = []
+        for r in roots:
+            k = reader._container_path(r)                 # the key the container wrote, as bv6/bv7 read it
+            if sy.get(k) is None or sp.get(k) is None or sy[k].get("error") or sy[k].get("missing"):
+                raise SystemExit(f"diagnose {name}: run {r.name} unread or incomplete: {sy.get(k)}")
+            rows.append({"protein": {g: sp[k][mono[g]]["mean"] for g in DIAG_GENES if g in mono},
+                         **{f: sy[k][f] for f in ("actual_synth_prob", "target_synth_prob", "p_promoter_bound",
+                                                  "dry_mass_fg")}})
+        arms[name] = rows
+    fit = reader.fit_synthesis(_roots("no_oxygen_plus_nitrate")[0], ["basal", "no_oxygen", "no_oxygen_plus_nitrate"],
+                               list(DIAG_TUS.values()), list(DIAG_TFS))
+    if not isinstance(fit, dict) or fit.get("error") or fit.get("missing"):
+        raise SystemExit(f"diagnose: the fit's own targets unread: {str(fit)[:300]}")
+    fc = fit["conditions"]
+    d = {"added": "2026-11-26, after the pre-registered protein readout; it does not replace that readout",
+         "why": diagnose.__doc__.split(". ", 1)[1].replace("\n    ", " "),
+         "n_seeds": {a: len(v) for a, v in arms.items()},
+         "promoter_occupancy": {a: {"simulated": {tf: round(sum(r["p_promoter_bound"][tf] for r in v) / len(v), 3)
+                                                  for tf in DIAG_TFS},
+                                    "fit_assumed": {tf: round(fc[a]["p_promoter_bound"][tf], 3) for tf in DIAG_TFS}}
+                                for a, v in arms.items()},
+         "contrasts": {}}
+    for key, ((t, r), _org) in CONTRASTS.items():
+        tv, rv = arms[t], arms[r]
+        d["contrasts"][key] = {
+            "dry_mass_fg": _compare_arms([x["dry_mass_fg"] for x in tv], [x["dry_mass_fg"] for x in rv]),
+            "actual_synth_prob": {op: _compare_arms([x["actual_synth_prob"][tu] for x in tv],
+                                                    [x["actual_synth_prob"][tu] for x in rv])
+                                  for op, tu in DIAG_TUS.items()},
+            "fitted_log2_synth_ratio": {op: round(math.log2(fc[t]["synth_prob"][tu] / fc[r]["synth_prob"][tu]), 3)
+                                        for op, tu in DIAG_TUS.items()},
+            "protein_per_seed": {g: _compare_arms([x["protein"][g] for x in tv], [x["protein"][g] for x in rv],
+                                                  pseudocount=1.0) for g in DIAG_GENES if g in mono}}
+    return d
+
+
 def score() -> int:
     """Each contrast: the model's protein log2 fold changes on the refit (reader.gene_lfc over explicit run roots,
     both floors) against PRECISE-1K's RNA log2 fold changes (sci2.build_reference, DESeq2 unshrunk); the named nar/frd
     genes side by side, and the all-gene concordance BV-4 uses."""
     import time
 
-    from cellarium import provenance, reader, sci2
+    from cellarium import differential, provenance, reader, sci2
     ok, msg = sci2.available()
     if not ok:
         print(msg, file=sys.stderr)
@@ -138,31 +236,29 @@ def score() -> int:
                "organism": f"PRECISE-1K {cond_b} vs {cond_a}", "organism_error": ref.get("error")}
         for floor in (20.0, 0.05):
             if t_roots and r_roots:
-                g = reader.gene_lfc(t_roots, r_roots, kind="protein", floor=floor)
+                g = differential.annotate_lfc(reader.gene_lfc(t_roots, r_roots, kind="protein", floor=floor),
+                                              "protein")
             else:
                 g = {"error": "no runs on disk yet"}
             lfc = g.get("lfc") if isinstance(g, dict) else None
             if not isinstance(lfc, dict):
                 row[f"floor_{floor}"] = {"error": str(g)[:300]}
                 continue
-            sim = {}
-            named = {}
-            for gid, v in lfc.items():
-                sym = v.get("symbol") or gid
-                if v.get("log2fc") is None:
-                    continue
-                b = bmap.get(sym, sym)
-                sim[b] = v["log2fc"]
-                if sym in GENES:
-                    named[sym] = {"model": round(v["log2fc"], 3), "organism": round(org[b], 3) if b in org else None,
-                                  "model_target": v.get("target"), "model_reference": v.get("reference")}
-            conc = sci2.concordance(sim, org) if org else {"error": "no organism reference"}
-            row[f"floor_{floor}"] = {"named_genes": named,
+            if not org:
+                raise SystemExit(f"{key}: no organism reference ({ref.get('error')})")
+            sim, named = _join(lfc, bmap, org)
+            conc = sci2.concordance(sim, org)
+            read = (g.get("n_target_runs"), g.get("n_reference_runs"))
+            if read != (len(t_roots), len(r_roots)):      # the reader omits an unreachable run rather than failing
+                raise SystemExit(f"{key}: read {read} runs of {(len(t_roots), len(r_roots))}: "
+                                 f"{g.get('_unreachable_runs')}")
+            row[f"floor_{floor}"] = {"named_genes": named, "n_runs_read": list(read),
                                      **{k: conc.get(k) for k in ("n_genes", "pearson_r", "spearman_rho",
                                                                   "null_pearson_r", "null_pearson_sd", "deming_slope",
                                                                   "sign_concordance", "verdict", "error") if k in conc}}
         out["contrasts"][key] = row
         print(key, json.dumps({k: v for k, v in row.items() if k.startswith("floor_20")}, default=str)[:900])
+    out["diagnostic_post_hoc"] = diagnose()
     out["computed_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     out["environment"] = provenance.code_environment()
     OUT.write_text(json.dumps(out, indent=1, default=str) + "\n", encoding="utf-8")

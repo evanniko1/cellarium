@@ -79,10 +79,12 @@ def test_all_gene_lfc_annotates_by_the_right_id_space_per_kind(monkeypatch):
     top_movers)."""
     from cellarium import differential, reader
 
-    monkeypatch.setattr(differential, "_design_run_roots", lambda label: [])          # no local runs -> clean error
+    # the pair resolver all_gene_lfc reads since 2026-11-26 (one arm per comparison)
+    monkeypatch.setattr(differential, "_pair_run_roots", lambda t, r, depth=None: ([], [], None))  # no runs
     assert "error" in differential.all_gene_lfc("d", "ref", kind="mrna")
 
-    monkeypatch.setattr(differential, "_design_run_roots", lambda label: ["/fake/root"])
+    monkeypatch.setattr(differential, "_pair_run_roots",
+                        lambda t, r, depth=None: (["/fake/root"], ["/fake/root"], None))
     # a MONOMER map that must NOT be used for mRNA (it can't cover cistron ids) — the bug used exactly this
     monkeypatch.setattr(differential, "_reverse_gene_map", lambda: {"6PFK-1-MONOMER[c]": "wrong"})
 

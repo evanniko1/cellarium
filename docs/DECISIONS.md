@@ -414,7 +414,7 @@ with a proper schema. **Do not design around dedup artifacts.** Design around in
 true of any corpus of whole-cell runs — and therefore survive a clean corpus.
 
 That distinction is now MEASURED rather than assumed. Against `data/manifest` (one shard,
-`vmnik-compact.parquet`, 2026-08-03, via `duckdb` in `.venv`): **322 raw rows, 322 after `DEDUP_QUALIFY`** —
+the contributor's compacted shard, then named after the contributor, 2026-08-03, via `duckdb` in `.venv`): **322 raw rows, 322 after `DEDUP_QUALIFY`** —
 i.e. on the compacted shard the dedup rule is currently a **no-op**, and 0 tombstones exist
 (`manifest.dropped_keys()`, `manifest.py:88`). Dedup and tombstones are therefore correctly classified as
 *dev-corpus hygiene*, not as the load-bearing invariants of the surface. The nine remaining invariants below all
@@ -1146,3 +1146,79 @@ time): a sanity check that catches a broken refit, not a different one. The cont
 **Decision.** Changed after seeing the result, so recorded as such (the plan's `gates_amended`, the ledger) and put to
 the user, who kept it on 2026-11-26. **Consequence, stated wherever BV-14 is reported:** BV-14 measures the fresh
 build's nitrate response, not the corpus fit's; its rows sit in their own arm and are never pooled with the corpus.
+
+## D15 — BV-14's result, and three defects it exposed — 2026-11-26
+
+**In one line.** Under anaerobiosis the model's nitrate response at *nar* and *frd* is right-signed in transcription
+and a tenth of the organism's in log<sub>2</sub>, unresolved in protein, and wrong-signed at *frd* once FNR is also
+active; scoring it exposed a scorer bug, two registry records quoting the wrong fold-change table, and a comparison
+path that pooled fitted models.
+
+**The result (`evals/results/bv14_nitrate.json`).** Pre-registered readout, protein log<sub>2</sub> fold changes on
+the refit, last generation, four nitrate against four anaerobic seeds: *narGHJI* &minus;0.69 to &minus;1.02, *frdABCD*
++0.82 to +1.02, against PRECISE-1K's +3.2 to +3.7 and &minus;4.5 to &minus;4.9; the all-gene correlation is null
+(r = &minus;0.02, 2,698 genes). Opposite in sign, and not resolved: per seed, Welch p 0.36 to 0.48 (*nar*) and 0.12 to
+0.18 (*frd*). Nitrate-anaerobic against aerobic, the model raises *frdABCD* (+2.78 to +3.04, p 0.03 to 0.05) where the
+organism lowers it (&minus;1.06 to &minus;1.62).
+
+**The diagnostic, post hoc, beside the readout (not instead of it).** The model transcribes *narGHJI* rarely: narG
+protein rose at all in 4 of 12 generations per arm, so a four-seed protein mean records when bursts fell. Each run's
+synthesis probability (RnaSynthProb, the function of the TF-bound state the bursts sample) answers the same question
+with far less noise: nitrate raises *narGHJI* synthesis +0.25 (p 0.057) and lowers *frdABCD* &minus;0.47 (p 0.026),
+where the fit asked for +1.29 and &minus;1.07 and the organism shows about +3.3 and &minus;4.7; *nirBDC* and *narK*
+do not move (fit +1.97 and +1.16). Nitrate-anaerobic against aerobic, *frdABCD* synthesis rises +2.15 (p 0.001): FNR's
+activation outweighs NarL's repression. The simulation's promoter occupancies are not the fit's: FNR 0.99 bound
+against the fit's 0.78, CRP 0.22 and 0.07 against 0.38, ArcA 0.18 and 0.13 against 0.07. Which of these, or the
+growth-dependent normalisation of synthesis probabilities (the nitrate arm grows at 0.58 per hour against its fitted
+0.51), shrinks NarL's effect is not separated. Why post hoc: the readout returned the opposite sign; a reading of the
+synthesis probability was added to see whether the model or the readout was wrong, and it is labelled as added after
+the result everywhere it appears. The pre-registered readout's verdict stands as measured.
+
+**Literature.** According to PubMed, NarL stimulates *nar* transcription in an *fnr* mutant as well as in the wild
+type, so it does not act through FNR (Walker and DeMoss 1992, doi:10.1128/jb.174.4.1119-1123.1992); nitrate represses
+*frdABCD* through NarL (Kalman and Gunsalus 1989, doi:10.1128/jb.171.7.3810-3816.1989); NarL acts at *nar* from about
+200 bp upstream through an IHF-dependent DNA loop (Stewart 1993, doi:10.1111/j.1365-2958.1993.tb01704.x).
+
+**Defect 1, the scorer (fixed).** The first scoring read the refit's runs with `reader.gene_lfc` directly (the
+design-label wrapper would not reach them) and so skipped the wrapper's gene-symbol annotation: monomer ids joined no
+b-number and the concordance reported INDETERMINATE for every contrast, a verdict word rather than an error. Now
+`differential.annotate_lfc` is shared, the scorer refuses a join that matched no gene, and it checks that the reader
+read every run it was given.
+
+**Defect 2, the fold-change table (corrected).** ParCa loads `fold_changes.tsv` and then `fold_changes_nca.tsv`, and
+the second's value replaces the first's for a pair both list. Two registry records and the BV-AN eval quoted
+`fold_changes.tsv` alone: NarL at *narGHJI* +2.57 to +2.80 where the fit uses +0.58 to +1.75; BaeR at *mdtA* +3.39
+where it uses +0.28; FNR at *nar* +0.80 to +1.54 where it uses +0.52 to +0.80, and "frdA has no FNR entry" where NCA
+supplies +0.68 to +1.43 across *frdABCD* (read from the corpus fit's `sim_data.tf_to_fold_change`). The arabinose
+record (AraC, no NCA entry) and DcuR at *dcuB* were right. The BV-2 figure's panel b had drawn the proxy as the
+fitted inputs (narG +2.75 and +1.54, frdA 0); redrawn with the fit's +1.75, +0.53 and +1.12, the model still sits
+near its input, so the figure's message stands. The records now state the fit's values; the guard test
+reads both tables with ParCa's merge (`cellarium.fitted_fold_changes`) and pins the pickle's values as literals; both
+records depend on `fold_changes_nca.tsv` (a new user's clone resolves 29 of 35 unique references, was 27 of 33).
+
+**Defect 3, pooled fits in the comparison path (fixed).** `differential._design_run_roots` read
+`store.list_results`, which carries no arm (knowledge base, operon build, elongation model), so every comparison that
+resolved runs by design label pooled whatever fits held that label. `wildtype/basal` resolved 4 runs of fit `5f19d040`
+beside the corpus fit's 17, but they sit in `runs_seed_aars`, an output tree the reader container does not mount, so
+the reader dropped them and every artefact disclosed them as unreachable: never read. What was read is BV-14's refit
+runs, under `runs/` and so reachable once indexed: BV-5 (computed 2026-11-25 17:59, 44 minutes after the refit's basal
+control was indexed) took 18 basal runs, one of them that control; from 2026-11-26 `condition/no_oxygen` also took the
+refit's 5 beside the corpus fit's 8, for any tool call. The mount boundary hid the older pooling by accident, not by design. Now a design
+resolves within one arm (the default `analysis_rows` takes, crashed rows still included), and a comparison
+(`_pair_run_roots`) pins the arm its two designs share. Only those two designs have runs in more than one arm on this
+machine. The artefacts that compared against them were regenerated and diffed, every leaf:
+
+| Artefact | Computed | After the fix |
+|---|---|---|
+| `regulation_scope.json` | 2026-11-25 16:14, before any refit run | every number identical; the 4 unreachable runs are no longer resolved at all. Stored file kept: a rewrite would also carry an unrelated corpus-growth change (the growth law's r 0.779 to 0.780) and lose two hand-added notes |
+| `anaerobic_response.json` (BV-AN) | 2026-11-25 16:13, before any refit run | every protein, run count and PRECISE-1K value identical; its fold changes now the fit's (above), and a depth-1 synthesis readout added |
+| `bv4_expression.json` (BV-4) | 2026-11-25 12:50 | 0 leaves differ |
+| `bv5_proteome.json` (BV-5) | 2026-11-25 17:59, refit control in its reference | basal reference 18 runs to 17; every statistic moved by 0.008 or less (acetate's fitted-gene Pearson 0.271 to 0.263; absolute Spearman 0.727 unchanged, n 2,124 to 2,121); the conclusion stands |
+| `data/sci2_count_floor_sweep.json` | 2026-09-11 | not regenerated: pydeseq2's worker pool broke on the re-run, and its run list was never stored, so whether its reference held a foreign run cannot be settled; it predates BV-14, so the only candidates are the 4 runs the Docker reader cannot reach |
+
+**BV-AN re-measured on the corpus fit (depth 1, 8 anaerobic against 12 basal runs).** Synthesis: *narGHJI* +1.84,
+*frdABCD* +1.95 log<sub>2</sub> (the fit asked +1.46 and +1.86; the simulation again binds FNR at 0.99 against the
+fit's 0.78), against PRECISE-1K's +3.98 and +3.21. So the model's nitrate-reductase transcription rises about
+fourfold where the organism's rises sixteen-fold: the record's refusal of the magnitude stands, and its text now gives
+the transcription figure beside the protein one (its protein, few copies per cell, reads under twofold within a
+generation).

@@ -41,9 +41,10 @@ def test_a_symbol_is_found_as_a_whole_word_only():
 def test_the_stored_audit_is_pinned():
     d = json.loads((REPO / "evals" / "results" / "dependency_audit.json").read_text(encoding="utf-8"))
     # 2026-11-25: five registry records (BV-G2, BV-AN, BV-OF, BV-EL, BV-CF) added two references each, five of them new
-    # symbols, every one resolving at the commit; the stored audit had not been regenerated after the first two
-    assert (d["n_references"], d["n_unique"]) == (39, 33)
-    assert d["resolve_in_checkout"] == 33 and d["resolve_at_commit"] == 26
+    # symbols, every one resolving at the commit; the stored audit had not been regenerated after the first two.
+    # 2026-11-26 (BV-14): fold_changes_nca.tsv::narL and ::fnr, the table whose value the fit uses for a pair both list
+    assert (d["n_references"], d["n_unique"]) == (41, 35)
+    assert d["resolve_in_checkout"] == 35 and d["resolve_at_commit"] == 28
     assert sorted(d["only_in_uncommitted_changes"]) == sorted([
         "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
         "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",

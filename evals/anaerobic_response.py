@@ -10,8 +10,12 @@ Three sources, each recomputed here:
   organism  PRECISE-1K (Lamoureux et al. 2023, doi:10.1093/nar/gkad750) through `sci2.build_reference`: DESeq2,
             unshrunk, MG1655. Two contrasts: anaerobic against aerobic glucose, and anaerobic nitrate against
             anaerobic glucose.
-  inputs    the knowledge base's fitted fold changes (fold_changes.tsv in the wcEcoli checkout): NarL and FNR at nar
-            and frdA, and whether frdA has an FNR or ArcA entry at all.
+  inputs    the fold changes the fit USES (cellarium.fitted_fold_changes: fold_changes.tsv, with
+            fold_changes_nca.tsv replacing a pair both list, as ParCa merges them): NarL and FNR at nar and frd, and
+            FNR's and ArcA's entries at frdA. Until 2026-11-26 this read fold_changes.tsv alone (BV-14 found it).
+  synthesis each design's depth-1 runs on the corpus fit, per seed (added 2026-11-26 after BV-14): each operon's
+            synthesis probability and the named proteins, beside the fit's own synthesis targets. The nar proteins
+            sit at a few copies per cell and arrive in bursts, so the protein readout above cannot resolve them.
 
 The checkout is passed as an argument, not through WCECOLI_DIR, because setting WCECOLI_DIR switches the reader from
 the Docker image to a native install.
@@ -21,7 +25,6 @@ the Docker image to a native install.
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import math
 import subprocess
@@ -34,7 +37,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 RES = REPO / "evals" / "results"
 OUT = RES / "anaerobic_response.json"
-FOLD_CHANGES = "reconstruction/ecoli/flat/fold_changes.tsv"
+FLAT = "reconstruction/ecoli/flat"
 
 MODEL_GENES = ("grcA", "nuoA", "nuoB", "nuoE", "nuoF", "nuoG", "narG", "narH", "narJ", "narI", "narK", "frdA", "frdB",
                "frdC", "frdD", "cydA", "cydB", "hcp", "yeaR", "dmsA", "narX", "narL")
@@ -46,7 +49,12 @@ MEASURED_CONTRASTS = (
     ("anaerobic_vs_aerobic_glucose", {"column": "condition", "cond_A": "wt_glc", "cond_B": "wt_glc_anaero"}),
     ("anaerobic_nitrate_vs_anaerobic", {"column": "condition", "cond_A": "wt_glc_anaero", "cond_B": "no3_anaero"}),
 )
-KB_PAIRS = {"narL": ("narG", "narH", "narJ", "narI", "frdA"), "fnr": NAR}
+FRD = ("frdA", "frdB", "frdC", "frdD")
+KB_PAIRS = {"narL": NAR + FRD, "fnr": NAR + FRD, "arcA": ("frdA",)}
+SYNTH_CONTRASTS = (("plus_nitrate_vs_no_oxygen", "condition/plus_nitrate", "condition/no_oxygen"),
+                   ("no_oxygen_vs_basal", "condition/no_oxygen", "wildtype/basal"))
+FIT_CONDITION = {"condition/plus_nitrate": "plus_nitrate", "condition/no_oxygen": "no_oxygen",
+                 "wildtype/basal": "basal"}
 
 
 def model_part() -> tuple[dict, dict]:
@@ -98,23 +106,82 @@ def measured_part() -> dict:
     return out
 
 
-def kb_fold_changes(path: Path) -> dict:
-    """NarL's and FNR's fitted fold changes at nar and frdA, and whether frdA has an FNR or ArcA entry."""
-    with open(path, encoding="utf-8", newline="") as f:
-        rows = [r for r in csv.DictReader(f, delimiter="\t")]
-    mean = {(r["TF"], r["Target"]): float(r["log2 FC mean"]) for r in rows}
-    out = {tf: {g: mean[(tf, g)] for g in targets if (tf, g) in mean} for tf, targets in KB_PAIRS.items()}
-    out["frdA_has_no_fnr_or_arcA_entry"] = not any((tf, "frdA") in mean for tf in ("fnr", "arcA"))
+def kb_fold_changes(flat: Path) -> dict:
+    """The fold changes the fit uses for NarL, FNR and ArcA at nar and frd, with fold_changes.tsv's own value where
+    the NCA table replaced it, and the pairs only the NCA table supplies."""
+    from cellarium import fitted_fold_changes
+    m = fitted_fold_changes.merged(flat)
+    used, curated = m["used"], m["curated"]
+    out = {tf: {g: used[(tf, g)] for g in targets if (tf, g) in used} for tf, targets in KB_PAIRS.items()}
+    out["fold_changes_tsv_alone"] = {tf: {g: curated[(tf, g)] for g in targets if (tf, g) in curated}
+                                     for tf, targets in KB_PAIRS.items()}
+    pairs = {(tf, g) for tf, targets in KB_PAIRS.items() for g in targets}
+    out["replaced_by_nca"] = [list(k) for k in m["replaced_by_nca"] if k in pairs]
+    out["supplied_by_nca"] = [list(k) for k in m["supplied_by_nca"] if k in pairs]
     return out
 
 
 def checkout_state(root: Path) -> dict:
-    """Which commit the table was read at, and whether the working tree changes it (the campaign checkout carries
-    uncommitted changes elsewhere)."""
+    """Which commit the tables were read at, and whether the working tree changes either (the campaign checkout
+    carries uncommitted changes elsewhere)."""
     def git(*args):
         return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=60).stdout.strip()
-    return {"file": FOLD_CHANGES, "commit": git("rev-parse", "--short=8", "HEAD"),
-            "modified_in_working_tree": bool(git("status", "--porcelain", "--", FOLD_CHANGES))}
+    files = [f"{FLAT}/{t}" for t in ("fold_changes.tsv", "fold_changes_nca.tsv")]
+    return {"files": files, "commit": git("rev-parse", "--short=8", "HEAD"),
+            "modified_in_working_tree": bool(git("status", "--porcelain", "--", *files))}
+
+
+def synthesis_part() -> dict:
+    """Depth-1 runs of the corpus fit, per seed: each operon's synthesis probability, the factors' promoter occupancy
+    and the named proteins, beside the fit's own synthesis targets for the two conditions."""
+    import bv14_nitrate as B14
+
+    from cellarium import differential, reader
+    tus, tfs = list(B14.DIAG_TUS.values()), list(B14.DIAG_TFS)
+    mono = {sym: m for m, sym in differential._reverse_gene_map().items() if sym in NAR + FRD}
+    out = {"depth": 1, "contrasts": {}}
+    fit = None
+    for key, t, r in SYNTH_CONTRASTS:
+        t_roots, r_roots, arm = differential._pair_run_roots(t, r, depth=1)
+        if not t_roots or not r_roots:
+            raise SystemExit(f"{key}: no depth-1 runs ({len(t_roots)} against {len(r_roots)})")
+        if fit is None:
+            fit = reader.fit_synthesis(t_roots[0], sorted(set(FIT_CONDITION.values())), tus, tfs)
+            if not isinstance(fit, dict) or fit.get("error") or fit.get("missing"):
+                raise SystemExit(f"the fit's targets unread: {str(fit)[:300]}")
+        arms = {}
+        for side, roots in (("target", t_roots), ("reference", r_roots)):
+            sy = reader.synthesis_per_run(roots, tus, tfs)
+            sp = reader.species_per_run(roots, "protein", [mono[g] for g in NAR + FRD if g in mono])
+            rows = []
+            for root in roots:
+                k = reader._container_path(root)
+                got = sy.get(k) if isinstance(sy, dict) else None
+                if not got or got.get("error") or got.get("missing") or not isinstance(sp, dict) or k not in sp:
+                    raise SystemExit(f"{key}: run {root} unread: {str(got or sy)[:300]}")
+                rows.append({**got, "protein": {g: sp[k][mono[g]]["mean"] for g in NAR + FRD if g in mono}})
+            arms[side] = rows
+        tc, rc = FIT_CONDITION[t], FIT_CONDITION[r]
+        fc = fit["conditions"]
+        out["contrasts"][key] = {
+            "model": f"{t} vs {r}, depth 1, {len(t_roots)} against {len(r_roots)} runs",
+            "arm": dict(zip(("kb_sha256", "operons", "elongation_model"), arm)) if arm else "default (largest)",
+            "actual_synth_prob": {op: B14._compare_arms([x["actual_synth_prob"][tu] for x in arms["target"]],
+                                                        [x["actual_synth_prob"][tu] for x in arms["reference"]])
+                                  for op, tu in B14.DIAG_TUS.items()},
+            "fitted_log2_synth_ratio": {op: round(math.log2(fc[tc]["synth_prob"][tu] / fc[rc]["synth_prob"][tu]), 3)
+                                        for op, tu in B14.DIAG_TUS.items()},
+            "promoter_occupancy": {side: {"simulated": {tf: round(sum(x["p_promoter_bound"][tf] for x in arms[side])
+                                                                  / len(arms[side]), 3) for tf in tfs},
+                                          "fit_assumed": {tf: round(fc[cond]["p_promoter_bound"][tf], 3)
+                                                          for tf in tfs}}
+                                   for side, cond in (("target", tc), ("reference", rc))},
+            "protein_per_seed": {g: B14._compare_arms([x["protein"][g] for x in arms["target"]],
+                                                      [x["protein"][g] for x in arms["reference"]], pseudocount=1.0)
+                                 for g in NAR + FRD if g in mono},
+            "dry_mass_fg": B14._compare_arms([x["dry_mass_fg"] for x in arms["target"]],
+                                             [x["dry_mass_fg"] for x in arms["reference"]])}
+    return out
 
 
 def build(wcecoli: Path) -> dict:
@@ -135,8 +202,8 @@ def build(wcecoli: Path) -> dict:
                                   **floor},
         "measured_precise1k": {"note": "DESeq2, unshrunk, MG1655 (Lamoureux et al. 2023, doi:10.1093/nar/gkad750)",
                                **measured_part()},
-        "knowledge_base_fold_changes": {**kb_fold_changes(wcecoli / FOLD_CHANGES),
-                                        "read_from": checkout_state(wcecoli)},
+        "knowledge_base_fold_changes": {**kb_fold_changes(wcecoli / FLAT), "read_from": checkout_state(wcecoli)},
+        "synthesis_depth_1": synthesis_part(),
         "computed_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "environment": provenance.code_environment(),
     }

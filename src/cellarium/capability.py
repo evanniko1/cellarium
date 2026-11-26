@@ -804,12 +804,14 @@ CAPABILITIES: tuple[Capability, ...] = (
                "delivers is a separate capability — see amino_acid_uptake_from_the_medium",
     ),
     # G-1 (2026-11-24). ParCa builds every condition in the knowledge base's condition table from its active
-    # transcription factors' fitted fold changes (fold_changes.tsv; each factor's condition in tf_condition.tsv), so
-    # an inducer's response through its factor, read in that factor's own condition, reproduces an input. The
-    # record HOLDS, because the model computes the response under every elongation model, and it says what is
-    # calibrated so that an answer carries the label. Read from the knowledge base on the campaign branch; the
-    # numbers are re-read by tests/test_fitted_factor_induction.py wherever the checkout is present. Declaration-only
-    # (no markers): a fitted table row is not a symbol to probe.
+    # transcription factors' fitted fold changes (fold_changes.tsv, then fold_changes_nca.tsv, whose value replaces
+    # the first's for a pair both list; each factor's condition in tf_condition.tsv), so an inducer's response
+    # through its factor, read in that factor's own condition, is set by an input. The record HOLDS, because the
+    # model computes the response under every elongation model, and it says what is calibrated so that an answer
+    # carries the label. Numbers corrected 2026-11-26 (BV-14): they had been read from fold_changes.tsv alone, which
+    # the NCA table overrides for NarL at nar and BaeR at mdtA. Re-read by tests/test_fitted_factor_induction.py
+    # with ParCa's own merge wherever the checkout is present. Declaration-only (no markers): a fitted table row is
+    # not a symbol to probe.
     Capability(
         key="induction_by_a_fitted_transcription_factor",
         question="Does an inducer switch on its operon through its transcription factor: nitrate and narGHJI "
@@ -818,11 +820,13 @@ CAPABILITIES: tuple[Capability, ...] = (
         holds_in=ELONGATION_MODES,
         markers=(),
         calibrated=("the knowledge-base fit sets the target genes' expression in each factor's own condition from "
-                    "the factor's fitted fold changes (fold_changes.tsv; the condition in tf_condition.tsv): NarL "
-                    "raises narG, narH, narI and narJ by +2.57 to +2.80 log2 in minimal_plus_nitrate, BaeR raises "
-                    "mdtA by +3.39 in minimal_plus_indole, and DcuR raises dcuB by +2.55 in minimal_succinate. A "
-                    "reading there reproduces those inputs rather than predicting them. Growth in the condition "
-                    "is simulated, against a doubling time the fit was also given (condition_defs.tsv)"),
+                    "the factor's fitted fold changes (fold_changes.tsv, with fold_changes_nca.tsv replacing a pair "
+                    "both list; the condition in tf_condition.tsv): NarL raises narG, narH, narI and narJ by +0.58 "
+                    "to +1.75 log2 in minimal_plus_nitrate, BaeR raises mdtA by +0.28 in minimal_plus_indole, and "
+                    "DcuR raises dcuB by +2.55 in minimal_succinate. A reading there is set by those inputs rather "
+                    "than predicting them, and need not reproduce their size: under anaerobiosis the fit asks NarL "
+                    "for +1.29 log2 of narGHJI synthesis and the runs deliver +0.25 (BV-14). Growth in the "
+                    "condition is simulated, against a doubling time the fit was also given (condition_defs.tsv)"),
         detail="an inducer's effect on its operon through a transcription factor the knowledge base fits",
     ),
     # ...and for AraC the fitted sign is the opposite of the biology's, so the same question is refused.
@@ -870,13 +874,15 @@ CAPABILITIES: tuple[Capability, ...] = (
         present=False,
         holds_in=(),        # the magnitude is a fitted input, the same in every mode
         markers=(),
-        instead={ALL_MODES: "no_oxygen is fitted with FNR, ArcA and CRP active; FNR's fold changes at narGHJI are "
-                 "+0.80 to +1.54 log2 and frdA has no FNR or ArcA entry (fold_changes.tsv), so the fit gives nar "
-                 "and frd a small rise"},
-        consequence={ALL_MODES: "the direction is right and the size is not: the model raises narG about +0.7 and "
-                     "frdA +1.8 log2 against aerobic glucose, where PRECISE-1K measures +3.98 and +3.21 (about "
-                     "sixteen-fold and nine-fold; evals/results/anaerobic_response.json). A reading reports an "
-                     "under-two-fold induction where the organism's is an order of magnitude larger"},
+        instead={ALL_MODES: "no_oxygen is fitted with FNR, ArcA and CRP active; the fold changes the fit uses for FNR "
+                 "are +0.52 to +0.80 log2 at narGHJI and +0.68 to +1.43 at frdABCD (fold_changes_nca.tsv, which "
+                 "replaces fold_changes.tsv's +0.80 to +1.54 at nar and supplies frd's), and ArcA has none at "
+                 "either, so the fit gives nar and frd a small rise"},
+        consequence={ALL_MODES: "the direction is right and the size is not: the model raises narG protein about "
+                     "+0.7 and frdA +1.8 log2 against aerobic glucose, and their transcription +1.84 and +1.95 "
+                     "(depth-1 synthesis, 8 against 12 runs), where PRECISE-1K measures +3.98 and +3.21 (about "
+                     "sixteen-fold and nine-fold; evals/results/anaerobic_response.json). A reading reports a two- "
+                     "to fourfold induction where the organism's is an order of magnitude larger"},
         detail="the magnitude of anaerobic induction of nitrate and fumarate reductase",
     ),
     # BV-OF (2026-11-25): BV-6 read the exchange fluxes of 75 corpus runs. Overflow and fermentation are absent.
@@ -944,7 +950,7 @@ CAPABILITIES: tuple[Capability, ...] = (
 # September 2026; each corpus row records the image digest it ran). Of that build, Cellarium's own parts are public
 # on the campaign branch since 8e7dd6c5; the kinetic tRNA-charging port is Stanford-derived and held local while its
 # licence request is pending, and ROUTE1's isoacceptor broadcast reads structures the port builds, so it is held with
-# it. A new user's clone resolves 27 of 33 unique dependency references (evals/results/dependency_audit_public.json); the
+# it. A new user's clone resolves 29 of 35 unique dependency references (evals/results/dependency_audit_public.json); the
 # records below cannot be reproduced from public code until the port is published.
 BUILD = {
     "corpus_build": "the per-user code image built from the campaign checkout (c2047dc9 plus uncommitted changes); "
@@ -982,7 +988,8 @@ DEPENDS_ON: dict[str, tuple[str, ...]] = {
     "growth_without_a_carbon_source": (f"{_FLAT}/condition/media_recipes.tsv::minimal_no_glucose",),
     "essentiality_of_a_metabolic_gene": ("models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
                                          "models/ecoli/processes/metabolism.py::homeostatic_objective"),
-    "anaerobic_respiration_induction_magnitude": (f"{_FLAT}/fold_changes.tsv::fnr",
+    # fold_changes_nca.tsv since 2026-11-26 (BV-14): its value replaces fold_changes.tsv's for a pair both list
+    "anaerobic_respiration_induction_magnitude": (f"{_FLAT}/fold_changes.tsv::fnr", f"{_FLAT}/fold_changes_nca.tsv::fnr",
                                                   f"{_FLAT}/condition/condition_defs.tsv::no_oxygen"),
     "overflow_and_fermentation_products": ("models/ecoli/processes/metabolism.py::FluxBalanceAnalysisModel",
                                            "models/ecoli/processes/metabolism.py::homeostatic_objective"),
@@ -998,7 +1005,8 @@ DEPENDS_ON: dict[str, tuple[str, ...]] = {
     "amino_acid_uptake_from_the_medium": (f"{_MET}::aa_uptake_package", f"{_PE}::aa_exchange_rates"),
     "nutrient_shift_timelines": ("wholecell/utils/make_media.py::make_timeline", f"{_MET}::nutrientToDoublingTime"),
     "induction_by_a_fitted_transcription_factor": (
-        f"{_FLAT}/fold_changes.tsv::narL", f"{_FLAT}/condition/tf_condition.tsv::PHOSPHO-NARL",
+        f"{_FLAT}/fold_changes.tsv::narL", f"{_FLAT}/fold_changes_nca.tsv::narL",
+        f"{_FLAT}/condition/tf_condition.tsv::PHOSPHO-NARL",
         "reconstruction/ecoli/fit_sim_data_1.py::buildCombinedConditionCellSpecifications"),
     "arabinose_induction_of_the_ara_operon": (f"{_FLAT}/fold_changes.tsv::araC",
                                               f"{_FLAT}/condition/tf_condition.tsv::CPLX-172",

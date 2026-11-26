@@ -129,9 +129,12 @@ brief, Cellarium mapped — provenance-controlled — **where the whole-cell mod
   measurement, the gate refuses all seven whose numbers would mislead and answers five, all of which agree. Three of
   the seven were answered until 2026-11-25 and are now registry records: metabolic essentiality (the whole-cell model
   calls 1 of the 214 Keio-essential metabolic genes lethal, where iML1515 flux balance calls 163), anaerobic
-  respiration (nitrate reductase rises under two-fold in the model, sixteen-fold in PRECISE-1K), and overflow and
-  fermentation (the model excretes no acetate at any growth rate and almost no fermentation products without oxygen).
-  The three share one cause: the homeostatic flux balance has no growth objective. Across about 3,000 genes the
+  respiration (nitrate reductase transcription rises about fourfold in the model, its protein under twofold within a
+  generation, against sixteen-fold in PRECISE-1K), and overflow and fermentation (the model excretes no acetate at
+  any growth rate and almost no fermentation products without oxygen). Essentiality and overflow share one cause: the
+  homeostatic flux balance has no growth objective. The anaerobic shortfall is regulatory instead: the fitted inputs
+  are small, and when nitrate is added under anaerobiosis the simulation delivers a fifth of NarL's fitted effect on
+  nitrate reductase and raises fumarate reductase where the organism lowers it (BV-14). Across about 3,000 genes the
   model's expression changes track RNA-seq above chance (Pearson 0.29 and 0.21 for acetate and anaerobiosis) but
   compressed six- to tenfold.
 - **The showcase — a clash that led somewhere.** Cutting total rRNA synthesis capacity (to 74 / 46 / 16% of

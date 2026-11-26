@@ -75,8 +75,7 @@ def verify(gene: str, reference: str = "wildtype/basal", kinds: tuple = ("mrna",
     from . import differential, scope
 
     design = f"gene_knockout/KO:{gene}"
-    t_roots = differential._design_run_roots(design)
-    r_roots = differential._design_run_roots(reference)
+    t_roots, r_roots, _arm = differential._pair_run_roots(design, reference)     # one arm, never a pool
     if not t_roots:
         return {"gene": gene, "error": f"no local raw for {design}"}
     if not r_roots:

@@ -13,46 +13,46 @@
    "design": "condition/acetate",
    "count_floor": 20.0,
    "n_target_runs": 13,
-   "n_reference_runs": 18,
+   "n_reference_runs": 17,
    "absolute_spearman": {
     "glucose": {
-     "n": 2124,
+     "n": 2121,
      "rho": 0.727
     },
     "Acetate": {
-     "n": 2124,
-     "rho": 0.672
+     "n": 2121,
+     "rho": 0.673
     }
    },
    "fold_change_concordance": {
     "all": {
-     "n_genes": 2123,
-     "pearson_r": 0.129,
-     "spearman_rho": 0.06,
+     "n_genes": 2120,
+     "pearson_r": 0.128,
+     "spearman_rho": 0.061,
      "sign_concordance": 0.796,
-     "null_pearson_r": 0.007,
-     "null_pearson_sd": 0.019,
-     "deming_slope": 0.111,
+     "null_pearson_r": -0.002,
+     "null_pearson_sd": 0.02,
+     "deming_slope": 0.113,
      "verdict": "DIVERGENT (model-limit)"
     },
     "fitted": {
      "n_genes": 128,
-     "pearson_r": 0.271,
-     "spearman_rho": 0.353,
-     "sign_concordance": 0.66,
+     "pearson_r": 0.263,
+     "spearman_rho": 0.352,
+     "sign_concordance": 0.642,
      "null_pearson_r": 0.02,
-     "null_pearson_sd": 0.095,
-     "deming_slope": 0.266,
+     "null_pearson_sd": 0.094,
+     "deming_slope": 0.263,
      "verdict": "DIVERGENT (model-limit)"
     },
     "not_fitted": {
-     "n_genes": 1995,
+     "n_genes": 1992,
      "pearson_r": 0.054,
      "spearman_rho": 0.006,
-     "sign_concordance": 0.807,
-     "null_pearson_r": -0.004,
-     "null_pearson_sd": 0.025,
-     "deming_slope": 0.038,
+     "sign_concordance": 0.808,
+     "null_pearson_r": -0.007,
+     "null_pearson_sd": 0.027,
+     "deming_slope": 0.039,
      "verdict": "DIVERGENT (model-limit)"
     }
    },
@@ -62,7 +62,7 @@
    "design": "condition/acetate",
    "count_floor": 0.05,
    "n_target_runs": 13,
-   "n_reference_runs": 18,
+   "n_reference_runs": 17,
    "absolute_spearman": {
     "glucose": {
      "n": 2262,
@@ -77,31 +77,31 @@
     "all": {
      "n_genes": 2261,
      "pearson_r": 0.115,
-     "spearman_rho": 0.05,
-     "sign_concordance": 0.784,
+     "spearman_rho": 0.052,
+     "sign_concordance": 0.782,
      "null_pearson_r": -0.0,
      "null_pearson_sd": 0.016,
-     "deming_slope": 0.096,
+     "deming_slope": 0.098,
      "verdict": "DIVERGENT (model-limit)"
     },
     "fitted": {
      "n_genes": 138,
-     "pearson_r": 0.267,
-     "spearman_rho": 0.339,
-     "sign_concordance": 0.643,
+     "pearson_r": 0.259,
+     "spearman_rho": 0.337,
+     "sign_concordance": 0.625,
      "null_pearson_r": 0.005,
-     "null_pearson_sd": 0.07,
-     "deming_slope": 0.263,
+     "null_pearson_sd": 0.069,
+     "deming_slope": 0.26,
      "verdict": "DIVERGENT (model-limit)"
     },
     "not_fitted": {
      "n_genes": 2123,
-     "pearson_r": 0.049,
-     "spearman_rho": -0.006,
+     "pearson_r": 0.051,
+     "spearman_rho": -0.003,
      "sign_concordance": 0.794,
      "null_pearson_r": 0.001,
      "null_pearson_sd": 0.023,
-     "deming_slope": 0.034,
+     "deming_slope": 0.036,
      "verdict": "DIVERGENT (model-limit)"
     }
    },
@@ -111,46 +111,46 @@
    "design": "condition/succinate",
    "count_floor": 20.0,
    "n_target_runs": 3,
-   "n_reference_runs": 18,
+   "n_reference_runs": 17,
    "absolute_spearman": {
     "glucose": {
-     "n": 2129,
+     "n": 2126,
      "rho": 0.727
     },
     "Succinate": {
-     "n": 2129,
+     "n": 2126,
      "rho": 0.692
     }
    },
    "fold_change_concordance": {
     "all": {
-     "n_genes": 2128,
+     "n_genes": 2125,
      "pearson_r": 0.118,
-     "spearman_rho": 0.073,
-     "sign_concordance": 0.684,
-     "null_pearson_r": 0.005,
-     "null_pearson_sd": 0.023,
-     "deming_slope": 0.09,
+     "spearman_rho": 0.075,
+     "sign_concordance": 0.681,
+     "null_pearson_r": 0.002,
+     "null_pearson_sd": 0.025,
+     "deming_slope": 0.093,
      "verdict": "DIVERGENT (model-limit)"
     },
     "fitted": {
      "n_genes": 132,
-     "pearson_r": 0.294,
-     "spearman_rho": 0.319,
+     "pearson_r": 0.291,
+     "spearman_rho": 0.315,
      "sign_concordance": 0.698,
      "null_pearson_r": -0.008,
-     "null_pearson_sd": 0.065,
-     "deming_slope": 0.377,
+     "null_pearson_sd": 0.064,
+     "deming_slope": 0.382,
      "verdict": "DIVERGENT (model-limit)"
     },
     "not_fitted": {
-     "n_genes": 1996,
-     "pearson_r": 0.041,
-     "spearman_rho": 0.03,
-     "sign_concordance": 0.683,
-     "null_pearson_r": -0.007,
-     "null_pearson_sd": 0.021,
-     "deming_slope": 0.026,
+     "n_genes": 1993,
+     "pearson_r": 0.042,
+     "spearman_rho": 0.031,
+     "sign_concordance": 0.679,
+     "null_pearson_r": -0.004,
+     "null_pearson_sd": 0.028,
+     "deming_slope": 0.027,
      "verdict": "DIVERGENT (model-limit)"
     }
    },
@@ -160,7 +160,7 @@
    "design": "condition/succinate",
    "count_floor": 0.05,
    "n_target_runs": 3,
-   "n_reference_runs": 18,
+   "n_reference_runs": 17,
    "absolute_spearman": {
     "glucose": {
      "n": 2262,
@@ -174,43 +174,43 @@
    "fold_change_concordance": {
     "all": {
      "n_genes": 2260,
-     "pearson_r": 0.125,
-     "spearman_rho": 0.085,
-     "sign_concordance": 0.675,
+     "pearson_r": 0.127,
+     "spearman_rho": 0.088,
+     "sign_concordance": 0.67,
      "null_pearson_r": 0.001,
      "null_pearson_sd": 0.026,
-     "deming_slope": 0.087,
+     "deming_slope": 0.089,
      "verdict": "DIVERGENT (model-limit)"
     },
     "fitted": {
      "n_genes": 142,
-     "pearson_r": 0.277,
-     "spearman_rho": 0.294,
+     "pearson_r": 0.274,
+     "spearman_rho": 0.291,
      "sign_concordance": 0.679,
-     "null_pearson_r": 0.007,
-     "null_pearson_sd": 0.065,
-     "deming_slope": 0.369,
+     "null_pearson_r": 0.006,
+     "null_pearson_sd": 0.064,
+     "deming_slope": 0.374,
      "verdict": "DIVERGENT (model-limit)"
     },
     "not_fitted": {
      "n_genes": 2118,
-     "pearson_r": 0.062,
-     "spearman_rho": 0.044,
-     "sign_concordance": 0.675,
+     "pearson_r": 0.065,
+     "spearman_rho": 0.047,
+     "sign_concordance": 0.669,
      "null_pearson_r": -0.002,
      "null_pearson_sd": 0.019,
-     "deming_slope": 0.035,
+     "deming_slope": 0.038,
      "verdict": "DIVERGENT (model-limit)"
     }
    },
    "n_fitted_genes_in_condition": 224
   }
  ],
- "computed_utc": "2026-11-25T17:59:59Z",
+ "computed_utc": "2026-11-26T17:13:58Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "822290d",
+  "git_commit": "e5fbad5",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

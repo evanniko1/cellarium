@@ -1,0 +1,1530 @@
+{
+ "spec": "BV-14",
+ "knowledge_base": "9055ee3b (the BV-14 refit; data/parca/fits.json)",
+ "gates_amended": "2026-11-26, after the first evaluation closed the anaerobic group: the reference was the corpus fit's runs, a different model from this fresh build (docs/KB_DIVERGENCE.md); now each control's growth within 1.5-fold of its own fit's fitted rate (a sanity check). The first gates: basal [1.86e-4, 3.06e-4], anaerobic [1.13e-4, 1.80e-4]; the anaerobic control grew at 1.07e-4/s.",
+ "in_sample": "by construction for the fitted factors' targets: no_oxygen_plus_nitrate's expression is built from NarL's and FNR's fitted fold changes; the combination of the two is the test",
+ "contrasts": {
+  "nitrate_under_anaerobiosis": {
+   "model": "no_oxygen_plus_nitrate vs no_oxygen (refit, 4 against 4 runs)",
+   "organism": "PRECISE-1K no3_anaero vs wt_glc_anaero",
+   "organism_error": null,
+   "floor_20.0": {
+    "named_genes": {
+     "narG": {
+      "model": -0.687,
+      "organism": 3.332,
+      "model_target": 13.4,
+      "model_reference": 22.1
+     },
+     "narL": {
+      "model": 0.926,
+      "organism": 0.025,
+      "model_target": 179.8,
+      "model_reference": 94.2
+     },
+     "frdD": {
+      "model": 0.816,
+      "organism": -4.805,
+      "model_target": 143.6,
+      "model_reference": 81.2
+     },
+     "frdB": {
+      "model": 0.989,
+      "organism": -4.869,
+      "model_target": 152.2,
+      "model_reference": 76.2
+     },
+     "narX": {
+      "model": 1.321,
+      "organism": -0.107,
+      "model_target": 25.4,
+      "model_reference": 9.6
+     },
+     "narH": {
+      "model": -0.898,
+      "organism": 3.677,
+      "model_target": 10.8,
+      "model_reference": 21.0
+     },
+     "frdC": {
+      "model": 0.924,
+      "organism": -4.665,
+      "model_target": 120.1,
+      "model_reference": 62.8
+     },
+     "nirB": {
+      "model": 1.072,
+      "organism": 3.378,
+      "model_target": 32.6,
+      "model_reference": 15.0
+     },
+     "frdA": {
+      "model": 1.015,
+      "organism": -4.475,
+      "model_target": 171.0,
+      "model_reference": 84.1
+     },
+     "narI": {
+      "model": -1.017,
+      "organism": 3.231,
+      "model_target": 10.4,
+      "model_reference": 22.1
+     }
+    },
+    "n_runs_read": [
+     4,
+     4
+    ],
+    "n_genes": 2698,
+    "pearson_r": -0.019,
+    "spearman_rho": -0.038,
+    "null_pearson_r": -0.0,
+    "null_pearson_sd": 0.018,
+    "deming_slope": -0.038,
+    "sign_concordance": 0.516,
+    "verdict": "DIVERGENT (model-limit)"
+   },
+   "floor_0.05": {
+    "named_genes": {
+     "fnr": {
+      "model": 0.533,
+      "organism": 0.868,
+      "model_target": 14.2,
+      "model_reference": 9.5
+     },
+     "narI": {
+      "model": -1.017,
+      "organism": 3.231,
+      "model_target": 10.4,
+      "model_reference": 22.1
+     },
+     "narG": {
+      "model": -0.687,
+      "organism": 3.332,
+      "model_target": 13.4,
+      "model_reference": 22.1
+     },
+     "narK": {
+      "model": 0.501,
+      "organism": 2.841,
+      "model_target": 2.0,
+      "model_reference": 1.1
+     },
+     "narL": {
+      "model": 0.926,
+      "organism": 0.025,
+      "model_target": 179.8,
+      "model_reference": 94.2
+     },
+     "frdC": {
+      "model": 0.924,
+      "organism": -4.665,
+      "model_target": 120.1,
+      "model_reference": 62.8
+     },
+     "nirB": {
+      "model": 1.072,
+      "organism": 3.378,
+      "model_target": 32.6,
+      "model_reference": 15.0
+     },
+     "frdB": {
+      "model": 0.989,
+      "organism": -4.869,
+      "model_target": 152.2,
+      "model_reference": 76.2
+     },
+     "narH": {
+      "model": -0.898,
+      "organism": 3.677,
+      "model_target": 10.8,
+      "model_reference": 21.0
+     },
+     "frdA": {
+      "model": 1.015,
+      "organism": -4.475,
+      "model_target": 171.0,
+      "model_reference": 84.1
+     },
+     "frdD": {
+      "model": 0.816,
+      "organism": -4.805,
+      "model_target": 143.6,
+      "model_reference": 81.2
+     },
+     "narJ": {
+      "model": -0.966,
+      "organism": 3.554,
+      "model_target": 9.2,
+      "model_reference": 19.0
+     },
+     "narX": {
+      "model": 1.321,
+      "organism": -0.107,
+      "model_target": 25.4,
+      "model_reference": 9.6
+     }
+    },
+    "n_runs_read": [
+     4,
+     4
+    ],
+    "n_genes": 4062,
+    "pearson_r": 0.001,
+    "spearman_rho": 0.0,
+    "null_pearson_r": -0.002,
+    "null_pearson_sd": 0.013,
+    "deming_slope": 0.004,
+    "sign_concordance": 0.5,
+    "verdict": "DIVERGENT (model-limit)"
+   }
+  },
+  "anaerobic_vs_aerobic": {
+   "model": "no_oxygen vs basal (refit, 4 against 2 runs)",
+   "organism": "PRECISE-1K wt_glc_anaero vs wt_glc",
+   "organism_error": null,
+   "floor_20.0": {
+    "named_genes": {
+     "narI": {
+      "model": 2.724,
+      "organism": 3.828,
+      "model_target": 22.1,
+      "model_reference": 2.5
+     },
+     "narG": {
+      "model": 2.723,
+      "organism": 3.977,
+      "model_target": 22.1,
+      "model_reference": 2.5
+     },
+     "narL": {
+      "model": -1.735,
+      "organism": -0.053,
+      "model_target": 94.2,
+      "model_reference": 315.8
+     },
+     "frdB": {
+      "model": 2.045,
+      "organism": 3.559,
+      "model_target": 76.2,
+      "model_reference": 17.7
+     },
+     "frdC": {
+      "model": 1.981,
+      "organism": 3.598,
+      "model_target": 62.8,
+      "model_reference": 15.2
+     },
+     "frdD": {
+      "model": 2.14,
+      "organism": 3.788,
+      "model_target": 81.2,
+      "model_reference": 17.6
+     },
+     "narH": {
+      "model": 2.462,
+      "organism": 3.34,
+      "model_target": 21.0,
+      "model_reference": 3.0
+     },
+     "frdA": {
+      "model": 1.761,
+      "organism": 3.211,
+      "model_target": 84.1,
+      "model_reference": 24.1
+     },
+     "narX": {
+      "model": -1.85,
+      "organism": 0.317,
+      "model_target": 9.6,
+      "model_reference": 37.1
+     },
+     "fnr": {
+      "model": -8.255,
+      "organism": -1.07,
+      "model_target": 9.5,
+      "model_reference": 3219.0
+     }
+    },
+    "n_runs_read": [
+     4,
+     2
+    ],
+    "n_genes": 3017,
+    "pearson_r": 0.076,
+    "spearman_rho": 0.018,
+    "null_pearson_r": -0.002,
+    "null_pearson_sd": 0.019,
+    "deming_slope": 1.951,
+    "sign_concordance": 0.734,
+    "verdict": "DIVERGENT (model-limit)"
+   },
+   "floor_0.05": {
+    "named_genes": {
+     "narL": {
+      "model": -1.735,
+      "organism": -0.053,
+      "model_target": 94.2,
+      "model_reference": 315.8
+     },
+     "narI": {
+      "model": 2.724,
+      "organism": 3.828,
+      "model_target": 22.1,
+      "model_reference": 2.5
+     },
+     "nirB": {
+      "model": 1.83,
+      "organism": 3.149,
+      "model_target": 15.0,
+      "model_reference": 3.5
+     },
+     "frdB": {
+      "model": 2.045,
+      "organism": 3.559,
+      "model_target": 76.2,
+      "model_reference": 17.7
+     },
+     "frdD": {
+      "model": 2.14,
+      "organism": 3.788,
+      "model_target": 81.2,
+      "model_reference": 17.6
+     },
+     "narG": {
+      "model": 2.723,
+      "organism": 3.977,
+      "model_target": 22.1,
+      "model_reference": 2.5
+     },
+     "frdC": {
+      "model": 1.981,
+      "organism": 3.598,
+      "model_target": 62.8,
+      "model_reference": 15.2
+     },
+     "narK": {
+      "model": 1.062,
+      "organism": 3.288,
+      "model_target": 1.1,
+      "model_reference": 0.0
+     },
+     "fnr": {
+      "model": -8.255,
+      "organism": -1.07,
+      "model_target": 9.5,
+      "model_reference": 3219.0
+     },
+     "narH": {
+      "model": 2.462,
+      "organism": 3.34,
+      "model_target": 21.0,
+      "model_reference": 3.0
+     },
+     "narX": {
+      "model": -1.85,
+      "organism": 0.317,
+      "model_target": 9.6,
+      "model_reference": 37.1
+     },
+     "narJ": {
+      "model": 2.513,
+      "organism": 3.778,
+      "model_target": 19.0,
+      "model_reference": 2.5
+     },
+     "frdA": {
+      "model": 1.761,
+      "organism": 3.211,
+      "model_target": 84.1,
+      "model_reference": 24.1
+     }
+    },
+    "n_runs_read": [
+     4,
+     2
+    ],
+    "n_genes": 4085,
+    "pearson_r": 0.127,
+    "spearman_rho": 0.104,
+    "null_pearson_r": 0.002,
+    "null_pearson_sd": 0.013,
+    "deming_slope": 1.493,
+    "sign_concordance": 0.632,
+    "verdict": "DIVERGENT (model-limit)"
+   }
+  },
+  "nitrate_anaerobic_vs_aerobic": {
+   "model": "no_oxygen_plus_nitrate vs basal (refit, 4 against 2 runs)",
+   "organism": "PRECISE-1K no3_anaero vs wt_glc",
+   "organism_error": null,
+   "floor_20.0": {
+    "named_genes": {
+     "frdD": {
+      "model": 2.955,
+      "organism": -1.059,
+      "model_target": 143.6,
+      "model_reference": 17.6
+     },
+     "narX": {
+      "model": -0.529,
+      "organism": 0.167,
+      "model_target": 25.4,
+      "model_reference": 37.1
+     },
+     "narL": {
+      "model": -0.809,
+      "organism": -0.071,
+      "model_target": 179.8,
+      "model_reference": 315.8
+     },
+     "frdA": {
+      "model": 2.776,
+      "organism": -1.621,
+      "model_target": 171.0,
+      "model_reference": 24.1
+     },
+     "nirB": {
+      "model": 2.902,
+      "organism": 6.482,
+      "model_target": 32.6,
+      "model_reference": 3.5
+     },
+     "frdC": {
+      "model": 2.905,
+      "organism": -1.111,
+      "model_target": 120.1,
+      "model_reference": 15.2
+     },
+     "fnr": {
+      "model": -7.723,
+      "organism": -0.247,
+      "model_target": 14.2,
+      "model_reference": 3219.0
+     },
+     "frdB": {
+      "model": 3.035,
+      "organism": -1.355,
+      "model_target": 152.2,
+      "model_reference": 17.7
+     }
+    },
+    "n_runs_read": [
+     4,
+     2
+    ],
+    "n_genes": 3043,
+    "pearson_r": 0.04,
+    "spearman_rho": -0.007,
+    "null_pearson_r": -0.004,
+    "null_pearson_sd": 0.017,
+    "deming_slope": 9.851,
+    "sign_concordance": 0.701,
+    "verdict": "DIVERGENT (model-limit)"
+   },
+   "floor_0.05": {
+    "named_genes": {
+     "fnr": {
+      "model": -7.723,
+      "organism": -0.247,
+      "model_target": 14.2,
+      "model_reference": 3219.0
+     },
+     "narX": {
+      "model": -0.529,
+      "organism": 0.167,
+      "model_target": 25.4,
+      "model_reference": 37.1
+     },
+     "narG": {
+      "model": 2.036,
+      "organism": 7.265,
+      "model_target": 13.4,
+      "model_reference": 2.5
+     },
+     "nirB": {
+      "model": 2.902,
+      "organism": 6.482,
+      "model_target": 32.6,
+      "model_reference": 3.5
+     },
+     "frdB": {
+      "model": 3.035,
+      "organism": -1.355,
+      "model_target": 152.2,
+      "model_reference": 17.7
+     },
+     "narJ": {
+      "model": 1.547,
+      "organism": 7.289,
+      "model_target": 9.2,
+      "model_reference": 2.5
+     },
+     "frdC": {
+      "model": 2.905,
+      "organism": -1.111,
+      "model_target": 120.1,
+      "model_reference": 15.2
+     },
+     "narI": {
+      "model": 1.707,
+      "organism": 7.018,
+      "model_target": 10.4,
+      "model_reference": 2.5
+     },
+     "narH": {
+      "model": 1.565,
+      "organism": 6.973,
+      "model_target": 10.8,
+      "model_reference": 3.0
+     },
+     "frdA": {
+      "model": 2.776,
+      "organism": -1.621,
+      "model_target": 171.0,
+      "model_reference": 24.1
+     },
+     "narL": {
+      "model": -0.809,
+      "organism": -0.071,
+      "model_target": 179.8,
+      "model_reference": 315.8
+     },
+     "narK": {
+      "model": 1.563,
+      "organism": 6.085,
+      "model_target": 2.0,
+      "model_reference": 0.0
+     },
+     "frdD": {
+      "model": 2.955,
+      "organism": -1.059,
+      "model_target": 143.6,
+      "model_reference": 17.6
+     }
+    },
+    "n_runs_read": [
+     4,
+     2
+    ],
+    "n_genes": 4093,
+    "pearson_r": 0.067,
+    "spearman_rho": 0.014,
+    "null_pearson_r": -0.004,
+    "null_pearson_sd": 0.015,
+    "deming_slope": 6.337,
+    "sign_concordance": 0.669,
+    "verdict": "DIVERGENT (model-limit)"
+   }
+  }
+ },
+ "diagnostic_post_hoc": {
+  "added": "2026-11-26, after the pre-registered protein readout; it does not replace that readout",
+  "why": "The pre-registered protein readout came back opposite in sign to the organism at nar and frd. The model transcribes these operons rarely (narG protein rose at all in 4 of 12 generations per arm), so a per-cell protein mean over four seeds records when bursts fell. This reads, per arm and seed (last generation): the named proteins, each operon's synthesis probability (the function of the TF-bound state that the bursts sample), each factor's promoter occupancy, and the dry mass.",
+  "n_seeds": {
+   "basal": 2,
+   "no_oxygen": 4,
+   "no_oxygen_plus_nitrate": 4
+  },
+  "promoter_occupancy": {
+   "basal": {
+    "simulated": {
+     "PHOSPHO-NARL": 0.0,
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-ARCA": 0.001,
+     "CPLX0-226": 0.069,
+     "PHOSPHO-DCUR": 0.0
+    },
+    "fit_assumed": {
+     "PHOSPHO-NARL": 0.0,
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-ARCA": 0.0,
+     "CPLX0-226": 0.072,
+     "PHOSPHO-DCUR": 0.0
+    }
+   },
+   "no_oxygen": {
+    "simulated": {
+     "PHOSPHO-NARL": 0.0,
+     "FNR-4FE-4S-CPLX": 0.99,
+     "PHOSPHO-ARCA": 0.179,
+     "CPLX0-226": 0.216,
+     "PHOSPHO-DCUR": 0.0
+    },
+    "fit_assumed": {
+     "PHOSPHO-NARL": 0.0,
+     "FNR-4FE-4S-CPLX": 0.781,
+     "PHOSPHO-ARCA": 0.065,
+     "CPLX0-226": 0.384,
+     "PHOSPHO-DCUR": 0.0
+    }
+   },
+   "no_oxygen_plus_nitrate": {
+    "simulated": {
+     "PHOSPHO-NARL": 0.829,
+     "FNR-4FE-4S-CPLX": 0.99,
+     "PHOSPHO-ARCA": 0.125,
+     "CPLX0-226": 0.069,
+     "PHOSPHO-DCUR": 0.0
+    },
+    "fit_assumed": {
+     "PHOSPHO-NARL": 0.877,
+     "FNR-4FE-4S-CPLX": 0.781,
+     "PHOSPHO-ARCA": 0.065,
+     "CPLX0-226": 0.384,
+     "PHOSPHO-DCUR": 0.0
+    }
+   }
+  },
+  "contrasts": {
+   "nitrate_under_anaerobiosis": {
+    "dry_mass_fg": {
+     "target": [
+      280.9,
+      291.8,
+      259.3,
+      270.4
+     ],
+     "reference": [
+      210.7,
+      204.4,
+      205.9,
+      205.0
+     ],
+     "n": [
+      4,
+      4
+     ],
+     "log2_ratio": 0.416,
+     "welch_t": 9.697,
+     "p": 0.0016
+    },
+    "actual_synth_prob": {
+     "narGHJI": {
+      "target": [
+       4.476e-06,
+       4.168e-06,
+       4.072e-06,
+       4.586e-06
+      ],
+      "reference": [
+       2.965e-06,
+       3.874e-06,
+       3.589e-06,
+       4.083e-06
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.254,
+      "welch_t": 2.564,
+      "p": 0.0565
+     },
+     "frdABCD": {
+      "target": [
+       1.655e-05,
+       1.445e-05,
+       1.633e-05,
+       1.957e-05
+      ],
+      "reference": [
+       1.84e-05,
+       2.399e-05,
+       2.326e-05,
+       2.669e-05
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": -0.465,
+      "welch_t": -3.142,
+      "p": 0.0258
+     },
+     "nirBDC": {
+      "target": [
+       4.575e-06,
+       3.903e-06,
+       4.233e-06,
+       5.342e-06
+      ],
+      "reference": [
+       3.428e-06,
+       4.465e-06,
+       4.327e-06,
+       4.971e-06
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.071,
+      "welch_t": 0.484,
+      "p": 0.6455
+     },
+     "narK": {
+      "target": [
+       1.353e-06,
+       1.269e-06,
+       1.261e-06,
+       1.399e-06
+      ],
+      "reference": [
+       1.045e-06,
+       1.365e-06,
+       1.264e-06,
+       1.445e-06
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.045,
+      "welch_t": 0.442,
+      "p": 0.682
+     }
+    },
+    "fitted_log2_synth_ratio": {
+     "narGHJI": 1.294,
+     "frdABCD": -1.074,
+     "nirBDC": 1.966,
+     "narK": 1.163
+    },
+    "protein_per_seed": {
+     "narG": {
+      "target": [
+       10.0,
+       16.43,
+       2.0,
+       25.0
+      ],
+      "reference": [
+       43.0,
+       36.0,
+       6.716,
+       2.741
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": -0.687,
+      "welch_t": -0.776,
+      "p": 0.4779
+     },
+     "narH": {
+      "target": [
+       8.0,
+       14.32,
+       2.0,
+       19.0
+      ],
+      "reference": [
+       46.0,
+       32.0,
+       6.185,
+       0.0
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": -0.898,
+      "welch_t": -0.893,
+      "p": 0.4264
+     },
+     "narJ": {
+      "target": [
+       4.0,
+       17.91,
+       2.0,
+       13.0
+      ],
+      "reference": [
+       46.52,
+       25.55,
+       1.843,
+       2.0
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": -0.966,
+      "welch_t": -0.857,
+      "p": 0.443
+     },
+     "narI": {
+      "target": [
+       8.0,
+       14.71,
+       0.0,
+       19.0
+      ],
+      "reference": [
+       45.0,
+       35.02,
+       6.792,
+       1.719
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": -1.017,
+      "welch_t": -1.031,
+      "p": 0.3623
+     },
+     "frdA": {
+      "target": [
+       89.87,
+       130.8,
+       281.9,
+       181.7
+      ],
+      "reference": [
+       93.5,
+       61.16,
+       122.5,
+       59.4
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 1.015,
+      "welch_t": 1.972,
+      "p": 0.1242
+     },
+     "frdB": {
+      "target": [
+       85.68,
+       122.3,
+       250.4,
+       150.4
+      ],
+      "reference": [
+       82.41,
+       58.35,
+       113.4,
+       50.5
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.989,
+      "welch_t": 1.999,
+      "p": 0.1174
+     },
+     "frdC": {
+      "target": [
+       63.59,
+       85.39,
+       210.5,
+       120.8
+      ],
+      "reference": [
+       57.8,
+       45.66,
+       104.0,
+       43.77
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.924,
+      "welch_t": 1.622,
+      "p": 0.1784
+     },
+     "frdD": {
+      "target": [
+       90.15,
+       101.6,
+       239.3,
+       143.5
+      ],
+      "reference": [
+       85.73,
+       55.44,
+       127.9,
+       55.62
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.816,
+      "welch_t": 1.645,
+      "p": 0.1683
+     },
+     "nirB": {
+      "target": [
+       15.0,
+       55.33,
+       53.19,
+       7.0
+      ],
+      "reference": [
+       5.0,
+       47.0,
+       5.0,
+       3.0
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 1.072,
+      "welch_t": 1.067,
+      "p": 0.3279
+     },
+     "narK": {
+      "target": [
+       0.8206,
+       4.0,
+       3.0,
+       0.0
+      ],
+      "reference": [
+       0.0,
+       3.353,
+       1.0,
+       0.0
+      ],
+      "n": [
+       4,
+       4
+      ],
+      "log2_ratio": 0.501,
+      "welch_t": 0.71,
+      "p": 0.505
+     }
+    }
+   },
+   "anaerobic_vs_aerobic": {
+    "dry_mass_fg": {
+     "target": [
+      210.7,
+      204.4,
+      205.9,
+      205.0
+     ],
+     "reference": [
+      516.8,
+      487.9
+     ],
+     "n": [
+      4,
+      2
+     ],
+     "log2_ratio": -1.283,
+     "welch_t": -20.401,
+     "p": 0.0295
+    },
+    "actual_synth_prob": {
+     "narGHJI": {
+      "target": [
+       2.965e-06,
+       3.874e-06,
+       3.589e-06,
+       4.083e-06
+      ],
+      "reference": [
+       8.482e-07,
+       8.789e-07
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.071,
+      "welch_t": 11.354,
+      "p": 0.0014
+     },
+     "frdABCD": {
+      "target": [
+       1.84e-05,
+       2.399e-05,
+       2.326e-05,
+       2.669e-05
+      ],
+      "reference": [
+       3.668e-06,
+       3.869e-06
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.615,
+      "welch_t": 11.176,
+      "p": 0.0015
+     },
+     "nirBDC": {
+      "target": [
+       3.428e-06,
+       4.465e-06,
+       4.327e-06,
+       4.971e-06
+      ],
+      "reference": [
+       6.762e-07,
+       7.123e-07
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.63,
+      "welch_t": 11.203,
+      "p": 0.0015
+     },
+     "narK": {
+      "target": [
+       1.045e-06,
+       1.365e-06,
+       1.264e-06,
+       1.445e-06
+      ],
+      "reference": [
+       1.803e-07,
+       1.869e-07
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.801,
+      "welch_t": 12.67,
+      "p": 0.001
+     }
+    },
+    "fitted_log2_synth_ratio": {
+     "narGHJI": 1.459,
+     "frdABCD": 1.857,
+     "nirBDC": 1.807,
+     "narK": 2.155
+    },
+    "protein_per_seed": {
+     "narG": {
+      "target": [
+       43.0,
+       36.0,
+       6.716,
+       2.741
+      ],
+      "reference": [
+       1.0,
+       4.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.723,
+      "welch_t": 1.908,
+      "p": 0.1487
+     },
+     "narH": {
+      "target": [
+       46.0,
+       32.0,
+       6.185,
+       0.0
+      ],
+      "reference": [
+       1.0,
+       5.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.462,
+      "welch_t": 1.639,
+      "p": 0.1941
+     },
+     "narJ": {
+      "target": [
+       46.52,
+       25.55,
+       1.843,
+       2.0
+      ],
+      "reference": [
+       3.0,
+       2.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.513,
+      "welch_t": 1.533,
+      "p": 0.2225
+     },
+     "narI": {
+      "target": [
+       45.0,
+       35.02,
+       6.792,
+       1.719
+      ],
+      "reference": [
+       0.0,
+       5.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.725,
+      "welch_t": 1.807,
+      "p": 0.1597
+     },
+     "frdA": {
+      "target": [
+       93.5,
+       61.16,
+       122.5,
+       59.4
+      ],
+      "reference": [
+       10.26,
+       37.98
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.761,
+      "welch_t": 2.939,
+      "p": 0.0552
+     },
+     "frdB": {
+      "target": [
+       82.41,
+       58.35,
+       113.4,
+       50.5
+      ],
+      "reference": [
+       11.0,
+       24.39
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.045,
+      "welch_t": 3.737,
+      "p": 0.021
+     },
+     "frdC": {
+      "target": [
+       57.8,
+       45.66,
+       104.0,
+       43.77
+      ],
+      "reference": [
+       10.0,
+       20.34
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.981,
+      "welch_t": 3.177,
+      "p": 0.038
+     },
+     "frdD": {
+      "target": [
+       85.73,
+       55.44,
+       127.9,
+       55.62
+      ],
+      "reference": [
+       12.0,
+       23.3
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.14,
+      "welch_t": 3.522,
+      "p": 0.0295
+     },
+     "nirB": {
+      "target": [
+       5.0,
+       47.0,
+       5.0,
+       3.0
+      ],
+      "reference": [
+       6.0,
+       1.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.83,
+      "welch_t": 1.049,
+      "p": 0.3648
+     },
+     "narK": {
+      "target": [
+       0.0,
+       3.353,
+       1.0,
+       0.0
+      ],
+      "reference": [
+       0.0,
+       0.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.062,
+      "welch_t": 1.376,
+      "p": 0.2625
+     }
+    }
+   },
+   "nitrate_anaerobic_vs_aerobic": {
+    "dry_mass_fg": {
+     "target": [
+      280.9,
+      291.8,
+      259.3,
+      270.4
+     ],
+     "reference": [
+      516.8,
+      487.9
+     ],
+     "n": [
+      4,
+      2
+     ],
+     "log2_ratio": -0.866,
+     "welch_t": -14.148,
+     "p": 0.0143
+    },
+    "actual_synth_prob": {
+     "narGHJI": {
+      "target": [
+       4.476e-06,
+       4.168e-06,
+       4.072e-06,
+       4.586e-06
+      ],
+      "reference": [
+       8.482e-07,
+       8.789e-07
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.324,
+      "welch_t": 28.086,
+      "p": 0.0001
+     },
+     "frdABCD": {
+      "target": [
+       1.655e-05,
+       1.445e-05,
+       1.633e-05,
+       1.957e-05
+      ],
+      "reference": [
+       3.668e-06,
+       3.869e-06
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.15,
+      "welch_t": 12.189,
+      "p": 0.0011
+     },
+     "nirBDC": {
+      "target": [
+       4.575e-06,
+       3.903e-06,
+       4.233e-06,
+       5.342e-06
+      ],
+      "reference": [
+       6.762e-07,
+       7.123e-07
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.701,
+      "welch_t": 12.359,
+      "p": 0.0011
+     },
+     "narK": {
+      "target": [
+       1.353e-06,
+       1.269e-06,
+       1.261e-06,
+       1.399e-06
+      ],
+      "reference": [
+       1.803e-07,
+       1.869e-07
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.847,
+      "welch_t": 33.909,
+      "p": 0.0
+     }
+    },
+    "fitted_log2_synth_ratio": {
+     "narGHJI": 2.753,
+     "frdABCD": 0.783,
+     "nirBDC": 3.772,
+     "narK": 3.319
+    },
+    "protein_per_seed": {
+     "narG": {
+      "target": [
+       10.0,
+       16.43,
+       2.0,
+       25.0
+      ],
+      "reference": [
+       1.0,
+       4.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.036,
+      "welch_t": 2.128,
+      "p": 0.1102
+     },
+     "narH": {
+      "target": [
+       8.0,
+       14.32,
+       2.0,
+       19.0
+      ],
+      "reference": [
+       1.0,
+       5.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.565,
+      "welch_t": 1.859,
+      "p": 0.1368
+     },
+     "narJ": {
+      "target": [
+       4.0,
+       17.91,
+       2.0,
+       13.0
+      ],
+      "reference": [
+       3.0,
+       2.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.547,
+      "welch_t": 1.776,
+      "p": 0.1707
+     },
+     "narI": {
+      "target": [
+       8.0,
+       14.71,
+       0.0,
+       19.0
+      ],
+      "reference": [
+       0.0,
+       5.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.707,
+      "welch_t": 1.637,
+      "p": 0.1771
+     },
+     "frdA": {
+      "target": [
+       89.87,
+       130.8,
+       281.9,
+       181.7
+      ],
+      "reference": [
+       10.26,
+       37.98
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.776,
+      "welch_t": 3.362,
+      "p": 0.0335
+     },
+     "frdB": {
+      "target": [
+       85.68,
+       122.3,
+       250.4,
+       150.4
+      ],
+      "reference": [
+       11.0,
+       24.39
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 3.035,
+      "welch_t": 3.742,
+      "p": 0.0297
+     },
+     "frdC": {
+      "target": [
+       63.59,
+       85.39,
+       210.5,
+       120.8
+      ],
+      "reference": [
+       10.0,
+       20.34
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.905,
+      "welch_t": 3.201,
+      "p": 0.0461
+     },
+     "frdD": {
+      "target": [
+       90.15,
+       101.6,
+       239.3,
+       143.5
+      ],
+      "reference": [
+       12.0,
+       23.3
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.955,
+      "welch_t": 3.667,
+      "p": 0.0321
+     },
+     "nirB": {
+      "target": [
+       15.0,
+       55.33,
+       53.19,
+       7.0
+      ],
+      "reference": [
+       6.0,
+       1.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 2.902,
+      "welch_t": 2.267,
+      "p": 0.102
+     },
+     "narK": {
+      "target": [
+       0.8206,
+       4.0,
+       3.0,
+       0.0
+      ],
+      "reference": [
+       0.0,
+       0.0
+      ],
+      "n": [
+       4,
+       2
+      ],
+      "log2_ratio": 1.563,
+      "welch_t": 2.102,
+      "p": 0.1263
+     }
+    }
+   }
+  }
+ },
+ "computed_utc": "2026-11-26T15:54:01Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": true,
+  "git_commit": "e5fbad5",
+  "packages": {
+   "anthropic": "0.116.0",
+   "openai": "3.8.0",
+   "pydantic": "2.13.4",
+   "numpy": "2.4.6",
+   "scipy": "1.18.0",
+   "duckdb": "2.0.0",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "1.23.0"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "2.4.6"
+   },
+   "duckdb": {
+    "locked": "1.5.4",
+    "installed": "2.0.0"
+   }
+  }
+ }
+}

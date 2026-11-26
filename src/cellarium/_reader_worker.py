@@ -40,7 +40,13 @@ except Exception:  # fallback keeps the worker self-contained if the sibling mod
 # H-6: the pure numeric aggregation lives host-side in _reader_agg (numpy-only, no wholecell) so it's unit-testable
 # off the sim; here it's a sibling import (the worker dir is on sys.path, set above). Runs only in the container —
 # the host never imports this module (the wholecell import above fails first).
-from _reader_agg import add_tcs_correction, align_subunits, gene_lfc_map, tcs_dropped_subunits  # noqa: E402
+from _reader_agg import (  # noqa: E402
+    add_tcs_correction,
+    align_subunits,
+    gene_lfc_map,
+    named_time_means,
+    tcs_dropped_subunits,
+)
 
 SUMMARY_CHANNELS = {
     "growth_rate": ("Mass", "instantaneous_growth_rate"),
@@ -430,6 +436,79 @@ def mode_channels_per_run(roots_csv, names_csv):
         except Exception as e:                              # noqa: BLE001  one unreadable run is named, not fatal
             out[root] = {"error": f"{type(e).__name__}: {str(e)[:200]}"}
     return out
+
+
+def mode_synthesis_per_run(roots_csv, tus_csv, tfs_csv):
+    """BV-14: what each run's transcription did, not what its cells ended up holding. Over the last generation, the
+    time-mean actual and target synthesis probability (RnaSynthProb) of named transcription units, the promoter
+    occupancy (pPromoterBound) of named TFs, and the mean dry mass. An operon transcribed about once a generation
+    (nar in the model) reaches protein in bursts, so a per-cell protein mean over a few seeds measures when the
+    bursts fell; the synthesis probability is the function of the TF-bound state that the bursts sample."""
+    tus = [x for x in tus_csv.split(",") if x]
+    tfs = [x for x in tfs_csv.split(",") if x]
+    out = {}
+    for root in [r for r in roots_csv.split(",") if r]:
+        gs = _gens(root)
+        if not gs:
+            out[root] = {"error": "no simOut to sample in this run"}
+            continue
+        so = gs[-1]
+        try:
+            rna_ids = _attr(so, "RnaSynthProb", "rnaIds")
+            tf_ids = _attr(so, "RnaSynthProb", "tf_ids")
+            tu_idx = [rna_ids.index(t) for t in tus if t in rna_ids]
+            tf_idx = [tf_ids.index(t) for t in tfs if t in tf_ids]
+            r = TableReader(os.path.join(so, "RnaSynthProb"))
+            try:
+                act = r.readColumn("actual_rna_synth_prob", tu_idx, squeeze=False) if tu_idx else []
+                tgt = r.readColumn("target_rna_synth_prob", tu_idx, squeeze=False) if tu_idx else []
+                pb = r.readColumn("pPromoterBound", tf_idx, squeeze=False) if tf_idx else []
+            finally:
+                r.close()
+            got_tus = [t for t in tus if t in rna_ids]
+            got_tfs = [t for t in tfs if t in tf_ids]
+            a = named_time_means(got_tus, act, got_tus) if got_tus else {"means": {}}
+            t_ = named_time_means(got_tus, tgt, got_tus) if got_tus else {"means": {}}
+            p = named_time_means(got_tfs, pb, got_tfs) if got_tfs else {"means": {}}
+            out[root] = {"actual_synth_prob": a["means"], "target_synth_prob": t_["means"],
+                         "p_promoter_bound": p["means"],
+                         "dry_mass_fg": _finite(np.nanmean(_col(so, "Mass", "dryMass"))),
+                         "missing": [x for x in tus if x not in rna_ids] + [x for x in tfs if x not in tf_ids]}
+        except Exception as e:                              # noqa: BLE001  one unreadable run is named, not fatal
+            out[root] = {"error": f"{type(e).__name__}: {str(e)[:200]}"}
+    return out
+
+
+def mode_fit_synthesis(root, conds_csv, tus_csv, tfs_csv):
+    """BV-14: what the FIT asked for, beside what the simulation did (mode_synthesis_per_run). From the run's own
+    knowledge base: each named condition's fitted synthesis probability of named transcription units
+    (transcription.rna_synth_prob) and the promoter occupancy the fit assumed for named TFs (sim_data.pPromoterBound),
+    with the condition's active TFs. A name the fit does not carry is listed in `missing`, never returned as 0."""
+    import pickle
+    kb = _find_kb(root)
+    if kb is None:
+        return {"error": "no knowledge base (kb/simData.cPickle) above this run, reachable by the reader container"}
+    with open(kb, "rb") as f:
+        sd = pickle.load(f)
+    tx = sd.process.transcription
+    rna_ids = [str(x) for x in tx.rna_data["id"]]
+    conds = [x for x in conds_csv.split(",") if x]
+    tus = [x for x in tus_csv.split(",") if x]
+    tfs = [x for x in tfs_csv.split(",") if x]
+    out, missing = {}, []
+    for c in conds:
+        if c not in tx.rna_synth_prob or c not in sd.pPromoterBound:
+            missing.append(c)
+            continue
+        sp = np.asarray(tx.rna_synth_prob[c], dtype=float)
+        pb = sd.pPromoterBound[c]
+        out[c] = {"synth_prob": {t: float(sp[rna_ids.index(t)]) for t in tus if t in rna_ids},
+                  "p_promoter_bound": {t: float(pb[t]) for t in tfs if t in pb},
+                  "active_tfs": list(sd.condition_active_tfs.get(c, []))}
+    missing += [t for t in tus if t not in rna_ids]
+    missing += sorted({t for t in tfs for c in out if t not in sd.pPromoterBound[c]})
+    return {"knowledge_base": os.path.relpath(kb, os.path.dirname(os.path.dirname(kb))), "conditions": out,
+            "missing": missing}
 
 
 def mode_initiation_mass(roots_csv):
@@ -2003,6 +2082,10 @@ if __name__ == "__main__":
         out = mode_channels_per_run(run_root, sys.argv[3])
     elif mode == "initiation_mass":
         out = mode_initiation_mass(run_root)
+    elif mode == "synthesis_per_run":
+        out = mode_synthesis_per_run(run_root, sys.argv[3], sys.argv[4])
+    elif mode == "fit_synthesis":
+        out = mode_fit_synthesis(run_root, sys.argv[3], sys.argv[4], sys.argv[5])
     elif mode == "protein_noise":
         out = mode_protein_noise(run_root, sys.argv[3] if len(sys.argv) > 3 else "5")
     elif mode == "base_reaction_fluxes":

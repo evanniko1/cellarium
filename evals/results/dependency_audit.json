@@ -1,10 +1,10 @@
 {
  "spec": "Ms-1",
  "checkout_commit": "c2047dc9d",
- "n_references": 39,
- "n_unique": 33,
- "resolve_in_checkout": 33,
- "resolve_at_commit": 26,
+ "n_references": 41,
+ "n_unique": 35,
+ "resolve_in_checkout": 35,
+ "resolve_at_commit": 28,
  "missing": [],
  "only_in_uncommitted_changes": [
   "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
@@ -99,6 +99,11 @@
   "anaerobic_respiration_induction_magnitude": [
    {
     "ref": "reconstruction/ecoli/flat/fold_changes.tsv::fnr",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/flat/fold_changes_nca.tsv::fnr",
     "checkout": true,
     "commit": true
    },
@@ -221,6 +226,11 @@
     "commit": true
    },
    {
+    "ref": "reconstruction/ecoli/flat/fold_changes_nca.tsv::narL",
+    "checkout": true,
+    "commit": true
+   },
+   {
     "ref": "reconstruction/ecoli/flat/condition/tf_condition.tsv::PHOSPHO-NARL",
     "checkout": true,
     "commit": true
@@ -252,11 +262,11 @@
  "no_dependency_reason": {
   "per_gene_trna_abundance": "the per-gene counts are divided out of about 44 species measurements in the fit's inputs; no single symbol carries the division, so none is cited rather than a guess"
  },
- "computed_utc": "2026-11-25T17:26:46Z",
+ "computed_utc": "2026-11-26T15:50:46Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "7da6b3d",
+  "git_commit": "e5fbad5",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",
