@@ -86,9 +86,93 @@ def plan() -> int:
     return 0
 
 
+GENES = ("narG", "narH", "narJ", "narI", "frdA", "frdB", "frdC", "frdD", "narK", "nirB", "fnr", "narL", "narX")
+CONTRASTS = {   # model (target, reference) on the refit -> PRECISE-1K (cond_A reference, cond_B test)
+    "nitrate_under_anaerobiosis": (("no_oxygen_plus_nitrate", "no_oxygen"), ("wt_glc_anaero", "no3_anaero")),
+    "anaerobic_vs_aerobic": (("no_oxygen", "basal"), ("wt_glc", "wt_glc_anaero")),           # BV-AN on the refit
+    "nitrate_anaerobic_vs_aerobic": (("no_oxygen_plus_nitrate", "basal"), ("wt_glc", "no3_anaero")),  # the combination
+}
+
+
+def _design(name: str) -> dict:
+    return {"perturbation": "wildtype", "condition": "basal"} if name == "basal" else _cond(name)
+
+
+def _roots(name: str) -> list:
+    """The refit's QC-clean 3-generation runs of one design, from the plan, on this machine (kept local)."""
+    from cellarium import runner
+    from cellarium.generate import Design
+    plan_runs = json.loads(PLAN.read_text(encoding="utf-8"))["runs"]
+    out = []
+    for r in plan_runs:
+        if r["role"] == "run" and r["design"] == _design(name):
+            root = runner._run_subpath(Design(**r["design"]), r["seed"], SIM_PATH)
+            if (root / f"generation_{r['generations'] - 1:06d}").is_dir():
+                out.append(root)
+    return out
+
+
+def score() -> int:
+    """Each contrast: the model's protein log2 fold changes on the refit (reader.gene_lfc over explicit run roots,
+    both floors) against PRECISE-1K's RNA log2 fold changes (sci2.build_reference, DESeq2 unshrunk); the named nar/frd
+    genes side by side, and the all-gene concordance BV-4 uses."""
+    import time
+
+    from cellarium import provenance, reader, sci2
+    ok, msg = sci2.available()
+    if not ok:
+        print(msg, file=sys.stderr)
+        return 2
+    bmap = sci2._bnumber_map()
+    out = {"spec": "BV-14", "knowledge_base": "9055ee3b (the BV-14 refit; data/parca/fits.json)",
+           "gates_amended": json.loads(PLAN.read_text(encoding="utf-8")).get("gates_amended"),
+           "in_sample": ("by construction for the fitted factors' targets: no_oxygen_plus_nitrate's expression is built "
+                         "from NarL's and FNR's fitted fold changes; the combination of the two is the test"),
+           "contrasts": {}}
+    for key, ((t, r), (cond_a, cond_b)) in CONTRASTS.items():
+        t_roots, r_roots = _roots(t), _roots(r)
+        ref = sci2.build_reference({"column": "condition", "cond_A": cond_a, "cond_B": cond_b})
+        org = {g: v["log2FC"] for g, v in (ref.get("reference_lfc") or {}).items()} if "error" not in ref else {}
+        row = {"model": f"{t} vs {r} (refit, {len(t_roots)} against {len(r_roots)} runs)",
+               "organism": f"PRECISE-1K {cond_b} vs {cond_a}", "organism_error": ref.get("error")}
+        for floor in (20.0, 0.05):
+            if t_roots and r_roots:
+                g = reader.gene_lfc(t_roots, r_roots, kind="protein", floor=floor)
+            else:
+                g = {"error": "no runs on disk yet"}
+            lfc = g.get("lfc") if isinstance(g, dict) else None
+            if not isinstance(lfc, dict):
+                row[f"floor_{floor}"] = {"error": str(g)[:300]}
+                continue
+            sim = {}
+            named = {}
+            for gid, v in lfc.items():
+                sym = v.get("symbol") or gid
+                if v.get("log2fc") is None:
+                    continue
+                b = bmap.get(sym, sym)
+                sim[b] = v["log2fc"]
+                if sym in GENES:
+                    named[sym] = {"model": round(v["log2fc"], 3), "organism": round(org[b], 3) if b in org else None,
+                                  "model_target": v.get("target"), "model_reference": v.get("reference")}
+            conc = sci2.concordance(sim, org) if org else {"error": "no organism reference"}
+            row[f"floor_{floor}"] = {"named_genes": named,
+                                     **{k: conc.get(k) for k in ("n_genes", "pearson_r", "spearman_rho",
+                                                                  "null_pearson_r", "null_pearson_sd", "deming_slope",
+                                                                  "sign_concordance", "verdict", "error") if k in conc}}
+        out["contrasts"][key] = row
+        print(key, json.dumps({k: v for k, v in row.items() if k.startswith("floor_20")}, default=str)[:900])
+    out["computed_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    out["environment"] = provenance.code_environment()
+    OUT.write_text(json.dumps(out, indent=1, default=str) + "\n", encoding="utf-8")
+    return 0
+
+
 def main() -> int:
     if sys.argv[1:2] == ["plan"]:
         return plan()
+    if sys.argv[1:2] == ["score"]:
+        return score()
     print(__doc__)
     return 2
 
