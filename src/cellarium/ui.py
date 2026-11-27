@@ -132,10 +132,16 @@ def vet_summary(vet) -> dict:
     safety = vet.get("safety") or {}
     feas = vet.get("feasibility") or {}
     prov = vet.get("provenance") or {}
-    return {
+    out = {
         "runnable": bool(vet.get("runnable")),
         "safety": "FLAGGED — human review required" if safety.get("flagged") else "clear",
         "feasibility": "in the validated envelope" if feas.get("in_envelope") else "boundary probe (out-of-envelope)",
         "provenance": prov.get("provenance") or "—",
         "why": (prov.get("value") or feas.get("advisory") or "").strip(),
     }
+    # D33: what a knockout actually removes, shown to the person approving. S4b's relA "knockout" left relA
+    # expressed from its own transcription unit, and the approval view said nothing.
+    fps = vet.get("ko_footprint") or {}
+    if fps:
+        out["knockout"] = " ".join(f"{g}: {r.get('advisory', '')}" for g, r in fps.items()).strip()
+    return out

@@ -1947,3 +1947,49 @@ after it. With fewer than two valid runs a design reports no median, so A3 could
 - A plan run's `expected_qc` is read.
 
 The guard was mutated both ways ("never exempt" and "never block"), and each mutation failed a test.
+
+## D33 — A knockout's footprint reaches the proposer and the person approving it — 2026-11-27
+
+**What happened.** Discovery seed S4b's RelA-saturation control was proposed, queued, approved and read back as a
+relA knockout. It was not one.
+- `gene_knockout` zeroes ONE transcription unit: ko 1345, relA-mazEF.
+- relA is also transcribed from its own unit (ko 1871, TU0-42589).
+- In the runs RelA stayed at wildtype level (0.028-0.045 uM, no decline over three generations), and RelA-made
+  ppGpp in generation 1 matched or exceeded the wildtype's.
+
+This is class (2) of `docs/KNOCKOUT_SEMANTICS.md`, and `scope.ko_footprint('relA')` already predicted it
+(target_n_tu 2, target_silenced false). Nothing on the proposal path showed it:
+- `vet_hypothesis` attached the gene's role and benchmark only;
+- `propose_experiments` dropped the vet from its per-design results;
+- the approval summary had no line for it.
+
+Cellwright's read-back then misread the arm as "partly reduced", from one seed's last generation against another
+seed's.
+
+**What changed.** For `gene_knockout`, `multi_gene_knockout` and `graded_gene_knockout`, the vet carries
+`ko_footprint` per targeted gene: the unit it zeroes, the gene's unit count, whether the gene is silenced and on
+what evidence, its unit partners, and one advisory sentence. That sentence says:
+- When the gene stays expressed, how to remove it: `graded_gene_knockout` at level 1, which scales every unit of the
+  gene's own cistron (S1's leuS knockdown ran that way, across both of leuS's units).
+- When the gene is silenced, that its unit partners are at risk until measured.
+- For a graded design, that the gene is covered and only its partners are at risk.
+
+The footprint reaches three places:
+- `propose_experiments` returns it per design;
+- the queue stores it with the request;
+- `ui.vet_summary` shows it as `knockout`.
+
+It is advisory and never changes `runnable` or a request's status. A gene with no footprint record is a clean
+single-unit knockout and carries none.
+
+**Tests.** Eight in `tests/test_ko_footprint_vet.py`:
+- the relA footprint and its advisory;
+- targets read from `params` when no gene is named;
+- no footprint for a clean knockout or a non-knockout design;
+- a single-unit target with partners at risk;
+- a graded design;
+- the panel result and the stored request;
+- the approval summary.
+
+Six failed before the change. The two guards that passed (clean and non-knockout) were mutated by dropping the
+perturbation check and attaching a record to every gene; both then failed, as did two others.

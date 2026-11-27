@@ -1,0 +1,78 @@
+{
+ "batch": "disc_s4b_wt2",
+ "sim_path": "cellarium",
+ "parallel": 3,
+ "min_free_gb": 40,
+ "priority": 0,
+ "keep_raw": true,
+ "gates": {},
+ "approved_requests": [
+  "req_5b884697"
+ ],
+ "approved_by": "the user, 2026-11-27: \"proceed with the paid discovery runs ... where those simulations run\", then \"3 seeds locally is fine, keep going\"",
+ "approved_with": {
+  "seeds": [
+   103,
+   104,
+   105
+  ],
+  "extends": "evals/plans/disc_s4b.json (seeds 100-102)"
+ },
+ "why": "S4b's wildtype reference arm ended with one usable seed of three (s101 crashed at its first division, s100 qc translation_collapse), so the registered Welch t is uncomputable; Cellwright's read-back asked for fresh seeds of the same designs. Only the wildtype runs again: each rRNA arm already has two usable seeds, and the relA arm is not a relA knockout (ko 1345 zeroes relA-mazEF, not relA's own unit TU0-42589), so more of it cannot test the RelA rival.",
+ "keep_raw_why": "the read-back reads pre-shift windows from raw output (segment_means); deposit after it",
+ "seeds_why": "fresh seeds 103-105, never used for this design; same design dict as S4b-1",
+ "runs": [
+  {
+   "id": "S4b-1-req_5b884697-s103",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 103,
+   "generations": 3,
+   "group": "S4b_req_5b884697",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-1-req_5b884697-s104",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 104,
+   "generations": 3,
+   "group": "S4b_req_5b884697",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-1-req_5b884697-s105",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 105,
+   "generations": 3,
+   "group": "S4b_req_5b884697",
+   "role": "run",
+   "stage": 1
+  }
+ ],
+ "design_sha256": "ee07c1d45a9cb89958ae91b55dd11fc7f4d7bbd5a016467522c9b2becfdadac7"
+}

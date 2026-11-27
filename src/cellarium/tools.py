@@ -1178,13 +1178,61 @@ def propose_experiments(designs: list | None = None) -> dict:
             blocked += 1
         else:                       # unresolved gene, bad args, etc. — not queued
             refused += 1
-        results.append({"design": {k: d.get(k) for k in ("perturbation", "condition", "gene", "genes",
-                                                         "elongation_model")},
-                        "request_id": res.get("request_id"), "status": status, "error": res.get("error")})
+        entry = {"design": {k: d.get(k) for k in ("perturbation", "condition", "gene", "genes", "elongation_model")},
+                 "request_id": res.get("request_id"), "status": status, "error": res.get("error")}
+        # D33: the per-design result dropped the vet, so a knockout that would not remove its gene reached the
+        # proposer with no word of it. The footprint is advisory; it rides along, it never changes `status`.
+        fp = (res.get("vet") or {}).get("ko_footprint")
+        if fp:
+            entry["ko_footprint"] = fp
+        results.append(entry)
     return {"queued": queued, "blocked": blocked, "refused": refused, "total": len(designs),
             "requests": results,
             "note": f"Queued {queued}/{len(designs)} designs PENDING human approval (blocked {blocked}, refused "
                     f"{refused}). Cellwright cannot launch — a human approves the panel via the interface."}
+
+
+_KO_PERTURBATIONS = ("gene_knockout", "multi_gene_knockout", "graded_gene_knockout")
+
+
+def _ko_footprints(perturbation: str, gene: str | None, params: dict | None) -> dict:
+    """What each targeted gene's knockout actually removes, as an advisory (D33). Never a gate.
+
+    S4b's relA arm ran as a relA knockout and was not one: `gene_knockout` zeroes ONE transcription unit (ko 1345,
+    relA-mazEF) and relA is also on its own unit, so RelA stayed at wildtype level. `scope.ko_footprint` predicted
+    it; nothing on the proposal path showed it. `graded_gene_knockout` scales every unit of the gene's own cistron,
+    so for it only the unit partners are at risk. A gene with no footprint record is a clean single-unit knockout."""
+    if perturbation not in _KO_PERTURBATIONS:
+        return {}
+    from . import scope
+    targets = [gene] if gene else [g for g in ((params or {}).get("target_genes") or []) if g]
+    out = {}
+    for g in targets:
+        fp = scope.ko_footprint(g)
+        if not fp:
+            continue
+        co = [str(x) for x in (fp.get("co_members") or [])]
+        rec = {"zeroes": f"{fp.get('tu_name')} ({fp.get('tu_id')})", "target_n_tu": fp.get("target_n_tu"),
+               "target_silenced": fp.get("target_silenced"), "target_evidence": fp.get("target_evidence"),
+               "co_members": co}
+        partners = (f"the genes sharing {fp.get('tu_name')} ({', '.join(co)}) are at risk of going with it "
+                    "until measured") if co else ""
+        if perturbation == "graded_gene_knockout":
+            msg = (f"graded_gene_knockout scales every transcription unit of {g}'s own cistron, so {g} itself is "
+                   f"covered" + (f"; {partners}." if partners else "."))
+        elif fp.get("target_silenced") is False:
+            how = "measured" if fp.get("target_evidence") == "measured" else "predicted"
+            msg = (f"This design zeroes one transcription unit, {fp.get('tu_name')}, but {g} is on "
+                   f"{fp.get('target_n_tu')} units, so it is {how} to stay expressed from the others"
+                   + (f", while {partners}" if partners else "") + f". To remove {g} itself, use "
+                   "graded_gene_knockout at level 1 (factor 0 across every unit of its cistron). Either way, check "
+                   "the protein's level against the wildtype before reading the arm.")
+        else:
+            msg = (f"This design zeroes {fp.get('tu_name')}, {g}'s only unit, so {g} is silenced"
+                   + (f"; {partners}. Attribute a phenotype to the unit, not to {g} alone." if partners else "."))
+        rec["advisory"] = msg
+        out[g] = rec
+    return out
 
 
 def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
@@ -1222,6 +1270,9 @@ def vet_hypothesis(perturbation: str = "wildtype", condition: str | None = None,
                          "benchmark": c.get("benchmark"),
                          "expectation": "PRIOR only — judge the KO by VIABILITY + the benchmark, not growth rate"}
                         if c.get("known") else {"symbol": gene, "known": False})
+    footprints = _ko_footprints(perturbation, gene, params)
+    if footprints:
+        out["ko_footprint"] = footprints
     out["recommendation"] = ("BLOCK pending review: " + safety.reason if safety.flagged
                              else "SAFE to run. " + ("Out-of-sample — run it (a genuine test). " if oos else "")
                              + ("Out-of-envelope — interpret as a boundary probe. " if not feas.in_envelope else ""))
