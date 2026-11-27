@@ -52,6 +52,8 @@ class RunSpec:
     priority: int = 0           # lower launches first, across plans
     sim_path: str | None = None  # the knowledge base the run uses (runs/<sim_path>/kb); None = the plan's
     batch: str | None = None    # the plan the run came from, whose ledger records it
+    # D28: a refused design runs only under a named override (a pre-registered negative control), recorded beside it
+    envelope_override: str = ""
     status: str = "pending"
     why: str = ""
     summary: dict = field(default_factory=dict)
@@ -62,7 +64,8 @@ def load_plan(path: Path) -> tuple[dict, list[RunSpec]]:
     runs = [RunSpec(**{k: r[k] for k in ("id", "design", "seed", "generations", "group")},
                     role=r.get("role", "run"), stage=int(r.get("stage", 1)),
                     priority=int(r.get("priority", plan.get("priority", 0))),
-                    sim_path=r.get("sim_path") or plan.get("sim_path", "cellarium"), batch=plan["batch"])
+                    sim_path=r.get("sim_path") or plan.get("sim_path", "cellarium"), batch=plan["batch"],
+                    envelope_override=str(r.get("envelope_override") or ""))
             for r in plan["runs"]]
     ids = [r.id for r in runs]
     if len(ids) != len(set(ids)):
@@ -416,9 +419,13 @@ class Batch:
             root = self.run_fn(spec)
         except Exception as e:                                       # noqa: BLE001
             spec.status, spec.why = "failed", f"{type(e).__name__}: {str(e)[:300]}"
-            self.log("run_failed", spec, why=spec.why)
+            # D29: a run REFUSED before the model started produced nothing; a crash row for it has no knowledge base
+            # and a NULL condition, and filed V3's refused anaerobic-start control under another design. The ledger
+            # still records a terminal run_failed, marked refused.
+            refused = bool(getattr(e, "refused", False))
+            self.log("run_failed", spec, why=spec.why, **({"refused": True} if refused else {}))
             self.blocked_designs.add(design_key(spec))
-            if self.crash_index_fn:
+            if self.crash_index_fn and not refused:
                 try:
                     self.crash_index_fn(spec, e)
                     self.log("crash_indexed", spec)
@@ -523,7 +530,8 @@ def _wire(plan: dict, repo: str, ledger: Path):
         return Design(**spec.design)
 
     def run_fn(spec):
-        return runner.run_one(design(spec), spec.seed, spec.generations, sim_path=sp(spec))
+        return runner.run_one(design(spec), spec.seed, spec.generations, sim_path=sp(spec),
+                              envelope_override=spec.envelope_override or None)
 
     def read_fn(spec, root):
         return manifest.build_record(Path(root), design(spec), spec.seed)

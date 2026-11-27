@@ -182,8 +182,9 @@ def arms(include_dropped: bool = False) -> list[dict]:
         a["reportable"] += bool(rep)
         a["depths"][gens] += 1
         a["perturbations"][pert] += 1
-        a["first_ts"] = min(a["first_ts"] or ts, ts or a["first_ts"])
-        a["last_ts"] = max(a["last_ts"] or ts, ts or a["last_ts"])
+        if ts is not None:                       # D29: an arm of rows without a timestamp compared None with None
+            a["first_ts"] = ts if a["first_ts"] is None else min(a["first_ts"], ts)
+            a["last_ts"] = ts if a["last_ts"] is None else max(a["last_ts"], ts)
         # WHEN THE FIT WAS BUILT (ARM-2). This is the payoff of `parca_ts` and the reason it was worth
         # backfilling: `first_ts` is the earliest run that USED an arm, which is only a lower bound on when the
         # arm came into existence and is plainly wrong for a fit that sat unused. Every row of one arm shares a

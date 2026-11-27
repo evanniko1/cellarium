@@ -468,7 +468,9 @@ def _design_tag(design: Design) -> str:
     # them here it fell to the `base` branch below, which DROPS the timeline: BV-12's fitted-acetate and glucose
     # knockouts of one gene would have shared one label (found 2026-11-25, before any such row was indexed;
     # every indexed knockout-with-timeline row came through target_genes and already carries `#tl:`).
-    if "gene_knockout" in design.perturbation and not genes and design.timeline:
+    # D29: and without a timeline too. A GRADED knockout written this way took the `base` branch, which has no dose:
+    # the S2 reproduction (expression 0.25) was labelled `KO:argS`. For a plain knockout both branches give `KO:<g>`.
+    if "gene_knockout" in design.perturbation and not genes:
         from . import model
         genes = model.knockout_genes(f"{design.perturbation}/{design.condition or ''}")
     # The fitted physiology the run starts in (runSim --initial-condition, BV-12): a knockout in fitted acetate is a
@@ -1178,8 +1180,9 @@ def _label(design: Design, seed: int) -> str:
     slash-and-space convention as well as the interpunct one, so a crash row labelled without the mode would
     group a kinetic failure into the steady-state design cell — the exact pooling the axis prevents, on the
     rows least able to defend themselves. Byte-identical for the default model."""
-    tag = design.condition or design.timeline or "basal"
-    return f"{design.perturbation}/{tag}{mode_tag_suffix(design.elongation_model)} seed{seed}"
+    # D29: the full design tag, which carries the mode and every other identity axis. `condition or timeline` alone
+    # filed a crash of a fitted-start, graded, clamped or relaxed-threshold design under another design.
+    return f"{design.perturbation}/{_design_tag(design)} seed{seed}"
 
 
 def _run_job(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> dict:

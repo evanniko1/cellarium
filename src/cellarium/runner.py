@@ -995,14 +995,33 @@ def _run_subpath(design: Design, seed: int, sim_path: str) -> Path:
     return base.parent.parent / f"{base.parent.name}{suffix}" / base.name
 
 
-def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellarium") -> Path:
-    """Run one (design, seed) lineage. Returns THIS lineage's run root (per-generation dirs beneath it)."""
+_ENVELOPE_OVERRIDE_FILE = "envelope_override.json"
+
+
+class RunRefused(ValueError):
+    """A run refused BEFORE the model started, so nothing was simulated (D29). Still a ValueError for every caller
+    that catches one; `refused` tells a batch not to index it as a crash."""
+    refused = True
+
+
+def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellarium",
+            envelope_override: str | None = None) -> Path:
+    """Run one (design, seed) lineage. Returns THIS lineage's run root (per-generation dirs beneath it).
+
+    `envelope_override` (D28): a refused design runs only when the caller names why, and the reason is written beside
+    the run before it starts. It exists for a pre-registered NEGATIVE CONTROL, the defect itself run to show a panel
+    can tell two rules apart (CRIT tier 1's V3: the model's own threshold rule under a shift). Blank means no override;
+    an in-envelope design ignores it and records nothing."""
     v = envelope.check(design)
-    if not v.in_envelope:
-        raise ValueError(f"Refusing out-of-envelope design: {v.reason}")
+    override = (envelope_override or "").strip()
+    if not v.in_envelope and not override:
+        raise RunRefused(f"Refusing out-of-envelope design: {v.reason}")
     run_root = _run_subpath(design, seed, sim_path)
     run_root.mkdir(parents=True, exist_ok=True)  # write provenance BEFORE the sim so a CRASH still leaves labels (G3)
     _write_provenance(run_root, design)
+    if not v.in_envelope:
+        (run_root / _ENVELOPE_OVERRIDE_FILE).write_text(
+            json.dumps({"override": override, "refused_because": v.reason}, indent=1) + "\n", encoding="utf-8")
     # FAIL-1: rotate any earlier attempt's log NOW, before anything can refuse. A refusal below leaves no new
     # log, and a stale one left in place would be read as THIS attempt's failure.
     from . import failures

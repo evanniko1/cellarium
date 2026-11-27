@@ -1789,3 +1789,75 @@ unrecorded. One free-arm run (expression 0.25, seed 0) was rerun under today's s
 - The only other difference is two documentation keys the current GrowthLimits listener adds to its attributes.
 
 The source change does not move this design, so S2's comparison is not confounded by it.
+
+## D28 — A refused design runs only under a named, recorded override: CRIT V3's negative control — 2026-11-27
+
+**What happened.** CRIT tier 1's V3 plan pre-registered the model's own threshold rule under a threshold-moving shift
+as its negative control: the defect itself, run to show that the panel can tell the two rules apart. The plan said
+these runs go "through the batch, which calls the runner directly". But `runner.run_one` checks the envelope, and the
+envelope refuses exactly this defect (CRIT, D17). The first medium-rule run was refused at launch. The batch then
+blocked its design, so every medium arm would have been skipped and A3 left undecided. The relaxed arms are not
+affected. The false sentence in the plan was mine.
+
+**What changed.**
+- `run_one(..., envelope_override=reason)` runs a refused design only when the reason is non-blank. It writes
+  `envelope_override.json` beside the run before the run starts: the override and the envelope's refusal.
+- A blank or absent override is refused exactly as before.
+- An in-envelope design ignores the override and records nothing.
+- `bv_batch` carries a plan run's `envelope_override` to the runner.
+
+Reading such runs stays where it was: the question gate refuses questions about division timing after a shift, and
+only `evals/crit_t1.py` reads these runs.
+
+**V3's medium arms.** The six runs go in `evals/plans/crit_t1_v3_ctl.json`, each with the override reason. That batch
+starts only after the running V3 process has finished every relaxed arm. Each medium arm's run root is its relaxed
+sibling's transit dir, so a medium run started first would hold it (D25). A refused attempt left a manifest row marked
+"crashed" with 0 generations, which does not count as indexed. It will be set aside once the real run lands, because
+a refusal is not a crash.
+
+**Tests.** Six in `tests/test_envelope_override.py`. They cover:
+- refused without an override, with nothing written;
+- a blank override, which is none;
+- an override that runs the design and records why;
+- an in-envelope design, which records nothing;
+- the batch passing the plan's override through.
+
+The guard was mutated twice, to "None only" and to "never refuse", and each mutation failed a test.
+
+## D29 — The label writers keep every identity axis, and a refusal is not a crash — 2026-11-27
+
+**What happened.** The suite run after D27 found four more ways a row could sit under the wrong design. Each was found
+through a row written today.
+- **The writer dropped a dose.** A graded knockout written the generate.py way (`condition='KO:argS'`, no
+  `target_genes`) and with no timeline took `_design_tag`'s plain-condition branch, which has no dose. The S2
+  reproduction (expression 0.25; its design was copied from the August run's `design.json`) was labelled
+  `graded_gene_knockout/KO:argS`. That key reads as an undosed graded design.
+- **Crash labels lost identity.** `_label`, the crash row's label, used `condition or timeline` alone. A crash of a
+  fitted-start, graded, clamped or relaxed-threshold design was therefore filed under another design. V3's refused
+  anaerobic-start control landed on the same timeline with no initial condition, which the envelope refuses.
+- **A refusal became a crash.** A run refused before the model started was indexed as a crash, with no knowledge base
+  and a NULL condition. That tripped kb provenance (D6), the NULL-filter invariant and the guardrail timeline check.
+- **`arms()` crashed on missing dates.** Two such rows alone in an arm made `corpus_schema.arms()` compare None with
+  None.
+
+**What changed.**
+- `_design_tag` reads a knockout's genes from its condition with or without a timeline.
+- `_label` is `perturbation/_design_tag seedN`.
+- `runner.RunRefused` (still a ValueError) marks a refusal before the model started. `bv_batch` records it as a
+  terminal `run_failed` marked `refused`, blocks the design, and writes no crash row.
+- `arms()` keeps a missing timestamp out of `min` and `max`.
+
+**Measured.** Old against new over 123 distinct designs (every local `design.json` and every plan):
+- `_design_tag` changed for 5. All are argS graded designs written the August way, and each now carries the dose its
+  stored, backfilled label already had.
+- `_label` changed for 69. That only affects future crash rows; stored rows keep their labels. It also corrects
+  `failures.sibling_identities`, which matched siblings by this label and so looked for a target-gene knockout under
+  `gene_knockout/basal`.
+
+**Data.**
+- The reproduction row's identity columns were corrected in place. Its recorded model source is kept, which a re-index
+  from disk could not have claimed. The original shard is kept aside.
+- The two refusal "crash" rows were moved out of the manifest and noted in the V3 ledger.
+
+**Tests.** `tests/test_identity_writers.py`, seven. Four failed first, as expected. One test was itself wrong: it gave
+two runs one design, so the first failure blocked the second. It was fixed before the fix it tests.

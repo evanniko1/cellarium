@@ -1,0 +1,152 @@
+{
+ "batch": "crit_t1_v3_ctl",
+ "sim_path": "cellarium",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": -1,
+ "keep_raw": true,
+ "gates": {},
+ "rules": {
+  "V1_identity": "for each static design, the 'medium' and 'relaxed' runs of the same seed have identical listener tables (every column of every table but EvaluationTime) in both generations; any difference fails tier 1's first requirement (R1) and stops the panel",
+  "A1_continuity": "relaxed: the largest step-to-step change of ReplicationData.criticalInitiationMass in any run is below 5 fg; medium: oxygen off shows its full jump at the shift (975 to 590 fg)",
+  "A2_no_premature_division": "relaxed: no generation of any downshift run lasts less than 600 s",
+  "A3_rate_maintenance": "relaxed oxygen off: the median length of the generations born after the shift (1 and 2) is at least the unshifted glucose median, 2,879 s (well4cell rc2), the organism's rate maintenance after a downshift (Zaritsky & Helmstetter 1992)",
+  "negative_control": "medium oxygen off: the same median falls below 2,879 s, reproducing the early divisions; if it does not, the panel cannot tell the rules apart and A3 is not decided",
+  "upshift": "oxygen restored: reported, not decided; the relaxed rule should reach glucose's cycle length sooner than the medium rule, whose cell must first grow to the higher threshold (Panlilio et al. 2021)",
+  "decision": "the registry record replication_initiation_after_a_nutrient_shift gains holds_in for 'relaxed' only if V1, A1, A2 and A3 pass and the negative control discriminates",
+  "validity": "a run counts only if it finishes every generation; a failed run is listed with its reason and never averaged; a design left with fewer than two runs reports no median"
+ },
+ "predictions": {
+  "V1": "identical, by construction: with no threshold step the hook returns the model's own function",
+  "A1": "pass by construction",
+  "A3": "uncertain: tier 1 slows the drop but has no ppGpp pause, so the first post-shift cycle may still fall somewhat below 2,879 s; the medium control should be near well4cell's 2,238 s"
+ },
+ "decided_by": "the user, 2026-11-27: \"proceed with ... the first-tier fix for the replication threshold\"",
+ "parent_plan": "evals/plans/crit_t1.json",
+ "parent_design_sha256": "de2aab988ca52572b58004d8ffd4a0513bd261a826b3485c71c9c323a60f69b4",
+ "v1_result": {
+  "basal": {
+   "complete": true,
+   "identical": true,
+   "identical_all_bytes": false
+  },
+  "acetate_fitted": {
+   "complete": true,
+   "identical": true,
+   "identical_all_bytes": false
+  },
+  "no_oxygen_fitted": {
+   "complete": true,
+   "identical": true,
+   "identical_all_bytes": false
+  },
+  "aa_upshift": {
+   "complete": true,
+   "identical": true,
+   "identical_all_bytes": false
+  }
+ },
+ "v1_amendments": [
+  {
+   "utc": "2026-11-27T14:42:14Z",
+   "what": "V1's scorer removes three wall-clock fields before comparing: Main/attributes.json startTime and endTime, and shell.log's ' - Runtime: H:MM:SS' line. The all-bytes verdict is still reported (identical_all_bytes).",
+   "why": "the first score failed every pair on exactly these fields and nothing else; every listener column file was byte-identical in all 8 generation pairs. The registered rule compares listener table columns; the scorer hashed every file, which reached two files that also carry wall-clock time",
+   "when": "post hoc: after seeing the first score",
+   "first_score": "evals/results/crit_t1_v1_first_score.json",
+   "decided_by": "Claude, post hoc (D26); put to the user to keep or veto"
+  }
+ ],
+ "why": "V3's six medium-rule runs (the negative control and the upshift comparison), run under a recorded envelope override. The V3 plan registered them to run through the batch; runner.run_one refused them (the envelope refuses the very defect they measure), so the override makes the code match the registered intent (D28). Launched only after every relaxed sibling finished, so no transit dir is shared with a run in flight",
+ "runs": [
+  {
+   "id": "V3-oxygen_off-medium-s900",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal, 1200 minimal_minus_oxygen",
+    "params": {}
+   },
+   "seed": 900,
+   "generations": 3,
+   "group": "V3_oxygen_off_medium",
+   "role": "run",
+   "stage": 2,
+   "envelope_override": "CRIT tier 1 negative control (D28): the model's own threshold rule under a threshold-moving shift, the defect V3 measures; pre-registered in evals/plans/crit_t1.json; read only by evals/crit_t1.py"
+  },
+  {
+   "id": "V3-oxygen_off-medium-s901",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal, 1200 minimal_minus_oxygen",
+    "params": {}
+   },
+   "seed": 901,
+   "generations": 3,
+   "group": "V3_oxygen_off_medium",
+   "role": "run",
+   "stage": 2,
+   "envelope_override": "CRIT tier 1 negative control (D28): the model's own threshold rule under a threshold-moving shift, the defect V3 measures; pre-registered in evals/plans/crit_t1.json; read only by evals/crit_t1.py"
+  },
+  {
+   "id": "V3-oxygen_off-medium-s902",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal, 1200 minimal_minus_oxygen",
+    "params": {}
+   },
+   "seed": 902,
+   "generations": 3,
+   "group": "V3_oxygen_off_medium",
+   "role": "run",
+   "stage": 2,
+   "envelope_override": "CRIT tier 1 negative control (D28): the model's own threshold rule under a threshold-moving shift, the defect V3 measures; pre-registered in evals/plans/crit_t1.json; read only by evals/crit_t1.py"
+  },
+  {
+   "id": "V3-oxygen_restored-medium-s900",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal_minus_oxygen, 1200 minimal",
+    "params": {
+     "initial_condition": "no_oxygen"
+    }
+   },
+   "seed": 900,
+   "generations": 3,
+   "group": "V3_oxygen_restored_medium",
+   "role": "run",
+   "stage": 2,
+   "envelope_override": "CRIT tier 1 negative control (D28): the model's own threshold rule under a threshold-moving shift, the defect V3 measures; pre-registered in evals/plans/crit_t1.json; read only by evals/crit_t1.py"
+  },
+  {
+   "id": "V3-oxygen_restored-medium-s901",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal_minus_oxygen, 1200 minimal",
+    "params": {
+     "initial_condition": "no_oxygen"
+    }
+   },
+   "seed": 901,
+   "generations": 3,
+   "group": "V3_oxygen_restored_medium",
+   "role": "run",
+   "stage": 2,
+   "envelope_override": "CRIT tier 1 negative control (D28): the model's own threshold rule under a threshold-moving shift, the defect V3 measures; pre-registered in evals/plans/crit_t1.json; read only by evals/crit_t1.py"
+  },
+  {
+   "id": "V3-oxygen_restored-medium-s902",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal_minus_oxygen, 1200 minimal",
+    "params": {
+     "initial_condition": "no_oxygen"
+    }
+   },
+   "seed": 902,
+   "generations": 3,
+   "group": "V3_oxygen_restored_medium",
+   "role": "run",
+   "stage": 2,
+   "envelope_override": "CRIT tier 1 negative control (D28): the model's own threshold rule under a threshold-moving shift, the defect V3 measures; pre-registered in evals/plans/crit_t1.json; read only by evals/crit_t1.py"
+  }
+ ]
+}
