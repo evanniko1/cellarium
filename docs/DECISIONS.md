@@ -1705,3 +1705,87 @@ and they go back when the relaxed arms have moved out. V3 has three more pairs o
 **Tests.** Five in `tests/test_bv_batch.py`. The deadlock was reproduced first: the relaxed arm was skipped with "waited
 2.5 h: its transit dir /runs/w/900 holds basal-medium". The stage guard was removed once to confirm its test fails;
 without it, the scheduler spins.
+
+## D26 — CRIT tier 1 V1: the scorer compared wall-clock time; amended post hoc, V1 passes — 2026-11-27
+
+**What happened.** V1's first score failed all four pairs. Each generation of each pair differed in exactly 2 of
+291 files.
+- **`Main/attributes.json`.** Only `startTime` and `endTime` differ: the wall-clock start and end of the process.
+- **`shell.log`.** Only the line " - Runtime: H:MM:SS" differs: the wall-clock duration. The simulated length and
+  end time, and every line of the step-by-step printout, match.
+
+The other 289 files, every listener column among them, are byte-identical in all 8 generation pairs.
+
+The hook was installed in every relaxed run: its marker line is in each run's log. Under a shift it changes the
+threshold (the smoke test: the model's rule jumps 975 → 590 fg at the shift, the relaxed rule holds 975 fg), so
+identity on static runs is not vacuous.
+
+**Why the scorer, not the hook.** The registered rule compares "every column of every table but EvaluationTime". The
+scorer hashed every file under simOut except EvaluationTime. That is broader than the rule, and the extra breadth
+reached two more files that carry wall-clock time.
+
+**What changed.** The change was made post hoc, after seeing the first score.
+- `evals/crit_t1.py` removes exactly those three fields before comparing: the two attributes and the Runtime line.
+- The all-bytes verdict is still reported beside the amended one (`identical_all_bytes`, false for every pair).
+- The first score is kept (`evals/results/crit_t1_v1_first_score.json`).
+- The amendment is recorded in the V1 plan and its ledger, and carried into the V3 plan.
+- The amended scorer is still stricter than the registered rule: it also compares the remaining attributes and every
+  other line of the log.
+
+**Tests.** Three, in `tests/test_crit_t1_score.py`:
+- the wall-clock fields pass;
+- any other attribute fails;
+- any other log line fails, including one that starts " - Runtime:" without a clock.
+
+Each exclusion was widened once, to confirm its test fails.
+
+**Consequence.** V1 passes: 4 of 4 pairs identical, 0 of 291 files differing in every generation. V3 (12 runs) was
+built and launched on that pass. It goes to the user to keep or veto. A veto leaves V1 failed on wall-clock bytes
+alone, and V3's result is withdrawn.
+
+## D27 — A design key's tag fragments are all identity; three of today's designs had merged — 2026-11-27
+
+**What happened.** After today's runs were indexed, the integrity checks flagged CRIT V1's medium and relaxed acetate
+arms as "the same experiment under different names". The cause was in `factors.parse`.
+
+The tag writer (`manifest._design_tag`) appends fragments in a fixed order: `#expr`, `#tl`, `#ic`, `#tf`, `#occ`,
+`#ppgpp`, `#it`, `#elong`. The reader lifted `#tl:` and `#expr:` by partitioning at them, as if each were the last
+fragment, so every fragment written after them was swallowed.
+- **After `#tl:`.** The fragments went into the timeline id (`175649#ic:acetate`, 47 corpus keys). A non-knockout's
+  canonical id dropped the timeline and everything after it. The result:
+  - V1's medium and relaxed arms of the acetate- and anaerobic-fitted designs shared one id.
+  - S4b's wildtype control, fitted to rich medium and then downshifted, took the id of static wildtype basal.
+  - S4b's shifted rRNA knockouts took the ids of the corpus's static ones.
+
+  S4b's rows had not landed yet; its analysis would have pooled them with static runs as replicates.
+- **After `#expr:`.** The fragments went into the dose, which then failed to parse. S2's three ppGpp-clamped argS
+  doses (0.1, 0.25, 0.5) shared one canonical id, with neither the dose nor the clamp. Cellwright's S2 read-back would
+  have seen the clamped dose series as replicates of one experiment.
+
+**What changed.**
+- A fragment's value now ends at the next `#` (`factors._lift`).
+- Fragments written after a timeline or a dose go to `trailing` and are appended to the canonical id. An unknown
+  fragment therefore separates experiments rather than merging them.
+- `parse` also reports every non-lifted fragment (`extras`) and the fitted start (`initial_condition`).
+- `base` and `level_raw` keep their old values, so no existing comparison moves.
+- `corpus_schema.medium_of` keeps the initial condition in the medium key. It used to carry it by accident, inside the
+  swallowed timeline id; it now carries it on purpose, with the same value.
+
+**Measured over all 153 corpus keys** (plus four of S4b's), old against new:
+- Every existing canonical id, `base` and medium key is unchanged.
+- 47 timeline ids are now pure.
+- 10 canonical ids split, all of them designs that had wrongly merged.
+- The corpus has no duplicate experiments.
+
+**Tests.** `tests/test_identity_fragments.py`, seven, with literal expectations. The five that split merged designs
+failed first; the two that pin existing ids passed before and after.
+
+**Also checked, for S2 (`evals/results/disc_s2_repro.json`).** S2 reads its clamped arm, run today under model source
+`a4497e17+eb4fbe6`, against the corpus's free argS arm. That arm was run on 2026-08-06, and its model source is
+unrecorded. One free-arm run (expression 0.25, seed 0) was rerun under today's source on the byte-identical fit.
+- Every listener column the corpus kept is byte-identical over 2,529 steps: Mass, ppGpp, RelA and SpoT synthesis and
+  degradation, charging, synthetase and ribosome concentrations, MonomerCounts and RibosomeData.
+- Both daughters' inherited state is byte-identical too.
+- The only other difference is two documentation keys the current GrowthLimits listener adds to its attributes.
+
+The source change does not move this design, so S2's comparison is not confounded by it.

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -109,6 +110,11 @@ def plan() -> int:
 
 OUT = REPO / "evals" / "results" / "crit_t1.json"
 WALL_CLOCK = ("EvaluationTime",)            # per-process wall-clock timing: differs between any two runs
+# Amended post hoc (2026-11-27, D26), after V1's first score failed every pair on exactly these: two more
+# files carry wall-clock time. Only these fields are removed; the all-bytes verdict is reported beside it.
+WALL_CLOCK_ATTRIBUTES = {"Main/attributes.json": ("startTime", "endTime")}
+WALL_CLOCK_LOG = "shell.log"
+WALL_CLOCK_LOG_LINE = re.compile(rb"^ - Runtime: \d+:\d{2}:\d{2}$")
 UNSHIFTED_GLUCOSE_S = 2879.0                # well4cell rc2, median birth to division, glucose fitted, no shift
 SHIFT_AT = 1200.0
 
@@ -126,13 +132,29 @@ def _sim_out(root: Path, gen: int) -> Path:
     return root / f"generation_{gen:06d}" / "000000" / "simOut"
 
 
+def _without_wall_clock(rel: str, data: bytes) -> bytes:
+    """The bytes compared under the amended rule: a wall-clock field removed, everything else kept."""
+    if rel in WALL_CLOCK_ATTRIBUTES:
+        d = json.loads(data)
+        for k in WALL_CLOCK_ATTRIBUTES[rel]:
+            d.pop(k, None)
+        return json.dumps(d, sort_keys=True).encode()
+    if rel == WALL_CLOCK_LOG:
+        return b"\n".join(ln for ln in data.splitlines() if not WALL_CLOCK_LOG_LINE.match(ln))
+    return data
+
+
 def _digests(sim_out: Path) -> dict:
-    """{relative path: sha256} for every file under simOut except the wall-clock listener."""
+    """{relative path: (sha256 of the bytes, sha256 without wall-clock fields)} for every file under simOut except the
+    wall-clock listener. One read per file: the two digests differ only for the wall-clock carriers."""
     out = {}
     for f in sorted(sim_out.rglob("*")):
         rel = f.relative_to(sim_out).as_posix()
         if f.is_file() and rel.split("/")[0] not in WALL_CLOCK:
-            out[rel] = hashlib.sha256(f.read_bytes()).hexdigest()
+            data = f.read_bytes()
+            raw = hashlib.sha256(data).hexdigest()
+            kept = _without_wall_clock(rel, data)
+            out[rel] = (raw, raw if kept is data else hashlib.sha256(kept).hexdigest())
     return out
 
 
@@ -149,11 +171,14 @@ def score_v1(plan: dict) -> dict:
                 gens.append({"gen": g, "absent": [str(p) for p in (sa, sb) if not p.is_dir()]})
                 continue
             da, db = _digests(sa), _digests(sb)
-            differ = sorted(k for k in set(da) | set(db) if da.get(k) != db.get(k))
-            gens.append({"gen": g, "files_compared": len(set(da) | set(db)), "differ": differ[:40],
-                         "n_differ": len(differ)})
+            keys = set(da) | set(db)
+            raw = sorted(k for k in keys if (da.get(k) or (None,))[0] != (db.get(k) or (None,))[0])
+            differ = sorted(k for k in keys if (da.get(k) or (None, None))[1] != (db.get(k) or (None, None))[1])
+            gens.append({"gen": g, "files_compared": len(keys), "differ": differ[:40], "n_differ": len(differ),
+                         "differ_all_bytes": raw[:40], "wall_clock_only": sorted(set(raw) - set(differ))})
         complete = all("absent" not in x for x in gens)
         res[name] = {"identical": complete and all(x["n_differ"] == 0 for x in gens), "complete": complete,
+                     "identical_all_bytes": complete and all(not x["differ_all_bytes"] for x in gens),
                      "generations": gens}
     return res
 

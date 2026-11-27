@@ -1,0 +1,115 @@
+{
+ "spec": "CRIT tier 1 validation (pre-registered)",
+ "plan_design_sha256": "de2aab988ca52572b58004d8ffd4a0513bd261a826b3485c71c9c323a60f69b4",
+ "rules": {
+  "V1_identity": "for each static design, the 'medium' and 'relaxed' runs of the same seed have identical listener tables (every column of every table but EvaluationTime) in both generations; any difference fails tier 1's first requirement (R1) and stops the panel",
+  "A1_continuity": "relaxed: the largest step-to-step change of ReplicationData.criticalInitiationMass in any run is below 5 fg; medium: oxygen off shows its full jump at the shift (975 to 590 fg)",
+  "A2_no_premature_division": "relaxed: no generation of any downshift run lasts less than 600 s",
+  "A3_rate_maintenance": "relaxed oxygen off: the median length of the generations born after the shift (1 and 2) is at least the unshifted glucose median, 2,879 s (well4cell rc2), the organism's rate maintenance after a downshift (Zaritsky & Helmstetter 1992)",
+  "negative_control": "medium oxygen off: the same median falls below 2,879 s, reproducing the early divisions; if it does not, the panel cannot tell the rules apart and A3 is not decided",
+  "upshift": "oxygen restored: reported, not decided; the relaxed rule should reach glucose's cycle length sooner than the medium rule, whose cell must first grow to the higher threshold (Panlilio et al. 2021)",
+  "decision": "the registry record replication_initiation_after_a_nutrient_shift gains holds_in for 'relaxed' only if V1, A1, A2 and A3 pass and the negative control discriminates",
+  "validity": "a run counts only if it finishes every generation; a failed run is listed with its reason and never averaged; a design left with fewer than two runs reports no median"
+ },
+ "V1": {
+  "basal": {
+   "identical": false,
+   "complete": true,
+   "generations": [
+    {
+     "gen": 0,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    },
+    {
+     "gen": 1,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    }
+   ]
+  },
+  "acetate_fitted": {
+   "identical": false,
+   "complete": true,
+   "generations": [
+    {
+     "gen": 0,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    },
+    {
+     "gen": 1,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    }
+   ]
+  },
+  "no_oxygen_fitted": {
+   "identical": false,
+   "complete": true,
+   "generations": [
+    {
+     "gen": 0,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    },
+    {
+     "gen": 1,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    }
+   ]
+  },
+  "aa_upshift": {
+   "identical": false,
+   "complete": true,
+   "generations": [
+    {
+     "gen": 0,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    },
+    {
+     "gen": 1,
+     "files_compared": 291,
+     "differ": [
+      "Main/attributes.json",
+      "shell.log"
+     ],
+     "n_differ": 2
+    }
+   ]
+  }
+ },
+ "V3": {
+  "not_read": "WCECOLI_DOCKER is not set to the model image"
+ }
+}

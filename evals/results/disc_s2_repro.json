@@ -1,0 +1,43 @@
+{
+ "spec": "S2 validity check: bitwise reproduction of the corpus free argS arm under today's model source",
+ "plan": "evals/plans/disc_s2_repro.json",
+ "utc": "2026-11-27T15:15:59Z",
+ "design": "graded_gene_knockout/KO:argS#expr:0.25, seed 0, generation 0, fit 5f19d040 (byte-identical kb files)",
+ "corpus_run": {
+  "path": "runs_depleting/cellarium/graded_gene_knockout_006444/000000",
+  "run": "2026-08-06",
+  "model_sha256": null,
+  "files_in_generation_0": 117
+ },
+ "rerun": {
+  "path": "runs/kport5f19/graded_gene_knockout_006444/000000",
+  "model_sha256": "a4497e17+eb4fbe6da196931",
+  "files_in_generation_0": 291,
+  "steps": 2529
+ },
+ "shared_files": 117,
+ "shared_tables": [
+  "Daughter1_inherited_state.cPickle",
+  "Daughter2_inherited_state.cPickle",
+  "GrowthLimits",
+  "Main",
+  "Mass",
+  "MonomerCounts",
+  "RibosomeData",
+  "shell.log"
+ ],
+ "differ_all_bytes": [
+  "GrowthLimits/attributes.json",
+  "Main/attributes.json",
+  "shell.log"
+ ],
+ "differ_without_wall_clock": [
+  "GrowthLimits/attributes.json"
+ ],
+ "growthlimits_attribute_keys_only_in_rerun": [
+  "known_column_hazards",
+  "unwritten_columns"
+ ],
+ "verdict": "reproduced: every shared listener column and both daughters' inherited state are byte-identical over 2,529 steps; the only non-wall-clock difference is two documentation keys the current GrowthLimits listener adds to its attributes",
+ "consequence": "S2's comparison of its clamped arm (today's source) with the corpus free arm (August) is not confounded by the model-source change, for this design"
+}

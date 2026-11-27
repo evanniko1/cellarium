@@ -233,7 +233,10 @@ def medium_of(row: dict) -> tuple:
     """The (medium, media-timeline) key a row sits on. One definition, so no caller invents its own."""
     from . import factors, survey
     p = factors.parse(survey.design_key(row))
-    return (p.get("base") or "?", p.get("timeline_id") or "")
+    # The fitted start is part of a shifted run's medium history. Before D27 it rode along by accident, swallowed
+    # into the timeline id (`175649#ic:acetate`); it is kept on purpose now, with the same value.
+    ic = f"#ic:{p['initial_condition']}" if p.get("timeline_id") and p.get("initial_condition") else ""
+    return (p.get("base") or "?", (p.get("timeline_id") or "") + ic)
 
 
 def same_medium(row_a: dict, row_b: dict) -> bool:

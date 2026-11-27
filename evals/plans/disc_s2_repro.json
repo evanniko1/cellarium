@@ -1,0 +1,31 @@
+{
+ "batch": "disc_s2_repro",
+ "sim_path": "kport5f19",
+ "parallel": 7,
+ "min_free_gb": 40,
+ "priority": -1,
+ "keep_raw": true,
+ "gates": {},
+ "decided_by": "Claude, 2026-11-27: a validity check of the approved S2 comparison (one local run, no API spend)",
+ "why": "S2 reads its ppGpp-clamped argS arm (run today, model source a4497e17+eb4fbe6) against the corpus's free argS arm (run 2026-08-06; model source unrecorded, NULL) on the byte-identical fit 5f19d040. The comparison is valid only if the source change does not move this design. Rerun one free-arm run (expr 0.25, seed 0) under today's source and compare generation 0 bitwise with the corpus run (the phnE1 precedent). parallel 7: one slot beside the discovery batch's six",
+ "compare_with": "runs_depleting/cellarium/graded_gene_knockout_006444/000000/generation_000000",
+ "runs": [
+  {
+   "id": "S2-repro-argS-expr0.25-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "variant_index": 6444,
+     "level": 4
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 0,
+   "generations": 1,
+   "group": "S2_repro",
+   "role": "run",
+   "stage": 1
+  }
+ ]
+}

@@ -148,5 +148,15 @@
    "role": "run",
    "stage": 1
   }
+ ],
+ "amendments": [
+  {
+   "utc": "2026-11-27T14:42:14Z",
+   "what": "V1's scorer removes three wall-clock fields before comparing: Main/attributes.json startTime and endTime, and shell.log's ' - Runtime: H:MM:SS' line. The all-bytes verdict is still reported (identical_all_bytes).",
+   "why": "the first score failed every pair on exactly these fields and nothing else; every listener column file was byte-identical in all 8 generation pairs. The registered rule compares listener table columns; the scorer hashed every file, which reached two files that also carry wall-clock time",
+   "when": "post hoc: after seeing the first score",
+   "first_score": "evals/results/crit_t1_v1_first_score.json",
+   "decided_by": "Claude, post hoc (D26); put to the user to keep or veto"
+  }
  ]
 }

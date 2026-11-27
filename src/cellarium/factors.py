@@ -127,25 +127,41 @@ def tl_tag_suffix(timeline: str | None) -> str:
     return TL_TAG_PREFIX + hashlib.sha1(str(timeline).encode()).hexdigest()[:6]
 
 
-def tl_from_tag(tag: str) -> tuple[str, str | None]:
-    """Split a tag into (tag without the timeline fragment, timeline id). Inverse of `tl_tag_suffix`."""
+def _lift(tag: str, prefix: str) -> tuple[str, str | None, str]:
+    """Split a tag at one `#name:` fragment: (the tag before it, its value, the fragments written after it).
+
+    A fragment's value ends at the next `#`. D27 (2026-11-27): both readers below partitioned as if their fragment
+    were the LAST one, and the writer (`manifest._design_tag`) appends `#ic`, `#tf`, `#occ`, `#ppgpp` and `#it` after
+    `#expr` and `#tl`. Every one of those was swallowed: into the timeline id (`175649#ic:acetate`), out of a
+    non-knockout's canonical id altogether, and into a dose that then failed to parse."""
     t = str(tag or "")
-    if TL_TAG_PREFIX not in t:
-        return t, None
-    head, _, val = t.partition(TL_TAG_PREFIX)
-    return head, (val or None)
+    if prefix not in t:
+        return t, None, ""
+    head, _, rest = t.partition(prefix)
+    val, sep, after = rest.partition("#")
+    return head, (val or None), sep + after
+
+
+def _fragments(s: str) -> list[str]:
+    """`#ic:acetate#it:relaxed` -> ['ic:acetate', 'it:relaxed'], in written order."""
+    return [f for f in str(s or "").split("#") if f]
+
+
+def tl_from_tag(tag: str) -> tuple[str, str | None]:
+    """Split a tag into (tag without the timeline fragment, timeline id). Inverse of `tl_tag_suffix`. Fragments
+    written after the timeline stay in the tag; they are not part of the id (D27)."""
+    head, val, after = _lift(tag, TL_TAG_PREFIX)
+    return head + after, val
 
 
 def expr_from_tag(tag: str) -> tuple[str, float | None]:
-    """Split a tag into (tag without the dose fragment, expression factor). Inverse of `expr_tag_suffix`."""
-    t = str(tag or "")
-    if EXPR_TAG_PREFIX not in t:
-        return t, None
-    head, _, val = t.partition(EXPR_TAG_PREFIX)
+    """Split a tag into (tag without the dose fragment, expression factor). Inverse of `expr_tag_suffix`. Fragments
+    written after the dose stay in the tag; they are not part of the number (D27)."""
+    head, val, after = _lift(tag, EXPR_TAG_PREFIX)
     try:
-        return head, float(val)
+        return head + after, (float(val) if val is not None else None)
     except ValueError:
-        return head, None
+        return head + after, None
 
 
 def parse(design_key: str) -> dict:
@@ -165,39 +181,63 @@ def parse(design_key: str) -> dict:
     # The media TIMELINE, lifted out for the same reason and with the same hazard. Left inside the tag it would
     # make `KO:leuB` and `KO:leuB#tl:379e4c` different BASES to a caller comparing knockouts of one gene, which
     # is the opposite of what carrying it is for: the timeline separates two EXPERIMENTS on the same gene.
-    tag, timeline_id = tl_from_tag(tag)
+    #
+    # D27: the timeline id is the fragment's own value. What was written after it (`#ic`, `#occ`, `#ppgpp`, `#it`)
+    # is identity too, and goes to `trailing`, which `identity` appends to the canonical id. `base` and `level_raw`
+    # keep their pre-D27 values (the part before the timeline), so no existing comparison moves.
+    tag, timeline_id, after_tl = _lift(tag, TL_TAG_PREFIX)
     out = {"family": family, "base": None, "factor": None, "timeline_id": timeline_id,
-           "level_raw": None, "level_num": None, "genes": [], "elongation_model": elongation}
+           "level_raw": None, "level_num": None, "genes": [], "elongation_model": elongation,
+           "trailing": _fragments(after_tl), "extras": [], "initial_condition": None}
+
+    def _done(o: dict, inner: list) -> dict:
+        # every non-lifted fragment, wherever it sat, for readers that need one axis (the fitted start)
+        o["extras"] = list(inner) + [f for f in o["trailing"] if f not in inner]
+        ic = [f.partition(":")[2] for f in o["extras"] if f.startswith("ic:")]
+        o["initial_condition"] = ic[0] if ic else None
+        return o
     if not tag:
-        return out
+        return _done(out, [])
     if "|" in tag:                                   # 'basal|ppGpp:0.6x' — the compound dose form
+        tag, *inner = tag.split("#")                 # a fragment after the dose is not part of the dose (D27)
+        out["trailing"] = inner + out["trailing"]
         base, _, spec = tag.partition("|")
         out["base"] = base
         name, sep, lvl = spec.partition(":")
         out["factor"] = name if sep else None
         out["level_raw"] = lvl if sep else None
         out["level_num"] = level_num(lvl) if sep else None
-        return out
+        return _done(out, inner)
     if tag.startswith("KO:"):                        # 'KO:pfkA' or 'KO:gltX+relA+spoT'
         # A GRADED knockout is a DOSE, and the dose is part of the design's identity. Without it every level
         # of `graded_gene_knockout` collapses onto the full knockout's tag: the depleting-allele campaign's
         # four doses of argS (0.05/0.10/0.25/0.50 expression) all keyed to `graded_gene_knockout/KO:argS`,
         # putting four rows on the SAME (design, seed) cell with ppGpp spanning 675 to 56 — a 12x range
         # averaged as "seeds of one design". Kept in `level_num` so `one_factor_neighbours` can order the doses.
-        tag, expr = expr_from_tag(tag)
+        tag, expr_s, after_expr = _lift(tag, EXPR_TAG_PREFIX)
+        tag, *inner = tag.split("#")                 # the genes end at the first fragment (D27)
+        try:
+            expr = float(expr_s) if expr_s is not None else None
+        except ValueError:
+            expr = None
         out["base"] = "basal"
         out["factor"] = "graded_gene_KO" if expr is not None else "gene_KO"
         out["genes"] = sorted(model.knockout_genes(tag))   # one resolver, not a local split
         out["level_raw"] = str(expr) if expr is not None else tag[3:]
         out["level_num"] = expr
-        return out
+        inner = inner + _fragments(after_expr)
+        out["trailing"] = inner + out["trailing"]
+        return _done(out, inner)
+    # Below, fragments without a timeline before them stay inside `base` and `level_raw`, as they always have, so
+    # they reach the canonical id that way; only `trailing` (written after a timeline) is appended to it.
+    inner = _fragments(tag.partition("#")[2] and "#" + tag.partition("#")[2])
     if family == "timeline":                         # '0 minimal, 1200 minimal_plus_amino_acids'
         out["base"], out["factor"], out["level_raw"] = "minimal", "timeline", tag
-        return out
+        return _done(out, inner)
     out["base"] = tag                                # a bare single-factor condition
     out["factor"] = "media" if family == "condition" else (family or None)
     out["level_raw"] = tag
-    return out
+    return _done(out, inner)
 
 
 def identity(design_key: str) -> dict:
@@ -212,6 +252,12 @@ def identity(design_key: str) -> dict:
     scope, fps = _scope(), _footprints()
     out = dict(f, aliases=[], perturbs=[], label_integrity="ok", true_label=None,
                canonical_id=None, notes=[])
+    # D27: the media timeline and every fragment written after it (or after a dose) are part of the experiment.
+    # Before D27 a non-knockout's canonical id dropped them all, so a design started fitted to rich medium and then
+    # downshifted (S4b's wildtype and rRNA arms) took the static design's id, and two threshold rules of one fitted
+    # design (CRIT V1) took one id; and a dose followed by a clamp lost both. An unknown fragment separates.
+    tail = (f"#{TL_TAG_PREFIX.strip('#:')}:{f['timeline_id']}" if f.get("timeline_id") else "") + \
+        "".join("#" + x for x in f.get("trailing") or [])
 
     if f["factor"] in ("gene_KO", "graded_gene_KO") and f["genes"] and (
             f["family"] not in _MAPPED_FAMILIES or not scope):
@@ -222,7 +268,7 @@ def identity(design_key: str) -> dict:
         out["notes"].append(
             f"{f['family']} does not use the gene_knockout index this check reads" if scope else
             "the gene scope map could not be read, so what this design silences was not checked")
-        out["canonical_id"] = f"{f['family']}#{f['factor']}:{f['level_raw']}"
+        out["canonical_id"] = f"{f['family']}#{f['factor']}:{f['level_raw']}" + tail
         if f["elongation_model"] != DEFAULT_MODE:
             out["canonical_id"] += f"#elong:{f['elongation_model']}"
         out["true_label"] = true_label(design_key, out)
@@ -266,8 +312,7 @@ def identity(design_key: str) -> dict:
         # knockout under an amino-acid downshift and under a constant medium addresses one ko_index and is two
         # experiments; without this they collapse to one canonical id and the alias invariant reports them as
         # replicates of each other — which is precisely the merge that DUP-1 found in the labels.
-        tl = f"#{TL_TAG_PREFIX.strip('#:')}:{f['timeline_id']}" if f.get("timeline_id") else ""
-        out["canonical_id"] = (f"{f['family']}#idx:" + "+".join(str(i) for i in sorted(idx)) + dose + tl
+        out["canonical_id"] = (f"{f['family']}#idx:" + "+".join(str(i) for i in sorted(idx)) + dose + tail
                                ) if idx else None
         # Genes sharing a targeted index. For a SINGLE-gene design these are true aliases — the identical run
         # under another name. For a multi-KO they merely ride one of the addressed indices, which is a different
@@ -283,12 +328,13 @@ def identity(design_key: str) -> dict:
         # The model's rRNA rebalance erases WHICH operons were removed while preserving HOW MUCH was removed,
         # so these are a total-capacity dose, not an operon deletion. Naming them otherwise is the error.
         n = int(f["level_num"] or 0)
-        out["canonical_id"] = f"{f['family']}#rrna_removed:{n}of{N_RRN_OPERONS}"
+        out["canonical_id"] = f"{f['family']}#rrna_removed:{n}of{N_RRN_OPERONS}" + tail
         out["label_integrity"] = "relabel_required"
         out["perturbs"] = ["total_rRNA_capacity"]
         out["notes"].append("not an operon deletion: the rebalance erases operon identity but preserves the dose")
     else:
-        out["canonical_id"] = f"{f['family']}#{f['factor']}:{f['level_raw']}" if f["factor"] else f"{f['family']}"
+        out["canonical_id"] = (f"{f['family']}#{f['factor']}:{f['level_raw']}" if f["factor"] else f"{f['family']}"
+                               ) + tail
         # J-2b (2026-11-25): a condition's label names what was added; its medium can rule out the reading the name
         # invites (`plus_nitrate` keeps oxygen: aerobic growth with nitrate present, not nitrate respiration).
         # Conditions were marked "ok" here without being looked at; now the medium decides.
