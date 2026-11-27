@@ -56,6 +56,11 @@ def _corpus_params_keys() -> set:
             # different kind of thing under this rule.
             if r.get("kind") == "parca_rebuild":
                 continue
+            # A REJECTED request never runs, so its params are no design's identity. 2026-11-27: the first live
+            # discovery run queued proposals carrying `knockdown_level` and `co_knockdown`, which nothing reads; they
+            # were rejected, and launch.propose now refuses an undeclared parameter before it reaches the queue.
+            if r.get("status") == "rejected":
+                continue
             keys |= set(((r.get("design") or {}).get("params")) or {})
     except Exception:
         pass

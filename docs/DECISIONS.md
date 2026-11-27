@@ -1537,3 +1537,145 @@ one-tool call. Every live Cellwright turn sends the whole list, so every live Ce
 **Limitation.** The test encodes the one rule the API enforced here. It is not the API's validator, so a different
 schema rejection would still be found only by a live call. The paid-run recipe's free count before each new kind of
 run is that live check.
+
+## D21 — S2's comparison arm: a graded knockdown with ppGpp held at basal — 2026-11-27
+
+**In one line.** `params.ppgpp_clamp = "basal"` on a graded knockdown holds ppGpp at the fitted basal concentration,
+so the stringent response cannot raise it. This is the comparator the discovery campaign's S2 needs: does the
+stringent response soften the growth cost of a synthetase shortfall, as it does in B. subtilis (Parker et al. 2020)?
+
+**Decided by the user** (2026-11-27): "proceed with ... the stringent-response question's comparison arm".
+
+**What changed.**
+- **The variant.** Cellarium's own graded variant (`model_patches/variants/graded_gene_knockout.py`) reads
+  `GRADED_KO_PPGPP_CLAMP=basal`.
+  - It sets what upstream's `ppgpp_conc` variant sets for a factor of 1: no RelA or SpoT synthesis or degradation,
+    and `force_constant_ppgpp`.
+  - It applies the clamp at index 0 too, which is the clamped control.
+  - Without the variable, nothing changes.
+- **Identity.** The clamp is an identity axis: label `#ppgpp:basal`, run directory `__ppbasal`, and the launch queue's
+  key.
+- **The runner.** It mounts Cellarium's copy of the variant for a clamped design only, replacing the checkout's copy at
+  the same container path.
+- **Refusal before launch.** The runner refuses a clamp on any other variant or in a kinetic mode: either would run
+  unclamped under a clamped label.
+
+**A confound, recorded.**
+- `force_constant_ppgpp` also moves metabolism's biomass targets from the RNA/protein path to the doubling-time path
+  (RP, re-verified the same day). So the clamped arm differs from the free arm in two respects.
+- The S2 contrast is an interaction: the knockdown's effect with ppGpp free against held. That cancels what the two
+  paths share at basal growth, but not how they diverge under the knockdown.
+- The read must report the free arm's RNA/protein ratio beside the result.
+
+**What exists and what must run.**
+- The corpus holds argS at 5%, 10%, 25% and 50% expression, 4 seeds each, with ppGpp free.
+- It holds ppGpp clamps at 0.2x, 0.6x, 1.6x and 2.0x, but no 1x control.
+- The clamped arm and its control are new runs. The S2 Council and Cellwright session propose them.
+
+## D22 — CRIT tier 1: the replication threshold relaxes instead of jumping, without copying model code — 2026-11-27
+
+**In one line.** `params.initiation_threshold = "relaxed"` makes the critical initiation mass relax towards a new
+medium's value over about one doubling time, as a closed-form function of the run's timeline and absolute time. A run
+in which no event moves the threshold calls the model's own function unchanged.
+
+**Decided by the user** (2026-11-27): "proceed with ... the first-tier fix for the replication threshold".
+
+**How, and why this way.**
+- **The spec's plan (CRIT_FIX_SPEC s.6, local)** was a patch to `chromosome_replication.py` on the campaign branch.
+  That file is Stanford-licensed, the checkout is read-only here, and the licence bars redistributing its code.
+- **What was built instead.** A hook, `model_patches/hooks/initiation_threshold.py`, which is Cellarium's own code.
+  - It runs in place of the model's `runSim.py`.
+  - After the model's own `ChromosomeReplication.initialize` has run, it replaces the process's threshold function with
+    `RelaxedThreshold`, then runs `runSim.py` as `__main__`.
+  - Every generation of a manual run happens in that one process.
+  - Absolute time crosses division, so a daughter needs no inherited state.
+- **The formula:**
+  - on [t_k, t_k+1): M(t) = M*_k + (M(t_k) - M*_k) exp(-(t - t_k)/T_k), with T_k = tau_k / ln 2.
+  - M(t_0) is the model's own startup value.
+- **Identity, launch and the envelope.**
+  - An identity axis: label `#it:relaxed`, directory `__itrelaxed`, the launch key.
+  - `"medium"` names the model's own rule and labels like no setting.
+  - The hook is mounted at `/cellarium/initiation_threshold.py`, and the command is prefixed with it.
+  - The envelope now admits a threshold-moving shift under `relaxed`, with tier 1's limits in its reason.
+  - Reading such a run stays refused: the registry record does not move until the shift panel passes.
+
+**Validation, pre-registered** (`evals/crit_t1.py`, plan `evals/plans/crit_t1.json`, 20 runs).
+- **V1, static identity.** Basal; acetate and no oxygen started fitted; an amino-acid upshift, both sides at the cap.
+  The model's rule against the relaxed rule must give identical listener tables, all but the wall-clock table.
+- **V3, shift panel.** Oxygen removed, and oxygen restored, 3 seeds x 3 generations under both rules.
+  - The model's rule is the negative control.
+  - Acceptance: no step above 5 fg in the relaxed threshold; no generation shorter than 600 s; and the median
+    post-shift generation at least the unshifted glucose 2,879 s.
+- **Left out: acetate mid-run.** The envelope refuses it for a second, independent reason, the carbon switch, so it
+  would confound. A3 is therefore decided on one downshift.
+- **Offline tests.** `tests/test_initiation_threshold_hook.py` covers V2, the closed form; it was run against a
+  stand-in for the model's units. `tests/test_initiation_threshold_design.py` covers the wiring.
+
+**Limitations (tier 1).**
+- T is phenomenological, tied to a quantity the model already uses.
+- After a downshift the threshold still falls over the next generation, so initiation comes somewhat early. There is
+  no ppGpp pause; that is tier 2.
+- A sinusoidal medium is refused.
+- Upstream reporting (vEcoli) was not part of the decision and is not done.
+
+## D23 — The launch queue refuses a parameter nothing reads, and resolves a graded design — 2026-11-27
+
+**In one line.** The first live discovery run (S1) queued five proposals "none blocked" although four could not run as
+proposed. Two gaps let that happen, and both are now closed before anything reaches the queue.
+
+**The two gaps.**
+- **Graded designs went unresolved.** `launch.propose` resolved the gene and index for plain and multi-gene knockouts
+  only. Three graded designs with condition "basal", no gene and an unread `knockdown_level` went to the queue, to fail
+  at launch at best.
+- **Unread parameters passed silently.** A relA knockout carrying `co_knockdown: {leuS: 0.5}` would have run as a plain
+  relA knockout while the queue, and the person approving it, saw a double perturbation. What is approved and what runs
+  must not differ, and this is the shape in which they do.
+
+**What changed.**
+- **Accepted parameters.** `launch.propose` accepts a parameter only if the manifest declares it
+  (`IDENTITY_AXES` / `NOT_IDENTITY_AXES`). The refusal lists what is accepted.
+- **Graded designs.** A graded design is resolved to one gene and a level, with the condition set to `KO:<gene>` and
+  `variant_index = ko_index * 10 + level`. Its refusal names the level-to-expression table.
+- **The five proposals.** All five were rejected, the wild-type control with them so the panel is re-proposed whole.
+  Cellwright is told why in a follow-up turn of the same session, recorded verbatim.
+- **Tests.** `tests/test_launch_proposal_vocabulary.py`. The identity-axis census
+  (`test_every_params_key_in_use_is_classified`) independently flagged the two unread keys in the real queue; it now
+  skips rejected requests, which never run.
+
+## D24 — The queue resolves every index a variant reads, and a label keeps a condition design's timeline — 2026-11-27
+
+**In one line.** The discovery runs' second round of proposals found D23 incomplete. A variant that reads its index as
+a meaning now gets the index its design names, or the proposal is refused. A label now keeps the timeline that a
+condition design carries.
+
+**What the second round found.**
+- **rRNA knockouts got a random dose.** S4b's `rrna_operon_knockout` proposals carried `num_operons_to_delete` and no
+  index. The runner falls back to a content hash, and the variant knocks out `index % 6` operons, which is a random dose
+  under the requested label. Indices 7 to 18 also set the variant's own medium and timeline, which override the run's
+  `--timeline`, so a shift asked of them never happens.
+- **The ppGpp control had no index.** S2's ppGpp-clamped control can only be named by its multiplier, and nothing
+  resolved that to the variant's index.
+- **The level table invited a misreading.** S2 proposed its "clamped control" as graded level 1. Level 1 is expression
+  0, a full argS knockout. The table the queue printed read "1: 0", which reads as "no knockdown". The request was
+  rejected before it ran.
+- **A shifted design shared a label with a static one.** A non-knockout design with a condition and a timeline lost the
+  timeline from its label unless it also set an initial condition. A shifted rRNA knockout would have pooled with the
+  static ones.
+
+**What changed.**
+- **The queue's resolvers** (`launch.propose`).
+  - `rrna_operon_knockout`: the index is the operon count (1 to 6) and the condition is `minimal|rRNA_KO:<n>op`. A
+    timeline on indices 7 to 18 is refused.
+  - `ppgpp_conc`: the index is resolved from the condition (basal or with_aa) and a multiplier in the variant's table
+    (0.2 to 2.0 in steps of 0.2). The condition becomes `<group>|ppGpp:<m>x`.
+  - Every other family that reads its index (`condition`, `tf_activity`) must carry one.
+  - The condition is derived from the index even when the index is given. S4b's re-proposal passed `variant_index`
+    with condition "basal", and its 2-, 4- and 6-operon arms would have shared one label. An index that disagrees with
+    `num_operons_to_delete` or `multiplier` is refused. The three arms were re-queued unchanged through the corrected
+    resolver, linked to their originals, which were rejected.
+- **The level table** now says "1: 0 (a full knockout)".
+- **The label.** `manifest._design_tag` adds the timeline's tag to a condition design that has a timeline and no
+  initial condition. No existing label changes: the corpus's 14 timeline-perturbation rows are labelled by their
+  timeline, and the 6 BV-12 rows carry an initial condition.
+
+**Tests.** `tests/test_launch_index_resolution.py`, watched failing first.

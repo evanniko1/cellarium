@@ -10,8 +10,9 @@ Models are the interface's own on Auto: the Council's default, and Opus for a Co
 
 Spend: every model call is metered (observability). Before each stage the run stops if the metered spend plus that
 stage's high estimate would pass `--max-usd` (exit 4, the finished stages kept). Stage highs are measured, not
-assumed: the Council at $0.78 (the most a full Council question metered in M1+M2, 30 records), Cellwright at $1.85
-(39,394 input tokens for its first call by the free token counter, 2026-11-27, 12 turns, Opus prices).
+assumed: the Council at $1.10 (first $0.78, the most a full Council question metered in M1+M2; raised after this
+campaign metered $0.80 and $0.88), Cellwright at $1.85 (39,394 input tokens for its first call by the free token
+counter, 2026-11-27, 12 turns, Opus prices; metered $0.70 and $0.71).
 
     PYTHONPATH=src .venv/Scripts/python.exe scripts/run_discovery.py --dry-run
     PYTHONPATH=src .venv/Scripts/python.exe scripts/run_discovery.py --seeds S1,S3,S4 --max-usd 40
@@ -32,7 +33,10 @@ sys.path.insert(0, str(REPO / "evals"))
 
 OUT = REPO / "audit" / "discovery" / "discovery_runs.json"      # local: the campaign is unpublished until adjudicated
 CELLWRIGHT_MODEL = "claude-opus-4-8"                           # the interface's Auto choice for a Council-framed turn
-STAGE_HIGH_USD = {"council": 0.78, "gate": 0.05, "cellwright": 1.85}
+# Council raised 0.78 -> 1.10 on 2026-11-27: this campaign's first five Councils metered 0.55, 0.55, 0.75, 0.80 and
+# 0.88, so the M1+M2 maximum was exceeded twice (questions carrying their mode and design context deliberate
+# longer); 1.10 is the largest metered (0.88) with a quarter more. Cellwright metered 0.70 and 0.71 against 1.85.
+STAGE_HIGH_USD = {"council": 1.10, "gate": 0.05, "cellwright": 1.85}
 
 # The campaign's seed questions (DISCOVERY_CAMPAIGN.md), each followed by the mode and perturbation the registry says
 # represent it, as scripts/run_council_kinetic.py does. Blind: no sentence states a simulated result.
@@ -50,13 +54,21 @@ SEEDS = {
            "less than one with the full set, and how does its ppGpp respond? Ask it of the steady-state model, with "
            "the timeline 0 minimal_plus_amino_acids, 1200 minimal, reading growth rate and ppGpp rather than "
            "division timing."),
+    # S4 re-asked (2026-11-27). The gate's parser read S4's "fewer rRNA operons" as operon IDENTITY and refused it
+    # (operon_specific_rrna_knockout); the seed asks about their NUMBER, which the model represents as total rRNA
+    # capacity and which Cellwright answers from the same runs (registry note, Y11). Both traces are kept.
+    "S4b": ("After amino acids are removed from a rich medium, does a cell whose total rRNA synthesis capacity is "
+            "reduced, by removing a number of its rRNA operons whichever they are, slow down more or less than one "
+            "with the full set, and how does its ppGpp respond? Ask it of the steady-state model, which represents the "
+            "number of rRNA operons as total rRNA capacity, with the timeline 0 minimal_plus_amino_acids, 1200 "
+            "minimal, reading growth rate and ppGpp rather than division timing."),
 }
 
 
 # The mode each seed is asked in. The gate decides representability IN a mode, and its default is the steady-state
 # corpus mode, where per-isoacceptor charging and codon-level elongation are not represented: asked there, S1 and S3
 # would be refused with a route to "kinetic", and Cellwright would never run.
-MODES = {"S1": "kinetic", "S2": "steady_state", "S3": "kinetic", "S4": "steady_state"}
+MODES = {"S1": "kinetic", "S2": "steady_state", "S3": "kinetic", "S4": "steady_state", "S4b": "steady_state"}
 
 
 def _load() -> dict:
@@ -73,6 +85,17 @@ def _save(state: dict) -> None:
     tmp = OUT.with_suffix(".tmp")
     tmp.write_text(json.dumps(clean, indent=1, default=str) + "\n", encoding="utf-8")
     tmp.replace(OUT)
+
+
+def _tool_record(name: str, inp, out) -> dict:
+    """A tool call as the trace keeps it: its input, and for a proposal the queue's answer (request id, status, error),
+    so each simulation can be traced to the turn that proposed it."""
+    rec = {"tool": name, "input": inp}
+    if name in ("propose_experiment", "propose_experiments") and isinstance(out, dict):
+        reqs = out.get("requests") if name == "propose_experiments" else [out]
+        rec["queued"] = [{k: r.get(k) for k in ("request_id", "status", "error")} for r in (reqs or [])
+                         if isinstance(r, dict)]
+    return rec
 
 
 def _fits(state: dict, stage: str, cap: float) -> bool:
@@ -135,7 +158,7 @@ def run_seed(sid: str, state: dict, cap: float) -> str:
         t0 = time.time()
         with effect.admitted(decision):
             answer = agent.converse(messages, model=CELLWRIGHT_MODEL, verbose=False,
-                                    on_tool=lambda n, i, o: trace.append({"tool": n, "input": i}),
+                                    on_tool=lambda n, i, o: trace.append(_tool_record(n, i, o)),
                                     on_usage=lambda s: usage.update(s))
         ccost = float(usage.get("cost_usd") or 0.0)
         state["spent_usd"] += ccost
@@ -149,12 +172,64 @@ def run_seed(sid: str, state: dict, cap: float) -> str:
     return "done"
 
 
+def followup(sid: str, text: str, state: dict, cap: float) -> str:
+    """One more turn of a seed's Cellwright session, as the interface's follow-up turn does: the text is gated in the
+    seed's mode, then Cellwright continues the SAME message history; the session is saved again. The text is recorded
+    verbatim, so the trace shows what the person said. Returns 'done', 'gated' or 'capped'."""
+    from sessions import SessionStore
+
+    from cellarium import agent, effect, observability, orchestrate
+    rec = state["records"][sid]
+    cw = rec.get("cellwright") or {}
+    store = SessionStore()
+    sess = store.get(cw.get("session_id") or "")
+    if sess is None:
+        raise SystemExit(f"{sid}: no saved Cellwright session to follow up")
+    if not (_fits(state, "gate", cap) and _fits(state, "cellwright", cap - STAGE_HIGH_USD["gate"])):
+        return "capped"
+    with observability.meter() as gm:
+        decision = orchestrate.gate_question(text, elongation_model=MODES[sid])
+    gcost = float(gm.summary().get("cost_usd") or 0.0)
+    state["spent_usd"] += gcost
+    turn = {"text": text, "gate": {"verdict": decision.verdict, "required_capabilities": list(decision.required_capabilities),
+                                   "blocking": list(decision.blocking), "route": decision.route,
+                                   "notes": list(decision.notes), "reason": decision.reason, "cost_usd": round(gcost, 4)}}
+    rec.setdefault("followups", []).append(turn)
+    if decision.verdict != "answer":
+        _save(state)
+        return "gated"
+    trace: list = []
+    usage: dict = {}
+    sess["messages"].append({"role": "user", "content": text})
+    with effect.admitted(decision):
+        answer = agent.converse(sess["messages"], model=sess.get("model") or CELLWRIGHT_MODEL, verbose=False,
+                                on_tool=lambda n, i, o: trace.append(_tool_record(n, i, o)),
+                                on_usage=lambda s: usage.update(s))
+    store.put(cw["session_id"], sess)
+    cost = float(usage.get("cost_usd") or 0.0)
+    state["spent_usd"] += cost
+    turn.update(answer=answer, tools=trace, usage=usage, cost_usd=round(cost, 4))
+    _save(state)
+    return "done"
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--seeds", default="S1,S2,S3,S4")
     p.add_argument("--max-usd", type=float, default=40.0)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--followup", help="a seed whose saved Cellwright session gets one more turn")
+    p.add_argument("--text-file", help="the follow-up turn's text, read from this file")
     a = p.parse_args()
+    if a.followup:
+        import api_keys
+        api_keys.require("anthropic")
+        if a.followup not in SEEDS or not a.text_file:
+            raise SystemExit("--followup needs a known seed and --text-file")
+        state = _load()
+        status = followup(a.followup, Path(a.text_file).read_text(encoding="utf-8").strip(), state, a.max_usd)
+        print(f"{a.followup} follow-up: {status}; spent so far ${state['spent_usd']:.2f}")
+        return 4 if status == "capped" else 0
     seeds = [s.strip() for s in a.seeds.split(",") if s.strip()]
     unknown = [s for s in seeds if s not in SEEDS]
     if unknown:
@@ -168,6 +243,16 @@ def main() -> int:
     import api_keys
     api_keys.require("anthropic")
     state = _load()
+    # provenance records the commit only; a run from a tree with uncommitted changes says which tracked files differ
+    import subprocess
+
+    from cellarium import provenance
+    porcelain = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=REPO,
+                               capture_output=True, text=True, timeout=60).stdout.splitlines()
+    state.setdefault("invocations", []).append({
+        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "seeds": seeds, "cap_usd": a.max_usd,
+        "environment": provenance.run_environment(), "uncommitted_tracked_files": sorted(ln[3:] for ln in porcelain)})
+    _save(state)
     print(json.dumps(plan))
     for sid in seeds:
         status = run_seed(sid, state, a.max_usd)

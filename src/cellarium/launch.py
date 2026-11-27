@@ -91,6 +91,115 @@ def _resolve_ko(perturbation: str, params: dict | None, gene: str | None) -> tup
     return params, None
 
 
+def declared_params() -> set[str]:
+    """The design parameters Cellarium reads: those its manifest declares as identity axes or as derived values. One
+    source, so a parameter added to the runner without a declaration is refused here rather than silently queued."""
+    from . import manifest
+    return {k.split(".", 1)[1] for k in (*manifest.IDENTITY_AXES, *manifest.NOT_IDENTITY_AXES) if k.startswith("params.")}
+
+
+def _check_vocabulary(params: dict | None) -> str | None:
+    """2026-11-27 (discovery S1): an undeclared parameter is read by nothing that decides what a run IS, so the run
+    would execute without it while the queue, and the person approving, saw it."""
+    unknown = sorted(set(params or {}) - declared_params())
+    if not unknown:
+        return None
+    return (f"params {unknown} are not read by anything that decides what a run is (the runner, its label or its "
+            f"directory), so the run would execute without them while the queue showed them. Accepted params: "
+            f"{sorted(declared_params())}.")
+
+
+def _resolve_graded(perturbation: str, condition: str | None, params: dict,
+                    gene: str | None) -> tuple[str | None, dict, str | None]:
+    """A graded knockdown runs on `gene_ko_index * 10 + level` and the runner reads its gene from the condition
+    ('KO:<gene>'). Resolve both from the design, or refuse with what is missing. Returns (condition, params, error)."""
+    if perturbation != "graded_gene_knockout":
+        return condition, params, None
+    from . import factors, model, scope
+    params = dict(params)
+    # the knockout genes a condition names, through the fact's one registered reader (conformance family 9)
+    from_condition = model.knockout_genes(f"{perturbation}/{condition or ''}")
+    genes = list(params.get("target_genes") or ([gene] if gene else []) or from_condition)
+    if len(genes) != 1:
+        return condition, params, ("graded_gene_knockout suppresses one gene: name it as condition 'KO:<gene>' or "
+                                    "params.target_genes [<gene>].")
+    # level 1 is expression 0, a FULL knockout: "1: 0" alone was read as "no knockdown" (discovery S2, 2026-11-27)
+    table = ", ".join(f"{k}: {v:g}" + (" (a full knockout)" if v == 0 else "")
+                      for k, v in sorted(factors.GRADED_FACTORS.items()))
+    level = params.get("level")
+    if "variant_index" in params and level is None:
+        level = int(params["variant_index"]) % 10
+    if level not in factors.GRADED_FACTORS:
+        return condition, params, (f"graded_gene_knockout needs params.level, which sets the gene's expression as a "
+                                   f"fraction of wild type ({table}); got level={level!r}.")
+    ix = scope.classify_gene(genes[0]).get("ko_index")
+    if ix is None:
+        return condition, params, f"could not resolve ko_index for gene '{genes[0]}' (design_space resolves it)."
+    params.update(target_genes=genes, level=int(level), variant_index=int(ix) * 10 + int(level))
+    return f"KO:{genes[0]}", params, None
+
+
+# D24 (2026-11-27): variants that read their index as a MEANING (a gene, a dose, a condition, a factor). A design that
+# reaches the runner without one runs on a content hash, which for these is a wrong experiment or a crash.
+# `multi_gene_knockout` carries `ko_indices` instead and is resolved by `_resolve_ko`.
+INDEXED_FAMILIES = ("gene_knockout", "graded_gene_knockout", "rrna_operon_knockout", "ppgpp_conc", "condition",
+                    "tf_activity")
+# upstream ppgpp_conc's own tables (models/ecoli/sim/variants/ppgpp_conc.py::FACTORS, CONDITIONS): index =
+# group * len(multipliers) + the multiplier's position
+PPGPP_MULTIPLIERS = (0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0)
+PPGPP_GROUPS = ("basal", "with_aa")
+
+
+def _resolve_indexed(perturbation: str, condition: str | None, timeline: str | None,
+                     params: dict) -> tuple[str | None, dict, str | None]:
+    """The index of an rRNA-operon knockout or a ppGpp clamp from the parameters that name it, and a refusal for any
+    indexed family still without one. Returns (condition, params, error)."""
+    params = dict(params)
+    # The dose of these two families lives in the condition string ('minimal|rRNA_KO:4op', 'basal|ppGpp:1x'), which is
+    # what labels them (factors.parse). So the condition is derived from the index EVEN WHEN the index is given: S4b's
+    # re-proposal passed it with condition 'basal', and its 2-, 4- and 6-operon arms would have shared one label.
+    if perturbation == "rrna_operon_knockout":
+        n = params.get("num_operons_to_delete")
+        if "variant_index" not in params:
+            if isinstance(n, bool) or not isinstance(n, int) or not 1 <= n <= 6:
+                return condition, params, ("rrna_operon_knockout needs params.num_operons_to_delete, 1 to 6 (the "
+                                           "variant removes that many of the seven operons, in minimal medium); "
+                                           f"got {n!r}.")
+            params["variant_index"] = n
+        vi = int(params["variant_index"])
+        if vi > 6 and timeline:
+            return condition, params, (f"rrna_operon_knockout index {vi} sets the variant's own medium and timeline "
+                                       "(7-12 rich, 13-18 a shift to rich), which override the design's timeline, so "
+                                       "the shift would never happen. Use 1-6 with the timeline, and "
+                                       "params.initial_condition for the physiology the cell starts in.")
+        if 1 <= vi <= 6:
+            if n is not None and n != vi:
+                return condition, params, (f"params.num_operons_to_delete {n!r} and variant_index {vi} disagree; the "
+                                           f"variant removes index operons (1-6).")
+            params["num_operons_to_delete"] = vi
+            condition = f"minimal|rRNA_KO:{vi}op"
+    elif perturbation == "ppgpp_conc":
+        m = params.get("multiplier")
+        if "variant_index" not in params:
+            group = (condition or "basal").split("|")[0]
+            hit = [i for i, f in enumerate(PPGPP_MULTIPLIERS)
+                   if isinstance(m, (int, float)) and not isinstance(m, bool) and abs(f - float(m)) < 1e-9]
+            if group not in PPGPP_GROUPS or not hit:
+                return condition, params, (f"ppgpp_conc needs a condition in {list(PPGPP_GROUPS)} and "
+                                           f"params.multiplier from the variant's table {list(PPGPP_MULTIPLIERS)} "
+                                           f"(1.0 holds ppGpp at the condition's fitted level); got {group!r}, {m!r}.")
+            params["variant_index"] = PPGPP_GROUPS.index(group) * len(PPGPP_MULTIPLIERS) + hit[0]
+        vi = int(params["variant_index"])
+        if not 0 <= vi < len(PPGPP_GROUPS) * len(PPGPP_MULTIPLIERS):
+            return condition, params, f"ppgpp_conc index {vi} is outside the variant's table (0 to 19)."
+        group, mult = PPGPP_GROUPS[vi // len(PPGPP_MULTIPLIERS)], PPGPP_MULTIPLIERS[vi % len(PPGPP_MULTIPLIERS)]
+        if m is not None and abs(float(m) - mult) > 1e-9:
+            return condition, params, f"params.multiplier {m!r} and variant_index {vi} ({mult:g}x) disagree."
+        params["multiplier"] = mult
+        condition = f"{group}|ppGpp:{mult:g}x"
+    return condition, params, None
+
+
 def propose(perturbation: str = "wildtype", condition: str | None = None, timeline: str | None = None,
             params: dict | None = None, seeds: int = 4, generations: int = 4, gene: str | None = None,
             elongation_model: str = DEFAULT_MODE) -> dict:
@@ -102,10 +211,25 @@ def propose(perturbation: str = "wildtype", condition: str | None = None, timeli
     purpose is that what a human approves and what executes cannot differ, and an axis the queue cannot carry
     is an axis on which they silently do."""
     from . import tools
+    err = _check_vocabulary(params)
+    if err:
+        return {"status": "unresolved", "error": err,
+                "note": "drop or rename the parameter; nothing was queued."}
+    condition, params, err = _resolve_graded(perturbation, condition, dict(params or {}), gene)
+    if err:
+        return {"status": "unresolved", "error": err, "note": "nothing was queued."}
+    condition, params, err = _resolve_indexed(perturbation, condition, timeline, params)
+    if err:
+        return {"status": "unresolved", "error": err, "note": "nothing was queued."}
     params, err = _resolve_ko(perturbation, params, gene)
     if err:
         return {"status": "unresolved", "error": err,
                 "note": "gene_knockout runs on a variant index; resolve the gene -> ko_index (design_space) first."}
+    if perturbation in INDEXED_FAMILIES and "variant_index" not in params:
+        return {"status": "unresolved", "note": "nothing was queued.",
+                "error": (f"{perturbation} reads its variant index as a meaning (a condition, a factor, a dose), so "
+                          f"a design without params.variant_index would run on a content hash. Give it: "
+                          f"design_space lists the conditions with their indices.")}
     vet = tools.vet_hypothesis(perturbation, condition, timeline, params, gene, elongation_model)
     req = {"id": "req_" + uuid.uuid4().hex[:8],
            "status": "blocked" if not vet.get("runnable") else "pending_approval",
@@ -339,7 +463,9 @@ def _match_key(perturbation, condition, timeline, params, elongation_model=None)
     p = params or {}
     genes = tuple(sorted(str(g).lower() for g in (p.get("target_genes") or ([p["gene"]] if p.get("gene") else []))))
     ident = {k: p[k] for k in ("multiplier", "num_operons_to_delete", "direction", "target_tfs",
-                               "tf_occupancy_clamp") if k in p}
+                               "tf_occupancy_clamp", "ppgpp_clamp", "initiation_threshold") if k in p}
+    if ident.get("initiation_threshold") == "medium":           # the model's own rule: the same job as no setting
+        ident.pop("initiation_threshold")
     return (perturbation or "wildtype", condition or None, timeline or None, genes,
             json.dumps(ident, sort_keys=True, default=str), elongation_model or DEFAULT_MODE)
 

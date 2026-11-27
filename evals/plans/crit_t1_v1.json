@@ -1,0 +1,152 @@
+{
+ "batch": "crit_t1_v1",
+ "sim_path": "cellarium",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": -1,
+ "keep_raw": true,
+ "gates": {},
+ "rules": {
+  "V1_identity": "for each static design, the 'medium' and 'relaxed' runs of the same seed have identical listener tables (every column of every table but EvaluationTime) in both generations; any difference fails tier 1's first requirement (R1) and stops the panel",
+  "A1_continuity": "relaxed: the largest step-to-step change of ReplicationData.criticalInitiationMass in any run is below 5 fg; medium: oxygen off shows its full jump at the shift (975 to 590 fg)",
+  "A2_no_premature_division": "relaxed: no generation of any downshift run lasts less than 600 s",
+  "A3_rate_maintenance": "relaxed oxygen off: the median length of the generations born after the shift (1 and 2) is at least the unshifted glucose median, 2,879 s (well4cell rc2), the organism's rate maintenance after a downshift (Zaritsky & Helmstetter 1992)",
+  "negative_control": "medium oxygen off: the same median falls below 2,879 s, reproducing the early divisions; if it does not, the panel cannot tell the rules apart and A3 is not decided",
+  "upshift": "oxygen restored: reported, not decided; the relaxed rule should reach glucose's cycle length sooner than the medium rule, whose cell must first grow to the higher threshold (Panlilio et al. 2021)",
+  "decision": "the registry record replication_initiation_after_a_nutrient_shift gains holds_in for 'relaxed' only if V1, A1, A2 and A3 pass and the negative control discriminates",
+  "validity": "a run counts only if it finishes every generation; a failed run is listed with its reason and never averaged; a design left with fewer than two runs reports no median"
+ },
+ "predictions": {
+  "V1": "identical, by construction: with no threshold step the hook returns the model's own function",
+  "A1": "pass by construction",
+  "A3": "uncertain: tier 1 slows the drop but has no ppGpp pause, so the first post-shift cycle may still fall somewhat below 2,879 s; the medium control should be near well4cell's 2,238 s"
+ },
+ "decided_by": "the user, 2026-11-27: \"proceed with ... the first-tier fix for the replication threshold\"",
+ "parent_plan": "evals/plans/crit_t1.json",
+ "parent_design_sha256": "de2aab988ca52572b58004d8ffd4a0513bd261a826b3485c71c9c323a60f69b4",
+ "why": "V1 of the pre-registered CRIT tier 1 plan, run first: if a static run is not bit-identical under the relaxed rule, the hook is wrong and V3 is not run on it",
+ "runs": [
+  {
+   "id": "V1-basal-medium",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "params": {}
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_basal",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-basal-relaxed",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "params": {
+     "initiation_threshold": "relaxed"
+    }
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_basal",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-acetate_fitted-medium",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "acetate",
+    "timeline": "0 minimal_acetate",
+    "params": {
+     "initial_condition": "acetate"
+    }
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_acetate_fitted",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-acetate_fitted-relaxed",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "acetate",
+    "timeline": "0 minimal_acetate",
+    "params": {
+     "initial_condition": "acetate",
+     "initiation_threshold": "relaxed"
+    }
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_acetate_fitted",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-no_oxygen_fitted-medium",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "no_oxygen",
+    "timeline": "0 minimal_minus_oxygen",
+    "params": {
+     "initial_condition": "no_oxygen"
+    }
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_no_oxygen_fitted",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-no_oxygen_fitted-relaxed",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "no_oxygen",
+    "timeline": "0 minimal_minus_oxygen",
+    "params": {
+     "initial_condition": "no_oxygen",
+     "initiation_threshold": "relaxed"
+    }
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_no_oxygen_fitted",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-aa_upshift-medium",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal, 1200 minimal_plus_amino_acids",
+    "params": {}
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_aa_upshift",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "V1-aa_upshift-relaxed",
+   "design": {
+    "perturbation": "timeline",
+    "timeline": "0 minimal, 1200 minimal_plus_amino_acids",
+    "params": {
+     "initiation_threshold": "relaxed"
+    }
+   },
+   "seed": 900,
+   "generations": 2,
+   "group": "V1_aa_upshift",
+   "role": "run",
+   "stage": 1
+  }
+ ]
+}

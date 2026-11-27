@@ -28,7 +28,8 @@ def test_the_dry_run_prints_its_plan_and_calls_nothing(drv, monkeypatch, capsys)
     monkeypatch.setattr(sys, "argv", ["run_discovery.py", "--dry-run", "--seeds", "S1,S4"])
     assert drv.main() == 0
     out = capsys.readouterr().out
-    assert '"S1"' in out and '"S4"' in out and '"high_total_usd": 5.36' in out
+    # two seeds at 1.10 + 0.05 + 1.85 (5.36 until the Council's high was raised on its metered runs, 2026-11-27)
+    assert '"S1"' in out and '"S4"' in out and '"high_total_usd": 6.0' in out
     assert not drv.OUT.exists()
 
 
@@ -81,3 +82,12 @@ def test_each_seed_is_gated_in_its_own_mode(drv, monkeypatch):
     assert drv.run_seed("S1", state, cap=40.0) == "gated"
     assert seen == {"elongation_model": "kinetic"}
     assert state["records"]["S1"]["elongation_model"] == "kinetic"
+
+
+def test_each_stage_high_is_at_least_the_most_it_has_metered(drv):
+    """The paid-run recipe: compare a new kind's first metered runs with the estimate's high band. This campaign's
+    Councils metered 0.55, 0.55, 0.75, 0.80 and 0.88 (the first high, 0.78, was exceeded twice); Cellwright 0.70 and
+    0.71; the gate 0.021 to 0.041."""
+    assert drv.STAGE_HIGH_USD["council"] >= 0.88
+    assert drv.STAGE_HIGH_USD["cellwright"] >= 0.71
+    assert drv.STAGE_HIGH_USD["gate"] >= 0.041

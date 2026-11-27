@@ -368,6 +368,11 @@ IDENTITY_AXES = {
     "params.target_tfs": "which transcription factors a TF perturbation addresses",
     "params.tf_occupancy_clamp": "factors whose promoter occupancy is held at a set value (BV-14d): the same "
                                  "condition with FNR held at the fit's 0.78, or held off, is a different experiment",
+    "params.ppgpp_clamp": "ppGpp held at the fitted basal level (S2's comparison arm, 2026-11-27): the same graded "
+                          "knockdown with the stringent response free to raise ppGpp, or not, is a different experiment",
+    "params.initiation_threshold": "the replication threshold's rule (CRIT tier 1, 2026-11-27): relaxed towards a new "
+                                   "medium's value, or re-read from the medium at every step as the model does "
+                                   "('medium', which is the same experiment as no setting)",
 }
 
 NOT_IDENTITY_AXES = {
@@ -424,6 +429,15 @@ def identity_probes() -> list[tuple]:
          Design(perturbation="condition", condition="no_oxygen_plus_nitrate", params={"variant_index": 24}),
          Design(perturbation="condition", condition="no_oxygen_plus_nitrate",
                 params={"variant_index": 24, "tf_occupancy_clamp": {"FNR-4FE-4S-CPLX": "fit"}})),
+        ("params.ppgpp_clamp",
+         Design(perturbation="graded_gene_knockout", condition="KO:argS",
+                params={"target_genes": ["argS"], "variant_index": 1000, "level": 3}),
+         Design(perturbation="graded_gene_knockout", condition="KO:argS",
+                params={"target_genes": ["argS"], "variant_index": 1000, "level": 3, "ppgpp_clamp": "basal"})),
+        ("params.initiation_threshold",
+         Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_minus_oxygen"),
+         Design(perturbation="timeline", timeline="0 minimal, 1200 minimal_minus_oxygen",
+                params={"initiation_threshold": "relaxed"})),
     ]
     missing = set(IDENTITY_AXES) - {p[0] for p in probes}
     if missing:
@@ -476,11 +490,18 @@ def _design_tag(design: Design) -> str:
         # docstring records the incident where they destroyed each other's output); this separates them in
         # IDENTITY, which is what every analysis keys on. Same 6-hex sha1, so key and directory agree.
         return (tag + _expr_suffix(design) + factors.tl_tag_suffix(design.timeline) + ic_tag
-                + occupancy_tag(design) + mode_tag_suffix(design.elongation_model))
+                + occupancy_tag(design) + ppgpp_clamp_tag(design) + threshold_tag(design)
+                + mode_tag_suffix(design.elongation_model))
     base = design.condition or design.timeline or "basal"
     if ic_tag:
         # a control started in a fitted condition: its medium (timeline) and physiology are both its identity
         base += (factors.tl_tag_suffix(design.timeline) if design.condition else "") + ic_tag
+    elif design.condition and design.timeline:
+        # D24 (2026-11-27): a condition design's timeline is its identity too. Without this a shifted rRNA knockout
+        # (`minimal|rRNA_KO:2op` under an amino-acid downshift) labelled exactly like the static one and pooled with it.
+        # No existing label changes: timeline designs are labelled by their timeline (no condition), and every corpus
+        # condition design with a timeline also carries an initial condition (the branch above).
+        base += factors.tl_tag_suffix(design.timeline)
     # TARGET TRANSCRIPTION FACTORS. Found by the identity-axis guard the moment it was written, and LATENT
     # rather than live: `launch._match_key` already treats `target_tfs` as part of a design's semantic identity
     # and `biosecurity.screen` reads it as a target, but `_design_tag` did not, so the two identity functions
@@ -488,8 +509,22 @@ def _design_tag(design: Design) -> str:
     # quiet axis, instead of discovering it the way the other three were found: after a campaign had already
     # pooled two different experiments under one label.
     tfs = sorted(str(t) for t in ((design.params or {}).get("target_tfs") or []))
-    return (base + ("#tf:" + "+".join(tfs) if tfs else "") + occupancy_tag(design)
-            + mode_tag_suffix(design.elongation_model))
+    return (base + ("#tf:" + "+".join(tfs) if tfs else "") + occupancy_tag(design) + ppgpp_clamp_tag(design)
+            + threshold_tag(design) + mode_tag_suffix(design.elongation_model))
+
+
+def ppgpp_clamp_tag(design: Design) -> str:
+    """`#ppgpp:<clamp>` for a design that holds ppGpp (S2's comparison arm); '' otherwise, so no existing label
+    changes."""
+    clamp = (design.params or {}).get("ppgpp_clamp")
+    return f"#ppgpp:{clamp}" if clamp else ""
+
+
+def threshold_tag(design: Design) -> str:
+    """`#it:relaxed` for a design whose replication threshold relaxes (CRIT tier 1). '' for the model's own rule,
+    named or not, so "medium" labels exactly like a design that does not set it."""
+    rule = (design.params or {}).get("initiation_threshold")
+    return f"#it:{rule}" if rule and rule != "medium" else ""
 
 
 def occupancy_tag(design: Design) -> str:

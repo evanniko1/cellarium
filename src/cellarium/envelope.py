@@ -402,6 +402,20 @@ def check(design: Design) -> EnvelopeVerdict:
                 "'condition', or params.initial_condition) without the TF variant.",
             )
         step = threshold_step(design)
+        rule = (design.params or {}).get("initiation_threshold") or "medium"
+        if rule not in ("medium", "relaxed"):
+            return EnvelopeVerdict(False, f"initiation_threshold={rule!r} is not a rule the model can run.",
+                                   "Use 'relaxed' (CRIT tier 1) or leave it unset for the model's own rule.")
+        if step is not None and rule == "relaxed":
+            # CRIT tier 1 (2026-11-27): admitted, because the threshold no longer jumps; its limits travel with the run.
+            return EnvelopeVerdict(
+                True,
+                f"This timeline moves the cell from {step.before} ({step.tau_before:g}-minute doubling time) into "
+                f"{step.medium} ({step.tau_after:g} minutes). Under initiation_threshold='relaxed' (CRIT tier 1) the "
+                f"replication threshold relaxes towards {step.medium}'s value over about one doubling time instead of "
+                "jumping. Tier 1's limits apply: after a downshift initiation still comes somewhat early and there is "
+                "no ppGpp pause; reading division timing from such a run stays refused until the shift panel (V3) "
+                "passes.")
         if step is not None:
             when = "at t=0" if step.at == 0 else f"at {step.at:g} s"
             fg_before, fg_after = THRESHOLD_FG.get(step.tau_before), THRESHOLD_FG.get(step.tau_after)

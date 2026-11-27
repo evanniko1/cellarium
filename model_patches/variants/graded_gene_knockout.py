@@ -82,6 +82,28 @@ CONTROL_OUTPUT = dict(
 	desc="Control simulation (no graded suppression)"
 	)
 
+# S2's comparison arm (Cellarium, 2026-11-27): GRADED_KO_PPGPP_CLAMP=basal holds ppGpp at the fitted concentration of
+# the run's condition, so the stringent response cannot raise it under the knockdown. It sets what upstream's
+# `ppgpp_conc` variant sets for a factor of 1 (the concentration it would hold is the one get_ppGpp_conc already
+# returns for the condition's doubling time, so that function is left alone):
+#	sim_data.constants.k_RelA_ppGpp_synthesis, k_SpoT_ppGpp_degradation, k_SpoT_ppGpp_synthesis -> 0
+#	sim_data.process.metabolism.force_constant_ppgpp -> True (metabolism holds ppGpp as a constant target)
+# Caveat, recorded: force_constant_ppgpp also moves metabolism's biomass targets from the RNA/protein path to the
+# doubling-time path, so the clamped arm differs from the free arm in that respect too. Applied at index 0 as well,
+# which is the clamped control. Without the variable nothing here changes.
+PPGPP_CLAMPS = ("basal",)
+
+
+def _clamp_ppgpp(sim_data, how):
+	if how not in PPGPP_CLAMPS:
+		raise ValueError(
+			"graded_gene_knockout: GRADED_KO_PPGPP_CLAMP={!r}; expected one of {}".format(how, PPGPP_CLAMPS))
+	c = sim_data.constants
+	c.k_RelA_ppGpp_synthesis *= 0
+	c.k_SpoT_ppGpp_degradation *= 0
+	c.k_SpoT_ppGpp_synthesis *= 0
+	sim_data.process.metabolism.force_constant_ppgpp = True
+
 # level -> multiplier. 1 is a complete knockout; higher levels retain progressively more expression.
 FACTORS = {1: 0.0, 2: 0.05, 3: 0.10, 4: 0.25, 5: 0.50, 6: 0.75, 7: 0.90, 8: 0.95, 9: 0.99}
 
@@ -139,7 +161,15 @@ def graded_gene_knockout(sim_data, index):
 	rna_data = sim_data.process.transcription.rna_data
 	n_genes = len(rna_data)
 
+	clamp = os.environ.get('GRADED_KO_PPGPP_CLAMP') or None
+	if clamp:
+		_clamp_ppgpp(sim_data, clamp)
+	held = "; ppGpp held at {}".format(clamp) if clamp else ""
+
 	if index == 0:
+		if clamp:
+			return dict(shortName="control_ppGpp_{}".format(clamp),
+			            desc="Control simulation (no graded suppression){}".format(held)), sim_data
 		return CONTROL_OUTPUT, sim_data
 
 	level = index % 10
@@ -177,7 +207,8 @@ def graded_gene_knockout(sim_data, index):
 	gene_id = rna_data["id"][gene_index]
 	kind = "knockout" if factor == 0.0 else "{:.0%} expression".format(factor)
 	return dict(
-		shortName="{}_{}".format(gene_id, "KO" if factor == 0.0 else "x{:g}".format(factor)),
+		shortName="{}_{}{}".format(gene_id, "KO" if factor == 0.0 else "x{:g}".format(factor),
+		                           "_ppGpp_{}".format(clamp) if clamp else ""),
 		desc=("Graded suppression of {} to {} across {} transcription unit(s) {}. "
-		      "factor={:g}".format(gene_id, kind, len(tu_indices), tu_indices, factor)),
+		      "factor={:g}{}".format(gene_id, kind, len(tu_indices), tu_indices, factor, held)),
 		), sim_data

@@ -14,6 +14,7 @@ import glob
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -562,7 +563,7 @@ def _exec(script_args: list[str]) -> None:
             extra_env += ["-e", f"{k}={v}"]
         # PROV-3: fingerprint the file mounts AT LAUNCH, not at capture. The host file is editable while the
         # container runs, so hashing it afterwards would record a state the model may never have seen.
-        file_mounts = [*_flat_file_mounts(), *(getattr(_EXEC_LOCAL, "mounts", None) or [])]
+        file_mounts = _merge_mounts(_flat_file_mounts(), getattr(_EXEC_LOCAL, "mounts", None) or [])
         _EXEC_LOCAL.mount_record = _mount_fingerprint(file_mounts)
         # Named, so the wall-clock limit can stop the container itself: killing the docker CLI alone can leave
         # the container running.
@@ -843,6 +844,14 @@ def _dir_discriminator(design: Design) -> str:
     occ = _occupancy_tag(design)
     if occ:
         suffix += "__occ" + hashlib.sha1(occ.encode()).hexdigest()[:6]
+    # S2 and CRIT tier 1 (2026-11-27): a ppGpp clamp and a relaxed replication threshold are two more axes of the same
+    # collision, each a word, so the directory says what the run is
+    pp = _ppgpp_clamp(design)
+    if pp:
+        suffix += "__pp" + pp
+    it = _initiation_threshold(design)
+    if it:
+        suffix += "__it" + it
     return suffix
 
 
@@ -855,6 +864,74 @@ def _occupancy_tag(design: Design) -> str:
 # image's copy for a clamped design only; every other run keeps the image's file.
 _TF_BINDING_PATCH = Path(__file__).resolve().parents[2] / "model_patches" / "processes" / "tf_binding.py"
 _TF_BINDING_IN_IMAGE = "/wcEcoli/models/ecoli/processes/tf_binding.py"
+
+# S2's comparison arm (2026-11-27): Cellarium's own graded variant, which can hold ppGpp at the fitted basal level,
+# mounted over the image's copy (and over the checkout's, which `_flat_file_mounts` mounts) for a clamped design only.
+_GRADED_VARIANT_PATCH = Path(__file__).resolve().parents[2] / "model_patches" / "variants" / "graded_gene_knockout.py"
+_GRADED_VARIANT_IN_IMAGE = "/wcEcoli/models/ecoli/sim/variants/graded_gene_knockout.py"
+PPGPP_CLAMPS = ("basal",)
+
+# CRIT tier 1 (2026-11-27): the relaxed replication threshold. Cellarium's own hook script runs in place of runSim.py,
+# wraps the model's process after its own initialize and then runs runSim.py unchanged; no model file is copied.
+_THRESHOLD_HOOK = Path(__file__).resolve().parents[2] / "model_patches" / "hooks" / "initiation_threshold.py"
+_THRESHOLD_HOOK_IN_IMAGE = "/cellarium/initiation_threshold.py"
+INITIATION_THRESHOLDS = ("medium", "relaxed")
+
+
+def _ppgpp_clamp(design: Design) -> str:
+    """'' or the clamp ("basal"). Raises for a clamp the design's variant cannot apply: a plain knockout's variant never
+    reads it, and the kinetic modes hold ppGpp constant already, so either would run unclamped under a clamped label."""
+    v = (design.params or {}).get("ppgpp_clamp")
+    if not v:
+        return ""
+    if v not in PPGPP_CLAMPS:
+        raise ValueError(f"ppgpp_clamp must be one of {PPGPP_CLAMPS}, not {v!r}")
+    if _variant_type(design) != "graded_gene_knockout":
+        raise ValueError(f"ppgpp_clamp is applied by the graded_gene_knockout variant only, not by "
+                         f"{_variant_type(design)!r}, which would run unclamped under a clamped label")
+    if design.elongation_model != DEFAULT_MODE:
+        raise ValueError(f"ppgpp_clamp needs the {DEFAULT_MODE} model; {design.elongation_model} already holds ppGpp "
+                         "constant")
+    return str(v)
+
+
+def _initiation_threshold(design: Design) -> str:
+    """'relaxed', or '' for the model's own per-medium threshold ("medium" names it). Raises on anything else."""
+    v = (design.params or {}).get("initiation_threshold")
+    if v in (None, "", "medium"):
+        return ""
+    if v not in INITIATION_THRESHOLDS:
+        raise ValueError(f"initiation_threshold must be one of {INITIATION_THRESHOLDS}, not {v!r}")
+    return str(v)
+
+
+def _model_command(design: Design, argv: list[str], docker: bool | None = None) -> list[str]:
+    """The script arguments the model runs: its own, behind Cellarium's threshold hook for a relaxed design."""
+    if not _initiation_threshold(design):
+        return list(argv)
+    docker = bool(WCECOLI_DOCKER) if docker is None else docker
+    return [_THRESHOLD_HOOK_IN_IMAGE if docker else _THRESHOLD_HOOK.as_posix(), *argv]
+
+
+def _merge_mounts(base: list[str], extra: list[str]) -> list[str]:
+    """`-v` mount arguments with `extra` winning: a later mount at the same container path replaces the earlier one,
+    since Docker refuses two mounts at one path. The container path is found after the host path, which on Windows
+    carries a drive letter and so cannot be split on ':'."""
+    def target(spec: str) -> str:
+        m = re.search(r":(/(?:wcEcoli|cellarium)/[^:]+)", spec)
+        return m.group(1) if m else spec
+
+    def pairs(a: list[str]) -> list[tuple[str, str]]:
+        return [(a[i], a[i + 1]) for i in range(0, len(a) - 1, 2)]
+
+    later = {target(s) for _, s in pairs(extra)}
+    out: list[str] = []
+    for flag, spec in pairs(base):
+        if target(spec) not in later:
+            out += [flag, spec]
+    for flag, spec in pairs(extra):
+        out += [flag, spec]
+    return out
 
 
 def _occupancy_clamp(design: Design) -> dict:
@@ -874,16 +951,29 @@ def _design_env(design: Design) -> dict | None:
     clamp = _occupancy_clamp(design)
     if clamp:
         env["CELLARIUM_TF_OCCUPANCY_CLAMP"] = json.dumps(clamp, sort_keys=True)
+    pp = _ppgpp_clamp(design)
+    if pp:
+        env["GRADED_KO_PPGPP_CLAMP"] = pp
+    it = _initiation_threshold(design)
+    if it:
+        env["CELLARIUM_INITIATION_THRESHOLD"] = it
     return env or None
 
 
 def _design_mounts(design: Design) -> list[str]:
-    """Per-design file mounts: the patched TF-binding process for a clamped design, nothing otherwise."""
-    if not _occupancy_clamp(design):
-        return []
-    if not _TF_BINDING_PATCH.is_file():
-        raise FileNotFoundError(f"the occupancy clamp needs {_TF_BINDING_PATCH}, which is missing")
-    return ["-v", f"{_TF_BINDING_PATCH.as_posix()}:{_TF_BINDING_IN_IMAGE}:ro"]
+    """Per-design file mounts, each only for the design that needs it: the patched TF-binding process for an occupancy
+    clamp, Cellarium's graded variant for a ppGpp clamp, the threshold hook for a relaxed threshold."""
+    out: list[str] = []
+    for needed, host, target, what in (
+            (bool(_occupancy_clamp(design)), _TF_BINDING_PATCH, _TF_BINDING_IN_IMAGE, "the occupancy clamp"),
+            (bool(_ppgpp_clamp(design)), _GRADED_VARIANT_PATCH, _GRADED_VARIANT_IN_IMAGE, "the ppGpp clamp"),
+            (bool(_initiation_threshold(design)), _THRESHOLD_HOOK, _THRESHOLD_HOOK_IN_IMAGE, "the relaxed threshold")):
+        if not needed:
+            continue
+        if not host.is_file():
+            raise FileNotFoundError(f"{what} needs {host}, which is missing")
+        out += ["-v", f"{host.as_posix()}:{target}:ro"]
+    return out
 
 
 def _needs_distinct_dir(design: Design) -> bool:
@@ -934,8 +1024,8 @@ def run_one(design: Design, seed: int, generations: int, sim_path: str = "cellar
         _EXEC_LOCAL.log_path = log_path
         _EXEC_LOCAL.wall_limit_s = wall_limit_s(generations)
         try:
-            _exec(["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
-                   "--generations", str(generations), *_variant_args(design)])
+            _exec(_model_command(design, ["runscripts/manual/runSim.py", sim_path, "--seed", str(seed),
+                                          "--generations", str(generations), *_variant_args(design)]))
         finally:
             _set_exec_env(None)
             _EXEC_LOCAL.mounts = prev_mounts

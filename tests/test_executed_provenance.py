@@ -102,7 +102,8 @@ def test_capture_follows_the_run_and_is_told_which_run_it_is():
     src = (REPO / "src" / "cellarium" / "runner.py").read_text(encoding="utf-8")
     body = src[src.index("def run_one("):]
     body = body[:body.index("\n    return run_root")]
-    exec_at = body.index('_exec(["runscripts/manual/runSim.py"')
+    # the run is the model's runSim.py, behind the threshold hook for a relaxed design (CRIT tier 1, 2026-11-27)
+    exec_at = body.index('_exec(_model_command(design, ["runscripts/manual/runSim.py"')
     cap_at = body.index("_capture_executed(run_root, sim_path")
     assert exec_at < cap_at, "capture must follow the run, not precede it"
     assert "expect_seed=seed" in body, "capture is not told which seed it is recording, so it cannot verify"

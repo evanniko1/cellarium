@@ -114,12 +114,22 @@ _VARIANT_TYPES = {
     "multi_gene_knockout": "simultaneous KO of a gene SET (reduced-genome style)",
     "ppgpp_conc": "clamp [ppGpp] — graded stringent-response lever (a CLEAN phenotype path, unlike a single KO)",
     "rrna_operon_knockout": "KO n of 7 rRNA operons — graded ribosome-capacity lever (clean phenotype path)",
-    "timeline": "media-shift events over time (in-envelope shifts only — check_feasibility first)",
+    "timeline": "media-shift events over time (in-envelope shifts only — check_feasibility first). "
+                "params.initiation_threshold='relaxed' lets the replication threshold relax towards a new medium's "
+                "value over about one doubling time instead of jumping (CRIT tier 1, under validation), which admits "
+                "a shift between media with different doubling times; reading division timing from such a run stays "
+                "refused until the validation passes",
     "tf_activity": "set a modeled TF active/inactive — ONLY the 23 mechanistically-modeled TFs (not marA/soxS)",
     "graded_gene_knockout": "suppress ONE gene across ALL its transcription units at a chosen strength — the "
                             "dose-response lever `gene_knockout` cannot give (it zeroes one unit, so a "
                             "multi-TU gene keeps expressing). variant_index = ko_index*10 + level; expression "
-                            "levels 0/0.05/0.10/0.25/0.50/0.75/0.90/0.95/0.99",
+                            "levels 0/0.05/0.10/0.25/0.50/0.75/0.90/0.95/0.99 (params.level 1-9; level 1 is "
+                            "expression 0, a FULL knockout, not a control). Propose it as "
+                            "condition 'KO:<gene>' with params.level. params.ppgpp_clamp='basal' (steady state only) "
+                            "holds ppGpp at the fitted basal level during the knockdown, so the stringent response "
+                            "cannot raise it: RelA and SpoT off, metabolism holding ppGpp constant, which also moves "
+                            "the biomass targets to the doubling-time path. With variant_index 0 it is the clamped "
+                            "control",
     "amino_acid_shift": "add or remove ONE amino acid from the medium, at a set time",
     "new_gene": "express a heterologous gene (burden / expression load)",
 }
