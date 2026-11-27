@@ -199,7 +199,11 @@ def check_run(row: dict) -> dict:
                            "which does NOT match the declaration, so this is a genuine experiment violation "
                            "rather than a recording defect.")),
                     }
-        return {"verdict": "recorder_truncation", **base, "note": trunc}
+        # Absence (2026-11-27): say why the repair above was not made. Without this, "the raw output is not on this
+        # machine" fell back to the same verdict as a run never offered a repair, and the corpus count of repaired
+        # designs fell with nothing naming the omission.
+        return {"verdict": "recorder_truncation", **base, "note": trunc,
+                "repair_unavailable": rep.get("why") or "the run's raw output could not be read"}
     if gens and gens > 1:
         return {"verdict": "undetermined", **base,
                 "note": (f"the run spans {gens} generations but `media_segments` covers only the LAST one, so an "
@@ -221,6 +225,7 @@ def check_corpus() -> dict:
     by_design: dict = defaultdict(lambda: {"violation": 0, "ok": 0, "undetermined": 0,
                                            "recorder_truncation": 0, "repaired_ok": 0, "examples": []})
     n_checked = 0
+    unavailable = []
     # in id order, so the three examples kept per design are the same on every call (they were the first three in
     # whatever order the rows arrived; conformance sweep, 2026-10-27)
     for r in sorted(rows, key=lambda r: str(r.get("id"))):
@@ -230,6 +235,8 @@ def check_corpus() -> dict:
         if res["verdict"] == "not_applicable":
             continue
         n_checked += 1
+        if res.get("repair_unavailable"):
+            unavailable.append({"id": r.get("id"), "why": res["repair_unavailable"]})
         d = by_design[survey.design_key(r)]
         d[res["verdict"]] += 1
         if res["verdict"] in ("violation", "recorder_truncation", "repaired_ok") and len(d["examples"]) < 3:
@@ -251,6 +258,8 @@ def check_corpus() -> dict:
         "n_designs_with_violations": len(violations), "n_designs_blocking": len(blocking),
         "n_designs_recorder_truncation": len(truncated),
         "n_designs_repaired": len(repaired),
+        # only when some repair could not be attempted: always present, the key would excuse every count that falls
+        **({"repair_unavailable": unavailable} if unavailable else {}),
         "repaired": {k: dict(v) for k, v in sorted(repaired.items())},
         "recorder_truncation": {k: dict(v) for k, v in sorted(truncated.items())},
         "violations": {k: dict(v) for k, v in sorted(violations.items())},

@@ -46,8 +46,11 @@ def list_results(include_dropped: bool = False) -> list[dict]:
         # of those consumers keeps treating two elongation models as one design. Unlike
         # `survey._deduped_rows` this projection has no tier fallback, so naming the column before a shard
         # carries it would RAISE rather than degrade; the helper resolves that explicitly instead of guessing.
+        # D30: `envelope_override` marks a pre-registered control that ran past an envelope refusal (D28); NULL for
+        # every row written before the column existed, which is the honest answer (no override was possible then).
         rows = _duck(f"SELECT id,label,perturbation,condition,timeline,seed,qc,reportable,"
-                     f"{manifest.elongation_sql()} FROM {_FROM} {manifest.DEDUP_QUALIFY}")
+                     f"{manifest.elongation_sql()},{manifest.optional_col_sql('envelope_override')} "
+                     f"FROM {_FROM} {manifest.DEDUP_QUALIFY}")
     else:
         rows = [{"id": r.id, "label": r.label, "perturbation": r.design.perturbation,
                  "condition": r.design.condition, "timeline": r.design.timeline,

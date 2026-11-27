@@ -1861,3 +1861,34 @@ through a row written today.
 
 **Tests.** `tests/test_identity_writers.py`, seven. Four failed first, as expected. One test was itself wrong: it gave
 two runs one design, so the first failure blocked the second. It was fixed before the fix it tests.
+
+## D30 — A control run past the envelope says so on its row; a repair that could not be tried says why — 2026-11-27
+
+**Override rows.** A run that went past an envelope refusal under a named override (D28) is a pre-registered control.
+Only the scorer that registered it reads it. Before D30 nothing on its manifest row distinguished it from an ordinary
+run.
+- `manifest._flat_row` adds an `envelope_override` column: the reason, or a marker if the file cannot be read.
+- Such a row is never `reportable`, so no analysis path reports it as a result. The CRIT scorer reads raw output by
+  path and is unaffected.
+- `store.list_results` projects the column. It goes through the optional-column helper, so shards written before it
+  read NULL, which is honest: no override was possible then.
+- `test_guardrails`' timeline check now rebuilds each corpus run with its threshold rule (`#it:`) as well as its
+  initial condition. It used to check V3's relaxed oxygen-off runs as if they used the model's rule, and so failed on
+  runs the envelope admits.
+- That check skips only rows carrying an override. Two new forced assertions check that the same shift is refused
+  under the model's rule and admitted under the relaxed one.
+
+**A repair that could not be attempted.** `experiment_integrity` repairs a truncated upshift record from the run's raw
+output when that output is on this machine. When it was not, the run fell back to `recorder_truncation` with no reason
+given. The corpus answer's `n_designs_repaired` fell by one with nothing naming the omission. Today's V1 upshift runs
+were the first local runs of that shape, and the conformance sweep's absence check caught it. It fails identically on
+the parent commit, so it is not a regression from D28 or D29.
+- The run now carries `repair_unavailable` (why).
+- The corpus answer lists the runs, but only when there are some. A key that is always present would excuse every
+  count that falls; a mutation making it always present fails the new test.
+
+**Tests.**
+- `tests/test_override_rows.py`, three tests.
+- One test added to `tests/test_miase.py`. It built the wrong record shape at first and skipped. It now asserts the
+  truncation verdict, so it cannot skip.
+- The `test_guardrails` change above.

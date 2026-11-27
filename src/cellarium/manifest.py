@@ -891,7 +891,24 @@ def _flat_row(rec: SimResult, seed: int, run_root: Path,
                 "terminal_divided": v.get("terminal_divided"), "n_fba_failures": v.get("n_fba_failures"),
                 "median_division_time_sec": v.get("median_division_time_sec")})
     row.update(rec.channels)  # flatten summary channel means into columns for easy DuckDB SQL
+    # D30: a run that went past an envelope refusal under a named override (D28) is a pre-registered control, read
+    # only by the scorer that registered it. The row says so and is never reportable, so no analysis path reports
+    # it as a result. A file that exists but cannot be read is still an override.
+    ov = _envelope_override_of(run_root)
+    row["envelope_override"] = ov
+    if ov:
+        row["reportable"] = False
     return row
+
+
+def _envelope_override_of(run_root: Path) -> str | None:
+    f = Path(run_root) / runner._ENVELOPE_OVERRIDE_FILE
+    if not f.is_file():
+        return None
+    try:
+        return str(json.loads(f.read_text(encoding="utf-8")).get("override") or "").strip() or "(unnamed)"
+    except Exception:
+        return "(unreadable envelope_override.json)"
 
 
 def dropped_rows() -> list[dict]:

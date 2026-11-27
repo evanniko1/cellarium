@@ -318,19 +318,33 @@ def test_every_timeline_in_the_corpus_still_passes():
     # analysis_rows, and list_results carries no argv; its LABEL carries the fitted condition as `#ic:`, so read it
     # there. Reading only the argv checked those three as glucose-fitted acetate switches and failed on rows that ran
     # exactly as designed.
+    # The replication-threshold rule a run used is part of the design that ran (CRIT tier 1, D22): a shift that moves
+    # the threshold is admitted under the relaxed rule and refused under the model's own. Its label carries `#it:`.
+    rule = {}
     for r in store.list_results():
         m = re.search(r"#ic:([A-Za-z0-9_]+)", r.get("label") or "")
         if m:
             started_in.setdefault(r["id"], m.group(1))
-    designs = {(r.get("timeline"), started_in.get(r.get("id"))) for r in store.list_results() if r.get("timeline")}
+        t = re.search(r"#it:([A-Za-z0-9_]+)", r.get("label") or "")
+        if t:
+            rule[r["id"]] = t.group(1)
+    # A pre-registered control that ran past a refusal under a named override (D28) is refused BY DESIGN; its row
+    # says so (D30) and it is the one kind of corpus run this check must not demand the envelope admit.
+    designs = {(r.get("timeline"), started_in.get(r.get("id")), rule.get(r.get("id")))
+               for r in store.list_results() if r.get("timeline") and not r.get("envelope_override")}
     assert designs, "no timeline rows in the corpus to check against"
-    for tl, ic in designs:
-        v = envelope.check(Design(perturbation="timeline", timeline=tl,
-                                  params={"initial_condition": ic} if ic else {}))
-        assert v.in_envelope, f"{tl} (initial condition {ic}): {v.reason}"
+    for tl, ic, it in designs:
+        params = {**({"initial_condition": ic} if ic else {}), **({"initiation_threshold": it} if it else {})}
+        v = envelope.check(Design(perturbation="timeline", timeline=tl, params=params))
+        assert v.in_envelope, f"{tl} (initial condition {ic}, threshold rule {it}): {v.reason}"
     # forced: the acetate control's timeline from a glucose-fitted cell is the switch the envelope refuses
-    if ("0 minimal_acetate", "acetate") in designs:
+    if ("0 minimal_acetate", "acetate", None) in designs:
         assert not envelope.check(Design(perturbation="timeline", timeline="0 minimal_acetate")).in_envelope
+    # forced: the same oxygen-off shift is refused under the model's rule and admitted under the relaxed one
+    off = "0 minimal, 1200 minimal_minus_oxygen"
+    assert not envelope.check(Design(perturbation="timeline", timeline=off)).in_envelope
+    assert envelope.check(Design(perturbation="timeline", timeline=off,
+                                 params={"initiation_threshold": "relaxed"})).in_envelope
 
 
 def test_an_unreadable_media_table_does_not_refuse_everything(monkeypatch):

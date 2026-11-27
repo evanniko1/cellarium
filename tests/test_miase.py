@@ -192,3 +192,26 @@ def test_a_dropped_run_is_not_reported_as_a_violation():
         assert "error" not in r
     import inspect
     assert "_dropped" in inspect.getsource(miase.check_corpus)
+
+
+def test_a_repair_that_could_not_be_attempted_says_why(monkeypatch):
+    """Absence (conformance family 1b, 2026-11-27): a truncated upshift record is repaired from the run's raw output
+    when that output is on this machine. When it is not, the run fell back to `recorder_truncation` and the corpus
+    answer's `n_designs_repaired` dropped by one with nothing naming the omission, so "no repair was needed" and "the
+    raw output was not here" read the same. The run now carries the reason, and the corpus answer names the runs,
+    only when there are some (always present, the key would excuse every count that falls)."""
+    from cellarium import miase
+    row = {"id": "probe", "timeline": "0 minimal, 1200 minimal_plus_amino_acids", "generations": 1,
+           "media_segments": [{"media": "minimal", "t_start_s": 0.0}]}      # the upshift, truncated to `minimal`
+    monkeypatch.setattr(miase, "executed_media_from_raw",
+                        lambda rid: {"available": False, "why": "no readable simOut generations under the run path"})
+    res = miase.check_run(row)
+    assert res["verdict"] == "recorder_truncation", res          # the shape this test is about, never skipped
+    assert res["repair_unavailable"] == "no readable simOut generations under the run path"
+    monkeypatch.setattr(miase, "_rows", lambda: [row])
+    out = miase.check_corpus()
+    assert out["repair_unavailable"] == [{"id": "probe", "why": "no readable simOut generations under the run path"}]
+    monkeypatch.setattr(miase, "executed_media_from_raw",
+                        lambda rid: {"available": True, "media_sequence": ["minimal", "minimal_plus_amino_acids"],
+                                     "switch_times_s": [1200.0], "source": "Environment/media_id"})
+    assert "repair_unavailable" not in miase.check_corpus()
