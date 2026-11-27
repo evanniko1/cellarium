@@ -255,6 +255,43 @@ def score_v3(plan: dict, image: str) -> dict:
     return {"per_run": per, "summary": out}
 
 
+A1_STEP_FG = 5.0                  # relaxed: the largest step-to-step change of the threshold stays below this
+A2_MIN_GENERATION_S = 600.0       # relaxed: no generation of a downshift run shorter than this
+FULL_JUMP_FG = 975.0 - 590.0      # medium, oxygen off: the model's own rule drops the threshold in one step
+JUMP_TOLERANCE_FG = 1.0
+
+
+def decide(v1: dict, summary: dict) -> dict:
+    """The plan's registered rules applied to the scored numbers: A1, A2, A3, the negative control, the decision.
+
+    Each verdict is True, False or None. None means the rule could not be decided: a group left with fewer than two
+    valid runs has no median, and a negative control that does not fall below the glucose median leaves A3 undecided
+    ("the panel cannot tell the rules apart"). The registry record gains holds_in for 'relaxed' only if every rule
+    passes. The upshift is reported, never decided."""
+    def group(key):
+        return summary.get(key) or {}
+    off_r, off_m = group("oxygen_off_relaxed"), group("oxygen_off_medium")
+    on_r, on_m = group("oxygen_restored_relaxed"), group("oxygen_restored_medium")
+    v1_pass = bool(v1) and all(isinstance(x, dict) and x.get("identical") is True for x in v1.values())
+    steps = [off_r.get("largest_threshold_step_fg"), on_r.get("largest_threshold_step_fg")]
+    a1_relaxed = None if None in steps else max(steps) < A1_STEP_FG
+    jump = off_m.get("largest_threshold_step_fg")
+    a1_medium = None if jump is None else abs(jump - FULL_JUMP_FG) < JUMP_TOLERANCE_FG
+    a1 = None if None in (a1_relaxed, a1_medium) else (a1_relaxed and a1_medium)
+    shortest = off_r.get("shortest_generation_s")
+    a2 = None if shortest is None else shortest >= A2_MIN_GENERATION_S
+    m_relaxed, m_medium = off_r.get("median_post_shift_s"), off_m.get("median_post_shift_s")
+    control = None if m_medium is None else m_medium < UNSHIFTED_GLUCOSE_S
+    a3 = None if (m_relaxed is None or control is not True) else m_relaxed >= UNSHIFTED_GLUCOSE_S
+    return {"V1": v1_pass, "A1": a1, "A1_relaxed_largest_step_fg": None if None in steps else max(steps),
+            "A1_medium_jump_fg": jump, "A2": a2, "A2_shortest_generation_s": shortest,
+            "A3": a3, "A3_median_s": m_relaxed, "A3_threshold_s": UNSHIFTED_GLUCOSE_S,
+            "negative_control": control, "negative_control_median_s": m_medium,
+            "holds_in_relaxed": bool(v1_pass and a1 and a2 and a3 and control),
+            "upshift": {"relaxed_median_s": on_r.get("median_post_shift_s"),
+                        "medium_median_s": on_m.get("median_post_shift_s"), "decided": False}}
+
+
 def score() -> int:
     import os
     plan = json.loads(PLAN.read_text(encoding="utf-8"))
@@ -263,6 +300,7 @@ def score() -> int:
     image = os.environ.get("WCECOLI_DOCKER")
     if image and image != "score-only":
         res["V3"] = score_v3(plan, image)
+        res["V3"]["decision"] = decide(res["V1"], res["V3"]["summary"])
     else:
         res["V3"] = {"not_read": "WCECOLI_DOCKER is not set to the model image"}
     OUT.write_text(json.dumps(res, indent=1) + "\n", encoding="utf-8")

@@ -1993,3 +1993,53 @@ single-unit knockout and carries none.
 
 Six failed before the change. The two guards that passed (clean and non-knockout) were mutated by dropping the
 perturbation check and attaching a record to every gene; both then failed, as did two others.
+
+## D34 — CRIT tier 1 decided by its own rules: the relaxed threshold is not admitted — 2026-11-27
+
+**What happened.** V3's last control run finished and the panel was scored. The scorer reported per-run generation
+lengths and per-group medians and stopped there, so the verdict on the registered rules was a person's reading. For
+a pre-registered validation, the rules should be applied by code.
+
+**What changed.** `evals/crit_t1.py::decide` applies `evals/plans/crit_t1_v3.json`'s rules to the scored numbers:
+- **A1:** relaxed threshold steps stay below 5 fg; the model's own rule drops 975 to 590 fg in one step.
+- **A2:** no relaxed downshift generation is shorter than 600 s.
+- **A3:** the relaxed post-shift median is at least 2,879 s.
+- **Negative control:** the medium median falls strictly below 2,879 s; if it does not, A3 is undecided (None),
+  not passed.
+- **Decision:** `holds_in` for 'relaxed' only if V1 and every rule pass.
+- **Undecided:** a group with fewer than two valid runs decides nothing.
+- **Upshift:** reported, never decided.
+
+`score` writes the decision into `evals/results/crit_t1.json`.
+
+**The result (12 V3 runs, all valid; V1 under the D26 amendment).**
+
+| Rule | Measured | Verdict |
+|---|---|---|
+| V1 | all four designs identical | pass |
+| A1 | largest relaxed step 0.10 fg; the control jumps 384.98 fg | pass |
+| A2 | shortest relaxed generation 2,649 s | pass |
+| A3 | relaxed post-shift median 2,733.5 s, against at least 2,879 s | **fail** |
+| Negative control | medium median 1,841.5 s | discriminates |
+| Upshift (reported) | relaxed 4,180.5 s, medium 4,315.5 s | not decided |
+
+So `replication_initiation_after_a_nutrient_shift` keeps `present=False, holds_in=()`, and the relaxed rule stays
+outside the validated envelope.
+- **How close it came.** The relaxed rule closes 86% of the gap between the model's early divisions and the
+  organism's rate maintenance, but not the registered bar.
+- **What the prediction said.** The plan predicted this was possible: "tier 1 slows the drop but has no ppGpp pause".
+- **Where the prediction missed.** It placed the medium control near well4cell's 2,238 s; the control came in
+  shorter, at 1,841.5 s.
+- **The bar is reachable.** Cells fitted to no oxygen divide at a median of 4,627 s, so 2,879 s is not unreachable
+  by construction.
+
+**Tests.** Six in `tests/test_crit_t1_decide.py`, with literal thresholds:
+- tonight's numbers;
+- the A3 boundary ("at least") and the control boundary (strictly below, else A3 undecided);
+- the A1 boundary (strictly below 5 fg) and the full jump;
+- the A2 boundary;
+- fewer than two valid runs;
+- all-pass granting `holds_in`, withdrawn by one V1 difference or by no V1 read.
+
+All six failed before `decide` existed. Three mutations were each caught: A3 as strictly greater, an undecided
+control treated as passing, and A1 as at most 5 fg.
