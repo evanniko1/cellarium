@@ -1,6 +1,7 @@
 """scripts/bv_batch.py: the scheduler behind the biological-test batches. Every rule that protects compute or data
 is forced: existing runs are never re-run; a group's later stage waits for, and obeys, its validity controls; an
-integrity failure stops the design's other seeds while a lethal phenotype does not; nothing launches below the
+integrity failure stops the design's other seeds unless one of them already finished cleanly, and a lethal phenotype
+never does; nothing launches below the
 disk floor; and a run the manifest failed to index is never handed to the deposit (which deletes)."""
 from __future__ import annotations
 
@@ -29,9 +30,9 @@ def _rec(mu=1.6e-4):
 
 
 class Fake:
-    def __init__(self, qc=None, mu=None, index_fails=(), free=None, existing=()):
+    def __init__(self, qc=None, mu=None, index_fails=(), free=None, existing=(), crash=()):
         self.qc, self.mu = qc or {}, mu or {}
-        self.index_fails, self.existing = set(index_fails), set(existing)
+        self.index_fails, self.existing, self.crash = set(index_fails), set(existing), set(crash)
         self.free = list(free) if free else None
         self.launched, self.indexed, self.deposited = [], [], []
         self.lock = threading.Lock()
@@ -39,6 +40,8 @@ class Fake:
     def run_fn(self, spec):
         with self.lock:
             self.launched.append(spec.id)
+        if spec.id in self.crash:
+            raise RuntimeError("the model script's output contains a traceback")
         return Path(f"/runs/{spec.id}")
 
     def read_fn(self, spec, root):
@@ -124,6 +127,34 @@ def test_an_integrity_failure_stops_the_designs_other_seeds(tmp_path):
     out, _ = _run(tmp_path, [_r("fbp-s0", seed=0, cond="KO:fbp"), _r("fbp-s1", seed=1, cond="KO:fbp")], fake,
                   parallel=1)
     assert out["fbp-s1"].status == "skipped" and "fbp-s1" not in fake.launched
+
+
+def test_a_crash_of_the_designs_first_seed_stops_its_other_seeds(tmp_path):
+    fake = Fake(crash={"fbp-s0"})
+    out, _ = _run(tmp_path, [_r("fbp-s0", seed=0, cond="KO:fbp"), _r("fbp-s1", seed=1, cond="KO:fbp")], fake,
+                  parallel=1)
+    assert out["fbp-s0"].status == "failed"
+    assert out["fbp-s1"].status == "skipped" and "fbp-s1" not in fake.launched
+
+
+def test_a_seed_crashing_after_the_design_has_run_does_not_stop_its_other_seeds(tmp_path):
+    """BV-14d, 2026-11-27: seed 330 of the FNR-off anaerobic design finished, seed 331 crashed in its second
+    generation, and the batch skipped seed 332, leaving the arm one seed short of its pre-registered test. A design
+    that has run once is not broken; a later seed's failure is that seed's, and the docstring's rule is the first
+    run's."""
+    runs = [_r(f"nar-s{i}", seed=i, cond="KO:nar") for i in range(3)]
+    fake = Fake(crash={"nar-s1"})
+    out, _ = _run(tmp_path, runs, fake, parallel=1)
+    assert out["nar-s0"].status == "done" and out["nar-s1"].status == "failed"
+    assert "nar-s2" in fake.launched and out["nar-s2"].status == "done"
+
+
+def test_an_integrity_failure_after_the_design_has_run_does_not_stop_its_other_seeds(tmp_path):
+    runs = [_r(f"nar-s{i}", seed=i, cond="KO:nar") for i in range(3)]
+    fake = Fake(qc={"nar-s1": "truncated"})
+    out, events = _run(tmp_path, runs, fake, parallel=1)
+    assert any(e["event"] == "integrity_failure" and e.get("id") == "nar-s1" for e in events)
+    assert "nar-s2" in fake.launched and out["nar-s2"].status == "done"
 
 
 def test_a_lethal_phenotype_is_data_not_an_integrity_failure(tmp_path):

@@ -1,0 +1,27 @@
+Warning: updated amino acid target for SER[c] was negative - adjusted to be positive.
+
+============================================================
+VARIANT 1703 (gene_knockout_001703) FAILED -- skipping to next variant
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 258, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulationDaughter.py", line 107, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 365, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 398, in run_incremental
+    self._post_evolve_state()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 504, in _post_evolve_state
+    logger.append(self)
+  File "/wcEcoli/wholecell/loggers/disk.py", line 78, in append
+    self.copyData(sim)
+  File "/wcEcoli/wholecell/loggers/disk.py", line 99, in copyData
+    obj.tableAppend(saveFile)
+  File "/wcEcoli/models/ecoli/listeners/ribosome_data.py", line 157, in tableAppend
+    tableWriter.append(
+  File "/wcEcoli/wholecell/io/tablewriter.py", line 589, in append
+    self._columns[name].append(value)
+  File "/wcEcoli/wholecell/io/tablewriter.py", line 340, in append
+    raise VariableEntrySizeError(
+wholecell.io.tablewriter.VariableEntrySizeError: Entry size in bytes, elements (144, 18) is inconsistent with (168, 21) for Table column /wcEcoli/out/cellarium/gene_knockout_001703/000001/generation_000001/000000/simOut/RibosomeData/aaCountInSequence which is not set up for variable lengths.
+============================================================

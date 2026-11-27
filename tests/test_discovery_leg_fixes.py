@@ -70,6 +70,20 @@ def test_trim_nested_drops_whole_named_entries_and_says_how_to_read_them():
     assert "survey_corpus(channels=" in out["_omitted"]["how_to_read"]
 
 
+def test_trim_nested_fits_the_cap_with_its_own_omission_record_included():
+    """2026-11-27: bimodality's per-medium map was trimmed to 6,027 characters against a 6,000 cap. The loop measured
+    the payload before `how_to_read` was added, and the funnel then cut the result mid-string. The cap must hold for
+    the payload as returned, record and all, at every cap, not only at the one the test above happens to use."""
+    payload = _big_survey_payload()
+    over = []
+    for tool in ("survey_corpus", None):
+        for cap in range(3000, 7000, 13):
+            out, dropped = truncation.trim_nested(payload, cap, tool=tool)
+            if dropped and len(json.dumps(out)) > cap:
+                over.append((tool, cap, len(json.dumps(out))))
+    assert not over, over[:5]
+
+
 def test_the_context_funnel_no_longer_cuts_a_nested_payload_mid_string():
     s = agent._truncate_tool_result(_big_survey_payload(), 6000, "survey_corpus")
     parsed = json.loads(s)                     # valid JSON: no "…[truncated]" tail

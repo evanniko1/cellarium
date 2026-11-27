@@ -1,0 +1,28 @@
+12580.00    226.09        1.671        1.687        1.584        1.626        1.763
+12581.00    226.12        1.671        1.687        1.584        1.626        1.763
+
+============================================================
+VARIANT 7 (condition_000007) FAILED -- skipping to next variant
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 258, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulationDaughter.py", line 107, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 365, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 397, in run_incremental
+    self._evolveState(processes)
+  File "/wcEcoli/wholecell/sim/simulation.py", line 466, in _evolveState
+    process.evolveState()
+  File "/wcEcoli/models/ecoli/processes/metabolism.py", line 220, in evolveState
+    self.model.set_molecule_levels(metabolite_counts_init, counts_to_molar,
+  File "/wcEcoli/models/ecoli/processes/metabolism.py", line 535, in set_molecule_levels
+    self.fba.update_homeostatic_targets(objective)
+  File "/wcEcoli/wholecell/utils/modular_fba.py", line 1204, in update_homeostatic_targets
+    raise ValueError(f'Homeostatic target must be non-negative. It is {coeff} for {molecule_id}.')
+ValueError: Homeostatic target must be non-negative. It is -1.9804105100982485e-06 for BIOTIN[c].
+============================================================
+
+
+============================================================
+SUMMARY: 1 variant(s) failed:

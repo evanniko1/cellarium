@@ -288,12 +288,15 @@ def trim_nested(out: dict, cap: int, *, tool: str | None = None) -> tuple[dict, 
     empty map, when nothing nested can be dropped."""
     cur = {k: (dict(v) if isinstance(v, dict) else v) for k, v in out.items()}
     omitted: dict[str, list] = {}
+    how = _RETRIEVE.get(tool or "", "re-issue the call more narrowly")
 
     def size(d):
         return len(json.dumps(d, default=str))
 
     for _ in range(1000):
-        if size({**cur, "_omitted": omitted}) <= cap:
+        # measure the payload as it will be returned, its omission record and `how_to_read` included: measured
+        # without them, bimodality's trim landed 27 characters over its cap and the funnel cut it mid-string
+        if size({**cur, "_omitted": {**omitted, "how_to_read": how}}) <= cap:
             break
         maps = [k for k, v in cur.items() if isinstance(v, dict) and v]
         if not maps:
@@ -304,5 +307,5 @@ def trim_nested(out: dict, cap: int, *, tool: str | None = None) -> tuple[dict, 
         del cur[big][last]
     if not omitted:
         return out, {}
-    cur["_omitted"] = {**omitted, "how_to_read": _RETRIEVE.get(tool or "", "re-issue the call more narrowly")}
+    cur["_omitted"] = {**omitted, "how_to_read": how}
     return cur, omitted

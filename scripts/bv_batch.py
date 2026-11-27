@@ -13,9 +13,11 @@ The plan is a JSON file: {"batch": name, "sim_path": "cellarium", "parallel": 6,
      remaining runs are not launched;
   4. after each run: reads it, applies QC, writes a per-generation summary to the batch ledger, indexes it into a
      manifest shard, and hands it to the deposit worker, which uploads, verifies anonymously and reclaims;
-  5. stops the remaining seeds of a design whose first run failed for an integrity reason (crash, empty,
-     degenerate, truncated, over-replicated, implausible channel). A lethal phenotype (no division, death) is
-     data and is kept.
+  5. stops the remaining seeds of a design that failed for an integrity reason (crash, empty, degenerate,
+     truncated, over-replicated, implausible channel) before any of its seeds finished cleanly in this process.
+     Once one seed has, a later seed's failure is that seed's alone: it is recorded and discarded, and the
+     design's other seeds still run (BV-14d, 2026-11-27: a skipped seed left an arm short of its pre-registered
+     test). A lethal phenotype (no division, death) is data and is kept.
 
     WCECOLI_DOCKER=<code image> python scripts/bv_batch.py --plan evals/plans/bv12.json --repo <org/corpus>
 """
@@ -187,6 +189,9 @@ class Batch:
         self.gates = plan.get("gates", {})
         self.gate_open: dict[str, bool | None] = {}
         self.blocked_designs: set[str] = set()
+        # designs with a seed that finished in this process without an integrity failure: shown to run, so a later
+        # seed's failure does not block the rest (the block is for designs that cannot run at all)
+        self.proven_designs: set[str] = set()
         self.deposits: queue.Queue = queue.Queue()
         self._lock = threading.Lock()
 
@@ -235,7 +240,7 @@ class Batch:
     def _launchable(self, spec: RunSpec) -> bool:
         if spec.status != "pending":
             return False
-        if design_key(spec) in self.blocked_designs:
+        if design_key(spec) in self.blocked_designs and design_key(spec) not in self.proven_designs:
             spec.status, spec.why = "skipped", "an earlier seed of this design failed an integrity check"
             self.log("skipped", spec, why=spec.why)
             return False
@@ -406,6 +411,8 @@ class Batch:
         if spec.summary["qc"] in INTEGRITY_FAILURES:
             self.blocked_designs.add(design_key(spec))
             self.log("integrity_failure", spec, qc=spec.summary["qc"])
+        else:
+            self.proven_designs.add(design_key(spec))
         try:
             self.index_fn(spec, root, rec)
             self.log("indexed", spec)

@@ -150,6 +150,20 @@ KNOWN: dict[str, Signature] = {
         "does not show which pool ran out first, and it is WHERE the run failed, not why.",
         "runs/cellarium/gene_knockout_002275__tl175649__icacetate/000000/sim.log — BV-12, KO:proC in fitted "
         "acetate, seed 0"),
+    "ValueError@wholecell/utils/modular_fba.py:update_homeostatic_targets": Signature(
+        "biomass target went negative outside the fitted composition range", "numerical", False,
+        "FBA refused a negative homeostatic target. With ppGpp regulation on, metabolism rebuilds its biomass "
+        "targets at every step from the cell's RNA/protein mass ratio, through splines fitted on ratios 0.2 to "
+        "0.469 (growth_rate_dependent_parameters.py::get_mass_fractions_from_rna_protein_ratio; scipy's splev "
+        "extrapolates). Below 0.1355 the extrapolated mass fraction of every pool is negative, so every target "
+        "built from them is too; the BIOTIN[c] in the message is only the first one the check reaches. First seen "
+        "2026-11-27 in BV-14d's FNR-off anaerobic arm, seed 331: the ratio fell from 0.166 at birth to 0.1355 at "
+        "the crash, in the second generation. Seed 330 of the same design recovered to 0.21 and finished, and runs "
+        "at the fit's FNR occupancy dipped to 0.139 and recovered. So the crash marks the cell's composition "
+        "leaving the range the model was fitted on. The crash itself is the extrapolation, not biology (a real "
+        "cell at that ratio keeps a positive biotin pool), and it does not show why the ratio fell.",
+        "runs/bv14_no3_anaerobic/condition_000007__occ9b89f1/000331/sim.log — BV-14d, FNR held off with no "
+        "oxygen, seed 331"),
     "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve": Signature(
         "FBA solver failed (GLPK)", "solver", False,
         "The metabolism LP failed after the retry ladder ran out; `detail.glpk` carries the solver status. "
@@ -198,10 +212,14 @@ KNOWN: dict[str, Signature] = {
 TYPE_RULES: dict[str, Signature] = {
     "VariableEntrySizeError": Signature(
         "listener row written at the wrong width", "writer", False,
-        "A table writer rejected a row whose width differs from the column's. Output bookkeeping, not "
-        "biology. The known candidate is `aaCountInSequence` built with np.bincount and no minlength.",
-        "not yet observed in this corpus; the unguarded bincount is at model_overlay/cleaned/models/ecoli/"
-        "processes/polypeptide_elongation.py:409"),
+        "A table writer rejected a row whose width differs from the column's; the message names the column. "
+        "Output bookkeeping, not biology. Seen once, at RibosomeData's `aaCountInSequence`: the column is 21 "
+        "wide, but the steady-state elongation step builds the row with np.bincount and no minlength "
+        "(models/ecoli/processes/polypeptide_elongation.py::evolveState), so a step that elongated none of the "
+        "three highest-indexed amino acids writes a shorter row. That needs a step that translated very little, "
+        "which fits a starving auxotroph, but the crash does not show the starvation.",
+        "runs/cellarium/gene_knockout_001703__tl175649__icacetate/000001/sim.log — BV-12, KO:serA in fitted "
+        "acetate, seed 1, 2026-11-27: a row of 18 elements in the second generation"),
     "OSError": Signature(
         "host I/O failure", "infrastructure", False,
         "The filesystem failed under the run (the Docker bind mount saturates above 6 concurrent sims). "

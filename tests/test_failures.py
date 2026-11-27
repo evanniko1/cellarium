@@ -74,6 +74,28 @@ def test_the_ppgpp_molecule_limit_failure_is_a_cell_running_out():
     assert "WHERE the run failed, not why" in i.signature.meaning
 
 
+def test_a_negative_biomass_target_is_the_composition_leaving_the_fitted_range_not_biology():
+    """BV-14d's FNR-off anaerobic run, seed 331, 2026-11-27: its RNA/protein ratio fell from 0.166 to 0.1355, where
+    the biomass splines (fitted on ratios 0.2 to 0.469, extrapolated below) turn every pool's mass fraction negative,
+    and FBA refused the negative BIOTIN[c] target in the second generation. The crash is the extrapolation: a
+    statement about the software's range, not about the cell."""
+    i = F.identify(log_text=_fx("homeostatic_target_negative.log"))
+    assert i.key == "ValueError@wholecell/utils/modular_fba.py:update_homeostatic_targets"
+    assert i.named and i.signature.category == "numerical" and i.signature.result is False
+    assert "0.1355" in i.signature.meaning and "0.2 to 0.469" in i.signature.meaning
+
+
+def test_the_wrong_width_listener_row_is_named_by_its_type_and_cites_its_first_observation():
+    """BV-12's serine auxotroph in fitted acetate, seed 1, 2026-11-27: RibosomeData.aaCountInSequence got an 18-wide
+    row where its column holds 21. The type rule had said 'not yet observed in this corpus'; a name has to stop
+    saying that once the corpus produces it."""
+    i = F.identify(log_text=_fx("listener_row_wrong_width.log"))
+    assert i.key == "VariableEntrySizeError@wholecell/io/tablewriter.py:append" and i.key not in F.KNOWN
+    assert i.named and i.signature.category == "writer" and i.signature.result is False
+    assert "not yet observed" not in i.signature.evidence
+    assert "aaCountInSequence" in i.signature.meaning and "gene_knockout_001703" in i.signature.evidence
+
+
 def test_every_known_traceback_identity_has_a_fixture():
     """A name must cite the evidence that defined it. Refusals and absences are read from notes, not logs."""
     seen = {F.identify(log_text=p.read_text(encoding="utf-8")).key for p in FIX.glob("*.log")}
