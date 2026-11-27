@@ -1,0 +1,113 @@
+{
+ "batch": "bv14d",
+ "sim_path": "bv14_no3_anaerobic",
+ "parallel": 6,
+ "min_free_gb": 30,
+ "priority": -2,
+ "gates": {
+  "bv14d_fit": {
+   "growth_rate": [
+    9.39e-05,
+    0.0002113
+   ],
+   "occupancy": {
+    "FNR-4FE-4S-CPLX": [
+     0.731,
+     0.831
+    ],
+    "PHOSPHO-NARL": [
+     0.827,
+     0.927
+    ]
+   }
+  },
+  "bv14d_fnroff": {
+   "occupancy": {
+    "FNR-4FE-4S-CPLX": [
+     0.0,
+     0.0
+    ],
+    "PHOSPHO-NARL": [
+     0.827,
+     0.927
+    ]
+   }
+  }
+ },
+ "keep_raw": true,
+ "kb_sha256": "9055ee3b2b7b029edf99af6fd5c0bc435f19f47e3ce28e0f020d7cfb0e3e8ef6",
+ "clamp_targets": {
+  "FNR_at_fit": {
+   "FNR-4FE-4S-CPLX": 0.7810435405569058,
+   "PHOSPHO-NARL": 0.8774436090225489
+  },
+  "FNR_off": {
+   "FNR-4FE-4S-CPLX": 0.0,
+   "PHOSPHO-NARL": 0.8774436090225489
+  },
+  "anaerobic_FNR_at_fit": {
+   "FNR-4FE-4S-CPLX": 0.7810435405569058,
+   "PHOSPHO-NARL": 0.0
+  },
+  "anaerobic_FNR_off": {
+   "FNR-4FE-4S-CPLX": 0.0,
+   "PHOSPHO-NARL": 0.0
+  }
+ },
+ "fit_occupancy": {
+  "no_oxygen": {
+   "FNR-4FE-4S-CPLX": 0.7810435405569058,
+   "PHOSPHO-NARL": 0.0
+  },
+  "no_oxygen_plus_nitrate": {
+   "FNR-4FE-4S-CPLX": 0.7810435405569058,
+   "PHOSPHO-NARL": 0.8774436090225489
+  }
+ },
+ "predictions": {
+  "FNR_at_fit": {
+   "narGHJI": 0.549,
+   "frdABCD": -0.324
+  },
+  "FNR_off": {
+   "narGHJI": 1.454,
+   "frdABCD": -1.128
+  },
+  "as_run_bv14": {
+   "narGHJI": 0.45,
+   "frdABCD": -0.297
+  },
+  "note": "expected-value algebra over all transcription units, with the runs' ppGpp (anaerobic 61.7, nitrate 40.4 uM); it over-predicted BV-14's observed nar ratio by 0.20 and under-predicted frd's by 0.17, so the decision rules use differences, which that offset largely cancels"
+ },
+ "rules": {
+  "validity": "a run counts only if: QC ok and every generation divided; each clamped factor's bound fraction within 0.05 of its target (exactly 0 for a factor held off); in the fit arms, growth within 1.5-fold of the condition's fitted rate. Otherwise it is discarded, listed with its reasons, and never averaged. An arm left with fewer than two valid seeds reports no contrast.",
+  "D1_occupancy": "phi = (R_F - R_BV14) / (R_fit - R_BV14), the share of BV-14's nar attenuation the clamp restores (R_F: nar synthesis, nitrate against anaerobic, FNR and NarL at the fit). Predicted about 0.1. phi >= 0.5: occupancy is the main cause and the pre-analysis is wrong",
+  "D2_additive_dilution": "I = NarL's nar effect with FNR held off minus with FNR at the fit (log2). Predicted about +0.9. I >= 0.5 with z >= 2 supports the additive account; I < 0.25 rejects it",
+  "readout": "per-seed time-mean synthesis probability (RnaSynthProb), last generation, as BV-14's diagnostic"
+ },
+ "decided_by": "the user, 2026-11-26: \"Go for the BV-14d occupancy-clamped runs. Make sure that test failures and defective runs are discarded.\"",
+ "parent_plan": "evals/plans/bv14d.json",
+ "parent_design_sha256": "f3144ef954a865e32fc9d2dbe217bd0df5d4240ed3ed273d3f508e63b81a67a9",
+ "why": "At 04:26 UTC the main batch had nothing running and waited for its 40 GB floor (30.3 GB free) with bv14d-O2-s331 next. This plan runs that registered seed, unchanged (same design, seed and generations), in a second batch process at a 30 GB floor. O2-s332 stays with the main batch: while this run writes, the main batch's existence check reads the variant as being written and holds s332, so no run is ever owned by two processes (the runner's locks are per process).",
+ "runs": [
+  {
+   "id": "bv14d-O2-s331",
+   "design": {
+    "perturbation": "condition",
+    "condition": "no_oxygen_plus_nitrate",
+    "params": {
+     "variant_index": 24,
+     "tf_occupancy_clamp": {
+      "FNR-4FE-4S-CPLX": 0,
+      "PHOSPHO-NARL": "fit"
+     }
+    }
+   },
+   "seed": 331,
+   "generations": 3,
+   "group": "bv14d_fnroff",
+   "role": "run",
+   "stage": 2
+  }
+ ]
+}

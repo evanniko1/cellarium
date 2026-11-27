@@ -1,0 +1,1436 @@
+{
+ "spec": "BV-14d robustness (post hoc; NOT pre-registered; no decision changes)",
+ "registered_result": "evals/results/bv14d_clamp.json",
+ "valid_seeds": {
+  "F1": [
+   300,
+   302
+  ],
+  "F2": [
+   300,
+   302
+  ],
+  "O1": [
+   330,
+   332
+  ],
+  "O2": [
+   330,
+   331,
+   332
+  ]
+ },
+ "bv14_reference": {
+  "observed_nar_log2": 0.254,
+  "fitted_nar_log2": 1.294
+ },
+ "per_generation": {
+  "narGHJI": [
+   {
+    "NarL_effect_FNR_at_fit": 0.688,
+    "NarL_effect_FNR_off": 1.533,
+    "interaction": {
+     "estimate": 0.851,
+     "se": 0.139,
+     "z": 6.13,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    },
+    "phi": 0.417
+   },
+   {
+    "NarL_effect_FNR_at_fit": 0.457,
+    "NarL_effect_FNR_off": 1.408,
+    "interaction": {
+     "estimate": 0.941,
+     "se": 0.174,
+     "z": 5.41,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    },
+    "phi": 0.195
+   },
+   {
+    "NarL_effect_FNR_at_fit": 0.563,
+    "NarL_effect_FNR_off": 1.439,
+    "interaction": {
+     "estimate": 0.871,
+     "se": 0.184,
+     "z": 4.75,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    },
+    "phi": 0.297
+   }
+  ],
+  "frdABCD": [
+   {
+    "NarL_effect_FNR_at_fit": 0.186,
+    "NarL_effect_FNR_off": -0.794,
+    "interaction": {
+     "estimate": -0.977,
+     "se": 0.241,
+     "z": -4.05,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   },
+   {
+    "NarL_effect_FNR_at_fit": -0.204,
+    "NarL_effect_FNR_off": -0.934,
+    "interaction": {
+     "estimate": -0.758,
+     "se": 0.249,
+     "z": -3.04,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   },
+   {
+    "NarL_effect_FNR_at_fit": -0.032,
+    "NarL_effect_FNR_off": -0.852,
+    "interaction": {
+     "estimate": -0.815,
+     "se": 0.298,
+     "z": -2.74,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   }
+  ],
+  "nirBDC": [
+   {
+    "NarL_effect_FNR_at_fit": 0.887,
+    "NarL_effect_FNR_off": 2.138,
+    "interaction": {
+     "estimate": 1.256,
+     "se": 0.237,
+     "z": 5.29,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   },
+   {
+    "NarL_effect_FNR_at_fit": 0.484,
+    "NarL_effect_FNR_off": 1.998,
+    "interaction": {
+     "estimate": 1.484,
+     "se": 0.251,
+     "z": 5.91,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   },
+   {
+    "NarL_effect_FNR_at_fit": 0.651,
+    "NarL_effect_FNR_off": 2.07,
+    "interaction": {
+     "estimate": 1.421,
+     "se": 0.302,
+     "z": 4.71,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   }
+  ],
+  "narK": [
+   {
+    "NarL_effect_FNR_at_fit": 0.448,
+    "NarL_effect_FNR_off": 1.375,
+    "interaction": {
+     "estimate": 0.933,
+     "se": 0.141,
+     "z": 6.62,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   },
+   {
+    "NarL_effect_FNR_at_fit": 0.22,
+    "NarL_effect_FNR_off": 1.256,
+    "interaction": {
+     "estimate": 1.025,
+     "se": 0.17,
+     "z": 6.04,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   },
+   {
+    "NarL_effect_FNR_at_fit": 0.305,
+    "NarL_effect_FNR_off": 1.286,
+    "interaction": {
+     "estimate": 0.977,
+     "se": 0.183,
+     "z": 5.33,
+     "n": [
+      3,
+      2,
+      2,
+      2
+     ]
+    }
+   }
+  ]
+ },
+ "sensitivity_last_generation": {
+  "registered": {
+   "NarL_effect_FNR_at_fit": 0.563,
+   "NarL_effect_FNR_off": 1.439,
+   "interaction": {
+    "estimate": 0.871,
+    "se": 0.184,
+    "z": 4.75,
+    "n": [
+     3,
+     2,
+     2,
+     2
+    ]
+   },
+   "phi": 0.297
+  },
+  "plus_F1-s301": {
+   "NarL_effect_FNR_at_fit": 0.573,
+   "NarL_effect_FNR_off": 1.439,
+   "interaction": {
+    "estimate": 0.863,
+    "se": 0.156,
+    "z": 5.53,
+    "n": [
+     3,
+     2,
+     2,
+     3
+    ]
+   },
+   "phi": 0.307
+  },
+  "plus_F2-s301": {
+   "NarL_effect_FNR_at_fit": 0.56,
+   "NarL_effect_FNR_off": 1.439,
+   "interaction": {
+    "estimate": 0.874,
+    "se": 0.184,
+    "z": 4.76,
+    "n": [
+     3,
+     2,
+     3,
+     2
+    ]
+   },
+   "phi": 0.294
+  },
+  "plus_both": {
+   "NarL_effect_FNR_at_fit": 0.571,
+   "NarL_effect_FNR_off": 1.439,
+   "interaction": {
+    "estimate": 0.865,
+    "se": 0.156,
+    "z": 5.55,
+    "n": [
+     3,
+     2,
+     3,
+     3
+    ]
+   },
+   "phi": 0.305
+  }
+ },
+ "composition": {
+  "spline_range": [
+   0.2,
+   0.469
+  ],
+  "all_pools_negative_below": 0.1355,
+  "per_run": {
+   "ctl-fit": [
+    {
+     "min": 0.1511,
+     "first": 0.1704,
+     "last": 0.2135,
+     "frac_steps_below_range": 0.781
+    },
+    null,
+    null
+   ],
+   "ctl-off": [
+    {
+     "min": 0.1425,
+     "first": 0.1699,
+     "last": 0.1779,
+     "frac_steps_below_range": 1.0
+    },
+    null,
+    null
+   ],
+   "F1-s300": [
+    {
+     "min": 0.139,
+     "first": 0.1657,
+     "last": 0.2264,
+     "frac_steps_below_range": 0.834
+    },
+    {
+     "min": 0.2245,
+     "first": 0.2277,
+     "last": 0.2366,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.223,
+     "first": 0.2244,
+     "last": 0.2381,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "F1-s301": [
+    {
+     "min": 0.1375,
+     "first": 0.1676,
+     "last": 0.1792,
+     "frac_steps_below_range": 1.0
+    },
+    {
+     "min": 0.1754,
+     "first": 0.1754,
+     "last": 0.2151,
+     "frac_steps_below_range": 0.456
+    },
+    {
+     "min": 0.2153,
+     "first": 0.2153,
+     "last": 0.2449,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "F1-s302": [
+    {
+     "min": 0.1486,
+     "first": 0.1692,
+     "last": 0.1994,
+     "frac_steps_below_range": 1.0
+    },
+    {
+     "min": 0.2018,
+     "first": 0.2032,
+     "last": 0.2077,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.1869,
+     "first": 0.2026,
+     "last": 0.1872,
+     "frac_steps_below_range": 0.862
+    }
+   ],
+   "F2-s300": [
+    {
+     "min": 0.1471,
+     "first": 0.1692,
+     "last": 0.2253,
+     "frac_steps_below_range": 0.714
+    },
+    {
+     "min": 0.2246,
+     "first": 0.2246,
+     "last": 0.243,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.2289,
+     "first": 0.2414,
+     "last": 0.2291,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "F2-s301": [
+    {
+     "min": 0.1495,
+     "first": 0.1688,
+     "last": 0.1762,
+     "frac_steps_below_range": 1.0
+    },
+    {
+     "min": 0.1555,
+     "first": 0.1778,
+     "last": 0.1555,
+     "frac_steps_below_range": 1.0
+    },
+    {
+     "min": 0.1472,
+     "first": 0.1565,
+     "last": 0.1535,
+     "frac_steps_below_range": 1.0
+    }
+   ],
+   "F2-s302": [
+    {
+     "min": 0.1427,
+     "first": 0.1676,
+     "last": 0.2177,
+     "frac_steps_below_range": 0.779
+    },
+    {
+     "min": 0.2186,
+     "first": 0.2188,
+     "last": 0.2286,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.2274,
+     "first": 0.2279,
+     "last": 0.2344,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "O1-s330": [
+    {
+     "min": 0.1487,
+     "first": 0.1648,
+     "last": 0.1989,
+     "frac_steps_below_range": 1.0
+    },
+    {
+     "min": 0.1965,
+     "first": 0.1968,
+     "last": 0.2099,
+     "frac_steps_below_range": 0.628
+    },
+    {
+     "min": 0.2063,
+     "first": 0.2063,
+     "last": 0.2147,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "O1-s332": [
+    {
+     "min": 0.1453,
+     "first": 0.1665,
+     "last": 0.2115,
+     "frac_steps_below_range": 0.706
+    },
+    {
+     "min": 0.2127,
+     "first": 0.2127,
+     "last": 0.2396,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.2362,
+     "first": 0.2362,
+     "last": 0.2584,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "O1-s331": [
+    {
+     "min": 0.1416,
+     "first": 0.1659,
+     "last": 0.1483,
+     "frac_steps_below_range": 1.0
+    },
+    {
+     "min": 0.1355,
+     "first": 0.1444,
+     "last": 0.1355,
+     "frac_steps_below_range": 1.0
+    },
+    null
+   ],
+   "O2-s330": [
+    {
+     "min": 0.1501,
+     "first": 0.1701,
+     "last": 0.2585,
+     "frac_steps_below_range": 0.421
+    },
+    {
+     "min": 0.2594,
+     "first": 0.2596,
+     "last": 0.2698,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.267,
+     "first": 0.2691,
+     "last": 0.2827,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "O2-s331": [
+    {
+     "min": 0.1495,
+     "first": 0.1693,
+     "last": 0.2309,
+     "frac_steps_below_range": 0.609
+    },
+    {
+     "min": 0.2329,
+     "first": 0.2329,
+     "last": 0.238,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.2309,
+     "first": 0.2348,
+     "last": 0.2309,
+     "frac_steps_below_range": 0.0
+    }
+   ],
+   "O2-s332": [
+    {
+     "min": 0.1512,
+     "first": 0.1718,
+     "last": 0.2088,
+     "frac_steps_below_range": 0.834
+    },
+    {
+     "min": 0.2079,
+     "first": 0.2079,
+     "last": 0.2515,
+     "frac_steps_below_range": 0.0
+    },
+    {
+     "min": 0.2538,
+     "first": 0.2538,
+     "last": 0.2838,
+     "frac_steps_below_range": 0.0
+    }
+   ]
+  }
+ },
+ "bound_fraction_per_generation": {
+  "ctl-fit": [
+   {
+    "FNR-4FE-4S-CPLX": 0.7809,
+    "PHOSPHO-NARL": 0.8773
+   },
+   null,
+   null
+  ],
+  "ctl-off": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8767
+   },
+   null,
+   null
+  ],
+  "F1-s300": [
+   {
+    "FNR-4FE-4S-CPLX": 0.7817,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7812,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7808,
+    "PHOSPHO-NARL": 0.0
+   }
+  ],
+  "F1-s301": [
+   {
+    "FNR-4FE-4S-CPLX": 0.7804,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7808,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.782,
+    "PHOSPHO-NARL": 0.0
+   }
+  ],
+  "F1-s302": [
+   {
+    "FNR-4FE-4S-CPLX": 0.781,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.781,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7813,
+    "PHOSPHO-NARL": 0.0
+   }
+  ],
+  "F2-s300": [
+   {
+    "FNR-4FE-4S-CPLX": 0.781,
+    "PHOSPHO-NARL": 0.8778
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7809,
+    "PHOSPHO-NARL": 0.8772
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7804,
+    "PHOSPHO-NARL": 0.878
+   }
+  ],
+  "F2-s301": [
+   {
+    "FNR-4FE-4S-CPLX": 0.7804,
+    "PHOSPHO-NARL": 0.8774
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7816,
+    "PHOSPHO-NARL": 0.6201
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7808,
+    "PHOSPHO-NARL": 0.5077
+   }
+  ],
+  "F2-s302": [
+   {
+    "FNR-4FE-4S-CPLX": 0.7801,
+    "PHOSPHO-NARL": 0.8772
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7812,
+    "PHOSPHO-NARL": 0.8785
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.7819,
+    "PHOSPHO-NARL": 0.8763
+   }
+  ],
+  "O1-s330": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   }
+  ],
+  "O1-s332": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   }
+  ],
+  "O1-s331": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0
+   },
+   null
+  ],
+  "O2-s330": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8772
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8776
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8784
+   }
+  ],
+  "O2-s331": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8775
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.878
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8777
+   }
+  ],
+  "O2-s332": [
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8763
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.878
+   },
+   {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8554
+   }
+  ]
+ },
+ "raw": {
+  "ctl-fit": [
+   {
+    "rna_protein": {
+     "min": 0.1511,
+     "first": 0.1704,
+     "last": 0.2135,
+     "frac_steps_below_range": 0.781
+    },
+    "synth": {
+     "narGHJI": 3.7976248095234295e-06,
+     "frdABCD": 1.187343580921366e-05,
+     "nirBDC": 3.536427616048708e-06,
+     "narK": 1.1042418580959806e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7809,
+     "PHOSPHO-NARL": 0.8773
+    }
+   },
+   null,
+   null
+  ],
+  "ctl-off": [
+   {
+    "rna_protein": {
+     "min": 0.1425,
+     "first": 0.1699,
+     "last": 0.1779,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 2.4102023660971218e-06,
+     "frdABCD": 1.6780243327048956e-06,
+     "nirBDC": 2.330714167884537e-06,
+     "narK": 4.5996516841960546e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8767
+    }
+   },
+   null,
+   null
+  ],
+  "F1-s300": [
+   {
+    "rna_protein": {
+     "min": 0.139,
+     "first": 0.1657,
+     "last": 0.2264,
+     "frac_steps_below_range": 0.834
+    },
+    "synth": {
+     "narGHJI": 2.5129860818820253e-06,
+     "frdABCD": 1.0596739735862654e-05,
+     "nirBDC": 1.9682398896660066e-06,
+     "narK": 8.663987789349972e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7817,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2245,
+     "first": 0.2277,
+     "last": 0.2366,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.7160507991495577e-06,
+     "frdABCD": 1.7028486972004283e-05,
+     "nirBDC": 3.185596700878718e-06,
+     "narK": 9.343219114450335e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7812,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.223,
+     "first": 0.2244,
+     "last": 0.2381,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.643443265439396e-06,
+     "frdABCD": 1.5163642539930468e-05,
+     "nirBDC": 2.815892734998762e-06,
+     "narK": 9.164790853715311e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7808,
+     "PHOSPHO-NARL": 0.0
+    }
+   }
+  ],
+  "F1-s301": [
+   {
+    "rna_protein": {
+     "min": 0.1375,
+     "first": 0.1676,
+     "last": 0.1792,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 2.450670086452817e-06,
+     "frdABCD": 1.0900889665518655e-05,
+     "nirBDC": 2.0187698196935183e-06,
+     "narK": 8.467591308444405e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7804,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.1754,
+     "first": 0.1754,
+     "last": 0.2151,
+     "frac_steps_below_range": 0.456
+    },
+    "synth": {
+     "narGHJI": 3.029960503426499e-06,
+     "frdABCD": 1.8785940138994002e-05,
+     "nirBDC": 3.521403759288816e-06,
+     "narK": 1.030120434018356e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7808,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2153,
+     "first": 0.2153,
+     "last": 0.2449,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.818485519477473e-06,
+     "frdABCD": 1.6065416583222446e-05,
+     "nirBDC": 3.005246660000935e-06,
+     "narK": 9.572565422286583e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.782,
+     "PHOSPHO-NARL": 0.0
+    }
+   }
+  ],
+  "F1-s302": [
+   {
+    "rna_protein": {
+     "min": 0.1486,
+     "first": 0.1692,
+     "last": 0.1994,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 2.6197670071298325e-06,
+     "frdABCD": 1.2807066287418457e-05,
+     "nirBDC": 2.343695310178361e-06,
+     "narK": 8.998781049914018e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.781,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2018,
+     "first": 0.2032,
+     "last": 0.2077,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 3.335102164032448e-06,
+     "frdABCD": 2.2623789918063777e-05,
+     "nirBDC": 4.226663114508284e-06,
+     "narK": 1.1433702137050056e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.781,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.1869,
+     "first": 0.2026,
+     "last": 0.1872,
+     "frac_steps_below_range": 0.862
+    },
+    "synth": {
+     "narGHJI": 3.1188169642738977e-06,
+     "frdABCD": 1.884136335665435e-05,
+     "nirBDC": 3.4990004741997334e-06,
+     "narK": 1.0755360091394915e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7813,
+     "PHOSPHO-NARL": 0.0
+    }
+   }
+  ],
+  "F2-s300": [
+   {
+    "rna_protein": {
+     "min": 0.1471,
+     "first": 0.1692,
+     "last": 0.2253,
+     "frac_steps_below_range": 0.714
+    },
+    "synth": {
+     "narGHJI": 4.458629176874597e-06,
+     "frdABCD": 1.4984848352815725e-05,
+     "nirBDC": 4.4893969838459465e-06,
+     "narK": 1.302903945715328e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.781,
+     "PHOSPHO-NARL": 0.8778
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2246,
+     "first": 0.2246,
+     "last": 0.243,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 4.294927652958148e-06,
+     "frdABCD": 1.7111308826283837e-05,
+     "nirBDC": 5.126347559018108e-06,
+     "narK": 1.2481187644787371e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7809,
+     "PHOSPHO-NARL": 0.8772
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2289,
+     "first": 0.2414,
+     "last": 0.2291,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 4.2553489317745035e-06,
+     "frdABCD": 1.615332484801829e-05,
+     "nirBDC": 4.830587505220865e-06,
+     "narK": 1.219543847085696e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7804,
+     "PHOSPHO-NARL": 0.878
+    }
+   }
+  ],
+  "F2-s301": [
+   {
+    "rna_protein": {
+     "min": 0.1495,
+     "first": 0.1688,
+     "last": 0.1762,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 3.8011411692352093e-06,
+     "frdABCD": 1.1890310548480565e-05,
+     "nirBDC": 3.531822000703134e-06,
+     "narK": 1.0903492885915558e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7804,
+     "PHOSPHO-NARL": 0.8774
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.1555,
+     "first": 0.1778,
+     "last": 0.1555,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 4.43849256513292e-06,
+     "frdABCD": 1.9622258685511915e-05,
+     "nirBDC": 5.089720431303621e-06,
+     "narK": 1.335252742961627e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7816,
+     "PHOSPHO-NARL": 0.6201
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.1472,
+     "first": 0.1565,
+     "last": 0.1535,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 4.2316749636170775e-06,
+     "frdABCD": 1.9060213058876826e-05,
+     "nirBDC": 4.742747786574659e-06,
+     "narK": 1.319651914616083e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7808,
+     "PHOSPHO-NARL": 0.5077
+    }
+   }
+  ],
+  "F2-s302": [
+   {
+    "rna_protein": {
+     "min": 0.1427,
+     "first": 0.1676,
+     "last": 0.2177,
+     "frac_steps_below_range": 0.779
+    },
+    "synth": {
+     "narGHJI": 3.8081527386828247e-06,
+     "frdABCD": 1.1646873654685615e-05,
+     "nirBDC": 3.484306581320488e-06,
+     "narK": 1.1065966362611108e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7801,
+     "PHOSPHO-NARL": 0.8772
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2186,
+     "first": 0.2188,
+     "last": 0.2286,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 4.008687243804613e-06,
+     "frdABCD": 1.7312498445704524e-05,
+     "nirBDC": 5.244058581376292e-06,
+     "narK": 1.1724896127454057e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7812,
+     "PHOSPHO-NARL": 0.8785
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2274,
+     "first": 0.2279,
+     "last": 0.2344,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 4.256769241136859e-06,
+     "frdABCD": 1.7101209135153996e-05,
+     "nirBDC": 5.084988255147076e-06,
+     "narK": 1.242181030220933e-06
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.7819,
+     "PHOSPHO-NARL": 0.8763
+    }
+   }
+  ],
+  "O1-s330": [
+   {
+    "rna_protein": {
+     "min": 0.1487,
+     "first": 0.1648,
+     "last": 0.1989,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 7.429990628934496e-07,
+     "frdABCD": 2.483322489646652e-06,
+     "nirBDC": 4.5522879407830925e-07,
+     "narK": 1.5774807943316297e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.1965,
+     "first": 0.1968,
+     "last": 0.2099,
+     "frac_steps_below_range": 0.628
+    },
+    "synth": {
+     "narGHJI": 8.765132648724727e-07,
+     "frdABCD": 3.705479551272524e-06,
+     "nirBDC": 6.81348017605657e-07,
+     "narK": 1.8652870388052974e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2063,
+     "first": 0.2063,
+     "last": 0.2147,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 8.309659531673301e-07,
+     "frdABCD": 3.08259212463494e-06,
+     "nirBDC": 5.658592673246059e-07,
+     "narK": 1.7663739828957662e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   }
+  ],
+  "O1-s332": [
+   {
+    "rna_protein": {
+     "min": 0.1453,
+     "first": 0.1665,
+     "last": 0.2115,
+     "frac_steps_below_range": 0.706
+    },
+    "synth": {
+     "narGHJI": 8.148078795487458e-07,
+     "frdABCD": 2.669230035456831e-06,
+     "nirBDC": 4.894895753552157e-07,
+     "narK": 1.7295332760116974e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2127,
+     "first": 0.2127,
+     "last": 0.2396,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 8.978908164966915e-07,
+     "frdABCD": 3.6469075879022598e-06,
+     "nirBDC": 6.69706443156921e-07,
+     "narK": 1.9093001111665525e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2362,
+     "first": 0.2362,
+     "last": 0.2584,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 9.768695038300952e-07,
+     "frdABCD": 4.245315436205533e-06,
+     "nirBDC": 7.811997505386712e-07,
+     "narK": 2.0789266781994238e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   }
+  ],
+  "O1-s331": [
+   {
+    "rna_protein": {
+     "min": 0.1416,
+     "first": 0.1659,
+     "last": 0.1483,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 7.329843029294228e-07,
+     "frdABCD": 2.10505778918087e-06,
+     "nirBDC": 3.8503630188040174e-07,
+     "narK": 1.553468640022747e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.1355,
+     "first": 0.1444,
+     "last": 0.1355,
+     "frac_steps_below_range": 1.0
+    },
+    "synth": {
+     "narGHJI": 8.109831431801848e-07,
+     "frdABCD": 2.8385611381570086e-06,
+     "nirBDC": 5.20830443027755e-07,
+     "narK": 1.7217698948130962e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.0
+    }
+   },
+   null
+  ],
+  "O2-s330": [
+   {
+    "rna_protein": {
+     "min": 0.1501,
+     "first": 0.1701,
+     "last": 0.2585,
+     "frac_steps_below_range": 0.421
+    },
+    "synth": {
+     "narGHJI": 2.268302068140855e-06,
+     "frdABCD": 1.5539794486799903e-06,
+     "nirBDC": 2.18574743641013e-06,
+     "narK": 4.3110734350788466e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8772
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2594,
+     "first": 0.2596,
+     "last": 0.2698,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.60327798629538e-06,
+     "frdABCD": 2.318227318363948e-06,
+     "nirBDC": 3.2644732870714163e-06,
+     "narK": 4.972440047882037e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8776
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.267,
+     "first": 0.2691,
+     "last": 0.2827,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.7164131365888558e-06,
+     "frdABCD": 2.2895791251262846e-06,
+     "nirBDC": 3.2533150110298996e-06,
+     "narK": 5.216071553438457e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8784
+    }
+   }
+  ],
+  "O2-s331": [
+   {
+    "rna_protein": {
+     "min": 0.1495,
+     "first": 0.1693,
+     "last": 0.2309,
+     "frac_steps_below_range": 0.609
+    },
+    "synth": {
+     "narGHJI": 2.331805690555865e-06,
+     "frdABCD": 1.5435795639521847e-06,
+     "nirBDC": 2.155509220693525e-06,
+     "narK": 4.427533387566134e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8775
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2329,
+     "first": 0.2329,
+     "last": 0.238,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.2292694168812124e-06,
+     "frdABCD": 1.7212292902557716e-06,
+     "nirBDC": 2.407295302478706e-06,
+     "narK": 4.271221384111396e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.878
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2309,
+     "first": 0.2348,
+     "last": 0.2309,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.3254496088922918e-06,
+     "frdABCD": 1.8271305064413242e-06,
+     "nirBDC": 2.586295071283729e-06,
+     "narK": 4.4369292248059944e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8777
+    }
+   }
+  ],
+  "O2-s332": [
+   {
+    "rna_protein": {
+     "min": 0.1512,
+     "first": 0.1718,
+     "last": 0.2088,
+     "frac_steps_below_range": 0.834
+    },
+    "synth": {
+     "narGHJI": 2.162996275237243e-06,
+     "frdABCD": 1.3607332963362367e-06,
+     "nirBDC": 1.8972642748713532e-06,
+     "narK": 4.130321788697251e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8763
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2079,
+     "first": 0.2079,
+     "last": 0.2515,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.2304472107374233e-06,
+     "frdABCD": 1.734819462259983e-06,
+     "nirBDC": 2.4239919610578138e-06,
+     "narK": 4.279038016136913e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.878
+    }
+   },
+   {
+    "rna_protein": {
+     "min": 0.2538,
+     "first": 0.2538,
+     "last": 0.2838,
+     "frac_steps_below_range": 0.0
+    },
+    "synth": {
+     "narGHJI": 2.3089407144820284e-06,
+     "frdABCD": 1.974277042643186e-06,
+     "nirBDC": 2.6425166680917875e-06,
+     "narK": 4.414712273410913e-07
+    },
+    "bound_fraction": {
+     "FNR-4FE-4S-CPLX": 0.0,
+     "PHOSPHO-NARL": 0.8554
+    }
+   }
+  ]
+ },
+ "read_utc": "2026-11-27T06:04:53Z",
+ "computed_utc": "2026-11-27T06:04:55Z"
+}

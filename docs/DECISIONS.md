@@ -1333,3 +1333,114 @@ faster than any cell could.
 - **Committed plans.** Every design in the four committed plans (154 runs) passes.
 - **Corpus timelines.** Every corpus timeline passes. Fixed on the way: the corpus-timeline test now reads the fitted
   condition from a run's label when its argv is not indexed, which is how BV-12's three dead knockouts had failed it.
+
+## D18 — BV-14d's result: the attenuation is how factors combine, not occupancy — 2026-11-27
+
+**In one line.** Holding FNR and NarL at the fit's occupancies restores under a third of BV-14's lost nitrate effect
+at nar (phi 0.30), while holding FNR off raises NarL's effect from +0.56 to +1.44 log2 (1.5-fold to 2.7-fold). The simulation adds
+co-activators' effects inside one multiplier, so FNR's large term dilutes NarL's, and the model's own equations
+predicted both clamped effects to within 0.02 log2.
+
+**Decided by the user** (2026-11-26): "Go for the BV-14d occupancy-clamped runs. Make sure that test failures and
+defective runs are discarded." Pre-registered in D16 (plan design_sha256 f3144ef9).
+
+**Which runs counted.** Of 14 planned runs, 13 finished. The pre-registered rules discarded 3, listed and never
+averaged:
+
+| run | why discarded |
+|---|---|
+| O1-s331 (FNR off, no oxygen) | Crashed in generation 2. FBA refused a negative biotin target: the RNA/protein ratio fell to 0.1355, where the biomass splines (fitted on 0.2 to 0.469, extrapolated below) turn negative. Named in `failures.KNOWN` (bf41701). |
+| F1-s301 (fit, no oxygen) | Grew at 1.51x the fitted rate; the limit is 1.5x. |
+| F2-s301 (fit, nitrate) | The NarL clamp did not hold: 0.877 in generation 0, then 0.62 and 0.51. A clamp sets the probability of binding but cannot create the factor: the free phospho-NarL pool ran short. |
+
+That left valid seeds F1 300, 302; F2 300, 302; O1 330, 332; O2 330, 331, 332. Every arm had the two seeds a
+contrast needs.
+
+The batch had also skipped O1-s332, under a rule broader than its docstring: it blocked on any seed's failure, not
+only on the first run's. The rule was fixed (bf41701), and the registered seed ran unchanged from a one-run plan
+(`evals/plans/bv14d_o1s332.json`). O2-s331 and O2-s332 also ran from one-run plans at a 30 GB disk floor, to use a
+machine that was otherwise idle. No run was ever owned by two processes.
+
+**The result** (`evals/results/bv14d_clamp.json`; nitrate against anaerobic, log2, last generation):
+
+| operon | NarL's effect, FNR at the fit | NarL's effect, FNR off | interaction (z) | predicted (D16) |
+|---|---|---|---|---|
+| narGHJI | +0.563 | +1.439 | +0.871 (4.75) | +0.55, +1.45 |
+| nirBDC | +0.651 | +2.070 | +1.421 (4.71) | — |
+| narK | +0.305 | +1.286 | +0.977 (5.33) | — |
+| frdABCD (NarL represses) | &minus;0.032 | &minus;0.852 | &minus;0.815 (&minus;2.74) | &minus;0.32, &minus;1.13 |
+
+- **D1, occupancy: "occupancy restores a minor share" (phi 0.297, against 0.5 for occupancy to be the main cause).**
+  - The registered prediction was about 0.1. It subtracted the 0.20 by which the algebra had over-predicted
+    BV-14's unclamped runs.
+  - Under the clamp that offset did not appear: the uncorrected algebra (+0.549, phi 0.28) is what the runs show (+0.563, phi 0.30).
+  - Why the unclamped runs fell 0.20 short is not established. One candidate is their step-to-step variation in
+    binding, which an expected-value calculation averages away.
+- **D2, additive dilution: "supported" (I +0.871, z 4.75, against I >= 0.5 with z >= 2).**
+  - The two other NarL-activated operons agree, and frd shows the mirror image: NarL's repression also grows when
+    FNR is off.
+  - The frd interaction (&minus;0.815) matches the predicted difference (&minus;0.80). Its absolute values sit about
+    0.28 above the algebra in both arms (BV-14's unclamped runs sat 0.17 below it). The rules used differences, which
+    such an offset cancels.
+
+**Robustness** (`evals/results/bv14d_robustness.json`, post hoc, NOT pre-registered; no decision changes):
+- **Every generation.**
+  - nar interaction: +0.85, +0.94 and +0.87 (z 6.1, 5.4, 4.8) in generations 0, 1 and 2.
+  - phi: 0.42, 0.20 and 0.30, all under 0.5.
+- **Without the discards.** Adding F1-s301 and F2-s301 back moves phi to 0.29-0.31 and I to 0.86-0.87.
+- **Composition.**
+  - Every run starts at an RNA/protein ratio of 0.165-0.172, below the splines' fitted range, and generation 0
+    spends 42-100% of its steps there.
+  - By the last generation every valid run is in range except F1-s302.
+  - Generation 0 (extrapolated) and generation 2 (in range) give the same interaction, so the extrapolation does not
+    drive the effect. It is a limitation of every anaerobic run on this refit, and of most acetate runs in the corpus
+    (BACKLOG RP).
+
+**Rationale.**
+- BV-14 found nitrate raising nar synthesis +0.25 log2 where the fit asked +1.29, with FNR bound at 0.99 where the
+  fit assumed 0.78. Two explanations predict different things:
+  - Occupancy: if the cause were occupancy, clamping both factors at the fit's values would restore the effect.
+  - Combination: if the cause is how the simulation combines factors, it would not, and removing FNR would enlarge
+    NarL's effect.
+- The 2 x 2 separates the two in one experiment, on the refit where BV-14 ran, with the clamp verified per run (the
+  achieved bound fraction, not the set probability).
+
+**Intuition.**
+- At narGHJI the encoded effects are FNR +3.24 and NarL +1.81, and the simulation computes
+  `basal(ppGpp) x (1 + 3.24 x 0.78 + 1.81 x 0.88)`.
+- With FNR's term present, adding NarL's raises the multiplier from about 3.5 to 5.1, which is 1.45-fold. With FNR off
+  it raises it from 1 to 2.6, which is 2.6-fold.
+- The fit built the nitrate condition's target by multiplying the factors' fold changes, which no setting of
+  occupancy can reach under an additive rule.
+
+**What it says about the biology, and what it does not.**
+- According to PubMed, Walker and DeMoss 1992 ([DOI](https://doi.org/10.1128/jb.174.4.1119-1123.1992)) found two things:
+  - nitrate stimulation of nar persists in an fnr mutant;
+  - NarL stimulates both the FNR-dependent and the FNR-independent mode of transcription, acting on RNA polymerase
+    directly rather than through FNR.
+- That is qualitatively what a multiplicative action would look like. The abstract gives no fold changes, and PMC has
+  no full text, so whether the real fold induction is the same with and without FNR is not established here.
+- The discriminating quantity is nitrate's fold induction of nar in an fnr mutant against wild type:
+  - the model's additive rule makes it about 1.8-fold larger in the mutant (2^0.87);
+  - a multiplicative rule makes the two equal.
+- **Checkable in the lab: yes.** The quantity is that fold-induction ratio. Cellarium names the quantity; it does not
+  write the protocol.
+
+**Limitations.**
+- **Seeds and statistics.** Seeds are not biological replicates. Three arms had two valid seeds, and the z treats the
+  standard error as known, which is generous at that n. The closer evidence is that the effects matched the
+  pre-registered algebra to within 0.02 log2, in every generation.
+- **Readout.** The readout is synthesis probability, not protein. nar is transcribed about once a generation in the
+  model.
+- **What the clamp holds.** The clamp fixes binding, not the factors' other effects on the cell. FNR-off arms ran at
+  higher ppGpp (62-88 uM against 42-60 uM in the valid fit-arm runs), within-arm contrasts throughout.
+
+**Checks.**
+- `tests/test_bv14d_clamp.py` (the validity rules and the interaction).
+- `tests/test_bv14d_robustness.py` (the robustness arithmetic). Its recomputation on the registered seeds must equal
+  the registered interaction, or it refuses to write.
+
+**Follow-ups (proposed, not done).**
+- **A registry record.** A factor's fold effect at a promoter that another factor also activates is attenuated in the
+  model, so questions about fold induction at multi-factor promoters get the caveat.
+- **Shared with BV-14's write-up.** The finding goes into BV-14's write-up and the Platform Map.

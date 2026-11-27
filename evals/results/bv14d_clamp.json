@@ -1,0 +1,457 @@
+{
+ "spec": "BV-14d",
+ "plan_design_sha256": "f3144ef954a865e32fc9d2dbe217bd0df5d4240ed3ed273d3f508e63b81a67a9",
+ "knowledge_base": "9055ee3b",
+ "valid_seeds": {
+  "F1": [
+   300,
+   302
+  ],
+  "F2": [
+   300,
+   302
+  ],
+  "O1": [
+   330,
+   332
+  ],
+  "O2": [
+   330,
+   331,
+   332
+  ]
+ },
+ "discarded": [
+  {
+   "id": "bv14d-O1-s331",
+   "why": [
+    "did not finish (no summary in the ledger)"
+   ]
+  },
+  {
+   "id": "bv14d-F1-s301",
+   "why": [
+    "growth 0.0001749557150935166 outside [7.7e-05, 0.000173] per s"
+   ]
+  },
+  {
+   "id": "bv14d-F2-s301",
+   "why": [
+    "PHOSPHO-NARL bound fraction 0.508 against its clamp 0.877 (tolerance 0.05)"
+   ]
+  }
+ ],
+ "predictions": {
+  "FNR_at_fit": {
+   "narGHJI": 0.549,
+   "frdABCD": -0.324
+  },
+  "FNR_off": {
+   "narGHJI": 1.454,
+   "frdABCD": -1.128
+  },
+  "as_run_bv14": {
+   "narGHJI": 0.45,
+   "frdABCD": -0.297
+  },
+  "note": "expected-value algebra over all transcription units, with the runs' ppGpp (anaerobic 61.7, nitrate 40.4 uM); it over-predicted BV-14's observed nar ratio by 0.20 and under-predicted frd's by 0.17, so the decision rules use differences, which that offset largely cancels"
+ },
+ "rules": {
+  "validity": "a run counts only if: QC ok and every generation divided; each clamped factor's bound fraction within 0.05 of its target (exactly 0 for a factor held off); in the fit arms, growth within 1.5-fold of the condition's fitted rate. Otherwise it is discarded, listed with its reasons, and never averaged. An arm left with fewer than two valid seeds reports no contrast.",
+  "D1_occupancy": "phi = (R_F - R_BV14) / (R_fit - R_BV14), the share of BV-14's nar attenuation the clamp restores (R_F: nar synthesis, nitrate against anaerobic, FNR and NarL at the fit). Predicted about 0.1. phi >= 0.5: occupancy is the main cause and the pre-analysis is wrong",
+  "D2_additive_dilution": "I = NarL's nar effect with FNR held off minus with FNR at the fit (log2). Predicted about +0.9. I >= 0.5 with z >= 2 supports the additive account; I < 0.25 rejects it",
+  "readout": "per-seed time-mean synthesis probability (RnaSynthProb), last generation, as BV-14's diagnostic"
+ },
+ "clamp_targets": {
+  "FNR_at_fit": {
+   "FNR-4FE-4S-CPLX": 0.7810435405569058,
+   "PHOSPHO-NARL": 0.8774436090225489
+  },
+  "FNR_off": {
+   "FNR-4FE-4S-CPLX": 0.0,
+   "PHOSPHO-NARL": 0.8774436090225489
+  },
+  "anaerobic_FNR_at_fit": {
+   "FNR-4FE-4S-CPLX": 0.7810435405569058,
+   "PHOSPHO-NARL": 0.0
+  },
+  "anaerobic_FNR_off": {
+   "FNR-4FE-4S-CPLX": 0.0,
+   "PHOSPHO-NARL": 0.0
+  }
+ },
+ "contrasts": {
+  "narGHJI": {
+   "NarL_effect_FNR_at_fit": {
+    "target": [
+     4.255e-06,
+     4.257e-06
+    ],
+    "reference": [
+     2.643e-06,
+     3.119e-06
+    ],
+    "n": [
+     2,
+     2
+    ],
+    "log2_ratio": 0.563,
+    "welch_t": 5.785,
+    "p": 0.109
+   },
+   "NarL_effect_FNR_off": {
+    "target": [
+     2.716e-06,
+     2.325e-06,
+     2.309e-06
+    ],
+    "reference": [
+     8.31e-07,
+     9.769e-07
+    ],
+    "n": [
+     3,
+     2
+    ],
+    "log2_ratio": 1.439,
+    "welch_t": 10.185,
+    "p": 0.0025
+   },
+   "interaction": {
+    "estimate": 0.871,
+    "se": 0.184,
+    "z": 4.75,
+    "n": [
+     3,
+     2,
+     2,
+     2
+    ]
+   },
+   "phi_share_of_bv14_attenuation_restored": 0.297
+  },
+  "frdABCD": {
+   "NarL_effect_FNR_at_fit": {
+    "target": [
+     1.615e-05,
+     1.71e-05
+    ],
+    "reference": [
+     1.516e-05,
+     1.884e-05
+    ],
+    "n": [
+     2,
+     2
+    ],
+    "log2_ratio": -0.032,
+    "welch_t": -0.198,
+    "p": 0.8728
+   },
+   "NarL_effect_FNR_off": {
+    "target": [
+     2.29e-06,
+     1.827e-06,
+     1.974e-06
+    ],
+    "reference": [
+     3.083e-06,
+     4.245e-06
+    ],
+    "n": [
+     3,
+     2
+    ],
+    "log2_ratio": -0.852,
+    "welch_t": -2.736,
+    "p": 0.2025
+   },
+   "interaction": {
+    "estimate": -0.815,
+    "se": 0.298,
+    "z": -2.74,
+    "n": [
+     3,
+     2,
+     2,
+     2
+    ]
+   },
+   "phi_share_of_bv14_attenuation_restored": -0.711
+  },
+  "nirBDC": {
+   "NarL_effect_FNR_at_fit": {
+    "target": [
+     4.831e-06,
+     5.085e-06
+    ],
+    "reference": [
+     2.816e-06,
+     3.499e-06
+    ],
+    "n": [
+     2,
+     2
+    ],
+    "log2_ratio": 0.651,
+    "welch_t": 4.94,
+    "p": 0.088
+   },
+   "NarL_effect_FNR_off": {
+    "target": [
+     3.253e-06,
+     2.586e-06,
+     2.643e-06
+    ],
+    "reference": [
+     5.659e-07,
+     7.812e-07
+    ],
+    "n": [
+     3,
+     2
+    ],
+    "log2_ratio": 2.07,
+    "welch_t": 9.005,
+    "p": 0.0039
+   },
+   "interaction": {
+    "estimate": 1.421,
+    "se": 0.302,
+    "z": 4.71,
+    "n": [
+     3,
+     2,
+     2,
+     2
+    ]
+   },
+   "phi_share_of_bv14_attenuation_restored": 0.306
+  },
+  "narK": {
+   "NarL_effect_FNR_at_fit": {
+    "target": [
+     1.22e-06,
+     1.242e-06
+    ],
+    "reference": [
+     9.165e-07,
+     1.076e-06
+    ],
+    "n": [
+     2,
+     2
+    ],
+    "log2_ratio": 0.305,
+    "welch_t": 2.924,
+    "p": 0.2019
+   },
+   "NarL_effect_FNR_off": {
+    "target": [
+     5.216e-07,
+     4.437e-07,
+     4.415e-07
+    ],
+    "reference": [
+     1.766e-07,
+     2.079e-07
+    ],
+    "n": [
+     3,
+     2
+    ],
+    "log2_ratio": 1.286,
+    "welch_t": 9.031,
+    "p": 0.0031
+   },
+   "interaction": {
+    "estimate": 0.977,
+    "se": 0.183,
+    "z": 5.33,
+    "n": [
+     3,
+     2,
+     2,
+     2
+    ]
+   },
+   "phi_share_of_bv14_attenuation_restored": 0.233
+  }
+ },
+ "decisions": {
+  "D1_occupancy": "occupancy restores a minor share (phi 0.297)",
+  "D2_additive_dilution": "supported (I >= 0.5, z >= 2)"
+ },
+ "occupancy_achieved": {
+  "bv14d-ctl-fit": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7808860155395915,
+    "PHOSPHO-NARL": 0.8772615638720824,
+    "PHOSPHO-ARCA": 0.22965587746674151,
+    "CPLX0-226": 0.068748550421627,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.593,
+   "ppgpp_uM": 35.87596286980459
+  },
+  "bv14d-ctl-off": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8766794988164327,
+    "PHOSPHO-ARCA": 0.20828989023383365,
+    "CPLX0-226": 0.06764712399797139,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.432,
+   "ppgpp_uM": 63.70144150975129
+  },
+  "bv14d-F1-s300": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7808221799930659,
+    "PHOSPHO-NARL": 0.0,
+    "PHOSPHO-ARCA": 0.08922081640354029,
+    "CPLX0-226": 0.21509406918605142,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.621,
+   "ppgpp_uM": 42.46075543963466
+  },
+  "bv14d-F1-s301": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7819597797181056,
+    "PHOSPHO-NARL": 0.0,
+    "PHOSPHO-ARCA": 0.1494920236334686,
+    "CPLX0-226": 0.18871965304885996,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.63,
+   "ppgpp_uM": 48.81744477580852
+  },
+  "bv14d-F1-s302": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7812621583476578,
+    "PHOSPHO-NARL": 0.0,
+    "PHOSPHO-ARCA": 0.09440333581700937,
+    "CPLX0-226": 0.1876488183193154,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.427,
+   "ppgpp_uM": 59.550435703962364
+  },
+  "bv14d-F2-s300": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7803770901338473,
+    "PHOSPHO-NARL": 0.8779736529820422,
+    "PHOSPHO-ARCA": 0.08113599973825628,
+    "CPLX0-226": 0.06902824086363135,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.581,
+   "ppgpp_uM": 50.05687581091801
+  },
+  "bv14d-F2-s301": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7808400336167123,
+    "PHOSPHO-NARL": 0.5077148977681496,
+    "PHOSPHO-ARCA": 0.05061587324126344,
+    "CPLX0-226": 0.06909342260692444,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.355,
+   "ppgpp_uM": 62.34158188565394
+  },
+  "bv14d-F2-s302": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.7819382279529243,
+    "PHOSPHO-NARL": 0.8763146379215703,
+    "PHOSPHO-ARCA": 0.2905058088036874,
+    "CPLX0-226": 0.06650464049265466,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.467,
+   "ppgpp_uM": 59.64695056271661
+  },
+  "bv14d-O1-s330": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0,
+    "PHOSPHO-ARCA": 0.2922501442164767,
+    "CPLX0-226": 0.21460785626093087,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.5,
+   "ppgpp_uM": 67.56175740893228
+  },
+  "bv14d-O1-s332": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.0,
+    "PHOSPHO-ARCA": 0.0939869978536623,
+    "CPLX0-226": 0.2138566843528488,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.507,
+   "ppgpp_uM": 87.8203247500656
+  },
+  "bv14d-O2-s330": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8783672204781787,
+    "PHOSPHO-ARCA": 0.12970920392562935,
+    "CPLX0-226": 0.06924736173857729,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.631,
+   "ppgpp_uM": 87.81164533643208
+  },
+  "bv14d-O2-s331": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8777308744937184,
+    "PHOSPHO-ARCA": 0.06229766700249566,
+    "CPLX0-226": 0.0692466344336752,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.608,
+   "ppgpp_uM": 61.951165408502746
+  },
+  "bv14d-O2-s332": {
+   "bound_fraction": {
+    "FNR-4FE-4S-CPLX": 0.0,
+    "PHOSPHO-NARL": 0.8553871793700738,
+    "PHOSPHO-ARCA": 0.1557564130668921,
+    "CPLX0-226": 0.06924164992602236,
+    "PHOSPHO-DCUR": 0.0
+   },
+   "growth_per_h": 0.628,
+   "ppgpp_uM": 68.33268872731698
+  }
+ },
+ "computed_utc": "2026-11-27T05:53:48Z",
+ "environment": {
+  "python": "3.12.8",
+  "in_a_venv": true,
+  "git_commit": "bf41701",
+  "packages": {
+   "anthropic": "0.116.0",
+   "openai": "3.8.0",
+   "pydantic": "2.13.4",
+   "numpy": "2.4.6",
+   "scipy": "1.18.0",
+   "duckdb": "2.0.0",
+   "pyarrow": "24.0.0",
+   "huggingface_hub": "1.23.0"
+  },
+  "lock_file": "requirements.lock",
+  "differs_from_lock": {
+   "numpy": {
+    "locked": "2.5.1",
+    "installed": "2.4.6"
+   },
+   "duckdb": {
+    "locked": "1.5.4",
+    "installed": "2.0.0"
+   }
+  }
+ }
+}
