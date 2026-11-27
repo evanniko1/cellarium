@@ -217,9 +217,25 @@ def _system_blocks():
     return [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]
 
 
+def _api_tool(t: dict) -> dict:
+    """The copy of one tool the Messages API accepts. The API refuses a top-level oneOf / anyOf / allOf in an
+    input_schema (400, confirmed live 2026-11-27), and `chart` states its one-of-three run argument that way (ENUM-4).
+    Cellarium's own table keeps it for the conformance and trajectory checks; the copy sent states it in words."""
+    schema = t.get("input_schema") or {}
+    branches = schema.get("anyOf") or schema.get("oneOf")
+    if not any(k in schema for k in ("anyOf", "oneOf", "allOf")):
+        return dict(t)
+    clean = {k: v for k, v in schema.items() if k not in ("anyOf", "oneOf", "allOf")}
+    need = ", ".join("+".join(b.get("required") or []) for b in (branches or []) if isinstance(b, dict))
+    desc = t.get("description") or ""
+    if need:
+        desc = f"{desc} Give at least one of: {need} (a call naming none of them is refused)."
+    return {**t, "input_schema": clean, "description": desc}
+
+
 def _cached_tools():
     # cache the tool definitions too (they never change) by marking the final tool as a breakpoint.
-    ts = [dict(t) for t in tools.TOOLS]
+    ts = [_api_tool(t) for t in tools.TOOLS]
     if ts:
         ts[-1] = {**ts[-1], "cache_control": {"type": "ephemeral"}}
     return ts

@@ -1,0 +1,507 @@
+{
+ "spec": "RP re-verification (2026-11-27)",
+ "splines": {
+  "doubling_times_min": [
+   100.0,
+   60.0,
+   40.0,
+   30.0,
+   24.0
+  ],
+  "rna_protein_per_row": [
+   0.2,
+   0.25,
+   0.3291,
+   0.3882,
+   0.4689
+  ],
+  "fitted_range": [
+   0.2,
+   0.4689
+  ],
+  "pools": {
+   "lipid": {
+    "at_0.2": 0.06554,
+    "at_0.15": 0.01676,
+    "not_positive_at_or_below": 0.1355
+   },
+   "lps": {
+    "at_0.2": 0.02396,
+    "at_0.15": 0.00613,
+    "not_positive_at_or_below": 0.1355
+   },
+   "murein": {
+    "at_0.2": 0.01762,
+    "at_0.15": 0.00451,
+    "not_positive_at_or_below": 0.1355
+   },
+   "glycogen": {
+    "at_0.2": 0.01762,
+    "at_0.15": 0.00451,
+    "not_positive_at_or_below": 0.1355
+   },
+   "solublePool": {
+    "at_0.2": 0.00606,
+    "at_0.15": 0.00155,
+    "not_positive_at_or_below": 0.1355
+   },
+   "inorganicIon": {
+    "at_0.2": 0.00705,
+    "at_0.15": 0.0018,
+    "not_positive_at_or_below": 0.1355
+   }
+  }
+ },
+ "corpus": {
+  "low": 0.2,
+  "slow_media": {
+   "no_oxygen": {
+    "runs": 8,
+    "run_mean_below": 8,
+    "any_sample_below": 8,
+    "median_share_below": 1.0,
+    "min_ratio": 0.1377
+   },
+   "acetate": {
+    "runs": 13,
+    "run_mean_below": 9,
+    "any_sample_below": 13,
+    "median_share_below": 0.875,
+    "min_ratio": 0.156
+   },
+   "succinate": {
+    "runs": 3,
+    "run_mean_below": 1,
+    "any_sample_below": 3,
+    "median_share_below": 0.438,
+    "min_ratio": 0.1667
+   }
+  },
+  "steady_state_runs_with_series": 289,
+  "steady_state_any_sample_below": 27,
+  "steady_state_mostly_below": 20,
+  "below_outside_the_slow_media": [
+   "gene_knockout/KO:rplB/s1",
+   "gene_knockout/KO:rplB/s2",
+   "gene_knockout/KO:rplB/s3"
+  ],
+  "other_modes_with_series": 12,
+  "runs": [
+   {
+    "label": "condition/acetate/s4",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 4,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1911,
+    "min": 0.162,
+    "max": 0.2029,
+    "share_below": 0.625
+   },
+   {
+    "label": "condition/acetate/s5",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 5,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1838,
+    "min": 0.1648,
+    "max": 0.1871,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/no_oxygen/s6",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 6,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1585,
+    "min": 0.1377,
+    "max": 0.1892,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/no_oxygen/s7",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 7,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1584,
+    "min": 0.1392,
+    "max": 0.1792,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/no_oxygen/s2",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 2,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1725,
+    "min": 0.1384,
+    "max": 0.217,
+    "share_below": 0.812
+   },
+   {
+    "label": "condition/no_oxygen/s0",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 0,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1566,
+    "min": 0.1394,
+    "max": 0.1729,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/acetate/s0",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 0,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1857,
+    "min": 0.1632,
+    "max": 0.1957,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/acetate/s4",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 4,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1669,
+    "min": 0.1616,
+    "max": 0.1724,
+    "share_below": 1.0
+   },
+   {
+    "label": "gene_knockout/KO:rplB/s1",
+    "elongation_model": "steady_state",
+    "perturbation": "gene_knockout",
+    "condition": "KO:rplB",
+    "seed": 1,
+    "reportable": false,
+    "qc": "no_division",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1863,
+    "min": 0.1355,
+    "max": 0.2608,
+    "share_below": 0.625
+   },
+   {
+    "label": "condition/succinate/s1",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "succinate",
+    "seed": 1,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.2084,
+    "min": 0.1678,
+    "max": 0.2341,
+    "share_below": 0.438
+   },
+   {
+    "label": "condition/acetate/s2",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 2,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1845,
+    "min": 0.1638,
+    "max": 0.2034,
+    "share_below": 0.875
+   },
+   {
+    "label": "condition/no_oxygen/s3",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 3,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1687,
+    "min": 0.1486,
+    "max": 0.1896,
+    "share_below": 1.0
+   },
+   {
+    "label": "gene_knockout/KO:rplB/s2",
+    "elongation_model": "steady_state",
+    "perturbation": "gene_knockout",
+    "condition": "KO:rplB",
+    "seed": 2,
+    "reportable": false,
+    "qc": "no_division",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1846,
+    "min": 0.1355,
+    "max": 0.2561,
+    "share_below": 0.625
+   },
+   {
+    "label": "condition/acetate/s0",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 0,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1886,
+    "min": 0.1628,
+    "max": 0.1985,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/acetate/s3",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 3,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.2037,
+    "min": 0.1609,
+    "max": 0.2296,
+    "share_below": 0.5
+   },
+   {
+    "label": "condition/acetate/s3",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 3,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1632,
+    "min": 0.1586,
+    "max": 0.1673,
+    "share_below": 1.0
+   },
+   {
+    "label": "gene_knockout/KO:rplB/s3",
+    "elongation_model": "steady_state",
+    "perturbation": "gene_knockout",
+    "condition": "KO:rplB",
+    "seed": 3,
+    "reportable": false,
+    "qc": "no_division",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1857,
+    "min": 0.1355,
+    "max": 0.2588,
+    "share_below": 0.625
+   },
+   {
+    "label": "condition/succinate/s0",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "succinate",
+    "seed": 0,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1881,
+    "min": 0.1667,
+    "max": 0.1992,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/acetate/s1",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 1,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.209,
+    "min": 0.1665,
+    "max": 0.2332,
+    "share_below": 0.438
+   },
+   {
+    "label": "condition/acetate/s6",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 6,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1655,
+    "min": 0.156,
+    "max": 0.1697,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/acetate/s7",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 7,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.2172,
+    "min": 0.1664,
+    "max": 0.2397,
+    "share_below": 0.312
+   },
+   {
+    "label": "condition/no_oxygen/s1",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 1,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1758,
+    "min": 0.1449,
+    "max": 0.2107,
+    "share_below": 0.812
+   },
+   {
+    "label": "condition/acetate/s2",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 2,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1982,
+    "min": 0.1626,
+    "max": 0.212,
+    "share_below": 0.5
+   },
+   {
+    "label": "condition/succinate/s2",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "succinate",
+    "seed": 2,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.2079,
+    "min": 0.1695,
+    "max": 0.2209,
+    "share_below": 0.438
+   },
+   {
+    "label": "condition/acetate/s1",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "acetate",
+    "seed": 1,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.2044,
+    "min": 0.1631,
+    "max": 0.2283,
+    "share_below": 0.5
+   },
+   {
+    "label": "condition/no_oxygen/s4",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 4,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.153,
+    "min": 0.1395,
+    "max": 0.1789,
+    "share_below": 1.0
+   },
+   {
+    "label": "condition/no_oxygen/s5",
+    "elongation_model": "steady_state",
+    "perturbation": "condition",
+    "condition": "no_oxygen",
+    "seed": 5,
+    "reportable": true,
+    "qc": "ok",
+    "n_samples": 16,
+    "ratio_of_run_means": 0.1571,
+    "min": 0.1404,
+    "max": 0.1797,
+    "share_below": 1.0
+   }
+  ]
+ },
+ "direct": {
+  "read_utc": "2026-11-27T09:40:00Z",
+  "what": "FBAResults.conc_updates for glycogen-monomer[c] and CPD-12261[p] (murein) against sim_data.mass.get_mass_fractions_from_rna_protein_ratio at each step's Mass.rnaMass / Mass.proteinMass",
+  "kb": "runs/bv14_no3_anaerobic/condition_000024/kb/simData_Modified.cPickle (no_oxygen_plus_nitrate)",
+  "runs": {
+   "condition_000024__occ9b89f1/000340": {
+    "generations": 1,
+    "steps": 8126,
+    "share_below": 1.0,
+    "rp_min": 0.1425
+   },
+   "condition_000024__occ4950c1/000310": {
+    "generations": 1,
+    "steps": 5943,
+    "share_below": 0.78,
+    "rp_min": 0.1511
+   },
+   "condition_000024__occ9b89f1/000331": {
+    "generations": 3,
+    "steps": 14005,
+    "share_below_gen0": 0.61,
+    "rp_min": 0.1495
+   },
+   "condition_000024__occ4950c1/000301": {
+    "generations": 3,
+    "steps": 18791,
+    "share_below": 1.0,
+    "rp_min": 0.1472
+   }
+  },
+  "cv_target_over_spline_previous_step": 0.0,
+  "glycogen_fraction": {
+   "at_rp_0.1425": 0.00221,
+   "at_0.2": 0.01762
+  }
+ },
+ "computed_utc": "2026-11-27T09:30:09Z"
+}

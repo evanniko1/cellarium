@@ -342,6 +342,11 @@ class Capability:
     # the fit sets, so an answer carries "calibrated, not predicted" naming it. Empty for every other record. Not
     # mode-keyed: the fit is upstream of elongation and the same under every model.
     calibrated: str = ""
+    # COMB-REG (2026-11-27). For a mechanism the model DOES compute, but whose structure biases a reading in a known
+    # direction: what the structure is, how large the bias was measured, and how to read a number under it. Answered,
+    # with this sentence attached (the question gate's notes; the read path's `caveats`); never a refusal. Not
+    # mode-keyed while its one record's rule is shared by every elongation model.
+    caveat: str = ""
 
     @property
     def default_on(self) -> bool:
@@ -856,6 +861,30 @@ CAPABILITIES: tuple[Capability, ...] = (
                     "condition is simulated, against a doubling time the fit was also given (condition_defs.tsv)"),
         detail="an inducer's effect on its operon through a transcription factor the knowledge base fits",
     ),
+    # COMB-REG (2026-11-27, D18). Two or more activators bound at one promoter combine ADDITIVELY in the simulation,
+    # while the fit built the combined condition's target by MULTIPLYING their fold changes. BV-14d separated it from
+    # occupancy with the factors' binding clamped. The record holds and carries the caveat; it refuses nothing.
+    Capability(
+        key="combined_activation_at_a_promoter",
+        question="How strongly is an operon induced where two or more activators act on it at once (narGHJI under FNR "
+                 "and NarL without oxygen and with nitrate), and how much does each activator contribute when the "
+                 "other is present or absent?",
+        present=True,
+        holds_in=ELONGATION_MODES,
+        markers=("promoter_init_probs", "get_delta_prob_matrix"),
+        caveat=("the simulation combines the activators bound at one promoter additively, as basal(ppGpp) x (1 + sum of "
+                "effect x bound) (transcript_initiation.py), while the fit built each combined condition's target by "
+                "multiplying the active factors' fold changes (fit_sim_data_1.py), so each activator's effect is "
+                "diluted by the others' terms. With both factors' binding clamped at the fit's values (BV-14d, D18), "
+                "NarL's nitrate effect at narGHJI is +0.56 log2 with FNR bound and +1.44 with FNR held off, as that "
+                "algebra predicts (+0.55 and +1.45); narK and nirBDC show the same. The organism behaves closer to an "
+                "AND gate: fnr mutants lose nitrate induction of nitrate reductase (Stewart 1982), and narK needs both "
+                "fnr and narL (Stewart and Parales 1988). So read a fold change at such a promoter as attenuated, name "
+                "the co-activators bound in the condition, and do not read one activator's effect without the other "
+                "as the organism's: the model gives NarL a larger effect without FNR, the organism a smaller one. The "
+                "registry names this instance and does not list every promoter with several fitted activators"),
+        detail="the combined effect of several activators bound at one promoter",
+    ),
     # ...and for AraC the fitted sign is the opposite of the biology's, so the same question is refused.
     Capability(
         key="arabinose_induction_of_the_ara_operon",
@@ -977,7 +1006,7 @@ CAPABILITIES: tuple[Capability, ...] = (
 # September 2026; each corpus row records the image digest it ran). Of that build, Cellarium's own parts are public
 # on the campaign branch since 8e7dd6c5; the kinetic tRNA-charging port is Stanford-derived and held local while its
 # licence request is pending, and ROUTE1's isoacceptor broadcast reads structures the port builds, so it is held with
-# it. A new user's clone resolves 32 of 38 unique dependency references (evals/results/dependency_audit_public.json); the
+# it. A new user's clone resolves 34 of 40 unique dependency references (evals/results/dependency_audit_public.json); the
 # records below cannot be reproduced from public code until the port is published.
 BUILD = {
     "corpus_build": "the per-user code image built from the campaign checkout (c2047dc9 plus uncommitted changes); "
@@ -1039,6 +1068,11 @@ DEPENDS_ON: dict[str, tuple[str, ...]] = {
     "induction_by_a_fitted_transcription_factor": (
         f"{_FLAT}/fold_changes.tsv::narL", f"{_FLAT}/fold_changes_nca.tsv::narL",
         f"{_FLAT}/condition/tf_condition.tsv::PHOSPHO-NARL",
+        "reconstruction/ecoli/fit_sim_data_1.py::buildCombinedConditionCellSpecifications"),
+    # COMB-REG: the additive rule, the per-factor effects it sums, and the fit's multiplicative combined target
+    "combined_activation_at_a_promoter": (
+        "models/ecoli/processes/transcript_initiation.py::promoter_init_probs",
+        "reconstruction/ecoli/dataclasses/process/transcription_regulation.py::get_delta_prob_matrix",
         "reconstruction/ecoli/fit_sim_data_1.py::buildCombinedConditionCellSpecifications"),
     "arabinose_induction_of_the_ara_operon": (f"{_FLAT}/fold_changes.tsv::araC",
                                               f"{_FLAT}/condition/tf_condition.tsv::CPLX-172",

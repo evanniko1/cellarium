@@ -15,6 +15,9 @@ None of these changes a decision. The decisions are the registered ones.
 
     WCECOLI_DOCKER=<image> python evals/bv14d_robustness.py run    # reads the raw runs (before they are deposited)
     python evals/bv14d_robustness.py score                        # recomputes from the stored raw read
+
+The raw runs are no longer on this host (2026-11-27): the 13 finished ones are on the Hugging Face corpus, and O1-s331's
+partial output was deleted. `run` refuses rather than overwrite the stored read; `score` still works.
 """
 from __future__ import annotations
 
@@ -123,7 +126,19 @@ def _worker() -> None:
     print(json.dumps(res))
 
 
+GONE = ("the 13 finished runs were deposited to the Hugging Face corpus (evanniko1/cellarium-corpus, "
+        "runs/bv14_no3_anaerobic/...) and reclaimed on 2026-11-27, and O1-s331's partial output (its transit dir) was "
+        "deleted on 2026-11-27 at the user's decision, so its composition rows exist only in the stored read")
+
+
 def run() -> int:
+    """Read the raw runs. Refuses, keeping the stored read, when any run's first generation is absent on this host:
+    the worker would record it as None and the stored read would be overwritten by an empty one."""
+    absent = [name for name, sub in RUNS.items() if not (SIM_ROOT / sub / "generation_000000" / "000000" / "simOut").is_dir()]
+    if absent:
+        print(f"refusing to re-read: {len(absent)} of {len(RUNS)} runs are not on this host ({', '.join(absent)}). "
+              f"Why: {GONE}. The stored read in {OUT.name} is kept; `score` recomputes from it.", file=sys.stderr)
+        return 2
     cmd = ["docker", "run", "--rm", "-v", f"{SIM_ROOT}:/wcEcoli/out:ro", "-v", f"{Path(__file__).resolve()}:/x/r.py:ro",
            "-e", "PYTHONPATH=/wcEcoli", "-w", "/wcEcoli", _image(), "python", "/x/r.py", "worker"]
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")

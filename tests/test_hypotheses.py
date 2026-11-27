@@ -130,3 +130,24 @@ def test_run_council_specific_question_has_no_nudge(tmp_path, monkeypatch):
     run = hypotheses.run_council(s, "Does knocking out pfkA reduce growth rate versus wildtype?")
     assert run["status"] == "done"
     assert run["meta"]["broad_question"] is False and run["meta"]["hint"] is None
+
+
+def test_run_council_hands_the_deliberation_itself_to_a_caller(tmp_path, monkeypatch):
+    """The discovery driver needs the Hypothesis OBJECT (its brief is Cellwright's opening turn), not the stored view;
+    the callback receives the same object deliberate returned, after the run is persisted."""
+    import cellarium.council as council
+
+    class _Hyp:
+        claim = "c"; h1 = "h1"; candidate_designs = []
+        converged = True; rounds_used = 1; substantive_objections = 0
+
+        def brief(self):
+            return "the brief"
+
+    made = _Hyp()
+    monkeypatch.setattr(council, "deliberate", lambda q, *, verbose=False, on_round=None, **kw: made)
+    s = hypotheses.HypothesisStore(path=tmp_path / "t4.db")
+    got = []
+    run = hypotheses.run_council(s, "Does knocking out pfkA reduce growth rate versus wildtype?",
+                                 on_hypothesis=lambda rid, hyp: got.append((rid, hyp, s.get(rid)["status"])))
+    assert got == [(run["id"], made, "done")]

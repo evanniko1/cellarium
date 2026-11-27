@@ -1460,3 +1460,80 @@ machine that was otherwise idle. No run was ever owned by two processes.
 - **A registry record.** A factor's fold effect at a promoter that another factor also activates is attenuated in the
   model, so questions about fold induction at multi-factor promoters get the caveat.
 - **Shared with BV-14's write-up.** The finding goes into BV-14's write-up and the Platform Map.
+
+## D19 — A registry record for activators that combine at one promoter (COMB-REG) — 2026-11-27
+
+**In one line.** Where two or more activators are bound at one promoter, the simulation adds their effects inside one
+multiplier while the fit built the combined target by multiplying their fold changes. A reading there is now answered
+with a caveat that says which way it errs and by how much; it is never refused.
+
+**Decided by the user** (2026-11-27): "Add the co-activator registry record."
+
+**What changed.**
+
+- **The record.** `capability.combined_activation_at_a_promoter` holds in every elongation mode and carries the new
+  field `caveat`.
+  - The caveat names the rule (`basal(ppGpp) x (1 + sum of effect x bound)`, `transcript_initiation.py`) and the
+    fit's contrary rule (`fit_sim_data_1.py::buildCombinedConditionCellSpecifications`). Upstream's own docstring
+    there says multiplying "might not be appropriate".
+  - It quotes BV-14d's measured dilution: NarL's nitrate effect at narGHJI is +0.56 log2 with FNR bound and +1.44
+    with FNR held off. The algebra predicts +0.55 and +1.45.
+  - It says how the organism differs (post hoc, abstracts): fnr mutants lose nitrate induction (Stewart 1982), and
+    narK needs both fnr and narL (Stewart and Parales 1988).
+  - It says what a reader must do: name the co-activators, and do not read one activator's effect without the other
+    as the organism's.
+- **The question gate.** A new dependency, `combined_activation`, is named in the parser's vocabulary and its
+  instructions. An answered question that needs the record carries the caveat in its notes, as G-1's "calibrated,
+  not predicted" label does.
+- **The read path.** A design whose tag puts FNR and NarL on the same promoters at once carries the caveat in the
+  result's `capability.caveats`, and the call is never refused. That means `oxygen_plus_nitrate` (the
+  no_oxygen_plus_nitrate condition, or a timeline into that medium) and any occupancy-clamped design (`#occ:`).
+- **The dependency audit.** It gains three references, two of them new symbols (`promoter_init_probs`,
+  `get_delta_prob_matrix`), both resolving at the commit. The totals are now 47 references, 40 unique, 33 at the
+  commit. A new user's clone resolves 34 of 40 (was 32 of 38); the same 6 held-port references are missing.
+
+**Rationale.** BV-14d separated the cause from occupancy (D18), and the rule biases every reading at such a promoter
+in a known direction by a computable amount.
+- A refusal, the treatment BV-AN got, would withhold a reading whose direction is right and whose bias the registry
+  can state.
+- Silence would let "nitrate induces nar +0.56 log2 anaerobically" travel as the model's prediction.
+
+**Limitations.**
+
+- **One instance, not a list.** The registry names one instance and does not enumerate every promoter with several
+  fitted activators.
+  - Enumerating them needs the fit's per-gene factor tables, which are model-derived data under the held README
+    sentence (P3).
+  - A fold change read at another such promoter carries the caveat only when the question names the combination,
+    through the gate. The read path cannot see it from the design alone.
+- **Abstracts only.** The organism's AND-gate behaviour is from abstracts (D18). The fold values that would size it
+  are COMB-LIT.
+
+**Tests.** `tests/test_combined_activation.py` (9). Each new piece was mutated in turn, and a test failed each time.
+
+## D20 — Cellwright's tool list was refused by the API from 2026-10-28; the copy sent no longer carries a top-level anyOf — 2026-11-27
+
+**In one line.** The free token counter, run before the first paid discovery run, refused Cellwright's tool list. The
+`chart` tool's schema carried a top-level `anyOf`, and the Messages API refuses that with a 400, confirmed with a live
+one-tool call. Every live Cellwright turn sends the whole list, so every live Cellwright call had failed since
+2026-10-28.
+
+**How it got in, and why nothing saw it.**
+- ENUM-4 (261b946, 2026-10-28) declared `chart`'s one-of-three run argument (`result_id`, `results` or `design`) as
+  `anyOf` branches. That is standard JSON Schema; it is also not what the API accepts.
+- Every test client is a fake that does not validate schemas.
+- No live Cellwright session ran between that commit and today. The A/B's live sessions are from September, the
+  27-item grounding pilot from 24 August, and the app's session store holds none saved after 8 September.
+
+**What changed.**
+- `agent._api_tool` builds the copy sent to the API without top-level combinators, and states the requirement in the
+  description: "Give at least one of: result_id, results, design".
+- Cellarium's own table (`tools.TOOLS`) keeps the branches, because the conformance and trajectory checks read them.
+- The full list (74 tools) is now accepted by the token counter, at 39,394 input tokens for a first call, and the
+  `chart` copy by a live call.
+- `tests/test_api_tool_schemas.py` applies the API's rule to the agent's list and to every forced tool in the package.
+  It was watched failing on `chart` first.
+
+**Limitation.** The test encodes the one rule the API enforced here. It is not the API's validator, so a different
+schema rejection would still be found only by a live call. The paid-run recipe's free count before each new kind of
+run is that live check.

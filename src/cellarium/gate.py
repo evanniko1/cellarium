@@ -126,6 +126,9 @@ DEPENDENCY_REQUIRES: dict[str, tuple[str, ...]] = {
     # CRIT (2026-11-26): the replication threshold follows the medium, so it jumps at a shift. A question about the cell
     # cycle AFTER a shift rides on that whatever quantity it names; the same question in a constant medium does not.
     "cell_cycle_after_a_shift": ("replication_initiation_after_a_nutrient_shift",),
+    # COMB-REG (2026-11-27, D18): several activators at one promoter add inside one multiplier, so each one's effect
+    # is diluted by the others'. Answered, with the caveat; never refused.
+    "combined_activation": ("combined_activation_at_a_promoter",),
 }
 
 
@@ -329,6 +332,12 @@ def decide(req: Requirement, mode: str | None = None) -> Decision:
         cal = getattr(C._BY_KEY.get(k), "calibrated", "")
         if cal:
             d.notes.append(f"calibrated, not predicted ({k}): {cal}")
+    # COMB-REG: a represented mechanism whose structure biases the reading in a known direction is answered WITH the
+    # registry's sentence saying which way and by how much.
+    for k in keys:
+        cav = getattr(C._BY_KEY.get(k), "caveat", "")
+        if cav:
+            d.notes.append(f"answered with a caveat ({k}): {cav}")
 
     # Represented. Is there anything to read?
     runs = modes_with_runs()
@@ -392,7 +401,10 @@ _PARSE_TOOL = {
                                                        "initiates replication or divides, or its size at birth, "
                                                        "AFTER the medium changes during the run (oxygen or glucose "
                                                        "removed or added, a different carbon source) depends on "
-                                                       "cell_cycle_after_a_shift"},
+                                                       "cell_cycle_after_a_shift; how strongly an operon is "
+                                                       "induced where two or more activators act on it at once, "
+                                                       "or how much one activator contributes when another is "
+                                                       "present or absent, depends on combined_activation"},
             "evidence_coverage": {"type": "string",
                                   "description": "what would have to exist to support an answer, in one clause"},
         },
@@ -431,7 +443,10 @@ _PARSE_SYSTEM = (
     "depends on central_carbon_fluxes. A question about when the cell initiates chromosome replication or divides, "
     "how long its cell cycle takes or how big it is at birth, AFTER the medium changes during the run (oxygen or "
     "glucose removed or added, a switch to another carbon source) depends on cell_cycle_after_a_shift; the same "
-    "question asked in a medium that stays constant does not."
+    "question asked in a medium that stays constant does not. A question about how strongly an operon is induced "
+    "where two or more activators act on it at once (nitrate reductase narGHJI under FNR and NarL without oxygen "
+    "and with nitrate), or how much one activator contributes when another is present or absent (does losing FNR "
+    "abolish nitrate induction), depends on combined_activation."
 )
 
 

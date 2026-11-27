@@ -2,9 +2,9 @@
  "spec": "Y12, a new user's clone",
  "clone": "MohammedNagdi/wcEcoli feature/wcecoli-platform, read through the GitHub API at the branch head (no clone)",
  "public_commit": "8e7dd6c Cellarium's own parts: graded-knockout variant, starvation and anaerobic-nitrate conditions, Docker fixes",
- "n_references": 44,
- "n_unique": 38,
- "resolve_publicly": 32,
+ "n_references": 47,
+ "n_unique": 40,
+ "resolve_publicly": 34,
  "missing_publicly": [
   "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
   "models/ecoli/processes/polypeptide_elongation.py::KineticTrnaChargingModel",
@@ -29,11 +29,11 @@
   ]
  },
  "why": "the kinetic tRNA-charging port is Stanford-derived and its licence request is pending; ROUTE1's isoacceptor broadcast reads structures the port builds, so it stays local with the port",
- "computed_utc": "2026-11-26T21:31:06Z",
+ "computed_utc": "2026-11-27T09:06:42Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "89abc5d",
+  "git_commit": "d28f579",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

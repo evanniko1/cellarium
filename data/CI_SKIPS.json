@@ -4,7 +4,7 @@
  "counts_both_spellings": "os.environ['WCECOLI_*'] AND reader/runner.WCECOLI_*. Fixing a guard to read the module constant removes a divergence but changes nothing about what CI runs, so a census built from divergences alone would shrink exactly when the guards were made correct.",
  "how_to_update": "python scripts/check_env_guards.py --list, then edit this file deliberately.",
  "the_check_ci_cannot_run": "the full suite with WCECOLI_DOCKER set and runs/ populated. Run it locally before a release. scripts/check_like_ci.py is the OPPOSITE check \u2014 it removes local advantages \u2014 and does not substitute for it.",
- "n_files_gated_on_the_model_environment": 14,
+ "n_files_gated_on_the_model_environment": 15,
  "files_gated_on_the_model_environment": [
   "tests/test_arm2_columns.py",
   "tests/test_capability.py",
@@ -19,7 +19,8 @@
   "tests/test_operon_mode.py",
   "tests/test_parca_rebuild.py",
   "tests/test_propose_capabilities.py",
-  "tests/test_provenance_baseline.py"
+  "tests/test_provenance_baseline.py",
+  "tests/test_rp_extrapolation.py"
  ],
- "note": "tests/test_capability_verdict.py added 2026-10-07: FOUR of its five tests run everywhere and need no checkout \u2014 they pin that an unverified audit reports `unverified` rather than a pass. Only test_a_real_checkout_produces_a_verified_verdict is gated, and it is the mirror that stops the fix being satisfiable by always abstaining. The gated half is the one CI cannot see; the half that defends the defect is not gated. tests/test_fitted_factor_induction.py, tests/test_label_mechanism.py, tests/test_propose_capabilities.py and tests/test_dependency_audit.py added 2026-11-24 (G-1, J-2, K-1, Ms-1): ONE test in each re-reads the checkout (the knowledge base the records and the media table cite; the elongation source K-1 scans; the references Ms-1 resolves), and is gated; every other test in the four files runs everywhere."
+ "note": "tests/test_capability_verdict.py added 2026-10-07: FOUR of its five tests run everywhere and need no checkout \u2014 they pin that an unverified audit reports `unverified` rather than a pass. Only test_a_real_checkout_produces_a_verified_verdict is gated, and it is the mirror that stops the fix being satisfiable by always abstaining. The gated half is the one CI cannot see; the half that defends the defect is not gated. tests/test_fitted_factor_induction.py, tests/test_label_mechanism.py, tests/test_propose_capabilities.py and tests/test_dependency_audit.py added 2026-11-24 (G-1, J-2, K-1, Ms-1): ONE test in each re-reads the checkout (the knowledge base the records and the media table cite; the elongation source K-1 scans; the references Ms-1 resolves), and is gated; every other test in the four files runs everywhere. tests/test_rp_extrapolation.py added 2026-11-27 (RP re-verification): its one checkout-reading test refits the biomass splines from the checkout's composition table when WCECOLI_DIR is set and otherwise checks the stored evals/results/rp_extrapolation.json, so it runs in CI against the stored numbers; only the refit is invisible to CI."
 }

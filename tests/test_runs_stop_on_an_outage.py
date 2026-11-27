@@ -98,8 +98,9 @@ def test_the_gate_eval_stops_on_an_outage_and_writes_a_marked_partial(gate_run):
     part = json.loads(out.with_name("gate_eval.partial.json").read_text(encoding="utf-8"))
     stop = part["report"]["stopped_early"]
     # `of` is the generated bank, one framing per registry cell: 36 until G-1 added two records (2026-11-24); 60 since
-    # CRIT's record (2026-11-26), absent in all three modes, added three cells
-    assert (stop["stopped_early"], stop["after_calls"], stop["of"]) == (True, 8, 60)
+    # CRIT's record (2026-11-26), absent in all three modes, added three cells; 63 since COMB-REG's record (2026-11-27),
+    # which holds in all three, added three more (answer, answer, propose)
+    assert (stop["stopped_early"], stop["after_calls"], stop["of"]) == (True, 8, 63)
     assert stop["consecutive_failures"] == ["APIConnectionError"] * 5
     assert 8 <= len(calls) <= 8 + 1, "after the trip, nothing may start beyond what one worker already had"
     assert len(part["records"]) == len(calls), "every call that was made is recorded"
@@ -115,7 +116,7 @@ def test_a_failed_parse_names_its_error_on_the_record(gate_run):
 
 def test_an_uninterrupted_gate_eval_is_unchanged(gate_run):
     code, out, calls = gate_run(ok_first=10 ** 6)
-    assert code == 0 and out.exists() and len(calls) == 60
+    assert code == 0 and out.exists() and len(calls) == 63
     rep = json.loads(out.read_text(encoding="utf-8"))["report"]
     assert "stopped_early" not in rep and rep["parser_failures"] == 0
     assert not out.with_name("gate_eval.partial.json").exists()

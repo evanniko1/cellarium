@@ -148,18 +148,21 @@ def test_the_cell_census_is_what_the_plan_assumed():
     # 57 since BV-CF (central_carbon_flux_split): three more, 3/54.
     # 60 since CRIT (replication_initiation_after_a_nutrient_shift, 2026-11-26): absent in all three modes, three more
     # `refuse` cells and nothing else moves, 3/57.
-    assert st["n_cells"] == 60
-    assert st["by_required"] == {"refuse": 45, "answer": 11, "propose": 4}
+    # 63 since COMB-REG (combined_activation_at_a_promoter, 2026-11-27): it HOLDS in all three modes, with a caveat, so
+    # `answer` in the two modes the corpus has runs in and `propose` under coarse_kinetic, which has none, 3/60.
+    assert st["n_cells"] == 63
+    assert st["by_required"] == {"refuse": 45, "answer": 13, "propose": 5}
     assert st["by_stratum"]["no_corpus_data"] == 1
-    assert st["by_stratum"]["no_corpus_mode"] == 3
+    assert st["by_stratum"]["no_corpus_mode"] == 4
 
 
 def test_the_easy_stratum_is_labelled_and_reported_separately():
     st = G.census(G.generate(1))
     # 2, not 9: seven of the nine coarse_kinetic cells are not represented in that mode at all and now
     # classify as `resolution` / `representational`, leaving only the two that are genuinely coverage gaps. 3
-    # since G-1 (2026-11-24): fitted-factor induction is represented under coarse_kinetic, which has no runs.
-    assert st["by_stratum"]["no_corpus_mode"] == 3
+    # since G-1 (2026-11-24): fitted-factor induction is represented under coarse_kinetic, which has no runs. 4 since
+    # COMB-REG (2026-11-27): combined activation is represented there too.
+    assert st["by_stratum"]["no_corpus_mode"] == 4
     assert "coverage, not limits" in st["note"]
     assert "stonewalling" in st["note"], "the note does not say why a coverage gap is not a refusal"
 

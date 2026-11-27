@@ -1,10 +1,10 @@
 {
  "spec": "Ms-1",
  "checkout_commit": "c2047dc9d",
- "n_references": 44,
- "n_unique": 38,
- "resolve_in_checkout": 38,
- "resolve_at_commit": 31,
+ "n_references": 47,
+ "n_unique": 40,
+ "resolve_in_checkout": 40,
+ "resolve_at_commit": 33,
  "missing": [],
  "only_in_uncommitted_changes": [
   "models/ecoli/processes/polypeptide_elongation.py::CoarseKineticTrnaChargingModel",
@@ -258,6 +258,23 @@
     "commit": true
    }
   ],
+  "combined_activation_at_a_promoter": [
+   {
+    "ref": "models/ecoli/processes/transcript_initiation.py::promoter_init_probs",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/dataclasses/process/transcription_regulation.py::get_delta_prob_matrix",
+    "checkout": true,
+    "commit": true
+   },
+   {
+    "ref": "reconstruction/ecoli/fit_sim_data_1.py::buildCombinedConditionCellSpecifications",
+    "checkout": true,
+    "commit": true
+   }
+  ],
   "arabinose_induction_of_the_ara_operon": [
    {
     "ref": "reconstruction/ecoli/flat/fold_changes.tsv::araC",
@@ -279,11 +296,11 @@
  "no_dependency_reason": {
   "per_gene_trna_abundance": "the per-gene counts are divided out of about 44 species measurements in the fit's inputs; no single symbol carries the division, so none is cited rather than a guess"
  },
- "computed_utc": "2026-11-26T21:30:24Z",
+ "computed_utc": "2026-11-27T09:05:51Z",
  "environment": {
   "python": "3.12.8",
   "in_a_venv": false,
-  "git_commit": "89abc5d",
+  "git_commit": "d28f579",
   "packages": {
    "anthropic": "0.92.0",
    "openai": "0.28.0",

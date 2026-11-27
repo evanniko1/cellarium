@@ -502,6 +502,15 @@ _PERTURBATION_NOTE_ONLY: dict[str, tuple[str, ...]] = {
     "rrna_operon_knockout": ("operon_specific_rrna_knockout",),
 }
 
+# COMB-REG (2026-11-27, D18): text in a design's tag that puts two fitted activators on the same promoters at once.
+# Note-only, like the family table above: the reading is real and carries the registry's caveat. Anaerobic nitrate
+# (`condition/no_oxygen_plus_nitrate`, and any timeline into `minimal_minus_oxygen_plus_nitrate`) has FNR and NarL bound
+# at narGHJI, narK and nirBDC together; an `#occ:` design holds factors' binding, which is how BV-14d measured it.
+_TAG_NOTE_ONLY: dict[str, tuple[str, ...]] = {
+    "oxygen_plus_nitrate": ("combined_activation_at_a_promoter",),
+    "#occ:": ("combined_activation_at_a_promoter",),
+}
+
 # Media named inside a design's tag that no elongation model can be read under (item 4d). A medium name is a
 # fixed identifier from the condition tables, so matching it in the tag is a lookup, not a keyword guess:
 # `condition/minus_phosphate`, and any timeline that shifts into `minimal_minus_phosphate`.
@@ -640,6 +649,9 @@ def _required(name: str, args: dict, include_notes: bool = False) -> list[str]:
         add(_PERTURBATION_CAPABILITY.get(family, ()))
         if include_notes:
             add(_PERTURBATION_NOTE_ONLY.get(family, ()))
+            for text, caps in _TAG_NOTE_ONLY.items():
+                if text in tag:
+                    add(caps)
         for medium, caps in _MEDIUM_CAPABILITY.items():
             if medium in tag:
                 add(caps)
@@ -708,16 +720,27 @@ def capability_note(name: str, args: dict) -> dict | None:
         failing = [r for r in (_cap.check(k, m) for m in modes) if r.get("can_answer") is False]
         if failing:
             bad.append(failing[0])
-    if not bad:
+    failed = {r["capability"] for r in bad}
+    # COMB-REG: a record that HOLDS but biases the reading carries its caveat; a failing one says what it lacks instead
+    caveats = [f"{k}: {cav}" for k in keys if k not in failed
+               and (cav := getattr(_cap._BY_KEY.get(k), "caveat", ""))]
+    if not bad and not caveats:
         return None
+    mode_text = modes[0] if len(modes) == 1 else ", ".join(modes)
+    if not bad:
+        return {"elongation_model": mode_text, "caveats": caveats,
+                "read_this_before_the_numbers": ("the values below are real output of a mechanism the model "
+                                                 "represents, but the registry knows a structural bias in it; "
+                                                 "the caveat says which way and by how much.")}
     how_to_read = []
-    for k in sorted(note_only & {r["capability"] for r in bad}):
+    for k in sorted(note_only & failed):
         c = _cap._BY_KEY.get(k)
         cons = getattr(c, "consequence", {}) or {}
         how_to_read.append(str(next(iter(cons.values()), "")))
     return {
-        "elongation_model": modes[0] if len(modes) == 1 else ", ".join(modes),
+        "elongation_model": mode_text,
         **({"how_to_read_this_design": how_to_read} if how_to_read else {}),
+        **({"caveats": caveats} if caveats else {}),
         "does_not_hold": [r["capability"] for r in bad],
         "what_the_model_does_instead": [str(r.get("refusal") or "") for r in bad],
         "read_this_before_the_numbers": ("the values below are real output, but at least one capability this "

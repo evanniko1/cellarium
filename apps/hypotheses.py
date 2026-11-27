@@ -205,7 +205,8 @@ def _summary(r) -> dict:
 
 
 def run_council(store: HypothesisStore, question: str, model: str | None = None, on_round=None,
-                attempt: int = 0, reuse_id: str | None = None, prior_question: str | None = None) -> dict:
+                attempt: int = 0, reuse_id: str | None = None, prior_question: str | None = None,
+                on_hypothesis=None) -> dict:
     """Run ONE Council deliberation and persist the whole thing (rounds + operationalized hypothesis + falsifier
     designs + convergence meta). Blind by construction — deliberate() never sees corpus results (the paper's
     quarantine control; see docs/HYPOTHESIS_MODE_PLAN.md). NEVER blocks: a broad question is still deliberated (the
@@ -213,7 +214,8 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
     Council's own D3 escalation mid-deliberation, not by refusing up front. `attempt` is vestigial (kept for API
     compatibility with the old gate); `reuse_id` overwrites the same row on a re-convene. `prior_question` (M-7) is
     the previous attempt's text, so the nudge narrows progressively; if omitted it is recovered from `reuse_id`'s row
-    BEFORE it is overwritten. Returns the stored run."""
+    BEFORE it is overwritten. `on_hypothesis(run_id, hyp)`, if given, receives the deliberation object itself once the
+    run is persisted (a scripted caller hands its brief to Cellwright, as the interface does). Returns the stored run."""
     from cellarium import council, observability, provenance, ui  # lazy: store stays dependency-free/testable
 
     # M-7: capture the prior question before create() overwrites the reused row, so the nudge can ask only what's new.
@@ -267,6 +269,8 @@ def run_council(store: HypothesisStore, question: str, model: str | None = None,
                 "missing_axes": (nudge["missing"] if nudge else []),
                 "narrowing": (nudge["progress"] if nudge else None)}
         store.complete(run_id, hview, designs, meta)
+        if on_hypothesis is not None:
+            on_hypothesis(run_id, hyp)
         try:   # self-harness (M-1): file any Council-named test the toolkit can't run. Best-effort — the
             from cellarium import harness  # detector already swallows its own errors; a gap must never break a run.
             harness.scan_and_file(hyp, run_id)
