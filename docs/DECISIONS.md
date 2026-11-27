@@ -1425,6 +1425,22 @@ machine that was otherwise idle. No run was ever owned by two processes.
   - a multiplicative rule makes the two equal.
 - **Checkable in the lab: yes.** The quantity is that fold-induction ratio. Cellarium names the quantity; it does not
   write the protocol.
+- **The FNR-off arms are the model's fnr null for transcription.** Read that way, they can be set beside measured fnr
+  mutants (post hoc, from abstracts; qualitative).
+  - In the model, removing FNR cuts nar synthesis 3.2-fold without nitrate and 1.7-fold with it, and narK 5.2-fold
+    and 2.6-fold.
+  - According to PubMed, an fnr mutation "prevented enzyme induction under any conditions" for nitrate reductase
+    ([Stewart 1982](https://doi.org/10.1128/jb.151.3.1320-1325.1982)).
+  - narK expression was "fully dependent on narL+ and fnr+"
+    ([Stewart and Parales 1988](https://doi.org/10.1128/jb.170.4.1589-1597.1988)).
+  - The nar transcript was "greatly reduced in an Fnr- mutant"
+    ([Li and DeMoss 1987](https://doi.org/10.1128/jb.169.10.4614-4620.1987)).
+- So the organism behaves close to an AND gate: a multiplicative rule with a very low FNR-independent base. The model's
+  additive rule gets both halves wrong in the same direction:
+  - FNR matters less than measured;
+  - NarL matters more without FNR, where in the organism it barely acts.
+- One structure explains BV-14's attenuation, this weak FNR dependence, and the frd sign error BV-14 found where two
+  fitted factors meet. That is the case for a registry record (COMB-REG).
 
 **Limitations.**
 - **Seeds and statistics.** Seeds are not biological replicates. Three arms had two valid seeds, and the z treats the
