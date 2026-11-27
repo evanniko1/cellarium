@@ -1,0 +1,274 @@
+{
+ "batch": "disc_s2",
+ "sim_path": "kport5f19",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": 0,
+ "keep_raw": false,
+ "gates": {},
+ "approved_requests": [
+  "req_b318f3e0",
+  "req_f3611f53",
+  "req_ff6d76d6",
+  "req_b4f5b10f"
+ ],
+ "approved_by": "the user, 2026-11-27: \"proceed with the paid discovery runs ... where those simulations run\", then \"3 seeds locally is fine, keep going\"",
+ "approved_with": {
+  "seeds": [
+   0,
+   1,
+   2
+  ],
+  "proposed_seeds": {
+   "req_b318f3e0": 3,
+   "req_f3611f53": 3,
+   "req_ff6d76d6": 3,
+   "req_b4f5b10f": 3
+  }
+ },
+ "why": "discovery seed S2: the runs Cellwright proposed to test the Council's hypothesis",
+ "runs": [
+  {
+   "id": "S2-1-req_b318f3e0-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 3,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6443
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 0,
+   "generations": 4,
+   "group": "S2_req_b318f3e0",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-1-req_b318f3e0-s1",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 3,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6443
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 1,
+   "generations": 4,
+   "group": "S2_req_b318f3e0",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-1-req_b318f3e0-s2",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 3,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6443
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 2,
+   "generations": 4,
+   "group": "S2_req_b318f3e0",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-2-req_f3611f53-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 4,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6444
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 0,
+   "generations": 4,
+   "group": "S2_req_f3611f53",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-2-req_f3611f53-s1",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 4,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6444
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 1,
+   "generations": 4,
+   "group": "S2_req_f3611f53",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-2-req_f3611f53-s2",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 4,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6444
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 2,
+   "generations": 4,
+   "group": "S2_req_f3611f53",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-3-req_ff6d76d6-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 5,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6445
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 0,
+   "generations": 4,
+   "group": "S2_req_ff6d76d6",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-3-req_ff6d76d6-s1",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 5,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6445
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 1,
+   "generations": 4,
+   "group": "S2_req_ff6d76d6",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-3-req_ff6d76d6-s2",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:argS",
+    "params": {
+     "target_genes": [
+      "argS"
+     ],
+     "level": 5,
+     "ppgpp_clamp": "basal",
+     "variant_index": 6445
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 2,
+   "generations": 4,
+   "group": "S2_req_ff6d76d6",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-4-req_b4f5b10f-s0",
+   "design": {
+    "perturbation": "ppgpp_conc",
+    "condition": "basal|ppGpp:1x",
+    "params": {
+     "multiplier": 1.0,
+     "variant_index": 4
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 0,
+   "generations": 4,
+   "group": "S2_req_b4f5b10f",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-4-req_b4f5b10f-s1",
+   "design": {
+    "perturbation": "ppgpp_conc",
+    "condition": "basal|ppGpp:1x",
+    "params": {
+     "multiplier": 1.0,
+     "variant_index": 4
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 1,
+   "generations": 4,
+   "group": "S2_req_b4f5b10f",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S2-4-req_b4f5b10f-s2",
+   "design": {
+    "perturbation": "ppgpp_conc",
+    "condition": "basal|ppGpp:1x",
+    "params": {
+     "multiplier": 1.0,
+     "variant_index": 4
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 2,
+   "generations": 4,
+   "group": "S2_req_b4f5b10f",
+   "role": "run",
+   "stage": 1
+  }
+ ],
+ "design_sha256": "fd62975ccbd2ae62f2816d14243562b7aef302d95911f7d43c85db6d8af847ce",
+ "keep_raw_why": "the readouts (growth rate, ppGpp, RNA and protein mass, ribosomes, charging) are manifest channels, so each run is deposited and reclaimed as it finishes"
+}

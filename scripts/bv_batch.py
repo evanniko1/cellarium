@@ -159,7 +159,7 @@ class Batch:
                  existing_fn, free_gb_fn, ledger: Path, ledgers: dict | None = None, sleep=time.sleep,
                  poll_s: float = 30.0, busy_fn=None, root_fn=None, clock=time.time, on_disk_fn=None,
                  deposit_elsewhere=(), keep_raw_batches=(), recorded_summaries=None, crash_index_fn=None,
-                 variant_key_fn=None, occupancy_fn=None):
+                 variant_key_fn=None, occupancy_fn=None, transit_fn=None):
         self.plan, self.runs = plan, runs
         self.run_fn, self.read_fn, self.qc_fn, self.index_fn = run_fn, read_fn, qc_fn, index_fn
         self.deposit_fn, self.existing_fn, self.free_gb_fn = deposit_fn, existing_fn, free_gb_fn
@@ -180,7 +180,9 @@ class Batch:
         # process's runs of one variant side by side would park a slot: the second waits in the queue instead
         self.variant_key_fn = variant_key_fn
         self.occupancy_fn = occupancy_fn          # BV-14d: a clamped control's bound fractions, for its gate
+        self.transit_fn = transit_fn              # the dir the MODEL writes a run into (its root, or a sibling's)
         self._waiting_since: dict[str, float] = {}
+        self._deferred: set[str] = set()          # runs whose "deferred" event is logged (once each)
         self._own_running: dict = {}
         self.ledger, self.sleep, self.poll_s = ledger, sleep, poll_s
         self.ledgers = dict(ledgers or {})      # batch name -> its ledger; a run logs to its own plan's
@@ -254,6 +256,33 @@ class Batch:
                 return False
         return True
 
+    def _transit_sibling(self, spec: RunSpec) -> tuple[RunSpec, str] | None:
+        """A kept run whose home is ANOTHER run's transit dir goes second.
+
+        The model writes every design of one variant index and seed into that index's dir, and a plain design's run
+        root IS that dir. A suffixed sibling's output moves out when its run finishes; the plain run's never does,
+        and a keep_raw plan never deposits it, so a sibling queued behind it waits for a reclaim that cannot come.
+        CRIT tier 1 V1 (2026-11-27): two relaxed arms parked behind their kept medium arms, to be skipped after
+        max_wait_s. A sibling in a later stage is left alone: it may be gated on this very run.
+
+        Returns (sibling, "first") while the sibling has still to finish, (sibling, "left_output") when it failed
+        with this run's home on disk (its partial output: running here would rmtree it, and a run complete on disk
+        here would be adopted under the wrong design), else None."""
+        if spec.batch not in self.keep_raw or not (self.transit_fn and self.root_fn):
+            return None
+        home = Path(self.root_fn(spec))
+        for other in self.runs:
+            if other is spec or other.stage > spec.stage:
+                continue
+            transit = Path(self.transit_fn(other))
+            if transit != home or Path(self.root_fn(other)) == transit:
+                continue
+            if other.status in ("pending", "running", "adopting"):
+                return other, "first"
+            if other.status == "failed" and self.on_disk(home):
+                return other, "left_output"
+        return None
+
     def _existing(self, spec: RunSpec) -> dict | None:
         """existing_fn's answer, normalised: None (absent), or {"where", "why"} with where one of "indexed"
         (exists, nothing to do), "disk_unindexed" (finished on disk, unknown to the manifest: adopt it) or
@@ -307,6 +336,19 @@ class Batch:
                     if len(running) >= capacity:
                         break
                     if not self._launchable(spec):
+                        continue
+                    sib = self._transit_sibling(spec)
+                    if sib and sib[1] == "first":
+                        if spec.id not in self._deferred:
+                            self._deferred.add(spec.id)
+                            self.log("deferred", spec, why=f"its home is the transit dir of {sib[0].id}, which "
+                                                           f"runs first: kept output here would strand it")
+                        continue
+                    if sib:
+                        spec.status, spec.why = "skipped", (
+                            f"{sib[0].id} failed after the model wrote into this run's home, and its partial output "
+                            f"may still be there; running here would delete it. Move it deliberately, then rerun")
+                        self.log("skipped", spec, why=spec.why)
                         continue
                     if self.variant_key_fn and self.variant_key_fn(spec) in busy_variants:
                         continue                                     # its variant is running here; next gene first
@@ -570,13 +612,17 @@ def _wire(plan: dict, repo: str, ledger: Path):
     def variant_key_fn(spec):
         return str(runner._model_output_dir(design(spec), spec.seed, sp(spec)).parent)
 
+    def transit_fn(spec):
+        return runner._model_output_dir(design(spec), spec.seed, sp(spec))
+
     def crash_index_fn(spec, exc):
         row = manifest._crash_row(design(spec), spec.seed, spec.generations, exc, sp(spec))
         manifest.append_shard([row], name=f"{spec.batch or plan['batch']}-{spec.id}-crash")
 
     return dict(run_fn=run_fn, read_fn=read_fn, qc_fn=qc.check_result, index_fn=index_fn, deposit_fn=deposit_fn,
                 existing_fn=existing_fn, free_gb_fn=free_gb_fn, ledger=ledger, busy_fn=busy_fn, root_fn=root_fn,
-                crash_index_fn=crash_index_fn, variant_key_fn=variant_key_fn, occupancy_fn=occupancy_fn)
+                crash_index_fn=crash_index_fn, variant_key_fn=variant_key_fn, occupancy_fn=occupancy_fn,
+                transit_fn=transit_fn)
 
 
 WRITING_S = 600        # output modified this recently belongs to a run some process is still writing

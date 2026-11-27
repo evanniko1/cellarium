@@ -1679,3 +1679,29 @@ condition design carries.
   timeline, and the 6 BV-12 rows carry an initial condition.
 
 **Tests.** `tests/test_launch_index_resolution.py`, watched failing first.
+
+## D25 — A kept run goes after the sibling that writes through its home — 2026-11-27
+
+**What happened.** CRIT tier 1's V1 plan pairs each design's medium arm (no threshold parameter) with its relaxed arm.
+The model writes every design of one variant index and seed into one directory, the transit dir. A plain design's run
+root IS that directory, and a suffixed design's output moves out of it when its run finishes. V1 keeps its raw output
+until it is scored (`keep_raw`), so a medium arm that finishes first is never deposited and never leaves. Its relaxed
+sibling then waits for a reclaim that cannot come, and is skipped after `max_wait_s` (6 h).
+
+Two of V1's four pairs had this shape: basal and the amino-acid upshift. The acetate and anaerobic pairs carry an
+initial condition, so both of their arms are suffixed. Their relaxed arms launched straight after their medium arms.
+The batch already running was unblocked by hand. The two finished medium runs were renamed aside on the same drive,
+and they go back when the relaxed arms have moved out. V3 has three more pairs of this shape, the oxygen-off seeds.
+
+**What changed** (`scripts/bv_batch.py`, `Batch._transit_sibling`).
+- **Order.** In a `keep_raw` plan, a run waits while a sibling whose transit dir is its home is still pending or
+  running. The ledger records this once, as `deferred`.
+- **A failed sibling.** If the sibling failed and this run's home is on disk, this run is skipped with that reason.
+  The sibling's partial output may be there: running would delete it, and a run complete on disk there would be
+  adopted under the wrong design.
+- **Scope.** A sibling in a later stage is ignored, because it may be gated on this very run. A plan that deposits is
+  unchanged: the deposit reclaims the plain run, which frees the transit dir.
+
+**Tests.** Five in `tests/test_bv_batch.py`. The deadlock was reproduced first: the relaxed arm was skipped with "waited
+2.5 h: its transit dir /runs/w/900 holds basal-medium". The stage guard was removed once to confirm its test fails;
+without it, the scheduler spins.

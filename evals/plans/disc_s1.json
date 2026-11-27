@@ -1,0 +1,256 @@
+{
+ "batch": "disc_s1",
+ "sim_path": "kport5f19",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": 0,
+ "keep_raw": true,
+ "gates": {},
+ "approved_requests": [
+  "req_424715aa",
+  "req_f0ed9ecc",
+  "req_dfffb1e3",
+  "req_c7def441"
+ ],
+ "approved_by": "the user, 2026-11-27: \"proceed with the paid discovery runs ... where those simulations run\", then \"3 seeds locally is fine, keep going\"",
+ "approved_with": {
+  "seeds": [
+   0,
+   1,
+   2
+  ],
+  "proposed_seeds": {
+   "req_424715aa": 6,
+   "req_f0ed9ecc": 6,
+   "req_dfffb1e3": 6,
+   "req_c7def441": 6
+  }
+ },
+ "why": "discovery seed S1: the runs Cellwright proposed to test the Council's hypothesis",
+ "runs": [
+  {
+   "id": "S1-1-req_424715aa-s0",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "params": {},
+    "elongation_model": "kinetic"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "S1_req_424715aa",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-1-req_424715aa-s1",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "params": {},
+    "elongation_model": "kinetic"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "S1_req_424715aa",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-1-req_424715aa-s2",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "params": {},
+    "elongation_model": "kinetic"
+   },
+   "seed": 2,
+   "generations": 3,
+   "group": "S1_req_424715aa",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-2-req_f0ed9ecc-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 4,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2554
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "S1_req_f0ed9ecc",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-2-req_f0ed9ecc-s1",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 4,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2554
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "S1_req_f0ed9ecc",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-2-req_f0ed9ecc-s2",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 4,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2554
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 2,
+   "generations": 3,
+   "group": "S1_req_f0ed9ecc",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-3-req_dfffb1e3-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 5,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2555
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "S1_req_dfffb1e3",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-3-req_dfffb1e3-s1",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 5,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2555
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "S1_req_dfffb1e3",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-3-req_dfffb1e3-s2",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 5,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2555
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 2,
+   "generations": 3,
+   "group": "S1_req_dfffb1e3",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-4-req_c7def441-s0",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 6,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2556
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 0,
+   "generations": 3,
+   "group": "S1_req_c7def441",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-4-req_c7def441-s1",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 6,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2556
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 1,
+   "generations": 3,
+   "group": "S1_req_c7def441",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S1-4-req_c7def441-s2",
+   "design": {
+    "perturbation": "graded_gene_knockout",
+    "condition": "KO:leuS",
+    "params": {
+     "level": 6,
+     "target_genes": [
+      "leuS"
+     ],
+     "variant_index": 2556
+    },
+    "elongation_model": "kinetic"
+   },
+   "seed": 2,
+   "generations": 3,
+   "group": "S1_req_c7def441",
+   "role": "run",
+   "stage": 1
+  }
+ ],
+ "design_sha256": "3a68a6cec9e8a42aaef8878ba63058421cff46707f5ab75aa32229725d947381",
+ "keep_raw_why": "per-isoacceptor charging is read from the raw TrnaCharging listener, so the runs stay local until Cellwright reads them"
+}

@@ -244,10 +244,11 @@ def test_a_higher_priority_plan_launches_first_and_logs_to_its_own_ledger(tmp_pa
 
 def _batch(tmp_path, runs, fake, parallel=2, **kw):
     plan = {"batch": "t", "parallel": parallel, "min_free_gb": 40, "gates": {}}
+    kw.setdefault("root_fn", lambda spec: Path(f"/runs/{spec.id}"))
     return B.Batch(plan, [B.RunSpec(**r) for r in runs], run_fn=fake.run_fn, read_fn=fake.read_fn,
                    qc_fn=fake.qc_fn, index_fn=fake.index_fn, deposit_fn=fake.deposit_fn,
                    existing_fn=fake.existing_fn, free_gb_fn=fake.free_gb_fn, ledger=tmp_path / "ledger.jsonl",
-                   sleep=lambda s: None, poll_s=0.01, root_fn=lambda spec: Path(f"/runs/{spec.id}"), **kw)
+                   sleep=lambda s: None, poll_s=0.01, **kw)
 
 
 def _events(tmp_path):
@@ -528,3 +529,125 @@ def test_a_control_whose_clamp_did_not_hold_closes_its_group():
     # a perturbation's control (FNR held off) is gated on its clamp alone, with no growth range
     off = {"occupancy": {"FNR-4FE-4S-CPLX": [0.0, 0.0]}}
     assert B.gate_result(c, off, occupancy=lambda spec: {"FNR-4FE-4S-CPLX": 0.0})[0]
+
+
+# ---- a kept plain run whose home is its sibling's transit dir (CRIT tier 1 V1, 2026-11-27) -----------------------
+
+class _TransitDisk:
+    """The model writes every design of one variant index and seed into ONE dir, the transit. A plain design's run
+    root IS that dir; a suffixed design's output moves out to its own root when its run finishes (runner.run_one),
+    and the runner refuses to start a suffixed design while its transit holds another design's home."""
+    HOME = {"basal-medium": "/runs/w/900", "basal-relaxed": "/runs/w__it/900"}
+    TRANSIT = {"basal-medium": "/runs/w/900", "basal-relaxed": "/runs/w/900"}
+
+    def __init__(self, fail=""):
+        self.dirs: dict[str, str] = {}             # a dir on disk -> whose output it holds
+        self.fail, self.launched = fail, []
+
+    def run_fn(self, spec):
+        self.launched.append(spec.id)
+        home, transit = self.HOME[spec.id], self.TRANSIT[spec.id]
+        if transit != home and transit in self.dirs:
+            raise RuntimeError(f"Refusing to run: {transit} is the home of {self.dirs[transit]}")
+        if self.fail == f"{spec.id} before writing":
+            raise RuntimeError("refused before the model started")
+        self.dirs[transit] = spec.id               # wcEcoli rmtree's the transit, then writes into it
+        if self.fail == f"{spec.id} after writing":
+            raise RuntimeError("the model script's output contains a traceback")
+        if transit != home:
+            self.dirs[home] = self.dirs.pop(transit)
+        return Path(home)
+
+    def existing_fn(self, spec):
+        home, transit = self.HOME[spec.id], self.TRANSIT[spec.id]
+        if transit != home and transit in self.dirs:
+            return {"where": "occupied", "why": f"its transit dir {transit} holds {self.dirs[transit]}"}
+        return ""
+
+
+def _transit_batch(tmp_path, disk, keep_raw=True):
+    fake = Fake()
+    fake.run_fn, fake.existing_fn = disk.run_fn, disk.existing_fn
+    t = {"now": 0.0}
+
+    def clock():                                   # every look costs half an hour: a wait that cannot end ends fast
+        t["now"] += 1800.0
+        return t["now"]
+    runs = [_r("basal-medium", cond="medium"), _r("basal-relaxed", cond="relaxed")]
+    b = _batch(tmp_path, runs, fake, parallel=1, keep_raw_batches={"t"} if keep_raw else set(), clock=clock,
+               root_fn=lambda spec: Path(disk.HOME[spec.id]), transit_fn=lambda spec: Path(disk.TRANSIT[spec.id]),
+               on_disk_fn=lambda root: Path(root).as_posix() in disk.dirs)
+    b.plan["max_wait_s"] = 7200
+    for sp in b.runs:
+        sp.batch = "t"
+    return b, fake
+
+
+def test_a_kept_plain_run_goes_after_the_sibling_whose_transit_dir_is_its_home(tmp_path):
+    """The medium arm's run root IS the relaxed arm's transit dir. Run first and kept local (the plan is scored from
+    raw output), it is never deposited, so the relaxed arm waited for a reclaim that could not come and was skipped
+    after max_wait_s. FORCED: in the sorted order the medium arm comes first."""
+    disk = _TransitDisk()
+    b, _ = _transit_batch(tmp_path, disk)
+    out = {s.id: s for s in b.run()}
+    assert out["basal-relaxed"].status == "done", out["basal-relaxed"].why
+    assert out["basal-medium"].status == "done", out["basal-medium"].why
+    assert disk.launched == ["basal-relaxed", "basal-medium"]
+    assert disk.dirs == {"/runs/w__it/900": "basal-relaxed", "/runs/w/900": "basal-medium"}
+    ev = [e for e in _events(tmp_path) if e.get("id") == "basal-medium" and e["event"] == "deferred"]
+    assert len(ev) == 1 and "basal-relaxed" in ev[0]["why"]           # logged once, naming the sibling
+
+
+def test_a_sibling_that_failed_inside_the_kept_runs_home_stops_it_with_the_reason(tmp_path):
+    """The sibling crashed after the model wrote into the transit: its partial output sits in the plain run's home,
+    and running there would rmtree it (and a run complete on disk there would be adopted under the wrong design)."""
+    disk = _TransitDisk(fail="basal-relaxed after writing")
+    b, _ = _transit_batch(tmp_path, disk)
+    out = {s.id: s for s in b.run()}
+    assert out["basal-relaxed"].status == "failed"
+    assert out["basal-medium"].status == "skipped" and "basal-relaxed" in out["basal-medium"].why
+    assert "move" in out["basal-medium"].why.lower()
+    assert disk.launched == ["basal-relaxed"] and disk.dirs == {"/runs/w/900": "basal-relaxed"}   # nothing deleted
+
+
+def test_a_sibling_refused_before_writing_does_not_hold_the_plain_run(tmp_path):
+    disk = _TransitDisk(fail="basal-relaxed before writing")
+    b, _ = _transit_batch(tmp_path, disk)
+    out = {s.id: s for s in b.run()}
+    assert out["basal-relaxed"].status == "failed" and out["basal-medium"].status == "done"
+
+
+def test_a_plan_that_deposits_keeps_the_plain_run_first(tmp_path):
+    """Scope: only a kept run can strand its sibling. A deposited plain run is reclaimed, which frees the transit,
+    so the order (and every other plan's behaviour) is unchanged."""
+    disk = _TransitDisk()
+    b, fake = _transit_batch(tmp_path, disk, keep_raw=False)
+
+    def deposit(root):
+        disk.dirs.pop(Path(root).as_posix(), None)            # verified on the hub, then reclaimed
+        return {"verified": True, "reclaimed": True, "why": ""}
+    b.deposit_fn = deposit
+    out = {s.id: s for s in b.run()}
+    assert disk.launched[0] == "basal-medium"
+    assert out["basal-medium"].status == "done" and out["basal-relaxed"].status == "done"
+
+
+def test_a_kept_control_is_not_deferred_behind_a_sibling_gated_on_it(tmp_path):
+    """A later-stage sibling waits for this control's gate; deferring the control behind it would hold both forever.
+    The control runs; the sibling then waits on the kept output and is given up with its reason (a plan that needs
+    both must move the control's output deliberately). FORCED: without the stage guard the scheduler spins."""
+    disk = _TransitDisk()
+    b, _ = _transit_batch(tmp_path, disk)
+    spins = {"n": 0}
+
+    def sleep(_s):
+        spins["n"] += 1
+        if spins["n"] > 500:
+            raise RuntimeError("the scheduler is spinning: nothing can launch and nothing is running")
+    b.sleep = sleep
+    by_id = {s.id: s for s in b.runs}
+    by_id["basal-medium"].role, by_id["basal-medium"].group = "control", "g"
+    by_id["basal-relaxed"].stage, by_id["basal-relaxed"].group = 2, "g"
+    out = {s.id: s for s in b.run()}
+    assert out["basal-medium"].status == "done"
+    assert out["basal-relaxed"].status == "skipped" and "holds basal-medium" in out["basal-relaxed"].why

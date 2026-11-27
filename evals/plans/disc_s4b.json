@@ -1,0 +1,322 @@
+{
+ "batch": "disc_s4b",
+ "sim_path": "cellarium",
+ "parallel": 6,
+ "min_free_gb": 40,
+ "priority": 0,
+ "keep_raw": false,
+ "gates": {},
+ "approved_requests": [
+  "req_5b884697",
+  "req_c4092dd3",
+  "req_d8dc5945",
+  "req_157b4962",
+  "req_494b5148"
+ ],
+ "approved_by": "the user, 2026-11-27: \"proceed with the paid discovery runs ... where those simulations run\", then \"3 seeds locally is fine, keep going\"",
+ "approved_with": {
+  "seeds": [
+   100,
+   101,
+   102
+  ],
+  "proposed_seeds": {
+   "req_5b884697": 3,
+   "req_c4092dd3": 3,
+   "req_d8dc5945": 3,
+   "req_157b4962": 3,
+   "req_494b5148": 3
+  }
+ },
+ "why": "discovery seed S4b: the runs Cellwright proposed to test the Council's hypothesis",
+ "runs": [
+  {
+   "id": "S4b-1-req_5b884697-s100",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 100,
+   "generations": 3,
+   "group": "S4b_req_5b884697",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-1-req_5b884697-s101",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 101,
+   "generations": 3,
+   "group": "S4b_req_5b884697",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-1-req_5b884697-s102",
+   "design": {
+    "perturbation": "wildtype",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 102,
+   "generations": 3,
+   "group": "S4b_req_5b884697",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-2-req_c4092dd3-s100",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:2op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 2,
+     "variant_index": 2,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 100,
+   "generations": 3,
+   "group": "S4b_req_c4092dd3",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-2-req_c4092dd3-s101",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:2op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 2,
+     "variant_index": 2,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 101,
+   "generations": 3,
+   "group": "S4b_req_c4092dd3",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-2-req_c4092dd3-s102",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:2op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 2,
+     "variant_index": 2,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 102,
+   "generations": 3,
+   "group": "S4b_req_c4092dd3",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-3-req_d8dc5945-s100",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:4op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 4,
+     "variant_index": 4,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 100,
+   "generations": 3,
+   "group": "S4b_req_d8dc5945",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-3-req_d8dc5945-s101",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:4op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 4,
+     "variant_index": 4,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 101,
+   "generations": 3,
+   "group": "S4b_req_d8dc5945",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-3-req_d8dc5945-s102",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:4op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 4,
+     "variant_index": 4,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 102,
+   "generations": 3,
+   "group": "S4b_req_d8dc5945",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-4-req_157b4962-s100",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:6op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 6,
+     "variant_index": 6,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 100,
+   "generations": 3,
+   "group": "S4b_req_157b4962",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-4-req_157b4962-s101",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:6op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 6,
+     "variant_index": 6,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 101,
+   "generations": 3,
+   "group": "S4b_req_157b4962",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-4-req_157b4962-s102",
+   "design": {
+    "perturbation": "rrna_operon_knockout",
+    "condition": "minimal|rRNA_KO:6op",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "num_operons_to_delete": 6,
+     "variant_index": 6,
+     "initial_condition": "with_aa"
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 102,
+   "generations": 3,
+   "group": "S4b_req_157b4962",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-5-req_494b5148-s100",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa",
+     "target_genes": [
+      "relA"
+     ],
+     "variant_index": 1345
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 100,
+   "generations": 3,
+   "group": "S4b_req_494b5148",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-5-req_494b5148-s101",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa",
+     "target_genes": [
+      "relA"
+     ],
+     "variant_index": 1345
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 101,
+   "generations": 3,
+   "group": "S4b_req_494b5148",
+   "role": "run",
+   "stage": 1
+  },
+  {
+   "id": "S4b-5-req_494b5148-s102",
+   "design": {
+    "perturbation": "gene_knockout",
+    "condition": "basal",
+    "timeline": "0 minimal_plus_amino_acids, 1200 minimal",
+    "params": {
+     "initial_condition": "with_aa",
+     "target_genes": [
+      "relA"
+     ],
+     "variant_index": 1345
+    },
+    "elongation_model": "steady_state"
+   },
+   "seed": 102,
+   "generations": 3,
+   "group": "S4b_req_494b5148",
+   "role": "run",
+   "stage": 1
+  }
+ ],
+ "design_sha256": "e5e29a48e2efc687d8a12e711aa61201f5c7fcba557ba1c8f0e28ed5e32bae00",
+ "keep_raw_why": "the readouts (growth rate, ppGpp, RNA and protein mass, ribosomes, charging) are manifest channels, so each run is deposited and reclaimed as it finishes",
+ "seeds_why": "seeds 100-102, not 0-2: the static corpus rRNA knockouts at seeds 0-2 (4 and 6 operons) still occupy the model's transit directory these shifted designs write through, which the model empties before each run; every arm of the panel uses the same three seeds"
+}
