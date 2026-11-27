@@ -2043,3 +2043,48 @@ outside the validated envelope.
 
 All six failed before `decide` existed. Three mutations were each caught: A3 as strictly greater, an undecided
 control treated as passing, and A1 as at most 5 fg.
+
+## D35 — A deposited run carries no username — 2026-11-27
+
+**What happened.** Preparing V3's deposit turned up a username in what leaves this machine.
+- **The tag.** The local image is built as `<user>-wcm-code:latest`, and since 2026-08-24 (PROV-2) every run's
+  `executed.json` has recorded that tag verbatim.
+- **The packer.** It left out only `sim.log`, so every archive deposited to the public corpus since then carries the
+  local username, and so does the manifest's `executed_image_tag` column.
+- **The writer.** It also stamps `getpass.getuser()` and `socket.gethostname()` into every new row's
+  `contributor`/`host` and every new shard name. e8203b5 (2026-09-02) pseudonymised the distributed shards once,
+  but not the writer, so new local shards carry the identity again. They are uncommitted.
+- **In git.** The claims audit cited shard file names that carried the username, and four files used a
+  collaborator's home path as an example.
+- **Deposits paused.** Both depositing batches were stopped when this was found.
+
+**What changed.**
+- **`provenance.portable_text` / `portable_image_tag`.** They write the local username as `${USER}`. Only the
+  whole name followed by a separator is replaced, case-insensitively, so `malice-wcm-code` survives for the user
+  `alice`.
+- **The runner.** It writes `executed.json` through it, which also covers a missing-metadata note that carries a
+  host path.
+- **The manifest column.** `executed_image_tag` reads through it, so runs written before the fix index clean.
+- **The packer.** `scripts/hf_pack_upload.pack_run` adds each `executed.json` scrubbed, once, so runs already on
+  disk deposit clean.
+- **The text in git.** The claims audit's shard names read `${USER}-...`. The collaborator's path became
+  `/Users/contributor/...` in two test fixtures, a code comment and a doc.
+- **A guard.** It fails if a tracked manifest file is named after, or a tracked shard's `contributor`/`host` holds,
+  this machine's identity.
+
+**Not changed, and yours (WAITING_ON_YOU PRIV-1).**
+- What is already public: the deposited archives and the July manifest file on the hub, and the git history.
+- The writer's `contributor`/`host`, which are part of the dedup key, so pseudonymising them at write time needs a
+  stable mapping.
+
+**Tests.** Five in `tests/test_public_artefacts.py`:
+- the placeholder, and its boundaries;
+- `executed.json` as written;
+- the manifest column for a pre-fix run;
+- a packed archive with no member carrying the name, `sim.log` still left out, and `executed.json` packed exactly
+  once;
+- the shard guard.
+
+Four failed before the fix; the guard passed, as the tracked shards are clean. Mutations were each caught: packing
+`executed.json` raw as well (1 failure), and a no-op scrub (4 failures). Run with the local identity set to a
+pseudonym that does occur in the tracked shards, the guard failed.

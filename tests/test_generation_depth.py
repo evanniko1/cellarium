@@ -292,7 +292,7 @@ def test_the_sql_and_python_path_normalisers_agree():
     from cellarium import manifest
     con = duckdb.connect()
     try:
-        for p in ("/Users/fmenol/Downloads/cellarium/runs/cellarium/wildtype_199333/000013",
+        for p in ("/Users/contributor/Downloads/cellarium/runs/cellarium/wildtype_199333/000013",
                   "runs/cellarium/wildtype_199333/000013",
                   r"C:\dev\cellarium\runs\cellarium\wildtype_199333\000013"):
             got = con.execute(f"SELECT {manifest._NORM_PATH} FROM (SELECT ? AS simout_path)", [p]).fetchone()[0]

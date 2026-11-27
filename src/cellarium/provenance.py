@@ -169,6 +169,40 @@ def model_provenance() -> dict:
     return dict(out)
 
 
+def _local_user() -> str | None:
+    import os
+    for k in ("USER", "USERNAME"):
+        if os.environ.get(k):
+            return os.environ[k]
+    try:
+        import getpass
+        return getpass.getuser() or None
+    except Exception:
+        return None
+
+
+def portable_text(text):
+    """`text` as a public artefact may carry it: the local username written as ${USER} (D35).
+
+    The local image is built as `<user>-wcm-code:latest` (docker/local), and a run's provenance records that tag,
+    so a raw record puts the username into every deposited archive and every manifest row. Only the name as a
+    whole word followed by a separator (- _ . : / or a backslash) is replaced: `malice-wcm-code` is left alone for
+    the user `alice`, and so is any text that does not contain the name."""
+    if not text:
+        return text
+    user = _local_user()
+    if not user or len(user) < 2:
+        return text
+    import re
+    return re.sub(r"(?<![A-Za-z0-9])" + re.escape(user) + r"(?=[-_.:/\\])", "${USER}", str(text),
+                  flags=re.IGNORECASE)
+
+
+def portable_image_tag(tag):
+    """An image tag without the local username (D35); None and "" pass through."""
+    return portable_text(tag)
+
+
 def image_digest(tag: str | None = None) -> str | None:
     """The container digest ACTUALLY EXECUTED (ARM-2).
 

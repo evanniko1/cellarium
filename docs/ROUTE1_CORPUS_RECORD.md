@@ -502,7 +502,7 @@ deleting anything under `out/`.
 
 **Pre-existing and unrelated, reported not acted on.** 165 of the 318 distinct `simout_path` values in the
 manifest do not resolve to a live directory on this machine (39 under `runs/aadrop`, 126 under
-`runs/cellarium`, the latter including a collaborator's `/Users/fmenol/...` paths). This condition exists
+`runs/cellarium`, the latter including a collaborator's `/Users/contributor/...` paths). This condition exists
 today, before any deletion, and is outside this task's scope.
 
 ---

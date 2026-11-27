@@ -394,7 +394,11 @@ def _capture_executed(run_root: Path, sim_path: str, expect_seed=None, expect_va
         rec["missing"].append(f"host_mounts: {type(exc).__name__}")
     try:
         if run_root.exists():
-            (run_root / _EXECUTED_FILE).write_text(json.dumps(rec, indent=2), encoding="utf-8")
+            # D35: written without the local username (the image tag is `<user>-wcm-code`, and a missing-
+            # metadata note can carry a host path); the digest beside it still pins the image exactly.
+            from . import provenance as _prov
+            (run_root / _EXECUTED_FILE).write_text(_prov.portable_text(json.dumps(rec, indent=2)),
+                                                   encoding="utf-8")
     except Exception:
         pass
     return rec

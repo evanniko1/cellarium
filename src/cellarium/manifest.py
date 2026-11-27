@@ -45,7 +45,7 @@ def _portable_runpath(run_root) -> str:
 #     distinct failed runs and makes "how many runs failed" unanswerable.
 #
 # The pair separates all three cases. What it MERGES is the real duplicate: same `id`, same physical run,
-# indexed twice under two path spellings — once absolute (`/Users/fmenol/Downloads/cellarium/runs/...`) and
+# indexed twice under two path spellings — once absolute (`/Users/contributor/Downloads/cellarium/runs/...`) and
 # once repo-relative (`runs/...`), from an ingest predating `_portable_runpath`. Nine such rows inflated
 # `wildtype/basal` — the reference for EVERY comparison — from 26 seeds to 34, and every interval on it.
 #
@@ -639,13 +639,14 @@ def _executed_prov(run_root) -> dict:
     run used today's image. Re-running is the only honest way to recover them, which is what the corpus
     re-run campaign is for.
     """
-    from . import runner
+    from . import provenance, runner
     ex = runner.read_executed(run_root)
     if not ex:
         return dict(_EXECUTED_ABSENT)
     e = ex.get("executed") or {}
     return {"executed_image_digest": ex.get("image_digest"),
-            "executed_image_tag": ex.get("image_tag"),
+            # D35: runs written before the fix carry the username in the tag; the column never does
+            "executed_image_tag": provenance.portable_image_tag(ex.get("image_tag")),
             "model_class": e.get("elongation_model"),
             "model_git_hash": e.get("git_hash"),
             # `"".split()` is [], so `[0]` raises IndexError — and this runs per row inside a re-index, where
@@ -671,8 +672,8 @@ def _machine_of(run_root) -> str:
     cross-machine variance correction that has since been WITHDRAWN — at a fixed generation index the machine
     effect is exactly zero (see BACKLOG WELL-6x). It never reached a single shard, so `survey` tier 1 asked for
     a column that did not exist, took a Binder Error on every read, and fell through to a tier that also lacked
-    `contributor` — leaving provenance to be guessed from the path, wrongly (18 "local"/16 fmenol against a
-    truth of 10 vmnik/24 fmenol). `contributor` is the real column; this stays only for path forensics."""
+    `contributor` — leaving provenance to be guessed from the path, wrongly (18 "local"/16 contributor against a
+    truth of 10 from one contributor and 24 from another). `contributor` is the real column; this stays only for path forensics."""
     p = str(run_root or "").replace("\\", "/")
     for prefix in ("/Users/", "/home/", "C:/Users/", "c:/users/"):
         if prefix.lower() in p.lower():

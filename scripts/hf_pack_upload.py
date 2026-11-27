@@ -42,13 +42,29 @@ def _tar_filter(ti: tarfile.TarInfo) -> tarfile.TarInfo | None:
     container settings — and does not ship as is. This archive packs the WHOLE run root, so without this
     filter the log would travel with the next upload."""
     from cellarium.failures import is_dev_only
-    return None if is_dev_only(ti.name) else ti
+    if is_dev_only(ti.name):
+        return None
+    # D35: executed.json is added by pack_run below, scrubbed of the local username, so it is left out here
+    return None if ti.name.replace("\\", "/").rsplit("/", 1)[-1] == "executed.json" else ti
+
+
+def _portable_executed(path: Path) -> bytes:
+    """A run's executed.json as it may leave this machine: the local username written as ${USER} (D35). Its image
+    tag is `<user>-wcm-code` for every run since 2026-08-24, and every archive deposited before this fix carried it."""
+    from cellarium import provenance
+    return provenance.portable_text(path.read_text(encoding="utf-8")).encode("utf-8")
 
 
 def pack_run(rr: Path, rel: str, tarp: Path) -> None:
-    """One run root -> one .tar.gz, with development-only files left out."""
+    """One run root -> one .tar.gz, with development-only files left out and provenance scrubbed (D35)."""
+    import io
     with tarfile.open(tarp, "w:gz") as tf:
         tf.add(str(rr), arcname=rel, filter=_tar_filter)
+        for p in sorted(Path(rr).rglob("executed.json")):
+            data = _portable_executed(p)
+            ti = tarfile.TarInfo(name=f"{rel}/{p.relative_to(rr).as_posix()}")
+            ti.size, ti.mtime, ti.mode = len(data), int(p.stat().st_mtime), 0o644
+            tf.addfile(ti, io.BytesIO(data))
 
 
 def unnamed_failures(sim_path: str) -> list[dict]:

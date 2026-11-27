@@ -140,7 +140,7 @@ def test_the_sql_and_python_normalisers_agree():
         adversarial = [
             "myruns/foo/bar", "/home/x/cellarium_runs/runs/cellarium/wt/000000", "prefix_runs2/x/000000",
             "x/runsxyz/000000", "foo/runs", "runs/foo/runs/bar", "runs_2024/cellarium/wt/000000",
-            "runs/cellarium/wt/000000", "/Users/fmenol/Downloads/cellarium/runs/cellarium/wt/000000",
+            "runs/cellarium/wt/000000", "/Users/contributor/Downloads/cellarium/runs/cellarium/wt/000000",
             r"C:\dev\cellarium\runs\cellarium\wt\000000", "no/runs/here/deep", "justapath/000000"]
         bad = [p for p in live + adversarial if sql_norm(p) != manifest._portable_runpath(p)]
     finally:
