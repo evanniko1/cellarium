@@ -139,6 +139,29 @@ def _read(seed_root: str) -> tuple:
     return v, ids, t
 
 
+def _resolve(design: str) -> tuple[str, str]:
+    """(design key, elongation model) for a design key OR a result id. An id names one run, and its model is the one
+    stored on its row; a design key carries its model in the `#elong:` tag."""
+    from . import factors, store, survey
+    try:
+        row = next((r for r in store.list_results() if r.get("id") == design), None)
+    except Exception:
+        row = None
+    if row is not None:
+        key = survey.design_key(row)
+        return key, (row.get("elongation_model") or factors.parse(key).get("elongation_model", DEFAULT_MODE))
+    return design, factors.parse(design).get("elongation_model", DEFAULT_MODE)
+
+
+def _isoacceptor_drops(t: dict, ref: dict) -> list[dict]:
+    """Per-species drop against the same species in the reference, steepest first (kinetic only)."""
+    base = {i["trna"]: i["charged_fraction"] for f in ref.get("families", []) for i in f.get("isoacceptors", [])}
+    out = [{"trna": i["trna"], "family": f["family"], "charged": i["charged_fraction"], "reference": base[i["trna"]],
+            "drop_pct": round(100.0 * (i["charged_fraction"] - base[i["trna"]]) / base[i["trna"]], 1)}
+           for f in t.get("families", []) for i in f.get("isoacceptors", []) if base.get(i["trna"])]
+    return sorted(out, key=lambda d: (d["drop_pct"], d["trna"]))
+
+
 def per_family(design: str, seed: int | None = None) -> dict:
     """Charged fraction per amino-acid tRNA family for one design (mean over the last generation's timesteps).
 
@@ -146,7 +169,7 @@ def per_family(design: str, seed: int | None = None) -> dict:
     question is almost always about."""
     import numpy as np
 
-    from . import factors, raw
+    from . import raw
 
     # WHICH ELONGATION MODEL this design ran under, read off the design key rather than assumed. The
     # `resolution` string below used to be a hard-coded constant asserting that isoacceptors cannot differ —
@@ -154,7 +177,9 @@ def per_family(design: str, seed: int | None = None) -> dict:
     # kinetic run exists (measured within-family spread GLY 0.32, LEU 0.25). That is the silent-absence bug
     # inverted: a hard-coded "cannot" that has become a lie, and it would instruct the reader to discard a
     # genuine measurement.
-    mode = factors.parse(design).get("elongation_model", DEFAULT_MODE)
+    # D31: a RESULT ID names one run, whose elongation model is stored on its row. Parsing the id as a design string
+    # read every id as steady_state, so a kinetic run asked for by id was refused by the guard below (S1's read-back).
+    key, mode = _resolve(design)
     if mode == "coarse_kinetic":
         # Refuse rather than tabulate: under this model `CoarseKineticTrnaChargingModel.request`/`.evolve`
         # both return np.zeros(86), so every family would read 0.0000 and the table would look like total
@@ -191,6 +216,7 @@ def per_family(design: str, seed: int | None = None) -> dict:
                                   for m in got},
                 "fix": "name the design exactly, e.g. append '#elong:kinetic' for the kinetic arm."}
     per_seed_family: dict = defaultdict(list)
+    per_species: dict = defaultdict(dict)          # tRNA id -> {seed: mean charged fraction over the generation}
     used = []
     for r in sel:
         try:
@@ -204,6 +230,7 @@ def per_family(design: str, seed: int | None = None) -> dict:
             fam = family_of(tid)
             if fam:
                 byfam[fam].append(float(col_mean[i]))
+                per_species[tid][r.get("seed")] = round(float(col_mean[i]), 4)
         for fam, vals in byfam.items():
             per_seed_family[fam].append(statistics.fmean(vals))
     if not used:
@@ -225,11 +252,26 @@ def per_family(design: str, seed: int | None = None) -> dict:
             arrest["disagreement"] = (
                 f"{arrest['n_seeds_arrested']} of {len(arrests)} seeds are translationally arrested — the "
                 f"design is NOT uniform, so a single per-design verdict would be wrong either way.")
+    families = [{"family": f, "charged_fraction": c, **({"note": _SPECIAL[f]} if f in _SPECIAL else {})}
+                for f, c in ordered]
+    if mode == "kinetic":
+        # D31: the within-family axis is the measurement this mode exists for (Elf et al. 2003). Averaging it into
+        # one number per amino acid hid exactly what a synthetase-limitation question asks. Each species, ascending,
+        # with every seed, so a rank order can be checked seed by seed. Not shown under steady_state, where the 86
+        # values are one number per amino acid broadcast and a species list would present it as 86 measurements.
+        for fam in families:
+            iso = [{"trna": tid, "charged_fraction": round(statistics.fmean(by.values()), 4),
+                    "per_seed": dict(sorted(by.items(), key=lambda kv: (kv[0] is None, kv[0])))}
+                   for tid, by in per_species.items() if family_of(tid) == fam["family"]]
+            iso.sort(key=lambda d: (d["charged_fraction"], d["trna"]))
+            fam["isoacceptors"] = iso
+            if iso:
+                fam["within_family_spread"] = round(iso[-1]["charged_fraction"] - iso[0]["charged_fraction"], 4)
     out = {
-        "design": design, "seeds": used, "n_families": len(fams),
+        "design": design, **({"design_key": key} if key != design else {}), "seeds": used,
+        "n_families": len(fams),
         "aggregate_mean_over_families": overall,
-        "families": [{"family": f, "charged_fraction": c,
-                      **({"note": _SPECIAL[f]} if f in _SPECIAL else {})} for f, c in ordered],
+        "families": families,
         "translation_state": arrest,
         "elongation_model": mode,
         "resolution": _RESOLUTION[mode],
@@ -370,9 +412,7 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
     # a broadcast identity and report the quotient as a per-family drop — the precise pooling the elongation
     # axis exists to prevent, in the one tool most likely to be pointed at a kinetic run. A drop_pct is a
     # ratio of two quantities, and here they would be quantities of different kinds.
-    from . import factors
-    m_t = factors.parse(design).get("elongation_model", DEFAULT_MODE)
-    m_r = factors.parse(reference).get("elongation_model", DEFAULT_MODE)
+    m_t, m_r = _resolve(design)[1], _resolve(reference)[1]      # D31: an id's mode is its run's, not its string's
     if m_t != m_r:
         return {"design": design, "reference": reference, "elongation_model": m_t,
                 "reference_elongation_model": m_r, "worst_family": None, "selectivity_gap_pp": None,
@@ -381,11 +421,11 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
                             f"vs {_RESOLUTION[m_r]} — so a per-family drop between them is a ratio of two "
                             f"different quantities, not a measurement. Compare within one elongation model.")}
     t = per_family(design)
-    if "error" in t:
+    if "error" in t or "families" not in t:      # D31: a refusal carries no table; indexing it raised KeyError
         return t
     ref = per_family(reference)
-    if "error" in ref:
-        return {**t, "reference_error": ref["error"]}
+    if "error" in ref or "families" not in ref:
+        return {**t, "reference_error": ref.get("error") or ref.get("refused") or "the reference returned no table"}
     rmap = {f["family"]: f["charged_fraction"] for f in ref["families"]}
     drops = []
     for f in t["families"]:
@@ -415,6 +455,7 @@ def selective_charging(design: str, reference: str = "wildtype/basal") -> dict:
         "translation_state": t.get("translation_state"),
         "wildtype_null": null,
         "per_family": drops,
+        **({"isoacceptor_drops": _isoacceptor_drops(t, ref)} if m_t == "kinetic" else {}),
         "note": ("Cognate-family de-charging (Dittmar et al. 2005, EMBO Rep 6:151). `selectivity_gap_pp` is how "
                  "many percentage points worse the worst family fares than the median family — read it against "
                  "`wildtype_null`, which is the same statistic computed between UNPERTURBED wild-type runs and "

@@ -1892,3 +1892,36 @@ the parent commit, so it is not a regression from D28 or D29.
 - One test added to `tests/test_miase.py`. It built the wrong record shape at first and skipped. It now asserts the
   truncation verdict, so it cannot skip.
 - The `test_guardrails` change above.
+
+## D31 — The isoacceptor table, reached by result id, in the mode the run used — 2026-11-27
+
+**What happened.** S1's read-back (Cellwright, $0.70) could not read one number of the per-isoacceptor charging its
+hypothesis turns on. It said so rather than invent a table, and its verdict was "undecided, pending a tool fix". The
+causes were in `trna`.
+- **A result id read as steady-state.** `per_family` took the elongation model from the argument string, so a bare
+  result id read as steady-state. `raw.seed_runs` resolved the same id to its kinetic run, and the mismatch guard
+  refused.
+- **A suffixed id was no longer an id.** With `#elong:kinetic` appended, the string matched no run, so the tool said
+  there was no local raw output.
+- **`selective_charging` crashed on a refusal.** It checked only for `error` and then indexed `families`, raising
+  KeyError.
+- **The isoacceptors were averaged away.** Even when the table worked, `per_family` averaged a family's species into
+  one number per amino acid. That hid the within-family axis the kinetic mode exists to resolve (Elf et al. 2003), the
+  axis S1 asks about.
+
+**What changed.**
+- `trna._resolve` maps a result id to its row's design key and stored elongation model. Both tools use it.
+- In kinetic mode each family carries `isoacceptors` (every species, ascending, with each seed's value) and
+  `within_family_spread`.
+- Under steady-state there is no species list, because the 86 values are one number per amino acid broadcast.
+- `selective_charging` passes on a refusal or error from either side.
+- Between two kinetic designs it adds `isoacceptor_drops`, each species against the same species in the reference,
+  steepest first.
+
+**Checked on real data before asking again.** The fixed tool, given S1's own result ids, read leucine charging in the
+kinetic wildtype at seed 0 (family mean 0.938, within-family spread 0.09) and at 25% leuS expression (0.619, spread
+0.51). The four genes of one isoacceptor (leuP, leuQ, leuT, leuV) read identically.
+
+**Tests.** `tests/test_trna_isoacceptors.py`, six, with stand-ins for the raw reads. Four reproduced the defects first.
+The cross-mode refusal test passed before the fix only by accident: the steady-state default reference had no runs,
+and the mismatch refusal happened to contain both words. After the fix it fails the request for the right reason.

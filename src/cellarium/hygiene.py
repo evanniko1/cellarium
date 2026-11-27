@@ -136,6 +136,10 @@ READ_SITE_REGISTRY: dict[str, dict] = {
         "kind": "lookup", "why": "finds one row by id to report what is downloadable; filtering could hide it"},
     "src/cellarium/raw.py::seed_runs": {
         "kind": "lookup", "why": "resolves a design to its seeds on disk"},
+    "src/cellarium/trna.py::_resolve": {
+        "kind": "lookup", "why": ("resolves a result id to its row's design key and STORED elongation model (D31); "
+                                  "a filtered set could hide the id, and the model it reads is what the charging "
+                                  "table must be labelled with")},
     "src/cellarium/survey.py::arm_miss": {
         "kind": "lookup", "why": ("asks whether a design absent from the CURRENT arm exists in another one, so a "
                                   "caller can report an arm mismatch instead of absence. Reads both the narrowed "
