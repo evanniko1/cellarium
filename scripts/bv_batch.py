@@ -54,6 +54,9 @@ class RunSpec:
     batch: str | None = None    # the plan the run came from, whose ledger records it
     # D28: a refused design runs only under a named override (a pre-registered negative control), recorded beside it
     envelope_override: str = ""
+    # D32: the QC verdict(s) a pre-registered run exists to SHOW (a negative control's defect). Such a verdict is the
+    # measurement, not an integrity failure, so it does not block the design's other seeds; anything else still does.
+    expected_qc: list = field(default_factory=list)
     status: str = "pending"
     why: str = ""
     summary: dict = field(default_factory=dict)
@@ -65,7 +68,8 @@ def load_plan(path: Path) -> tuple[dict, list[RunSpec]]:
                     role=r.get("role", "run"), stage=int(r.get("stage", 1)),
                     priority=int(r.get("priority", plan.get("priority", 0))),
                     sim_path=r.get("sim_path") or plan.get("sim_path", "cellarium"), batch=plan["batch"],
-                    envelope_override=str(r.get("envelope_override") or ""))
+                    envelope_override=str(r.get("envelope_override") or ""),
+                    expected_qc=[str(q) for q in (r.get("expected_qc") or [])])
             for r in plan["runs"]]
     ids = [r.id for r in runs]
     if len(ids) != len(set(ids)):
@@ -457,10 +461,13 @@ class Batch:
             return
         spec.status = status
         self.log(event, spec, summary=spec.summary)
-        if spec.summary["qc"] in INTEGRITY_FAILURES:
+        if spec.summary["qc"] in INTEGRITY_FAILURES and spec.summary["qc"] not in (spec.expected_qc or []):
             self.blocked_designs.add(design_key(spec))
             self.log("integrity_failure", spec, qc=spec.summary["qc"])
         else:
+            if spec.summary["qc"] in (spec.expected_qc or []):
+                self.log("expected_qc", spec, qc=spec.summary["qc"],
+                         why="the QC verdict this pre-registered run exists to show, declared in its plan")
             self.proven_designs.add(design_key(spec))
         try:
             self.index_fn(spec, root, rec)

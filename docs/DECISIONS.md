@@ -1925,3 +1925,25 @@ kinetic wildtype at seed 0 (family mean 0.938, within-family spread 0.09) and at
 **Tests.** `tests/test_trna_isoacceptors.py`, six, with stand-ins for the raw reads. Four reproduced the defects first.
 The cross-mode refusal test passed before the fix only by accident: the steady-state default reference had no runs,
 and the mismatch refusal happened to contain both words. After the fix it fails the request for the right reason.
+
+## D32 — A pre-registered control's QC verdict can be the measurement, not an integrity failure — 2026-11-27
+
+**What happened.** V3's negative control (the model's own threshold rule through the oxygen downshift, run under the
+D28 override) finished its first seed with QC verdict `over_replicated`. That is the defect it exists to show: the
+envelope's refusal names birth size and gene dosage after the shift as artefacts of early initiation. The batch counts
+`over_replicated` as an integrity failure, which blocks a design's later seeds, so it skipped the two registered seeds
+after it. With fewer than two valid runs a design reports no median, so A3 could not have been decided.
+
+**What changed.** A plan run may declare `expected_qc`: the QC verdict or verdicts it is expected to show.
+- A declared verdict is logged as `expected_qc` and does not block the design's other seeds.
+- Any other integrity failure still blocks.
+- The two skipped seeds run from `evals/plans/crit_t1_v3_ctl2.json`, each declaring `over_replicated`, alongside the
+  override reason.
+- The scoring rules do not change. The V3 scorer reads generation lengths from raw output and counts a run only if
+  it finishes every generation.
+
+**Tests.** Two in `tests/test_bv_batch.py`.
+- A declared verdict does not block the design's other seeds; an undeclared one still does.
+- A plan run's `expected_qc` is read.
+
+The guard was mutated both ways ("never exempt" and "never block"), and each mutation failed a test.

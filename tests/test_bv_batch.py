@@ -651,3 +651,35 @@ def test_a_kept_control_is_not_deferred_behind_a_sibling_gated_on_it(tmp_path):
     out = {s.id: s for s in b.run()}
     assert out["basal-medium"].status == "done"
     assert out["basal-relaxed"].status == "skipped" and "holds basal-medium" in out["basal-relaxed"].why
+
+
+# ---- a pre-registered control whose QC verdict IS the measured defect (CRIT V3, 2026-11-27, D32) --------------------
+
+def test_a_declared_expected_qc_does_not_block_the_designs_other_seeds(tmp_path):
+    """V3's negative control runs the model's own threshold rule through an oxygen downshift, and the defect it
+    measures is early initiation: its first seed came back `over_replicated`, which the batch counts as an integrity
+    failure, so the two registered seeds after it were skipped and the panel lost its median. A run that DECLARES the
+    QC verdict it exists to show is not blocked by it; any other integrity failure still blocks. FORCED both ways."""
+    fake = Fake(qc={"ctl-s0": "over_replicated", "other-s0": "over_replicated"})
+    specs = [_r("ctl-s0", cond="ctl", seed=0), _r("ctl-s1", cond="ctl", seed=1),
+             _r("other-s0", cond="other", seed=0), _r("other-s1", cond="other", seed=1)]
+    b = _batch(tmp_path, specs, fake, parallel=1)
+    for sp in b.runs:
+        if sp.id.startswith("ctl"):
+            sp.expected_qc = ["over_replicated"]
+    out = {s.id: s for s in b.run()}
+    assert out["ctl-s1"].status == "done" and "ctl-s1" in fake.launched          # the control's seeds all run
+    assert out["other-s1"].status == "skipped"                                   # an undeclared failure still blocks
+    ev = _events(tmp_path)
+    assert any(e["event"] == "expected_qc" and e["id"] == "ctl-s0" for e in ev)
+    assert not any(e["event"] == "integrity_failure" and e["id"] == "ctl-s0" for e in ev)
+
+
+def test_a_plan_runs_expected_qc_is_read(tmp_path):
+    plan = {"batch": "v3", "sim_path": "cellarium", "runs": [
+        {"id": "a", "design": {}, "seed": 0, "generations": 3, "group": "g", "expected_qc": ["over_replicated"]},
+        {"id": "b", "design": {}, "seed": 0, "generations": 3, "group": "g"}]}
+    p = tmp_path / "p.json"
+    p.write_text(json.dumps(plan), encoding="utf-8")
+    _, runs = B.load_plan(p)
+    assert [r.expected_qc for r in runs] == [["over_replicated"], []]
