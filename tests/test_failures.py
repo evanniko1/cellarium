@@ -403,3 +403,16 @@ def test_the_wall_clock_limit_kills_a_real_container(tmp_path, monkeypatch):
     text = log.read_text(encoding="utf-8")
     assert "alive" in text and F.WALL_MARK in text
     assert F.identify(log_text=text).key == "killed:wall_limit"
+
+
+def test_the_chromosome_partition_assertion_is_a_broken_invariant_not_a_result():
+    """S4b, 2026-11-27: seed 101 crashed at its first division in all five arms of a rich-to-minimal amino-acid
+    downshift, the wildtype included, at divide_cell's assertion that no chromosome domain goes to both daughters.
+    The model's own replication bookkeeping was inconsistent: a statement about the software, not the cell. The
+    name records what the five runs share and rules out what they rule out, without claiming why."""
+    i = F.identify(log_text=_fx("chromosome_partition_overlap.log"))
+    assert i.key == "AssertionError@wholecell/sim/divide_cell.py:chromosomeDivision"
+    assert i.named and i.signature.category == "invariant" and i.signature.result is False
+    assert "975 fg" in i.signature.meaning and "no initiation followed the shift" in i.signature.meaning
+    assert "does not show why" in i.signature.meaning
+    assert "wildtype_647967__icwith_aa/000101" in i.signature.evidence

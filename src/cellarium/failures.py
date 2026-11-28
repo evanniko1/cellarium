@@ -94,6 +94,7 @@ def read_log(run_root) -> str | None:
 class Signature:
     name: str
     category: str          # ran_out | numerical | solver | writer | configuration | infrastructure | refused | no_evidence
+    #                        | invariant (the model's own consistency check failed: its bookkeeping, not the cell)
     result: bool           # True: a statement about the CELL. False: about the software, the host, or nothing.
     meaning: str           # what is established — and what is not
     evidence: str          # the log that defined it, or an explicit statement that none in this corpus has
@@ -164,6 +165,21 @@ KNOWN: dict[str, Signature] = {
         "cell at that ratio keeps a positive biotin pool), and it does not show why the ratio fell.",
         "runs/bv14_no3_anaerobic/condition_000007__occ9b89f1/000331/sim.log — BV-14d, FNR held off with no "
         "oxygen, seed 331"),
+    "AssertionError@wholecell/sim/divide_cell.py:chromosomeDivision": Signature(
+        "chromosome partition failed at division", "invariant", False,
+        "At division the model splits the chromosome domains between the two daughters and asserts that no domain "
+        "goes to both; here one did, so the model's own replication bookkeeping was inconsistent. A statement about "
+        "the software, not the cell. First seen 2026-11-27 in discovery seed S4b, a rich-to-minimal amino-acid "
+        "downshift from the rich fitted start: seed 101 crashed this way in all five arms, the wildtype included, "
+        "each at its first division (2,596-2,605 s). The five shared one replication history: a single initiation "
+        "at 343-394 s, before the shift at 1,200 s; at most 14 forks; 8 origins and 10 active forks at division; "
+        "the critical initiation mass at 975 fg throughout. So it is not the threshold step (the threshold did not "
+        "move), and no initiation followed the shift, so ppGpp's missing pause of initiation did not act. Seeds 100 "
+        "and 102 of the same designs divided at about 2,030 s and 1,280 s and completed. It does not show why the "
+        "domains overlapped.",
+        "runs/cellarium/wildtype_647967__icwith_aa/000101/sim.log — S4b, wildtype from the rich start under "
+        "'0 minimal_plus_amino_acids, 1200 minimal', seed 101; the same identity in the 2-, 4- and 6-operon and "
+        "relA arms at seed 101"),
     "RuntimeError@wholecell/utils/_netflow/nf_glpk.py:_solve": Signature(
         "FBA solver failed (GLPK)", "solver", False,
         "The metabolism LP failed after the retry ladder ran out; `detail.glpk` carries the solver status. "

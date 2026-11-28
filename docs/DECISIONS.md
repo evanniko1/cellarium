@@ -2088,3 +2088,33 @@ control treated as passing, and A1 as at most 5 fg.
 Four failed before the fix; the guard passed, as the tracked shards are clean. Mutations were each caught: packing
 `executed.json` raw as well (1 failure), and a no-op scrub (4 failures). Run with the local identity set to a
 pseudonym that does occur in the tracked shards, the guard failed.
+
+## D36 — S4b's crash is named: a broken model invariant, not a result about the cell — 2026-11-28
+
+**What happened.** Every deposit was refused by FAIL-1d, the rule that a corpus carrying an unnamed failure cannot
+be published. The cause was S4b's five seed-101 crashes, whose identity nobody had named:
+`AssertionError@wholecell/sim/divide_cell.py:chromosomeDivision`. At division, the model asserts that no chromosome
+domain goes to both daughters; here one did.
+
+**The triage that names it.**
+- **The control fails too.** The unmodified wildtype under the same downshift crashed the same way.
+- **The other seeds complete.** Seeds 100 and 102 completed in every arm.
+- **The pre-failure state is shared** (raw output, `ReplicationData`):
+  - a single initiation at 343-394 s, before the shift;
+  - at most 14 forks;
+  - 8 origins and 10 active forks at division (2,596-2,605 s);
+  - the critical mass at 975 fg throughout.
+- **What is ruled out.** It is not the threshold step, and no initiation followed the shift, so ppGpp's missing
+  pause did not act.
+- **What is open.** Why the domains overlapped. The name says WHERE, as every name here does, and its meaning says
+  what is ruled out.
+
+**What changed.**
+- `failures.KNOWN` names the identity "chromosome partition failed at division".
+- It is a new category, `invariant`: the model's own consistency check failed, which is about its bookkeeping and
+  not the cell; `result` False.
+- It cites the wildtype seed-101 log.
+- A fixture excerpted from that log (container paths only) pins it.
+
+**Tests.** One new test, which failed before the entry. The existing rule that every named traceback identity has a
+fixture failed when the new fixture was hidden.

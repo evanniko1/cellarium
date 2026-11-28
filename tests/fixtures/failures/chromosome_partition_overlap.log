@@ -1,0 +1,49 @@
+ 2589.00   2115.25        2.329        2.117        2.356        2.560        3.308
+ 2590.00   2115.47        2.329        2.117
+============================================================
+VARIANT 647967 (wildtype_647967) FAILED â€” skipping to next variant
+Traceback (most recent call last):
+  File "/wcEcoli/wholecell/sim/simulation.py", line 365, in run
+    self.run_incremental(self._lengthSec + self.initialTime())
+  File "/wcEcoli/wholecell/sim/simulation.py", line 388, in run_incremental
+    self.finalize()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 418, in finalize
+    self.daughter_paths = self._divideCellFunction()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/wcEcoli/wholecell/sim/divide_cell.py", line 63, in divide_cell
+    chromosome_division_results = chromosomeDivision(
+                                  ^^^^^^^^^^^^^^^^^^^
+  File "/wcEcoli/wholecell/sim/divide_cell.py", line 130, in chromosomeDivision
+    assert np.intersect1d(d1_all_domain_indexes, d2_all_domain_indexes).size == 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/wcEcoli/runscripts/manual/runSim.py", line 258, in run
+    task.run_task({})
+  File "/wcEcoli/wholecell/fireworks/firetasks/simulation.py", line 104, in run_task
+    sim.run()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 369, in run
+    self.finalize()
+  File "/wcEcoli/wholecell/sim/simulation.py", line 418, in finalize
+    self.daughter_paths = self._divideCellFunction()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/wcEcoli/wholecell/sim/divide_cell.py", line 63, in divide_cell
+    chromosome_division_results = chromosomeDivision(
+                                  ^^^^^^^^^^^^^^^^^^^
+  File "/wcEcoli/wholecell/sim/divide_cell.py", line 130, in chromosomeDivision
+    assert np.intersect1d(d1_all_domain_indexes, d2_all_domain_indexes).size == 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+============================================================
+
+
+============================================================
+SUMMARY: 1 variant(s) failed:
+  Variant 647967: wildtype_647967
+============================================================
+
+[cellarium] model process exited with status 0
+[cellarium] failure marker in output: Traceback (most recent call last)
